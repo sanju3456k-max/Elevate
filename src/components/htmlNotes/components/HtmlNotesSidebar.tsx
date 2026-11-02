@@ -14,7 +14,8 @@ import {
   ChevronDown,
   BookMarked,
   History,
-  Download
+  Download,
+  GripVertical
 } from 'lucide-react';
 import { type HtmlProject, type HtmlNoteItem } from '../../../lib/htmlNotesSync';
 import { type DocumentHeading, type ViewMode } from '../types';
@@ -30,11 +31,12 @@ interface HtmlNotesSidebarProps {
   activeProject: HtmlProject | undefined;
   activeProjectId: string;
   activeFileId: string;
-  activeProjectFiles: HtmlNoteItem[];
+  activeProjectFiles?: HtmlNoteItem[];
   viewMode: ViewMode;
   onOpenFile: (projectId: string, file: HtmlNoteItem, mode: ViewMode) => void;
   onAddFileToProject: (projectId: string) => void;
   onDeleteFile: (e: React.MouseEvent, projectId: string, fileId: string) => void;
+  onReorderFiles?: (projectId: string, reorderedFiles: HtmlNoteItem[]) => void;
   onOpenVersionHistory?: () => void;
   onExportFullProject?: (projectId?: string) => void;
   // Outline
@@ -56,7 +58,7 @@ interface HtmlNotesSidebarProps {
   setFontSizePx: (val: number) => void;
 }
 
-export const HtmlNotesSidebar: React.FC<HtmlNotesSidebarProps> = ({
+const HtmlNotesSidebarComponent: React.FC<HtmlNotesSidebarProps> = ({
   isSidebarOpen,
   setIsSidebarOpen,
   activeSidebarTab,
@@ -67,11 +69,12 @@ export const HtmlNotesSidebar: React.FC<HtmlNotesSidebarProps> = ({
   activeProject,
   activeProjectId,
   activeFileId,
-  activeProjectFiles,
+  activeProjectFiles = [],
   viewMode,
   onOpenFile,
   onAddFileToProject,
   onDeleteFile,
+  onReorderFiles,
   onOpenVersionHistory,
   onExportFullProject,
   headingsList,
@@ -92,6 +95,8 @@ export const HtmlNotesSidebar: React.FC<HtmlNotesSidebarProps> = ({
 }) => {
   const [collapsedH2Ids, setCollapsedH2Ids] = React.useState<Set<string>>(new Set());
   const [outlineFilter, setOutlineFilter] = React.useState<string>('');
+  const [draggingFileId, setDraggingFileId] = React.useState<string | null>(null);
+  const [dragOverFileId, setDragOverFileId] = React.useState<string | null>(null);
 
   const toggleH2Collapse = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -165,20 +170,20 @@ export const HtmlNotesSidebar: React.FC<HtmlNotesSidebarProps> = ({
       {/* MOBILE BACKDROP OVERLAY WHEN DRAWER IS OPEN */}
       {isSidebarOpen && (
         <div 
-          className="mobile-drawer-backdrop md:hidden"
+          className="mobile-drawer-backdrop md:hidden m3-fade-in"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
       {/* EXPANDABLE SIDEBAR DRAWER */}
       {isSidebarOpen && (
-        <aside className="sidebar-drawer mobile-sheet">
+        <aside className="sidebar-drawer mobile-sheet m3-slide-left-in">
           <div className="sidebar-drawer-header !py-2 !px-2.5">
             {/* Segmented Tab Bar inside Drawer Header */}
             <div className="flex items-center p-0.5 bg-slate-100 dark:bg-zinc-800/80 rounded-full gap-0.5 w-full mr-2">
               <button
                 onClick={() => setActiveSidebarTab('files')}
-                className={`flex-1 text-[11px] font-bold py-1 px-2 rounded-full border-0 transition-all cursor-pointer text-center truncate ${
+                className={`flex-1 text-[11px] font-bold py-1 px-2 rounded-full border-0 transition-all duration-150 ease-[cubic-bezier(0.2,0,0,1)] active:scale-95 cursor-pointer text-center truncate ${
                   activeSidebarTab === 'files'
                     ? 'bg-white dark:bg-zinc-700 text-[#0b57d0] dark:text-[#a8c7fa] shadow-xs'
                     : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
@@ -188,7 +193,7 @@ export const HtmlNotesSidebar: React.FC<HtmlNotesSidebarProps> = ({
               </button>
               <button
                 onClick={() => setActiveSidebarTab('outline')}
-                className={`flex-1 text-[11px] font-bold py-1 px-2 rounded-full border-0 transition-all cursor-pointer text-center truncate ${
+                className={`flex-1 text-[11px] font-bold py-1 px-2 rounded-full border-0 transition-all duration-150 ease-[cubic-bezier(0.2,0,0,1)] active:scale-95 cursor-pointer text-center truncate ${
                   activeSidebarTab === 'outline'
                     ? 'bg-white dark:bg-zinc-700 text-[#0b57d0] dark:text-[#a8c7fa] shadow-xs'
                     : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
@@ -198,7 +203,7 @@ export const HtmlNotesSidebar: React.FC<HtmlNotesSidebarProps> = ({
               </button>
               <button
                 onClick={() => setActiveSidebarTab('margins')}
-                className={`flex-1 text-[11px] font-bold py-1 px-2 rounded-full border-0 transition-all cursor-pointer text-center truncate ${
+                className={`flex-1 text-[11px] font-bold py-1 px-2 rounded-full border-0 transition-all duration-150 ease-[cubic-bezier(0.2,0,0,1)] active:scale-95 cursor-pointer text-center truncate ${
                   activeSidebarTab === 'margins'
                     ? 'bg-white dark:bg-zinc-700 text-[#0b57d0] dark:text-[#a8c7fa] shadow-xs'
                     : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
@@ -242,7 +247,7 @@ export const HtmlNotesSidebar: React.FC<HtmlNotesSidebarProps> = ({
 
                 <div className="flex justify-between items-center pt-0.5">
                   <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-zinc-400 truncate mr-1.5">
-                    {activeProject?.name || 'Project'} ({activeProjectFiles.length})
+                    {activeProject?.name || 'Project'} ({(activeProjectFiles || []).length})
                   </span>
                   <div className="flex items-center gap-1 shrink-0">
                     {onExportFullProject && (
@@ -268,7 +273,7 @@ export const HtmlNotesSidebar: React.FC<HtmlNotesSidebarProps> = ({
 
                 {searchFilter.trim() ? (
                   <div className="space-y-1.5">
-                    {projects.flatMap(p => p.files.map(f => ({ ...f, projectId: p.id, projectName: p.name })))
+                    {projects.flatMap(p => (Array.isArray(p.files) ? p.files : []).map(f => ({ ...f, projectId: p.id, projectName: p.name })))
                       .filter(f => (f.title || '').toLowerCase().includes(searchFilter.toLowerCase()) || (f.code || '').toLowerCase().includes(searchFilter.toLowerCase()))
                       .map(f => (
                         <div
@@ -285,19 +290,67 @@ export const HtmlNotesSidebar: React.FC<HtmlNotesSidebarProps> = ({
                   </div>
                 ) : (
                   <div className="space-y-1.5">
-                    {activeProjectFiles.map((file) => {
+                    {(activeProjectFiles || []).map((file, idx) => {
                       const isActive = file.id === activeFileId;
+                      const isDragging = draggingFileId === file.id;
+                      const isDragOver = dragOverFileId === file.id;
+
                       return (
                         <div
                           key={file.id}
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('text/plain', file.id);
+                            e.dataTransfer.effectAllowed = 'move';
+                            setDraggingFileId(file.id);
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (dragOverFileId !== file.id) {
+                              setDragOverFileId(file.id);
+                            }
+                          }}
+                          onDragLeave={() => {
+                            if (dragOverFileId === file.id) {
+                              setDragOverFileId(null);
+                            }
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const sourceId = e.dataTransfer.getData('text/plain') || draggingFileId;
+                            setDragOverFileId(null);
+                            setDraggingFileId(null);
+
+                            if (!sourceId || sourceId === file.id) return;
+                            const currentFiles = [...(activeProjectFiles || [])];
+                            const sourceIndex = currentFiles.findIndex(f => f.id === sourceId);
+                            const targetIndex = currentFiles.findIndex(f => f.id === file.id);
+                            if (sourceIndex === -1 || targetIndex === -1) return;
+
+                            const [moved] = currentFiles.splice(sourceIndex, 1);
+                            currentFiles.splice(targetIndex, 0, moved);
+                            onReorderFiles?.(activeProjectId, currentFiles);
+                          }}
+                          onDragEnd={() => {
+                            setDraggingFileId(null);
+                            setDragOverFileId(null);
+                          }}
                           onClick={() => onOpenFile(activeProjectId, file, viewMode)}
-                          className={`p-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-between text-xs group ${
+                          className={`p-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-between text-xs group select-none ${
+                            isDragging ? 'opacity-40 scale-95 border-dashed border-[#0b57d0]' : ''
+                          } ${
+                            isDragOver ? 'ring-2 ring-[#0b57d0] dark:ring-[#a8c7fa] bg-blue-50/50 dark:bg-blue-950/30' : ''
+                          } ${
                             isActive
                               ? 'bg-[#0b57d0]/10 dark:bg-[#004a77]/40 ring-1 ring-[#0b57d0]/60 text-[#0b57d0] dark:text-[#a8c7fa] font-bold shadow-xs'
                               : 'bg-white dark:bg-[#222631] ring-1 ring-slate-200/80 dark:ring-[#2f3542] text-[#1f1f1f] dark:text-[#e8eaed] hover:ring-slate-300 dark:hover:ring-[#3c4252]'
                           }`}
+                          title="Click to open, hold & drag to reorder anywhere in file list"
                         >
-                          <div className="flex items-center gap-2 min-w-0 pr-1">
+                          <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                            <GripVertical className="w-3 h-3 text-slate-300 dark:text-zinc-600 group-hover:text-slate-500 dark:group-hover:text-zinc-400 shrink-0 cursor-grab active:cursor-grabbing" />
                             <FileCode className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-[#0b57d0] dark:text-[#a8c7fa]' : 'text-slate-400'}`} />
                             <span className="truncate font-medium">{file.title || 'Untitled'}</span>
                           </div>
@@ -516,24 +569,57 @@ export const HtmlNotesSidebar: React.FC<HtmlNotesSidebarProps> = ({
             {activeSidebarTab === 'margins' && (
               <div className="space-y-4 text-xs">
                 {/* Default Margins Info Banner */}
-                <div className="p-3 rounded-2xl bg-slate-100/80 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/60 space-y-1.5 text-[11px] leading-relaxed text-slate-700 dark:text-zinc-300">
+                <div className="p-3 rounded-2xl bg-slate-100/80 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/60 space-y-2 text-[11px] leading-relaxed text-slate-700 dark:text-zinc-300">
                   <div className="flex items-center justify-between font-bold text-slate-900 dark:text-white">
-                    <span>Preview Defaults: 0mm 0mm</span>
+                    <span>Default: {typeof window !== 'undefined' && window.innerWidth < 768 ? '3mm (Mobile)' : '10mm (Desktop)'}</span>
                     <button
                       type="button"
                       onClick={() => {
-                        setSideMarginMm(0);
-                        setVerticalMarginMm(0);
+                        const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+                        setSideMarginMm(isMobile ? 3 : 10);
+                        setVerticalMarginMm(isMobile ? 6 : 12);
                         setLeftBindingGutterMm(0);
                       }}
                       className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline font-extrabold cursor-pointer"
                     >
-                      Reset (0mm)
+                      Reset ({typeof window !== 'undefined' && window.innerWidth < 768 ? '3mm' : '10mm'})
                     </button>
                   </div>
-                  <p className="text-[10.5px] text-slate-500 dark:text-zinc-400">
-                    Print defaults: <strong>13mm vertical</strong> & <strong>9mm side</strong> (applied automatically when printing).
+                  <p className="text-[10.5px] text-slate-500 dark:text-zinc-400 m-0">
+                    Mobile UI side margins default to <strong>3mm</strong> for maximum screen width so content is never clipped.
                   </p>
+                  <div className="grid grid-cols-2 gap-1.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSideMarginMm(3);
+                        setVerticalMarginMm(6);
+                        setLeftBindingGutterMm(0);
+                      }}
+                      className={`py-1.5 px-2 rounded-xl text-[10px] font-bold border-0 cursor-pointer transition-all ${
+                        sideMarginMm === 3 && leftBindingGutterMm === 0
+                          ? 'bg-[#0b57d0] text-white shadow-xs'
+                          : 'bg-white dark:bg-[#222631] text-slate-700 dark:text-zinc-300 hover:bg-slate-200/60'
+                      }`}
+                    >
+                      📱 Mobile View (3mm)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSideMarginMm(10);
+                        setVerticalMarginMm(12);
+                        setLeftBindingGutterMm(0);
+                      }}
+                      className={`py-1.5 px-2 rounded-xl text-[10px] font-bold border-0 cursor-pointer transition-all ${
+                        sideMarginMm === 10 && leftBindingGutterMm === 0
+                          ? 'bg-[#0b57d0] text-white shadow-xs'
+                          : 'bg-white dark:bg-[#222631] text-slate-700 dark:text-zinc-300 hover:bg-slate-200/60'
+                      }`}
+                    >
+                      💻 Desktop View (10mm)
+                    </button>
+                  </div>
                 </div>
 
                 {/* Left Binding Gutter Section */}
@@ -639,3 +725,5 @@ export const HtmlNotesSidebar: React.FC<HtmlNotesSidebarProps> = ({
     </>
   );
 };
+
+export const HtmlNotesSidebar = React.memo(HtmlNotesSidebarComponent);

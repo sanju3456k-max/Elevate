@@ -35,6 +35,7 @@ import {
   saveActiveSessionToFirestore,
   fetchTestsFromFirestore,
   fetchUserAttemptsFromFirestore,
+  subscribeUserSyncBeacon,
   auth,
   isGlobalQuotaExceeded,
   type FirestoreDocChange
@@ -436,6 +437,35 @@ class RealtimeSyncManager {
       this.notify('all', reconciled);
     });
     this.unsubs.push(unsubAttempts);
+
+    // Live User Sync Beacon Listener (Single Gateway for Cross-Device Revision Changes)
+    const unsubBeacon = subscribeUserSyncBeacon(userId, async (beacon) => {
+      if (!beacon) return;
+      const localRevs = smartCoordinator.getLocalSyncRevisions(userId);
+
+      // Check if remote HTML Notes were updated on another device
+      if (beacon.notesRev && beacon.notesRev > (localRevs.notesRev || 0)) {
+        try {
+          const localProjects = loadLocalProjects(undefined, userId);
+          const reconciled = await fetchRemoteProjectsIfNewer({ uid: userId } as any, localProjects);
+          if (reconciled && reconciled.length > 0) {
+            smartCoordinator.setLocalSyncRevision(userId, 'notesRev', beacon.notesRev);
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('html-notes-reconciled', { detail: reconciled }));
+              window.dispatchEvent(new CustomEvent('html-notes-updated', { detail: { count: reconciled.length } }));
+            }
+          }
+        } catch (e) {
+          console.warn('Sync beacon html notes reconcile error:', e);
+        }
+      }
+
+      // Check if remote Tests were updated on another device
+      if (beacon.testsRev && beacon.testsRev > (localRevs.testsRev || 0)) {
+        smartCoordinator.setLocalSyncRevision(userId, 'testsRev', beacon.testsRev);
+      }
+    });
+    this.unsubs.push(unsubBeacon);
   }
 
   /**

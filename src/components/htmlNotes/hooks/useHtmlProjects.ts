@@ -7,6 +7,11 @@ import {
   loadLocalProjects,
   queueFirestoreSync,
   saveSingleProjectToFirestore,
+  deleteProjectFromFirestore,
+  deleteFileFromFirestore,
+  addDeletedProjectTombstone,
+  addDeletedFileTombstone,
+  getDeletedFileTombstones,
   sanitizeAndRepairCode
 } from '../../../lib/htmlNotesSync';
 import {
@@ -89,6 +94,11 @@ export function useHtmlProjects({
     }
     return {};
   })());
+  const viewModeRef = useRef<ViewMode>(viewMode);
+  useEffect(() => {
+    viewModeRef.current = viewMode;
+  }, [viewMode]);
+
   const [historyStack, setHistoryStack] = useState<string[]>(() => {
     const initial = getInitialProjects();
     return (initial.length > 0 && initial[0].files.length > 0) ? [initial[0].files[0].code || TEMPLATE_MATRICES] : [TEMPLATE_MATRICES];
@@ -122,34 +132,60 @@ export function useHtmlProjects({
   const titleRef = useRef(title);
   titleRef.current = title;
   const hasUnsavedChangesRef = useRef(false);
+  // Auto-align active project and file if current activeProjectId does not exist in projects list (e.g. after remote cross-device sync)
+  useEffect(() => {
+    if (projects.length > 0 && activeProjectId) {
+      const inProjects = projects.some((p) => p.id === activeProjectId);
+      const inProjectsRef = Boolean(projectsRef.current?.some((p) => p.id === activeProjectId));
+      // Only align if the ID does not exist in either state or synchronous ref
+      if (!inProjects && !inProjectsRef) {
+        const firstProj = projects[0];
+        setActiveProjectId(firstProj.id);
+        activeProjectIdRef.current = firstProj.id;
+        const firstFiles = Array.isArray(firstProj.files) ? firstProj.files : [];
+        if (firstFiles.length > 0) {
+          const firstFile = firstFiles[0];
+          setActiveFileId(firstFile.id);
+          activeFileIdRef.current = firstFile.id;
+          loadedFileIdRef.current = firstFile.id;
+          setTitle(firstFile.title);
+          setCode(firstFile.code || '');
+        }
+      }
+    }
+  }, [projects, activeProjectId]);
 
-  // Guarded real-time active file code & title binding to local storage
+  // Guarded debounced active file code & title binding to local storage
   useEffect(() => {
     if (!activeProjectId || !activeFileId) return;
     // Guard against race conditions during tab switching: do NOT save if activeFileId has not been loaded into code yet
     if (loadedFileIdRef.current !== activeFileId) return;
     if (!hasUnsavedChangesRef.current) return;
 
-    const currentProj = projectsRef.current.find(p => p.id === activeProjectId);
-    const currentFile = currentProj?.files.find(f => f.id === activeFileId);
+    const currentProj = projectsRef.current?.find(p => p.id === activeProjectId);
+    const currentFiles = Array.isArray(currentProj?.files) ? currentProj.files : [];
+    const currentFile = currentFiles.find(f => f.id === activeFileId);
 
     if (currentFile && currentFile.code === code && currentFile.title === title) {
       return;
     }
 
-    setProjects((prev) => {
-      const updated = prev.map((p) => {
+    // Instantly keep projectsRef current in memory (0ms latency, zero render cost)
+    if (projectsRef.current) {
+      const now = Date.now();
+      projectsRef.current = projectsRef.current.map((p) => {
         if (p.id === activeProjectId) {
-          const fileExists = p.files.some((f) => f.id === activeFileId);
-          let newFiles = p.files;
-          const now = Date.now();
+          const pFiles = Array.isArray(p.files) ? p.files : [];
+          const fileExists = pFiles.some((f) => f.id === activeFileId);
+          let newFiles = pFiles;
           if (fileExists) {
-            newFiles = p.files.map((f) => (f.id === activeFileId ? { ...f, code, title, updatedAt: now, localUpdatedAt: now, _syncStatus: 'pending' as const } : f));
+            newFiles = pFiles.map((f) => (f.id === activeFileId ? { ...f, code, title, updatedAt: now, localUpdatedAt: now, _syncStatus: 'pending' as const } : f));
           } else {
             const refProj = projectsRef.current.find((rp) => rp.id === activeProjectId);
-            const refFile = refProj?.files.find((rf) => rf.id === activeFileId);
+            const refFiles = Array.isArray(refProj?.files) ? refProj.files : [];
+            const refFile = refFiles.find((rf) => rf.id === activeFileId);
             if (refFile) {
-              newFiles = [...p.files, { ...refFile, code, title, updatedAt: now, localUpdatedAt: now, _syncStatus: 'pending' as const }];
+              newFiles = [...pFiles, { ...refFile, code, title, updatedAt: now, localUpdatedAt: now, _syncStatus: 'pending' as const }];
             }
           }
           return {
@@ -162,13 +198,17 @@ export function useHtmlProjects({
         }
         return p;
       });
-      saveLocalProjects(updated);
-      projectsRef.current = updated;
-      return updated;
-    });
+    }
 
-    hasUnsavedChangesRef.current = true;
-    setHasUnsavedChanges(true);
+    // Debounce the heavy React state update and storage serialization (800ms)
+    const timer = setTimeout(() => {
+      if (projectsRef.current) {
+        setProjects(projectsRef.current);
+        saveLocalProjects(projectsRef.current, undefined, false);
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
   }, [code, title, activeProjectId, activeFileId]);
 
   const lastEditTimeRef = useRef<number>(0);
@@ -220,21 +260,17 @@ export function useHtmlProjects({
     setHistoryIndex(nextIdx);
 
     const pId = activeProjectIdRef.current;
-    if (pId) {
-      setProjects((prev) => {
-        const updated = prev.map((p) => {
-          if (p.id === pId) {
-            return {
-              ...p,
-              updatedAt: Date.now(),
-              files: p.files.map((f) => (f.id === fId ? { ...f, code: newCode, updatedAt: Date.now() } : f)),
-            };
-          }
-          return p;
-        });
-        saveLocalProjects(updated);
-        projectsRef.current = updated;
-        return updated;
+    if (pId && projectsRef.current) {
+      const now = Date.now();
+      projectsRef.current = projectsRef.current.map((p) => {
+        if (p.id === pId) {
+          return {
+            ...p,
+            updatedAt: now,
+            files: p.files.map((f) => (f.id === fId ? { ...f, code: newCode, updatedAt: now } : f)),
+          };
+        }
+        return p;
       });
       hasUnsavedChangesRef.current = true;
       setHasUnsavedChanges(true);
@@ -265,21 +301,17 @@ export function useHtmlProjects({
     codeRef.current = targetCode;
 
     const pId = activeProjectIdRef.current;
-    if (pId) {
-      setProjects((prev) => {
-        const updated = prev.map((p) => {
-          if (p.id === pId) {
-            return {
-              ...p,
-              updatedAt: Date.now(),
-              files: p.files.map((f) => (f.id === fId ? { ...f, code: targetCode, updatedAt: Date.now() } : f)),
-            };
-          }
-          return p;
-        });
-        saveLocalProjects(updated);
-        projectsRef.current = updated;
-        return updated;
+    if (pId && projectsRef.current) {
+      const now = Date.now();
+      projectsRef.current = projectsRef.current.map((p) => {
+        if (p.id === pId) {
+          return {
+            ...p,
+            updatedAt: now,
+            files: p.files.map((f) => (f.id === fId ? { ...f, code: targetCode, updatedAt: now } : f)),
+          };
+        }
+        return p;
       });
       hasUnsavedChangesRef.current = true;
       setHasUnsavedChanges(true);
@@ -310,21 +342,18 @@ export function useHtmlProjects({
     codeRef.current = targetCode;
 
     const pId = activeProjectIdRef.current;
-    if (pId) {
-      setProjects((prev) => {
-        const updated = prev.map((p) => {
-          if (p.id === pId) {
-            return {
-              ...p,
-              updatedAt: Date.now(),
-              files: p.files.map((f) => (f.id === fId ? { ...f, code: targetCode, updatedAt: Date.now() } : f)),
-            };
-          }
-          return p;
-        });
-        saveLocalProjects(updated);
-        projectsRef.current = updated;
-        return updated;
+    if (pId && projectsRef.current) {
+      const now = Date.now();
+      projectsRef.current = projectsRef.current.map((p) => {
+        if (p.id === pId) {
+          const pFiles = Array.isArray(p.files) ? p.files : [];
+          return {
+            ...p,
+            updatedAt: now,
+            files: pFiles.map((f) => (f.id === fId ? { ...f, code: targetCode, updatedAt: now } : f)),
+          };
+        }
+        return p;
       });
       hasUnsavedChangesRef.current = true;
       setHasUnsavedChanges(true);
@@ -348,18 +377,25 @@ export function useHtmlProjects({
 
     const pId = activeProjectIdRef.current;
     const fId = activeFileIdRef.current;
+    if (!fId || getDeletedFileTombstones().has(fId)) {
+      hasUnsavedChangesRef.current = false;
+      setHasUnsavedChanges(false);
+      return;
+    }
     const currentTitle = titleRef.current;
     const currentCode = codeRef.current;
     const sanitizedCode = sanitizeAndRepairCode(currentCode);
     const identifiedCode = ensureStableBlockIds(sanitizedCode);
     const now = Date.now();
 
-    const updated = projectsRef.current.map(p => {
+    const updated = (projectsRef.current || []).map(p => {
       if (p.id === pId) {
+        const pFiles = Array.isArray(p.files) ? p.files : [];
+        const updatedFiles = pFiles.map(f => f.id === fId ? { ...f, code: identifiedCode, title: currentTitle, updatedAt: now } : f);
         return {
           ...p,
           updatedAt: now,
-          files: p.files.map(f => f.id === fId ? { ...f, code: identifiedCode, title: currentTitle, updatedAt: now } : f)
+          files: updatedFiles
         };
       }
       return p;
@@ -422,8 +458,13 @@ export function useHtmlProjects({
     checkAndSaveBeforeAction();
     setActiveProjectId(proj.id);
     activeProjectIdRef.current = proj.id;
-    if (proj.files && proj.files.length > 0) {
-      const file = proj.files[0];
+
+    const currentProjects = (projectsRef.current && projectsRef.current.length > 0) ? projectsRef.current : projects;
+    const currentProj = currentProjects.find(p => p.id === proj.id) || proj;
+    const currentFiles = Array.isArray(currentProj.files) ? currentProj.files : [];
+
+    if (currentFiles.length > 0) {
+      const file = currentFiles[0];
       setActiveFileId(file.id);
       activeFileIdRef.current = file.id;
       setTitle(file.title);
@@ -451,7 +492,6 @@ export function useHtmlProjects({
         createdAt: Date.now(),
         updatedAt: Date.now()
       };
-      const currentProjects = (projectsRef.current && projectsRef.current.length > 0) ? projectsRef.current : projects;
       const updated = currentProjects.map(p => {
         if (p.id === proj.id) {
           return { ...p, updatedAt: Date.now(), files: [newFile] };
@@ -579,6 +619,9 @@ export function useHtmlProjects({
     saveLocalProjects(updated, effectiveUid, true);
     recordHtmlProjectsUpdate(updated, effectiveUid, true);
     queueFirestoreSync(updated, true);
+    if (effectiveUid && effectiveUid !== 'anonymous' && effectiveUid !== 'guest-user') {
+      saveSingleProjectToFirestore(newProj, effectiveUid, true).catch(() => {});
+    }
 
     import('../../../lib/htmlNotesCloudSyncEngine').then(({ recordNoteSaveWithDriveOutbox }) => {
       recordNoteSaveWithDriveOutbox(newProj.id, newFile);
@@ -670,7 +713,7 @@ export function useHtmlProjects({
             updatedAt: now,
             localUpdatedAt: now,
             _syncStatus: 'pending' as const,
-            files: [...files, newFile]
+            files: [newFile, ...files]
           };
         }
         return p;
@@ -815,84 +858,165 @@ export function useHtmlProjects({
     });
   }, [activeProjectId, activeFileId, title, projects]);
 
-  const handleDeleteFile = useCallback((e: React.MouseEvent, projectId: string, fileId: string) => {
-    e.stopPropagation();
-    const proj = projects.find(p => p.id === projectId);
-    const file = proj?.files.find(f => f.id === fileId);
+  const handleDeleteFile = useCallback((e?: React.MouseEvent, projectId?: string, fileId?: string) => {
+    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+    const targetProjId = projectId || activeProjectId;
+    const targetFileId = fileId || activeFileId;
+    if (!targetProjId || !targetFileId) return;
+
+    const currentList = projectsRef.current && projectsRef.current.length > 0 ? projectsRef.current : projects;
+    const proj = currentList.find(p => p.id === targetProjId);
+    const file = proj?.files.find(f => f.id === targetFileId);
     setDeleteTarget({
       type: 'file',
-      projectId,
-      fileId,
+      projectId: targetProjId,
+      fileId: targetFileId,
       title: file?.title || 'this note',
     });
     setShowDeleteConfirmModal(true);
-  }, [projects]);
+  }, [projects, activeProjectId, activeFileId]);
 
   const handleExecuteDeleteFile = useCallback((projectId: string, fileId: string) => {
-    const proj = projects.find(p => p.id === projectId);
+    if (!projectId || !fileId) return;
+    addDeletedFileTombstone(fileId);
+
+    // CRITICAL: Immediately clear unsaved changes flags so autosave/checkAndSaveBeforeAction cannot resurrect this file!
+    hasUnsavedChangesRef.current = false;
+    setHasUnsavedChanges(false);
+
+    const currentList = projectsRef.current && projectsRef.current.length > 0 ? projectsRef.current : projects;
+    const proj = currentList.find(p => p.id === projectId);
     const file = proj?.files.find(f => f.id === fileId);
     const fileTitle = file?.title || 'Note';
 
-    const updated = projects.map(p => {
+    const updated = currentList.map(p => {
       if (p.id === projectId) {
-        const remaining = p.files.filter(f => f.id !== fileId);
+        const remaining = (p.files || []).filter(f => f.id !== fileId);
         return { ...p, updatedAt: Date.now(), files: remaining };
       }
       return p;
     });
+
+    const effectiveUid = getEffectiveAuthUid();
     projectsRef.current = updated;
     setProjects(updated);
-    saveLocalProjects(updated);
+    saveLocalProjects(updated, effectiveUid, true);
+
     const targetProj = updated.find(p => p.id === projectId);
     if (targetProj) {
-      saveSingleProjectToFirestore(targetProj, getEffectiveAuthUid());
+      saveSingleProjectToFirestore(targetProj, effectiveUid, true).catch(() => {});
     }
+    deleteFileFromFirestore(projectId, fileId, effectiveUid).catch(() => {});
     deleteHtmlFileFromManifest(projectId, fileId);
-    deleteNoteFromCloud(projectId, fileId);
 
     if (activeFileId === fileId) {
       const remainingProj = updated.find(p => p.id === projectId);
       if (remainingProj && remainingProj.files.length > 0) {
-        handleOpenFile(projectId, remainingProj.files[0], viewMode);
+        const nextFile = remainingProj.files[0];
+        setActiveFileId(nextFile.id);
+        activeFileIdRef.current = nextFile.id;
+        setTitle(nextFile.title);
+        titleRef.current = nextFile.title;
+        setCode(nextFile.code || '');
+        codeRef.current = nextFile.code || '';
+        loadedFileIdRef.current = nextFile.id;
+        if (!fileHistoryMapRef.current[nextFile.id]) {
+          fileHistoryMapRef.current[nextFile.id] = { stack: [nextFile.code || ''], index: 0 };
+        }
+        const hist = fileHistoryMapRef.current[nextFile.id];
+        setHistoryStack(hist.stack);
+        setHistoryIndex(hist.index);
+        hasUnsavedChangesRef.current = false;
+        setHasUnsavedChanges(false);
       } else {
+        setActiveFileId('');
+        activeFileIdRef.current = '';
+        setTitle('Notes');
+        titleRef.current = 'Notes';
+        setCode('');
+        codeRef.current = '';
+        loadedFileIdRef.current = '';
+        hasUnsavedChangesRef.current = false;
+        setHasUnsavedChanges(false);
         onSetStudioView('home');
       }
     }
     onShowDriveToast?.(`Deleted note "${fileTitle}"`);
-  }, [projects, activeFileId, viewMode, handleOpenFile, onSetStudioView, onShowDriveToast]);
+  }, [projects, activeFileId, onSetStudioView, onShowDriveToast]);
 
-  const handleDeleteProject = useCallback((e: React.MouseEvent, projectId: string) => {
-    e.stopPropagation();
-    const projToDelete = projects.find(p => p.id === projectId);
+  const handleDeleteProject = useCallback((e?: React.MouseEvent, projectId?: string) => {
+    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+    const targetProjId = projectId || activeProjectId;
+    if (!targetProjId) return;
+
+    const currentList = projectsRef.current && projectsRef.current.length > 0 ? projectsRef.current : projects;
+    const projToDelete = currentList.find(p => p.id === targetProjId);
     const projName = projToDelete?.name || 'this project';
     setDeleteTarget({
       type: 'project',
-      projectId,
+      projectId: targetProjId,
       title: projName,
     });
     setShowDeleteConfirmModal(true);
-  }, [projects]);
+  }, [projects, activeProjectId]);
 
   const handleExecuteDeleteProject = useCallback((projectId: string) => {
-    const projToDelete = projects.find(p => p.id === projectId);
+    if (!projectId) return;
+    addDeletedProjectTombstone(projectId);
+    hasUnsavedChangesRef.current = false;
+    setHasUnsavedChanges(false);
+
+    const currentList = projectsRef.current && projectsRef.current.length > 0 ? projectsRef.current : projects;
+    const projToDelete = currentList.find(p => p.id === projectId);
     const projName = projToDelete?.name || 'this project';
-    const updated = projects.filter(p => p.id !== projectId);
+    const updated = currentList.filter(p => p.id !== projectId);
+
+    const effectiveUid = getEffectiveAuthUid();
+    projectsRef.current = updated;
     setProjects(updated);
-    saveLocalProjects(updated);
+    saveLocalProjects(updated, effectiveUid, true);
     recordHtmlProjectsUpdate(updated);
     deleteHtmlProjectFromManifest(projectId);
-    queueFirestoreSync(updated);
-    deleteProjectFromCloud(projectId);
+    deleteProjectFromFirestore(projectId, effectiveUid).catch(() => {});
 
     if (activeProjectId === projectId) {
       if (updated.length > 0 && updated[0].files.length > 0) {
-        handleOpenFile(updated[0].id, updated[0].files[0], viewMode);
+        const nextProj = updated[0];
+        const nextFile = nextProj.files[0];
+        setActiveProjectId(nextProj.id);
+        activeProjectIdRef.current = nextProj.id;
+        setActiveFileId(nextFile.id);
+        activeFileIdRef.current = nextFile.id;
+        setTitle(nextFile.title);
+        titleRef.current = nextFile.title;
+        setCode(nextFile.code || '');
+        codeRef.current = nextFile.code || '';
+        loadedFileIdRef.current = nextFile.id;
+        if (!fileHistoryMapRef.current[nextFile.id]) {
+          fileHistoryMapRef.current[nextFile.id] = { stack: [nextFile.code || ''], index: 0 };
+        }
+        const hist = fileHistoryMapRef.current[nextFile.id];
+        setHistoryStack(hist.stack);
+        setHistoryIndex(hist.index);
+        hasUnsavedChangesRef.current = false;
+        setHasUnsavedChanges(false);
       } else {
+        setActiveProjectId('');
+        activeProjectIdRef.current = '';
+        setActiveFileId('');
+        activeFileIdRef.current = '';
+        setTitle('Notes');
+        titleRef.current = 'Notes';
+        setCode('');
+        codeRef.current = '';
+        loadedFileIdRef.current = '';
+        hasUnsavedChangesRef.current = false;
+        setHasUnsavedChanges(false);
         onSetStudioView('home');
       }
     }
     onShowDriveToast?.(`Deleted project "${projName}"`);
-  }, [projects, activeProjectId, viewMode, handleOpenFile, onSetStudioView, onShowDriveToast]);
+  }, [projects, activeProjectId, onSetStudioView, onShowDriveToast]);
 
   const toggleExpandProject = useCallback((e: React.MouseEvent, projectId: string) => {
     e.stopPropagation();
@@ -941,27 +1065,151 @@ export function useHtmlProjects({
     setRenamingFileId(null);
   }, [renamingFileTitle, projects, activeProjectId, activeFileId]);
 
-  const handleImportFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const inputElement = e.target;
-    const file = inputElement.files?.[0];
+  const handleImportDroppedFile = useCallback(async (file: File) => {
     if (!file) return;
 
-    // Validate file extension and MIME type defensively
     const fileName = file.name || '';
     const lowerName = fileName.toLowerCase();
+    const isZip = lowerName.endsWith('.zip') || file.type.includes('zip');
     const isHtmlOrText = lowerName.endsWith('.html') || lowerName.endsWith('.htm') || lowerName.endsWith('.txt') || file.type.includes('html') || file.type.includes('text');
 
-    if (!isHtmlOrText) {
-      onShowDriveToast?.('Please upload a valid .html or .txt document file.');
-      inputElement.value = '';
+    if (!isZip && !isHtmlOrText) {
+      onShowDriveToast?.('Please upload a valid .html, .txt, or .zip project file.');
       return;
     }
 
+    if (isZip) {
+      try {
+        onShowDriveToast?.(`Unpacking project archive "${fileName}"...`);
+        const zip = await JSZip.loadAsync(file);
+
+        let defaultProjectName = fileName.replace(/\.zip$/i, '').replace(/[/\\?%*:|"<>_]/g, ' ').trim() || 'Imported Project';
+
+        const allPaths = Object.keys(zip.files);
+        const validEntries = allPaths.filter((path) => {
+          const entry = zip.files[path];
+          if (entry.dir) return false;
+          const segments = path.split('/');
+          const namePart = segments[segments.length - 1] || '';
+          if (namePart.startsWith('.') || path.startsWith('__MACOSX')) return false;
+          const l = namePart.toLowerCase();
+          return l.endsWith('.html') || l.endsWith('.htm') || l.endsWith('.txt');
+        });
+
+        if (validEntries.length === 0) {
+          onShowDriveToast?.(`No .html or note files found inside "${fileName}".`);
+          return;
+        }
+
+        // If all entries are nested under a single top-level directory, derive project name from it
+        const topDirs = new Set(
+          validEntries.filter((p) => p.includes('/')).map((p) => p.split('/')[0])
+        );
+        if (topDirs.size === 1) {
+          const dir = Array.from(topDirs)[0];
+          if (dir && dir.trim() && dir !== '.' && dir !== '..') {
+            defaultProjectName = dir.replace(/[/\\?%*:|"<>_]/g, ' ').trim() || defaultProjectName;
+          }
+        }
+
+        checkAndSaveBeforeAction();
+
+        const now = Date.now();
+        const importedNotes: HtmlNoteItem[] = [];
+
+        for (let i = 0; i < validEntries.length; i++) {
+          const entryPath = validEntries[i];
+          const rawContent = await zip.files[entryPath].async('string');
+          if (!rawContent || !rawContent.trim()) continue;
+
+          const segments = entryPath.split('/');
+          const fileBase = segments[segments.length - 1] || 'Note';
+          const cleanTitle = fileBase.replace(/\.[^/.]+$/, '').replace(/[/\\?%*:|"<>_]/g, ' ').trim() || `Note ${importedNotes.length + 1}`;
+
+          const sanitized = sanitizeAndRepairCode(rawContent);
+          const identifiedCode = ensureStableBlockIds(sanitized);
+
+          importedNotes.push({
+            id: `file_${now + i}_${Math.random().toString(36).substring(2, 7)}`,
+            title: cleanTitle,
+            code: identifiedCode,
+            createdAt: now - (validEntries.length - i) * 1000,
+            updatedAt: now - (validEntries.length - i) * 1000,
+            localUpdatedAt: now,
+            _syncStatus: 'pending'
+          });
+        }
+
+        if (importedNotes.length === 0) {
+          onShowDriveToast?.(`No valid readable content found in "${fileName}".`);
+          return;
+        }
+
+        const newProjId = `proj_${now}_${Math.random().toString(36).substring(2, 7)}`;
+        const newProj: HtmlProject = {
+          id: newProjId,
+          name: defaultProjectName,
+          createdAt: now,
+          updatedAt: now,
+          localUpdatedAt: now,
+          _syncStatus: 'pending',
+          files: importedNotes
+        };
+
+        let currentProjects = (projectsRef.current && projectsRef.current.length > 0) ? projectsRef.current : projects;
+        if (!currentProjects || currentProjects.length === 0) {
+          const cachedUid = typeof window !== 'undefined' ? getCachedAuthUser()?.uid || null : null;
+          currentProjects = loadLocalProjects(TEMPLATE_MATRICES, cachedUid);
+        }
+
+        const updated = [newProj, ...(currentProjects || [])];
+        const effectiveUid = getEffectiveAuthUid();
+        projectsRef.current = updated;
+        setProjects(updated);
+        saveLocalProjects(updated, effectiveUid, true);
+        recordHtmlProjectsUpdate(updated, effectiveUid, true);
+        queueFirestoreSync(updated, true);
+
+        import('../../../lib/htmlNotesCloudSyncEngine').then(({ recordNoteSaveWithDriveOutbox }) => {
+          importedNotes.forEach((note) => {
+            recordNoteSaveWithDriveOutbox(newProj.id, note);
+          });
+        });
+
+        setExpandedProjects((prev) => ({ ...prev, [newProj.id]: true }));
+
+        const firstNote = importedNotes[0];
+        fileHistoryMapRef.current[firstNote.id] = { stack: [firstNote.code], index: 0 };
+        setHistoryStack([firstNote.code]);
+        setHistoryIndex(0);
+
+        setActiveProjectId(newProj.id);
+        activeProjectIdRef.current = newProj.id;
+        setActiveFileId(firstNote.id);
+        activeFileIdRef.current = firstNote.id;
+        setTitle(firstNote.title);
+        titleRef.current = firstNote.title;
+        setCode(firstNote.code);
+        codeRef.current = firstNote.code;
+        loadedFileIdRef.current = firstNote.id;
+
+        hasUnsavedChangesRef.current = false;
+        setHasUnsavedChanges(false);
+        onSetStudioView('editor');
+
+        onShowDriveToast?.(`Successfully imported project "${defaultProjectName}" (${importedNotes.length} notes)!`);
+      } catch (zipErr) {
+        console.error('Failed to unpack zip project archive:', zipErr);
+        onShowDriveToast?.(`Failed to import zip: ${zipErr instanceof Error ? zipErr.message : 'Invalid zip file'}`);
+      }
+      return;
+    }
+
+    // Single HTML / text file import
     const reader = new FileReader();
 
     reader.onerror = () => {
       onShowDriveToast?.(`Failed to read file "${fileName}".`);
-      inputElement.value = '';
     };
 
     reader.onload = (event) => {
@@ -969,14 +1217,11 @@ export function useHtmlProjects({
         const rawContent = event.target?.result as string;
         if (typeof rawContent !== 'string' || !rawContent.trim()) {
           onShowDriveToast?.(`File "${fileName}" appears to be empty.`);
-          inputElement.value = '';
           return;
         }
 
-        // 1. Commit and save any pending changes on currently open file first
         checkAndSaveBeforeAction();
 
-        // 2. Resolve target project without stale state
         let currentProjects = (projectsRef.current && projectsRef.current.length > 0) ? projectsRef.current : projects;
         if (!currentProjects || currentProjects.length === 0) {
           const cachedUid = typeof window !== 'undefined' ? getCachedAuthUser()?.uid || null : null;
@@ -989,7 +1234,6 @@ export function useHtmlProjects({
           targetProj = currentProjects[0];
         }
 
-        // 3. Clean and prepare content with robust formatting and stable IDs
         const sanitized = sanitizeAndRepairCode(rawContent);
         const identifiedCode = ensureStableBlockIds(sanitized);
 
@@ -998,7 +1242,6 @@ export function useHtmlProjects({
         const newFileId = `file_${now}_${Math.random().toString(36).substring(2, 7)}`;
 
         if (!targetProj || currentProjects.length === 0) {
-          // If no projects exist, create a new project hosting this imported note
           const newProjId = `proj_${now}_${Math.random().toString(36).substring(2, 7)}`;
           const newFile: HtmlNoteItem = {
             id: newFileId,
@@ -1053,7 +1296,6 @@ export function useHtmlProjects({
           return;
         }
 
-        // 4. In existing project: Calculate unique title to prevent collisions
         const existingTitles = new Set((targetProj.files || []).map(f => f.title.toLowerCase()));
         let uniqueTitle = baseTitle;
         if (existingTitles.has(uniqueTitle.toLowerCase())) {
@@ -1064,7 +1306,6 @@ export function useHtmlProjects({
           uniqueTitle = `${baseTitle} (${counter})`;
         }
 
-        // 5. Create a brand-new, isolated file entry alongside existing files
         const newFile: HtmlNoteItem = {
           id: newFileId,
           title: uniqueTitle,
@@ -1083,7 +1324,7 @@ export function useHtmlProjects({
               updatedAt: now,
               localUpdatedAt: now,
               _syncStatus: 'pending' as const,
-              files: [...(p.files || []), newFile]
+              files: [newFile, ...(p.files || [])]
             };
           }
           return p;
@@ -1096,20 +1337,16 @@ export function useHtmlProjects({
         recordHtmlProjectsUpdate(updated, effectiveUid, true);
         queueFirestoreSync(updated, true);
 
-        // 6. Record in Cloud Sync Engine Outbox
         import('../../../lib/htmlNotesCloudSyncEngine').then(({ recordNoteSaveWithDriveOutbox }) => {
           recordNoteSaveWithDriveOutbox(targetProjId, newFile);
         });
 
-        // 7. Auto-expand the project in file lists
         setExpandedProjects(prev => ({ ...prev, [targetProjId]: true }));
 
-        // 8. Initialize file history stack for this new file
         fileHistoryMapRef.current[newFile.id] = { stack: [identifiedCode], index: 0 };
         setHistoryStack([identifiedCode]);
         setHistoryIndex(0);
 
-        // 9. Safely switch to the newly created file without touching existing file buffers
         setActiveProjectId(targetProjId);
         activeProjectIdRef.current = targetProjId;
         setActiveFileId(newFile.id);
@@ -1127,13 +1364,45 @@ export function useHtmlProjects({
       } catch (err) {
         console.error('Error importing HTML file:', err);
         onShowDriveToast?.('Failed to import HTML file.');
-      } finally {
-        inputElement.value = '';
       }
     };
 
     reader.readAsText(file);
   }, [projects, activeProjectId, checkAndSaveBeforeAction, onSetStudioView, onShowDriveToast]);
+
+  const handleImportFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputElement = e.target;
+    const file = inputElement.files?.[0];
+    if (file) {
+      handleImportDroppedFile(file);
+      inputElement.value = '';
+    }
+  }, [handleImportDroppedFile]);
+
+  // Support drag-and-drop file reordering within a project
+  const handleReorderFiles = useCallback((projectId: string, newFiles: HtmlNoteItem[]) => {
+    const now = Date.now();
+    setProjects((prev) => {
+      const updated = prev.map((p) => {
+        if (p.id === projectId) {
+          return {
+            ...p,
+            updatedAt: now,
+            localUpdatedAt: now,
+            _syncStatus: 'pending' as const,
+            files: newFiles
+          };
+        }
+        return p;
+      });
+      projectsRef.current = updated;
+      const effectiveUid = getEffectiveAuthUid();
+      saveLocalProjects(updated, effectiveUid, true);
+      recordHtmlProjectsUpdate(updated, effectiveUid, true);
+      queueFirestoreSync(updated, true);
+      return updated;
+    });
+  }, []);
 
   const handleExportHtml = useCallback(() => {
     const safeName = (title || 'note').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
@@ -1266,6 +1535,8 @@ export function useHtmlProjects({
     deleteTarget,
     setDeleteTarget,
     handleImportFile,
+    handleImportDroppedFile,
+    handleReorderFiles,
     handleExportHtml,
     handleExportFullProject
   };

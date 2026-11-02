@@ -22,7 +22,9 @@ import {
   saveSingleProjectToFirestore,
   subscribeToFirestoreProjects,
   deleteProjectFromFirestore,
+  deleteFileFromFirestore,
 } from './htmlNotesSync';
+import { getCachedAuthUser } from './storage';
 
 export type DriveSyncState = 'disconnected' | 'idle' | 'syncing' | 'synced' | 'error';
 
@@ -155,17 +157,9 @@ export function recordNoteSaveWithDriveOutbox(_projectId: string, _noteItem: Htm
 
 export async function deleteNoteFromCloud(projectId: string, noteId: string): Promise<boolean> {
   try {
-    const currentProjs = loadLocalProjects();
-    const targetProj = currentProjs.find((p) => p.id === projectId);
-    if (targetProj) {
-      targetProj.files = targetProj.files.filter((f) => f.id !== noteId);
-      targetProj.updatedAt = Date.now();
-      saveLocalProjects(currentProjs);
-      if (auth.currentUser && !auth.currentUser.isAnonymous) {
-        saveSingleProjectToFirestore(targetProj, auth.currentUser.uid);
-      }
-    }
-    return true;
+    const cachedUid = typeof window !== 'undefined' ? getCachedAuthUser()?.uid || null : null;
+    const effectiveUid = auth.currentUser?.uid || cachedUid;
+    return await deleteFileFromFirestore(projectId, noteId, effectiveUid);
   } catch (err) {
     console.warn('Error deleting note from cloud:', err);
     return false;
@@ -174,10 +168,9 @@ export async function deleteNoteFromCloud(projectId: string, noteId: string): Pr
 
 export async function deleteProjectFromCloud(projectId: string): Promise<boolean> {
   try {
-    const currentProjs = loadLocalProjects();
-    const updatedProjs = currentProjs.filter((p) => p.id !== projectId);
-    await deleteProjectFromFirestore(projectId);
-    queueFirestoreSync(updatedProjs, true);
+    const cachedUid = typeof window !== 'undefined' ? getCachedAuthUser()?.uid || null : null;
+    const effectiveUid = auth.currentUser?.uid || cachedUid;
+    await deleteProjectFromFirestore(projectId, effectiveUid);
     return true;
   } catch (err) {
     console.warn('Error deleting project from cloud:', err);

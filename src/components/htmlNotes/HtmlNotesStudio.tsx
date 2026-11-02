@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { 
   type HtmlNotesStudioProps, 
   type ViewMode, 
-  type ViewportMode 
+  type ViewportMode,
+  type HtmlProject,
+  type HtmlNoteItem
 } from './types';
 import { Minimize2, FileCode } from 'lucide-react';
 import { STUDIO_CSS_STYLES } from './constants/studioStyles';
@@ -32,6 +34,8 @@ import { getFileVersionHistory } from './utils/versionHistory';
 import type { HtmlNotesPreviewPaneHandle } from './components/HtmlNotesPreviewPane';
 import { ensureStableBlockIds } from './utils/docStructureMap';
 import { compressImageForDocument } from './utils/imageCompressor';
+import { HtmlNotesPenToolbar, type PenToolType } from './components/HtmlNotesPenToolbar';
+import { HtmlNotesErrorBoundary } from './components/HtmlNotesErrorBoundary';
 
 export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
   onBack,
@@ -41,6 +45,8 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
   onSwitchStudioMode,
   onRegisterActions,
   onViewChange,
+  searchQuery,
+  onClearSearch,
 }) => {
   // Navigation View State
   const [studioView, setStudioView] = useState<'home' | 'editor'>('home');
@@ -118,6 +124,19 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
     return false;
   });
 
+  // Inject STUDIO_CSS_STYLES once as a singleton in document.head to prevent CSSOM re-parsing on every render
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const STYLE_ID = 'notes-studio-singleton-styles';
+    let styleTag = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
+    if (!styleTag) {
+      styleTag = document.createElement('style');
+      styleTag.id = STYLE_ID;
+      styleTag.textContent = STUDIO_CSS_STYLES;
+      document.head.appendChild(styleTag);
+    }
+  }, []);
+
   // Always synchronize isDark with app dark mode prop
   useEffect(() => {
     setIsDark(Boolean(initialDarkMode));
@@ -128,7 +147,7 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
     const syncThemeFromDom = () => {
       if (typeof document !== 'undefined') {
         const isDocDark = document.documentElement.classList.contains('dark');
-        setIsDark(isDocDark);
+        setIsDark((prev) => (prev !== isDocDark ? isDocDark : prev));
       }
     };
 
@@ -282,6 +301,8 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
     deleteTarget,
     setDeleteTarget,
     handleImportFile,
+    handleImportDroppedFile,
+    handleReorderFiles,
     handleExportHtml,
     handleExportFullProject
   } = useHtmlProjects({
@@ -291,9 +312,20 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
     onShowDriveToast: (msg) => showDriveToastRef.current?.(msg)
   });
 
-  const activeProject = useMemo(() => projects.find(p => p.id === activeProjectId) || projects[0], [projects, activeProjectId]);
-  const activeProjectFiles = useMemo(() => activeProject ? activeProject.files : [], [activeProject]);
-  const activeFile = useMemo(() => activeProject?.files.find((f) => f.id === activeFileId), [activeProject, activeFileId]);
+  const activeProject = useMemo(() => {
+    if (!projects || projects.length === 0) return undefined;
+    return projects.find(p => p.id === activeProjectId) || projects[0];
+  }, [projects, activeProjectId]);
+
+  const activeProjectFiles = useMemo(() => {
+    if (!activeProject || !Array.isArray(activeProject.files)) return [];
+    return activeProject.files;
+  }, [activeProject]);
+
+  const activeFile = useMemo(() => {
+    if (!activeProjectFiles || activeProjectFiles.length === 0) return null;
+    return activeProjectFiles.find((f) => f.id === activeFileId) || activeProjectFiles[0] || null;
+  }, [activeProjectFiles, activeFileId]);
 
   // Background Semantic Summarization: only runs when AI Assistant panel is opened
   useEffect(() => {
@@ -334,11 +366,21 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
     return () => clearTimeout(timer);
   }, [isAiAssistantOpen, activeProjectFiles]);
 
-  // Custom Margins (Defaults: 10mm side margins, 12mm vertical margins)
-  const [sideMarginMm, setSideMarginMm] = useState<number>(10);
-  const [verticalMarginMm, setVerticalMarginMm] = useState<number>(12);
+  // Custom Margins (Defaults: 3mm side margins for mobile UI for maximum view, 8mm for desktop)
+  const [sideMarginMm, setSideMarginMm] = useState<number>(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      return 3;
+    }
+    return 8;
+  });
+  const [verticalMarginMm, setVerticalMarginMm] = useState<number>(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      return 6;
+    }
+    return 8;
+  });
   const [leftBindingGutterMm, setLeftBindingGutterMm] = useState<number>(0);
-  const [fontSizePx, setFontSizePx] = useState<number>(15);
+  const [fontSizePx, setFontSizePx] = useState<number>(14);
   const totalLeftMarginMm = sideMarginMm + leftBindingGutterMm;
 
   // Hook 2: Google Drive & Cloud Sync Engine
@@ -484,9 +526,10 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
         onCreateNewProject: handleCreateNewProject,
         onImportClick: () => fileInputRef.current?.click(),
         onAddFileToProject: handleAddFileToProject,
+        onImportDroppedFile: handleImportDroppedFile,
       });
     }
-  }, [onRegisterActions, handleCreateNewProject, handleAddFileToProject]);
+  }, [onRegisterActions, handleCreateNewProject, handleAddFileToProject, handleImportDroppedFile]);
 
   const isSelfGeneratedIframeUpdateRef = useRef<boolean>(false);
   const cachedIframeSrcDocRef = useRef<string>('');
@@ -618,20 +661,11 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
       return;
     }
 
-    // 2. In Preview or Split mode with active iframe, delegate directly to canvas engine
-    // This inserts the image smoothly at the current viewport/caret without full iframe reloads!
-    if (iframeRef.current?.contentWindow) {
-      try {
-        isSelfGeneratedIframeUpdateRef.current = true;
-        iframeRef.current.contentWindow.postMessage({
-          type: 'STUDIO_INSERT_IMAGE_CANVAS',
-          dataUrl: compressedDataUrl,
-          fileName: cleanFileName,
-          caption: displayCaption,
-          align
-        }, '*');
-        return;
-      } catch (err) {}
+    // 2. In Preview or Split mode, delegate directly to preview canvas engine
+    if (previewPaneRef.current) {
+      const alignMode: 'left' | 'right' | 'center' | 'full' = align === 'left' ? 'left' : (align === 'full' ? 'full' : (align === 'right' ? 'right' : 'center'));
+      previewPaneRef.current.insertImage(compressedDataUrl, cleanFileName, alignMode);
+      return;
     }
 
     // 3. Fallback when iframe is unmounted: append snippet to note code
@@ -683,38 +717,149 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
   }, [code, updateCodeWithHistory]);
 
   const handleSaveCurrentFileWithFlush = useCallback(() => {
-    if (isVisualEditActiveRef.current) {
+    if (isVisualEditActiveRef.current || isPenModeActiveRef.current) {
       flushPreviewIframeChanges();
     }
     handleSaveCurrentFile();
   }, [flushPreviewIframeChanges, handleSaveCurrentFile]);
 
-  const handleOpenFileWithFlush = useCallback((projectId: string, file: HtmlNoteItem, mode: ViewMode = 'preview') => {
-    if (isVisualEditActiveRef.current) {
+  // Stylus Pen & Highlighter Engine State (Completely Independent from Edit Mode)
+  const [isPenModeActive, setIsPenModeActive] = useState<boolean>(false);
+  const isPenModeActiveRef = useRef<boolean>(false);
+  useEffect(() => {
+    isPenModeActiveRef.current = isPenModeActive;
+  }, [isPenModeActive]);
+
+  const [penTool, setPenTool] = useState<PenToolType>('pen');
+  const [penColor, setPenColor] = useState<string>('#2563eb');
+  const [penWidth, setPenWidth] = useState<number>(2.5);
+
+  const penToolRef = useRef<PenToolType>(penTool);
+  penToolRef.current = penTool;
+  const penColorRef = useRef<string>(penColor);
+  penColorRef.current = penColor;
+  const penWidthRef = useRef<number>(penWidth);
+  penWidthRef.current = penWidth;
+
+  const broadcastPenState = useCallback((active: boolean, tool?: PenToolType, color?: string, width?: number) => {
+    const currentT = tool !== undefined ? tool : penToolRef.current;
+    const currentC = color !== undefined ? color : penColorRef.current;
+    const currentW = width !== undefined ? width : penWidthRef.current;
+
+    const targets = [iframeRef.current, fullScreenIframeRef.current];
+    targets.forEach((targetIframe) => {
+      if (targetIframe?.contentWindow) {
+        try {
+          const win = targetIframe.contentWindow as any;
+          if (typeof win.applyPenModeState === 'function') {
+            win.applyPenModeState(active, currentT, currentC, currentW);
+          }
+          win.postMessage({
+            type: 'SET_PEN_MODE',
+            active,
+            tool: currentT,
+            color: currentC,
+            width: currentW
+          }, '*');
+        } catch (e) {}
+      }
+    });
+  }, []);
+
+  const handleSetViewModeWithFlush = useCallback((nextMode: ViewMode) => {
+    if (isVisualEditActiveRef.current || isPenModeActiveRef.current) {
       flushPreviewIframeChanges();
     }
+    setViewMode(nextMode);
+
+    // If pen mode is currently on and moving between preview/split, keep pen mode active in the new view
+    if (isPenModeActiveRef.current) {
+      if (nextMode === 'preview' || nextMode === 'split') {
+        setTimeout(() => {
+          broadcastPenState(true);
+        }, 60);
+      } else {
+        setIsPenModeActive(false);
+        isPenModeActiveRef.current = false;
+        broadcastPenState(false);
+      }
+    }
+  }, [flushPreviewIframeChanges, broadcastPenState]);
+
+  // Track active project and file changes
+  const prevProjectFileRef = useRef<{ projectId: string; fileId: string }>({
+    projectId: activeProjectId,
+    fileId: activeFileId
+  });
+
+  // ONLY when the active project or file changes (user opens a different note), guarantee Edit Mode and Pen Mode start in OFF state
+  useEffect(() => {
+    const isDifferent =
+      prevProjectFileRef.current.projectId !== activeProjectId ||
+      prevProjectFileRef.current.fileId !== activeFileId;
+
+    if (isDifferent) {
+      prevProjectFileRef.current = { projectId: activeProjectId, fileId: activeFileId };
+      setIsVisualEditActive(false);
+      isVisualEditActiveRef.current = false;
+      setIsPenModeActive(false);
+      isPenModeActiveRef.current = false;
+      broadcastPenState(false);
+    }
+  }, [activeProjectId, activeFileId, broadcastPenState]);
+
+  const handleOpenFileWithFlush = useCallback((projectId: string, file: HtmlNoteItem, mode: ViewMode = 'preview') => {
+    if (isVisualEditActiveRef.current || isPenModeActiveRef.current) {
+      flushPreviewIframeChanges();
+    }
+    setIsVisualEditActive(false);
+    isVisualEditActiveRef.current = false;
+    setIsPenModeActive(false);
+    isPenModeActiveRef.current = false;
+    broadcastPenState(false);
     handleOpenFile(projectId, file, mode);
-  }, [flushPreviewIframeChanges, handleOpenFile]);
+  }, [flushPreviewIframeChanges, handleOpenFile, broadcastPenState]);
 
   const handleOpenProjectWithFlush = useCallback((proj: HtmlProject) => {
-    if (isVisualEditActiveRef.current) {
+    if (isVisualEditActiveRef.current || isPenModeActiveRef.current) {
       flushPreviewIframeChanges();
     }
+    setIsVisualEditActive(false);
+    isVisualEditActiveRef.current = false;
+    setIsPenModeActive(false);
+    isPenModeActiveRef.current = false;
+    broadcastPenState(false);
     handleOpenProject(proj);
-  }, [flushPreviewIframeChanges, handleOpenProject]);
+  }, [flushPreviewIframeChanges, handleOpenProject, broadcastPenState]);
 
   const handleToggleVisualEdit = useCallback(() => {
     setIsVisualEditActive((prev) => {
       const next = !prev;
       isVisualEditActiveRef.current = next;
 
-      // When finishing edit mode, flush in-memory edits to the project file!
-      if (!next) {
+      const targets = [iframeRef.current, fullScreenIframeRef.current];
+
+      // If turning Edit Mode ON, automatically turn Pen Mode OFF so string editing and stylus don't conflict
+      if (next) {
+        setIsPenModeActive(false);
+        targets.forEach((targetIframe) => {
+          try {
+            const win = targetIframe?.contentWindow as any;
+            if (typeof win?.applyPenModeState === 'function') {
+              win.applyPenModeState(false);
+            }
+            targetIframe?.contentWindow?.postMessage({
+              type: 'SET_PEN_MODE',
+              active: false
+            }, '*');
+          } catch (e) {}
+        });
+      } else {
+        // When finishing edit mode, flush in-memory edits to the project file
         flushPreviewIframeChanges();
       }
 
       // Broadcast immediately to both regular preview and full-screen iframes
-      const targets = [iframeRef.current, fullScreenIframeRef.current];
       targets.forEach((targetIframe) => {
         if (targetIframe?.contentWindow) {
           try {
@@ -734,6 +879,94 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
       return next;
     });
   }, [flushPreviewIframeChanges]);
+
+  const handleTogglePenMode = useCallback(() => {
+    setIsPenModeActive((prev) => {
+      const next = !prev;
+
+      // When activating Pen Mode, turn Edit Mode OFF immediately and flush string edits
+      // This eliminates any conflicts between text cursors / contenteditable and stylus handwriting!
+      if (next && isVisualEditActiveRef.current) {
+        setIsVisualEditActive(false);
+        isVisualEditActiveRef.current = false;
+        flushPreviewIframeChanges();
+        const targets = [iframeRef.current, fullScreenIframeRef.current];
+        targets.forEach((targetIframe) => {
+          try {
+            const win = targetIframe?.contentWindow as any;
+            if (typeof win?.applyEditModeState === 'function') {
+              win.applyEditModeState(false);
+            }
+            win?.postMessage({
+              type: 'SET_EDIT_MODE',
+              active: false,
+              enabled: false
+            }, '*');
+          } catch (e) {}
+        });
+      }
+
+      broadcastPenState(next);
+      return next;
+    });
+  }, [broadcastPenState, flushPreviewIframeChanges]);
+
+  const handleSelectPenTool = useCallback((tool: PenToolType) => {
+    setPenTool(tool);
+    penToolRef.current = tool;
+    let nextColor = penColorRef.current;
+    let nextWidth = penWidthRef.current;
+    if (tool === 'highlighter') {
+      if (nextColor === '#1e293b' || nextColor === '#2563eb') nextColor = '#fde047';
+      nextWidth = 16;
+    } else if (tool === 'pen' || tool === 'fountain') {
+      if (nextColor === '#fde047' || nextColor === '#38bdf8') nextColor = '#2563eb';
+      nextWidth = 2.5;
+    }
+    setPenColor(nextColor);
+    penColorRef.current = nextColor;
+    setPenWidth(nextWidth);
+    penWidthRef.current = nextWidth;
+
+    // Explicitly keep pen mode on
+    setIsPenModeActive(true);
+    isPenModeActiveRef.current = true;
+    broadcastPenState(true, tool, nextColor, nextWidth);
+  }, [broadcastPenState]);
+
+  const handleSelectPenColor = useCallback((color: string) => {
+    setPenColor(color);
+    penColorRef.current = color;
+    setIsPenModeActive(true);
+    isPenModeActiveRef.current = true;
+    broadcastPenState(true, penToolRef.current, color, penWidthRef.current);
+  }, [broadcastPenState]);
+
+  const handleSelectPenWidth = useCallback((width: number) => {
+    setPenWidth(width);
+    penWidthRef.current = width;
+    setIsPenModeActive(true);
+    isPenModeActiveRef.current = true;
+    broadcastPenState(true, penToolRef.current, penColorRef.current, width);
+  }, [broadcastPenState]);
+
+  const handlePenUndo = useCallback(() => {
+    previewPaneRef.current?.undoPenStroke?.();
+    const targets = [iframeRef.current, fullScreenIframeRef.current];
+    targets.forEach((t) => t?.contentWindow?.postMessage({ type: 'PEN_UNDO' }, '*'));
+  }, []);
+
+  const handlePenRedo = useCallback(() => {
+    previewPaneRef.current?.redoPenStroke?.();
+    const targets = [iframeRef.current, fullScreenIframeRef.current];
+    targets.forEach((t) => t?.contentWindow?.postMessage({ type: 'PEN_REDO' }, '*'));
+  }, []);
+
+  const handlePenClear = useCallback(() => {
+    previewPaneRef.current?.clearAllPenStrokes?.();
+    const targets = [iframeRef.current, fullScreenIframeRef.current];
+    targets.forEach((t) => t?.contentWindow?.postMessage({ type: 'PEN_CLEAR' }, '*'));
+  }, []);
 
   // Hotkey listeners (Ctrl+S, Ctrl+Z, Ctrl+Y, Ctrl+F)
   useEffect(() => {
@@ -799,12 +1032,15 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
           imageUploadRef.current?.click();
         } else if (e.data.type === 'STUDIO_IFRAME_READY') {
           isUndoingRedoingRef.current = false;
+          if (isPenModeActiveRef.current) {
+            broadcastPenState(true);
+          }
         } else if (e.data.type === 'STUDIO_HTML_UPDATE' && typeof e.data.html === 'string') {
           // 1. NEVER accept updates while an undo or redo action is processing
           if (isUndoingRedoingRef.current) return;
 
-          // 2. ONLY accept updates when Visual Edit Mode is explicitly enabled!
-          if (!isVisualEditActiveRef.current) return;
+          // 2. Accept updates when either Visual Edit Mode OR Pen Mode is enabled!
+          if (!isVisualEditActiveRef.current && !isPenModeActiveRef.current) return;
 
           // 3. If the user is currently typing in the editor pane, do not let iframe echo overwrite the editor
           const activeEl = document.activeElement;
@@ -841,223 +1077,116 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
     return () => window.removeEventListener('message', handleWindowMessage);
   }, [activeProjectFiles, activeProjectId, handleOpenFile, viewMode, code, updateCodeWithHistory, handleStudioUndo, handleStudioRedo]);
 
-  // Native Browser Print Trigger (Direct In-Page Printable Portal)
+  // Native Browser Print Trigger (Direct 1:1 WYSIWYG Printable Portal)
   const handlePrintDocument = useCallback(async () => {
     setIsPrinting(true);
     try {
-      let currentCodeToPrint = code || '';
-      try {
-        if (iframeRef.current?.contentWindow) {
-          const win = iframeRef.current.contentWindow as any;
-          if (typeof win.applyEditModeState === 'function') {
-            win.applyEditModeState(false);
-          }
-          const liveClean = typeof win.getCleanHtmlForPrint === 'function'
-            ? win.getCleanHtmlForPrint()
-            : (typeof win.getCleanHtml === 'function' ? win.getCleanHtml(true) : null);
-          if (liveClean) {
-            const merged = mergeUpdatedBodyIntoFullDocument(currentCodeToPrint, liveClean);
-            if (merged) currentCodeToPrint = merged;
-          }
-          if (isVisualEditActive && typeof win.applyEditModeState === 'function') {
-            win.applyEditModeState(true);
-          }
-        }
-      } catch (e) {}
-
-      const isSlideDeck = viewportMode === 'slide' || currentCodeToPrint.includes('class="slide"') || currentCodeToPrint.includes("class='slide'");
-
-      const fullHtml = preparePrintHtml({
-        code: currentCodeToPrint,
-        sideMarginMm,
-        verticalMarginMm,
-        totalLeftMarginMm,
-        fontSizePx,
-        isSlideMode: isSlideDeck
-      });
-
-      // 1. Direct In-Page Print Portal (matches src/index.css #studio-printable-target)
-      const portalId = 'studio-printable-target';
-      let portalEl = document.getElementById(portalId);
-      if (portalEl && portalEl.parentNode) {
-        portalEl.parentNode.removeChild(portalEl);
-      }
-
-      portalEl = document.createElement('div');
-      portalEl.id = portalId;
-      portalEl.className = 'studio-print-target';
-
-      // Parse fullHtml to extract stylesheets and body
-      let headStyles = '';
-      let bodyHtml = fullHtml;
-      try {
-        const parser = new DOMParser();
-        const pDoc = parser.parseFromString(fullHtml, 'text/html');
-        // Strip scripts to prevent duplicate triggers
-        pDoc.querySelectorAll('script').forEach(s => s.remove());
-        headStyles = Array.from(pDoc.querySelectorAll('link, style'))
-          .map(el => {
-            let html = el.outerHTML;
-            // Neutralize any embedded @page rules so they do not conflict with Margin Settings tab
-            html = html.replace(/@page\s*\{[^}]*\}/gi, '/* studio controlled @page */');
-            return html;
-          })
-          .join('\n');
-        bodyHtml = pDoc.body ? pDoc.body.innerHTML : fullHtml;
-      } catch (parseErr) {
-        console.warn('Print DOM parsing error:', parseErr);
-      }
-
-      const vMargin = typeof verticalMarginMm === 'number' && verticalMarginMm >= 0 ? verticalMarginMm : 12;
-      const sMargin = typeof sideMarginMm === 'number' && sideMarginMm >= 0 ? sideMarginMm : 10;
-      const lMargin = typeof totalLeftMarginMm === 'number' && totalLeftMarginMm >= 0 ? totalLeftMarginMm : sMargin;
-
-      // Inject dynamic print style into document.head so Chromium's print engine registers @page margins
-      const styleId = 'studio-active-print-dynamic-style';
-      let dynamicStyle = document.getElementById(styleId) as HTMLStyleElement | null;
-      if (!dynamicStyle) {
-        dynamicStyle = document.createElement('style');
-        dynamicStyle.id = styleId;
-        document.head.appendChild(dynamicStyle);
-      }
-
-      dynamicStyle.textContent = `
-        @media screen {
-          #${portalId} {
-            display: none !important;
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 0 !important;
-            height: 0 !important;
-            opacity: 0 !important;
-            overflow: hidden !important;
-            pointer-events: none !important;
-            z-index: -9999 !important;
-          }
-        }
-        @media print {
-          @page {
-            size: ${isSlideDeck ? 'A4 landscape' : 'A4 portrait'};
-            margin: ${isSlideDeck ? '0' : `${vMargin}mm ${sMargin}mm ${vMargin}mm ${lMargin}mm`};
-            margin-top: ${isSlideDeck ? '0' : `${vMargin}mm`};
-            margin-bottom: ${isSlideDeck ? '0' : `${vMargin}mm`};
-            margin-left: ${isSlideDeck ? '0' : `${lMargin}mm`};
-            margin-right: ${isSlideDeck ? '0' : `${sMargin}mm`};
-          }
-          *, *::before, *::after {
-            box-sizing: border-box !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            color-adjust: exact !important;
-          }
-          body > *:not(#${portalId}) {
-            display: none !important;
-          }
-          html, body {
-            background: #ffffff !important;
-            color: #000000 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            width: 100% !important;
-            min-width: 100% !important;
-            height: auto !important;
-            overflow: visible !important;
-          }
-          #${portalId} {
-            display: block !important;
-            position: static !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            color: #000000 !important;
-            box-sizing: border-box !important;
-          }
-          #${portalId} .print-document-content {
-            box-sizing: border-box !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-        }
-      `;
-
-      // Mount print styles in document.head so the browser print engine evaluates all fonts and KaTeX CSS immediately
-      const printHeadHostId = 'studio-print-head-host';
-      let printHeadHost = document.getElementById(printHeadHostId);
-      if (printHeadHost && printHeadHost.parentNode) {
-        printHeadHost.parentNode.removeChild(printHeadHost);
-      }
-      printHeadHost = document.createElement('div');
-      printHeadHost.id = printHeadHostId;
-      printHeadHost.innerHTML = headStyles;
-      document.head.appendChild(printHeadHost);
-
-      portalEl.innerHTML = bodyHtml;
-      document.body.appendChild(portalEl);
-
       const activeFile = activeProjectFiles.find(f => f.id === activeFileId);
       const noteDocTitle = activeFile?.title || activeProject?.name || 'Document Note';
+
+      let fullHtml = '';
+      if (previewPaneRef.current?.getExactPrintDocument) {
+        fullHtml = previewPaneRef.current.getExactPrintDocument(noteDocTitle);
+      }
+
+      // Fallback only if previewPaneRef is not mounted
+      if (!fullHtml) {
+        let currentCodeToPrint = code || '';
+        const isSlideDeck = viewportMode === 'slide' || currentCodeToPrint.includes('class="slide"') || currentCodeToPrint.includes("class='slide'");
+        fullHtml = preparePrintHtml({
+          code: currentCodeToPrint,
+          sideMarginMm,
+          verticalMarginMm,
+          totalLeftMarginMm,
+          fontSizePx,
+          isSlideMode: isSlideDeck,
+          viewportMode: isSlideDeck ? 'slide' : 'a4'
+        });
+      }
+
+      // Print via isolated invisible iframe to prevent main application UI from freezing, flickering, or re-laying out
+      const frameId = 'studio-isolated-print-frame';
+      let printFrame = document.getElementById(frameId) as HTMLIFrameElement | null;
+      if (printFrame && printFrame.parentNode) {
+        printFrame.parentNode.removeChild(printFrame);
+      }
+
+      printFrame = document.createElement('iframe');
+      printFrame.id = frameId;
+      printFrame.setAttribute('aria-hidden', 'true');
+      printFrame.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;opacity:0;pointer-events:none;z-index:-9999;';
+      document.body.appendChild(printFrame);
+
       const originalDocTitle = document.title;
       document.title = noteDocTitle;
 
+      const fDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
+      if (!fDoc || !printFrame.contentWindow) {
+        throw new Error('Unable to access print frame document');
+      }
+
+      fDoc.open();
+      fDoc.write(fullHtml);
+      fDoc.close();
+
       const cleanup = () => {
         document.title = originalDocTitle;
-        if (portalEl && portalEl.parentNode) {
-          portalEl.parentNode.removeChild(portalEl);
-        }
-        if (printHeadHost && printHeadHost.parentNode) {
-          printHeadHost.parentNode.removeChild(printHeadHost);
-        }
-        if (dynamicStyle && dynamicStyle.parentNode) {
-          dynamicStyle.parentNode.removeChild(dynamicStyle);
-        }
-        window.removeEventListener('afterprint', cleanup);
         setIsPrinting(false);
+        setTimeout(() => {
+          if (printFrame && printFrame.parentNode) {
+            printFrame.parentNode.removeChild(printFrame);
+          }
+        }, 5000);
       };
 
+      printFrame.contentWindow.addEventListener('afterprint', cleanup);
       window.addEventListener('afterprint', cleanup);
-      setTimeout(cleanup, 45000);
 
-      // Ensure all KaTeX and web typography fonts are fully loaded before capturing print raster
-      try {
-        if (document.fonts && document.fonts.ready) {
-          await document.fonts.ready;
+      // Trigger print inside the isolated iframe after allowing fonts & KaTeX to settle
+      const triggerPrint = () => {
+        try {
+          printFrame?.contentWindow?.focus();
+          printFrame?.contentWindow?.print();
+        } catch (printErr) {
+          console.warn('Iframe print failed, falling back to window.print:', printErr);
+          window.print();
+        } finally {
+          setIsPrinting(false);
         }
-      } catch (_) {}
-      await new Promise(resolve => setTimeout(resolve, 150));
+      };
 
-      // Trigger the native device print dialog directly on main window!
-      try {
-        window.focus();
-        window.print();
-      } catch (printErr) {
-        console.warn('In-page window.print error, attempting visible iframe print:', printErr);
-        let fallbackFrame = document.getElementById('studio-fallback-print-frame') as HTMLIFrameElement | null;
-        if (!fallbackFrame) {
-          fallbackFrame = document.createElement('iframe');
-          fallbackFrame.id = 'studio-fallback-print-frame';
-          fallbackFrame.style.cssText = 'position:fixed;bottom:0;right:0;width:200px;height:200px;opacity:0.01;pointer-events:none;border:none;z-index:-1;';
-          document.body.appendChild(fallbackFrame);
+      // Wait for fonts AND all images to settle before launching print dialog
+      const awaitImages = () => new Promise<void>((resolve) => {
+        const frameImages = Array.from(fDoc.images);
+        const pending = frameImages.filter(img => !img.complete);
+        if (pending.length === 0) {
+          resolve();
+          return;
         }
-        const fDoc = fallbackFrame.contentWindow?.document || fallbackFrame.contentDocument;
-        if (fDoc && fallbackFrame.contentWindow) {
-          fDoc.open();
-          fDoc.write(fullHtml);
-          fDoc.close();
-          setTimeout(() => {
-            try {
-              fallbackFrame?.contentWindow?.focus();
-              fallbackFrame?.contentWindow?.print();
-            } catch (e) {
-              console.warn('Fallback iframe print failed:', e);
-            }
-          }, 250);
+        let done = 0;
+        const check = () => {
+          done++;
+          if (done >= pending.length) resolve();
+        };
+        pending.forEach(img => {
+          img.addEventListener('load', check, { once: true });
+          img.addEventListener('error', check, { once: true });
+        });
+        setTimeout(resolve, 2000);
+      });
+
+      const awaitFonts = () => new Promise<void>((resolve) => {
+        if (fDoc.fonts && typeof fDoc.fonts.ready?.then === 'function') {
+          fDoc.fonts.ready.then(() => resolve()).catch(() => resolve());
+          setTimeout(resolve, 1500);
+        } else {
+          resolve();
         }
-      }
+      });
+
+      Promise.all([awaitFonts(), awaitImages()]).then(() => {
+        setTimeout(triggerPrint, 150);
+      });
     } catch (err) {
       console.error('Print generation error:', err);
       setIsPrinting(false);
@@ -1271,6 +1400,11 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
   const prevActiveFileIdRef = useRef<string>(activeFileId);
 
   const iframeSrcDoc = useMemo(() => {
+    // Only compute full-screen iframe srcDoc on-demand when full screen mode is active
+    if (!isFullScreenPreview) {
+      return '';
+    }
+
     const activeCode = code || '';
     const generated = prepareIframeHtml({
       code: activeCode,
@@ -1285,138 +1419,150 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
       isPreviewEditMode: isVisualEditActiveRef.current
     });
 
-    const fileChanged = prevActiveFileIdRef.current !== activeFileId;
-    if (fileChanged) {
-      prevActiveFileIdRef.current = activeFileId;
-      cachedIframeSrcDocRef.current = generated;
-      return generated;
-    }
-
-    // When changes originate from inside the preview iframe (e.g. typing text strings or dragging images),
-    // return the exact same cached srcDoc string so the iframe DOM is NOT destroyed & re-rendered while user is actively typing.
-    // When Undo, Redo, editor typing, or file switches happen, allow srcDoc to update immediately!
-    if (isSelfGeneratedIframeUpdateRef.current) {
-      setTimeout(() => {
-        isSelfGeneratedIframeUpdateRef.current = false;
-      }, 400);
-      return cachedIframeSrcDocRef.current || generated;
-    }
-
     cachedIframeSrcDocRef.current = generated;
     return generated;
-  }, [code, sideMarginMm, verticalMarginMm, totalLeftMarginMm, fontSizePx, viewportMode, isDark, viewMode, activeFileId]);
+  }, [isFullScreenPreview, code, sideMarginMm, verticalMarginMm, totalLeftMarginMm, fontSizePx, viewportMode, isDark, zoomLevel]);
+
+  // Memoized handlers for Header and Sidebar to keep buttons isolated from file-to-file code changes
+  const handleBackToHome = useCallback(() => {
+    if (isVisualEditActiveRef.current) {
+      flushPreviewIframeChanges();
+    }
+    checkAndSaveBeforeAction();
+    setStudioView('home');
+    onViewChange?.('home');
+  }, [flushPreviewIframeChanges, checkAndSaveBeforeAction, onViewChange]);
+
+  const handleToggleMobileMore = useCallback(() => {
+    setIsMobileMoreOpen(true);
+  }, []);
+
+  const handleToggleOutline = useCallback(() => {
+    setIsSidebarOpen(true);
+    setActiveSidebarTab('outline');
+  }, []);
+
+  const handleToggleSearch = useCallback(() => {
+    if (viewMode === 'preview') {
+      setIsPreviewSearchOpen((prev) => !prev);
+    } else {
+      setIsEditorSearchOpen((prev) => !prev);
+    }
+  }, [viewMode]);
+
+  const handleOpenVersionHistoryModal = useCallback(() => {
+    setIsVersionModalOpen(true);
+  }, []);
+
+  const handleOpenMathEditorModal = useCallback(() => {
+    setIsMathModalOpen(true);
+  }, []);
+
+  const handleToggleAiAssistant = useCallback(() => {
+    setIsAiAssistantOpen((prev) => !prev);
+  }, []);
+
+  const handleAddFileCurrentProject = useCallback((projId?: string) => {
+    handleAddFileToProject(projId || activeProjectId);
+  }, [handleAddFileToProject, activeProjectId]);
 
   return (
-    <div className={`studio ${isDark ? 'dark' : ''} ${isResizing ? 'is-resizing' : ''} ${studioView === 'home' ? 'is-home-view' : ''} ${viewMode === 'preview' ? 'is-preview-active' : ''}`}>
-      <style>{STUDIO_CSS_STYLES}</style>
+    <div className={`studio ${isDark ? 'dark' : ''} ${isResizing ? 'is-resizing' : ''} ${studioView === 'home' ? 'is-home-view' : ''}`}>
 
       {/* 1. OVERLEAF-STYLE HOMEPAGE */}
       {studioView === 'home' ? (
-        <HtmlNotesHomeView
-          onBack={onBack}
-          projects={projects}
-          isDark={isDark}
-          toggleTheme={toggleTheme}
-          isDriveConnected={isDriveAuth}
-          driveSyncStatus={driveSyncStatus}
-          onConnectDrive={handleConnectDrive}
-          onTriggerDriveSync={handleTriggerDriveSync}
-          onDeduplicateDrive={handleDeduplicateDrive}
-          activeNote={activeFile}
-          showToast={showDriveToast}
-          onOpenProject={handleOpenProjectWithFlush}
-          onOpenFile={(projId, file) => handleOpenFileWithFlush(projId, file, 'preview')}
-          onCreateNewProject={handleCreateNewProject}
-          onImportClick={() => fileInputRef.current?.click()}
-          onAddFileToProject={handleAddFileToProject}
-          onDeleteProject={handleDeleteProject}
-          onDeleteFile={handleDeleteFile}
-          renamingProjectId={renamingProjectId}
-          renamingProjectName={renamingProjectName}
-          setRenamingProjectName={setRenamingProjectName}
-          setRenamingProjectId={setRenamingProjectId}
-          onCommitRenameProject={handleCommitRenameProject}
-          expandedProjects={expandedProjects}
-          toggleExpandProject={toggleExpandProject}
-          onSwitchStudioMode={onSwitchStudioMode}
-          activeStudioMode={activeStudioMode}
-          onExportFullProject={handleExportFullProject}
-        />
+        <div key="studio-home-view" className="flex-1 flex flex-col min-h-0 overflow-hidden m3-fade-through">
+          <HtmlNotesHomeView
+            onBack={onBack}
+            projects={projects}
+            isDark={isDark}
+            toggleTheme={toggleTheme}
+            isDriveConnected={isDriveAuth}
+            driveSyncStatus={driveSyncStatus}
+            onConnectDrive={handleConnectDrive}
+            onTriggerDriveSync={handleTriggerDriveSync}
+            onDeduplicateDrive={handleDeduplicateDrive}
+            activeNote={activeFile}
+            showToast={showDriveToast}
+            onOpenProject={handleOpenProjectWithFlush}
+            onOpenFile={(projId, file) => handleOpenFileWithFlush(projId, file, 'preview')}
+            onCreateNewProject={handleCreateNewProject}
+            onImportClick={() => fileInputRef.current?.click()}
+            onAddFileToProject={handleAddFileToProject}
+            onDeleteProject={handleDeleteProject}
+            onDeleteFile={handleDeleteFile}
+            renamingProjectId={renamingProjectId}
+            renamingProjectName={renamingProjectName}
+            setRenamingProjectName={setRenamingProjectName}
+            setRenamingProjectId={setRenamingProjectId}
+            onCommitRenameProject={handleCommitRenameProject}
+            expandedProjects={expandedProjects}
+            toggleExpandProject={toggleExpandProject}
+            onSwitchStudioMode={onSwitchStudioMode}
+            activeStudioMode={activeStudioMode}
+            onExportFullProject={handleExportFullProject}
+            searchQuery={searchQuery}
+            onClearSearch={onClearSearch}
+            onImportDroppedFile={handleImportDroppedFile}
+          />
+        </div>
       ) : (
         /* 2. DEDICATED STUDIO EDITOR / SPLIT / PREVIEW VIEW */
-        <>
-          <HtmlNotesHeader
-            onBack={() => {
-              if (isVisualEditActiveRef.current) {
-                flushPreviewIframeChanges();
-              }
-              checkAndSaveBeforeAction();
-              setStudioView('home');
-              onViewChange?.('home');
-            }}
-            onGoHome={() => {
-              if (isVisualEditActiveRef.current) {
-                flushPreviewIframeChanges();
-              }
-              checkAndSaveBeforeAction();
-              setStudioView('home');
-              onViewChange?.('home');
-            }}
+        <HtmlNotesErrorBoundary onResetToHome={handleBackToHome}>
+          <div key="studio-editor-view" className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <HtmlNotesHeader
+            onBack={handleBackToHome}
+            onGoHome={handleBackToHome}
             viewMode={viewMode}
-            setViewMode={setViewMode}
+            setViewMode={handleSetViewModeWithFlush}
             viewportMode={viewportMode}
             setViewportMode={setViewportMode}
             onSaveCurrentFile={handleSaveCurrentFileWithFlush}
             savedSuccess={savedSuccess}
             hasUnsavedChanges={hasUnsavedChanges}
-            onToggleMobileMore={() => setIsMobileMoreOpen(true)}
+            onToggleMobileMore={handleToggleMobileMore}
             isDriveConnected={isDriveAuth}
             driveSyncStatus={driveSyncStatus}
             onTriggerDriveSync={handleTriggerDriveSync}
             onConnectDrive={handleConnectDrive}
-            onToggleOutline={() => {
-              setIsSidebarOpen(true);
-              setActiveSidebarTab('outline');
-            }}
+            onToggleOutline={handleToggleOutline}
             headingsCount={headingsList.length}
             onUndo={handleStudioUndo}
             canUndo={canUndo}
             onRedo={handleStudioRedo}
             canRedo={canRedo}
-            onToggleSearch={() => {
-              if (viewMode === 'preview') {
-                setIsPreviewSearchOpen(prev => !prev);
-              } else {
-                setIsEditorSearchOpen(prev => !prev);
-              }
-            }}
+            onToggleSearch={handleToggleSearch}
             isSearchActive={isEditorSearchOpen || isPreviewSearchOpen}
             onTriggerInsertImage={handleTriggerInsertImage}
-            onOpenVersionHistory={() => setIsVersionModalOpen(true)}
-            onOpenMathEditor={() => setIsMathModalOpen(true)}
+            onOpenVersionHistory={handleOpenVersionHistoryModal}
+            onOpenMathEditor={handleOpenMathEditorModal}
             isAiAssistantOpen={isAiAssistantOpen}
-            onToggleAiAssistant={() => setIsAiAssistantOpen(prev => !prev)}
+            onToggleAiAssistant={handleToggleAiAssistant}
             activeProject={activeProject}
             activeProjectId={activeProject?.id || activeProjectId}
             activeFileId={activeFileId}
             activeProjectFiles={activeProjectFiles}
             onOpenFile={handleOpenFileWithFlush}
-            onAddFile={(projId) => handleAddFileToProject(projId || activeProject?.id || activeProjectId)}
+            onAddFile={handleAddFileCurrentProject}
             onDeleteFile={handleDeleteFile}
             renamingFileId={renamingFileId}
             renamingFileTitle={renamingFileTitle}
             setRenamingFileTitle={setRenamingFileTitle}
             onStartRenameFile={handleStartRenameFile}
             onCommitRenameFile={handleCommitRenameFile}
+            onReorderFiles={handleReorderFiles}
             onToggleFullScreenPreview={handleToggleFullScreenPreview}
             isFullScreenPreview={isFullScreenPreview}
             isVisualEditActive={isVisualEditActive}
             onToggleVisualEdit={handleToggleVisualEdit}
+            isPenModeActive={isPenModeActive}
+            onTogglePenMode={handleTogglePenMode}
             onPrintDocument={handlePrintDocument}
             isPrinting={isPrinting}
           />
 
-          <main ref={workspaceRef} className="workspace">
+          <main ref={workspaceRef} className="workspace relative">
+
             <HtmlNotesSidebar
               isSidebarOpen={isSidebarOpen}
               setIsSidebarOpen={setIsSidebarOpen}
@@ -1431,9 +1577,10 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
               activeProjectFiles={activeProjectFiles}
               viewMode={viewMode}
               onOpenFile={handleOpenFileWithFlush}
-              onAddFileToProject={(projId) => handleAddFileToProject(projId || activeProject?.id || activeProjectId)}
+              onAddFileToProject={handleAddFileCurrentProject}
+              onReorderFiles={handleReorderFiles}
               onDeleteFile={handleDeleteFile}
-              onOpenVersionHistory={() => setIsVersionModalOpen(true)}
+              onOpenVersionHistory={handleOpenVersionHistoryModal}
               onExportFullProject={handleExportFullProject}
               headingsList={headingsList}
               onJumpToHeading={handleJumpToHeading}
@@ -1534,10 +1681,33 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
               showToast={showDriveToast}
               isVisualEditActive={isVisualEditActive}
               onToggleVisualEdit={handleToggleVisualEdit}
+              isPenModeActive={isPenModeActive}
+              penTool={penTool}
+              penColor={penColor}
+              penWidth={penWidth}
+              setViewportMode={setViewportMode}
             />
+
+            {/* Stylus Pen & Highlighter Side Dock Toggle */}
+            {isPenModeActive && (
+              <HtmlNotesPenToolbar
+                isOpen={isPenModeActive}
+                onClose={handleTogglePenMode}
+                activeTool={penTool}
+                onSelectTool={handleSelectPenTool}
+                currentColor={penColor}
+                onSelectColor={handleSelectPenColor}
+                currentWidth={penWidth}
+                onSelectWidth={handleSelectPenWidth}
+                onUndo={handlePenUndo}
+                onRedo={handlePenRedo}
+                onClearAll={handlePenClear}
+              />
+            )}
           </main>
-        </>
-      )}
+        </div>
+      </HtmlNotesErrorBoundary>
+    )}
 
       {/* MODALS & OVERLAYS */}
       <HtmlNotesModals
@@ -1548,7 +1718,7 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
         onExportHtml={handleExportHtml}
         onExportFullProject={() => handleExportFullProject()}
         activeProjectName={activeProject?.name}
-        projectFilesCount={activeProjectFiles.length}
+        projectFilesCount={(activeProjectFiles || []).length}
         onPrintDocument={handlePrintDocument}
         isPrinting={isPrinting}
         onOpenDeleteModal={() => setShowDeleteConfirmModal(true)}
@@ -1565,18 +1735,21 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
         showDeleteConfirmModal={showDeleteConfirmModal}
         setShowDeleteConfirmModal={(open) => {
           setShowDeleteConfirmModal(open);
-          if (!open) setDeleteTarget(null);
+          if (!open) {
+            setTimeout(() => setDeleteTarget(null), 150);
+          }
         }}
         onConfirmDelete={() => {
-          if (deleteTarget?.type === 'project') {
-            handleExecuteDeleteProject(deleteTarget.projectId);
-          } else if (deleteTarget?.type === 'file' && deleteTarget.fileId) {
-            handleExecuteDeleteFile(deleteTarget.projectId, deleteTarget.fileId);
-          } else {
+          const target = deleteTarget;
+          setShowDeleteConfirmModal(false);
+          if (target?.type === 'project') {
+            handleExecuteDeleteProject(target.projectId);
+          } else if (target?.type === 'file' && target.fileId) {
+            handleExecuteDeleteFile(target.projectId, target.fileId);
+          } else if (activeProjectId && activeFileId) {
             handleExecuteDeleteFile(activeProjectId, activeFileId);
           }
-          setShowDeleteConfirmModal(false);
-          setDeleteTarget(null);
+          setTimeout(() => setDeleteTarget(null), 150);
         }}
         noteTitle={deleteTarget?.title || title}
         deleteTargetType={deleteTarget?.type || 'file'}
@@ -1655,7 +1828,7 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
 
       {/* FULL SCREEN INTERACTIVE PREVIEW VIEW */}
       {isFullScreenPreview && (
-        <div className="fixed inset-0 z-[100] bg-white dark:bg-[#0b0c10] flex flex-col overflow-hidden animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-[100] bg-white dark:bg-[#0b0c10] flex flex-col overflow-hidden m3-fade-in">
           {/* Compact Top Bar directly under Device Status Bar */}
           <div className="min-h-[38px] px-3 sm:px-5 pt-[calc(env(safe-area-inset-top,0px)+0.15rem)] pb-1 bg-white/95 dark:bg-[#0b0c10]/95 backdrop-blur-md border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-2 shrink-0 z-20">
             <div className="flex items-center gap-2 min-w-0">
@@ -1720,6 +1893,23 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
               className="w-full h-full border-0 block bg-white dark:bg-[#14161d]"
               style={{ width: '100%', height: '100%', border: 0, display: 'block', touchAction: 'pan-x pan-y' }}
             />
+
+            {/* Full Screen Stylus Pen Toolbar */}
+            {isPenModeActive && (
+              <HtmlNotesPenToolbar
+                isOpen={isPenModeActive}
+                onClose={handleTogglePenMode}
+                activeTool={penTool}
+                onSelectTool={handleSelectPenTool}
+                currentColor={penColor}
+                onSelectColor={handleSelectPenColor}
+                currentWidth={penWidth}
+                onSelectWidth={handleSelectPenWidth}
+                onUndo={handlePenUndo}
+                onRedo={handlePenRedo}
+                onClearAll={handlePenClear}
+              />
+            )}
           </div>
         </div>
       )}

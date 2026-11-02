@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 4: Advanced Multivariable Calculus & Optimization</title>
+  <style>
+    /* Strict Portrait Specification for Academic Documents */
+    @page {
+      size: A4 portrait;
+      margin: 12mm 10mm;
+    }
+
+    /* Clean Academic Textbook Print Specification - Zero Card Containers */
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: #1e293b;
+      background: #ffffff;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Chapter Title Header */
+    .chapter-header {
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 14px;
+      margin-bottom: 22px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+
+    .chapter-badge {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #475569;
+      margin-bottom: 4px;
+    }
+
+    h1.chapter-title {
+      font-size: 26px;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 0 0 6px 0;
+      line-height: 1.25;
+      letter-spacing: -0.02em;
+    }
+
+    .chapter-subtitle {
+      font-size: 13.5px;
+      color: #64748b;
+      margin: 0;
+      font-style: italic;
+    }
+
+    /* Academic Section Structure - Zero Card Background Containers */
+    section.academic-section {
+      margin-top: 20px;
+      margin-bottom: 18px;
+      page-break-inside: auto;
+      break-inside: auto;
+    }
+
+    h2.section-heading {
+      font-size: 17px;
+      font-weight: 700;
+      color: #0f172a;
+      border-bottom: 1px solid #cbd5e1;
+      padding-bottom: 5px;
+      margin-top: 18px;
+      margin-bottom: 12px;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+
+    h3.sub-heading {
+      font-size: 14.5px;
+      font-weight: 600;
+      color: #1e293b;
+      margin-top: 14px;
+      margin-bottom: 6px;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+
+    p {
+      margin-top: 0;
+      margin-bottom: 10px;
+      text-align: justify;
+      orphans: 2;
+      widows: 2;
+    }
+
+    /* Definition & Theorem Blocks - Academic Minimalist with Left Accent Rule Only (No Background Box) */
+    .math-theorem {
+      border-left: 3.5px solid #0f172a;
+      padding: 6px 0 6px 14px;
+      margin: 12px 0 14px 0;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    .math-theorem-title {
+      font-weight: 700;
+      font-size: 13.5px;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+
+    .math-definition {
+      border-left: 3.5px solid #475569;
+      padding: 6px 0 6px 14px;
+      margin: 12px 0 14px 0;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    .math-definition-title {
+      font-weight: 700;
+      font-size: 13.5px;
+      color: #334155;
+      margin-bottom: 4px;
+    }
+
+    .math-remark {
+      border-left: 2px dashed #94a3b8;
+      padding: 4px 0 4px 12px;
+      margin: 10px 0;
+      font-size: 12.5px;
+      color: #475569;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    /* Step-by-Step Worked Problems - Cohesive Problem Headers to Prevent Page-Bottom Splitting */
+    .example-block {
+      margin: 16px 0 20px 0;
+      page-break-inside: auto;
+      break-inside: auto;
+    }
+
+    .example-header {
+      page-break-inside: avoid;
+      break-inside: avoid;
+      page-break-after: avoid;
+      break-after: avoid;
+      margin-bottom: 8px;
+    }
+
+    .example-title {
+      font-weight: 700;
+      color: #0f172a;
+      font-size: 14.5px;
+      margin-bottom: 4px;
+    }
+
+    .solution-step {
+      margin-bottom: 10px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    .step-number {
+      font-weight: 600;
+      color: #334155;
+    }
+
+    /* Tables: Formal Academic Book Styling with Native Table Captions */
+    table.academic-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 18px 0;
+      font-size: 12px;
+      page-break-inside: auto;
+      break-inside: auto;
+    }
+
+    caption.table-caption {
+      caption-side: top;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 700;
+      color: #334155;
+      margin-bottom: 6px;
+      padding: 0;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+
+    table.academic-table thead {
+      display: table-header-group;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    table.academic-table tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    table.academic-table th {
+      border-top: 1.5px solid #0f172a;
+      border-bottom: 1.5px solid #0f172a;
+      padding: 7px 10px;
+      font-weight: 700;
+      text-align: left;
+      color: #0f172a;
+      background: transparent;
+    }
+
+    table.academic-table td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 7px 10px;
+      vertical-align: top;
+      color: #1e293b;
+    }
+
+    table.academic-table tbody tr:last-child td {
+      border-bottom: 1.5px solid #0f172a;
+    }
+
+    /* Mathematical Notation Polish */
+    .katex-display {
+      margin: 0.55em 0 !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+
+    /* Explicit Print Media Directives */
+    @media print {
+      body {
+        font-size: 10pt;
+        line-height: 1.5;
+        color: #000000;
+      }
+      h2.section-heading {
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+      }
+      h3.sub-heading {
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+      }
+      thead {
+        display: table-header-group !important;
+      }
+      tr {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .math-theorem, .math-definition, .example-header {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Chapter Header -->
+  <header class="chapter-header">
+    <div class="chapter-badge">Chapter 4 &bull; Advanced Pure &amp; Applied Analysis</div>
+    <h1 class="chapter-title">Multivariable Differential Calculus &amp; Constrained Optimization</h1>
+    <p class="chapter-subtitle">A Comprehensive Theoretical Framework, Matrix Formulations, and Pagination Stress Benchmark</p>
+  </header>
+
+  <!-- Section 4.1 -->
+  <section class="academic-section">
+    <h2 class="section-heading">4.1 Limits and Continuity in Euclidean Spaces $\mathbb{R}^n$</h2>
+    <p>
+      In single-variable calculus, approaching a point $x_0 \in \mathbb{R}$ involves exactly two directions: from the left ($x \to x_0^-$) or from the right ($x \to x_0^+$). In Euclidean space $\mathbb{R}^n$ with dimension $n \ge 2$, there exist uncountably many trajectories along continuous paths $\mathbf{r}(t)$ tending toward $\mathbf{x}_0$. Consequently, establishing the existence of a multivariable limit necessitates that the function values cluster arbitrarily close to the limit value across <em>every conceivable continuous path</em>.
+    </p>
+
+    <div class="math-definition">
+      <div class="math-definition-title">Definition 4.1.1 (Formal $\epsilon$-$\delta$ Limit in $\mathbb{R}^n$).</div>
+      Let $D \subseteq \mathbb{R}^n$ and let $\mathbf{f}: D \to \mathbb{R}^m$. Suppose $\mathbf{x}_0$ is an accumulation point of $D$. We say that $\mathbf{L} \in \mathbb{R}^m$ is the limit of $\mathbf{f}(\mathbf{x})$ as $\mathbf{x} \to \mathbf{x}_0$, denoted by $\lim_{\mathbf{x} \to \mathbf{x}_0} \mathbf{f}(\mathbf{x}) = \mathbf{L}$, if:
+      $$\forall \varepsilon > 0, \quad \exists \delta > 0 \quad \text{such that} \quad 0 < \|\mathbf{x} - \mathbf{x}_0\| < \delta \implies \|\mathbf{f}(\mathbf{x}) - \mathbf{L}\| < \varepsilon$$
+      where $\|\cdot\|$ denotes the Euclidean norm $\|\mathbf{v}\| = \sqrt{\sum_{i=1}^n v_i^2}$.
+    </div>
+
+    <p>
+      A central technique for demonstrating the non-existence of a multivariable limit is the <em>Two-Path Test</em>. If two distinct parameterizations $\mathbf{r}_1(t)$ and $\mathbf{r}_2(t)$ passing through $\mathbf{x}_0$ produce different limiting values as $t \to 0$, the limit cannot exist.
+    </p>
+
+    <div class="math-theorem">
+      <div class="math-theorem-title">Theorem 4.1.2 (Squeeze Principle in Multivariable Domains).</div>
+      Let $g(\mathbf{x}) \le f(\mathbf{x}) \le h(\mathbf{x})$ for all $\mathbf{x}$ in a punctured ball $B^*_\delta(\mathbf{x}_0)$. If:
+      $$\lim_{\mathbf{x} \to \mathbf{x}_0} g(\mathbf{x}) = \lim_{\mathbf{x} \to \mathbf{x}_0} h(\mathbf{x}) = L$$
+      then the multivariable limit of $f(\mathbf{x})$ exists and equals $L$:
+      $$\lim_{\mathbf{x} \to \mathbf{x}_0} f(\mathbf{x}) = L$$
+    </div>
+  </section>
+
+  <!-- Section 4.2 -->
+  <section class="academic-section">
+    <h2 class="section-heading">4.2 Total Differentiability, the Gradient Vector, and the Jacobian</h2>
+    <p>
+      The existence of all first-order partial derivatives $\frac{\partial f}{\partial x_i}$ at a point $\mathbf{x}_0$ does <strong>not</strong> guarantee continuity, let alone differentiability. Total differentiability requires that the function admits a linear approximation whose remainder decays strictly faster than $\|\mathbf{h}\|$.
+    </p>
+
+    <div class="math-definition">
+      <div class="math-definition-title">Definition 4.2.1 (Total Differentiability and the Fréchet Derivative).</div>
+      A function $\mathbf{f}: U \subseteq \mathbb{R}^n \to \mathbb{R}^m$ is said to be totally differentiable at $\mathbf{x}_0 \in \operatorname{int}(U)$ if there exists a linear mapping $D\mathbf{f}(\mathbf{x}_0) \in \mathcal{L}(\mathbb{R}^n, \mathbb{R}^m)$ such that:
+      $$\lim_{\mathbf{h} \to \mathbf{0}} \frac{\|\mathbf{f}(\mathbf{x}_0 + \mathbf{h}) - \mathbf{f}(\mathbf{x}_0) - D\mathbf{f}(\mathbf{x}_0)\mathbf{h}\|}{\|\mathbf{h}\|} = 0$$
+      In the standard canonical basis, the linear transformation is represented by the $m \times n$ <strong>Jacobian Matrix</strong> $J_{\mathbf{f}}(\mathbf{x}_0)$:
+      $$J_{\mathbf{f}}(\mathbf{x}) = \begin{bmatrix}
+        \frac{\partial f_1}{\partial x_1} & \frac{\partial f_1}{\partial x_2} & \cdots & \frac{\partial f_1}{\partial x_n} \\[6pt]
+        \frac{\partial f_2}{\partial x_1} & \frac{\partial f_2}{\partial x_2} & \cdots & \frac{\partial f_2}{\partial x_n} \\[6pt]
+        \vdots & \vdots & \ddots & \vdots \\[6pt]
+        \frac{\partial f_m}{\partial x_1} & \frac{\partial f_m}{\partial x_2} & \cdots & \frac{\partial f_m}{\partial x_n}
+      \end{bmatrix}$$
+    </div>
+
+    <p>
+      When the target dimension is $m = 1$, the function is a scalar field $f: \mathbb{R}^n \to \mathbb{R}$. Its derivative matrix is represented as the transposed row vector of partial derivatives, whose Euclidean dual is the <strong>Gradient Vector</strong>:
+      $$\nabla f(\mathbf{x}) = \left[ \frac{\partial f}{\partial x_1}, \, \frac{\partial f}{\partial x_2}, \, \dots, \, \frac{\partial f}{\partial x_n} \right]^T \in \mathbb{R}^n$$
+    </p>
+
+    <div class="math-theorem">
+      <div class="math-theorem-title">Theorem 4.2.2 (Directional Derivative &amp; Steepest Ascent).</div>
+      Let $f: \mathbb{R}^n \to \mathbb{R}$ be continuously differentiable at $\mathbf{x}_0$. For any unit vector $\mathbf{u} \in \mathbb{R}^n$ with $\|\mathbf{u}\| = 1$, the directional derivative $D_{\mathbf{u}}f(\mathbf{x}_0)$ is the projection of the gradient onto $\mathbf{u}$:
+      $$D_{\mathbf{u}}f(\mathbf{x}_0) = \nabla f(\mathbf{x}_0) \cdot \mathbf{u} = \|\nabla f(\mathbf{x}_0)\| \cos \theta$$
+      where $\theta$ is the angle between $\nabla f(\mathbf{x}_0)$ and $\mathbf{u}$. Hence:
+      <ol style="margin: 6px 0 6px 18px; padding: 0;">
+        <li>The maximum rate of increase is $\|\nabla f(\mathbf{x}_0)\|$, attained when $\mathbf{u}$ is aligned with $\nabla f(\mathbf{x}_0)$ ($\theta = 0$).</li>
+        <li>The maximum rate of decrease is $-\|\nabla f(\mathbf{x}_0)\|$, attained when $\mathbf{u}$ is opposite to $\nabla f(\mathbf{x}_0)$ ($\theta = \pi$).</li>
+        <li>The directional derivative is zero along directions tangent to the level hypersurface $f(\mathbf{x}) = c$ ($\theta = \pi/2$).</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- Section 4.3: Comprehensive Reference Table 1 with Native Caption -->
+  <section class="academic-section">
+    <h2 class="section-heading">4.3 Comprehensive Reference Tables: Differential Operators and Coordinates</h2>
+    <p>
+      The following reference table outlines the classical differential operators across Cartesian and Curvilinear coordinates, providing a foundational benchmark for coordinate transformations.
+    </p>
+
+    <table class="academic-table">
+      <caption class="table-caption">Table 4.1: Fundamental Multivariable Differential Operators in $\mathbb{R}^3$</caption>
+      <thead>
+        <tr>
+          <th style="width: 18%;">Operator</th>
+          <th style="width: 24%;">Cartesian Formula $(x, y, z)$</th>
+          <th style="width: 32%;">Cylindrical Coordinates $(r, \theta, z)$</th>
+          <th style="width: 26%;">Geometric Significance</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Gradient</strong> $\nabla \Phi$</td>
+          <td>$\frac{\partial \Phi}{\partial x}\mathbf{i} + \frac{\partial \Phi}{\partial y}\mathbf{j} + \frac{\partial \Phi}{\partial z}\mathbf{k}$</td>
+          <td>$\frac{\partial \Phi}{\partial r}\mathbf{\hat{r}} + \frac{1}{r}\frac{\partial \Phi}{\partial \theta}\boldsymbol{\hat{\theta}} + \frac{\partial \Phi}{\partial z}\mathbf{\hat{z}}$</td>
+          <td>Direction and magnitude of steepest local ascent of scalar field.</td>
+        </tr>
+        <tr>
+          <td><strong>Divergence</strong> $\nabla \cdot \mathbf{F}$</td>
+          <td>$\frac{\partial F_x}{\partial x} + \frac{\partial F_y}{\partial y} + \frac{\partial F_z}{\partial z}$</td>
+          <td>$\frac{1}{r}\frac{\partial}{\partial r}(r F_r) + \frac{1}{r}\frac{\partial F_\theta}{\partial \theta} + \frac{\partial F_z}{\partial z}$</td>
+          <td>Net outward flux density from an infinitesimal volume (source/sink).</td>
+        </tr>
+        <tr>
+          <td><strong>Curl</strong> $\nabla \times \mathbf{F}$</td>
+          <td>$\begin{vmatrix} \mathbf{i} & \mathbf{j} & \mathbf{k} \\ \frac{\partial}{\partial x} & \frac{\partial}{\partial y} & \frac{\partial}{\partial z} \\ F_x & F_y & F_z \end{vmatrix}$</td>
+          <td>$\frac{1}{r}\begin{vmatrix} \mathbf{\hat{r}} & r\boldsymbol{\hat{\theta}} & \mathbf{\hat{z}} \\ \frac{\partial}{\partial r} & \frac{\partial}{\partial \theta} & \frac{\partial}{\partial z} \\ F_r & rF_\theta & F_z \end{vmatrix}$</td>
+          <td>Vorticity and circulation density per unit cross-sectional area.</td>
+        </tr>
+        <tr>
+          <td><strong>Laplacian</strong> $\Delta \Phi = \nabla^2 \Phi$</td>
+          <td>$\frac{\partial^2 \Phi}{\partial x^2} + \frac{\partial^2 \Phi}{\partial y^2} + \frac{\partial^2 \Phi}{\partial z^2}$</td>
+          <td>$\frac{1}{r}\frac{\partial}{\partial r}\left(r\frac{\partial \Phi}{\partial r}\right) + \frac{1}{r^2}\frac{\partial^2 \Phi}{\partial \theta^2} + \frac{\partial^2 \Phi}{\partial z^2}$</td>
+          <td>Disparity between value at a point and mean of neighboring values.</td>
+        </tr>
+        <tr>
+          <td><strong>Hessian Matrix</strong> $H_f$</td>
+          <td>$\begin{bmatrix} \frac{\partial^2 f}{\partial x^2} & \frac{\partial^2 f}{\partial x \partial y} \\ \frac{\partial^2 f}{\partial y \partial x} & \frac{\partial^2 f}{\partial y^2} \end{bmatrix}$</td>
+          <td>Metric-dependent covariant derivatives $\nabla_i \nabla_j f - \Gamma_{ij}^k \nabla_k f$</td>
+          <td>Curvature quadratic form governing local second-order variation.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Section 4.4: Second-Order Taylor Expansions and Quadratic Forms -->
+  <section class="academic-section">
+    <h2 class="section-heading">4.4 Higher-Order Taylor Series and Hessian Classification</h2>
+    <p>
+      For scalar functions $f \in \mathcal{C}^2(\mathbb{R}^n)$, the multivariate Taylor series expansion about an interior anchor point $\mathbf{x}_0$ up to second order is written concisely with inner products and matrix-vector multiplications:
+    </p>
+
+    $$\begin{aligned}
+      f(\mathbf{x}_0 + \mathbf{h}) &= f(\mathbf{x}_0) + \nabla f(\mathbf{x}_0)^T \mathbf{h} + \frac{1}{2!} \mathbf{h}^T H_f(\mathbf{x}_0) \mathbf{h} + R_2(\mathbf{h}) \\[8pt]
+      &= f(\mathbf{x}_0) + \sum_{i=1}^n \frac{\partial f(\mathbf{x}_0)}{\partial x_i} h_i + \frac{1}{2} \sum_{i=1}^n \sum_{j=1}^n \frac{\partial^2 f(\mathbf{x}_0)}{\partial x_i \partial x_j} h_i h_j + \mathcal{O}(\|\mathbf{h}\|^3)
+    \end{aligned}$$
+
+    <p>
+      At a <em>critical point</em> $\mathbf{x}^*$, the first-order gradient vanishes identically: $\nabla f(\mathbf{x}^*) = \mathbf{0}$. Therefore, the nature of the critical point is completely dictated by the quadratic form $Q(\mathbf{h}) = \mathbf{h}^T H_f(\mathbf{x}^*) \mathbf{h}$.
+    </p>
+
+    <div class="math-theorem">
+      <div class="math-theorem-title">Theorem 4.4.1 (Hessian Eigenvalue Classification Criterion).</div>
+      Let $f \in \mathcal{C}^2(U)$ and let $\nabla f(\mathbf{x}^*) = \mathbf{0}$. Since $H_f(\mathbf{x}^*)$ is a real symmetric matrix by Clairaut's Schwarz Theorem ($\frac{\partial^2 f}{\partial x_i \partial x_j} = \frac{\partial^2 f}{\partial x_j \partial x_i}$), its eigenvalues $\{\lambda_1, \lambda_2, \dots, \lambda_n\}$ are strictly real:
+      <ul style="margin: 6px 0 6px 18px; padding: 0;">
+        <li><strong>Strict Local Minimum:</strong> If all $\lambda_i > 0$ (Positive Definite, $H_f \succ 0$).</li>
+        <li><strong>Strict Local Maximum:</strong> If all $\lambda_i < 0$ (Negative Definite, $H_f \prec 0$).</li>
+        <li><strong>Saddle Point:</strong> If there exist $\lambda_i > 0$ and $\lambda_j < 0$ (Indefinite).</li>
+        <li><strong>Inconclusive Test:</strong> If at least one $\lambda_i = 0$ and all others have identical sign (Semidefinite). Higher-order terms must be examined.</li>
+      </ul>
+    </div>
+
+    <table class="academic-table">
+      <caption class="table-caption">Table 4.2: Critical Point Classification in Dimension $n=2$ via the Discriminant $D$</caption>
+      <thead>
+        <tr>
+          <th style="width: 25%;">Hessian Determinant $D$</th>
+          <th style="width: 25%;">Trace / Lead Entry $f_{xx}$</th>
+          <th style="width: 25%;">Eigenvalue Signs $(\lambda_1, \lambda_2)$</th>
+          <th style="width: 25%;">Geometric Topography</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>$D = f_{xx}f_{yy} - (f_{xy})^2 > 0$</td>
+          <td>$f_{xx}(\mathbf{x}^*) > 0$</td>
+          <td>$\lambda_1 > 0, \quad \lambda_2 > 0$</td>
+          <td>Local Minimum (Elliptic Paraboloid, concave upward)</td>
+        </tr>
+        <tr>
+          <td>$D = f_{xx}f_{yy} - (f_{xy})^2 > 0$</td>
+          <td>$f_{xx}(\mathbf{x}^*) < 0$</td>
+          <td>$\lambda_1 < 0, \quad \lambda_2 < 0$</td>
+          <td>Local Maximum (Elliptic Paraboloid, concave downward)</td>
+        </tr>
+        <tr>
+          <td>$D = f_{xx}f_{yy} - (f_{xy})^2 < 0$</td>
+          <td>Any sign or zero</td>
+          <td>$\lambda_1 > 0 > \lambda_2$ (mixed signs)</td>
+          <td>Saddle Point (Hyperbolic Paraboloid, pass structure)</td>
+        </tr>
+        <tr>
+          <td>$D = f_{xx}f_{yy} - (f_{xy})^2 = 0$</td>
+          <td>Any value</td>
+          <td>$\min(|\lambda_1|, |\lambda_2|) = 0$</td>
+          <td>Inconclusive (Trough, Monkey Saddle, or higher-order ridge)</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Section 4.5: Constrained Optimization and Lagrange Multipliers -->
+  <section class="academic-section">
+    <h2 class="section-heading">4.5 Constrained Optimization: The Method of Lagrange Multipliers</h2>
+    <p>
+      Consider the problem of optimizing an objective scalar field $f(\mathbf{x})$ subject to $k$ simultaneous equality constraints:
+      $$\text{Optimize } f(\mathbf{x}) \quad \text{subject to } \quad g_j(\mathbf{x}) = 0, \quad j = 1, 2, \dots, k \quad (k < n)$$
+    </p>
+
+    <div class="math-theorem">
+      <div class="math-theorem-title">Theorem 4.5.1 (First-Order Necessary Conditions for Constrained Extrema).</div>
+      Let $f, g_1, \dots, g_k \in \mathcal{C}^1(U)$. Let $\mathbf{x}^* \in U$ be a local extremum of $f$ on the constraint manifold $\mathcal{M} = \{\mathbf{x} \in U \mid g_j(\mathbf{x}) = 0\}$. Assume the Linear Independence Constraint Qualification (LICQ) holds:
+      $$\operatorname{rank}\left( \begin{bmatrix} \nabla g_1(\mathbf{x}^*) & \nabla g_2(\mathbf{x}^*) & \cdots & \nabla g_k(\mathbf{x}^*) \end{bmatrix} \right) = k$$
+      Then there exist unique Lagrange Multipliers $\boldsymbol{\lambda}^* = (\lambda_1^*, \dots, \lambda_k^*)^T \in \mathbb{R}^k$ such that:
+      $$\nabla f(\mathbf{x}^*) + \sum_{j=1}^k \lambda_j^* \nabla g_j(\mathbf{x}^*) = \mathbf{0}$$
+      Equivalently, defining the <strong>Lagrangian Function</strong> $\mathcal{L}(\mathbf{x}, \boldsymbol{\lambda}) = f(\mathbf{x}) + \sum_{j=1}^k \lambda_j g_j(\mathbf{x})$, the critical point $(\mathbf{x}^*, \boldsymbol{\lambda}^*)$ satisfies the unconstrained stationarity system:
+      $$\nabla_{\mathbf{x}, \boldsymbol{\lambda}} \mathcal{L}(\mathbf{x}^*, \boldsymbol{\lambda}^*) = \mathbf{0} \iff \begin{cases}
+        \nabla_{\mathbf{x}} \mathcal{L} = \nabla f(\mathbf{x}^*) + \sum_{j=1}^k \lambda_j^* \nabla g_j(\mathbf{x}^*) = \mathbf{0} \\[6pt]
+        \nabla_{\boldsymbol{\lambda}} \mathcal{L} = \mathbf{g}(\mathbf{x}^*) = \mathbf{0}
+      \end{cases}$$
+    </div>
+
+    <div class="math-remark">
+      <strong>Economic Interpretation of Multipliers:</strong> If the constraint boundary is perturbed by an infinitesimal displacement $g_j(\mathbf{x}) = c_j$, the optimal value function $f^*(\mathbf{c}) = f(\mathbf{x}^*(\mathbf{c}))$ satisfies the shadow price relationship:
+      $$\frac{\partial f^*}{\partial c_j} = -\lambda_j^*$$
+      Thus, each multiplier reflects the instantaneous marginal sensitivity of the objective with respect to constraint tightening.
+    </div>
+  </section>
+
+  <!-- Section 4.6: Step-by-Step Worked Problems (Pagination Stress Testing) -->
+  <section class="academic-section">
+    <h2 class="section-heading">4.6 Step-by-Step Worked Derivations &amp; Pagination Benchmark Problems</h2>
+    <p>
+      The following rigorous derivations test multi-step mathematical alignments, equation layouts, and clean pagination across page seams.
+    </p>
+
+    <!-- Problem 1 -->
+    <div class="example-block">
+      <div class="example-header">
+        <div class="example-title">Problem 4.1: Path-Dependent Limit Analysis at the Origin</div>
+        <p>
+          Investigate whether the following limit exists or diverges as $(x, y) \to (0, 0)$:
+        </p>
+        $$\lim_{(x, y) \to (0, 0)} \frac{x^3 y}{x^6 + 2y^2}$$
+      </div>
+
+      <div class="solution-step">
+        <span class="step-number">Step 1: Evaluation along linear trajectories.</span>
+        Let $(x, y) \to (0, 0)$ along straight lines $y = mx$. Substituting gives:
+        $$\lim_{x \to 0} \frac{x^3(mx)}{x^6 + 2(mx)^2} = \lim_{x \to 0} \frac{m x^4}{x^6 + 2m^2 x^2} = \lim_{x \to 0} \frac{m x^2}{x^4 + 2m^2} = \frac{0}{2m^2} = 0 \quad (\forall m \ne 0)$$
+        Along the coordinate axes $x = 0$ and $y = 0$, the function is identically zero. Hence, all straight lines yield the candidate value $L = 0$.
+      </div>
+
+      <div class="solution-step">
+        <span class="step-number">Step 2: Evaluation along homogeneous degree-matching parabolic curves.</span>
+        Observing that the denominator contains $x^6$ and $y^2 = (y)^2$, we match powers by setting $y = k x^3$. Substituting into the quotient:
+        $$\lim_{x \to 0} \frac{x^3(k x^3)}{x^6 + 2(k x^3)^2} = \lim_{x \to 0} \frac{k x^6}{x^6 + 2k^2 x^6} = \lim_{x \to 0} \frac{k}{1 + 2k^2} = \frac{k}{1 + 2k^2}$$
+      </div>
+
+      <div class="solution-step">
+        <span class="step-number">Step 3: Synthesis and Conclusion.</span>
+        For $k = 1$, the path limit is $\frac{1}{3}$. For $k = -1$, the path limit is $-\frac{1}{3}$. Because the limiting value depends on the parameter $k$ of the cubic trajectory, the limit <strong>does not exist</strong> by the Two-Path Test.
+      </div>
+    </div>
+
+    <!-- Problem 2 -->
+    <div class="example-block">
+      <div class="example-header">
+        <div class="example-title">Problem 4.2: Complete Critical Point Classification of a Bivariate Polynomial</div>
+        <p>
+          Find and classify all local extrema and saddle points of the scalar field:
+        </p>
+        $$f(x, y) = 2x^3 + x y^2 + 5x^2 + y^2$$
+      </div>
+
+      <div class="solution-step">
+        <span class="step-number">Step 1: Compute first-order partial derivatives and set to zero.</span>
+        $$\frac{\partial f}{\partial x} = 6x^2 + y^2 + 10x = 0 \quad \text{--- (Eq. 1)}$$
+        $$\frac{\partial f}{\partial y} = 2xy + 2y = 2y(x + 1) = 0 \quad \text{--- (Eq. 2)}$$
+      </div>
+
+      <div class="solution-step">
+        <span class="step-number">Step 2: Solve the nonlinear stationary system.</span>
+        From (Eq. 2), we have two branching conditions: either $y = 0$ or $x = -1$.
+        <br>
+        <strong>Case A ($y = 0$):</strong> Substituting into (Eq. 1):
+        $$6x^2 + 10x = 2x(3x + 5) = 0 \implies x = 0 \quad \text{or} \quad x = -\frac{5}{3}$$
+        This produces two critical points: $P_1(0, 0)$ and $P_2\left(-\frac{5}{3}, 0\right)$.
+        <br>
+        <strong>Case B ($x = -1$):</strong> Substituting into (Eq. 1):
+        $$6(-1)^2 + y^2 + 10(-1) = 6 + y^2 - 10 = y^2 - 4 = 0 \implies y = \pm 2$$
+        This produces two additional critical points: $P_3(-1, 2)$ and $P_4(-1, -2)$.
+      </div>
+
+      <div class="solution-step">
+        <span class="step-number">Step 3: Compute Hessian entries and discriminants.</span>
+        The second-order partial derivatives are:
+        $$f_{xx} = 12x + 10, \quad f_{yy} = 2x + 2, \quad f_{xy} = 2y$$
+        The Hessian determinant is given by $D(x, y) = f_{xx}f_{yy} - (f_{xy})^2 = (12x + 10)(2x + 2) - 4y^2$.
+      </div>
+
+      <div class="solution-step">
+        <span class="step-number">Step 4: Systematic classification across all four points.</span>
+        <table class="academic-table" style="margin-top: 8px;">
+          <thead>
+            <tr>
+              <th>Critical Point</th>
+              <th>$f_{xx}$</th>
+              <th>$f_{yy}$</th>
+              <th>$f_{xy}$</th>
+              <th>$D = f_{xx}f_{yy} - f_{xy}^2$</th>
+              <th>Classification Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>$P_1(0, 0)$</td>
+              <td>$+10 > 0$</td>
+              <td>$+2$</td>
+              <td>$0$</td>
+              <td>$(10)(2) - 0 = +20 > 0$</td>
+              <td><strong>Local Minimum</strong> ($f(0,0)=0$)</td>
+            </tr>
+            <tr>
+              <td>$P_2\left(-\frac{5}{3}, 0\right)$</td>
+              <td>$-10 < 0$</td>
+              <td>$-\frac{4}{3}$</td>
+              <td>$0$</td>
+              <td>$(-10)(-\frac{4}{3}) - 0 = +\frac{40}{3} > 0$</td>
+              <td><strong>Local Maximum</strong> ($f(-\frac{5}{3},0)=\frac{125}{27}$)</td>
+            </tr>
+            <tr>
+              <td>$P_3(-1, 2)$</td>
+              <td>$-2$</td>
+              <td>$0$</td>
+              <td>$+4$</td>
+              <td>$(-2)(0) - (4)^2 = -16 < 0$</td>
+              <td><strong>Saddle Point</strong></td>
+            </tr>
+            <tr>
+              <td>$P_4(-1, -2)$</td>
+              <td>$-2$</td>
+              <td>$0$</td>
+              <td>$-4$</td>
+              <td>$(-2)(0) - (-4)^2 = -16 < 0$</td>
+              <td><strong>Saddle Point</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Problem 3 -->
+    <div class="example-block">
+      <div class="example-header">
+        <div class="example-title">Problem 4.3: Optimal Geometry of a Cylinder Inscribed in an Ellipsoid</div>
+        <p>
+          Determine the maximum volume of a right circular cylinder oriented parallel to the $z$-axis that can be inscribed inside the ellipsoid:
+        </p>
+        $$\frac{x^2}{a^2} + \frac{y^2}{b^2} + \frac{z^2}{c^2} = 1 \quad (a, b, c > 0)$$
+      </div>
+
+      <div class="solution-step">
+        <span class="step-number">Step 1: Mathematical formulation of objective and constraints.</span>
+        Let the cylinder have radius $r$ in the $xy$-plane and half-height $z > 0$. Then its circular boundary satisfies $x^2 + y^2 = r^2$. For maximum radius inside the elliptical cross-section $\frac{x^2}{a^2} + \frac{y^2}{b^2} = 1 - \frac{z^2}{c^2}$, let $x = r \cos \theta, y = r \sin \theta$. The tightest binding radius occurs when $r^2 \left(\frac{\cos^2\theta}{a^2} + \frac{\sin^2\theta}{b^2}\right) = 1 - \frac{z^2}{c^2}$, with minimum at $\min(a, b)$.
+        <br>
+        More generally, for a rectangular prism with vertices $(\pm x, \pm y, \pm z)$, the volume is $V(x, y, z) = 8xyz$. Using the Method of Lagrange Multipliers on $g(x, y, z) = \frac{x^2}{a^2} + \frac{y^2}{b^2} + \frac{z^2}{c^2} - 1 = 0$:
+        $$\mathcal{L}(x, y, z, \lambda) = 8xyz - \lambda \left( \frac{x^2}{a^2} + \frac{y^2}{b^2} + \frac{z^2}{c^2} - 1 \right)$$
+      </div>
+
+      <div class="solution-step">
+        <span class="step-number">Step 2: Gradient stationary conditions.</span>
+        Equating all partial derivatives to zero for strictly positive $x, y, z > 0$:
+        $$\frac{\partial \mathcal{L}}{\partial x} = 8yz - \frac{2\lambda x}{a^2} = 0 \implies \lambda \frac{x^2}{a^2} = 4xyz$$
+        $$\frac{\partial \mathcal{L}}{\partial y} = 8xz - \frac{2\lambda y}{b^2} = 0 \implies \lambda \frac{y^2}{b^2} = 4xyz$$
+        $$\frac{\partial \mathcal{L}}{\partial z} = 8xy - \frac{2\lambda z}{c^2} = 0 \implies \lambda \frac{z^2}{c^2} = 4xyz$$
+      </div>
+
+      <div class="solution-step">
+        <span class="step-number">Step 3: Equality of partitioned components and final evaluation.</span>
+        Since all three right-hand sides equal $4xyz \ne 0$, we have:
+        $$\frac{x^2}{a^2} = \frac{y^2}{b^2} = \frac{z^2}{c^2}$$
+        Substituting into the ellipsoid constraint $\frac{x^2}{a^2} + \frac{y^2}{b^2} + \frac{z^2}{c^2} = 1$:
+        $$3 \left(\frac{x^2}{a^2}\right) = 1 \implies x = \frac{a}{\sqrt{3}}, \quad y = \frac{b}{\sqrt{3}}, \quad z = \frac{c}{\sqrt{3}}$$
+        The maximal inscribed volume is therefore rigorously determined as:
+        $$V_{\max} = 8 \left(\frac{a}{\sqrt{3}}\right)\left(\frac{b}{\sqrt{3}}\right)\left(\frac{c}{\sqrt{3}}\right) = \frac{8abc}{3\sqrt{3}}$$
+      </div>
+    </div>
+  </section>
+
+  <!-- Summary & Print Verification Footer Note -->
+  <footer style="margin-top: 28px; padding-top: 10px; border-top: 1px solid #cbd5e1; font-size: 11px; color: #64748b; text-align: center; page-break-inside: avoid; break-inside: avoid;">
+    End of Chapter 4 Benchmark &bull; Designed for Continuous &amp; A4 Print Pagination Testing &bull; Notes Studio Production Suite
+  </footer>
+
+</body>
+</html>

@@ -9,6 +9,7 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   optimizeDeps: {
+    entries: ['index.html', 'src/**/*.{ts,tsx,js,jsx}'],
     include: ['react', 'react-dom'],
   },
   build: {

@@ -13,3 +13,6 @@ build/
 scratch/
 scratch_test.mjs
 test_canvas.mjs
+*.woff
+*.woff2
+*.ttf

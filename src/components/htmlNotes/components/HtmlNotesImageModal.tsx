@@ -66,11 +66,11 @@ export const HtmlNotesImageModal: React.FC<HtmlNotesImageModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs m3-fade-in"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-white dark:bg-[#14161d] rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden text-slate-800 dark:text-zinc-100 animate-in zoom-in-95 duration-150"
+        className="w-full max-w-lg bg-white dark:bg-[#14161d] rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden text-slate-800 dark:text-zinc-100 m3-dialog-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

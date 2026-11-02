@@ -4,6 +4,7 @@ import { HtmlNotesEditorPane } from './HtmlNotesEditorPane';
 import { HtmlNotesSplitDivider } from './HtmlNotesSplitDivider';
 import { HtmlNotesPreviewPane, HtmlNotesPreviewPaneHandle } from './HtmlNotesPreviewPane';
 import { DriveSyncBanner } from './DriveSyncBanner';
+import type { PenToolType } from './HtmlNotesPenToolbar';
 
 interface HtmlNotesWorkspaceProps {
   viewMode: ViewMode;
@@ -89,9 +90,16 @@ interface HtmlNotesWorkspaceProps {
   // Visual Canvas Edit Mode
   isVisualEditActive?: boolean;
   onToggleVisualEdit?: () => void;
+  setViewportMode?: (mode: ViewportMode) => void;
+
+  // Stylus Pen & Highlighter Engine
+  isPenModeActive?: boolean;
+  penTool?: PenToolType;
+  penColor?: string;
+  penWidth?: number;
 }
 
-export const HtmlNotesWorkspace: React.FC<HtmlNotesWorkspaceProps> = ({
+const HtmlNotesWorkspaceComponent: React.FC<HtmlNotesWorkspaceProps> = ({
   viewMode,
   viewportMode,
   splitRatio,
@@ -162,6 +170,11 @@ export const HtmlNotesWorkspace: React.FC<HtmlNotesWorkspaceProps> = ({
   showToast,
   isVisualEditActive = false,
   onToggleVisualEdit,
+  setViewportMode,
+  isPenModeActive = false,
+  penTool = 'pen',
+  penColor = '#2563eb',
+  penWidth = 2.5,
 }) => {
   return (
     <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden relative">
@@ -172,47 +185,45 @@ export const HtmlNotesWorkspace: React.FC<HtmlNotesWorkspaceProps> = ({
           ['--split-ratio' as any]: `${splitRatio}%`
         }}
       >
-        {/* EDITOR PANE */}
-        {(viewMode === 'editor' || viewMode === 'split') && (
-          <HtmlNotesEditorPane
-            viewMode={viewMode}
-            splitRatio={splitRatio}
-            lineCount={lineCount}
-            isEditorWordWrap={isEditorWordWrap}
-            onToggleWordWrap={onToggleWordWrap}
-            isEditorSearchOpen={isEditorSearchOpen}
-            editorSearchTerm={editorSearchTerm}
-            editorMatchesCount={editorMatches.length}
-            currentMatchIdx={currentMatchIdx}
-            searchInputRef={searchInputRef}
-            onEditorSearchChange={onEditorSearchChange}
-            onPrevSearchMatch={onPrevSearchMatch}
-            onNextSearchMatch={onNextSearchMatch}
-            onCloseEditorSearch={onCloseEditorSearch}
-            lineNumbersRef={lineNumbersRef}
-            textareaRef={textareaRef}
-            code={code}
-            onCodeChange={onCodeChange}
-            onScrollTextarea={onScrollTextarea}
-            lineNumbers={lineNumbers}
-            isBlinking={isBlinking}
-            highlightedLineIdx={highlightedLineIdx}
-            highlightedLineRange={highlightedLineRange}
-            highlightedCharRange={highlightedCharRange}
-            onInsertImageSnippet={onInsertImageSnippet}
-            activeSelectionPane={activeSelectionPane}
-            isSelectRefiningModeEnabled={isSelectRefiningModeEnabled}
-            onToggleSelectRefiningMode={onToggleSelectRefiningMode}
-            onEditorTextSelected={onEditorTextSelected}
-            onRefineSelection={onRefineSelection}
-            onPromptAiTopicHere={onPromptAiTopicHere}
-            onInsertSnippetHere={onInsertSnippetHere}
-            onTriggerImageUpload={onTriggerInsertImage}
-            onSubmitSlantEdit={onSubmitSlantEdit}
-            isSlantLoading={isSlantLoading}
-            onOpenFullAiPanel={onOpenFullAiPanel}
-          />
-        )}
+        {/* EDITOR PANE (Always mounted: 0ms instantaneous switch, preserves scroll & caret) */}
+        <HtmlNotesEditorPane
+          viewMode={viewMode}
+          splitRatio={splitRatio}
+          lineCount={lineCount}
+          isEditorWordWrap={isEditorWordWrap}
+          onToggleWordWrap={onToggleWordWrap}
+          isEditorSearchOpen={isEditorSearchOpen}
+          editorSearchTerm={editorSearchTerm}
+          editorMatchesCount={editorMatches.length}
+          currentMatchIdx={currentMatchIdx}
+          searchInputRef={searchInputRef}
+          onEditorSearchChange={onEditorSearchChange}
+          onPrevSearchMatch={onPrevSearchMatch}
+          onNextSearchMatch={onNextSearchMatch}
+          onCloseEditorSearch={onCloseEditorSearch}
+          lineNumbersRef={lineNumbersRef}
+          textareaRef={textareaRef}
+          code={code}
+          onCodeChange={onCodeChange}
+          onScrollTextarea={onScrollTextarea}
+          lineNumbers={lineNumbers}
+          isBlinking={isBlinking}
+          highlightedLineIdx={highlightedLineIdx}
+          highlightedLineRange={highlightedLineRange}
+          highlightedCharRange={highlightedCharRange}
+          onInsertImageSnippet={onInsertImageSnippet}
+          activeSelectionPane={activeSelectionPane}
+          isSelectRefiningModeEnabled={isSelectRefiningModeEnabled}
+          onToggleSelectRefiningMode={onToggleSelectRefiningMode}
+          onEditorTextSelected={onEditorTextSelected}
+          onRefineSelection={onRefineSelection}
+          onPromptAiTopicHere={onPromptAiTopicHere}
+          onInsertSnippetHere={onInsertSnippetHere}
+          onTriggerImageUpload={onTriggerInsertImage}
+          onSubmitSlantEdit={onSubmitSlantEdit}
+          isSlantLoading={isSlantLoading}
+          onOpenFullAiPanel={onOpenFullAiPanel}
+        />
 
         {/* SPLIT RESIZE DIVIDER */}
         {viewMode === 'split' && (
@@ -222,53 +233,56 @@ export const HtmlNotesWorkspace: React.FC<HtmlNotesWorkspaceProps> = ({
           />
         )}
 
-        {/* PREVIEW PANE */}
-        {(viewMode === 'preview' || viewMode === 'split') && (
-          <HtmlNotesPreviewPane
-            ref={previewPaneRef}
-            viewMode={viewMode}
-            viewportMode={viewportMode}
-            splitRatio={splitRatio}
-            isDark={isDark}
-            iframeRef={iframeRef}
-            srcDoc={iframeSrcDoc}
-            zoomLevel={zoomLevel}
-            isResizing={isResizing}
-            onZoomIn={onZoomIn}
-            onZoomOut={onZoomOut}
-            onZoomReset={onZoomReset}
-            applyIframeZoom={applyIframeZoom}
-            isPreviewSearchOpen={isPreviewSearchOpen}
-            previewSearchTerm={previewSearchTerm}
-            previewMatchCount={previewMatchCount}
-            currentPreviewMatchIdx={currentPreviewMatchIdx}
-            previewSearchInputRef={previewSearchInputRef}
-            onPreviewSearchChange={onPreviewSearchChange}
-            onPrevPreviewMatch={onPrevPreviewMatch}
-            onNextPreviewMatch={onNextPreviewMatch}
-            onClosePreviewSearch={onClosePreviewSearch}
-            code={code}
-            onCodeChange={onCodeChange}
-            sideMarginMm={sideMarginMm}
-            verticalMarginMm={verticalMarginMm}
-            totalLeftMarginMm={totalLeftMarginMm}
-            fontSizePx={fontSizePx}
-            onTriggerInsertImage={onTriggerInsertImage}
-            onInsertImageSnippet={onInsertImageSnippet}
-            activeSelectionPane={activeSelectionPane}
-            isSelectRefiningModeEnabled={isSelectRefiningModeEnabled}
-            onToggleSelectRefiningMode={onToggleSelectRefiningMode}
-            onRefineSelection={onRefineSelection}
-            onPromptAiTopicHere={onPromptAiTopicHere}
-            onInsertSnippetHere={onInsertSnippetHere}
-            onPreviewTextSelected={onPreviewTextSelected}
-            onSubmitSlantEdit={onSubmitSlantEdit}
-            isSlantLoading={isSlantLoading}
-            onOpenFullAiPanel={onOpenFullAiPanel}
-            isVisualEditActive={isVisualEditActive}
-            onToggleVisualEdit={onToggleVisualEdit}
-          />
-        )}
+        {/* PREVIEW PANE (Always mounted: 0ms instantaneous switch, preserves KaTeX rendering & scroll) */}
+        <HtmlNotesPreviewPane
+          ref={previewPaneRef}
+          viewMode={viewMode}
+          viewportMode={viewportMode}
+          splitRatio={splitRatio}
+          isDark={isDark}
+          iframeRef={iframeRef}
+          srcDoc={iframeSrcDoc}
+          zoomLevel={zoomLevel}
+          isResizing={isResizing}
+          onZoomIn={onZoomIn}
+          onZoomOut={onZoomOut}
+          onZoomReset={onZoomReset}
+          applyIframeZoom={applyIframeZoom}
+          isPreviewSearchOpen={isPreviewSearchOpen}
+          previewSearchTerm={previewSearchTerm}
+          previewMatchCount={previewMatchCount}
+          currentPreviewMatchIdx={currentPreviewMatchIdx}
+          previewSearchInputRef={previewSearchInputRef}
+          onPreviewSearchChange={onPreviewSearchChange}
+          onPrevPreviewMatch={onPrevPreviewMatch}
+          onNextPreviewMatch={onNextPreviewMatch}
+          onClosePreviewSearch={onClosePreviewSearch}
+          code={code}
+          onCodeChange={onCodeChange}
+          sideMarginMm={sideMarginMm}
+          verticalMarginMm={verticalMarginMm}
+          totalLeftMarginMm={totalLeftMarginMm}
+          fontSizePx={fontSizePx}
+          onTriggerInsertImage={onTriggerInsertImage}
+          onInsertImageSnippet={onInsertImageSnippet}
+          activeSelectionPane={activeSelectionPane}
+          isSelectRefiningModeEnabled={isSelectRefiningModeEnabled}
+          onToggleSelectRefiningMode={onToggleSelectRefiningMode}
+          onRefineSelection={onRefineSelection}
+          onPromptAiTopicHere={onPromptAiTopicHere}
+          onInsertSnippetHere={onInsertSnippetHere}
+          onPreviewTextSelected={onPreviewTextSelected}
+          onSubmitSlantEdit={onSubmitSlantEdit}
+          isSlantLoading={isSlantLoading}
+          onOpenFullAiPanel={onOpenFullAiPanel}
+          isVisualEditActive={isVisualEditActive}
+          onToggleVisualEdit={onToggleVisualEdit}
+          isPenModeActive={isPenModeActive}
+          penTool={penTool}
+          penColor={penColor}
+          penWidth={penWidth}
+          setViewportMode={setViewportMode}
+        />
       </div>
 
       {/* Bottom Footer Status Bar in Editor mode */}
@@ -295,3 +309,5 @@ export const HtmlNotesWorkspace: React.FC<HtmlNotesWorkspaceProps> = ({
     </div>
   );
 };
+
+export const HtmlNotesWorkspace = React.memo(HtmlNotesWorkspaceComponent);

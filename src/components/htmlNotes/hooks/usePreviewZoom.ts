@@ -19,6 +19,12 @@ export function usePreviewZoom(options: UsePreviewZoomOptions) {
 
   // Directly update CSS custom property inside both standard and full screen iframes for instant, 0ms lag-free zoom
   const applyIframeZoom = useCallback((zoom: number) => {
+    // Also apply zoom directly to direct DOM preview canvas if active
+    const canvas = document.getElementById('preview-canvas');
+    if (canvas) {
+      (canvas.style as any).zoom = `${zoom}%`;
+    }
+
     const targets = [iframeRef?.current, fullScreenIframeRef?.current];
     targets.forEach((frame) => {
       if (!frame) return;
@@ -63,39 +69,30 @@ export function usePreviewZoom(options: UsePreviewZoomOptions) {
 
   const handleZoomIn = useCallback(() => {
     setIsManualZoom(true);
-    if (setFontSizePx) {
-      setFontSizePx((prev) => Math.min(32, prev + 1.5));
-    }
     setZoomLevel((prev) => {
       const next = Math.min(250, prev + 10);
       applyIframeZoom(next);
       return next;
     });
-  }, [applyIframeZoom, setFontSizePx]);
+  }, [applyIframeZoom]);
 
   const handleZoomOut = useCallback(() => {
     setIsManualZoom(true);
-    if (setFontSizePx) {
-      setFontSizePx((prev) => Math.max(10, prev - 1.5));
-    }
     setZoomLevel((prev) => {
       const next = Math.max(25, prev - 10);
       applyIframeZoom(next);
       return next;
     });
-  }, [applyIframeZoom, setFontSizePx]);
+  }, [applyIframeZoom]);
 
   const handleZoomReset = useCallback(() => {
     setIsManualZoom(false);
-    if (setFontSizePx) {
-      setFontSizePx(15);
-    }
-    const previewElement = document.querySelector('.preview-canvas-wrapper');
+    const previewElement = document.querySelector('.preview-canvas-wrapper, .preview-scroll-wrapper');
     const width = previewElement ? previewElement.getBoundingClientRect().width : (measuredWidthRef.current || 794);
     const fitZoom = calculateFitZoom(width);
     setZoomLevel(fitZoom);
     applyIframeZoom(fitZoom);
-  }, [calculateFitZoom, applyIframeZoom, setFontSizePx]);
+  }, [calculateFitZoom, applyIframeZoom]);
 
   // Automatically reset zoom when switching viewportMode (Paper <-> Fluid) or viewMode
   useEffect(() => {
@@ -119,7 +116,8 @@ export function usePreviewZoom(options: UsePreviewZoomOptions) {
       if (isManualZoom) return;
       const fitZoom = calculateFitZoom(width);
       setZoomLevel((prev) => {
-        if (prev !== fitZoom) {
+        // Require at least a 2% delta to eliminate micro-oscillations caused by scrollbar appearance
+        if (Math.abs(prev - fitZoom) >= 2) {
           applyIframeZoom(fitZoom);
           return fitZoom;
         }
@@ -128,7 +126,7 @@ export function usePreviewZoom(options: UsePreviewZoomOptions) {
     };
 
     const handleMeasure = () => {
-      const previewElement = document.querySelector('.preview-canvas-wrapper');
+      const previewElement = document.querySelector('.preview-pane') || document.querySelector('.preview-canvas-wrapper, .preview-scroll-wrapper');
       if (previewElement) {
         const rect = previewElement.getBoundingClientRect();
         updateZoomForWidth(rect.width);
@@ -139,7 +137,7 @@ export function usePreviewZoom(options: UsePreviewZoomOptions) {
     handleMeasure();
 
     // Attach ResizeObserver to the preview container to detect split drags, sidebar toggles, and screen changes
-    const previewElement = document.querySelector('.preview-canvas-wrapper');
+    const previewElement = document.querySelector('.preview-pane') || document.querySelector('.preview-canvas-wrapper, .preview-scroll-wrapper');
     if (previewElement && typeof ResizeObserver !== 'undefined') {
       resizeObserver = new ResizeObserver((entries) => {
         if (entries.length > 0) {

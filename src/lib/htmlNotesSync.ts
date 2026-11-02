@@ -1,5 +1,5 @@
-import { doc, getDoc, getDocs, setDoc, deleteDoc, collection, query, limit, type Unsubscribe } from 'firebase/firestore';
-import { auth, db, isGlobalQuotaExceeded, updateUserSyncBeacon } from './firebase';
+import { doc, getDoc, getDocs, setDoc, deleteDoc, updateDoc, collection, query, limit, arrayUnion, type Unsubscribe } from 'firebase/firestore';
+import { auth, db, isGlobalQuotaExceeded, updateUserSyncBeacon, getUserSyncBeacon } from './firebase';
 import { smartCoordinator } from './smartLocalCoordinator';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { safeSetItem, getCachedAuthUser } from './storage';
@@ -205,25 +205,84 @@ export function getHtmlNotesStorageKey(userId?: string | null): string {
   return `mockmc_html_projects_guest`;
 }
 
+const DELETED_PROJECTS_KEY = 'mockmc_deleted_projects_tombstones';
+const DELETED_FILES_KEY = 'mockmc_deleted_files_tombstones';
+
+export function getDeletedProjectTombstones(): Set<string> {
+  try {
+    if (typeof localStorage === 'undefined') return new Set();
+    const stored = localStorage.getItem(DELETED_PROJECTS_KEY);
+    if (!stored) return new Set();
+    const parsed = JSON.parse(stored);
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function addDeletedProjectTombstone(id: string): void {
+  if (!id) return;
+  try {
+    const set = getDeletedProjectTombstones();
+    set.add(id);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(DELETED_PROJECTS_KEY, JSON.stringify(Array.from(set)));
+    }
+  } catch {}
+}
+
+export function getDeletedFileTombstones(): Set<string> {
+  try {
+    if (typeof localStorage === 'undefined') return new Set();
+    const stored = localStorage.getItem(DELETED_FILES_KEY);
+    if (!stored) return new Set();
+    const parsed = JSON.parse(stored);
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function addDeletedFileTombstone(id: string): void {
+  if (!id) return;
+  try {
+    const set = getDeletedFileTombstones();
+    set.add(id);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(DELETED_FILES_KEY, JSON.stringify(Array.from(set)));
+    }
+  } catch {}
+}
+
 /**
- * Load projects from localStorage with automatic account scoping
+ * Load projects from localStorage with automatic account scoping & tombstone exclusion
  */
 export function loadLocalProjects(defaultMatricesTemplate?: string, userId?: string | null): HtmlProject[] {
   if (typeof window === 'undefined') return [];
   const key = getHtmlNotesStorageKey(userId);
+  const deletedProjects = getDeletedProjectTombstones();
+  const deletedFiles = getDeletedFileTombstones();
   
   try {
     const raw = localStorage.getItem(key);
-    if (raw) {
+    if (raw !== null) {
       const parsed: HtmlProject[] = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const sanitized = parsed.map(p => ({
-          ...p,
-          files: p.files.map(f => ({
-            ...f,
-            code: sanitizeAndRepairCode(f.code)
-          }))
-        }));
+      if (Array.isArray(parsed)) {
+        if (parsed.length === 0) {
+          cachedProjects = [];
+          return [];
+        }
+        const sanitized = parsed
+          .filter(p => p && p.id && !deletedProjects.has(p.id))
+          .map(p => ({
+            ...p,
+            files: (p.files || [])
+              .filter(f => f && f.id && !deletedFiles.has(f.id))
+              .map(f => ({
+                ...f,
+                code: sanitizeAndRepairCode(f.code)
+              }))
+          }));
         cachedProjects = sanitized;
         return sanitized;
       }
@@ -237,19 +296,36 @@ export function loadLocalProjects(defaultMatricesTemplate?: string, userId?: str
     const legacyRaw = localStorage.getItem(LOCAL_STORAGE_PROJECTS_KEY);
     if (legacyRaw && key !== LOCAL_STORAGE_PROJECTS_KEY) {
       const parsed: HtmlProject[] = JSON.parse(legacyRaw);
-      if (Array.isArray(parsed) && parsed.length > 0 && userId) {
-        saveLocalProjects(parsed, userId);
-        return parsed;
+      if (Array.isArray(parsed) && userId) {
+        const sanitized = parsed
+          .filter(p => p && p.id && !deletedProjects.has(p.id))
+          .map(p => ({
+            ...p,
+            files: (p.files || [])
+              .filter(f => f && f.id && !deletedFiles.has(f.id))
+              .map(f => ({
+                ...f,
+                code: sanitizeAndRepairCode(f.code)
+              }))
+          }));
+        saveLocalProjects(sanitized, userId, true);
+        return sanitized;
       }
     }
   } catch {}
 
-  // If in-memory cache already has populated projects (e.g. from active session or recent save)
-  if (cachedProjects && cachedProjects.length > 0) {
-    return cachedProjects;
+  // If in-memory cache already has populated projects
+  if (cachedProjects !== null && Array.isArray(cachedProjects)) {
+    return cachedProjects
+      .filter(p => p && p.id && !deletedProjects.has(p.id))
+      .map(p => ({
+        ...p,
+        files: (p.files || []).filter(f => f && f.id && !deletedFiles.has(f.id))
+      }));
   }
 
-  if (defaultMatricesTemplate && (!userId || userId === 'guest-user' || userId === 'anonymous')) {
+  const isKeyPresent = typeof localStorage !== 'undefined' && localStorage.getItem(key) !== null;
+  if (!isKeyPresent && defaultMatricesTemplate && (!userId || userId === 'guest-user' || userId === 'anonymous')) {
     const now = Date.now();
     const seedProject: HtmlProject = {
       id: 'proj_seed_' + now,
@@ -259,14 +335,21 @@ export function loadLocalProjects(defaultMatricesTemplate?: string, userId?: str
       updatedAt: now,
       files: [
         {
+          id: 'note_mod1_sample_' + now,
+          title: 'Module 1: Set Cardinality & Countability',
+          code: defaultMatricesTemplate,
+          createdAt: now,
+          updatedAt: now,
+          tags: ['Calculus', 'Module 1', 'Sample Template']
+        },
+        {
           id: 'note_slides_ref_' + now,
           title: 'A4 Landscape Slide Reference',
           code: TEMPLATE_LANDSCAPE_SLIDES,
           createdAt: now,
           updatedAt: now,
           tags: ['Slide Deck', 'A4 Landscape', 'Reference']
-        },
-
+        }
       ]
     };
     saveLocalProjects([seedProject], userId);
@@ -359,21 +442,13 @@ export function saveLocalProjects(projects: HtmlProject[], userId?: string | nul
   pendingSaveUserId = userId;
   if (typeof window === 'undefined') return;
 
-  // Immediately mirror to localStorage so any synchronous read or instant reload sees the data
-  try {
-    const key = getHtmlNotesStorageKey(userId);
-    localStorage.setItem(key, JSON.stringify(projects));
-  } catch (e) {
-    // Handled by flushLocalProjectsSave fallback if quota hit
-  }
-
   if (immediate) {
     flushLocalProjectsSave();
   } else {
     if (localSaveTimer) clearTimeout(localSaveTimer);
     localSaveTimer = setTimeout(() => {
       flushLocalProjectsSave();
-    }, 400);
+    }, 800);
   }
 }
 
@@ -384,15 +459,17 @@ export function saveLocalProjects(projects: HtmlProject[], userId?: string | nul
  */
 export async function saveSingleProjectToFirestore(
   project: HtmlProject,
-  targetUserId?: string | null
+  targetUserId?: string | null,
+  isDeleteOperation: boolean = false
 ): Promise<boolean> {
   const user = auth.currentUser;
-  const effectiveUid = targetUserId || user?.uid;
-  if (!effectiveUid || (user && user.isAnonymous)) {
+  const cachedUid = typeof window !== 'undefined' ? getCachedAuthUser()?.uid || null : null;
+  const effectiveUid = targetUserId || user?.uid || cachedUid;
+  if (!effectiveUid || effectiveUid === 'anonymous' || effectiveUid === 'guest-user' || (user && user.isAnonymous)) {
     return false;
   }
 
-  if (isGlobalQuotaExceeded()) {
+  if (isGlobalQuotaExceeded() && !isDeleteOperation) {
     console.warn('[saveSingleProjectToFirestore] Daily quota reached; saved locally.');
     return false;
   }
@@ -442,14 +519,95 @@ export async function saveSingleProjectToFirestore(
 }
 
 /**
+ * Safely and atomically delete a single note/file from a project in Firestore
+ */
+export async function deleteFileFromFirestore(
+  projectId: string,
+  fileId: string,
+  targetUserId?: string | null
+): Promise<boolean> {
+  if (!projectId || !fileId) return false;
+  addDeletedFileTombstone(fileId);
+
+  const user = auth.currentUser;
+  const cachedUid = typeof window !== 'undefined' ? getCachedAuthUser()?.uid || null : null;
+  const effectiveUid = targetUserId || user?.uid || cachedUid;
+  if (!effectiveUid || effectiveUid === 'anonymous' || effectiveUid === 'guest-user' || (user && user.isAnonymous)) {
+    return false;
+  }
+
+  try {
+    // 1. Directly fetch and update the project document in Firestore so cloud always deletes it
+    const projDoc = doc(db, 'users', effectiveUid, 'htmlNotesProjects', projectId);
+    try {
+      const snap = await getDoc(projDoc);
+      if (snap.exists()) {
+        const data = snap.data();
+        const existingFiles = Array.isArray(data?.files) ? data.files : [];
+        const updatedFiles = existingFiles.filter((f: any) => f && f.id !== fileId);
+        await updateDoc(projDoc, {
+          files: updatedFiles,
+          updatedAt: Date.now(),
+        });
+      }
+    } catch (projErr) {
+      console.warn('Could not directly update project doc in Firestore:', projErr);
+    }
+
+    // 2. Also update local project copy if present
+    const currentProjs = loadLocalProjects(undefined, effectiveUid);
+    const targetProj = currentProjs.find(p => p.id === projectId);
+    if (targetProj) {
+      targetProj.files = (targetProj.files || []).filter(f => f.id !== fileId);
+      targetProj.updatedAt = Date.now();
+      saveLocalProjects(currentProjs, effectiveUid, true);
+    }
+
+    // 3. Persist tombstone in cloud user profile so all other devices purge the file
+    const userDocRef = doc(db, 'users', effectiveUid);
+    await setDoc(userDocRef, {
+      deletedFileIds: arrayUnion(fileId),
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+
+    // 4. Atomically bump sync beacon notes revision
+    const nowRev = Date.now();
+    await updateUserSyncBeacon(effectiveUid, { notesRev: nowRev });
+    smartCoordinator.setLocalSyncRevision(effectiveUid, 'notesRev', nowRev);
+
+    notifySyncStatus('synced');
+    return true;
+  } catch (err) {
+    console.warn('Error deleting note from Firestore:', err);
+    return false;
+  }
+}
+
+/**
  * Delete a project explicitly from Firebase Firestore
  */
-export async function deleteProjectFromFirestore(projectId: string): Promise<void> {
+export async function deleteProjectFromFirestore(projectId: string, targetUserId?: string | null): Promise<void> {
+  if (!projectId) return;
+  addDeletedProjectTombstone(projectId);
   const user = auth.currentUser;
-  if (!user || user.isAnonymous) return;
+  const cachedUid = typeof window !== 'undefined' ? getCachedAuthUser()?.uid || null : null;
+  const effectiveUid = targetUserId || user?.uid || cachedUid;
+  if (!effectiveUid || effectiveUid === 'anonymous' || effectiveUid === 'guest-user' || (user && user.isAnonymous)) return;
   try {
-    const projDoc = doc(db, 'users', user.uid, 'htmlNotesProjects', projectId);
+    const projDoc = doc(db, 'users', effectiveUid, 'htmlNotesProjects', projectId);
     await deleteDoc(projDoc);
+
+    // Atomically persist tombstone in user doc so all devices detect the deletion
+    const userDocRef = doc(db, 'users', effectiveUid);
+    await setDoc(userDocRef, {
+      deletedProjectIds: arrayUnion(projectId),
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+
+    // Atomically bump sync beacon notes revision and align local revision
+    const nowRev = Date.now();
+    await updateUserSyncBeacon(effectiveUid, { notesRev: nowRev });
+    smartCoordinator.setLocalSyncRevision(effectiveUid, 'notesRev', nowRev);
   } catch (err) {
     console.warn('Error deleting project document from Firestore:', err);
   }
@@ -461,11 +619,35 @@ export async function deleteProjectFromFirestore(projectId: string): Promise<voi
  * are NEVER overwritten by older/stale remote snapshots.
  */
 export function reconcileHtmlProjects(localProjects: HtmlProject[], remoteProjects: HtmlProject[]): HtmlProject[] {
-  if (!Array.isArray(remoteProjects) || remoteProjects.length === 0) {
-    return localProjects || [];
+  const deletedProjects = getDeletedProjectTombstones();
+  const deletedFiles = getDeletedFileTombstones();
+
+  const cleanLocal = (localProjects || [])
+    .filter(p => p && p.id && !deletedProjects.has(p.id))
+    .map(p => ({
+      ...p,
+      files: (p.files || []).filter(f => f && f.id && !deletedFiles.has(f.id))
+    }));
+
+  const cleanRemote = (remoteProjects || [])
+    .filter(p => p && p.id && !deletedProjects.has(p.id))
+    .map(p => ({
+      ...p,
+      files: (p.files || []).filter(f => f && f.id && !deletedFiles.has(f.id))
+    }));
+
+  if (cleanRemote.length === 0) {
+    return cleanLocal;
   }
-  if (!Array.isArray(localProjects) || localProjects.length === 0) {
-    return remoteProjects.map(p => ({ ...p, _syncStatus: 'synced' }));
+  if (cleanLocal.length === 0) {
+    return cleanRemote.map(p => ({ ...p, _syncStatus: 'synced' }));
+  }
+
+  // If local projects contains ONLY the auto-generated initial seed project and remote projects exist,
+  // adopt remote projects authoritatively so remote cross-synced notes take immediate effect!
+  const isOnlySeed = cleanLocal.length === 1 && cleanLocal[0].id.startsWith('proj_seed_');
+  if (isOnlySeed) {
+    return cleanRemote.map(p => ({ ...p, _syncStatus: 'synced' }));
   }
 
   // Quota guard: When daily quotas are exhausted or app is offline,
@@ -473,9 +655,9 @@ export function reconcileHtmlProjects(localProjects: HtmlProject[], remoteProjec
   // Local state is strictly authoritative!
   if (isGlobalQuotaExceeded()) {
     console.warn('[reconcileHtmlProjects] Quota exhausted: Local HTML notes are strictly authoritative.');
-    const localIdSet = new Set(localProjects.map(p => p.id));
-    const merged = [...localProjects];
-    remoteProjects.forEach(rp => {
+    const localIdSet = new Set(cleanLocal.map(p => p.id));
+    const merged = [...cleanLocal];
+    cleanRemote.forEach(rp => {
       if (rp && rp.id && !localIdSet.has(rp.id)) {
         merged.push({ ...rp, _syncStatus: 'synced' });
       }
@@ -484,21 +666,26 @@ export function reconcileHtmlProjects(localProjects: HtmlProject[], remoteProjec
   }
 
   const remoteMap = new Map<string, HtmlProject>();
-  remoteProjects.forEach(rp => {
+  cleanRemote.forEach(rp => {
     if (rp && rp.id) remoteMap.set(rp.id, rp);
   });
 
   const mergedProjects: HtmlProject[] = [];
   const processedIds = new Set<string>();
 
-  for (const local of localProjects) {
+  for (const local of cleanLocal) {
     if (!local || !local.id) continue;
     processedIds.add(local.id);
     const remote = remoteMap.get(local.id);
 
     if (!remote) {
-      // Local project doesn't exist remotely (e.g. created while offline or during quota exhaustion)
-      // PRESERVE local project completely!
+      // Local project doesn't exist remotely.
+      // If it was previously synced and an authoritative non-empty remote list was returned,
+      // it was deleted by the user on another device! Purge it and do NOT resurrect!
+      if (cleanRemote.length > 0 && local._syncStatus === 'synced') {
+        addDeletedProjectTombstone(local.id);
+        continue;
+      }
       mergedProjects.push(local);
       continue;
     }
@@ -517,7 +704,14 @@ export function reconcileHtmlProjects(localProjects: HtmlProject[], remoteProjec
       localFileIdSet.add(lf.id);
       const rf = remoteFileMap.get(lf.id);
       if (!rf) {
-        // File exists locally, absent remotely -> ALWAYS PRESERVE IT!
+        // File exists locally, absent remotely:
+        // If the remote project snapshot is newer than local and local file was already synced,
+        // it was deleted by the user on another device! Purge it and do NOT resurrect!
+        const remoteIsNewer = (remote.updatedAt || 0) > Math.max(local.updatedAt || 0, local.localUpdatedAt || 0);
+        if (remoteIsNewer && lf._syncStatus === 'synced') {
+          addDeletedFileTombstone(lf.id);
+          return;
+        }
         reconciledFiles.push(lf);
         return;
       }
@@ -532,10 +726,13 @@ export function reconcileHtmlProjects(localProjects: HtmlProject[], remoteProjec
       }
     });
 
-    // Add any files from remote that local does not have
+    // Add any files from remote that local does not have ONLY if remote project snapshot is strictly newer than local
+    const remoteIsNewer = (remote.updatedAt || 0) > Math.max(local.updatedAt || 0, local.localUpdatedAt || 0);
     (remote.files || []).forEach(rf => {
       if (rf && rf.id && !localFileIdSet.has(rf.id)) {
-        reconciledFiles.push({ ...rf, _syncStatus: 'synced' });
+        if (remoteIsNewer && !deletedFiles.has(rf.id)) {
+          reconciledFiles.push({ ...rf, _syncStatus: 'synced' });
+        }
       }
     });
 
@@ -686,19 +883,30 @@ export function subscribeToFirestoreProjects(
   const currentLocal = loadLocalProjects(undefined, userId);
   if (currentLocal && currentLocal.length > 0) {
     onProjectsUpdate(currentLocal);
-    // Align local revision with beacon if not set
-    const localRevs = smartCoordinator.getLocalSyncRevisions(userId);
-    if (!localRevs.notesRev) {
-      smartCoordinator.setLocalSyncRevision(userId, 'notesRev', Date.now());
-    }
-    return () => {};
   }
 
-  // 2. Single-pass cold start hydration ONLY if local storage is completely empty
-  // Strict limit(25) prevents downloading thousands of historical documents!
+  // 2. Fetch remote projects and reconcile non-destructively so cross-device notes appear seamlessly
   let isCancelled = false;
   if (typeof navigator !== 'undefined' && navigator.onLine && !isGlobalQuotaExceeded()) {
-    const q = query(collection(db, 'users', userId, 'htmlNotesProjects'), limit(25));
+    try {
+      getDoc(doc(db, 'users', userId)).then((uSnap) => {
+        if (uSnap.exists()) {
+          const uData = uSnap.data();
+          if (Array.isArray(uData?.deletedProjectIds)) {
+            uData.deletedProjectIds.forEach((delId: string) => {
+              if (delId) addDeletedProjectTombstone(delId);
+            });
+          }
+          if (Array.isArray(uData?.deletedFileIds)) {
+            uData.deletedFileIds.forEach((delFileId: string) => {
+              if (delFileId) addDeletedFileTombstone(delFileId);
+            });
+          }
+        }
+      }).catch(() => {});
+    } catch {}
+
+    const q = query(collection(db, 'users', userId, 'htmlNotesProjects'), limit(50));
     getDocs(q).then((snapshot) => {
       if (isCancelled || snapshot.empty) return;
       const remoteProjects: HtmlProject[] = snapshot.docs.map(d => {
@@ -721,15 +929,17 @@ export function subscribeToFirestoreProjects(
       });
 
       if (remoteProjects.length > 0) {
-        saveLocalProjects(remoteProjects, userId, true);
-        lastSyncedHash = computeProjectsHash(remoteProjects);
+        const freshLocal = loadLocalProjects(undefined, userId);
+        const reconciled = reconcileHtmlProjects(freshLocal, remoteProjects);
+        saveLocalProjects(reconciled, userId, true);
+        lastSyncedHash = computeProjectsHash(reconciled);
         const now = Date.now();
         smartCoordinator.setLocalSyncRevision(userId, 'notesRev', now);
         notifySyncStatus('synced');
-        onProjectsUpdate(remoteProjects);
+        onProjectsUpdate(reconciled);
       }
     }).catch((err) => {
-      console.warn('Initial projects hydration notice:', err);
+      console.warn('Projects remote hydration notice:', err);
     });
   }
 
@@ -740,7 +950,7 @@ export function subscribeToFirestoreProjects(
 
 /**
  * Reconcile remote projects when revision differences are detected by sync beacon
- * Uses strict limit(25) and non-destructive reconciliation to protect offline/quota-exhaustion local notes.
+ * Uses strict limit(50) and non-destructive reconciliation to protect offline/quota-exhaustion local notes.
  */
 export async function fetchRemoteProjectsIfNewer(user: User, localProjects: HtmlProject[]): Promise<HtmlProject[] | null> {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -749,8 +959,39 @@ export async function fetchRemoteProjectsIfNewer(user: User, localProjects: Html
   if (isGlobalQuotaExceeded()) {
     return null;
   }
+
+  // Zero-Cost Cache Check:
+  if (Array.isArray(localProjects) && localProjects.length > 0) {
+    try {
+      const beacon = await getUserSyncBeacon(user.uid);
+      const localRev = smartCoordinator.getLocalSyncRevisions(user.uid).notesRev || 0;
+      if (beacon && beacon.notesRev && beacon.notesRev <= localRev) {
+        // Zero Firestore Reads! Local projects are authoritative and up-to-date.
+        return localProjects;
+      }
+    } catch {}
+  }
+
   try {
-    const q = query(collection(db, 'users', user.uid, 'htmlNotesProjects'), limit(25));
+    // Ingest cloud-recorded deleted project and file tombstones
+    try {
+      const userSnap = await getDoc(doc(db, 'users', user.uid));
+      if (userSnap.exists()) {
+        const uData = userSnap.data();
+        if (Array.isArray(uData?.deletedProjectIds)) {
+          uData.deletedProjectIds.forEach((delId: string) => {
+            if (delId) addDeletedProjectTombstone(delId);
+          });
+        }
+        if (Array.isArray(uData?.deletedFileIds)) {
+          uData.deletedFileIds.forEach((delFileId: string) => {
+            if (delFileId) addDeletedFileTombstone(delFileId);
+          });
+        }
+      }
+    } catch {}
+
+    const q = query(collection(db, 'users', user.uid, 'htmlNotesProjects'), limit(50));
     const snapshot = await getDocs(q);
     if (snapshot.empty) return null;
 
@@ -775,6 +1016,7 @@ export async function fetchRemoteProjectsIfNewer(user: User, localProjects: Html
 
     const reconciled = reconcileHtmlProjects(localProjects, remoteProjects);
     saveLocalProjects(reconciled, user.uid, true);
+    smartCoordinator.setLocalSyncRevision(user.uid, 'notesRev', Date.now());
     return reconciled;
   } catch (err) {
     console.warn('Remote projects fetch notice:', err);

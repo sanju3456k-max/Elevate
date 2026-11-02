@@ -61,36 +61,47 @@ export function useHtmlNotesSearch({
     return () => window.removeEventListener('message', handleIframeMessage);
   }, []);
 
-  // Extract Document Headings outline for sidebar with enriched pageIndex
-  const headingsList = useMemo<DocumentHeading[]>(() => {
-    try {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(code || '', 'text/html');
-      const nodes = Array.from(doc.querySelectorAll('h1, h2, h3, h4, h5, h6'));
-      
-      const parsedHeadings: DocumentHeading[] = nodes.map((h, i) => {
-        const text = h.textContent?.trim() || `Heading ${i + 1}`;
-        const id = h.id || h.getAttribute('data-note-id') || `head_${i}`;
-        const level = parseInt(h.tagName.substring(1), 10);
+  // Extract Document Headings outline for sidebar with enriched pageIndex (debounced during rapid typing)
+  const [headingsList, setHeadingsList] = useState<DocumentHeading[]>([]);
+
+  useEffect(() => {
+    const parseHeadings = () => {
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(code || '', 'text/html');
+        const nodes = Array.from(doc.querySelectorAll('h1, h2, h3, h4, h5, h6'));
         
-        // Match with iframe calculated page map
-        const mapped = iframeHeadingPageMap.find(
-          m => m.id === id || (m.text && m.text.toLowerCase() === text.toLowerCase())
-        );
+        const parsedHeadings: DocumentHeading[] = nodes.map((h, i) => {
+          const text = h.textContent?.trim() || `Heading ${i + 1}`;
+          const id = h.id || h.getAttribute('data-note-id') || `head_${i}`;
+          const level = parseInt(h.tagName.substring(1), 10);
+          
+          const mapped = iframeHeadingPageMap.find(
+            m => m.id === id || (m.text && m.text.toLowerCase() === text.toLowerCase())
+          );
 
-        return {
-          id,
-          level,
-          text,
-          index: i,
-          pageIndex: mapped ? mapped.pageIndex : 1
-        };
-      });
+          return {
+            id,
+            level,
+            text,
+            index: i,
+            pageIndex: mapped ? mapped.pageIndex : 1
+          };
+        });
 
-      return parsedHeadings;
-    } catch {
-      return [];
+        setHeadingsList(parsedHeadings);
+      } catch {
+        setHeadingsList([]);
+      }
+    };
+
+    if (headingsList.length === 0) {
+      parseHeadings();
+      return;
     }
+
+    const timer = setTimeout(parseHeadings, 350);
+    return () => clearTimeout(timer);
   }, [code, iframeHeadingPageMap]);
 
   // Jump to heading in code and preview simultaneously with exact screen mapping

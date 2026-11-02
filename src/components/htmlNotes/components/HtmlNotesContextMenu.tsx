@@ -84,7 +84,7 @@ export const HtmlNotesContextMenu: React.FC<HtmlNotesContextMenuProps> = ({
           e.stopPropagation();
         }}
         style={{ top: `${top}px`, left: `${left}px` }}
-        className="fixed z-[100] w-64 bg-white dark:bg-[#1a1c22] rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-700 py-1.5 text-xs text-slate-800 dark:text-zinc-200 animate-in fade-in zoom-in-95 duration-100 overflow-hidden"
+        className="fixed z-[100] w-64 bg-white dark:bg-[#1a1c22] rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-700 py-1.5 text-xs text-slate-800 dark:text-zinc-200 m3-popover-in overflow-hidden"
       >
         <div className="px-3 py-1 text-[10px] font-bold text-slate-400 dark:text-zinc-500 tracking-wider uppercase flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-1 mb-1">
           <span>{position.sourcePane === 'editor' ? 'Editor Options' : 'Preview Options'}</span>

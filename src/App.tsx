@@ -5,6 +5,7 @@ import {
   signInWithGoogle, 
   signOutUser, 
   saveTestToFirestore, 
+  saveAttemptToFirestore,
   deleteTestFromFirestore, 
   unmarkDeletedTestInFirestore,
   syncUserProfile,
@@ -578,20 +579,34 @@ export default function App() {
     return () => unsubscribe();
   }, [showToast, handleUserAuthenticated]);
 
-  // Global listener for firestore quota limit exhaustion
+  // Global listener for firestore quota limit exhaustion and reset
   useEffect(() => {
     const handleQuotaExceeded = () => {
       setIsFirestoreQuotaExceeded(true);
     };
+    const handleQuotaReset = () => {
+      setIsFirestoreQuotaExceeded(false);
+      setHasDismissedQuotaBanner(false);
+      try {
+        sessionStorage.removeItem('firebase_quota_banner_dismissed_session');
+      } catch {}
+      smartCoordinator.flushWriteQueue().catch(() => {});
+      if (currentUser?.uid) {
+        syncHub.startSyncHub(currentUser.uid);
+      }
+    };
+
     window.addEventListener('firestore-quota-exceeded', handleQuotaExceeded);
+    window.addEventListener('firestore-quota-reset', handleQuotaReset);
     return () => {
       window.removeEventListener('firestore-quota-exceeded', handleQuotaExceeded);
+      window.removeEventListener('firestore-quota-reset', handleQuotaReset);
     };
-  }, []);
+  }, [currentUser?.uid]);
 
-  // Periodic timer to automatically detect a new calendar day and reset daily quota states
+  // Periodic timer to automatically detect daily quota rollover (12:30 PM IST / Pacific Midnight)
   useEffect(() => {
-    const interval = setInterval(() => {
+    const runCheck = () => {
       const didReset = checkAndResetQuotaOnNewDay();
       if (didReset) {
         setIsFirestoreQuotaExceeded(false);
@@ -599,13 +614,18 @@ export default function App() {
         try {
           sessionStorage.removeItem('firebase_quota_banner_dismissed_session');
         } catch {}
-        smartCoordinator.flushWriteQueue();
+        smartCoordinator.flushWriteQueue().catch(() => {});
         if (currentUser?.uid) {
           syncHub.startSyncHub(currentUser.uid);
         }
-        showToast('A new day has started! Resetting daily database limits. Resuming cloud synchronization.', 'success');
+        showToast('Daily database limits refreshed! Resuming cloud synchronization.', 'success');
       }
-    }, 60000); // Check once per minute
+    };
+
+    // Run check immediately on mount
+    runCheck();
+
+    const interval = setInterval(runCheck, 60000); // Check once per minute
     return () => clearInterval(interval);
   }, [showToast, currentUser?.uid]);
 
@@ -1110,6 +1130,11 @@ export default function App() {
     // Save to scoped storage immediately (local device persistence)
     saveScopedAttempts(storageUid, pruned);
 
+    // Direct real-time write to Firebase for authenticated users
+    if (activeUid && activeUid !== 'anonymous' && activeUid !== 'guest-user') {
+      saveAttemptToFirestore(validatedAttempt, activeUid).catch(console.warn);
+    }
+
     setReturnTabAfterResults('tests');
     setActiveTab('results');
     showToast(`Test completed! Your score: ${attempt.percentage}%`, attempt.passed ? 'success' : 'info');
@@ -1144,11 +1169,19 @@ export default function App() {
 
   const handleSaveTest = async (test: MathTest) => {
     const targetUid = currentUser?.uid || cachedUser?.uid || auth.currentUser?.uid || null;
+    const isAuthenticUser = Boolean(targetUid && targetUid !== 'anonymous' && targetUid !== 'guest-user');
+
+    // Author ID must be targetUid if the user is authenticated so that it matches Firestore queries
+    // (where('authorId', '==', userId)) and propagates seamlessly across all user devices.
+    const finalAuthorId = isAuthenticUser
+      ? targetUid!
+      : ((test.authorId && test.authorId !== 'anonymous' && test.authorId !== 'guest-user' && test.authorId !== 'local-user' && test.authorId !== 'system' && test.authorId !== 'custom-user')
+          ? test.authorId
+          : 'anonymous');
+
     let validatedTest: MathTest = {
       ...test,
-      authorId: (test.authorId && test.authorId !== 'anonymous' && test.authorId !== 'guest-user')
-        ? test.authorId
-        : (targetUid || 'anonymous'),
+      authorId: finalAuthorId,
       authorName: test.authorName || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Teacher',
       authorEmail: currentUser?.email || cachedUser?.email || '',
       isPublic: true,
@@ -1181,6 +1214,10 @@ export default function App() {
     });
 
     setEditingTest(validatedTest);
+    // Direct real-time write to Firebase for authenticated users
+    if (isAuthenticUser) {
+      saveTestToFirestore(validatedTest, targetUid).catch(console.warn);
+    }
     // Stay in test creation studio stage
     showToast(`Test "${validatedTest.title}" saved successfully!`, 'success');
   };
@@ -1205,6 +1242,7 @@ export default function App() {
     // Mark as deleted in scoped storage and guest fallback so it stays deleted even on page reload or sample re-hydration
     markTestAsDeletedInScopedStorage(targetUid, testId);
     markTestAsDeletedInScopedStorage(null, testId);
+    smartCoordinator.recordTest({ id: testId } as MathTest, targetUid, 'delete');
     syncHub.deleteTest(testId);
     if (targetUid && targetUid !== 'anonymous' && targetUid !== 'guest-user') {
       deleteTestFromFirestore(testId, targetUid).catch(() => {});
@@ -1258,6 +1296,9 @@ export default function App() {
         authorName: currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User',
       };
       syncHub.addOrUpdateTest(validated);
+      if (targetUid && targetUid !== 'anonymous' && targetUid !== 'guest-user') {
+        saveTestToFirestore(validated, targetUid).catch(console.warn);
+      }
     });
 
     setTests((prev) => {
@@ -1291,6 +1332,9 @@ export default function App() {
       authorName: currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Teacher',
     };
     syncHub.addOrUpdateTest(validated);
+    if (targetUid && targetUid !== 'anonymous' && targetUid !== 'guest-user') {
+      saveTestToFirestore(validated, targetUid).catch(console.warn);
+    }
     setTests((prev) => [validated, ...prev]);
     setEditingTest(validated);
     setActiveTab('create');

@@ -10,6 +10,8 @@ import {
   Sun,
   Moon,
   Plus,
+  Search,
+  X,
 } from 'lucide-react';
 import type { NotesStudioMode } from '../types';
 import { APP_STYLES } from '../../ui/AppStyles';
@@ -29,6 +31,11 @@ interface NotesStudioHeaderProps {
   onImportClick?: () => void;
   isDark?: boolean;
   toggleTheme?: () => void;
+  isSearchOpen?: boolean;
+  onToggleSearch?: () => void;
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
+  onImportDroppedFile?: (file: File) => void;
 }
 
 export const NotesStudioHeader: React.FC<NotesStudioHeaderProps> = ({
@@ -46,7 +53,13 @@ export const NotesStudioHeader: React.FC<NotesStudioHeaderProps> = ({
   onImportClick,
   isDark,
   toggleTheme,
+  isSearchOpen,
+  onToggleSearch,
+  searchQuery,
+  onSearchChange,
+  onImportDroppedFile,
 }) => {
+  const [isDraggingImport, setIsDraggingImport] = React.useState<boolean>(false);
   return (
     <header className={`sticky top-0 z-40 px-3 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.6rem)] pb-2 flex flex-col gap-2.5 ${APP_STYLES.surface.header} shrink-0 border-0 shadow-none`}>
       {/* Top Row: Back, Title & Google Drive Sync */}
@@ -120,6 +133,52 @@ export const NotesStudioHeader: React.FC<NotesStudioHeaderProps> = ({
       {/* 3. Bottom Row under the toggle button: Actions shifted rightwards (Shown in HTML Notes mode, hidden in Notes mode) */}
       {currentMode === 'html' && (
         <div className="w-full flex items-center justify-end gap-1.5 sm:gap-2 pt-0.5 pb-0.5">
+          {/* Search Button immediately left to New project button */}
+          {onToggleSearch && (
+            isSearchOpen ? (
+              <div className="flex items-center gap-1.5 bg-white dark:bg-[#1e2024] border border-slate-200 dark:border-zinc-700/80 rounded-full h-8.5 px-3 shadow-xs transition-all w-48 sm:w-64 focus-within:ring-2 focus-within:ring-[#0b57d0]/20 focus-within:border-[#0b57d0]">
+                <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  value={searchQuery || ''}
+                  onChange={(e) => onSearchChange?.(e.target.value)}
+                  placeholder="Search projects & notes..."
+                  className="bg-transparent border-0 outline-none text-xs text-slate-800 dark:text-zinc-200 placeholder-slate-400 w-full"
+                  autoFocus
+                />
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => onSearchChange?.('')}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 p-0.5 border-0 bg-transparent cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onToggleSearch}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 p-0.5 border-0 bg-transparent cursor-pointer"
+                    title="Close search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={onToggleSearch}
+                className="h-8.5 px-3.5 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] font-bold text-xs flex items-center gap-1.5 border-0 cursor-pointer active:scale-95 transition-all outline-none shadow-xs whitespace-nowrap"
+                title="Search projects and notes"
+              >
+                <Search className="w-3.5 h-3.5" />
+                <span>Search</span>
+              </button>
+            )
+          )}
+
           {onCreateNewProject && (
             <button
               type="button"
@@ -135,11 +194,34 @@ export const NotesStudioHeader: React.FC<NotesStudioHeaderProps> = ({
             <button
               type="button"
               onClick={onImportClick}
-              className="h-8.5 px-3.5 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] font-bold text-xs flex items-center gap-1.5 border-0 cursor-pointer active:scale-95 transition-all outline-none shadow-xs whitespace-nowrap"
-              title="Import .html file"
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDraggingImport(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDraggingImport(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDraggingImport(false);
+                const file = e.dataTransfer.files?.[0];
+                if (file) {
+                  onImportDroppedFile?.(file);
+                }
+              }}
+              className={`h-8.5 px-3.5 rounded-full font-bold text-xs flex items-center gap-1.5 border-0 cursor-pointer active:scale-95 transition-all outline-none shadow-xs whitespace-nowrap ${
+                isDraggingImport
+                  ? 'bg-blue-100 dark:bg-blue-900/60 text-[#0b57d0] dark:text-[#a8c7fa] ring-2 ring-[#0b57d0] scale-105'
+                  : 'bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3]'
+              }`}
+              title="Import .html or .zip project file (Click or Drag & Drop)"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>Import</span>
+              <Download className={`w-3.5 h-3.5 ${isDraggingImport ? 'animate-bounce text-[#0b57d0]' : ''}`} />
+              <span>{isDraggingImport ? 'Drop to Import' : 'Import'}</span>
             </button>
           )}
           {toggleTheme && (

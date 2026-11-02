@@ -3,12 +3,13 @@ import { getInteractiveCanvasScript } from './iframe/interactiveCanvasScript';
 import { getPaperImageAdjustmentScript } from './iframe/paperImageAdjustmentScript';
 import { getCanvasImageEngineScript } from './iframe/canvasImageEngine';
 import { getA4PaginationScript } from './iframe/a4PaginationScript';
+import { getStylusInkEngineScript } from './iframe/stylusInkEngine';
 import { getA4PrintSpecStyles, getFluidPrintSpecStyles, getDocumentPrintSpecStyles } from './iframe/iframeStyles';
 import { sanitizeAndRepairCode } from '../../../lib/htmlNotesSync';
 import { renderMathInHtmlDocument } from '../../../lib/mathPipeline/htmlMathRenderer';
 
 export type { PrepareIframeHtmlOptions };
-export { getInteractiveCanvasScript, getPaperImageAdjustmentScript, getCanvasImageEngineScript };
+export { getInteractiveCanvasScript, getPaperImageAdjustmentScript, getCanvasImageEngineScript, getStylusInkEngineScript };
 
 export interface PreparePrintHtmlOptions {
   code?: string;
@@ -17,6 +18,7 @@ export interface PreparePrintHtmlOptions {
   totalLeftMarginMm?: number;
   fontSizePx?: number;
   isSlideMode?: boolean;
+  viewportMode?: string;
 }
 
 export function preparePrintHtml(options: PreparePrintHtmlOptions): string {
@@ -26,7 +28,8 @@ export function preparePrintHtml(options: PreparePrintHtmlOptions): string {
     verticalMarginMm = 12,
     totalLeftMarginMm = 10,
     fontSizePx = 14,
-    isSlideMode = false
+    isSlideMode = false,
+    viewportMode = 'desktop'
   } = options;
 
   let preparedCode = sanitizeAndRepairCode(code) || '';
@@ -106,7 +109,7 @@ export function preparePrintHtml(options: PreparePrintHtmlOptions): string {
 
     // Clean body: strip editor overlays and cell resize styles
     const cleanBodyNode = doc.body;
-    cleanBodyNode.querySelectorAll('.studio-page-break-indicator-line, .studio-page-break-indicator-label, .doc-img-toolbar, .doc-resize-handle, #doc-image-drop-indicator, .doc-img-dimension-tooltip, .slide-card-header-badge, .no-print').forEach(el => el.remove());
+    cleanBodyNode.querySelectorAll('.studio-page-break-indicator-line, .studio-page-break-indicator-label, .doc-img-toolbar, .doc-resize-handle, #doc-image-drop-indicator, .doc-img-dimension-tooltip, .slide-card-header-badge, .no-print, .studio-resize-handle, .studio-resize-badge, #image-context-toolbar, .image-context-toolbar, .studio-drop-indicator-line').forEach(el => el.remove());
 
     cleanBodyNode.querySelectorAll('table').forEach(tbl => {
       tbl.removeAttribute('data-has-resizers');
@@ -114,7 +117,8 @@ export function preparePrintHtml(options: PreparePrintHtmlOptions): string {
     });
 
     cleanBodyNode.querySelectorAll<HTMLElement>('*').forEach(el => {
-      el.classList.remove('studio-active-selected-element');
+      el.classList.remove('studio-active-selected-element', 'studio-selected-img', 'preview-editing');
+      el.removeAttribute('contenteditable');
       if (el.style) {
         if (el.style.outline) el.style.outline = '';
         if (el.style.outlineOffset) el.style.outlineOffset = '';
@@ -135,10 +139,31 @@ export function preparePrintHtml(options: PreparePrintHtmlOptions): string {
       }
     });
 
-    // Enforce exact image positioning preservation in print output
+    // Enforce exact image positioning and studio widget preservation in print output
+    cleanBodyNode.querySelectorAll<HTMLElement>('.studio-img-widget').forEach(w => {
+      w.classList.remove('studio-selected-img');
+      w.removeAttribute('draggable');
+      w.removeAttribute('contenteditable');
+      w.querySelectorAll('.studio-resize-handle, .studio-resize-badge').forEach(h => h.remove());
+      const innerImg = w.querySelector('img');
+      if (innerImg) {
+        if (w.style.height) {
+          w.style.overflow = 'hidden';
+          innerImg.style.setProperty('width', '100%', 'important');
+          innerImg.style.setProperty('height', '100%', 'important');
+          innerImg.style.setProperty('max-height', '100%', 'important');
+          innerImg.style.setProperty('object-fit', 'fill', 'important');
+          innerImg.style.setProperty('display', 'block', 'important');
+        } else {
+          innerImg.style.width = '100%';
+          innerImg.style.height = 'auto';
+        }
+      }
+    });
+
     cleanBodyNode.querySelectorAll<HTMLElement>('.doc-img-wrapper, figure, img').forEach(w => {
       const isImgTag = w.tagName === 'IMG';
-      if (isImgTag && w.closest('.doc-img-wrapper, figure')) return;
+      if (isImgTag && w.closest('.doc-img-wrapper, figure, .studio-img-widget')) return;
       const wrap = w.getAttribute('data-wrap') || (w.style.float === 'right' ? 'right' : w.style.float === 'left' ? 'left' : (w.style.margin && w.style.margin.includes('auto') ? 'center' : ''));
       if (wrap === 'center' || wrap === 'break') {
         w.setAttribute('data-wrap', 'center');
@@ -165,9 +190,9 @@ export function preparePrintHtml(options: PreparePrintHtmlOptions): string {
       }
     });
 
-    // If body content is wrapped in .a4-sheet or .a4-container, unwrap it for seamless continuous flow
+    // In A4 mode, preserve .a4-sheet pages and split tables so exact preview layout is printed. In continuous mode, unwrap for flowing print.
     const sheets = cleanBodyNode.querySelectorAll('.a4-sheet');
-    if (sheets.length > 0) {
+    if (sheets.length > 0 && viewportMode !== 'a4') {
       finalBodyHtml = '';
       sheets.forEach(s => {
         finalBodyHtml += s.innerHTML + '\n';
@@ -182,7 +207,8 @@ export function preparePrintHtml(options: PreparePrintHtmlOptions): string {
     fontSizePx,
     verticalMarginMm,
     sideMarginMm,
-    totalLeftMarginMm
+    totalLeftMarginMm,
+    viewportMode
   });
 
   const fontTags = `
@@ -245,6 +271,45 @@ export function preparePrintHtml(options: PreparePrintHtmlOptions): string {
               var s = math ? math.trim() : '';
               if (!s) return '';
               s = s.replace(/\/(displaystyle|textstyle|frac|sqrt|sum|int|lim|infty|partial|mathbf|mathrm|text)\b/g, '\\$1');
+              s = s.replace(/\\\\(?=(?:neq|ne|nequal|leq|le|geq|ge|pm|mp|times|cdot|div|approx|equiv|sim|propto|parallel|perp|in|notin|subset|subseteq|cap|cup|forall|exists|partial|nabla|sqrt|frac|dfrac|cfrac|sum|prod|int|lim|sin|cos|tan|cot|sec|csc|log|ln|exp|det|deg|degree|circ|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|pi|sigma|phi|omega|left|right|text|mathrm|mathbf)\b)/g, '\\');
+              
+              // Normalize unicode math symbols to standard LaTeX commands
+              s = s.replace(/\u222B/g, ' \\int ');
+              s = s.replace(/\u222C/g, ' \\iint ');
+              s = s.replace(/\u222D/g, ' \\iiint ');
+              s = s.replace(/\u222E/g, ' \\oint ');
+              s = s.replace(/\u2211/g, ' \\sum ');
+              s = s.replace(/\u220F/g, ' \\prod ');
+              s = s.replace(/\u221E/g, ' \\infty ');
+              s = s.replace(/\u2260/g, ' \\neq ');
+              s = s.replace(/\u2264/g, ' \\leq ');
+              s = s.replace(/\u2265/g, ' \\geq ');
+              s = s.replace(/\u00D7/g, ' \\times ');
+              s = s.replace(/\u00F7/g, ' \\div ');
+              s = s.replace(/\u00B1/g, ' \\pm ');
+              s = s.replace(/\u2213/g, ' \\mp ');
+              s = s.replace(/\u2248/g, ' \\approx ');
+              s = s.replace(/\u2261/g, ' \\equiv ');
+              s = s.replace(/\u2208/g, ' \\in ');
+              s = s.replace(/\u2209/g, ' \\notin ');
+              s = s.replace(/\u2282/g, ' \\subset ');
+              s = s.replace(/\u2286/g, ' \\subseteq ');
+              s = s.replace(/\u222A/g, ' \\cup ');
+              s = s.replace(/\u2229/g, ' \\cap ');
+              s = s.replace(/\u2200/g, ' \\forall ');
+              s = s.replace(/\u2203/g, ' \\exists ');
+              s = s.replace(/\u2202/g, ' \\partial ');
+              s = s.replace(/\u2207/g, ' \\nabla ');
+              s = s.replace(/\u2220/g, ' \\angle ');
+              s = s.replace(/\u22A5/g, ' \\perp ');
+              s = s.replace(/\u2225/g, ' \\parallel ');
+              s = s.replace(/\u2192/g, ' \\to ');
+              s = s.replace(/\u21D2/g, ' \\implies ');
+              s = s.replace(/\u21D4/g, ' \\iff ');
+
+              // Differential spacing
+              s = s.replace(/([0-9a-zA-Z\)\}\]\|])\s*(d[xytuvz]|d\\theta|d\\phi)\b/g, '$1 \\, $2');
+
               s = s.replace(/(?:^|[^\\])\[\s*\\begin\{matrix\}([\s\S]*?)\\end\{matrix\}\s*\]/g, '\\begin{bmatrix}$1\\end{bmatrix}');
               s = s.replace(/(?:^|[^\\])\(\s*\\begin\{matrix\}([\s\S]*?)\\end\{matrix\}\s*\)/g, '\\begin{pmatrix}$1\\end{pmatrix}');
               s = s.replace(/(?:^|[^\\])\|\s*\\begin\{matrix\}([\s\S]*?)\\end\{matrix\}\s*\|/g, '\\begin{vmatrix}$1\\end{vmatrix}');
@@ -262,7 +327,7 @@ export function preparePrintHtml(options: PreparePrintHtmlOptions): string {
                     while (j < str.length && d > 0) {
                       if (str[j] === '\\') {
                         var rem = str.slice(j);
-                        if (/^\\(?:frac|dfrac|cfrac|matrix|bmatrix|pmatrix|vmatrix|Vmatrix|cases|array|int|iint|iiint|oint|sum|prod|lim)\b/.test(rem)) tall = true;
+                        if (/^\\(?:frac|dfrac|cfrac|tfrac|matrix|bmatrix|pmatrix|vmatrix|Vmatrix|cases|array|int|iint|iiint|oint|oiint|oiiint|idotsint|sum|prod|coprod|lim|limsup|liminf)\b/.test(rem)) tall = true;
                         j++;
                         if (j < str.length && /[a-zA-Z]/.test(str[j])) {
                           while (j < str.length && /[a-zA-Z]/.test(str[j])) j++;
@@ -293,7 +358,7 @@ export function preparePrintHtml(options: PreparePrintHtmlOptions): string {
 
               // Guarantee \displaystyle for tall operators so integrals and fractions render at full truth height
               if (!s.startsWith('\\displaystyle') && !s.startsWith('\\textstyle')) {
-                if (/\\(?:frac|dfrac|cfrac|int|iint|iiint|oint|sum|prod|lim|matrix|bmatrix|pmatrix|vmatrix|cases)\b/.test(s)) {
+                if (/\\(?:frac|dfrac|cfrac|tfrac|int|iint|iiint|oint|oiint|oiiint|idotsint|sum|prod|coprod|lim|limsup|liminf|bigcup|bigcap|matrix|bmatrix|pmatrix|vmatrix|Vmatrix|cases|array)\b/.test(s)) {
                   s = '\\displaystyle ' + s;
                 }
               }
@@ -321,10 +386,9 @@ export function preparePrintHtml(options: PreparePrintHtmlOptions): string {
               { left: '\\\\begin{CD}', right: '\\\\end{CD}', display: true }
             ],
             macros: {
-              "\\\\ne": "\\\\mathrel{≠}",
-              "\\\\neq": "\\\\mathrel{≠}",
-              "\\\\nequal": "\\\\mathrel{≠}",
-              "\\\\not=": "\\\\mathrel{≠}",
+              "\\\\ne": "\\\\neq",
+              "\\\\nequal": "\\\\neq",
+              "\\\\not=": "\\\\neq",
               "\\\\degree": "^\\\\circ",
               "\\\\deg": "^\\\\circ",
               "\\\\le": "\\\\leq",
@@ -335,7 +399,23 @@ export function preparePrintHtml(options: PreparePrintHtmlOptions): string {
               "\\\\tr": "\\\\operatorname{tr}",
               "\\\\rank": "\\\\operatorname{rank}",
               "\\\\gcd": "\\\\operatorname{gcd}",
-              "\\\\lcm": "\\\\operatorname{lcm}",
+              "\\\\lcm": "\\\\lcm",
+              "\\\\sgn": "\\\\operatorname{sgn}",
+              "\\\\cosec": "\\\\csc",
+              "\\\\arccot": "\\\\operatorname{arccot}",
+              "\\\\arcsec": "\\\\operatorname{arcsec}",
+              "\\\\arccsc": "\\\\operatorname{arccsc}",
+              "\\\\sech": "\\\\operatorname{sech}",
+              "\\\\csch": "\\\\operatorname{csch}",
+              "\\\\var": "\\\\operatorname{Var}",
+              "\\\\cov": "\\\\operatorname{Cov}",
+              "\\\\diag": "\\\\operatorname{diag}",
+              "\\\\sen": "\\\\sin",
+              "\\\\tg": "\\\\tan",
+              "\\\\cotg": "\\\\cot",
+              "\\\\oiint": "\\\\oint\\\\!\\\\!\\\\oint",
+              "\\\\oiiint": "\\\\oint\\\\!\\\\!\\\\oint\\\\!\\\\!\\\\oint",
+              "\\\\idotsint": "\\\\int\\\\!\\\\cdots\\\\!\\\\int",
               "\\\\abs": "\\\\left|#1\\\\right|",
               "\\\\norm": "\\\\left\\\\|#1\\\\right\\\\|",
               "\\\\grad": "\\\\nabla",
@@ -473,10 +553,10 @@ export function prepareIframeHtml(options: PrepareIframeHtmlOptions): string {
       const pageWidth = isSlideMode ? 1200 : 794;
       const pageHeight = isSlideMode ? 675 : 1123;
 
-      const topMarginMm = verticalMarginMm > 0 ? verticalMarginMm : 8;
-      const bottomMarginMm = verticalMarginMm > 0 ? verticalMarginMm : 8;
-      const leftMarginMm = totalLeftMarginMm > 0 ? totalLeftMarginMm : 5;
-      const rightMarginMm = sideMarginMm > 0 ? sideMarginMm : 5;
+      const topMarginMm = typeof verticalMarginMm === 'number' && verticalMarginMm >= 0 ? verticalMarginMm : 8;
+      const bottomMarginMm = topMarginMm;
+      const rightMarginMm = typeof sideMarginMm === 'number' && sideMarginMm >= 0 ? sideMarginMm : 8;
+      const leftMarginMm = typeof totalLeftMarginMm === 'number' && totalLeftMarginMm >= 0 ? totalLeftMarginMm : rightMarginMm;
 
       const vertPaddingPx = Math.round((topMarginMm + bottomMarginMm) * 3.7795);
       const printableHeight = Math.max(isSlideMode ? 480 : 400, pageHeight - vertPaddingPx);
@@ -526,6 +606,7 @@ export function prepareIframeHtml(options: PrepareIframeHtmlOptions): string {
   <script>window.__useCanvasImageEngine = true;</script>
   ${getInteractiveCanvasScript(isPreviewEditMode)}
   ${getCanvasImageEngineScript(isPreviewEditMode)}
+  ${getStylusInkEngineScript()}
   ${paginationEngineScript}
 </body>
 </html>`;
@@ -546,10 +627,12 @@ export function prepareIframeHtml(options: PrepareIframeHtmlOptions): string {
 
   const interactiveScript = getInteractiveCanvasScript(isPreviewEditMode);
   const canvasImageScript = getCanvasImageEngineScript(isPreviewEditMode);
+  const stylusInkScript = getStylusInkEngineScript();
   const canvasScripts = `
   <script>window.__useCanvasImageEngine = true;</script>
   ${interactiveScript}
   ${canvasImageScript}
+  ${stylusInkScript}
   `;
 
   const fontTags = `

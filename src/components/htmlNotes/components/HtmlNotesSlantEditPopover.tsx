@@ -123,7 +123,7 @@ export const HtmlNotesSlantEditPopover: React.FC<HtmlNotesSlantEditPopoverProps>
           e.stopPropagation();
           setIsExpanded(true);
         }}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/95 dark:bg-[#1a1e29]/95 backdrop-blur-md border border-blue-400/30 dark:border-blue-500/30 shadow-[0_4px_20px_rgba(11,87,208,0.25)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.7)] text-[#0b57d0] dark:text-[#a8c7fa] font-bold text-xs cursor-pointer select-none"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/95 dark:bg-[#1a1e29]/95 backdrop-blur-md border border-blue-400/30 dark:border-blue-500/30 shadow-[0_4px_20px_rgba(11,87,208,0.25)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.7)] text-[#0b57d0] dark:text-[#a8c7fa] font-bold text-xs cursor-pointer select-none m3-popover-in"
         title="Refine selected snippet with AI"
       >
         <Sparkles className="w-3.5 h-3.5 stroke-[2.2]" />
@@ -153,7 +153,7 @@ export const HtmlNotesSlantEditPopover: React.FC<HtmlNotesSlantEditPopoverProps>
         left: `${computedPos.left}px`,
         zIndex: 60,
       }}
-      className="w-[calc(100%-32px)] sm:w-[380px] max-w-[380px] rounded-[22px] bg-white dark:bg-[#1a1e29] border border-slate-200/80 dark:border-zinc-800 shadow-[0_8px_30px_rgba(0,0,0,0.18)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.6)] p-3 text-slate-800 dark:text-zinc-100 select-none box-border"
+      className="w-[calc(100%-32px)] sm:w-[380px] max-w-[380px] rounded-[22px] bg-white dark:bg-[#1a1e29] border border-slate-200/80 dark:border-zinc-800 shadow-[0_8px_30px_rgba(0,0,0,0.18)] dark:shadow-[0_12px_36px_rgba(0,0,0,0.6)] p-3 text-slate-800 dark:text-zinc-100 select-none box-border m3-popover-in"
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => {
         e.preventDefault();

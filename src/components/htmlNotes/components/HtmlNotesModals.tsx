@@ -113,12 +113,12 @@ export const HtmlNotesModals: React.FC<HtmlNotesModalsProps> = ({
       {/* STUDIO OPTIONS MODAL POPOVER */}
       {isMobileMoreOpen && (
         <div 
-          className="fixed inset-0 z-50 flex items-start justify-end p-3 sm:p-4 cursor-default animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-start justify-end p-3 sm:p-4 cursor-default m3-fade-in"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
           onClick={() => setIsMobileMoreOpen(false)}
         >
           <div 
-            className="mt-12 mr-1 w-76 max-w-[calc(100vw-32px)] bg-white dark:bg-[#1e2024] rounded-2xl p-3.5 shadow-2xl border border-slate-200/80 dark:border-zinc-800 space-y-2 animate-in fade-in zoom-in-95 duration-150 text-[#1f1f1f] dark:text-[#e3e3e3]"
+            className="mt-12 mr-1 w-76 max-w-[calc(100vw-32px)] bg-white dark:bg-[#1e2024] rounded-2xl p-3.5 shadow-2xl border border-slate-200/80 dark:border-zinc-800 space-y-2 m3-popover-in text-[#1f1f1f] dark:text-[#e3e3e3]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
@@ -267,12 +267,12 @@ export const HtmlNotesModals: React.FC<HtmlNotesModalsProps> = ({
       {/* DELETE CONFIRMATION POPUP MODAL */}
       {showDeleteConfirmModal && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 m3-fade-in"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.55)', backdropFilter: 'blur(4px)' }}
           onClick={() => setShowDeleteConfirmModal(false)}
         >
           <div
-            className="w-full max-w-sm bg-white dark:bg-[#0b0c10] rounded-2xl p-5 shadow-2xl border border-slate-200/80 dark:border-zinc-800 space-y-4 animate-in zoom-in-95 duration-150 text-[#1f1f1f] dark:text-[#e3e3e3]"
+            className="w-full max-w-sm bg-white dark:bg-[#0b0c10] rounded-2xl p-5 shadow-2xl border border-slate-200/80 dark:border-zinc-800 space-y-4 m3-dialog-in text-[#1f1f1f] dark:text-[#e3e3e3]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3">
@@ -302,7 +302,6 @@ export const HtmlNotesModals: React.FC<HtmlNotesModalsProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  setShowDeleteConfirmModal(false);
                   onConfirmDelete();
                 }}
                 className="px-4 py-2 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs border-0 shadow-xs cursor-pointer transition-colors"
@@ -327,7 +326,7 @@ export const HtmlNotesModals: React.FC<HtmlNotesModalsProps> = ({
           height: '1px',
           pointerEvents: 'none'
         }}
-        accept=".html,.htm,.txt"
+        accept=".html,.htm,.txt,.zip,application/zip,application/x-zip-compressed"
         onChange={onImportFile}
       />
       <input

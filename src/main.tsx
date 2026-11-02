@@ -5,14 +5,44 @@ import katex from 'katex';
 import renderMathInElement from 'katex/contrib/auto-render';
 import 'material-symbols';
 
-// Expose KaTeX & auto-render globally on top window so all preview iframes & print windows can inherit them instantly with 0ms delay
+import { normalizeLatexMath, PIPELINE_KATEX_MACROS } from './lib/mathPipeline/katexCore';
+
+// Expose KaTeX & enhanced auto-render globally on top window so all preview iframes & print windows inherit them instantly
 if (typeof window !== 'undefined') {
   const actualKatex = (katex as any)?.renderToString ? katex : ((katex as any)?.default || katex);
-  const actualRenderMath = typeof renderMathInElement === 'function'
+  const rawRenderMath = typeof renderMathInElement === 'function'
     ? renderMathInElement
     : ((renderMathInElement as any)?.default || renderMathInElement);
+
+  const enhancedRenderMath = (element: HTMLElement, userOptions: any = {}) => {
+    if (!element) return;
+    const userPreProcess = userOptions?.preProcess;
+    const mergedOptions = {
+      ...userOptions,
+      delimiters: userOptions?.delimiters || [
+        { left: '$$', right: '$$', display: true },
+        { left: '$', right: '$', display: false },
+        { left: '\\(', right: '\\)', display: false },
+        { left: '\\[', right: '\\]', display: true }
+      ],
+      macros: {
+        ...PIPELINE_KATEX_MACROS,
+        ...(userOptions?.macros || {})
+      },
+      throwOnError: false,
+      preProcess: (math: string) => {
+        let processed = math ? math.trim() : '';
+        if (typeof userPreProcess === 'function') {
+          processed = userPreProcess(processed) || processed;
+        }
+        return normalizeLatexMath(processed, false);
+      }
+    };
+    return rawRenderMath(element, mergedOptions);
+  };
+
   (window as any).katex = actualKatex;
-  (window as any).renderMathInElement = actualRenderMath;
+  (window as any).renderMathInElement = enhancedRenderMath;
 }
 
 // Official Material 3 Web Components Registrations

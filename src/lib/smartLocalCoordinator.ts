@@ -511,6 +511,32 @@ export class SmartLocalCoordinator {
     this.persistFingerprintsToStorage();
   }
 
+  /**
+   * Completely purges all cached fingerprints, sync timestamps, sync revisions, and write queue.
+   * Ensures that after account deletion or login, newly created tests, attempts, and projects
+   * are immediately committed to Firestore without false "already synced" deduplication blocks.
+   */
+  public clearCoordinatorUserData(userId?: string | null): void {
+    this.syncedFingerprints.clear();
+    this.syncTimestamps.clear();
+    this.writeQueue = [];
+    if (userId) {
+      this.syncRevisions.delete(userId);
+    } else {
+      this.syncRevisions.clear();
+    }
+    this.persistFingerprintsToStorage();
+    this.persistWriteQueueToL2();
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.removeItem(`${this.storagePrefix}synced_fingerprints`);
+        localStorage.removeItem(`${this.storagePrefix}sync_timestamps`);
+        localStorage.removeItem(`${this.storagePrefix}sync_revisions`);
+        localStorage.removeItem(`${this.storagePrefix}write_queue`);
+      } catch {}
+    }
+  }
+
   private setupLifecycleFlushListeners(): void {
     if (typeof window === 'undefined') return;
     const handleExit = () => {
@@ -947,10 +973,15 @@ export class SmartLocalCoordinator {
       }
     } catch {}
 
-    // 3. Fallback: Fetch single test doc on-demand from Firestore
+    // 3. Fallback: Fetch single test doc on-demand from Firestore user subcollection
     if (!isOfflineLocalOnlyMode() && !isGlobalQuotaExceeded()) {
       try {
-        const snap = await getDoc(doc(db, 'tests', id));
+        let snap = activeUid && activeUid !== 'anonymous' && activeUid !== 'guest-user'
+          ? await getDoc(doc(db, 'users', activeUid, 'tests', id))
+          : null;
+        if (!snap || !snap.exists()) {
+          snap = await getDoc(doc(db, 'tests', id));
+        }
         if (snap.exists()) {
           const raw = snap.data() as MathTest;
           const normalized: MathTest = {
@@ -1364,9 +1395,14 @@ export class SmartLocalCoordinator {
 
     const remoteIds = new Set(remoteList.map((r: any) => r && r.id).filter(Boolean));
 
-    // 2. Preserve local sessions without resetting cloudSyncEnabled to false
+    // 2. Preserve local sessions (infer cross-device deletions for previously synced sessions)
     localSessions.forEach((s) => {
       if (s && s.id) {
+        if (remoteList.length > 0 && s._syncStatus === 'synced' && !remoteIds.has(s.id) && !pendingIds.has(s.id)) {
+          markChatSessionAsDeletedInScopedStorage(userId, s.id);
+          sessionMap.delete(s.id);
+          return;
+        }
         sessionMap.set(s.id, s);
       }
     });
@@ -1467,6 +1503,11 @@ export class SmartLocalCoordinator {
   public recordTest(test: MathTest, userId?: string | null, type: MutationType = 'set'): void {
     if (!test || !test.id) return;
     const activeUid = userId || auth.currentUser?.uid || null;
+    const isAuthenticUser = Boolean(activeUid && activeUid !== 'anonymous' && activeUid !== 'guest-user');
+
+    if (isAuthenticUser && (!test.authorId || test.authorId === 'local-user' || test.authorId === 'system' || test.authorId === 'custom-user' || test.authorId === 'anonymous' || test.authorId === 'guest-user')) {
+      test.authorId = activeUid!;
+    }
 
     if (type === 'delete') {
       this.syncedFingerprints.delete(`tests:${test.id}`);
@@ -1590,22 +1631,24 @@ export class SmartLocalCoordinator {
           return;
         }
         this.removeFromLocalCache('tests', loc.id);
+        deleteTestFromIndexedDB(userId, loc.id).catch(() => {});
         return;
       }
 
       // Rule 2: Single Party Remote Deletion Inference
-      // Only infer remote deletion if the test was EXPLICITLY synced in this session/device (recorded in syncedFingerprints),
+      // If a local test was previously synced (or recorded in fingerprints),
       // is not an uncommitted local creation or restored backup, and is absent from remote:
       if (isAuthUser && isRemoteAuthoritative && (loc.authorId === userId || (!loc.id.startsWith('sample-') && !loc.id.startsWith('math-')))) {
         const isLocSynced = loc._syncStatus === 'synced';
         const isLocPending = loc._syncStatus === 'pending' || pendingIds.has(loc.id);
         const wasCommittedToCloud = this.syncedFingerprints.has(`tests:${loc.id}`);
 
-        if (isLocSynced && !isLocPending && wasCommittedToCloud && !remoteIdSet.has(loc.id)) {
+        if ((isLocSynced || wasCommittedToCloud) && !isLocPending && !remoteIdSet.has(loc.id)) {
           // Authoritative remote absence: Deleted by the user on another device!
           delIds.add(loc.id);
           markTestAsDeletedInScopedStorage(userId, loc.id);
           this.removeFromLocalCache('tests', loc.id);
+          deleteTestFromIndexedDB(userId, loc.id).catch(() => {});
           return;
         }
       }
@@ -1729,7 +1772,11 @@ export class SmartLocalCoordinator {
    */
   public async flushWriteQueue(): Promise<void> {
     if (this.isFlushingWrites || this.writeQueue.length === 0) return;
-    if (isGlobalQuotaExceeded() || isOfflineLocalOnlyMode()) return;
+    if (isOfflineLocalOnlyMode()) return;
+    if (isGlobalQuotaExceeded()) {
+      const hasDeletes = this.writeQueue.some((t) => t.type === 'delete');
+      if (!hasDeletes) return;
+    }
 
     // Critical Auth Guard: All Firestore writes require an active authenticated user.
     // When the user is unauthenticated or in guest mode, all mutations remain safely stored
@@ -1782,6 +1829,7 @@ export class SmartLocalCoordinator {
         }
 
         if (task.type === 'delete') return true;
+        if (isGlobalQuotaExceeded()) return false;
         // Checksum deduplication: If data is identical to synced remote, skip writing to Firestore (Zero redundant writes!)
         let taskData = task.data;
         if (task.collection === 'users') {
@@ -1802,12 +1850,27 @@ export class SmartLocalCoordinator {
         const now = new Date().toISOString();
 
         firestoreTasks.forEach((task) => {
-          const docRef = doc(db, task.collection, task.id);
+          const targetUid = task.userId || currentUid;
+          const isRealUid = Boolean(targetUid && targetUid !== 'anonymous' && targetUid !== 'guest-user');
+
           if (task.type === 'delete') {
-            batch.delete(docRef);
+            if (isRealUid) {
+              if (task.collection === 'tests') {
+                batch.delete(doc(db, 'users', targetUid!, 'tests', task.id));
+              } else if (task.collection === 'attempts') {
+                batch.delete(doc(db, 'users', targetUid!, 'attempts', task.id));
+              } else if (task.collection === 'users') {
+                batch.delete(doc(db, 'users', task.id));
+              }
+            }
+            // Best-effort cleanup of legacy root document if it exists
+            try {
+              batch.delete(doc(db, task.collection, task.id));
+            } catch {}
+
             this.syncedFingerprints.delete(`${task.collection}:${task.id}`);
-            if (task.collection === 'tests' && task.userId && task.userId !== 'anonymous' && task.userId !== 'guest-user') {
-              const userDocRef = doc(db, 'users', task.userId);
+            if (task.collection === 'tests' && isRealUid) {
+              const userDocRef = doc(db, 'users', targetUid!);
               batch.set(userDocRef, {
                 deletedTestIds: arrayUnion(task.id),
                 [`createdTests.${task.id}`]: deleteField(),
@@ -1820,13 +1883,27 @@ export class SmartLocalCoordinator {
               taskData = cleanUserDataForFirestore(taskData);
             } else if (task.collection === 'attempts') {
               taskData = cleanAttemptDataForFirestore(taskData);
+            } else if (task.collection === 'tests' && isRealUid) {
+              if (taskData && (!taskData.authorId || taskData.authorId === 'local-user' || taskData.authorId === 'system' || taskData.authorId === 'custom-user' || taskData.authorId === 'anonymous' || taskData.authorId === 'guest-user')) {
+                taskData = { ...taskData, authorId: targetUid };
+              }
             }
             const payload = sanitizeDataForFirestore({
               ...taskData,
               ...(task.collection !== 'users' ? { id: task.id } : {}),
               updatedAt: now,
             });
-            batch.set(docRef, payload, { merge: true });
+
+            // STRICT SUBCOLLECTION ISOLATION:
+            // Write tests and attempts strictly into the user's subcollection.
+            // Never write to top-level root 'tests' or 'attempts' collections.
+            if (task.collection === 'users') {
+              batch.set(doc(db, 'users', task.id), payload, { merge: true });
+            } else if (task.collection === 'tests' && isRealUid) {
+              batch.set(doc(db, 'users', targetUid!, 'tests', task.id), payload, { merge: true });
+            } else if (task.collection === 'attempts' && isRealUid) {
+              batch.set(doc(db, 'users', targetUid!, 'attempts', task.id), payload, { merge: true });
+            }
             this.syncedFingerprints.set(`${task.collection}:${task.id}`, computeEntityChecksum(taskData));
           }
         });
@@ -2086,6 +2163,10 @@ export class SmartLocalCoordinator {
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => {
         console.log('SmartLocalCoordinator: Online event detected. Flushing queued writes.');
+        this.flushWriteQueue();
+      });
+      window.addEventListener('firestore-quota-reset', () => {
+        console.log('SmartLocalCoordinator: Daily quota reset detected. Flushing queued writes.');
         this.flushWriteQueue();
       });
     }

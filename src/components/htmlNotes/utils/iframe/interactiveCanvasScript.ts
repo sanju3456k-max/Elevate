@@ -9,17 +9,41 @@ export function getInteractiveCanvasScript(isPreviewEditMode: boolean = false): 
     overflow: visible !important;
   }
 
-  /* When Edit Mode is NOT active, strictly remove all outlines, cursors, and ensure read-only */
-  body:not(.studio-preview-editable),
-  body:not(.studio-preview-editable) * {
-    outline: none !important;
-    user-modify: read-only !important;
-    -webkit-user-modify: read-only !important;
+  /* Edit Mode Styles */
+  body.studio-preview-editable {
+    user-select: auto !important;
   }
-  body:not(.studio-preview-editable) *:focus,
-  body:not(.studio-preview-editable) *:hover {
+  body.studio-preview-editable .a4-sheet,
+  body.studio-preview-editable .a4-container {
     outline: none !important;
-    box-shadow: none !important;
+    cursor: text !important;
+    user-select: text !important;
+  }
+  body.studio-preview-editable .doc-img-wrapper,
+  body.studio-preview-editable .katex,
+  body.studio-preview-editable .katex-display,
+  body.studio-preview-editable .katex-html,
+  body.studio-preview-editable .studio-page-break-indicator-line,
+  body.studio-preview-editable .studio-page-break-indicator-label,
+  body.studio-preview-editable .slide-card-header-badge {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    cursor: default !important;
+  }
+  body.studio-preview-editable .doc-img-toolbar,
+  body.studio-preview-editable .doc-img-toolbar *,
+  body.studio-preview-editable .doc-resize-handle {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+  }
+  body:not(.studio-preview-editable) {
+    user-select: auto;
+    cursor: default;
+  }
+  body:not(.studio-preview-editable) [contenteditable] {
+    contenteditable: false;
   }
   body:not(.studio-preview-editable) .doc-img-toolbar,
   body:not(.studio-preview-editable) .doc-resize-handle,
@@ -27,46 +51,6 @@ export function getInteractiveCanvasScript(isPreviewEditMode: boolean = false): 
     display: none !important;
     visibility: hidden !important;
     pointer-events: none !important;
-  }
-
-  /* Visual Edit Mode Editable Affordance */
-  body.studio-preview-editable,
-  body.studio-preview-editable .a4-container,
-  body.studio-preview-editable .a4-sheet,
-  body.studio-preview-editable p,
-  body.studio-preview-editable h1,
-  body.studio-preview-editable h2,
-  body.studio-preview-editable h3,
-  body.studio-preview-editable h4,
-  body.studio-preview-editable h5,
-  body.studio-preview-editable h6,
-  body.studio-preview-editable li,
-  body.studio-preview-editable blockquote,
-  body.studio-preview-editable .panel,
-  body.studio-preview-editable .callout,
-  body.studio-preview-editable td,
-  body.studio-preview-editable th,
-  body.studio-preview-editable [contenteditable="true"] {
-    -webkit-user-modify: read-write !important;
-    user-modify: read-write !important;
-    -webkit-user-select: text !important;
-    user-select: text !important;
-    cursor: text !important;
-    pointer-events: auto !important;
-  }
-
-  body.studio-preview-editable .katex,
-  body.studio-preview-editable .katex-display,
-  body.studio-preview-editable .katex-html,
-  body.studio-preview-editable .doc-img-wrapper,
-  body.studio-preview-editable .doc-img-toolbar,
-  body.studio-preview-editable .doc-resize-handle,
-  body.studio-preview-editable #studio-slide-element-toolbar,
-  body.studio-preview-editable .studio-page-break-indicator-line,
-  body.studio-preview-editable .studio-page-break-indicator-label,
-  body.studio-preview-editable .slide-card-header-badge {
-    -webkit-user-modify: read-only !important;
-    user-modify: read-only !important;
   }
 
   .studio-preview-editable p:hover,
@@ -179,7 +163,6 @@ export function getInteractiveCanvasScript(isPreviewEditMode: boolean = false): 
     window.__isPaperEditActive = isEdit;
 
     if (!isEdit) {
-      // 1. Force blur active element and clear text selection to eradicate any lingering focus box
       try {
         if (document.activeElement && typeof document.activeElement.blur === 'function') {
           document.activeElement.blur();
@@ -190,47 +173,24 @@ export function getInteractiveCanvasScript(isPreviewEditMode: boolean = false): 
         }
       } catch(e) {}
 
-      // 2. Remove editable classes & attributes
       document.body.classList.remove('studio-preview-editable');
       document.body.contentEditable = 'false';
       document.body.removeAttribute('contenteditable');
 
-      var allEditables = document.querySelectorAll('[contenteditable]');
-      allEditables.forEach(function(el) {
-        el.contentEditable = 'false';
-        el.setAttribute('contenteditable', 'false');
-      });
-
-      var sheets = document.querySelectorAll('.a4-sheet, .slide');
-      sheets.forEach(function(sheet) {
-        sheet.contentEditable = 'false';
-        sheet.setAttribute('contenteditable', 'false');
-        sheet.style.overflow = '';
+      var allSheets = document.querySelectorAll('.a4-sheet, .a4-container, .slide');
+      allSheets.forEach(function(s) {
+        s.contentEditable = 'false';
+        s.setAttribute('contenteditable', 'false');
       });
 
       teardownTableResizing();
       hideSlideElementToolbar();
-      try {
-        document.querySelectorAll('.studio-active-selected-element').forEach(function(el) {
-          el.classList.remove('studio-active-selected-element');
-          el.style.outline = '';
-          el.style.outlineOffset = '';
-        });
-        document.querySelectorAll('*').forEach(function(el) {
-          if (el.style) {
-            if (el.style.outline) el.style.outline = '';
-            if (el.style.outlineOffset) el.style.outlineOffset = '';
-          }
-        });
-      } catch(e) {}
       if (typeof window.deselectAllImages === 'function') {
         window.deselectAllImages();
-      } else if (typeof deselectAllImages === 'function') {
-        deselectAllImages();
       }
-      // Read-only state initialization or toggling must NEVER trigger an HTML update back to parent
     } else {
       document.body.classList.add('studio-preview-editable');
+
       var sheets = document.querySelectorAll('.a4-sheet, .slide');
       if (sheets.length > 0) {
         sheets.forEach(function(sheet) {
@@ -238,59 +198,33 @@ export function getInteractiveCanvasScript(isPreviewEditMode: boolean = false): 
           sheet.setAttribute('contenteditable', 'true');
           sheet.style.overflow = 'visible';
         });
+        document.body.contentEditable = 'false';
       } else {
-        document.body.contentEditable = 'true';
-        document.body.setAttribute('contenteditable', 'true');
+        var container = document.querySelector('.a4-container') || document.body;
+        container.contentEditable = 'true';
+        container.setAttribute('contenteditable', 'true');
       }
-
-      // Explicitly enable editing on all child text containers and clear any lingering contenteditable="false"
-      var textBlocks = document.querySelectorAll(
-        '.a4-sheet p, .a4-sheet h1, .a4-sheet h2, .a4-sheet h3, .a4-sheet h4, .a4-sheet h5, .a4-sheet h6, ' +
-        '.a4-sheet li, .a4-sheet blockquote, .a4-sheet .panel, .a4-sheet .callout, .a4-sheet td, .a4-sheet th, ' +
-        '.a4-container p, .a4-container h1, .a4-container h2, .a4-container h3, .a4-container h4, .a4-container h5, .a4-container h6, ' +
-        '.a4-container li, .a4-container blockquote, .a4-container .panel, .a4-container td, .a4-container th, ' +
-        'body.studio-preview-editable p, body.studio-preview-editable h1, body.studio-preview-editable h2, ' +
-        'body.studio-preview-editable h3, body.studio-preview-editable h4, body.studio-preview-editable h5, body.studio-preview-editable h6, ' +
-        'body.studio-preview-editable li, body.studio-preview-editable blockquote, body.studio-preview-editable td, body.studio-preview-editable th'
-      );
-      textBlocks.forEach(function(el) {
-        if (!el.closest('.katex') && !el.closest('.doc-img-wrapper') && !el.closest('#studio-slide-element-toolbar') && !el.closest('.studio-page-break-indicator-label')) {
-          el.contentEditable = 'true';
-          el.setAttribute('contenteditable', 'true');
-        }
-      });
 
       setupTableResizing();
     }
 
     // Explicitly set contenteditable="false" on non-text elements and widgets
-    var nonEditables = document.querySelectorAll('.doc-img-wrapper, .doc-img-toolbar, .doc-resize-handle, #studio-slide-element-toolbar, .katex, .katex-display, .katex-html, .studio-page-break-indicator-line, .studio-page-break-indicator-label, .slide-card-header-badge');
+    var nonEditables = document.querySelectorAll(
+      '.doc-img-wrapper, .doc-img-toolbar, .doc-resize-handle, #studio-slide-element-toolbar, ' +
+      '.katex, .katex-display, .katex-html, .studio-page-break-indicator-line, .studio-page-break-indicator-label, .slide-card-header-badge'
+    );
     nonEditables.forEach(function(el) {
       el.setAttribute('contenteditable', 'false');
       el.contentEditable = 'false';
     });
 
-    wrapAndAttachAllImages();
+    if (typeof window.wrapAndAttachAllImages === 'function') {
+      window.wrapAndAttachAllImages();
+    }
     renderKaTeXMathInDocument();
   }
 
   window.applyEditModeState = applyEditModeState;
-
-  // Caret focus delegation on click when edit mode is active
-  document.addEventListener('pointerdown', function(e) {
-    if (!window.__isEditModeActive) return;
-    var target = e.target;
-    if (!target) return;
-    if (target.closest('.doc-img-wrapper, .doc-resize-handle, .doc-img-toolbar, #studio-slide-element-toolbar, .no-print')) {
-      return;
-    }
-    var block = target.closest('p, h1, h2, h3, h4, h5, h6, li, blockquote, td, th, div.panel, div.callout, .a4-sheet');
-    if (block && block.getAttribute('contenteditable') !== 'false') {
-      try {
-        block.focus();
-      } catch(_) {}
-    }
-  }, true);
 
   // Listen for Live Edit Mode toggles and command messages from parent window
   window.addEventListener('message', function(e) {
@@ -308,11 +242,18 @@ export function getInteractiveCanvasScript(isPreviewEditMode: boolean = false): 
   // Track if user has made an active modification inside preview
   window.__isUserPreviewDirty = false;
 
+  // Debounce timer for in-memory live sync
+  var notifyDebounceTimer = null;
+
   // Local-level editing: Keep DOM modifications purely in-memory while typing!
-  // Read and writes occur ONLY when hitting Save, leaving file tab, or exiting edit mode.
+  // Reads and writes to Firestore occur ONLY when hitting Save (Ctrl+S / button) or leaving the file.
   document.addEventListener('input', function(e) {
     if (!window.__isEditModeActive) return;
     window.__isUserPreviewDirty = true;
+    if (notifyDebounceTimer) clearTimeout(notifyDebounceTimer);
+    notifyDebounceTimer = setTimeout(function() {
+      notifyParentOfHtmlChange(false);
+    }, 250);
   }, true);
 
   // Instantly flush changes on blur ONLY if the user actually modified content
@@ -352,31 +293,46 @@ export function getInteractiveCanvasScript(isPreviewEditMode: boolean = false): 
     }
   }, true);
 
+  function isInteractiveEditModeActive() {
+    return Boolean(
+      window.__isEditModeActive ||
+      window.__isPaperEditActive ||
+      (document.body && document.body.classList.contains('studio-preview-editable'))
+    );
+  }
+
+  function isTargetEditableElement(el) {
+    if (!el) return false;
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') return true;
+    if (el.isContentEditable) return true;
+    if (el.closest && el.closest('[contenteditable="true"]')) return true;
+    return false;
+  }
+
   // Strict keyboard blocking when Edit Mode is OFF so user can never type into the page
   document.addEventListener('keydown', function(e) {
-    if (!window.__isEditModeActive) {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', 'Escape', 'Tab'].indexOf(e.key) !== -1) {
-        return;
-      }
-      var target = e.target;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
+    if (isInteractiveEditModeActive() || isTargetEditableElement(e.target)) {
+      return;
     }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', 'Escape', 'Tab'].indexOf(e.key) !== -1) {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
   }, true);
 
   // Strict paste blocking when Edit Mode is OFF
   document.addEventListener('paste', function(e) {
-    if (!window.__isEditModeActive) {
-      var target = e.target;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
+    if (isInteractiveEditModeActive() || isTargetEditableElement(e.target)) {
+      return;
     }
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
   }, true);
+
 
   function openFile(fileId) {
     window.parent.postMessage({ type: 'STUDIO_OPEN_FILE', fileId: fileId }, '*');
@@ -420,10 +376,95 @@ export function getInteractiveCanvasScript(isPreviewEditMode: boolean = false): 
     return typeof fn === 'function' ? fn : null;
   }
 
+  var KATEX_CANVAS_MACROS = {
+    "\\ne": "\\neq",
+    "\\nequal": "\\neq",
+    "\\not=": "\\neq",
+    "\\degree": "^\\circ",
+    "\\deg": "^\\circ",
+    "\\le": "\\leq",
+    "\\ge": "\\geq",
+    "\\cbrt": "\\sqrt[3]",
+    "\\det": "\\operatorname{det}",
+    "\\adj": "\\operatorname{adj}",
+    "\\tr": "\\operatorname{tr}",
+    "\\rank": "\\operatorname{rank}",
+    "\\gcd": "\\operatorname{gcd}",
+    "\\lcm": "\\lcm",
+    "\\sgn": "\\operatorname{sgn}",
+    "\\cosec": "\\csc",
+    "\\arccot": "\\operatorname{arccot}",
+    "\\arcsec": "\\operatorname{arcsec}",
+    "\\arccsc": "\\operatorname{arccsc}",
+    "\\sech": "\\operatorname{sech}",
+    "\\csch": "\\operatorname{csch}",
+    "\\var": "\\operatorname{Var}",
+    "\\cov": "\\operatorname{Cov}",
+    "\\diag": "\\operatorname{diag}",
+    "\\sen": "\\sin",
+    "\\tg": "\\tan",
+    "\\cotg": "\\cot",
+    "\\oiint": "\\oint\\!\\!\\oint",
+    "\\oiiint": "\\oint\\!\\!\\oint\\!\\!\\oint",
+    "\\idotsint": "\\int\\!\\cdots\\!\\int",
+    "\\abs": "\\left|#1\\right|",
+    "\\norm": "\\left\\|#1\\right\\|",
+    "\\grad": "\\nabla",
+    "\\curl": "\\nabla \\times",
+    "\\bold": "\\mathbf{#1}",
+    "\\bm": "\\boldsymbol{#1}",
+    "\\implies": "\\Longrightarrow",
+    "\\iff": "\\Longleftrightarrow",
+    "\\R": "\\mathbb{R}",
+    "\\N": "\\mathbb{N}",
+    "\\Z": "\\mathbb{Z}",
+    "\\C": "\\mathbb{C}",
+    "\\Q": "\\mathbb{Q}"
+  };
+
   function normalizeMathFormula(math) {
     var s = math ? math.trim() : '';
     if (!s) return '';
     s = s.replace(/\/(displaystyle|textstyle|frac|sqrt|sum|int|lim|infty|partial|mathbf|mathrm|text)\b/g, '\\$1');
+    s = s.replace(/\\\\(?=(?:neq|ne|nequal|leq|le|geq|ge|pm|mp|times|cdot|div|approx|equiv|sim|propto|parallel|perp|in|notin|subset|subseteq|cap|cup|forall|exists|partial|nabla|sqrt|frac|dfrac|cfrac|sum|prod|int|lim|sin|cos|tan|cot|sec|csc|log|ln|exp|det|deg|degree|circ|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|pi|sigma|phi|omega|left|right|text|mathrm|mathbf)\b)/g, '\\');
+
+    // Normalize unicode math symbols to standard LaTeX commands
+    s = s.replace(/\u222B/g, ' \\int ');
+    s = s.replace(/\u222C/g, ' \\iint ');
+    s = s.replace(/\u222D/g, ' \\iiint ');
+    s = s.replace(/\u222E/g, ' \\oint ');
+    s = s.replace(/\u2211/g, ' \\sum ');
+    s = s.replace(/\u220F/g, ' \\prod ');
+    s = s.replace(/\u221E/g, ' \\infty ');
+    s = s.replace(/\u2260/g, ' \\neq ');
+    s = s.replace(/\u2264/g, ' \\leq ');
+    s = s.replace(/\u2265/g, ' \\geq ');
+    s = s.replace(/\u00D7/g, ' \\times ');
+    s = s.replace(/\u00F7/g, ' \\div ');
+    s = s.replace(/\u00B1/g, ' \\pm ');
+    s = s.replace(/\u2213/g, ' \\mp ');
+    s = s.replace(/\u2248/g, ' \\approx ');
+    s = s.replace(/\u2261/g, ' \\equiv ');
+    s = s.replace(/\u2208/g, ' \\in ');
+    s = s.replace(/\u2209/g, ' \\notin ');
+    s = s.replace(/\u2282/g, ' \\subset ');
+    s = s.replace(/\u2286/g, ' \\subseteq ');
+    s = s.replace(/\u222A/g, ' \\cup ');
+    s = s.replace(/\u2229/g, ' \\cap ');
+    s = s.replace(/\u2200/g, ' \\forall ');
+    s = s.replace(/\u2203/g, ' \\exists ');
+    s = s.replace(/\u2202/g, ' \\partial ');
+    s = s.replace(/\u2207/g, ' \\nabla ');
+    s = s.replace(/\u2220/g, ' \\angle ');
+    s = s.replace(/\u22A5/g, ' \\perp ');
+    s = s.replace(/\u2225/g, ' \\parallel ');
+    s = s.replace(/\u2192/g, ' \\to ');
+    s = s.replace(/\u21D2/g, ' \\implies ');
+    s = s.replace(/\u21D4/g, ' \\iff ');
+
+    // Differential spacing: f(x)dx -> f(x) \, dx
+    s = s.replace(/([0-9a-zA-Z\)\}\]\|])\s*(d[xytuvz]|d\\theta|d\\phi)\b/g, '$1 \\, $2');
+
     s = s.replace(/(?:^|[^\\])\[\s*\\begin\{matrix\}([\s\S]*?)\\end\{matrix\}\s*\]/g, '\\begin{bmatrix}$1\\end{bmatrix}');
     s = s.replace(/(?:^|[^\\])\(\s*\\begin\{matrix\}([\s\S]*?)\\end\{matrix\}\s*\)/g, '\\begin{pmatrix}$1\\end{pmatrix}');
     s = s.replace(/(?:^|[^\\])\|\s*\\begin\{matrix\}([\s\S]*?)\\end\{matrix\}\s*\|/g, '\\begin{vmatrix}$1\\end{vmatrix}');
@@ -442,7 +483,7 @@ export function getInteractiveCanvasScript(isPreviewEditMode: boolean = false): 
           while (j < str.length && d > 0) {
             if (str[j] === '\\') {
               var rem = str.slice(j);
-              if (/^\\(?:frac|dfrac|cfrac|matrix|bmatrix|pmatrix|vmatrix|Vmatrix|cases|array|int|iint|iiint|oint|sum|prod|lim)\b/.test(rem)) tall = true;
+              if (/^\\(?:frac|dfrac|cfrac|tfrac|matrix|bmatrix|pmatrix|vmatrix|Vmatrix|cases|array|int|iint|iiint|oint|oiint|oiiint|idotsint|sum|prod|coprod|lim|limsup|liminf)\b/.test(rem)) tall = true;
               j++;
               if (j < str.length && /[a-zA-Z]/.test(str[j])) {
                 while (j < str.length && /[a-zA-Z]/.test(str[j])) j++;
@@ -473,7 +514,7 @@ export function getInteractiveCanvasScript(isPreviewEditMode: boolean = false): 
     s = scalePairs(s, '\\{', '\\}', '\\left\\{', '\\right\\}');
 
     if (!s.startsWith('\\displaystyle') && !s.startsWith('\\textstyle')) {
-      if (/\\(?:frac|dfrac|cfrac|int|iint|iiint|oint|sum|prod|lim|matrix|bmatrix|pmatrix|vmatrix|cases)\b/.test(s)) {
+      if (/\\(?:frac|dfrac|cfrac|tfrac|int|iint|iiint|oint|oiint|oiiint|idotsint|sum|prod|coprod|lim|limsup|liminf|bigcup|bigcap|matrix|bmatrix|pmatrix|vmatrix|Vmatrix|cases|array)\b/.test(s)) {
         s = '\\displaystyle ' + s;
       }
     }
@@ -501,7 +542,7 @@ export function getInteractiveCanvasScript(isPreviewEditMode: boolean = false): 
     var textNodes = [];
     while (walker.nextNode()) textNodes.push(walker.currentNode);
 
-    var mathPattern = /\\$\\$([\\s\\S]+?)\\$\\$|\\$([^\\$\\n]+?)\\$|(\\begin\{(?:b|p|v|V|small)?matrix|cases|aligned|array\}[\\s\\S]+?\\end\{(?:b|p|v|V|small)?matrix|cases|aligned|array\})/g;
+    var mathPattern = /\\$\\$([\\s\\S]+?)\\$\\$|\\$([^\\$\\n]+?)\\$|(\\begin\{(?:(?:b|p|v|V|small)?matrix|cases|aligned|array)\}[\\s\\S]+?\\end\{(?:(?:b|p|v|V|small)?matrix|cases|aligned|array)\})/g;
     for (var i = 0; i < textNodes.length; i++) {
       var tn = textNodes[i];
       var text = tn.nodeValue;
@@ -528,6 +569,7 @@ export function getInteractiveCanvasScript(isPreviewEditMode: boolean = false): 
         try {
           var rendered = k.renderToString(math, {
             displayMode: isDisplay,
+            macros: KATEX_CANVAS_MACROS,
             throwOnError: false
           });
           var span = document.createElement('span');
@@ -579,36 +621,7 @@ export function getInteractiveCanvasScript(isPreviewEditMode: boolean = false): 
             {left: '\\\\begin{cases}', right: '\\\\end{cases}', display: true},
             {left: '\\\\begin{CD}', right: '\\\\end{CD}', display: true}
           ],
-          macros: {
-            "\\\\ne": "\\\\mathrel{≠}",
-            "\\\\neq": "\\\\mathrel{≠}",
-            "\\\\nequal": "\\\\mathrel{≠}",
-            "\\\\not=": "\\\\mathrel{≠}",
-            "\\\\degree": "^\\\\circ",
-            "\\\\deg": "^\\\\circ",
-            "\\\\le": "\\\\leq",
-            "\\\\ge": "\\\\geq",
-            "\\\\cbrt": "\\\\sqrt[3]",
-            "\\\\det": "\\\\operatorname{det}",
-            "\\\\adj": "\\\\operatorname{adj}",
-            "\\\\tr": "\\\\operatorname{tr}",
-            "\\\\rank": "\\\\operatorname{rank}",
-            "\\\\gcd": "\\\\operatorname{gcd}",
-            "\\\\lcm": "\\\\operatorname{lcm}",
-            "\\\\abs": "\\\\left|#1\\\\right|",
-            "\\\\norm": "\\\\left\\\\|#1\\\\right\\\\|",
-            "\\\\grad": "\\\\nabla",
-            "\\\\curl": "\\\\nabla \\\\times",
-            "\\\\bold": "\\\\mathbf{#1}",
-            "\\\\bm": "\\\\boldsymbol{#1}",
-            "\\\\implies": "\\\\Longrightarrow",
-            "\\\\iff": "\\\\Longleftrightarrow",
-            "\\\\R": "\\\\mathbb{R}",
-            "\\\\N": "\\\\mathbb{N}",
-            "\\\\Z": "\\\\mathbb{Z}",
-            "\\\\C": "\\\\mathbb{C}",
-            "\\\\Q": "\\\\mathbb{Q}"
-          },
+          macros: KATEX_CANVAS_MACROS,
           processEscapes: true,
           ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code"],
           ignoredClasses: ["katex", "katex-display", "katex-html", "katex-mathml"],
@@ -1034,449 +1047,33 @@ export function getInteractiveCanvasScript(isPreviewEditMode: boolean = false): 
   }
   window.notifyParentOfHtmlChange = notifyParentOfHtmlChange;
 
-  // 5. Image Selection, Free Pointer Dragging, Resizing & Toolbar Engine
-  var selectedWrapper = null;
-  var targetImgToReplace = null;
-
+  // 5. Image interactions are handled exclusively by CanvasImageEngine
   function deselectAllImages() {
-    var wrappers = document.querySelectorAll('.doc-img-wrapper.selected');
-    wrappers.forEach(function(w) { w.classList.remove('selected'); });
-    selectedWrapper = null;
-  }
-
-  function selectWrapper(wrapper) {
-    if (!wrapper) return;
-    window.__isEditModeActive = true;
-    window.__isPaperEditActive = true;
-    if (selectedWrapper && selectedWrapper !== wrapper) {
-      selectedWrapper.classList.remove('selected');
+    if (typeof window.deselectAllCanvasImages === 'function') {
+      window.deselectAllCanvasImages();
+    } else if (typeof window.deselectAllImages === 'function' && window.deselectAllImages !== deselectAllImages) {
+      window.deselectAllImages();
     }
-    wrapper.classList.add('selected');
-    selectedWrapper = wrapper;
-
-    // Check if image is near top of parent sheet and flip toolbar below if needed
-    try {
-      var rect = wrapper.getBoundingClientRect();
-      var parentSheet = wrapper.closest('.a4-sheet');
-      if (parentSheet) {
-        var sheetRect = parentSheet.getBoundingClientRect();
-        if (rect.top - sheetRect.top < 48) {
-          wrapper.classList.add('toolbar-flip');
-        } else {
-          wrapper.classList.remove('toolbar-flip');
-        }
-      }
-    } catch(err) {}
   }
-
-  function setupImageFreeDrag(wrapper) {
-    if (window.__useCanvasImageEngine) return;
-    if (wrapper.__hasDragAttached) return;
-    wrapper.__hasDragAttached = true;
-
-    var img = wrapper.querySelector('img');
-    if (img) {
-      img.ondragstart = function(e) { e.preventDefault(); return false; };
-      img.style.userSelect = 'none';
-      img.style.webkitUserDrag = 'none';
-    }
-
-    var isDragging = false;
-
-    function startDrag(e) {
-      window.__isEditModeActive = true;
-      window.__isPaperEditActive = true;
-
-      var target = e.target;
-      if (target.closest('.doc-resize-handle') || target.closest('.doc-img-toolbar')) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      if (e.pointerId !== undefined) {
-        try { wrapper.setPointerCapture(e.pointerId); } catch(err) {}
-      }
-
-      selectWrapper(wrapper);
-      isDragging = true;
-
-      var dropIndicator = document.getElementById('doc-image-drop-indicator');
-      if (!dropIndicator) {
-        dropIndicator = document.createElement('div');
-        dropIndicator.id = 'doc-image-drop-indicator';
-        dropIndicator.style.cssText = 'height: 4px; background: #0b57d0; border-radius: 2px; margin: 8px 0; transition: all 0.1s ease; box-shadow: 0 0 12px rgba(11,87,208,0.8); pointer-events: none; z-index: 2147483647; width: 100%;';
-      }
-
-      function onMove(evt) {
-        if (!isDragging) return;
-        if (evt.cancelable) evt.preventDefault();
-        wrapper.classList.add('is-dragging');
-
-        var hoverTarget = document.elementFromPoint(evt.clientX, evt.clientY);
-        var container = wrapper.closest('.a4-sheet') || wrapper.closest('.a4-container') || document.body;
-        if (hoverTarget && container && container.contains(hoverTarget) && !wrapper.contains(hoverTarget)) {
-          var block = hoverTarget.closest('p, h1, h2, h3, h4, h5, h6, div, section, blockquote, figure, table, .google-docs-slide-card, .a4-sheet');
-          if (block && block !== wrapper && block.parentNode && !wrapper.contains(block)) {
-            var rect = block.getBoundingClientRect();
-            var relY = evt.clientY - rect.top;
-            if (relY > rect.height / 2) {
-              if (block.nextSibling) {
-                block.parentNode.insertBefore(dropIndicator, block.nextSibling);
-              } else {
-                block.parentNode.appendChild(dropIndicator);
-              }
-            } else {
-              block.parentNode.insertBefore(dropIndicator, block);
-            }
-          }
-        }
-      }
-
-      function onUp(evt) {
-        if (!isDragging) return;
-        isDragging = false;
-        wrapper.classList.remove('is-dragging');
-
-        if (dropIndicator && dropIndicator.parentNode) {
-          dropIndicator.parentNode.insertBefore(wrapper, dropIndicator);
-          dropIndicator.remove();
-        }
-
-        document.removeEventListener('pointermove', onMove);
-        document.removeEventListener('pointerup', onUp);
-        document.removeEventListener('pointercancel', onUp);
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-
-        selectWrapper(wrapper);
-        notifyParentOfHtmlChange();
-        if (typeof window.runA4Pagination === 'function') {
-          window.runA4Pagination();
-        }
-      }
-
-      document.addEventListener('pointermove', onMove);
-      document.addEventListener('pointerup', onUp);
-      document.addEventListener('pointercancel', onUp);
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    }
-
-    wrapper.addEventListener('pointerdown', startDrag);
-    wrapper.addEventListener('mousedown', startDrag);
-    wrapper.addEventListener('click', function(e) {
-      window.__isEditModeActive = true;
-      window.__isPaperEditActive = true;
-      e.stopPropagation();
-      selectWrapper(wrapper);
-    });
-  }
-
-  function setupImageResize(wrapper) {
-    var handles = wrapper.querySelectorAll('.doc-resize-handle');
-    handles.forEach(function(handle) {
-      var isResizing = false;
-      var handleType = handle.dataset.handle;
-      var startX = 0;
-      var startWidth = 0;
-
-      function onPointerDown(e) {
-        if (!window.__isEditModeActive) return;
-        e.preventDefault();
-        e.stopPropagation();
-        isResizing = true;
-
-        if (e.pointerId !== undefined) {
-          try { handle.setPointerCapture(e.pointerId); } catch(err) {}
-        }
-
-        selectWrapper(wrapper);
-
-        var container = wrapper.closest('.a4-sheet') || wrapper.closest('.a4-container') || document.querySelector('.a4-container') || document.body;
-        var zoomStr = getComputedStyle(container).getPropertyValue('--paper-zoom') || getComputedStyle(document.documentElement).getPropertyValue('--paper-zoom');
-        var zoomVal = parseFloat(zoomStr) || 1;
-        
-        startX = e.clientX;
-        startWidth = wrapper.offsetWidth;
-
-        function onMove(evt) {
-          if (!isResizing) return;
-          if (evt.cancelable) evt.preventDefault();
-          
-          var dx = (evt.clientX - startX) / zoomVal;
-
-          var newW = startWidth;
-          if (['se', 'e', 'ne'].indexOf(handleType) !== -1) {
-            newW = Math.max(60, startWidth + dx);
-          } else if (['sw', 'w', 'nw'].indexOf(handleType) !== -1) {
-            newW = Math.max(60, startWidth - dx);
-          }
-          wrapper.style.width = newW + 'px';
-          wrapper.style.maxWidth = '100%';
-        }
-
-        function onUp(evt) {
-          if (isResizing) {
-            isResizing = false;
-            document.removeEventListener('pointermove', onMove);
-            document.removeEventListener('pointerup', onUp);
-            document.removeEventListener('pointercancel', onUp);
-            notifyParentOfHtmlChange();
-            if (typeof window.runA4Pagination === 'function') {
-              window.runA4Pagination();
-            }
-          }
-        }
-
-        document.addEventListener('pointermove', onMove);
-        document.addEventListener('pointerup', onUp);
-        document.addEventListener('pointercancel', onUp);
-      }
-
-      handle.addEventListener('pointerdown', onPointerDown);
-    });
-  }
-
-  function attachImageHandlesAndToolbar(wrapper) {
-    if (!wrapper) return;
-
-    // Strip any old cloned toolbars and handles to recreate fresh interactive elements
-    var oldToolbar = wrapper.querySelector('.doc-img-toolbar');
-    if (oldToolbar) oldToolbar.remove();
-    var oldHandles = wrapper.querySelectorAll('.doc-resize-handle');
-    oldHandles.forEach(function(h) { h.remove(); });
-
-    wrapper.setAttribute('contenteditable', 'false');
-    var img = wrapper.querySelector('img');
-    if (img) {
-      img.draggable = false;
-      img.style.userSelect = 'none';
-      img.addEventListener('dragstart', function(e) { e.preventDefault(); });
-
-      img.addEventListener('dblclick', function(e) {
-        e.stopPropagation();
-        targetImgToReplace = img;
-        try {
-          window.parent.postMessage({ type: 'STUDIO_TRIGGER_FILE_UPLOAD' }, '*');
-        } catch(err) {}
-      });
-    }
-
-    var toolbar = document.createElement('div');
-    toolbar.className = 'doc-img-toolbar';
-    toolbar.setAttribute('contenteditable', 'false');
-    toolbar.innerHTML = \`
-      <button data-action="rotate" title="Rotate 90°">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:inline-block; vertical-align:middle; margin-right:3px;"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Rotate
-      </button>
-      <button data-action="full" title="Full Width (100%)">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:inline-block; vertical-align:middle; margin-right:3px;"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>Full
-      </button>
-      <button data-action="align-toggle" title="Cycle Alignment (Center / Left / Right)">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:inline-block; vertical-align:middle; margin-right:3px;"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg><span class="align-val">Center</span>
-      </button>
-      <span class="toolbar-sep">|</span>
-      <button data-action="replace" class="btn-blue" title="Replace Image">Replace</button>
-      <button data-action="delete" class="btn-red" title="Delete Image">Delete</button>
-    \`;
-
-    toolbar.addEventListener('click', function(e) {
-      e.stopPropagation();
-      var btn = e.target.closest('button');
-      if (!btn) return;
-      var action = btn.dataset.action;
-
-      if (action === 'rotate') {
-        var currentRot = parseInt(wrapper.dataset.rotation || '0', 10);
-        var nextRot = (currentRot + 90) % 360;
-        wrapper.dataset.rotation = nextRot.toString();
-        
-        wrapper.style.transform = 'rotate(' + nextRot + 'deg)';
-        wrapper.style.transition = 'transform 0.25s ease';
-        
-        if (nextRot === 90 || nextRot === 270) {
-          wrapper.style.margin = '48px auto';
-        } else {
-          wrapper.style.margin = '16px auto';
-        }
-
-        var tbEl = wrapper.querySelector('.doc-img-toolbar');
-        if (tbEl) {
-          tbEl.style.transform = 'translateX(-50%) rotate(' + (-nextRot) + 'deg)';
-          tbEl.style.transition = 'transform 0.25s ease';
-        }
-
-        notifyParentOfHtmlChange();
-        return;
-      }
-
-      if (action === 'full') {
-        wrapper.style.width = '100%';
-        wrapper.style.maxWidth = '100%';
-        wrapper.style.marginLeft = 'auto';
-        wrapper.style.marginRight = 'auto';
-        notifyParentOfHtmlChange();
-        if (typeof window.runA4Pagination === 'function') {
-          window.runA4Pagination();
-        }
-        return;
-      }
-
-      if (action === 'align-toggle') {
-        var currentAlign = wrapper.dataset.align || 'center';
-        var nextAlign = 'left';
-        if (currentAlign === 'center') nextAlign = 'left';
-        else if (currentAlign === 'left') nextAlign = 'right';
-        else if (currentAlign === 'right') nextAlign = 'center';
-
-        wrapper.dataset.align = nextAlign;
-
-        if (nextAlign === 'left') {
-          wrapper.style.marginLeft = '0';
-          wrapper.style.marginRight = 'auto';
-        } else if (nextAlign === 'right') {
-          wrapper.style.marginLeft = 'auto';
-          wrapper.style.marginRight = '0';
-        } else {
-          wrapper.style.marginLeft = 'auto';
-          wrapper.style.marginRight = 'auto';
-        }
-        wrapper.style.float = 'none';
-
-        var alignLabel = toolbar.querySelector('.align-val');
-        if (alignLabel) {
-          alignLabel.textContent = nextAlign.charAt(0).toUpperCase() + nextAlign.slice(1);
-        }
-
-        notifyParentOfHtmlChange();
-        if (typeof window.runA4Pagination === 'function') {
-          window.runA4Pagination();
-        }
-        return;
-      }
-
-      if (action === 'replace') {
-        var currentImg = wrapper.querySelector('img');
-        if (currentImg) targetImgToReplace = currentImg;
-        try {
-          window.parent.postMessage({ type: 'STUDIO_TRIGGER_FILE_UPLOAD' }, '*');
-        } catch(err) {}
-        return;
-      }
-
-      if (action === 'delete') {
-        wrapper.remove();
-        deselectAllImages();
-        notifyParentOfHtmlChange();
-        if (typeof window.runA4Pagination === 'function') {
-          window.runA4Pagination();
-        }
-        return;
-      }
-
-      notifyParentOfHtmlChange();
-      if (typeof window.runA4Pagination === 'function') {
-        window.runA4Pagination();
-      }
-    });
-
-    wrapper.appendChild(toolbar);
-
-    var handleTypes = ['nw', 'ne', 'sw', 'se', 'n', 's', 'w', 'e'];
-    handleTypes.forEach(function(h) {
-      var handle = document.createElement('div');
-      handle.className = 'doc-resize-handle handle-' + h;
-      handle.setAttribute('contenteditable', 'false');
-      handle.dataset.handle = h;
-      wrapper.appendChild(handle);
-    });
-
-    setupImageResize(wrapper);
-    setupImageFreeDrag(wrapper);
-  }
+  window.deselectAllImages = deselectAllImages;
 
   function wrapAndAttachAllImages() {
-    if (window.__useCanvasImageEngine) return;
-    // 1. Process existing wrappers that might have lost event handlers during re-pagination
-    var wrappers = document.querySelectorAll('.doc-img-wrapper');
-    wrappers.forEach(function(w) {
-      attachImageHandlesAndToolbar(w);
-      if (w.classList.contains('selected')) {
-        selectWrapper(w);
-      }
-    });
-
-    // 2. Process newly added raw img tags
-    var imgs = document.querySelectorAll('img:not(.doc-processed)');
-    imgs.forEach(function(img) {
-      if (img.closest('.doc-img-wrapper')) return;
-      img.classList.add('doc-processed');
-
-      var parent = img.parentNode;
-      if (!parent) return;
-
-      var wrapper = document.createElement('div');
-      wrapper.className = 'doc-img-wrapper';
-      wrapper.setAttribute('contenteditable', 'false');
-      wrapper.style.width = img.style.width || '380px';
-      wrapper.style.maxWidth = '100%';
-      wrapper.style.display = img.style.display || 'block';
-      wrapper.style.margin = img.style.margin || '16px auto';
-      if (img.style.float) wrapper.style.float = img.style.float;
-      if (img.style.position && img.style.position !== 'static') {
-        wrapper.style.position = img.style.position;
-        if (img.style.left) wrapper.style.left = img.style.left;
-        if (img.style.top) wrapper.style.top = img.style.top;
-      }
-
-      parent.insertBefore(wrapper, img);
-      wrapper.appendChild(img);
-      attachImageHandlesAndToolbar(wrapper);
-    });
+    if (typeof window.wrapAndAttachAllCanvasImages === 'function') {
+      window.wrapAndAttachAllCanvasImages();
+    } else if (typeof window.wrapAndAttachAllImages === 'function' && window.wrapAndAttachAllImages !== wrapAndAttachAllImages) {
+      window.wrapAndAttachAllImages();
+    }
   }
-
   window.wrapAndAttachAllImages = wrapAndAttachAllImages;
-
-  // 6. Global Event Listeners & Parent Messages
-  document.addEventListener('click', function(e) {
-    var target = e.target;
-    if (window.__useCanvasImageEngine) {
-      if (target.closest('.doc-img-wrapper') || target.tagName === 'IMG' || target.closest('img') || target.closest('.doc-img-toolbar') || target.closest('.doc-resize-handle')) {
-        return;
-      }
-    }
-
-    // Do NOT re-attach or reset toolbar/handles if clicking inside toolbar or resize handles
-    if (target.closest('.doc-img-toolbar') || target.closest('.doc-resize-handle')) {
-      return;
-    }
-
-    var imgWrapper = target.closest ? target.closest('.doc-img-wrapper') : null;
-    var img = target.closest ? target.closest('img') : null;
-
-    if (imgWrapper || img) {
-      if (!window.__isEditModeActive && !window.__isPaperEditActive) {
-        return;
-      }
-      var targetWrapper = imgWrapper || (img ? img.closest('.doc-img-wrapper') : null);
-      if (targetWrapper) {
-        e.stopPropagation();
-        attachImageHandlesAndToolbar(targetWrapper);
-        selectWrapper(targetWrapper);
-      }
-      return;
-    }
-
-    deselectAllImages();
-  });
 
   // Prevent typing and DOM mutations when edit mode is OFF
   document.addEventListener('beforeinput', function(e) {
-    if (!window.__isEditModeActive) {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
+    if (isInteractiveEditModeActive() || isTargetEditableElement(e.target)) {
+      return;
     }
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
   }, true);
 
 

@@ -449,6 +449,7 @@ export function getCanvasImageEngineScript(isPreviewEditMode: boolean = false): 
     selectedWrapper = null;
   }
   window.deselectAllImages = deselectAllImages;
+  window.deselectAllCanvasImages = deselectAllImages;
 
   function selectWrapper(wrapper) {
     if (!wrapper) return;
@@ -464,6 +465,8 @@ export function getCanvasImageEngineScript(isPreviewEditMode: boolean = false): 
     }
     wrapper.classList.add('selected');
     selectedWrapper = wrapper;
+  }
+  window.selectWrapper = selectWrapper;
 
     // Flip toolbar if close to sheet/page top
     try {
@@ -715,6 +718,9 @@ export function getCanvasImageEngineScript(isPreviewEditMode: boolean = false): 
     wrapper.addEventListener('pointerdown', onPointerDown);
     wrapper.addEventListener('touchstart', onPointerDown, { passive: false });
     wrapper.addEventListener('click', function(e) {
+      if (e.target.closest && (e.target.closest('.doc-img-toolbar') || e.target.closest('.doc-resize-handle'))) {
+        return;
+      }
       if (!isCanvasImageEditAllowed()) {
         deselectAllImages();
         return;
@@ -857,7 +863,123 @@ export function getCanvasImageEngineScript(isPreviewEditMode: boolean = false): 
     });
   }
 
-  // 7. Attach Toolbar and 8 Handles to Wrapper
+  // 7. Toolbar Action Handler
+  function executeToolbarAction(wrapper, btn) {
+    if (!wrapper || !btn) return;
+
+    var wrapMode = btn.getAttribute('data-wrap');
+    if (wrapMode) {
+      wrapper.setAttribute('data-wrap', wrapMode);
+      if (wrapMode === 'left') {
+        wrapper.style.float = 'left';
+        wrapper.style.margin = '8px 18px 12px 0';
+        wrapper.style.marginLeft = '0';
+        wrapper.style.marginRight = '18px';
+        var parentW = wrapper.parentElement ? wrapper.parentElement.clientWidth : 800;
+        var maxW = Math.max(120, Math.floor(parentW * 0.45));
+        var curW = parseInt(wrapper.style.width, 10);
+        if (isNaN(curW) || curW > maxW || wrapper.style.width === '100%') {
+          wrapper.style.width = Math.min(320, maxW) + 'px';
+        }
+        wrapper.style.maxWidth = '48%';
+        wrapper.style.clear = 'none';
+      } else if (wrapMode === 'right') {
+        wrapper.style.float = 'right';
+        wrapper.style.margin = '8px 0 12px 18px';
+        wrapper.style.marginLeft = '18px';
+        wrapper.style.marginRight = '0';
+        var parentW = wrapper.parentElement ? wrapper.parentElement.clientWidth : 800;
+        var maxW = Math.max(120, Math.floor(parentW * 0.45));
+        var curW = parseInt(wrapper.style.width, 10);
+        if (isNaN(curW) || curW > maxW || wrapper.style.width === '100%') {
+          wrapper.style.width = Math.min(320, maxW) + 'px';
+        }
+        wrapper.style.maxWidth = '48%';
+        wrapper.style.clear = 'none';
+      } else if (wrapMode === 'center') {
+        wrapper.style.float = 'none';
+        wrapper.style.margin = '16px auto';
+        wrapper.style.marginLeft = 'auto';
+        wrapper.style.marginRight = 'auto';
+        wrapper.style.maxWidth = '100%';
+        wrapper.style.display = 'block';
+        wrapper.style.clear = 'both';
+        if (!wrapper.style.width || wrapper.style.width === '100%') {
+          wrapper.style.width = '440px';
+        }
+      }
+
+      var tb = wrapper.querySelector('.doc-img-toolbar');
+      if (tb) {
+        tb.querySelectorAll('button[data-wrap]').forEach(function(b) {
+          if (b.getAttribute('data-wrap') === wrapMode) b.classList.add('active');
+          else b.classList.remove('active');
+        });
+      }
+
+      triggerHtmlSync(true);
+      if (typeof window.runA4Pagination === 'function') {
+        window.runA4Pagination();
+      }
+      setTimeout(function() {
+        var curSelected = document.querySelector('.doc-img-wrapper.selected') || wrapper;
+        if (curSelected && document.contains(curSelected)) {
+          selectWrapper(curSelected);
+        } else {
+          var allW = document.querySelectorAll('.doc-img-wrapper');
+          if (allW.length > 0) selectWrapper(allW[0]);
+        }
+      }, 50);
+      return;
+    }
+
+    var action = btn.dataset.action;
+    if (action === 'toggle-stretch') {
+      var isCurrentStretch = wrapper.getAttribute('data-stretch') === 'true';
+      var nextStretch = !isCurrentStretch;
+      wrapper.setAttribute('data-stretch', nextStretch ? 'true' : 'false');
+      isStretchMode = nextStretch;
+      if (nextStretch) {
+        btn.classList.add('active');
+        var wImg = wrapper.querySelector('img');
+        if (wImg) {
+          wImg.style.objectFit = 'fill';
+        }
+      } else {
+        btn.classList.remove('active');
+        wrapper.style.height = 'auto';
+        var wImg = wrapper.querySelector('img');
+        if (wImg) {
+          wImg.style.height = 'auto';
+          wImg.style.objectFit = 'contain';
+        }
+      }
+      triggerHtmlSync(true);
+      return;
+    }
+
+    if (action === 'replace') {
+      var currentImg = wrapper.querySelector('img');
+      if (currentImg) targetImgToReplace = currentImg;
+      try {
+        window.parent.postMessage({ type: 'STUDIO_TRIGGER_FILE_UPLOAD' }, '*');
+      } catch(err) {}
+      return;
+    }
+
+    if (action === 'delete') {
+      wrapper.remove();
+      deselectAllImages();
+      triggerHtmlSync(true);
+      if (typeof window.runA4Pagination === 'function') {
+        window.runA4Pagination();
+      }
+      return;
+    }
+  }
+  window.__executeCanvasImageToolbarAction = executeToolbarAction;
+
+  // 8. Attach Toolbar and 8 Handles to Wrapper
   function attachImageHandlesAndToolbar(wrapper) {
     if (!wrapper) return;
 
@@ -925,104 +1047,7 @@ export function getCanvasImageEngineScript(isPreviewEditMode: boolean = false): 
       e.stopPropagation();
       var btn = e.target.closest('button');
       if (!btn) return;
-
-      var wrapMode = btn.getAttribute('data-wrap');
-      if (wrapMode) {
-        wrapper.setAttribute('data-wrap', wrapMode);
-        if (wrapMode === 'left') {
-          wrapper.style.float = 'left';
-          wrapper.style.margin = '8px 18px 12px 0';
-          wrapper.style.marginLeft = '0';
-          wrapper.style.marginRight = '18px';
-          var parentW = wrapper.parentElement ? wrapper.parentElement.clientWidth : 800;
-          var maxW = Math.max(120, Math.floor(parentW * 0.45));
-          var curW = parseInt(wrapper.style.width, 10);
-          if (isNaN(curW) || curW > maxW || wrapper.style.width === '100%') {
-            wrapper.style.width = Math.min(320, maxW) + 'px';
-          }
-          wrapper.style.maxWidth = '48%';
-          wrapper.style.clear = 'none';
-        } else if (wrapMode === 'right') {
-          wrapper.style.float = 'right';
-          wrapper.style.margin = '8px 0 12px 18px';
-          wrapper.style.marginLeft = '18px';
-          wrapper.style.marginRight = '0';
-          var parentW = wrapper.parentElement ? wrapper.parentElement.clientWidth : 800;
-          var maxW = Math.max(120, Math.floor(parentW * 0.45));
-          var curW = parseInt(wrapper.style.width, 10);
-          if (isNaN(curW) || curW > maxW || wrapper.style.width === '100%') {
-            wrapper.style.width = Math.min(320, maxW) + 'px';
-          }
-          wrapper.style.maxWidth = '48%';
-          wrapper.style.clear = 'none';
-        } else if (wrapMode === 'center') {
-          wrapper.style.float = 'none';
-          wrapper.style.margin = '16px auto';
-          wrapper.style.marginLeft = 'auto';
-          wrapper.style.marginRight = 'auto';
-          wrapper.style.maxWidth = '100%';
-          wrapper.style.display = 'block';
-          wrapper.style.clear = 'both';
-          if (!wrapper.style.width || wrapper.style.width === '100%') {
-            wrapper.style.width = '440px';
-          }
-        }
-
-        toolbar.querySelectorAll('button[data-wrap]').forEach(function(b) {
-          if (b.getAttribute('data-wrap') === wrapMode) b.classList.add('active');
-          else b.classList.remove('active');
-        });
-
-        triggerHtmlSync(true);
-        if (typeof window.runA4Pagination === 'function') {
-          window.runA4Pagination();
-        }
-        return;
-      }
-
-      var action = btn.dataset.action;
-      if (action === 'toggle-stretch') {
-        var isCurrentStretch = wrapper.getAttribute('data-stretch') === 'true';
-        var nextStretch = !isCurrentStretch;
-        wrapper.setAttribute('data-stretch', nextStretch ? 'true' : 'false');
-        isStretchMode = nextStretch;
-        if (nextStretch) {
-          btn.classList.add('active');
-          var wImg = wrapper.querySelector('img');
-          if (wImg) {
-            wImg.style.objectFit = 'fill';
-          }
-        } else {
-          btn.classList.remove('active');
-          wrapper.style.height = 'auto';
-          var wImg = wrapper.querySelector('img');
-          if (wImg) {
-            wImg.style.height = 'auto';
-            wImg.style.objectFit = 'contain';
-          }
-        }
-        triggerHtmlSync(true);
-        return;
-      }
-
-      if (action === 'replace') {
-        var currentImg = wrapper.querySelector('img');
-        if (currentImg) targetImgToReplace = currentImg;
-        try {
-          window.parent.postMessage({ type: 'STUDIO_TRIGGER_FILE_UPLOAD' }, '*');
-        } catch(err) {}
-        return;
-      }
-
-      if (action === 'delete') {
-        wrapper.remove();
-        deselectAllImages();
-        triggerHtmlSync(true);
-        if (typeof window.runA4Pagination === 'function') {
-          window.runA4Pagination();
-        }
-        return;
-      }
+      executeToolbarAction(wrapper, btn);
     });
 
     wrapper.appendChild(toolbar);
@@ -1113,6 +1138,7 @@ export function getCanvasImageEngineScript(isPreviewEditMode: boolean = false): 
   }
 
   window.wrapAndAttachAllImages = wrapAndAttachAllImages;
+  window.wrapAndAttachAllCanvasImages = wrapAndAttachAllImages;
   window.attachImageHandlesAndToolbar = attachImageHandlesAndToolbar;
 
   // 9. Positional Canvas Image Insertion (Anywhere in Canvas)
@@ -1517,6 +1543,8 @@ export function getCanvasImageEngineScript(isPreviewEditMode: boolean = false): 
       window.__isPaperEditActive = active;
       if (!active) {
         deselectAllImages();
+      } else {
+        wrapAndAttachAllImages();
       }
       if (typeof window.applyEditModeState === 'function') {
         window.applyEditModeState(active);
@@ -1569,6 +1597,16 @@ export function getCanvasImageEngineScript(isPreviewEditMode: boolean = false): 
       return;
     }
     var target = e.target;
+    var toolbarBtn = target.closest ? target.closest('.doc-img-toolbar button') : null;
+    if (toolbarBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      var parentWrap = toolbarBtn.closest('.doc-img-wrapper') || selectedWrapper || document.querySelector('.doc-img-wrapper.selected');
+      if (parentWrap) {
+        executeToolbarAction(parentWrap, toolbarBtn);
+      }
+      return;
+    }
     if (target.closest('.doc-img-toolbar') || target.closest('.doc-resize-handle')) {
       return;
     }
@@ -1591,11 +1629,17 @@ export function getCanvasImageEngineScript(isPreviewEditMode: boolean = false): 
   });
 
   // Initialize
-  if (document.readyState === 'complete') {
+  function initCanvasImageEngine() {
     wrapAndAttachAllImages();
-  } else {
-    window.addEventListener('load', wrapAndAttachAllImages);
   }
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    initCanvasImageEngine();
+  } else {
+    document.addEventListener('DOMContentLoaded', initCanvasImageEngine);
+    window.addEventListener('load', initCanvasImageEngine);
+  }
+  setTimeout(initCanvasImageEngine, 100);
+  setTimeout(initCanvasImageEngine, 400);
 })();
 </script>
 `;

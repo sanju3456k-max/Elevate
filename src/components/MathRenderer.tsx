@@ -34,10 +34,9 @@ const KATEX_OPTIONS: katex.KatexOptions = {
   trust: true,
   output: 'html',
   macros: {
-    '\\ne': '\\mathrel{≠}',
-    '\\neq': '\\mathrel{≠}',
-    '\\nequal': '\\mathrel{≠}',
-    '\\not=': '\\mathrel{≠}',
+    '\\ne': '\\neq',
+    '\\nequal': '\\neq',
+    '\\not=': '\\neq',
     '\\degree': '^\\circ',
     '\\deg': '^\\circ',
     '\\le': '\\leq',
@@ -75,6 +74,9 @@ const KATEX_OPTIONS: katex.KatexOptions = {
     '\\bm': '\\boldsymbol{#1}',
     '\\implies': '\\Longrightarrow',
     '\\iff': '\\Longleftrightarrow',
+    '\\oiint': '\\oint\\!\\!\\oint',
+    '\\oiiint': '\\oint\\!\\!\\oint\\!\\!\\oint',
+    '\\idotsint': '\\int\\!\\cdots\\!\\int',
     '\\R': '\\mathbb{R}',
     '\\N': '\\mathbb{N}',
     '\\Z': '\\mathbb{Z}',
@@ -128,6 +130,9 @@ function cleanMathString(mathStr: string): string {
   // 1. Normalize unicode dashes and minus signs
   s = s.replace(/[\u2212\u2013\u2014]/g, '-');
 
+  // 1a. Normalize double-escaped backslashes before known LaTeX math commands (e.g. \\neq -> \neq)
+  s = s.replace(/\\\\(?=(?:neq|ne|nequal|leq|le|geq|ge|pm|mp|times|cdot|div|approx|equiv|sim|propto|parallel|perp|in|notin|subset|subseteq|cap|cup|forall|exists|partial|nabla|sqrt|frac|dfrac|cfrac|sum|prod|int|lim|sin|cos|tan|cot|sec|csc|log|ln|exp|det|deg|degree|circ|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|pi|sigma|phi|omega|left|right|text|mathrm|mathbf)\b)/g, '\\');
+
   // 1b. Normalize inequality and relation operators (including programmer-style and raw unicode symbols) to standard LaTeX/KaTeX symbols
   s = s.replace(/\\ne\b/g, ' \\neq ');
   s = s.replace(/\\nequal\b/g, ' \\neq ');
@@ -145,6 +150,15 @@ function cleanMathString(mathStr: string): string {
   s = s.replace(/\u2248/g, ' \\approx '); // unicode ≈
   s = s.replace(/\u2261/g, ' \\equiv '); // unicode ≡
   s = s.replace(/\u221E/g, ' \\infty '); // unicode ∞
+  s = s.replace(/\u222B/g, ' \\int '); // unicode ∫
+  s = s.replace(/\u222C/g, ' \\iint '); // unicode ∬
+  s = s.replace(/\u222D/g, ' \\iiint '); // unicode ∭
+  s = s.replace(/\u222E/g, ' \\oint '); // unicode ∮
+  s = s.replace(/\u2211/g, ' \\sum '); // unicode ∑
+  s = s.replace(/\u220F/g, ' \\prod '); // unicode ∏
+  s = s.replace(/\u2192/g, ' \\to '); // unicode →
+  s = s.replace(/\u21D2/g, ' \\implies '); // unicode ⇒
+  s = s.replace(/\u21D4/g, ' \\iff '); // unicode ⇔
   s = s.replace(/\u2208/g, ' \\in '); // unicode ∈
   s = s.replace(/\u2209/g, ' \\notin '); // unicode ∉
   s = s.replace(/\u2282/g, ' \\subset '); // unicode ⊂
@@ -178,7 +192,7 @@ function cleanMathString(mathStr: string): string {
 
   if (!isMatrix) {
     // 4. Ensure proper spacing before differentials at the end of integral expressions: f(x)dx -> f(x) \, dx, x^3dx -> x^3 \, dx
-    s = s.replace(/([0-9a-zA-Z\)\}\]\|])\s*(d[xytuvz]|d\\theta)\b/g, '$1 \\, $2');
+    s = s.replace(/([0-9a-zA-Z\)\}\]\|])\s*(d[xytuvz]|d\\theta|d\\phi)\b/g, '$1 \\, $2');
 
     // 5. Clean up duplicate spaces inside LaTeX commands
     s = s.replace(/\s+/g, ' ');
@@ -189,7 +203,7 @@ function cleanMathString(mathStr: string): string {
 
   // 7. Auto-inject \displaystyle for fractions, nested fractions, integrals, sums, and limits if not explicitly styled
   if (!s.startsWith('\\displaystyle') && !s.startsWith('\\textstyle')) {
-    if (/\\(?:frac|dfrac|cfrac|int|iint|iiint|oint|sum|prod|lim|bigcup|bigcap|matrix|bmatrix|pmatrix|vmatrix|cases)\b/.test(s)) {
+    if (/\\(?:frac|dfrac|cfrac|tfrac|int|iint|iiint|oint|oiint|oiiint|idotsint|sum|prod|coprod|lim|limsup|liminf|bigcup|bigcap|matrix|bmatrix|pmatrix|vmatrix|Vmatrix|cases|array)\b/.test(s)) {
       s = `\\displaystyle ${s}`;
     }
   }

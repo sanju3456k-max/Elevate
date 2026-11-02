@@ -595,11 +595,17 @@ export function getPaperImageAdjustmentScript(isPreviewEditMode: boolean = false
   });
 
   // Re-attach images on load or state readiness
-  if (document.readyState === 'complete') {
+  function initPaperImages() {
     wrapAndAttachAllImages();
-  } else {
-    window.addEventListener('load', wrapAndAttachAllImages);
   }
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    initPaperImages();
+  } else {
+    document.addEventListener('DOMContentLoaded', initPaperImages);
+    window.addEventListener('load', initPaperImages);
+  }
+  setTimeout(initPaperImages, 100);
+  setTimeout(initPaperImages, 400);
 })();
 </script>
 `;

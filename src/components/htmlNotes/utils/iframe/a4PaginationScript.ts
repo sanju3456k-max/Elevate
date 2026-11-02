@@ -46,18 +46,20 @@ export function getA4PaginationScript(
       existingSheets.forEach(function(s) {
         Array.from(s.childNodes).forEach(function(c) {
           if (c.nodeType === 3 && !c.textContent.trim()) return;
+          if (c.nodeType === 1 && (c.classList && c.classList.contains('studio-ink-layer'))) return;
           rawNodes.push(c);
         });
       });
       // Collect orphan element nodes directly inside container that were inserted outside existing sheets
       Array.from(container.childNodes).forEach(function(c) {
-        if (c.nodeType === 1 && !c.classList.contains('a4-sheet') && !c.classList.contains('slide')) {
+        if (c.nodeType === 1 && !c.classList.contains('a4-sheet') && !c.classList.contains('slide') && !c.classList.contains('studio-ink-layer')) {
           rawNodes.push(c);
         }
       });
     } else {
       Array.from(container.childNodes).forEach(function(c) {
         if (c.nodeType === 3 && !c.textContent.trim()) return;
+        if (c.nodeType === 1 && (c.classList && c.classList.contains('studio-ink-layer'))) return;
         rawNodes.push(c);
       });
     }
@@ -66,7 +68,7 @@ export function getA4PaginationScript(
 
     var tempHost = document.createElement('div');
     tempHost.className = 'a4-sheet';
-    tempHost.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:' + (isSlideMode ? '1200px' : '794px') + ';padding:${topMarginMm}mm ${rightMarginMm}mm ${bottomMarginMm}mm ${leftMarginMm}mm;box-sizing:border-box;font-size:11pt;line-height:1.5;visibility:hidden;margin:0!important;box-shadow:none!important;border:none!important;';
+    tempHost.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:' + (isSlideMode ? '1200px' : '794px') + ';padding:${topMarginMm}mm ${rightMarginMm}mm ${bottomMarginMm}mm ${leftMarginMm}mm;box-sizing:border-box;font-size:' + (isSlideMode ? '12pt' : '9.5pt') + ';line-height:' + (isSlideMode ? '1.5' : '1.42') + ';visibility:hidden;margin:0!important;box-shadow:none!important;border:none!important;';
     document.body.appendChild(tempHost);
 
     function measureNodeHeight(node) {
@@ -206,13 +208,13 @@ export function getA4PaginationScript(
             allRows = Array.from(block.querySelectorAll('tr')).filter(function(r) { return !r.closest('thead'); });
           }
 
-          if (allRows.length > 1 && (currentHeight + h > printableHeight)) {
+          if (allRows.length >= 4 && (currentHeight + h > printableHeight)) {
             var theadH = thead ? measureNodeHeight(thead) : 34;
             var availH = printableHeight - currentHeight;
 
-            // If we are already mid-page and cannot even fit header + 1 row, push page and start table fresh
-            var firstRowH = measureNodeHeight(allRows[0]);
-            if (currentPage.length > 0 && availH < (theadH + firstRowH + 15)) {
+            // If we are already mid-page and cannot even fit header + 2 rows, push page and start table fresh
+            var firstTwoRowsH = (allRows.length >= 2) ? (measureNodeHeight(allRows[0]) + measureNodeHeight(allRows[1])) : measureNodeHeight(allRows[0]);
+            if (currentPage.length > 0 && availH < (theadH + firstTwoRowsH + 15)) {
               pages.push(currentPage);
               currentPage = [];
               currentHeight = 0;
@@ -237,7 +239,7 @@ export function getA4PaginationScript(
               runningTableH += rH;
             }
 
-            if (remainingRows.length > 0) {
+            if (fittedRows.length >= 2 && remainingRows.length >= 2) {
               splitCounter++;
               var tblSplitId = block.getAttribute('data-split-id') || ('split_tbl_' + splitCounter + '_' + Date.now());
 
@@ -317,9 +319,9 @@ export function getA4PaginationScript(
       sheet.className = isSlideMode ? 'a4-sheet slide' : 'a4-sheet';
       sheet.setAttribute('data-page', (idx + 1).toString());
       sheet.setAttribute('data-slide-index', idx.toString());
-      var isEditActive = Boolean(window.__isEditModeActive);
-      sheet.contentEditable = isEditActive ? 'true' : 'false';
-      sheet.setAttribute('contenteditable', isEditActive ? 'true' : 'false');
+      sheet.contentEditable = 'false';
+      sheet.setAttribute('contenteditable', 'false');
+      sheet.style.overflow = 'visible';
 
       if (isSlideMode) {
         var badge = document.createElement('div');

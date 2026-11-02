@@ -381,7 +381,7 @@ export const HtmlNotesEditorPane: React.FC<HtmlNotesEditorPaneProps> = ({
     <section 
       className="pane editor-pane"
       style={{ 
-        display: 'flex',
+        display: viewMode === 'preview' ? 'none' : 'flex',
         flexDirection: 'column',
         width: viewMode === 'split' ? `calc(var(--split-ratio, ${splitRatio}%) - 4px)` : '100%',
         flex: viewMode === 'split' ? `0 0 calc(var(--split-ratio, ${splitRatio}%) - 4px)` : '1 1 0%',

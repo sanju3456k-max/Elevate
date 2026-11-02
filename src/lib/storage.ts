@@ -5,11 +5,32 @@ import {
   deleteTestFromFirestore, 
   deleteAttemptFromFirestore, 
   deleteChatSessionFromFirestore,
-  unmarkMultipleDeletedTestsInFirestore
+  unmarkMultipleDeletedTestsInFirestore,
+  db,
+  auth,
+  updateUserSyncBeacon
 } from './firebase';
+import { 
+  writeBatch, 
+  doc, 
+  deleteField, 
+  arrayUnion, 
+  setDoc, 
+  collection, 
+  getDocs 
+} from 'firebase/firestore';
 import { getAllNotesFromIDB, saveAllNotesToIDB, removeMultipleTombstones } from './idbNotes';
-import { loadLocalProjects, saveLocalProjects, queueFirestoreSync } from './htmlNotesSync';
+import { 
+  loadLocalProjects, 
+  saveLocalProjects, 
+  queueFirestoreSync,
+  getHtmlNotesStorageKey,
+  saveHtmlProjectsToIDB,
+  addDeletedProjectTombstone,
+  addDeletedFileTombstone
+} from './htmlNotesSync';
 import { recordHtmlProjectsUpdate } from './notesManifestCoordinator';
+import { smartCoordinator } from './smartLocalCoordinator';
 import {
   getAllChatSessionsFromIndexedDB,
   putAllChatSessionsToIndexedDB,
@@ -2001,6 +2022,7 @@ export function wipeAllScopedUserDataFromLocalStorage(userId?: string | null): v
       keysToRemove.push(`math_mock_offline_queue_user_${cleanUid}`);
       keysToRemove.push(`math_mock_offline_user_${cleanUid}`);
       keysToRemove.push(`math_mock_user_settings_${cleanUid}`);
+      keysToRemove.push(`mockmc_html_projects_account_${cleanUid}`);
       keysToRemove.push(CACHED_AUTH_USER_KEY);
 
       // Clean up from IndexedDB
@@ -2008,7 +2030,27 @@ export function wipeAllScopedUserDataFromLocalStorage(userId?: string | null): v
       putAllAttemptsToIndexedDB(cleanUid, []).catch(() => {});
       clearActiveSessionInIndexedDB(cleanUid, null).catch(() => {});
       clearAllChatSessionsInIndexedDB(cleanUid).catch(() => {});
+      saveHtmlProjectsToIDB(`mockmc_html_projects_account_${cleanUid}`, []).catch(() => {});
+      try {
+        smartCoordinator.clearCoordinatorUserData(cleanUid);
+      } catch {}
     }
+
+    keysToRemove.push(
+      'mockmc_html_projects_guest',
+      'mockmc_deleted_files_tombstones',
+      'mockmc_deleted_projects_tombstones',
+      'mockmc_saved_notes_permanent',
+      'mockmc_saved_notes',
+      'mockmc_notes_manifest',
+      'firestore_quota_exceeded_date',
+      'mockmc_coordinator_synced_fingerprints',
+      'mockmc_coordinator_sync_timestamps',
+      'mockmc_coordinator_sync_revisions',
+      'mockmc_coordinator_write_queue'
+    );
+    saveAllNotesToIDB([], true).catch(() => {});
+    saveHtmlProjectsToIDB('mockmc_html_projects_guest', []).catch(() => {});
 
     // Remove identified keys
     const uniqueKeys = Array.from(new Set(keysToRemove));
@@ -2083,13 +2125,33 @@ export async function deleteCustomDataAuthoredTests(userId?: string | null): Pro
     markTestAsDeletedInScopedStorage(userId, t.id);
   }
 
-  if (userId && userId !== 'guest-user' && userId !== 'anonymous') {
-    for (const t of tests) {
-      try {
-        await deleteTestFromFirestore(t.id, userId);
-      } catch (err) {
-        console.warn(`Failed to delete test ${t.id} from Firestore:`, err);
-      }
+  const effectiveUid = userId || auth.currentUser?.uid;
+  if (effectiveUid && effectiveUid !== 'guest-user' && effectiveUid !== 'anonymous' && tests.length > 0) {
+    try {
+      const batch = writeBatch(db);
+      tests.forEach((t) => {
+        batch.delete(doc(db, 'users', effectiveUid, 'tests', t.id));
+        try {
+          batch.delete(doc(db, 'tests', t.id));
+        } catch {}
+      });
+      const userDocRef = doc(db, 'users', effectiveUid);
+      const updates: any = {
+        deletedTestIds: arrayUnion(...tests.map((t) => t.id)),
+        updatedAt: new Date().toISOString(),
+      };
+      tests.forEach((t) => {
+        updates[`createdTests.${t.id}`] = deleteField();
+      });
+      batch.set(userDocRef, updates, { merge: true });
+      await batch.commit();
+
+      const nowRev = Date.now();
+      updateUserSyncBeacon(effectiveUid, { testsRev: nowRev }).catch(() => {});
+      smartCoordinator.setLocalSyncRevision(effectiveUid, 'testsRev', nowRev);
+    } catch (err) {
+      console.warn('Batch delete tests failed, falling back to parallel delete:', err);
+      await Promise.allSettled(tests.map((t) => deleteTestFromFirestore(t.id, effectiveUid)));
     }
   }
 
@@ -2131,13 +2193,29 @@ export async function deleteCustomDataAttempts(
 
   saveScopedAttempts(userId, remainingAttempts);
 
-  if (userId && userId !== 'guest-user' && userId !== 'anonymous') {
-    for (const a of deletedAttempts) {
-      try {
-        await deleteAttemptFromFirestore(a.id, userId);
-      } catch (err) {
-        console.warn(`Failed to delete attempt ${a.id} from Firestore:`, err);
-      }
+  const effectiveUid = userId || auth.currentUser?.uid;
+  if (effectiveUid && effectiveUid !== 'guest-user' && effectiveUid !== 'anonymous' && deletedAttempts.length > 0) {
+    try {
+      const batch = writeBatch(db);
+      deletedAttempts.forEach((a) => {
+        batch.delete(doc(db, 'users', effectiveUid, 'attempts', a.id));
+        try {
+          batch.delete(doc(db, 'attempts', a.id));
+        } catch {}
+      });
+      const userDocRef = doc(db, 'users', effectiveUid);
+      batch.set(userDocRef, {
+        deletedAttemptIds: arrayUnion(...deletedAttempts.map((a) => a.id)),
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+      await batch.commit();
+
+      const nowRev = Date.now();
+      updateUserSyncBeacon(effectiveUid, { attemptsRev: nowRev }).catch(() => {});
+      smartCoordinator.setLocalSyncRevision(effectiveUid, 'attemptsRev', nowRev);
+    } catch (err) {
+      console.warn('Batch delete attempts failed, falling back to parallel delete:', err);
+      await Promise.allSettled(deletedAttempts.map((a) => deleteAttemptFromFirestore(a.id, effectiveUid)));
     }
   }
 
@@ -2165,16 +2243,36 @@ export async function deleteCustomDataChatHistories(userId?: string | null): Pro
   saveScopedChatSessions(userId, []);
   clearAllChatSessionsInIndexedDB(userId).catch(() => {});
 
-  if (userId && userId !== 'guest-user' && userId !== 'anonymous') {
-    for (const s of sessions) {
-      try {
-        const sid = s.id || s.sessionId;
+  const effectiveUid = userId || auth.currentUser?.uid;
+  if (effectiveUid && effectiveUid !== 'guest-user' && effectiveUid !== 'anonymous') {
+    try {
+      const batch = writeBatch(db);
+      const validSids: string[] = [];
+      sessions.forEach((s) => {
+        const sid = s.id || (s as any).sessionId;
         if (sid) {
-          await deleteChatSessionFromFirestore(userId, sid);
+          batch.delete(doc(db, 'users', effectiveUid, 'chatSessions', sid));
+          validSids.push(sid);
         }
-      } catch (err) {
-        console.warn(`Failed to delete chat session from Firestore:`, err);
+      });
+      if (validSids.length > 0) {
+        const userDocRef = doc(db, 'users', effectiveUid);
+        batch.set(userDocRef, {
+          deletedChatSessionIds: arrayUnion(...validSids),
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
       }
+      await batch.commit();
+
+      const nowRev = Date.now();
+      updateUserSyncBeacon(effectiveUid, { chatsRev: nowRev }).catch(() => {});
+      smartCoordinator.setLocalSyncRevision(effectiveUid, 'chatsRev', nowRev);
+    } catch (err) {
+      console.warn('Batch delete chat sessions failed, falling back to parallel delete:', err);
+      await Promise.allSettled(sessions.map((s) => {
+        const sid = s.id || (s as any).sessionId;
+        return sid ? deleteChatSessionFromFirestore(effectiveUid, sid) : Promise.resolve();
+      }));
     }
   }
 
@@ -2188,7 +2286,7 @@ export async function deleteCustomDataChatHistories(userId?: string | null): Pro
 /**
  * Deletes all study notes from local IndexedDB and backup caches.
  */
-export async function deleteCustomDataNotes(): Promise<number> {
+export async function deleteCustomDataNotes(userId?: string | null): Promise<number> {
   let count = 0;
   try {
     const notes = await getAllNotesFromIDB();
@@ -2196,6 +2294,20 @@ export async function deleteCustomDataNotes(): Promise<number> {
     await saveAllNotesToIDB([], true);
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('mockmc_saved_notes_permanent');
+      localStorage.removeItem('mockmc_saved_notes');
+    }
+    const effectiveUid = userId || auth.currentUser?.uid;
+    if (effectiveUid && effectiveUid !== 'guest-user' && effectiveUid !== 'anonymous') {
+      try {
+        const subSnap = await getDocs(collection(db, 'users', effectiveUid, 'notes'));
+        if (!subSnap.empty) {
+          const batch = writeBatch(db);
+          subSnap.docs.forEach((d) => batch.delete(d.ref));
+          await batch.commit();
+        }
+      } catch (err) {
+        console.warn('Could not clear notes subcollection in Firestore:', err);
+      }
     }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('notes-updated'));
@@ -2203,6 +2315,94 @@ export async function deleteCustomDataNotes(): Promise<number> {
   } catch (err) {
     console.warn('Failed to delete custom data notes:', err);
   }
+  return count;
+}
+
+/**
+ * Deletes all HTML Notes Studio projects and documents from local storage, IndexedDB, and Firestore.
+ */
+export async function deleteCustomDataHtmlNotes(userId?: string | null): Promise<number> {
+  const projs = loadLocalProjects(undefined, userId);
+  let count = projs.length;
+
+  const allProjIds = new Set<string>();
+  const allFileIds = new Set<string>();
+
+  // Add tombstones for all known local projects and files
+  projs.forEach((p) => {
+    if (p.id) {
+      allProjIds.add(p.id);
+      addDeletedProjectTombstone(p.id);
+    }
+    (p.files || []).forEach((f) => {
+      if (f.id) {
+        allFileIds.add(f.id);
+        addDeletedFileTombstone(f.id);
+      }
+    });
+  });
+
+  // Clear local storage and IndexedDB immediately
+  saveLocalProjects([], userId, true);
+  const storageKey = getHtmlNotesStorageKey(userId);
+  saveHtmlProjectsToIDB(storageKey, []).catch(() => {});
+
+  const effectiveUid = userId || auth.currentUser?.uid;
+  if (effectiveUid && effectiveUid !== 'guest-user' && effectiveUid !== 'anonymous') {
+    try {
+      const snap = await getDocs(collection(db, 'users', effectiveUid, 'htmlNotesProjects'));
+      if (!snap.empty) {
+        // Collect IDs from cloud documents so even projects not in local cache are recorded in tombstones
+        snap.docs.forEach((d) => {
+          allProjIds.add(d.id);
+          addDeletedProjectTombstone(d.id);
+          const dData = d.data();
+          if (Array.isArray(dData?.files)) {
+            dData.files.forEach((f: any) => {
+              if (f && f.id) {
+                allFileIds.add(f.id);
+                addDeletedFileTombstone(f.id);
+              }
+            });
+          }
+        });
+
+        // Batch delete cloud documents in chunks of 300
+        const chunkSize = 300;
+        for (let i = 0; i < snap.docs.length; i += chunkSize) {
+          const chunk = snap.docs.slice(i, i + chunkSize);
+          const batch = writeBatch(db);
+          chunk.forEach((d) => batch.delete(d.ref));
+          await batch.commit();
+        }
+
+        if (snap.docs.length > count) {
+          count = snap.docs.length;
+        }
+      }
+
+      // Persist tombstones to cloud user profile doc
+      const userDocRef = doc(db, 'users', effectiveUid);
+      const updates: any = {
+        updatedAt: new Date().toISOString(),
+      };
+      if (allProjIds.size > 0) updates.deletedProjectIds = arrayUnion(...Array.from(allProjIds));
+      if (allFileIds.size > 0) updates.deletedFileIds = arrayUnion(...Array.from(allFileIds));
+      await setDoc(userDocRef, updates, { merge: true });
+
+      const nowRev = Date.now();
+      updateUserSyncBeacon(effectiveUid, { notesRev: nowRev }).catch(() => {});
+      smartCoordinator.setLocalSyncRevision(effectiveUid, 'notesRev', nowRev);
+    } catch (err) {
+      console.warn('Error batch deleting HTML notes projects from Firestore:', err);
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('html-notes-reconciled', { detail: [] }));
+    window.dispatchEvent(new CustomEvent('html-projects-updated', { detail: [] }));
+  }
+
   return count;
 }
 

@@ -7,6 +7,7 @@ import { RevisionNotesView } from './components/revisionNotes/RevisionNotesView'
 import { CreateRevisionNoteModal } from './components/revisionNotes/CreateRevisionNoteModal';
 import { RepositoryFilesView } from './components/repository/RepositoryFilesView';
 import { HtmlNotesStudio } from '../htmlNotes/HtmlNotesStudio';
+import { HtmlNotesErrorBoundary } from '../htmlNotes/components/HtmlNotesErrorBoundary';
 import { UnifiedFileViewerModal, type PreviewableFile } from '../UnifiedFileViewerModal';
 import {
   getAllNotesFromIDB,
@@ -80,6 +81,8 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
 
   // Html Notes Studio View State ('home' | 'editor')
   const [htmlStudioView, setHtmlStudioView] = useState<'home' | 'editor'>('home');
+  const [htmlSearchQuery, setHtmlSearchQuery] = useState<string>('');
+  const [isHtmlSearchOpen, setIsHtmlSearchOpen] = useState<boolean>(false);
 
   // Synchronize status bar theme-color for PWA web app in both light (#ffffff in editor / #e5e9f0 in home) and dark (#0b0c10) modes
   useEffect(() => {
@@ -144,6 +147,7 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
     onCreateNewProject: () => void; 
     onImportClick: () => void; 
     onAddFileToProject?: (projectId?: string) => void;
+    onImportDroppedFile?: (file: File) => void;
   } | null>(null);
 
   // Scroll to top on mount
@@ -539,6 +543,17 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
           onImportClick={() => htmlStudioActionsRef.current?.onImportClick()}
           isDark={isDarkMode}
           toggleTheme={handleToggleTheme}
+          isSearchOpen={isHtmlSearchOpen}
+          onToggleSearch={() => {
+            setIsHtmlSearchOpen((prev) => {
+              const next = !prev;
+              if (!next) setHtmlSearchQuery('');
+              return next;
+            });
+          }}
+          searchQuery={htmlSearchQuery}
+          onSearchChange={setHtmlSearchQuery}
+          onImportDroppedFile={(file) => htmlStudioActionsRef.current?.onImportDroppedFile?.(file)}
         />
       )}
 
@@ -564,17 +579,20 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
 
       {activeMode === 'html' && (
         <div className="flex-1 w-full flex flex-col h-full overflow-hidden">
-          <HtmlNotesStudio
-            onBack={onBack}
-            isDarkMode={isDarkMode}
-            toggleTheme={handleToggleTheme}
-            activeStudioMode={activeMode}
-            onSwitchStudioMode={handleModeChange}
-            onViewChange={setHtmlStudioView}
-            onRegisterActions={(actions) => {
-              htmlStudioActionsRef.current = actions;
-            }}
-          />
+          <HtmlNotesErrorBoundary onResetToHome={() => setHtmlStudioView('home')}>
+            <HtmlNotesStudio
+              onBack={onBack}
+              isDarkMode={isDarkMode}
+              toggleTheme={handleToggleTheme}
+              activeStudioMode={activeMode}
+              onSwitchStudioMode={handleModeChange}
+              onViewChange={setHtmlStudioView}
+              searchQuery={htmlSearchQuery}
+              onRegisterActions={(actions) => {
+                htmlStudioActionsRef.current = actions;
+              }}
+            />
+          </HtmlNotesErrorBoundary>
         </div>
       )}
 

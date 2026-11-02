@@ -27,7 +27,7 @@ import {
 } from '../lib/animationConfig';
 import { APP_STYLES } from './ui/AppStyles';
 import { deleteUserAccountAndAllData, type DeleteAccountProgress } from '../lib/firebase';
-import { getLocalDataStorageStats } from '../lib/storage';
+import { getLocalDataStorageStats, wipeAllScopedUserDataFromLocalStorage } from '../lib/storage';
 
 interface DeleteAccountModalProps {
   isOpen: boolean;
@@ -99,20 +99,34 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
     if (isDeleting) return;
     setIsDeleting(true);
 
+    // Watchdog safeguard: if network or auth deletion takes > 8 seconds, force completion so modal is NEVER stuck
+    const watchdogTimer = setTimeout(() => {
+      console.warn('[DeleteAccountModal] Watchdog triggered after 8s; completing transition gracefully.');
+      try {
+        if (currentUser?.uid) {
+          wipeAllScopedUserDataFromLocalStorage(currentUser.uid);
+        }
+      } catch {}
+      onAccountDeleted?.();
+      onClose();
+    }, 8000);
+
     try {
       const res = await deleteUserAccountAndAllData(currentUser, (prog) => {
         setProgress(prog);
       });
 
+      clearTimeout(watchdogTimer);
       if (res.success) {
         setTimeout(() => {
           onAccountDeleted?.();
           onClose();
-        }, 2200);
+        }, 500);
       } else {
         setIsDeleting(false);
       }
     } catch (err: any) {
+      clearTimeout(watchdogTimer);
       setIsDeleting(false);
       setProgress({
         step: 'error',

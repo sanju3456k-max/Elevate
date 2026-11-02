@@ -225,8 +225,8 @@ export function getA4PrintSpecStyles(options: A4StylesOptions): string {
       background: white !important;
       box-sizing: border-box !important;
       font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
-      font-size: ${fontSizePx ? `${fontSizePx}px` : (isSlideMode ? '12pt' : '11pt')} !important;
-      line-height: 1.68 !important;
+      font-size: ${fontSizePx ? `${fontSizePx}px` : (isSlideMode ? '12pt' : '9.5pt')} !important;
+      line-height: ${isSlideMode ? '1.5' : '1.42'} !important;
       letter-spacing: -0.011em !important;
       -webkit-font-smoothing: antialiased !important;
       -moz-osx-font-smoothing: grayscale !important;
@@ -264,9 +264,9 @@ export function getA4PrintSpecStyles(options: A4StylesOptions): string {
     .a4-sheet h2 { margin-top: 14px !important; margin-bottom: 6px !important; padding-bottom: 3px !important; font-size: ${isSlideMode ? '1.4rem' : '1.25rem'} !important; }
     .a4-sheet h3 { margin-top: 10px !important; margin-bottom: 4px !important; font-size: ${isSlideMode ? '1.2rem' : '1.1rem'} !important; }
     .a4-sheet p { margin-top: 0 !important; margin-bottom: 8px !important; }
-    .a4-sheet .panel { margin: 8px 0 !important; padding: 10px 12px !important; width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; box-sizing: border-box !important; display: flow-root !important; overflow-wrap: break-word !important; }
-    .a4-sheet table { margin: 8px 0 !important; width: 100% !important; box-sizing: border-box !important; border-collapse: collapse !important; }
-    .a4-sheet th, .a4-sheet td { padding: 6px 10px !important; font-size: 0.88rem !important; }
+    .a4-sheet .panel { margin: 6px 0 !important; padding: 8px 10px !important; width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; box-sizing: border-box !important; display: flow-root !important; overflow-wrap: break-word !important; }
+    .a4-sheet table { margin: 4px 0 !important; width: 100% !important; box-sizing: border-box !important; border-collapse: collapse !important; }
+    .a4-sheet th, .a4-sheet td { padding: 0.35rem 0.5rem !important; font-size: 0.84rem !important; line-height: 1.38 !important; }
     .a4-sheet .katex-display {
       max-width: 100% !important;
       overflow-x: auto !important;
@@ -563,7 +563,11 @@ export function getA4PrintSpecStyles(options: A4StylesOptions): string {
     .studio-page-break-indicator-label,
     .studio-pointer-marker,
     .studio-resize-handle,
+    .studio-resize-badge,
     .studio-img-toolbar,
+    #image-context-toolbar,
+    .image-context-toolbar,
+    .studio-drop-indicator-line,
     .doc-img-toolbar,
     .doc-resize-handle,
     .doc-img-dimension-tooltip,
@@ -571,6 +575,49 @@ export function getA4PrintSpecStyles(options: A4StylesOptions): string {
     .slide-card-header-badge,
     .no-print {
       display: none !important;
+    }
+    .studio-img-widget {
+      outline: none !important;
+      box-shadow: none !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+      display: inline-block !important;
+      box-sizing: border-box !important;
+      max-width: 100% !important;
+    }
+    .studio-img-widget img {
+      width: 100% !important;
+      max-width: 100% !important;
+      height: auto;
+      display: block !important;
+    }
+    .studio-img-widget[style*="height"] img {
+      height: 100% !important;
+      object-fit: fill !important;
+    }
+    .studio-img-widget.wrap-full {
+      display: block !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 16px 0 !important;
+      clear: both !important;
+    }
+    .studio-img-widget.wrap-left {
+      float: left !important;
+      margin: 8px 18px 12px 0 !important;
+      clear: none !important;
+    }
+    .studio-img-widget.wrap-right {
+      float: right !important;
+      margin: 8px 0 12px 18px !important;
+      clear: none !important;
+    }
+    .studio-img-widget.wrap-none,
+    .studio-img-widget.wrap-center {
+      display: block !important;
+      margin: 16px auto !important;
+      clear: both !important;
+      text-align: center !important;
     }
     .doc-img-wrapper {
       outline: none !important;
@@ -895,12 +942,37 @@ export function getFluidPrintSpecStyles(options: FluidStylesOptions): string {
     padding-right: ${sideMarginMm > 0 ? `${sideMarginMm}mm` : '0px'} !important;
     padding-left: ${totalLeftMarginMm > 0 ? `${totalLeftMarginMm}mm` : '0px'} !important;
     box-sizing: border-box !important;
-    overflow: visible !important;
-    overflow-x: visible !important;
-    overflow-y: visible !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
     word-wrap: break-word !important;
     overflow-wrap: anywhere !important;
     word-break: break-word !important;
+  }
+
+  @media (max-width: 640px) {
+    .notes-layout {
+      display: flex !important;
+      flex-direction: column !important;
+      grid-template-columns: 1fr !important;
+      gap: 10px !important;
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+    .notes-layout > .full-width,
+    .full-width,
+    .section-card {
+      grid-column: span 1 !important;
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+    table.classified-table,
+    table.academic-table {
+      min-width: 100% !important;
+      font-size: 0.82rem !important;
+    }
+    table th, table td {
+      padding: 5px 6px !important;
+    }
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -1144,18 +1216,69 @@ export function getFluidPrintSpecStyles(options: FluidStylesOptions): string {
     }
 
     img,
-    figure {
+    figure,
+    .studio-img-widget {
       break-inside: avoid !important;
       page-break-inside: avoid !important;
     }
 
-    img {
+    img:not(.studio-img-widget img) {
       visibility: visible !important;
       opacity: 1 !important;
       max-width: 100% !important;
       height: auto !important;
       print-color-adjust: exact !important;
       -webkit-print-color-adjust: exact !important;
+    }
+
+    .studio-img-widget {
+      display: inline-block !important;
+      box-sizing: border-box !important;
+      max-width: 100% !important;
+      print-color-adjust: exact !important;
+      -webkit-print-color-adjust: exact !important;
+    }
+
+    .studio-img-widget img {
+      display: block !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      height: auto;
+      print-color-adjust: exact !important;
+      -webkit-print-color-adjust: exact !important;
+    }
+
+    .studio-img-widget[style*="height"] img {
+      height: 100% !important;
+      object-fit: fill !important;
+    }
+
+    .studio-img-widget.wrap-full {
+      display: block !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 16px 0 !important;
+      clear: both !important;
+    }
+
+    .studio-img-widget.wrap-left {
+      float: left !important;
+      margin: 8px 18px 12px 0 !important;
+      clear: none !important;
+    }
+
+    .studio-img-widget.wrap-right {
+      float: right !important;
+      margin: 8px 0 12px 18px !important;
+      clear: none !important;
+    }
+
+    .studio-img-widget.wrap-none,
+    .studio-img-widget.wrap-center {
+      display: block !important;
+      margin: 16px auto !important;
+      clear: both !important;
+      text-align: center !important;
     }
 
     .doc-img-wrapper[data-wrap="center"],
@@ -1229,6 +1352,7 @@ export interface DocumentPrintSpecOptions {
   verticalMarginMm?: number;
   sideMarginMm?: number;
   totalLeftMarginMm?: number;
+  viewportMode?: string;
 }
 
 export function getDocumentPrintSpecStyles(options: DocumentPrintSpecOptions = {}): string {
@@ -1236,22 +1360,48 @@ export function getDocumentPrintSpecStyles(options: DocumentPrintSpecOptions = {
     fontSizePx = 14,
     verticalMarginMm = 12,
     sideMarginMm = 10,
-    totalLeftMarginMm = 10
+    totalLeftMarginMm = 10,
+    viewportMode = 'desktop'
   } = options;
 
   const vMargin = typeof verticalMarginMm === 'number' && verticalMarginMm >= 0 ? verticalMarginMm : 12;
   const sMargin = typeof sideMarginMm === 'number' && sideMarginMm >= 0 ? sideMarginMm : 10;
   const lMargin = typeof totalLeftMarginMm === 'number' && totalLeftMarginMm >= 0 ? totalLeftMarginMm : sMargin;
+  const isA4SheetPrint = viewportMode === 'a4';
 
   return `
 <style id="studio-document-print-spec">
   @page {
     size: A4 portrait;
-    margin: ${vMargin}mm ${sMargin}mm ${vMargin}mm ${lMargin}mm;
-    margin-top: ${vMargin}mm;
-    margin-bottom: ${vMargin}mm;
-    margin-left: ${lMargin}mm;
-    margin-right: ${sMargin}mm;
+    margin: ${isA4SheetPrint ? '0' : `${vMargin}mm ${sMargin}mm ${vMargin}mm ${lMargin}mm`};
+    margin-top: ${isA4SheetPrint ? '0' : `${vMargin}mm`};
+    margin-bottom: ${isA4SheetPrint ? '0' : `${vMargin}mm`};
+    margin-left: ${isA4SheetPrint ? '0' : `${lMargin}mm`};
+    margin-right: ${isA4SheetPrint ? '0' : `${sMargin}mm`};
+  }
+
+  .a4-sheet {
+    box-sizing: border-box !important;
+    position: relative !important;
+    width: 210mm !important;
+    height: 297mm !important;
+    min-height: 297mm !important;
+    max-height: 297mm !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 auto !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .a4-sheet:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
   }
 
   *, *::before, *::after {
@@ -1384,7 +1534,7 @@ export function getDocumentPrintSpecStyles(options: DocumentPrintSpecOptions = {
   }
 
   /* Section Containers - Prevent pushing entire sections */
-  section, article, main, .section, .content-block, .topic, .block {
+  section, article, main, .section, .content-block, .topic, .block, .section-card, .notes-layout, .table-wrapper, .full-width {
     page-break-inside: auto !important;
     break-inside: auto !important;
     overflow: visible !important;
@@ -1412,22 +1562,73 @@ export function getDocumentPrintSpecStyles(options: DocumentPrintSpecOptions = {
     text-rendering: auto !important;
   }
 
-  /* Images & Figures */
-  img, figure {
+  /* Images, Figures & Studio Image Widgets */
+  img, figure, .studio-img-widget {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     max-width: 100% !important;
   }
 
-  img {
+  img:not(.studio-img-widget img) {
     height: auto !important;
     max-width: 100% !important;
+  }
+
+  .studio-img-widget {
+    display: inline-block !important;
+    position: relative !important;
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+  }
+
+  .studio-img-widget img {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto;
+  }
+
+  .studio-img-widget[style*="height"] img {
+    height: 100% !important;
+    object-fit: fill !important;
+  }
+
+  .studio-img-widget.wrap-full {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 16px 0 !important;
+    clear: both !important;
+  }
+
+  .studio-img-widget.wrap-left {
+    float: left !important;
+    margin: 8px 18px 12px 0 !important;
+    clear: none !important;
+  }
+
+  .studio-img-widget.wrap-right {
+    float: right !important;
+    margin: 8px 0 12px 18px !important;
+    clear: none !important;
+  }
+
+  .studio-img-widget.wrap-none,
+  .studio-img-widget.wrap-center {
+    display: block !important;
+    margin: 16px auto !important;
+    clear: both !important;
+    text-align: center !important;
   }
 
   /* Non-print overlays */
   .studio-pointer-marker,
   .studio-resize-handle,
+  .studio-resize-badge,
   .studio-img-toolbar,
+  #image-context-toolbar,
+  .image-context-toolbar,
+  .studio-drop-indicator-line,
   .doc-img-toolbar,
   .doc-resize-handle,
   .doc-img-dimension-tooltip,

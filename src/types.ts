@@ -30,7 +30,8 @@ export interface MathQuestion {
   type?: 'mcq' | 'numerical';
   difficulty?: DifficultyLevel;
   options?: string[];
-  correctAnswer: string; // Either the option text or numerical answer
+  correctAnswer: string; // Either the option text, 0-based index string ("0", "1", "2", "3"), or numerical answer
+  correctOptionIndex?: number; // Explicit 0-based index (0=A, 1=B, 2=C, 3=D) when question is MCQ
   explanation?: string; // Step-by-step solution derivation
   solution?: string; // Alias for explanation in compact JSON
   points?: number;
@@ -120,51 +121,35 @@ export function checkIsOptionCorrect(opt: string, optIdx: number, q: Partial<Mat
   if (q.correctAnswer === undefined || q.correctAnswer === null || q.correctAnswer === '') return false;
   if (!opt && opt !== '') return false;
 
+  const options = Array.isArray(q.options) ? q.options : [];
+
+  // Priority 1: Explicit correctOptionIndex numeric property
+  if (typeof q.correctOptionIndex === 'number' && Number.isInteger(q.correctOptionIndex)) {
+    return optIdx === q.correctOptionIndex;
+  }
+
+  // Priority 2: correctAnswer passed directly as integer number (e.g. 0, 1, 2, 3)
+  if (typeof (q as any).correctAnswer === 'number' && Number.isInteger((q as any).correctAnswer)) {
+    return optIdx === (q as any).correctAnswer;
+  }
+
   const cleanOpt = String(opt).trim().toLowerCase();
   const cleanAns = String(q.correctAnswer).trim().toLowerCase();
 
-  const norm = (str: string) =>
-    str
-      .trim()
-      .toLowerCase()
-      .replace(/^\$+|\$+$/g, '')
-      .replace(/\s+/g, '')
-      .replace(/[.,;:]+$/, '');
-
-  const normAns = norm(cleanAns);
-  const normOpt = norm(cleanOpt);
-
-  const options = Array.isArray(q.options) ? q.options : [];
-
-  // Step 1: If question has MCQ options, check if any option matches the correct answer by text or normalized math string
-  if (options.length > 0) {
-    const textMatchedIndices: number[] = [];
-    options.forEach((o, idx) => {
-      const cO = String(o).trim().toLowerCase();
-      const nO = norm(cO);
-      if (cO === cleanAns || nO === normAns) {
-        textMatchedIndices.push(idx);
-      }
-    });
-
-    if (textMatchedIndices.length > 0) {
-      // If one or more options match the text/math of correctAnswer, ONLY those options are correct
-      return textMatchedIndices.includes(optIdx);
-    }
-  } else {
-    // If no options array (e.g. numerical question), simple direct/normalized text comparison
-    if (cleanOpt === cleanAns || normOpt === normAns) return true;
-  }
-
-  // Step 2: If no option text matched q.correctAnswer directly, check if q.correctAnswer is a 0-based index or option letter
-  if (optIdx >= 0) {
-    // Single digit integer string: "0", "1", "2", "3"
+  // Priority 3: MCQ option index or option letter disambiguation
+  // In MCQ assessments, single-digit index strings ("0", "1", "2", "3") or letters ('A', 'B', 'C', 'D')
+  // designate option positions (0=A, 1=B, 2=C, 3=D). Checking index first avoids collisions when option
+  // content itself contains numbers (e.g. options: ["1", "0", "-1", "2"] with correctAnswer: 1 for Option B).
+  if (options.length > 0 && optIdx >= 0) {
+    // 3a. Single integer string matching option index: "0", "1", "2", "3"
     if (/^\d+$/.test(cleanAns)) {
       const targetIdx = parseInt(cleanAns, 10);
-      if (optIdx === targetIdx) return true;
+      if (targetIdx >= 0 && targetIdx < options.length) {
+        return optIdx === targetIdx;
+      }
     }
 
-    // Letter matching: 'a', 'b', 'c', 'd'
+    // 3b. Option letter matching: 'a', 'b', 'c', 'd'
     const letter = String.fromCharCode(65 + optIdx).toLowerCase();
     if (
       cleanAns === letter ||
@@ -176,6 +161,36 @@ export function checkIsOptionCorrect(opt: string, optIdx: number, q: Partial<Mat
     ) {
       return true;
     }
+  }
+
+  // Priority 4: Direct or normalized text/math string comparison
+  const norm = (str: string) =>
+    str
+      .trim()
+      .toLowerCase()
+      .replace(/^\$+|\$+$/g, '')
+      .replace(/\s+/g, '')
+      .replace(/[.,;:]+$/, '');
+
+  const normAns = norm(cleanAns);
+  const normOpt = norm(cleanOpt);
+
+  if (options.length > 0) {
+    const textMatchedIndices: number[] = [];
+    options.forEach((o, idx) => {
+      const cO = String(o).trim().toLowerCase();
+      const nO = norm(cO);
+      if (cO === cleanAns || nO === normAns) {
+        textMatchedIndices.push(idx);
+      }
+    });
+
+    if (textMatchedIndices.length > 0) {
+      return textMatchedIndices.includes(optIdx);
+    }
+  } else {
+    // If no options array (e.g. numerical question), simple direct/normalized text comparison
+    if (cleanOpt === cleanAns || normOpt === normAns) return true;
   }
 
   return false;

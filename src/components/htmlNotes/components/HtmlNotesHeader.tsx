@@ -22,12 +22,14 @@ import {
   Minimize2,
   Database,
   AlertTriangle,
-  Printer
+  Printer,
+  FileText,
+  PenTool
 } from 'lucide-react';
 import { type HtmlNoteItem, type HtmlProject } from '../../../lib/htmlNotesSync';
 import { type DriveSyncStatus } from '../../../lib/htmlNotesDriveSync';
-import { checkFirestoreDocSize, type DocSizeCheckResult } from '../../../lib/firestoreDocSizeValidator';
 import { type ViewMode, type ViewportMode } from '../types';
+import { checkFirestoreDocSize } from '../../../lib/firestoreDocSizeValidator';
 
 interface HtmlNotesHeaderProps {
   onBack: () => void;
@@ -67,6 +69,7 @@ interface HtmlNotesHeaderProps {
   onOpenFile: (projectId: string, file: HtmlNoteItem, mode: ViewMode) => void;
   onAddFile: (projectId: string) => void;
   onDeleteFile: (e: React.MouseEvent, projectId: string, fileId: string) => void;
+  onReorderFiles?: (projectId: string, reorderedFiles: HtmlNoteItem[]) => void;
   // File rename
   renamingFileId: string | null;
   renamingFileTitle: string;
@@ -79,11 +82,13 @@ interface HtmlNotesHeaderProps {
   onToggleFullScreenPreview?: () => void;
   isVisualEditActive?: boolean;
   onToggleVisualEdit?: () => void;
+  isPenModeActive?: boolean;
+  onTogglePenMode?: () => void;
   onPrintDocument?: () => void;
   isPrinting?: boolean;
 }
 
-export const HtmlNotesHeader: React.FC<HtmlNotesHeaderProps> = ({
+const HtmlNotesHeaderComponent: React.FC<HtmlNotesHeaderProps> = ({
   onBack,
   onGoHome,
   viewMode,
@@ -113,10 +118,11 @@ export const HtmlNotesHeader: React.FC<HtmlNotesHeaderProps> = ({
   activeProject,
   activeProjectId,
   activeFileId,
-  activeProjectFiles,
+  activeProjectFiles = [],
   onOpenFile,
   onAddFile,
   onDeleteFile,
+  onReorderFiles,
   renamingFileId,
   renamingFileTitle,
   setRenamingFileTitle,
@@ -127,24 +133,92 @@ export const HtmlNotesHeader: React.FC<HtmlNotesHeaderProps> = ({
   isFullScreenPreview = false,
   isVisualEditActive = false,
   onToggleVisualEdit,
+  isPenModeActive = false,
+  onTogglePenMode,
   onPrintDocument,
   isPrinting = false
 }) => {
   const tabsScrollRef = React.useRef<HTMLDivElement>(null);
   const activeTabRef = React.useRef<HTMLButtonElement>(null);
 
-  const docSizeResult: DocSizeCheckResult | null = React.useMemo(() => {
-    if (!activeProject) return null;
-    return checkFirestoreDocSize(activeProject);
-  }, [activeProject]);
+  const [draggingTabId, setDraggingTabId] = React.useState<string | null>(null);
+  const [dragOverTabId, setDragOverTabId] = React.useState<string | null>(null);
 
+  const handleTabDragStart = (e: React.DragEvent, fileId: string) => {
+    e.dataTransfer.setData('text/plain', fileId);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggingTabId(fileId);
+  };
+
+  const handleTabDragOver = (e: React.DragEvent, fileId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverTabId !== fileId) {
+      setDragOverTabId(fileId);
+    }
+  };
+
+  const handleTabDragLeave = (e: React.DragEvent, fileId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dragOverTabId === fileId) {
+      setDragOverTabId(null);
+    }
+  };
+
+  const handleTabDrop = (e: React.DragEvent, targetFileId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const sourceFileId = e.dataTransfer.getData('text/plain') || draggingTabId;
+    setDraggingTabId(null);
+    setDragOverTabId(null);
+
+    if (!sourceFileId || sourceFileId === targetFileId || !activeProjectId || !onReorderFiles) return;
+
+    const currentFiles = [...(activeProjectFiles || [])];
+    const sourceIndex = currentFiles.findIndex((f) => f.id === sourceFileId);
+    const targetIndex = currentFiles.findIndex((f) => f.id === targetFileId);
+
+    if (sourceIndex === -1 || targetIndex === -1) return;
+
+    const [movedItem] = currentFiles.splice(sourceIndex, 1);
+    currentFiles.splice(targetIndex, 0, movedItem);
+
+    onReorderFiles(activeProjectId, currentFiles);
+  };
+
+  const handleTabDragEnd = () => {
+    setDraggingTabId(null);
+    setDragOverTabId(null);
+  };
+
+  // Firestore Document Size Guardrail: calculates byte footprint of active project
+  const docSizeResult = React.useMemo(() => {
+    if (!activeProject) return null;
+    try {
+      return checkFirestoreDocSize(activeProject, activeProject.name || 'Project');
+    } catch (e) {
+      return null;
+    }
+  }, [activeProject, activeProjectFiles]);
+
+
+  // Isolate active tab scrolling purely to the tabs row without causing whole-viewport scrollIntoView
   React.useEffect(() => {
-    if (activeTabRef.current) {
-      activeTabRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'nearest'
-      });
+    if (activeTabRef.current && tabsScrollRef.current) {
+      const container = tabsScrollRef.current;
+      const tab = activeTabRef.current;
+      const tabLeft = tab.offsetLeft;
+      const tabWidth = tab.offsetWidth;
+      const containerScroll = container.scrollLeft;
+      const containerWidth = container.clientWidth;
+
+      if (tabLeft < containerScroll) {
+        container.scrollTo({ left: Math.max(0, tabLeft - 16), behavior: 'smooth' });
+      } else if (tabLeft + tabWidth > containerScroll + containerWidth) {
+        container.scrollTo({ left: tabLeft + tabWidth - containerWidth + 16, behavior: 'smooth' });
+      }
     }
   }, [activeFileId]);
 
@@ -216,7 +290,7 @@ export const HtmlNotesHeader: React.FC<HtmlNotesHeaderProps> = ({
               <button
                 type="button"
                 onClick={() => setViewMode('editor')}
-                className={`px-3 py-1 rounded-full text-xs font-medium border-0 flex items-center gap-1 cursor-pointer transition-all duration-100 ease-out active:scale-[0.98] ${
+                className={`px-3 py-1 rounded-full text-xs font-medium border-0 flex items-center gap-1 cursor-pointer transition-all duration-150 ease-[cubic-bezier(0.2,0,0,1)] active:scale-95 ${
                   viewMode === 'editor'
                     ? 'bg-[#0b57d0] text-white shadow-xs font-semibold'
                     : 'text-slate-700 dark:text-[#c4c7c5] hover:text-black dark:hover:text-white font-medium'
@@ -229,13 +303,20 @@ export const HtmlNotesHeader: React.FC<HtmlNotesHeaderProps> = ({
 
               <button
                 type="button"
-                onClick={() => setViewMode('split')}
-                className={`px-3 py-1 rounded-full text-xs font-medium border-0 flex items-center gap-1 cursor-pointer transition-all duration-100 ease-out active:scale-[0.98] ${
+                onClick={() => {
+                  if (viewMode === 'split' && setViewportMode) {
+                    // Clicking Split while already in split toggles the preview side between Fluid & Paper
+                    setViewportMode(viewportMode === 'a4' ? 'desktop' : 'a4');
+                  } else {
+                    setViewMode('split');
+                  }
+                }}
+                className={`px-3 py-1 rounded-full text-xs font-medium border-0 flex items-center gap-1 cursor-pointer transition-all duration-150 ease-[cubic-bezier(0.2,0,0,1)] active:scale-95 ${
                   viewMode === 'split'
                     ? 'bg-[#0b57d0] text-white shadow-xs font-semibold'
                     : 'text-slate-700 dark:text-[#c4c7c5] hover:text-black dark:hover:text-white font-medium'
                 }`}
-                title="Split Code & Preview Mode"
+                title={viewMode === 'split' ? "Split Mode (Click again to toggle preview side between Fluid and A4 Paper)" : "Split Code & Preview Mode"}
               >
                 <Columns className="w-3.5 h-3.5" />
                 <span>Split</span>
@@ -243,16 +324,42 @@ export const HtmlNotesHeader: React.FC<HtmlNotesHeaderProps> = ({
 
               <button
                 type="button"
-                onClick={() => setViewMode('preview')}
-                className={`px-3 py-1 rounded-full text-xs font-medium border-0 flex items-center gap-1 cursor-pointer transition-all duration-100 ease-out active:scale-[0.98] ${
+                onClick={() => {
+                  if (viewMode === 'preview' && setViewportMode) {
+                    setViewportMode(viewportMode === 'a4' ? 'desktop' : 'a4');
+                  } else {
+                    setViewMode('preview');
+                  }
+                }}
+                className={`px-3 py-1 rounded-full text-xs font-medium border-0 flex items-center gap-1 cursor-pointer transition-all duration-150 ease-[cubic-bezier(0.2,0,0,1)] active:scale-95 ${
                   viewMode === 'preview'
                     ? 'bg-[#0b57d0] text-white shadow-xs font-semibold'
                     : 'text-slate-700 dark:text-[#c4c7c5] hover:text-black dark:hover:text-white font-medium'
                 }`}
-                title="Live Preview Mode"
+                title={
+                  viewMode === 'preview'
+                    ? viewportMode === 'a4'
+                      ? "A4 Paper Print Preview (Click to toggle Fluid View)"
+                      : "Fluid Screen Preview (Click to toggle A4 Paper View)"
+                    : "Live Preview Mode (Click again when active to toggle Fluid / Paper)"
+                }
               >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Preview</span>
+                {viewMode === 'preview' && viewportMode === 'a4' ? (
+                  <>
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Paper</span>
+                  </>
+                ) : viewMode === 'preview' ? (
+                  <>
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Fluid</span>
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Preview</span>
+                  </>
+                )}
               </button>
             </div>
 
@@ -279,6 +386,23 @@ export const HtmlNotesHeader: React.FC<HtmlNotesHeaderProps> = ({
                     <span>Edit Mode</span>
                   </>
                 )}
+              </button>
+            )}
+
+            {/* Stylus Pen Tool Button (Independent from Edit Mode) */}
+            {(viewMode === 'preview' || viewMode === 'split') && onTogglePenMode && (
+              <button
+                type="button"
+                onClick={onTogglePenMode}
+                className={`h-8 px-3 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 outline-none border-0 shrink-0 ${
+                  isPenModeActive
+                    ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-xs ring-2 ring-amber-300'
+                    : 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                }`}
+                title="Stylus Pen & Highlighter: Freehand ink, stylus writing, and highlighting on preview"
+              >
+                <PenTool className="w-3.5 h-3.5" />
+                <span>{isPenModeActive ? 'Pen: Active' : 'Pen Tool'}</span>
               </button>
             )}
           </div>
@@ -386,14 +510,14 @@ export const HtmlNotesHeader: React.FC<HtmlNotesHeaderProps> = ({
       )}
 
       {/* ROW 2: Global Actions Row (Mobile Only - Hidden on Tablet & Desktop) */}
-      <div className={`sticky ${hideTopBar ? 'top-0' : 'top-[48px] sm:top-[52px]'} z-25 flex md:hidden items-center justify-between gap-2 px-3 py-1.5 bg-white dark:bg-[#0b0c10] border-b border-slate-200 dark:border-zinc-800/80 shrink-0`}>
+      <div className={`sticky ${hideTopBar ? 'top-0' : 'top-[48px] sm:top-[52px]'} z-25 flex md:hidden items-center justify-between gap-1.5 px-2 sm:px-3 py-1.5 bg-white dark:bg-[#0b0c10] border-b border-slate-200 dark:border-zinc-800/80 shrink-0`}>
         {/* Left: Outline (mobile only), Undo, Redo, Find/Search Buttons, AI Button */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Outline / Drawer button: Shown ONLY on mobile when side 3-button activity rail is hidden */}
           <button
             type="button"
             onClick={onToggleOutline}
-            className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-[#32353c] dark:hover:bg-[#3f424c] text-[#0b57d0] dark:text-[#a8c7fa] border-0 flex items-center justify-center shrink-0 cursor-pointer transition-all active:scale-95 outline-none"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-[#32353c] dark:hover:bg-[#3f424c] text-[#0b57d0] dark:text-[#a8c7fa] border-0 flex items-center justify-center shrink-0 cursor-pointer transition-all active:scale-95 outline-none"
             title={`Document Headings Outline (${headingsCount})`}
           >
             <ListTree className="w-4 h-4" />
@@ -406,44 +530,44 @@ export const HtmlNotesHeader: React.FC<HtmlNotesHeaderProps> = ({
               onMouseDown={(e) => e.preventDefault()}
               onClick={onUndo}
               disabled={!canUndo}
-              className="w-8 h-8 rounded-full text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed border-0 flex items-center justify-center cursor-pointer transition-all active:scale-90 disabled:active:scale-100 outline-none"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed border-0 flex items-center justify-center cursor-pointer transition-all active:scale-90 disabled:active:scale-100 outline-none"
               title="Undo (Ctrl+Z)"
             >
-              <Undo2 className="w-4 h-4" />
+              <Undo2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
 
-            <div className="w-[1px] h-4 bg-slate-300 dark:bg-zinc-600 my-auto shrink-0" />
+            <div className="w-[1px] h-3.5 sm:h-4 bg-slate-300 dark:bg-zinc-600 my-auto shrink-0" />
 
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={onRedo}
               disabled={!canRedo}
-              className="w-8 h-8 rounded-full text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed border-0 flex items-center justify-center cursor-pointer transition-all active:scale-90 disabled:active:scale-100 outline-none"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed border-0 flex items-center justify-center cursor-pointer transition-all active:scale-90 disabled:active:scale-100 outline-none"
               title="Redo (Ctrl+Y)"
             >
-              <Redo2 className="w-4 h-4" />
+              <Redo2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           </div>
 
           <button
             type="button"
             onClick={onToggleSearch}
-            className={`w-9 h-9 rounded-full border-0 flex items-center justify-center shrink-0 cursor-pointer transition-all active:scale-95 outline-none ${
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full border-0 flex items-center justify-center shrink-0 cursor-pointer transition-all active:scale-95 outline-none ${
               isSearchActive
                 ? 'bg-[#0b57d0] text-white shadow-xs'
                 : 'bg-slate-100 hover:bg-slate-200 dark:bg-[#32353c] dark:hover:bg-[#3f424c] text-[#1f1f1f] dark:text-[#e3e3e3]'
             }`}
             title="Find text (Ctrl+F)"
           >
-            <Search className="w-4 h-4" />
+            <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
 
         </div>
 
         {/* Right: Edit Button & View Mode Toggle (Editor / Preview) */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* Visual Edit Mode Toggle Button - Left of Editor and Preview */}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          {/* Visual Edit Mode Toggle Button - Icon only on mobile to preserve row width */}
           {onToggleVisualEdit && (
             <button
               type="button"
@@ -457,24 +581,41 @@ export const HtmlNotesHeader: React.FC<HtmlNotesHeaderProps> = ({
                   onToggleVisualEdit();
                 }
               }}
-              className={`h-7 px-2 sm:px-2.5 rounded-full text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer active:scale-95 outline-none border-0 shrink-0 ${
+              className={`w-7 h-7 sm:w-auto h-7 px-0 sm:px-2.5 rounded-full text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer active:scale-95 outline-none border-0 shrink-0 ${
                 isVisualEditActive
                   ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs ring-2 ring-emerald-400/50'
                   : 'bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
               }`}
-              title="Toggle Edit Mode: Click text in preview to edit strings, insert images, and adjust elements directly"
+              title={isVisualEditActive ? "Edit Mode: ON (Click to disable visual editing)" : "Edit Mode (Click text in preview to edit strings, insert images)"}
             >
               {isVisualEditActive ? (
                 <>
                   <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>Edit: ON</span>
+                  <span className="hidden sm:inline">Edit: ON</span>
                 </>
               ) : (
                 <>
                   <Edit2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  <span>Edit<span className="hidden xs:inline"> Mode</span></span>
+                  <span className="hidden sm:inline">Edit Mode</span>
                 </>
               )}
+            </button>
+          )}
+
+          {/* Mobile Stylus Pen Button - Icon only on mobile to preserve row width */}
+          {(viewMode === 'preview' || viewMode === 'split') && onTogglePenMode && (
+            <button
+              type="button"
+              onClick={onTogglePenMode}
+              className={`w-7 h-7 sm:w-auto h-7 px-0 sm:px-2.5 rounded-full text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer active:scale-95 outline-none border-0 shrink-0 ${
+                isPenModeActive
+                  ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-xs ring-2 ring-amber-300'
+                  : 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+              }`}
+              title={isPenModeActive ? "Stylus Pen: ON" : "Stylus Pen & Highlighter"}
+            >
+              <PenTool className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{isPenModeActive ? 'Pen: ON' : 'Pen'}</span>
             </button>
           )}
 
@@ -483,7 +624,7 @@ export const HtmlNotesHeader: React.FC<HtmlNotesHeaderProps> = ({
             <button
               type="button"
               onClick={() => setViewMode('editor')}
-              className={`px-2.5 sm:px-3 py-1 rounded-full text-xs font-medium border-0 flex items-center gap-1 cursor-pointer transition-all duration-100 ease-out active:scale-[0.98] ${
+              className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium border-0 flex items-center gap-1 cursor-pointer transition-all duration-150 ease-[cubic-bezier(0.2,0,0,1)] active:scale-95 ${
                 viewMode === 'editor'
                   ? 'bg-[#0b57d0] text-white shadow-xs font-semibold'
                   : 'text-slate-700 dark:text-[#c4c7c5] hover:text-black dark:hover:text-white font-medium'
@@ -496,16 +637,42 @@ export const HtmlNotesHeader: React.FC<HtmlNotesHeaderProps> = ({
 
             <button
               type="button"
-              onClick={() => setViewMode('preview')}
-              className={`px-2.5 sm:px-3 py-1 rounded-full text-xs font-medium border-0 flex items-center gap-1 cursor-pointer transition-all duration-100 ease-out active:scale-[0.98] ${
+              onClick={() => {
+                if (viewMode === 'preview' && setViewportMode) {
+                  setViewportMode(viewportMode === 'a4' ? 'desktop' : 'a4');
+                } else {
+                  setViewMode('preview');
+                }
+              }}
+              className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium border-0 flex items-center gap-1 cursor-pointer transition-all duration-150 ease-[cubic-bezier(0.2,0,0,1)] active:scale-95 ${
                 viewMode === 'preview'
                   ? 'bg-[#0b57d0] text-white shadow-xs font-semibold'
                   : 'text-slate-700 dark:text-[#c4c7c5] hover:text-black dark:hover:text-white font-medium'
               }`}
-              title="Live Preview Mode"
+              title={
+                viewMode === 'preview'
+                  ? viewportMode === 'a4'
+                    ? "A4 Paper Print Preview (Click to toggle Fluid View)"
+                    : "Fluid Screen Preview (Click to toggle A4 Paper View)"
+                  : "Live Preview Mode"
+              }
             >
-              <Eye className="w-3.5 h-3.5" />
-              <span>Preview</span>
+              {viewMode === 'preview' && viewportMode === 'a4' ? (
+                <>
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Paper</span>
+                </>
+              ) : viewMode === 'preview' ? (
+                <>
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Fluid</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Preview</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -515,12 +682,25 @@ export const HtmlNotesHeader: React.FC<HtmlNotesHeaderProps> = ({
       <div className="sticky top-[86px] sm:top-[90px] md:top-[48px] sm:md:top-[52px] z-20 flex items-center justify-between gap-2 px-3 py-1.5 bg-white dark:bg-[#0b0c10] border-b border-slate-200 dark:border-zinc-800/80 shrink-0 min-h-[38px]">
         {/* Left: Scrollable file tabs (in-line according to available space) */}
         <div ref={tabsScrollRef} className="flex items-center gap-1.5 min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] py-0.5">
-          {activeProjectFiles.map((file) => {
+          {(activeProjectFiles || []).map((file) => {
             const isActive = file.id === activeFileId;
             const isRenaming = renamingFileId === file.id;
+            const isDragging = draggingTabId === file.id;
+            const isDragOver = dragOverTabId === file.id;
 
             return (
-              <div key={file.id} className="inline-flex items-center shrink-0">
+              <div
+                key={file.id}
+                className={`inline-flex items-center shrink-0 transition-all duration-150 ${
+                  isDragging ? 'opacity-40 scale-95' : 'opacity-100'
+                } ${isDragOver ? 'ring-2 ring-[#0b57d0] ring-offset-1 rounded-full' : ''}`}
+                draggable={!isRenaming}
+                onDragStart={(e) => handleTabDragStart(e, file.id)}
+                onDragOver={(e) => handleTabDragOver(e, file.id)}
+                onDragLeave={(e) => handleTabDragLeave(e, file.id)}
+                onDrop={(e) => handleTabDrop(e, file.id)}
+                onDragEnd={handleTabDragEnd}
+              >
                 {isRenaming ? (
                   <input
                     type="text"
@@ -534,14 +714,14 @@ export const HtmlNotesHeader: React.FC<HtmlNotesHeaderProps> = ({
                 ) : (
                   <button
                     ref={isActive ? activeTabRef : undefined}
-                    className={`h-7 px-3 rounded-full flex items-center gap-1.5 text-xs font-semibold cursor-pointer border-0 transition-all ${
+                    className={`h-7 px-3 rounded-full flex items-center gap-1.5 text-xs font-semibold cursor-grab active:cursor-grabbing border-0 transition-all duration-150 ease-[cubic-bezier(0.2,0,0,1)] active:scale-95 select-none ${
                       isActive
                         ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] font-bold shadow-xs'
                         : 'bg-slate-100 hover:bg-[#e2e8f0] text-[#1f1f1f] dark:bg-[#282a30] dark:hover:bg-[#32353c] dark:text-[#e3e3e3]'
                     }`}
                     onClick={() => onOpenFile(activeProjectId, file, viewMode)}
                     onDoubleClick={() => onStartRenameFile(file)}
-                    title="Click to open, double-click to rename"
+                    title="Drag to reorder. Click to open, double-click to rename"
                   >
                     <FileCode className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
                     <span className="truncate max-w-[120px] sm:max-w-[200px] font-medium">{file.title || 'Untitled'}</span>
@@ -580,11 +760,11 @@ export const HtmlNotesHeader: React.FC<HtmlNotesHeaderProps> = ({
           <button
             type="button"
             onClick={() => onAddFile(activeProjectId)}
-            className="h-7 px-2.5 rounded-full bg-[#0b57d0]/10 hover:bg-[#0b57d0] text-[#0b57d0] hover:text-white dark:bg-[#a8c7fa]/20 dark:hover:bg-[#a8c7fa] dark:text-[#a8c7fa] dark:hover:text-[#041e49] text-xs font-bold border-0 flex items-center gap-1 shrink-0 cursor-pointer transition-all active:scale-95 shadow-xs"
+            className="w-7 h-7 sm:w-auto h-7 px-0 sm:px-2.5 rounded-full bg-[#0b57d0]/10 hover:bg-[#0b57d0] text-[#0b57d0] hover:text-white dark:bg-[#a8c7fa]/20 dark:hover:bg-[#a8c7fa] dark:text-[#a8c7fa] dark:hover:text-[#041e49] text-xs font-bold border-0 flex items-center justify-center gap-1 shrink-0 cursor-pointer transition-all active:scale-95 shadow-xs"
             title="Add new file to current project"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Add File</span>
+            <span className="hidden sm:inline">Add File</span>
           </button>
 
           {onToggleFullScreenPreview && (
@@ -616,3 +796,5 @@ export const HtmlNotesHeader: React.FC<HtmlNotesHeaderProps> = ({
     </>
   );
 };
+
+export const HtmlNotesHeader = React.memo(HtmlNotesHeaderComponent);

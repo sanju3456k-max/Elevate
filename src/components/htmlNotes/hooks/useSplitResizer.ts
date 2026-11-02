@@ -107,7 +107,7 @@ export function useSplitResizer(options: UseSplitResizerOptions = {}) {
 
     const handleSafetyCheck = (e: Event) => {
       if (isResizingRef.current) {
-        if ('buttons' in e && (e as MouseEvent).buttons === 0) {
+        if (!('buttons' in e) || (e as MouseEvent).buttons === 0) {
           handleEnd();
         }
       }

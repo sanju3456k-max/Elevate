@@ -68,6 +68,8 @@ import { isMcqQuestion, checkIsOptionCorrect, type MathTest, type MathQuestion, 
 import { DEFAULT_TOPICS, getSavedCustomTopics, saveCustomTopic, getAllAvailableTopics } from '../utils/topics';
 import { generateProceduralExamSvg } from '../utils/diagramSynthesizer';
 import type { User } from 'firebase/auth';
+import { auth } from '../lib/firebase';
+import { getCachedAuthUser } from '../lib/storage';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { APP_STYLES } from './ui/AppStyles';
@@ -173,7 +175,21 @@ export function formatTestCompact(
 }
 
 export function normalizeQuestion(raw: any, index: number): MathQuestion {
+  if (!raw) {
+    return {
+      id: `q-${index + 1}`,
+      text: '',
+      type: 'mcq',
+      options: ['Option A', 'Option B', 'Option C', 'Option D'],
+      correctAnswer: '0',
+      correctOptionIndex: 0,
+      explanation: '',
+      points: 1,
+    };
+  }
+
   const isMcq = Array.isArray(raw.options) && raw.options.length > 0;
+  let numIdx = -1;
 
   // Extract raw answer/correct option from potential JSON key variations
   const rawAns = raw.correctAnswer !== undefined ? raw.correctAnswer :
@@ -191,7 +207,7 @@ export function normalizeQuestion(raw: any, index: number): MathQuestion {
 
   // If MCQ question, interpret 0, 1, 2, 3 index (numeric or string) or A/B/C/D or text into 0-based index "0", "1", "2", "3"
   if (isMcq && raw.options && raw.options.length > 0) {
-    let numIdx = -1;
+    numIdx = -1;
     if (typeof rawAns === 'number' && Number.isInteger(rawAns)) {
       numIdx = rawAns;
     } else if (typeof rawAns === 'string' && /^[0-9]+$/.test(rawAns.trim())) {
@@ -307,6 +323,7 @@ export function normalizeQuestion(raw: any, index: number): MathQuestion {
     type: isMcq ? 'mcq' : (raw.type || 'numerical'),
     options: isMcq ? raw.options.map((o: any) => String(o)) : undefined,
     correctAnswer: finalAnswer,
+    correctOptionIndex: (isMcq && numIdx >= 0 && numIdx < raw.options.length) ? numIdx : undefined,
     explanation: expl,
     solution: expl,
     points: typeof raw.points === 'number' ? raw.points : 1,
@@ -709,6 +726,34 @@ export const TestEditor: React.FC<TestEditorProps> = ({
   const [copiedJsonSchema, setCopiedJsonSchema] = useState<boolean>(false);
   const [isQuestionCodePastedNotice, setIsQuestionCodePastedNotice] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isDraggingImport, setIsDraggingImport] = useState<boolean>(false);
+
+  const handleImportDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDraggingImport) setIsDraggingImport(true);
+  };
+
+  const handleImportDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingImport(false);
+  };
+
+  const handleImportDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingImport(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      if (!file.name.toLowerCase().endsWith('.json') && file.type !== 'application/json') {
+        setErrorMessage('Please drop a valid .json test file.');
+        setTimeout(() => setErrorMessage(''), 3000);
+        return;
+      }
+      handleFileUpload(file);
+    }
+  };
 
   // AI Prompt Bar State for Test Creator Studio
   const [isAiPromptOpen, setIsAiPromptOpen] = useState<boolean>(() => Boolean(initialOpenAiPrompt));
@@ -2119,34 +2164,67 @@ export const TestEditor: React.FC<TestEditorProps> = ({
 
   const handleExportCurrentTest = () => {
     try {
-      const parsed = JSON.parse(jsonText);
-      const exportObj: MathTest = {
-        id: editingTestId || `custom-test-${Date.now()}`,
-        title: parsed.title || title,
-        description: parsed.description || description,
-        topic: parsed.topic || topic,
-        difficulty: parsed.difficulty || 'Medium',
-        timeLimitMinutes: parsed.timeLimitMinutes ?? timeLimitMinutes,
-        passingScorePercentage: parsed.passingScorePercentage ?? passingScorePercentage,
-        questions: parsed.questions || questions,
-        authorId: currentUser?.uid || 'local-user',
-        authorName: currentUser?.displayName || 'Teacher',
-        isPublic: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+      let exportObj: MathTest;
+      let usedStateFallback = false;
+
+      try {
+        const parsed = JSON.parse(jsonText);
+        exportObj = {
+          id: editingTestId || `custom-test-${Date.now()}`,
+          title: parsed.title || title || 'Untitled Math Test',
+          description: parsed.description || description || '',
+          topic: parsed.topic || topic || 'General Mathematics',
+          difficulty: parsed.difficulty || (initialTest?.difficulty as any) || 'Medium',
+          timeLimitMinutes: parsed.timeLimitMinutes ?? timeLimitMinutes,
+          passingScorePercentage: parsed.passingScorePercentage ?? passingScorePercentage,
+          questions: Array.isArray(parsed.questions) && parsed.questions.length > 0 ? parsed.questions : questions,
+          authorId: currentUser?.uid || auth.currentUser?.uid || getCachedAuthUser()?.uid || 'local-user',
+          authorName: currentUser?.displayName || auth.currentUser?.displayName || getCachedAuthUser()?.displayName || 'Teacher',
+          isPublic: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      } catch {
+        // Fallback to active editor state if jsonText contains a syntax error
+        usedStateFallback = true;
+        exportObj = {
+          id: editingTestId || `custom-test-${Date.now()}`,
+          title: title || 'Untitled Math Test',
+          description: description || '',
+          topic: topic || 'General Mathematics',
+          difficulty: (initialTest?.difficulty as any) || 'Medium',
+          timeLimitMinutes: timeLimitMinutes,
+          passingScorePercentage: passingScorePercentage,
+          questions: questions,
+          authorId: currentUser?.uid || auth.currentUser?.uid || getCachedAuthUser()?.uid || 'local-user',
+          authorName: currentUser?.displayName || auth.currentUser?.displayName || getCachedAuthUser()?.displayName || 'Teacher',
+          isPublic: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      }
+
+      // Always trigger direct file download of the JSON test file
+      const jsonString = JSON.stringify(exportObj, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
+      const safeTitle = (exportObj.title || 'math_test').replace(/\s+/g, '_').replace(/[^\w-]/g, '').toLowerCase() || 'math_test';
+      const fileName = `${safeTitle}.json`;
+      triggerBlobDownload(blob, fileName);
 
       if (onExportJson) {
         onExportJson(exportObj);
-      } else {
-        const jsonString = JSON.stringify(exportObj, null, 2);
-        const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
-        const fileName = `${(exportObj.title || 'math_test').replace(/\s+/g, '_').toLowerCase()}.json`;
-        triggerBlobDownload(blob, fileName);
       }
+
       setIsActionsMenuOpen(false);
-    } catch {
-      setErrorMessage('Cannot export: JSON schema has syntax errors.');
+      setSaveSuccessNotice(
+        usedStateFallback
+          ? `Exported "${exportObj.title}" to ${fileName} (recovered from active test state)`
+          : `Exported "${exportObj.title}" to ${fileName}`
+      );
+      setTimeout(() => setSaveSuccessNotice(''), 3500);
+    } catch (err: any) {
+      setErrorMessage(`Export failed: ${err.message || 'Unknown error'}`);
+      setTimeout(() => setErrorMessage(''), 3500);
     }
   };
 
@@ -2246,8 +2324,8 @@ export const TestEditor: React.FC<TestEditorProps> = ({
             timeLimitMinutes: timeLimitMinutes,
             passingScorePercentage: passingScorePercentage,
             questions: questions.map((q, idx) => normalizeQuestion(q, idx)),
-            authorId: currentUser?.uid || 'local-user',
-            authorName: currentUser?.displayName || 'Teacher',
+            authorId: currentUser?.uid || auth.currentUser?.uid || getCachedAuthUser()?.uid || 'local-user',
+            authorName: currentUser?.displayName || auth.currentUser?.displayName || getCachedAuthUser()?.displayName || 'Teacher',
             isPublic: true,
             createdAt: initialTest?.createdAt || new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -2288,8 +2366,8 @@ export const TestEditor: React.FC<TestEditorProps> = ({
         timeLimitMinutes: importedTime,
         passingScorePercentage: importedPassing,
         questions: normalizedImportedQs,
-        authorId: currentUser?.uid || 'local-user',
-        authorName: currentUser?.displayName || 'Teacher',
+        authorId: currentUser?.uid || auth.currentUser?.uid || getCachedAuthUser()?.uid || 'local-user',
+        authorName: currentUser?.displayName || auth.currentUser?.displayName || getCachedAuthUser()?.displayName || 'Teacher',
         isPublic: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -2414,8 +2492,8 @@ export const TestEditor: React.FC<TestEditorProps> = ({
         timeLimitMinutes: mins,
         passingScorePercentage: typeof parsed.passingScorePercentage === 'number' ? parsed.passingScorePercentage : 60,
         questions: normalizedQs,
-        authorId: currentUser?.uid || 'local-user',
-        authorName: currentUser?.displayName || 'Teacher',
+        authorId: currentUser?.uid || auth.currentUser?.uid || getCachedAuthUser()?.uid || 'local-user',
+        authorName: currentUser?.displayName || auth.currentUser?.displayName || getCachedAuthUser()?.displayName || 'Teacher',
         isPublic: true,
         createdAt: initialTest?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -2433,36 +2511,50 @@ export const TestEditor: React.FC<TestEditorProps> = ({
   };
 
   const handleLoadPreviousTest = (t: MathTest) => {
-    setEditingTestId(t.id);
-    setTitle(t.title);
-    setDescription(t.description);
-    const testTopic = (t.topic || 'Matrices and Determinants').trim();
-    setTopic(testTopic);
-    const isDef = DEFAULT_TOPICS.some((dt) => dt.toLowerCase() === testTopic.toLowerCase());
-    if (!isDef && testTopic) {
-      setIsCustomTopicActive(true);
-      setCustomTopicInput(testTopic);
-    } else {
-      setIsCustomTopicActive(false);
-      setCustomTopicInput('');
-    }
-    const mins = t.timeLimitMinutes ?? (t as any).time ?? 15;
-    setTimeLimitMinutes(mins);
-    setPassingScorePercentage(t.passingScorePercentage ?? 60);
-    const normalizedQs = (t.questions || []).map((q, idx) => normalizeQuestion(q, idx));
-    setQuestions(normalizedQs);
-    setCurrentQIndex(0);
+    try {
+      setEditingTestId(t.id);
+      setTitle(t.title || 'Untitled Assessment');
+      setDescription(t.description || '');
+      const testTopic = (t.topic || 'Matrices and Determinants').trim();
+      setTopic(testTopic);
+      const isDef = DEFAULT_TOPICS.some((dt) => dt.toLowerCase() === testTopic.toLowerCase());
+      if (!isDef && testTopic) {
+        setIsCustomTopicActive(true);
+        setCustomTopicInput(testTopic);
+      } else {
+        setIsCustomTopicActive(false);
+        setCustomTopicInput('');
+      }
+      const mins = t.timeLimitMinutes ?? (t as any).time ?? 15;
+      setTimeLimitMinutes(mins);
+      setPassingScorePercentage(t.passingScorePercentage ?? 60);
+      const normalizedQs = (t.questions || []).map((q, idx) => normalizeQuestion(q, idx));
+      setQuestions(normalizedQs);
+      setCurrentQIndex(0);
 
-    const compactObj = formatTestCompact(
-      t.title,
-      testTopic,
-      mins,
-      normalizedQs
-    );
-    const formatted = JSON.stringify(compactObj, null, 2);
-    setJsonText(formatted);
-    pushHistory(formatted);
-    setIsHistoryDrawerOpen(false);
+      const compactObj = formatTestCompact(
+        t.title || 'Untitled Assessment',
+        testTopic,
+        mins,
+        normalizedQs
+      );
+      const formatted = JSON.stringify(compactObj, null, 2);
+      setJsonText(formatted);
+
+      // Synchronize question code draft for first question so Canvas and Code Review immediately update
+      const firstQ = normalizedQs[0];
+      const firstDraft = firstQ ? JSON.stringify(formatQuestionCompact(firstQ), null, 2) : '';
+      setQuestionCodeDraft(firstDraft);
+
+      pushHistory(formatted, firstDraft, 0);
+      setIsHistoryDrawerOpen(false);
+      setSaveSuccessNotice(`Loaded "${t.title}".`);
+      setTimeout(() => setSaveSuccessNotice(''), 3000);
+    } catch (err: any) {
+      console.error('Failed to load assessment from history:', err);
+      setErrorMessage(`Failed to load assessment: ${err?.message || err}`);
+      setIsHistoryDrawerOpen(false);
+    }
   };
 
   const handleConfirmDelete = () => {
@@ -2633,8 +2725,25 @@ export const TestEditor: React.FC<TestEditorProps> = ({
 
   return (
     <div 
-      className="h-[100dvh] max-h-screen w-full flex flex-col bg-[#e5e9f0] dark:bg-[#0b0c10] text-slate-900 dark:text-zinc-100 p-2 sm:p-3 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] pb-[calc(max(0.5rem,env(safe-area-inset-bottom,0px))+0.25rem)] overflow-hidden font-sans"
+      className={`h-[100dvh] max-h-screen w-full flex flex-col bg-[#e5e9f0] dark:bg-[#0b0c10] text-slate-900 dark:text-zinc-100 p-2 sm:p-3 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] pb-[calc(max(0.5rem,env(safe-area-inset-bottom,0px))+0.25rem)] overflow-hidden font-sans relative transition-colors ${
+        isDraggingImport ? 'ring-4 ring-[#0b57d0] ring-inset bg-blue-50/40 dark:bg-blue-950/20' : ''
+      }`}
+      onDragOver={handleImportDragOver}
+      onDragLeave={handleImportDragLeave}
+      onDrop={handleImportDrop}
     >
+      {/* Visual Drop Overlay */}
+      {isDraggingImport && (
+        <div className="absolute inset-0 z-50 bg-[#0b57d0]/10 backdrop-blur-[2px] flex items-center justify-center pointer-events-none p-4">
+          <div className="px-6 py-4 rounded-2xl bg-white dark:bg-[#1e2024] shadow-2xl border-2 border-dashed border-[#0b57d0] flex items-center gap-3 animate-bounce">
+            <Upload className="w-8 h-8 text-[#0b57d0] dark:text-[#a8c7fa] rotate-180" />
+            <div>
+              <p className="text-sm font-bold text-slate-900 dark:text-white m-0">Drop JSON test file to Import</p>
+              <p className="text-xs text-slate-500 dark:text-zinc-400 m-0">Loads directly into editor & library</p>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Hidden File Input for Direct Storage Import strictly restricted to JSON files only */}
       <input
@@ -2836,13 +2945,30 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                 <span>Edit with AI</span>
               </button>
 
-              {/* Import Button */}
+              {/* Export JSON Button */}
+              <button
+                type="button"
+                id="desktop-action-export-json-btn"
+                onClick={handleExportCurrentTest}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs sm:text-sm font-bold border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer active:scale-95"
+                title="Export current test as JSON file"
+              >
+                <Download className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+                <span>Export JSON</span>
+              </button>
+
+              {/* Import Button with Drag & Drop */}
               <button
                 type="button"
                 id="desktop-action-import-json-btn"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs sm:text-sm font-bold border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer active:scale-95"
-                title="Import JSON assessment file from storage"
+                onDragOver={handleImportDragOver}
+                onDragLeave={handleImportDragLeave}
+                onDrop={handleImportDrop}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs sm:text-sm font-bold border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer active:scale-95 ${
+                  isDraggingImport ? 'ring-2 ring-[#0b57d0] bg-blue-50 dark:bg-blue-950/40' : ''
+                }`}
+                title="Import JSON assessment file (Click or Drag & Drop)"
               >
                 <Upload className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] rotate-180" />
                 <span>Import</span>
@@ -2951,12 +3077,30 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                 <span>Edit with AI</span>
               </button>
 
-              {/* Import Button */}
+              {/* Export JSON Button */}
+              <button
+                type="button"
+                id="mobile-action-export-btn"
+                onClick={handleExportCurrentTest}
+                className="flex items-center gap-1 px-3 py-1.5 sm:py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer active:scale-95"
+                title="Export current test as JSON file"
+              >
+                <Download className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+                <span>Export JSON</span>
+              </button>
+
+              {/* Import Button with Drag & Drop */}
               <button
                 type="button"
                 id="mobile-action-import-btn"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-1 px-3 py-1.5 sm:py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer active:scale-95"
+                onDragOver={handleImportDragOver}
+                onDragLeave={handleImportDragLeave}
+                onDrop={handleImportDrop}
+                className={`flex items-center gap-1 px-3 py-1.5 sm:py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer active:scale-95 ${
+                  isDraggingImport ? 'ring-2 ring-[#0b57d0] bg-blue-50 dark:bg-blue-950/40' : ''
+                }`}
+                title="Import JSON assessment file (Click or Drag & Drop)"
               >
                 <Upload className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] rotate-180 shrink-0" />
                 <span>Import</span>
@@ -4205,6 +4349,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
       <AnimatePresence>
         {isHistoryDrawerOpen && (
           <motion.div 
+            key="test-history-full-view-overlay"
             initial={{ opacity: 0, transform: 'scale3d(0.99, 0.99, 1)' }}
             animate={{ opacity: 1, transform: 'scale3d(1, 1, 1)' }}
             exit={{ opacity: 0, transform: 'scale3d(0.99, 0.99, 1)' }}
@@ -4431,10 +4576,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                         </div>
 
                         {/* Bottom Row: Question count, time, action buttons */}
-                        <div 
-                          className="flex items-center justify-between w-full pt-0.5" 
-                          onClick={(e) => e.stopPropagation()}
-                        >
+                        <div className="flex items-center justify-between w-full pt-0.5">
                           <div className="flex items-center gap-1.5 text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-medium leading-none">
                             <span className="inline-flex items-center gap-1 text-[11px] text-[#444746] dark:text-[#c4c7c5] px-1 py-0.5 leading-none">
                               <Package className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] shrink-0" strokeWidth={2.2} />
@@ -4447,7 +4589,10 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                           </div>
 
                           {/* Quick Share / Export / Delete icon buttons */}
-                          <div className="flex items-center gap-0.5 sm:gap-1">
+                          <div 
+                            className="flex items-center gap-0.5 sm:gap-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <button
                               type="button"
                               onClick={(e) => {
@@ -4643,10 +4788,13 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
+                  onDragOver={handleImportDragOver}
+                  onDragLeave={handleImportDragLeave}
+                  onDrop={handleImportDrop}
                   className="w-full py-3 rounded-full border-2 border-dashed border-[#0b57d0] text-xs font-bold text-[#0b57d0] dark:border-[#a8c7fa] dark:text-[#a8c7fa] hover:bg-blue-50/50 dark:hover:bg-blue-950/30 flex items-center justify-center gap-2 cursor-pointer transition-colors"
                 >
                   <FileUp className="w-4 h-4" />
-                  <span>Upload JSON file from device storage</span>
+                  <span>Upload or Drag & Drop JSON file from device storage</span>
                 </button>
                 
                 <div className="text-center text-[11px] text-slate-400 dark:text-zinc-500 font-semibold uppercase">or paste raw JSON text</div>

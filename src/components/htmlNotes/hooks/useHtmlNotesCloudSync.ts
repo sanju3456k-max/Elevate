@@ -8,7 +8,9 @@ import {
   subscribeToSyncStatus,
   subscribeToFirestoreProjects,
   queueFirestoreSync,
-  reconcileHtmlProjects
+  reconcileHtmlProjects,
+  getDeletedProjectTombstones,
+  getDeletedFileTombstones
 } from '../../../lib/htmlNotesSync';
 import { getCachedAuthUser } from '../../../lib/storage';
 import {
@@ -112,32 +114,38 @@ export function useHtmlNotesCloudSync({
     } else if (studioView === 'home') {
       const user = auth.currentUser;
       if (user && !unsubFirestoreRef.current) {
-        // 0 READS on reload: Only attach cold-start Firestore listener if local projects are completely empty
-        const localProjs = loadLocalProjects(undefined, user.uid);
-        if (localProjs.length === 0) {
-          unsubFirestoreRef.current = subscribeToFirestoreProjects(user.uid, (remoteProjects) => {
-            if (remoteProjects && remoteProjects.length > 0) {
-              if (studioViewRef.current === 'editor') return; // strictly guard open editor
-              setProjects(remoteProjects);
-              projectsRef.current = remoteProjects;
-            }
-          });
-        }
+        unsubFirestoreRef.current = subscribeToFirestoreProjects(user.uid, (remoteProjects) => {
+          if (remoteProjects) {
+            if (studioViewRef.current === 'editor') return; // strictly guard open editor
+            const delProjs = getDeletedProjectTombstones();
+            const delFiles = getDeletedFileTombstones();
+            const filtered = remoteProjects
+              .filter(p => p && p.id && !delProjs.has(p.id))
+              .map(p => ({
+                ...p,
+                files: (p.files || []).filter(f => f && f.id && !delFiles.has(f.id))
+              }));
+            setProjects(filtered);
+            projectsRef.current = filtered;
+          }
+        });
       }
     }
   }, [studioView, setProjects]);
 
   useEffect(() => {
-    const cachedUid = typeof window !== 'undefined' ? getCachedAuthUser()?.uid || null : null;
-    const local = loadLocalProjects(TEMPLATE_MATRICES, cachedUid);
-    setProjects(local);
-    projectsRef.current = local;
-    if (local.length > 0) {
-      setActiveProjectId(local[0].id);
-      if (local[0].files.length > 0) {
-        setActiveFileId(local[0].files[0].id);
-        setTitle(local[0].files[0].title);
-        setCode(local[0].files[0].code);
+    if (!projectsRef.current || projectsRef.current.length === 0) {
+      const cachedUid = typeof window !== 'undefined' ? getCachedAuthUser()?.uid || null : null;
+      const local = loadLocalProjects(TEMPLATE_MATRICES, cachedUid);
+      setProjects(local);
+      projectsRef.current = local;
+      if (local.length > 0) {
+        setActiveProjectId(local[0].id);
+        if (local[0].files.length > 0) {
+          setActiveFileId(local[0].files[0].id);
+          setTitle(local[0].files[0].title);
+          setCode(local[0].files[0].code);
+        }
       }
     }
 
@@ -197,15 +205,21 @@ export function useHtmlNotesCloudSync({
           }
         }
 
-        // Only attach real-time Firestore subscription if user has 0 local projects (cold start on new device)
         if (studioViewRef.current === 'home') {
-          const userProjs = loadLocalProjects(undefined, user.uid);
-          if (userProjs.length === 0 && !unsubFirestoreRef.current) {
+          if (!unsubFirestoreRef.current) {
             unsubFirestoreRef.current = subscribeToFirestoreProjects(user.uid, (remoteProjects) => {
-              if (remoteProjects && remoteProjects.length > 0) {
+              if (remoteProjects) {
                 if (studioViewRef.current === 'editor') return; // strictly guard open editor
-                setProjects(remoteProjects);
-                projectsRef.current = remoteProjects;
+                const delProjs = getDeletedProjectTombstones();
+                const delFiles = getDeletedFileTombstones();
+                const filtered = remoteProjects
+                  .filter(p => p && p.id && !delProjs.has(p.id))
+                  .map(p => ({
+                    ...p,
+                    files: (p.files || []).filter(f => f && f.id && !delFiles.has(f.id))
+                  }));
+                setProjects(filtered);
+                projectsRef.current = filtered;
               }
             });
           }

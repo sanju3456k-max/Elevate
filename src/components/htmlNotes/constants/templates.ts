@@ -1,21 +1,39 @@
-// Built-in starter template: Matrices & Linear Algebra
+// Built-in starter template: Module 1 — Set Cardinality & Countability (Production Academic Template)
 export const TEMPLATE_MATRICES = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chapter Notes: Matrices & Determinants</title>
+    <title>Deep Dive: Module 1 — Set Cardinality & Countability</title>
+    <!-- Google Fonts: Inter & Fira Code -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css">
+    
+    <!-- KaTeX JS & Auto-render extension -->
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>
+
     <style>
         :root {
-            --primary: #2563eb;
-            --primary-light: #eff6ff;
-            --primary-border: #dbeafe;
-            --text-main: #1e293b;
-            --text-muted: #64748b;
-            --bg-card: #ffffff;
-            --bg-body: #ffffff;
-            --success: #10b981;
-            --warning: #f59e0b;
+            --primary-color: #1e3a8a;
+            --secondary-color: #0284c7;
+            --accent-color: #f59e0b;
+            --background-color: #f8fafc;
+            --card-background: #ffffff;
+            --text-color: #1e293b;
+            --border-color: #e2e8f0;
+            --table-header-bg: #1e3a8a;
+            --table-header-color: #ffffff;
+            --table-alt-bg: #f1f5f9;
+        }
+
+        @page {
+            size: A4 portrait;
+            margin: 10mm 10mm;
         }
 
         * {
@@ -23,269 +41,646 @@ export const TEMPLATE_MATRICES = `<!DOCTYPE html>
         }
 
         body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-weight: 500;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.5;
+            margin: 0;
+            padding: 0.5rem;
             width: 100%;
-            max-width: 100%;
-            margin: 0 auto;
-            padding: 12px;
-            background-color: var(--bg-body);
-            color: var(--text-main);
-            line-height: 1.6;
+            max-width: 92rem;
+            margin-left: auto;
+            margin-right: auto;
         }
 
-        header {
-            text-align: center;
+        @media (min-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            body {
+                padding: 2rem;
+            }
+        }
+
+        /* --- Optimized Multi-Device Grid Flow (Mobile: 1 Col -> Tablet/Desktop: 2 Col) --- */
+        .notes-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        @media (min-width: 768px) {
+            .notes-layout {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1.25rem;
+            }
+            .full-width {
+                grid-column: span 2;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .notes-layout {
+                gap: 1.5rem;
+            }
+        }
+
+        /* --- Container Query Fluid Flow for Embedded Preview and Responsive Split View --- */
+        @container (max-width: 600px) {
+            .notes-layout {
+                grid-template-columns: 1fr !important;
+                gap: 1rem !important;
+            }
+            .full-width {
+                grid-column: span 1 !important;
+            }
+            .section-card {
+                width: 100% !important;
+                margin-right: 0 !important;
+            }
+        }
+
+        @container (min-width: 601px) {
+            .notes-layout {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1.25rem;
+            }
+            .full-width {
+                grid-column: span 2;
+            }
+        }
+
+        /* Clean Section block without white card background */
+        .section-card {
+            background: transparent;
+            padding: 0;
+            border: none;
+            box-shadow: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            page-break-inside: auto;
+            break-inside: auto;
+        } 
+
+        .header-plain {
+            padding: 0.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
+            page-break-after: avoid;
+            break-after: avoid;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .module-header {
+            border-bottom: 0.125rem solid var(--secondary-color);
+            padding-bottom: 0.375rem;
             margin-top: 0;
-            margin-bottom: 16px;
-            border-bottom: 2px solid var(--primary-border);
-            padding-bottom: 10px;
+            margin-bottom: 0.25rem;
+            page-break-after: avoid;
+            break-after: avoid;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
 
         h1 {
-            color: var(--primary);
-            font-size: 1.8rem;
-            margin-top: 0;
-            margin-bottom: 4px;
-            font-weight: 800;
-        }
-
-        .subtitle {
-            color: var(--text-muted);
-            font-size: 0.9rem;
-            font-weight: 500;
+            color: var(--primary-color);
+            font-size: clamp(1.35rem, 3vw, 1.85rem);
+            margin: 0;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            page-break-after: avoid;
+            break-after: avoid;
         }
 
         h2 {
-            color: #0f172a;
-            border-bottom: 1px solid var(--primary-border);
-            padding-bottom: 4px;
-            margin-top: 20px;
-            font-size: 1.3rem;
-        }
-
-        h3 {
-            color: var(--primary);
-            margin-top: 14px;
-            font-size: 1.05rem;
-        }
-
-        .panel {
-            background: var(--bg-card);
-            border: 1px solid var(--primary-border);
-            border-left: 4px solid var(--primary);
-            border-radius: 8px;
-            padding: 12px;
-            margin: 12px 0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-            box-sizing: border-box;
-            width: 100%;
-            max-width: 100%;
-            display: flow-root;
-        }
-
-        .panel-success {
-            border-left-color: var(--success);
-            background-color: #f0fdf4;
-        }
-
-        .panel-warning {
-            border-left-color: var(--warning);
-            background-color: #fffbeb;
-        }
-
-        details, .dropdown-box {
-            border: 1px solid var(--primary-border);
-            border-radius: 8px;
-            padding: 10px 14px;
-            margin: 12px 0;
-            background: #f8fafc;
-            box-sizing: border-box;
-            width: 100%;
-            max-width: 100%;
-            transition: all 0.2s ease;
-        }
-
-        details[open], .dropdown-box[open] {
-            background: #ffffff;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-
-        summary {
+            color: var(--secondary-color);
+            font-size: clamp(1.05rem, 2vw, 1.25rem);
+            margin: 0 0 0.5rem 0;
+            border-bottom: 0.0625rem solid var(--border-color);
+            padding-bottom: 0.25rem;
             font-weight: 700;
-            color: var(--primary);
-            cursor: pointer;
-            user-select: none;
-            outline: none;
+            page-break-after: avoid;
+            break-after: avoid;
         }
 
-        summary:hover {
-            color: #1d4ed8;
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
         }
 
-        table {
+        li {
+            background: var(--table-alt-bg);
+            padding: 0.35rem 0.65rem;
+            border-radius: 0.3125rem;
+            border-left: 0.2rem solid var(--secondary-color);
+            word-break: break-word;
+            page-break-inside: avoid;
+            break-inside: avoid;
+            font-size: 0.86rem;
+            line-height: 1.4;
+        }
+
+        .definition-term {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        strong {
+            font-weight: 600;
+        }
+
+        p {
+            margin: 0.375rem 0;
+            orphans: 2;
+            widows: 2;
+        }
+
+        @media (min-width: 768px) {
+            p {
+                margin: 0.5rem 0;
+            }
+        }
+
+        /* --- Responsive Touch-Friendly Table Layout --- */
+        .table-wrapper {
             width: 100%;
             max-width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin: 0.25rem 0;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
             box-sizing: border-box;
+            scrollbar-width: thin;
+            page-break-inside: auto;
+            break-inside: auto;
+        }
+
+        table.classified-table {
+            width: 100% !important;
+            max-width: 100%;
             border-collapse: collapse;
-            margin: 14px 0;
-            background: var(--bg-card);
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-
-        th, td {
-            border: 1px solid var(--primary-border);
-            padding: 8px 12px;
             text-align: left;
-            font-size: 0.9rem;
+            background: var(--card-background) !important;
+            min-width: 100%;
+            table-layout: auto;
+            border-radius: 0.375rem;
+            border: 1.04px solid var(--border-color);
+            page-break-inside: auto;
+            break-inside: auto;
         }
 
-        th {
-            background-color: var(--primary-light);
-            color: var(--primary);
-            font-weight: 700;
+        @media (min-width: 768px) {
+            table.classified-table {
+                min-width: 36rem;
+            }
         }
 
-        @page {
-            size: A4;
-            margin: 10mm;
+        thead {
+            display: table-header-group;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
 
+        tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        table.classified-table th {
+            background-color: var(--table-header-bg);
+            color: var(--table-header-color);
+            padding: 0.35rem 0.5rem;
+            font-size: 0.84rem;
+            font-weight: 600;
+            border: 1.04px solid var(--table-header-bg);
+        }
+
+        table.classified-table td {
+            padding: 0.35rem 0.5rem;
+            border: 1.04px solid var(--border-color);
+            vertical-align: middle;
+            background: var(--card-background);
+            font-size: 0.84rem;
+            line-height: 1.38;
+        }
+
+        table.classified-table tr:nth-child(even) td {
+            background-color: var(--table-alt-bg);
+        }
+
+        /* --- Production Print Flow (Eliminates Blank Space & Forced Page Push) --- */
         @media print {
             body {
                 background: #ffffff !important;
-                font-size: 11pt;
-                line-height: 1.5;
                 padding: 0 !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
+                max-width: 100% !important;
+                font-size: 9.5pt;
+                line-height: 1.45;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
-            h1, h2, h3 {
-                break-after: avoid;
-                page-break-after: avoid;
+            .notes-layout {
+                display: grid !important;
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 1rem !important;
+                width: 100% !important;
             }
-            table {
-                break-inside: auto;
-                page-break-inside: auto;
+            .full-width {
+                grid-column: span 2 !important;
+                width: 100% !important;
+            }
+            .section-card {
+                break-inside: auto !important;
+                page-break-inside: auto !important;
+                margin-bottom: 0.5rem !important;
+                width: 100% !important;
+            }
+            .section-card:not(.full-width) {
+                grid-column: span 1 !important;
+                width: 100% !important;
+                margin: 0 !important;
+            }
+            .table-wrapper {
+                overflow: visible !important;
+                margin: 0.35rem 0 !important;
+            }
+            table.classified-table {
+                min-width: 100% !important;
+                width: 100% !important;
+                break-inside: auto !important;
+                page-break-inside: auto !important;
+            }
+            thead {
+                display: table-header-group !important;
             }
             tr {
-                break-inside: avoid;
-                page-break-inside: avoid;
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
             }
-            img, blockquote, pre, .panel {
-                break-inside: avoid;
-                page-break-inside: avoid;
+            h1, h2, .module-header {
+                break-after: avoid !important;
+                page-break-after: avoid !important;
             }
-            .no-print {
-                display: none !important;
+            li {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
             }
         }
     </style>
 </head>
 <body>
-    <header>
-        <h1>Matrices & Determinants</h1>
-        <p class="subtitle">Comprehensive Revision Notes for Sanju</p>
-    </header>
 
-    <!-- Section 1 -->
-    <section>
-        <h2>1. Introduction to Matrices</h2>
-        <div class="panel">
-            <p>A matrix is an ordered rectangular array of numbers or functions arranged in rows and columns. It is usually enclosed in brackets or parentheses.</p>
-            <p><strong>Order of a Matrix:</strong> If a matrix has $m$ rows and $n$ columns, its order is given by <span style="display:inline-block; padding: 2px 6px; margin: 0; background: #f1f5f9; border-radius: 4px;">$m \times n$</span> (read as "$m$ by $n$").</p>
+    <div class="notes-layout">
+
+        <!-- HEADER -->
+        <div class="header-plain full-width">
+            <div class="module-header" style="border-bottom: 0.1875rem solid var(--primary-color);">
+                <h1 data-note-id="head_mod1">Deep Dive: Module 1 — Set Cardinality &amp; Countability</h1>
+            </div>
         </div>
-    </section>
 
-    <!-- Section 2 -->
-    <section>
-        <h2>2. Types of Matrices</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Type</th>
-                    <th>Definition</th>
-                    <th>Example</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><strong>Row Matrix</strong></td>
-                    <td>Has only one row ($m = 1$)</td>
-                    <td>$\\begin{bmatrix} 1 & 2 & 5 \\end{bmatrix}$</td>
-                </tr>
-                <tr>
-                    <td><strong>Column Matrix</strong></td>
-                    <td>Has only one column ($n = 1$)</td>
-                    <td>$\\begin{bmatrix} 3 \\\\ 4 \\end{bmatrix}$</td>
-                </tr>
-                <tr>
-                    <td><strong>Square Matrix</strong></td>
-                    <td>Number of rows equals columns ($m = n$)</td>
-                    <td>$\\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}$</td>
-                </tr>
-                <tr>
-                    <td><strong>Diagonal Matrix</strong></td>
-                    <td>All non-diagonal elements are zero</td>
-                    <td>$\\begin{bmatrix} 2 & 0 & 0 \\\\ 0 & 5 & 0 \\\\ 0 & 0 & -1 \\end{bmatrix}$</td>
-                </tr>
-                <tr>
-                    <td><strong>Identity Matrix ($I$)</strong></td>
-                    <td>All diagonal elements are 1</td>
-                    <td>$\\begin{bmatrix} 1 & 0 \\\\ 0 & 1 \\end{bmatrix}$</td>
-                </tr>
-            </tbody>
-        </table>
-    </section>
+        <!-- SECTION 1 -->
+        <div class="section-card full-width">
+            <div class="module-header">
+                <h2 data-note-id="head_sec1">1. Mathematical Definitions &amp; Fundamental Concepts</h2>
+            </div>
+            <div class="table-wrapper">
+                <table data-note-id="block_sec1_table" class="classified-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">Term / Concept</th>
+                            <th style="width: 45%;">Precise Definition &amp; Conditions</th>
+                            <th style="width: 30%;">Key Properties / Mathematical Notation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Countable Set</strong></td>
+                            <td>A set \\(S\\) is defined as countable if it satisfies one of three conditions:<br>1. \\(S = \\emptyset\\) (Empty set).<br>2. \\(S\\) is a finite set.<br>3. \\(S\\) is a countably infinite set.</td>
+                            <td>Covers both finite and countably infinite sets.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Countably Infinite (Denumerable) Set</strong></td>
+                            <td>An infinite set \\(S\\) is countably infinite if it is in a one-to-one correspondence (bijective equivalence) with the set of natural numbers \\(\\mathbb{N}\\).</td>
+                            <td>Written as \\(S \\sim \\mathbb{N}\\)<br>&bull; Cardinality: \\(|S| = |\\mathbb{N}| = \\aleph_0\\) (Aleph-null)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Uncountable Set</strong></td>
+                            <td>A set \\(S\\) is uncountable if it is not countable.</td>
+                            <td>&bull; Cardinality Condition: \\(|S| > \\aleph_0\\)<br>&bull; Denoted as continuum cardinality \\(c = 2^{\\aleph_0}\\)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Cardinal Equivalence</strong></td>
+                            <td>Two sets \\(A\\) and \\(B\\) have the same cardinality if and only if there exists a bijective function between them.</td>
+                            <td>\\(|A| = |B| \\iff \\exists f: A \\to B\\) that is both \\(1-1\\) (injective) and onto (surjective).</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Algebraic &amp; Transcendental</strong></td>
+                            <td>&bull; <strong>Algebraic Number:</strong> Any real or complex number that is the root of a non-zero polynomial with rational coefficients.<br>&bull; <strong>Transcendental Number:</strong> Any real number that is not algebraic.</td>
+                            <td>Classification of real/complex numbers based on polynomial roots.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-    <!-- Section 3 -->
-    <section>
-        <h2>3. Operations on Matrices</h2>
-        
-        <div class="panel panel-success">
-            <h3>Addition & Subtraction</h3>
-            <p>Two matrices can be added or subtracted only if they are of the <strong>same order</strong>.</p>
+        <!-- SECTION 2 -->
+        <div class="section-card full-width">
+            <div class="module-header">
+                <h2 data-note-id="head_sec2">2. Injective &amp; Surjective Mapping Principles</h2>
+            </div>
+            <div class="table-wrapper">
+                <table data-note-id="block_sec2_table" class="classified-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">Theorem / Principle</th>
+                            <th style="width: 35%;">Core Definition &amp; Mapping Condition</th>
+                            <th style="width: 40%;">Implications, Results &amp; Mastery Points</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Theorem (Injective Bound)</strong></td>
+                            <td>Let \\(A\\) and \\(B\\) be sets, and let \\(f: A \\to B\\) be a \\(1-1\\) (injective) function.</td>
+                            <td>&bull; Implication: \\(|A| \\le |B|\\).<br>&bull; Result 1: If \\(B\\) is countable, then \\(A\\) MUST be countable.<br>&bull; Result 2: If \\(A\\) is uncountable, then \\(B\\) MUST be uncountable.<br>&bull; <strong>Mastery Point (Converse Failure):</strong> If \\(A\\) is countable, \\(B\\) is not guaranteed to be countable; if \\(B\\) is uncountable, \\(A\\) is not guaranteed to be uncountable.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Theorem (Surjective Bound)</strong></td>
+                            <td>Let \\(f: A \\to B\\) be an onto (surjective) function.</td>
+                            <td>&bull; Implication: If \\(A\\) is countable, then \\(B\\) MUST be countable.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SECTION 3: TAXONOMY TABLE -->
+        <div class="section-card full-width">
+            <div class="module-header">
+                <h2 data-note-id="head_sec3">3. Comprehensive Taxonomy of Standard Sets</h2>
+            </div>
+            <div class="table-wrapper">
+                <table data-note-id="block_taxonomy" class="classified-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 35%;">Set Description</th>
+                            <th style="width: 20%;">Symbol</th>
+                            <th style="width: 20%;">Cardinality</th>
+                            <th style="width: 25%;">Classification</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Empty Set</strong></td>
+                            <td>$\\emptyset$</td>
+                            <td>$0$</td>
+                            <td>Countable (Finite)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Natural Numbers</strong></td>
+                            <td>$\\mathbb{N}$</td>
+                            <td>$\\aleph_0$</td>
+                            <td>Countably Infinite</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Whole Numbers</strong></td>
+                            <td>$\\mathbb{W}$</td>
+                            <td>$\\aleph_0$</td>
+                            <td>Countably Infinite</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Integers</strong></td>
+                            <td>$\\mathbb{Z}$</td>
+                            <td>$\\aleph_0$</td>
+                            <td>Countably Infinite</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Rational Numbers</strong></td>
+                            <td>$\\mathbb{Q}$</td>
+                            <td>$\\aleph_0$</td>
+                            <td>Countably Infinite</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Algebraic Numbers</strong></td>
+                            <td>$\\mathbb{A}$</td>
+                            <td>$\\aleph_0$</td>
+                            <td>Countably Infinite</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Prime Numbers</strong></td>
+                            <td>$\\mathbb{P}$</td>
+                            <td>$\\aleph_0$</td>
+                            <td>Countably Infinite</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Sequence Ranges</strong></td>
+                            <td>$\\{a_n\\}$</td>
+                            <td>$\\le \\aleph_0$</td>
+                            <td>Countable</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Real Numbers</strong></td>
+                            <td>$\\mathbb{R}$</td>
+                            <td>$c = 2^{\\aleph_0}$</td>
+                            <td>Uncountable</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Irrational Numbers</strong></td>
+                            <td>$\\mathbb{Q}^c \\text{ or } \\mathbb{I}$</td>
+                            <td>$c = 2^{\\aleph_0}$</td>
+                            <td>Uncountable</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Transcendental Numbers</strong></td>
+                            <td>$\\mathbb{T}$</td>
+                            <td>$c = 2^{\\aleph_0}$</td>
+                            <td>Uncountable</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Intervals (Open/Closed/Semi)</strong></td>
+                            <td>$(a,b), [a,b]$</td>
+                            <td>$c = 2^{\\aleph_0}$</td>
+                            <td>Uncountable</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Power Set of Natural Numbers</strong></td>
+                            <td>$2^\\mathbb{N}$</td>
+                            <td>$c = 2^{\\aleph_0}$</td>
+                            <td>Uncountable</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Power Sets of Infinite Sets</strong></td>
+                            <td>$2^\\mathbb{Q}, 2^\\mathbb{R}, 2^\\mathbb{C}$</td>
+                            <td>$> \\aleph_0$</td>
+                            <td>Uncountable</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SECTION 4 -->
+        <div class="section-card full-width">
+            <div class="module-header">
+                <h2 data-note-id="head_sec4">4. Fundamental Theorems &amp; Structural Algebra</h2>
+            </div>
+            <div class="table-wrapper">
+                <table data-note-id="block_sec4_table" class="classified-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">Structural Category</th>
+                            <th style="width: 45%;">Theorem / Principle</th>
+                            <th style="width: 30%;">Mathematical Formulations &amp; Examples</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>A. Subset &amp; Superset Theorems</strong></td>
+                            <td>&bull; <strong>Theorem (Subset Rule):</strong> Every subset of a countable set is countable.<br>&bull; <strong>Theorem (Superset Rule):</strong> Every superset of an uncountable set is uncountable.</td>
+                            <td>Relates cardinality bounds between sets and their subsets/supersets.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>B. Union &amp; Difference Theorems</strong></td>
+                            <td>&bull; <strong>Theorem (Countable Union):</strong> Countable union of countable sets is countable.<br>&bull; <strong>Theorem (Union with Uncountable):</strong> Countable \\(\\cup\\) Uncountable is uncountable.<br>&bull; <strong>Theorem (Set Difference):</strong> Uncountable \\(\\setminus\\) Countable is uncountable.</td>
+                            <td>Example: \\(\\mathbb{R} \\setminus \\mathbb{Q} = \\mathbb{Q}^c\\) (Irrational numbers are uncountable).</td>
+                        </tr>
+                        <tr>
+                            <td><strong>C. Product Theorems</strong></td>
+                            <td>&bull; Cartesian product of two countable sets is countable.<br>&bull; Infinite Cartesian product of non-singleton finite sets is uncountable.</td>
+                            <td>Expressed notationally as \\(\\prod_{i=1}^\\infty A_i\\).</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SECTION 5 -->
+        <div class="section-card">
+            <div class="module-header">
+                <h2 data-note-id="head_sec5">5. Function Spaces &amp; Power Sets</h2>
+            </div>
             <ul>
-                <li>Commutative: $A + B = B + A$</li>
-                <li>Associative: $(A + B) + C = A + (B + C)$</li>
+                <li><span class="definition-term">Function Set Cardinality:</span> For $S = \\{f \\mid f: A \\to B\\}$, total functions = $|B|^{|A|}$.<br>&bull; $f: \\mathbb{N} \\to \\{0,1\\}$ has cardinality $2^{\\aleph_0} = c$ (Uncountable).<br>&bull; $f: \\{0,1\\} \\to \\mathbb{N}$ has cardinality $\\aleph_0^2 = \\aleph_0$ (Countably Infinite).</li>
+                <li><span class="definition-term">Power Set Theorems:</span> $P(\\emptyset)$ is finite, $P(\\mathbb{N})$ is uncountable. No set has a power set of cardinality $\\aleph_0$. Finite subsets of $\\mathbb{N}$ are countable, while arbitrary subsets ($P(\\mathbb{N})$) are uncountable.</li>
             </ul>
         </div>
 
-        <div class="panel panel-warning">
-            <h3>Multiplication of Matrices</h3>
-            <p>Two matrices $A$ ($m \\times n$) and $B$ ($p \\times q$) can be multiplied if $n = p$.</p>
-        </div>
-    </section>
-
-    <!-- Section 4 -->
-    <section>
-        <h2>4. Inverse of a Matrix</h2>
-        <div class="panel">
-            <p>The inverse of a square matrix $A$ is denoted by $A^{-1}$:</p>
-            <p style="text-align: center; font-size: 1.2rem; margin: 10px 0;">
-                <strong>$$A^{-1} = \\frac{1}{|A|} \\cdot \\text{adj}(A)$$</strong>
-            </p>
-        </div>
-    </section>
-
-    <!-- Section 5 -->
-    <section>
-        <h2>5. Quick Reference & Proofs (Expandable)</h2>
-        <details class="dropdown-box" open>
-            <summary><strong>Expand / Collapse: Key Properties of Inverses</strong></summary>
-            <div style="margin-top: 10px; padding-left: 6px;">
-                <ul>
-                    <li>$(A^{-1})^{-1} = A$</li>
-                    <li>$(AB)^{-1} = B^{-1}A^{-1}$</li>
-                    <li>$(A^T)^{-1} = (A^{-1})^T$</li>
-                    <li>$|A^{-1}| = \\frac{1}{|A|}$</li>
-                </ul>
+        <!-- SECTION 6 -->
+        <div class="section-card">
+            <div class="module-header">
+                <h2 data-note-id="head_sec6">6. Exam Recognition Patterns &amp; Shortcut Tricks</h2>
             </div>
-        </details>
-    </section>
+            <ul>
+                <li><span class="definition-term">Recognition Pattern 1 (\\(\\mathbb{R}^n\\) Algebraic Constraints):</span> Sets defined by linear constraints in rational coordinates are subsets of $\\mathbb{Q}^n$ (countable); continuous real equations in $\\mathbb{R}^2$ or $\\mathbb{R}^n$ form continuum lines (uncountable).</li>
+                <li><span class="definition-term">Recognition Pattern 2 (Recurring Decimals vs Irrational Constants):</span> Recurring decimals form subsets of $\\mathbb{Q}$ (countable). Primes mapping $\\mathbb{P} \\times \\mathbb{P}$ form countable sets.</li>
+            </ul>
+        </div>
+
+        <!-- SECTION 7: MATRIX TABLE -->
+        <div class="section-card full-width">
+            <div class="module-header">
+                <h2 data-note-id="head_sec7">7. Compact Revision Matrix: Module 1 Operations</h2>
+            </div>
+            <div class="table-wrapper">
+                <table data-note-id="block_matrix" class="classified-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">Operation / Expression</th>
+                            <th style="width: 30%;">Conditions</th>
+                            <th style="width: 25%;">Resulting Cardinality</th>
+                            <th style="width: 20%;">Source Reference</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>$A \\cup B$</td>
+                            <td>$A, B$ countable</td>
+                            <td>Countable</td>
+                            <td>Standard Union</td>
+                        </tr>
+                        <tr>
+                            <td>$A \\cup B$</td>
+                            <td>$A$ countable, $B$ uncountable</td>
+                            <td>Uncountable</td>
+                            <td>Mixed Union</td>
+                        </tr>
+                        <tr>
+                            <td>$A \\cap B$</td>
+                            <td>$A, B$ countable</td>
+                            <td>Countable</td>
+                            <td>Intersection Rule</td>
+                        </tr>
+                        <tr>
+                            <td>$A \\times B$</td>
+                            <td>$A, B$ countable</td>
+                            <td>Countable</td>
+                            <td>Cartesian Product</td>
+                        </tr>
+                        <tr>
+                            <td>$\\prod_{i=1}^n A_i$</td>
+                            <td>$n \\in \\mathbb{N}, A_i \\text{ countable}$</td>
+                            <td>Countable</td>
+                            <td>Finite Product</td>
+                        </tr>
+                        <tr>
+                            <td>$\\prod_{i=1}^\\infty A_i$</td>
+                            <td>$|A_i| \\ge 2$</td>
+                            <td>Uncountable</td>
+                            <td>Infinite Product</td>
+                        </tr>
+                        <tr>
+                            <td>$A \\setminus B$</td>
+                            <td>$A \\text{ uncountable}, B \\text{ countable}$</td>
+                            <td>Uncountable</td>
+                            <td>Set Difference</td>
+                        </tr>
+                        <tr>
+                            <td>$f: A \\to B ; (1-1)$</td>
+                            <td>$B$ countable</td>
+                            <td>$A$ is Countable</td>
+                            <td>Injective Bound</td>
+                        </tr>
+                        <tr>
+                            <td>$f: A \\to B ; (1-1)$</td>
+                            <td>$A$ uncountable</td>
+                            <td>$B$ is Uncountable</td>
+                            <td>Injective Bound</td>
+                        </tr>
+                        <tr>
+                            <td>$B^A$</td>
+                            <td>$|A|=\\aleph_0, |B|=2$</td>
+                            <td>Uncountable $(2^{\\aleph_0})$</td>
+                            <td>Function Space</td>
+                        </tr>
+                        <tr>
+                            <td>$B^A$</td>
+                            <td>$|A|=2, |B|=\\aleph_0$</td>
+                            <td>Countable $(\\aleph_0^2)$</td>
+                            <td>Function Space</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
 </body>
-</html>`;
+</html>
+`;
 
 export const TEMPLATE_LANDSCAPE_SLIDES = `<!DOCTYPE html>
 <html lang="en">
@@ -740,7 +1135,9 @@ export const TEMPLATE_LANDSCAPE_SLIDES = `<!DOCTYPE html>
 </body>
 </html>`;
 
-// Default Blank Note Template with Rich Mathematical Revision Table & Formulas
+// Default New Academic Note Template with Responsive Flow & KaTeX Integration
+
+// Default New Academic Note Template with Responsive Flow & KaTeX Integration
 export const createNewNoteTemplate = (title: string) => {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -748,206 +1145,454 @@ export const createNewNoteTemplate = (title: string) => {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${title}</title>
+    <!-- Google Fonts: Inter & Fira Code -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css">
+    
+    <!-- KaTeX JS & Auto-render extension -->
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>
+
     <style>
         :root {
-            --primary: #0b57d0;
-            --primary-light: #e8f0fe;
-            --primary-border: #d2e3fc;
-            --text-main: #1f2937;
-            --text-muted: #5f6368;
-            --bg-card: #ffffff;
-            --bg-body: #ffffff;
-            --border-subtle: #e5e7eb;
-            --accent-green: #0f9d58;
-            --accent-amber: #f9ab00;
+            --primary-color: #1e3a8a;
+            --secondary-color: #0284c7;
+            --accent-color: #f59e0b;
+            --background-color: #f8fafc;
+            --card-background: #ffffff;
+            --text-color: #1e293b;
+            --border-color: #e2e8f0;
+            --table-header-bg: #1e3a8a;
+            --table-header-color: #ffffff;
+            --table-alt-bg: #f1f5f9;
+        }
+
+        @page {
+            size: A4 portrait;
+            margin: 10mm 10mm;
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-weight: 500;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.5;
+            margin: 0;
+            padding: 0.5rem;
+            width: 100%;
+            max-width: 92rem;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        @media (min-width: 600px) {
+            body {
+                padding: 1rem;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            body {
+                padding: 1.5rem;
+            }
+        }
+
+        /* --- Multi-Device Grid Flow (Mobile: 1 Col -> Tablet/Desktop/Print: 2 Col) --- */
+        .notes-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        @media (min-width: 600px) {
+            .notes-layout {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1.25rem;
+            }
+            .full-width {
+                grid-column: span 2;
+            }
+        }
+
+        @container (max-width: 600px) {
+            .notes-layout {
+                grid-template-columns: 1fr !important;
+                gap: 1rem !important;
+            }
+            .full-width {
+                grid-column: span 1 !important;
+            }
+            .section-card {
+                width: 100% !important;
+                margin-right: 0 !important;
+            }
+        }
+
+        @container (min-width: 601px) {
+            .notes-layout {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1.25rem;
+            }
+            .full-width {
+                grid-column: span 2;
+            }
+        }
+
+        .section-card {
+            background: transparent;
+            padding: 0;
+            border: none;
+            box-shadow: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            page-break-inside: auto;
+            break-inside: auto;
+        } 
+
+        .header-plain {
+            padding: 0.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
+            page-break-after: avoid;
+            break-after: avoid;
+        }
+
+        .module-header {
+            border-bottom: 0.125rem solid var(--secondary-color);
+            padding-bottom: 0.375rem;
+            margin-top: 0;
+            margin-bottom: 0.25rem;
+            page-break-after: avoid;
+            break-after: avoid;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            font-size: clamp(1.35rem, 3vw, 1.85rem);
+            margin: 0;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            page-break-after: avoid;
+            break-after: avoid;
+        }
+
+        h2 {
+            color: var(--secondary-color);
+            font-size: clamp(1.05rem, 2vw, 1.25rem);
+            margin: 0 0 0.5rem 0;
+            border-bottom: 0.0625rem solid var(--border-color);
+            padding-bottom: 0.25rem;
+            font-weight: 700;
+            page-break-after: avoid;
+            break-after: avoid;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
+        }
+
+        li {
+            background: var(--table-alt-bg);
+            padding: 0.45rem 0.75rem;
+            border-radius: 0.3125rem;
+            border-left: 0.2rem solid var(--secondary-color);
+            word-break: break-word;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .definition-term {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        strong {
+            font-weight: 600;
+        }
+
+        p {
+            margin: 0.375rem 0;
+            orphans: 2;
+            widows: 2;
+        }
+
+        .table-wrapper {
             width: 100%;
             max-width: 100%;
-            margin: 0 auto;
-            padding: 16px;
-            background-color: var(--bg-body);
-            color: var(--text-main);
-            line-height: 1.6;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin: 0.5rem 0;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            box-sizing: border-box;
+            scrollbar-width: thin;
+            page-break-inside: auto;
+            break-inside: auto;
         }
 
-        header {
-            text-align: left;
-            margin-top: 0;
-            margin-bottom: 20px;
-            border-bottom: 2px solid var(--primary-border);
-            padding-bottom: 12px;
-        }
-
-        h1 { 
-            color: var(--primary); 
-            font-size: 1.85rem; 
-            margin: 0 0 4px 0; 
-            font-weight: 800; 
-            letter-spacing: -0.02em; 
-        }
-
-        .subtitle { 
-            color: var(--text-muted); 
-            font-size: 0.95rem; 
-            margin: 0; 
-            font-weight: 500; 
-        }
-
-        .tag-badge {
-            display: inline-block;
-            background: var(--primary-light);
-            color: var(--primary);
-            font-weight: 700;
-            font-size: 0.75rem;
-            padding: 2px 10px;
-            border-radius: 9999px;
-            margin-bottom: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        h2 { 
-            color: #1e293b; 
-            border-bottom: 1px solid var(--border-subtle); 
-            padding-bottom: 6px; 
-            margin-top: 24px; 
-            font-size: 1.25rem; 
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .panel {
-            background: var(--bg-card);
-            border: 1px solid var(--border-subtle);
-            border-left: 4px solid var(--primary);
-            border-radius: 10px;
-            padding: 14px 18px;
-            margin: 14px 0;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-        }
-
-        .panel-success {
-            border-left-color: var(--accent-green);
-            background: #f0fdf4;
-        }
-
-        .math-table {
-            width: 100%;
+        table.classified-table {
+            width: 100% !important;
+            max-width: 100%;
             border-collapse: collapse;
-            margin: 16px 0;
-            font-size: 0.95rem;
-            background: #ffffff;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid var(--border-subtle);
-        }
-
-        .math-table th {
-            background: #0b57d0;
-            color: #ffffff;
-            padding: 10px 14px;
             text-align: left;
+            background: var(--card-background) !important;
+            min-width: 100%;
+            table-layout: auto;
+            border-radius: 0.375rem;
+            border: 1.04px solid var(--border-color);
+            page-break-inside: auto;
+            break-inside: auto;
+        }
+
+        thead {
+            display: table-header-group;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        table.classified-table th {
+            background-color: var(--table-header-bg);
+            color: var(--table-header-color);
+            padding: 0.5rem 0.625rem;
             font-weight: 600;
-            font-size: 0.88rem;
-            letter-spacing: 0.02em;
+            border: 1.04px solid var(--table-header-bg);
+            word-break: break-word;
+            overflow-wrap: break-word;
         }
 
-        .math-table td {
-            padding: 12px 14px;
-            border-bottom: 1px solid var(--border-subtle);
+        table.classified-table td {
+            padding: 0.5rem 0.625rem;
+            border: 1.04px solid var(--border-color);
             vertical-align: middle;
+            background: var(--card-background);
+            font-size: 0.88rem;
+            line-height: 1.45;
+            word-break: break-word;
+            overflow-wrap: break-word;
         }
 
-        .math-table tr:nth-child(even) td {
-            background-color: #f8fafc;
+        table.classified-table tr:nth-child(even) td {
+            background-color: var(--table-alt-bg);
         }
 
-        .math-table tr:hover td {
-            background-color: #f1f5f9;
+        /* --- Mobile Screen Optimization (Prevents Right-Side Clipping) --- */
+        @media (max-width: 640px) {
+            body {
+                padding: 0.25rem 0.15rem;
+                overflow-x: hidden;
+            }
+            .notes-layout {
+                grid-template-columns: 1fr !important;
+                gap: 0.75rem !important;
+            }
+            .full-width {
+                grid-column: span 1 !important;
+            }
+            .table-wrapper {
+                width: 100% !important;
+                max-width: 100% !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+                display: block !important;
+                margin: 0.35rem 0 !important;
+            }
+            table.classified-table {
+                min-width: 100% !important;
+                width: 100% !important;
+                table-layout: auto !important;
+            }
+            table.classified-table th,
+            table.classified-table td {
+                padding: 0.4rem 0.45rem !important;
+                font-size: 0.8rem !important;
+                line-height: 1.35 !important;
+                word-break: break-word !important;
+                overflow-wrap: break-word !important;
+            }
+            table.classified-table th {
+                font-size: 0.82rem !important;
+            }
+            li {
+                padding: 0.35rem 0.5rem !important;
+                font-size: 0.84rem !important;
+                word-break: break-word !important;
+                overflow-wrap: break-word !important;
+            }
+            h1 {
+                font-size: 1.3rem !important;
+            }
+            h2 {
+                font-size: 1.05rem !important;
+            }
         }
 
-        @page { size: A4 landscape; margin: 0; }
+        /* --- Production Print Flow (Preserves 2-Column Side-by-Side Sections) --- */
         @media print {
-          body { background: #fff; font-size: 11pt; line-height: 1.5; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
-          table { break-inside: auto; page-break-inside: auto; }
-          tr { break-inside: avoid; page-break-inside: avoid; }
-          img, blockquote, pre, .panel { break-inside: avoid; page-break-inside: avoid; }
-          .no-print { display: none !important; }
+            body {
+                background: #ffffff !important;
+                padding: 0 !important;
+                max-width: 100% !important;
+                font-size: 9.5pt;
+                line-height: 1.45;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .notes-layout {
+                display: grid !important;
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 1rem !important;
+                width: 100% !important;
+            }
+            .full-width {
+                grid-column: span 2 !important;
+                width: 100% !important;
+            }
+            .section-card {
+                break-inside: auto !important;
+                page-break-inside: auto !important;
+                margin-bottom: 0.5rem !important;
+                width: 100% !important;
+            }
+            .section-card:not(.full-width) {
+                grid-column: span 1 !important;
+                width: 100% !important;
+                margin: 0 !important;
+            }
+            /* Fallback for unrolled sheets */
+            body > .section-card:not(.full-width),
+            .a4-sheet > .section-card:not(.full-width) {
+                display: inline-block !important;
+                width: calc(50% - 0.5rem) !important;
+                vertical-align: top !important;
+                margin-right: 0.5rem !important;
+                box-sizing: border-box !important;
+            }
+            body > .section-card:not(.full-width):nth-of-type(even),
+            .a4-sheet > .section-card:not(.full-width):nth-of-type(even) {
+                margin-right: 0 !important;
+            }
+            .table-wrapper {
+                overflow: visible !important;
+                margin: 0.35rem 0 !important;
+            }
+            table.classified-table {
+                min-width: 100% !important;
+                width: 100% !important;
+                break-inside: auto !important;
+                page-break-inside: auto !important;
+            }
+            thead {
+                display: table-header-group !important;
+            }
+            tr {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+            }
+            h1, h2, .module-header {
+                break-after: avoid !important;
+                page-break-after: avoid !important;
+            }
+            li {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+            }
         }
     </style>
 </head>
 <body>
-    <header>
-        <span class="tag-badge">Revision Studio</span>
-        <h1>${title}</h1>
-        <p class="subtitle">Curated mathematics revision note · Created on ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-    </header>
 
-    <section>
-        <h2>1. Core Formulae & High-Yield Results</h2>
-        <div class="panel">
-            <strong>Key Identifiers & Theorems:</strong>
-            <p style="margin: 8px 0 0 0;">
-                Calculus Limit: $\\lim_{x \\to 0} \\frac{\\sin x}{x} = 1$ &nbsp;·&nbsp;
-                Definite Integral: $\\int_{a}^{b} f(x)\\,dx = F(b) - F(a)$ &nbsp;·&nbsp;
-                Euler's Identity: $e^{i\\pi} + 1 = 0$
-            </p>
+    <div class="notes-layout">
+
+        <!-- HEADER -->
+        <div class="header-plain full-width">
+            <div class="module-header" style="border-bottom: 0.1875rem solid var(--primary-color);">
+                <h1 data-note-id="head_title">${title}</h1>
+            </div>
+            <p style="color: #64748b; font-size: 0.88rem; margin: 0;">Comprehensive Academic Notes & Reference Matrix</p>
         </div>
-    </section>
 
-    <section>
-        <h2>2. Problem Patterns & Telegraphic Short Tricks</h2>
-        <table class="math-table">
-            <thead>
-                <tr>
-                    <th style="width: 60px;">No.</th>
-                    <th>Question Pattern / Focus</th>
-                    <th>Core Mathematical Concept</th>
-                    <th>Telegraphic Recall / Short Trick & Notice Point</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><strong>1</strong></td>
-                    <td>$\\lim_{x \\to 3} \\frac{x-3}{\\sqrt{x-2} - \\sqrt{4-x}}$</td>
-                    <td>$\\frac{0}{0}$ Indeterminate Form</td>
-                    <td><strong>Rationalization Trick:</strong> Multiply & divide by conjugate $(\\sqrt{x-2} + \\sqrt{4-x})$. Value evaluates directly to $\\mathbf{1}$.</td>
-                </tr>
-                <tr>
-                    <td><strong>2</strong></td>
-                    <td>$\\lim_{x \\to \\infty} \\left(\\sqrt{x^2 + 2x} - x\\right)$</td>
-                    <td>$\\infty - \\infty$ Algebraic Form</td>
-                    <td><strong>Conjugate Expansion:</strong> $\\frac{2x}{\\sqrt{x^2+2x} + x} \\to \\frac{2}{1+1} = \\mathbf{1}$.</td>
-                </tr>
-                <tr>
-                    <td><strong>3</strong></td>
-                    <td>$\\int \\frac{1}{x^2 + a^2}\\,dx$</td>
-                    <td>Inverse Trigonometric Primitive</td>
-                    <td><strong>Standard Form:</strong> $\\frac{1}{a} \\arctan\\left(\\frac{x}{a}\\right) + C$. Check coefficient of $a$ carefully.</td>
-                </tr>
-                <tr>
-                    <td><strong>4</strong></td>
-                    <td>Matrix Inversion for $A = \\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}$</td>
-                    <td>Linear Systems & Determinants</td>
-                    <td><strong>Fast Inverse:</strong> $A^{-1} = \\frac{1}{ad - bc} \\begin{bmatrix} d & -b \\\\ -c & a \\end{bmatrix}$. Swap diagonals, negate off-diagonals.</td>
-                </tr>
-            </tbody>
-        </table>
-    </section>
-
-    <section>
-        <h2>3. Observations & Key Practice Takeaways</h2>
-        <div class="panel panel-success">
-            <strong>Pro Tip:</strong> Write any equation inside single dollar signs <code>$...$</code> for inline equations or double dollar signs <code>$$...$$</code> for centered equations. Notes Studio automatically formats and scales all mathematical notation universally without requiring any script tags!
+        <!-- SECTION 1 -->
+        <div class="section-card full-width">
+            <div class="module-header">
+                <h2 data-note-id="head_sec1">1. Fundamental Mathematical Concepts & Definitions</h2>
+            </div>
+            <div class="table-wrapper">
+                <table data-note-id="block_sec1_table" class="classified-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">Term / Principle</th>
+                            <th style="width: 45%;">Formal Definition & Conditions</th>
+                            <th style="width: 30%;">Mathematical Notation & Examples</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Linear Transformation</strong></td>
+                            <td>A mapping $T: V \\to W$ satisfying $T(u + v) = T(u) + T(v)$ and $T(cu) = cT(u)$ for all vectors $u,v \\in V$ and scalar $c$.</td>
+                            <td>$T(c_1 v_1 + c_2 v_2) = c_1 T(v_1) + c_2 T(v_2)$</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Eigenvalues & Eigenvectors</strong></td>
+                            <td>Scalar $\\lambda$ and non-zero vector $v$ such that multiplying $A$ by $v$ only scales $v$.</td>
+                            <td>$A v = \\lambda v \\iff \\det(A - \\lambda I) = 0$</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Matrix Invertibility</strong></td>
+                            <td>Square matrix $A$ has inverse $A^{-1}$ if and only if determinant is non-zero.</td>
+                            <td>$A A^{-1} = A^{-1} A = I \\iff \\det(A) \\neq 0$</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </section>
+
+        <!-- SECTION 2 -->
+        <div class="section-card">
+            <div class="module-header">
+                <h2 data-note-id="head_sec2">2. Key Properties & Theorems</h2>
+            </div>
+            <ul>
+                <li><span class="definition-term">Rank-Nullity Theorem:</span> For any linear transformation $T: V \\to W$, $\\dim(\\operatorname{range}(T)) + \\dim(\\ker(T)) = \\dim(V)$.</li>
+                <li><span class="definition-term">Determinant Product:</span> $\\det(AB) = \\det(A)\\det(B)$ and $\\det(A^{-1}) = \\frac{1}{\\det(A)}$.</li>
+            </ul>
+        </div>
+
+        <!-- SECTION 3 -->
+        <div class="section-card">
+            <div class="module-header">
+                <h2 data-note-id="head_sec3">3. Exam Recognition & Shortcut Takeaways</h2>
+            </div>
+            <ul>
+                <li><span class="definition-term">Fast $2 \\times 2$ Inverse:</span> $A^{-1} = \\frac{1}{ad - bc} \\begin{bmatrix} d & -b \\\\ -c & a \\end{bmatrix}$. Swap diagonal entries, negate off-diagonal entries.</li>
+                <li><span class="definition-term">Trace & Determinant:</span> $\\operatorname{tr}(A) = \\sum \\lambda_i$ and $\\det(A) = \\prod \\lambda_i$.</li>
+            </ul>
+        </div>
+
+    </div>
+
 </body>
 </html>`;
 };
-
 

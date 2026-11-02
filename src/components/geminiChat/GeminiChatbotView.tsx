@@ -3348,7 +3348,6 @@ MANDATORY INSTRUCTIONS:
 
     if (pendingPrompt && pendingPrompt.trim()) {
       setActiveSessionId(null);
-      setHomeCloudSyncEnabled(false);
       setAttachments([]);
       setInputMessage('');
       const promptToDispatch = pendingPrompt;

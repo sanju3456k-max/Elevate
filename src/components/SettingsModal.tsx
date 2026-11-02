@@ -32,7 +32,8 @@ import {
   deleteCustomDataAuthoredTests,
   deleteCustomDataAttempts,
   deleteCustomDataChatHistories,
-  deleteCustomDataNotes
+  deleteCustomDataNotes,
+  deleteCustomDataHtmlNotes
 } from '../lib/storage';
 import { syncHub } from '../lib/syncEngine';
 import { DeleteAccountModal } from './DeleteAccountModal';
@@ -40,6 +41,7 @@ import { APP_STYLES } from './ui/AppStyles';
 import { M3Switch, M3Button, M3Divider } from './ui/Material3';
 import { Sun, Moon, Monitor, Sliders } from 'lucide-react';
 import type { User } from 'firebase/auth';
+import { probeFirestoreConnectivity, isGlobalQuotaExceeded } from '../lib/firebase';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -53,7 +55,7 @@ interface SettingsModalProps {
 }
 
 type ConfirmDeleteTarget = {
-  type: 'tests' | 'attempts_all' | 'attempts_omr' | 'attempts_online' | 'chats' | 'notes';
+  type: 'tests' | 'attempts_all' | 'attempts_omr' | 'attempts_online' | 'chats' | 'notes' | 'html_notes';
   title: string;
   description: string;
   count: number;
@@ -175,6 +177,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setSyncStatus({ type: 'error', message: 'Sign in with Google required for Cloud Backup.' });
       return;
     }
+    setSyncStatus({ type: 'loading', message: 'Verifying cloud connection...' });
+    if (isGlobalQuotaExceeded()) {
+      await probeFirestoreConnectivity();
+    }
     setSyncStatus({ type: 'loading', message: 'Backing up local data to Google Cloud...' });
     try {
       const res = await syncHub.backupAllLocalDataToCloud(currentUser.uid);
@@ -196,6 +202,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (!currentUser) {
       setSyncStatus({ type: 'error', message: 'Sign in with Google required to download from Cloud.' });
       return;
+    }
+    setSyncStatus({ type: 'loading', message: 'Verifying cloud connection...' });
+    if (isGlobalQuotaExceeded()) {
+      await probeFirestoreConnectivity();
     }
     setSyncStatus({ type: 'loading', message: 'Downloading data from Google Cloud...' });
     try {
@@ -240,8 +250,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         deletedCount = await deleteCustomDataChatHistories(uid);
         label = `${deletedCount} Gemini AI chat conversations cleared.`;
       } else if (confirmDeleteTarget.type === 'notes') {
-        deletedCount = await deleteCustomDataNotes();
+        deletedCount = await deleteCustomDataNotes(uid);
         label = `${deletedCount} Study notes & formulas deleted.`;
+      } else if (confirmDeleteTarget.type === 'html_notes') {
+        deletedCount = await deleteCustomDataHtmlNotes(uid);
+        label = `${deletedCount} HTML notes projects & files deleted.`;
       }
 
       setSyncStatus({ type: 'success', message: label });
@@ -750,7 +763,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   onClick={() => setConfirmDeleteTarget({
                     type: 'notes',
                     title: 'Delete All Study Notes & Formulas',
-                    description: 'This will permanently remove all authored study notes, formulas, and solution tricks from local storage.',
+                    description: 'This will permanently remove all authored study notes, formulas, and solution tricks from local storage and cloud databases.',
                     count: customStats.notesCount || 0
                   })}
                   variant="danger"
@@ -758,6 +771,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   icon={<Trash2 className="w-3.5 h-3.5" />}
                 >
                   Delete ({customStats.notesCount || 0})
+                </M3Button>
+              </div>
+
+              {/* 5. HTML Notes Studio (Projects & Slide Decks) */}
+              <div className={`p-4 rounded-[20px] flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap ${APP_STYLES.subcard.base}`}>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-full bg-[#ece6f0] dark:bg-[#2a2b30] text-[#1a1b1f] dark:text-[#e3e2e6] flex items-center justify-center shrink-0 border-0">
+                    <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-[#1a1b1f] dark:text-[#e3e2e6] truncate">
+                      HTML Notes & Slide Decks
+                    </div>
+                    <div className="text-[11px] text-[#44474f] dark:text-[#c4c6d0]">
+                      {customStats.htmlProjectsCount || 0} projects ({customStats.htmlNotesCount || 0} note files)
+                    </div>
+                  </div>
+                </div>
+
+                <M3Button
+                  id="delete-html-notes-btn"
+                  disabled={!customStats.htmlProjectsCount || customStats.htmlProjectsCount === 0}
+                  onClick={() => setConfirmDeleteTarget({
+                    type: 'html_notes',
+                    title: 'Delete All HTML Notes & Slide Decks',
+                    description: 'This will permanently remove all HTML notes studio projects, slides, and math documents from local storage and Firebase Cloud.',
+                    count: customStats.htmlProjectsCount || 0
+                  })}
+                  variant="danger"
+                  className="h-9 px-4 text-xs shrink-0"
+                  icon={<Trash2 className="w-3.5 h-3.5" />}
+                >
+                  Delete ({customStats.htmlProjectsCount || 0})
                 </M3Button>
               </div>
 

@@ -52,8 +52,19 @@ import {
 } from '../types';
 import { SAMPLE_MATH_TESTS } from '../data/sampleTests';
 import { firestoreTelemetry } from './firestoreTelemetry';
-import { isOfflineLocalOnlyMode, wipeAllScopedUserDataFromLocalStorage, loadScopedChatSessions, getAllDeletedChatSessionIds } from './storage';
-import { toCompactChatSession } from './smartLocalCoordinator';
+import { 
+  isOfflineLocalOnlyMode, 
+  wipeAllScopedUserDataFromLocalStorage, 
+  loadScopedChatSessions, 
+  getAllDeletedChatSessionIds,
+  markChatSessionAsDeletedInScopedStorage,
+  loadScopedTests,
+  loadScopedAttempts,
+  markTestAsDeletedInScopedStorage,
+  getAllDeletedTestIds
+} from './storage';
+import { deleteTestFromIndexedDB } from './indexedDbStorage';
+import { toCompactChatSession, smartCoordinator } from './smartLocalCoordinator';
 import { optimizeTestForFirestore } from './imageOptimization';
 
 // Suppress transient offline logs in dev iframe
@@ -63,21 +74,44 @@ try {
 
 const QUOTA_STORAGE_KEY = 'mockmc_firestore_quota_exhausted_date';
 
+/**
+ * Calculates the current Firebase daily quota cycle day.
+ * Google Cloud / Firebase daily quotas reset at Midnight US Pacific Time (07:00 UTC / ~12:30 PM - 12:35 PM IST).
+ * By offsetting UTC time by 7 hours, the cycle ID rolls over precisely at 12:30 PM IST.
+ */
+export function getFirebaseQuotaCycleId(date = new Date()): string {
+  const offsetMs = 7 * 60 * 60 * 1000;
+  const cycleDate = new Date(date.getTime() - offsetMs);
+  return `${cycleDate.getUTCFullYear()}-${cycleDate.getUTCMonth() + 1}-${cycleDate.getUTCDate()}`;
+}
+
 // Initialize quota exhaustion state from localStorage to protect unsynced data immediately on boot
 let globalQuotaExceeded = false;
 let quotaExceededDate: string | null = null;
 
 if (typeof window !== 'undefined' && window.localStorage) {
   try {
-    const savedDate = localStorage.getItem(QUOTA_STORAGE_KEY);
-    const today = new Date().toDateString();
-    if (savedDate && savedDate === today) {
-      globalQuotaExceeded = true;
-      quotaExceededDate = savedDate;
-    } else if (savedDate && savedDate !== today) {
+    const lastConfigProject = localStorage.getItem('mockmc_firebase_active_project_id');
+    if (lastConfigProject !== firebaseConfig.projectId) {
+      localStorage.setItem('mockmc_firebase_active_project_id', firebaseConfig.projectId);
       localStorage.removeItem(QUOTA_STORAGE_KEY);
       globalQuotaExceeded = false;
       quotaExceededDate = null;
+    } else {
+      const savedDate = localStorage.getItem(QUOTA_STORAGE_KEY);
+      const currentCycle = getFirebaseQuotaCycleId();
+      if (savedDate) {
+        // Validated against both current cycle ID and legacy date string
+        const isCycleMatch = savedDate === currentCycle || savedDate === new Date().toDateString();
+        if (isCycleMatch) {
+          globalQuotaExceeded = true;
+          quotaExceededDate = savedDate;
+        } else {
+          localStorage.removeItem(QUOTA_STORAGE_KEY);
+          globalQuotaExceeded = false;
+          quotaExceededDate = null;
+        }
+      }
     }
   } catch {}
 }
@@ -89,7 +123,7 @@ export function isGlobalQuotaExceeded(): boolean {
 export function setGlobalQuotaExceeded(val: boolean): void {
   globalQuotaExceeded = val;
   if (val) {
-    quotaExceededDate = new Date().toDateString();
+    quotaExceededDate = getFirebaseQuotaCycleId();
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         localStorage.setItem(QUOTA_STORAGE_KEY, quotaExceededDate);
@@ -121,18 +155,51 @@ export function resetGlobalQuotaExceeded(): void {
   try {
     setLogLevel('silent');
   } catch (e) {}
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('firestore-quota-reset'));
+  }
 }
 
+/**
+ * Checks if the Firebase quota cycle has rolled over (12:30 PM - 12:35 PM IST).
+ * If so, automatically resets the global quota lockout flags.
+ */
 export function checkAndResetQuotaOnNewDay(): boolean {
   if (globalQuotaExceeded && quotaExceededDate) {
-    const today = new Date().toDateString();
-    if (today !== quotaExceededDate) {
-      console.log('New day detected! Resetting Firestore quota flags.');
+    const currentCycle = getFirebaseQuotaCycleId();
+    const isStillCurrentCycle = quotaExceededDate === currentCycle || quotaExceededDate === new Date().toDateString();
+    if (!isStillCurrentCycle) {
+      console.log('Firebase daily quota cycle rollover detected (12:30 PM IST / Pacific Midnight)! Auto-resetting quota.');
       resetGlobalQuotaExceeded();
       return true;
     }
   }
   return false;
+}
+
+/**
+ * Lightweight connection probe against the open /test/ping endpoint.
+ * Bypasses isGlobalQuotaExceeded() to verify if Firestore has refreshed quota,
+ * automatically clearing the lockout and recovering sync when connectivity is confirmed.
+ */
+export async function probeFirestoreConnectivity(): Promise<boolean> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return false;
+  try {
+    const pingRef = doc(db, 'test', 'ping');
+    await getDoc(pingRef);
+    if (globalQuotaExceeded) {
+      console.log('Firestore connection probe succeeded! Auto-clearing quota lockout.');
+      resetGlobalQuotaExceeded();
+    }
+    return true;
+  } catch (err: any) {
+    const errStr = String(err?.message || err || '');
+    if (errStr.includes('resource-exhausted') || errStr.includes('quota') || errStr.includes('billing')) {
+      setGlobalQuotaExceeded(true);
+      return false;
+    }
+    return false;
+  }
 }
 
 // 0. Clean up any stale WebStorage keys left by persistentMultipleTabManager that consumed browser localStorage quota
@@ -174,22 +241,20 @@ if (typeof window !== 'undefined') {
 // 1. Initialize Firebase App
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// 2. Initialize Firestore targeting the provisioned database ID with safe in-memory cache
-const databaseId =
-  (firebaseConfig as any).firestoreDatabaseId ||
-  (firebaseConfig as any).databaseId ||
-  'ai-studio-remixremixremixr-40313a1d-fb15-4aa9-a549-62895c71b480';
+// 2. Initialize Firestore targeting default or named database with safe in-memory cache
+const rawDbId = (firebaseConfig as any).firestoreDatabaseId || (firebaseConfig as any).databaseId;
+const isDefaultDb = !rawDbId || rawDbId === '(default)';
 
 export const db = (() => {
   if (typeof window === 'undefined') {
-    return getFirestore(app, databaseId);
+    return isDefaultDb ? getFirestore(app) : getFirestore(app, rawDbId);
   }
   try {
-    return initializeFirestore(app, {
-      localCache: memoryLocalCache(),
-    }, databaseId);
+    return isDefaultDb
+      ? initializeFirestore(app, { localCache: memoryLocalCache() })
+      : initializeFirestore(app, { localCache: memoryLocalCache() }, rawDbId);
   } catch (err) {
-    return getFirestore(app, databaseId);
+    return isDefaultDb ? getFirestore(app) : getFirestore(app, rawDbId);
   }
 })();
 
@@ -424,8 +489,11 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 
 // Connection check
 export async function testFirestoreConnection(): Promise<boolean> {
-  if (isGlobalQuotaExceeded()) return false;
   if (typeof navigator !== 'undefined' && !navigator.onLine) return false;
+  if (isGlobalQuotaExceeded()) {
+    // Attempt auto-probe to test if limits refreshed
+    return await probeFirestoreConnectivity();
+  }
   return true;
 }
 
@@ -960,7 +1028,8 @@ export async function updateUserSyncBeacon(
 export async function saveTestToFirestore(test: MathTest, overrideAuthorId?: string): Promise<void> {
   if (!test || isOfflineLocalOnlyMode()) return;
   const currentUser = auth.currentUser;
-  const finalAuthorId = overrideAuthorId || currentUser?.uid || (test.authorId && test.authorId !== 'anonymous' && test.authorId !== 'guest-user' ? test.authorId : 'anonymous');
+  const isRealUid = (id?: string | null) => Boolean(id && id !== 'anonymous' && id !== 'guest-user' && id !== 'local-user' && id !== 'system' && id !== 'custom-user');
+  const finalAuthorId = overrideAuthorId || (isRealUid(currentUser?.uid) ? currentUser!.uid : (isRealUid(test.authorId) ? test.authorId : 'anonymous'));
   
   if (!finalAuthorId || finalAuthorId === 'anonymous' || finalAuthorId === 'guest-user') {
     return;
@@ -991,31 +1060,33 @@ export async function saveTestToFirestore(test: MathTest, overrideAuthorId?: str
 
   fullTestCache.set(validId, { data: processedTest, timestamp: Date.now() });
 
-  // 1. Direct write to top-level tests collection ONLY
+  // 1. Direct write to user subcollection: /users/{userId}/tests/{testId}
   if (!isGlobalQuotaExceeded()) {
     try {
-      const testDocRef = doc(db, 'tests', validId);
       const sanitized = sanitizeForFirestore(processedTest);
-      await setDoc(testDocRef, sanitized, { merge: true });
+      const userTestDocRef = doc(db, 'users', finalAuthorId, 'tests', validId);
+      await setDoc(userTestDocRef, sanitized, { merge: true });
       firestoreTelemetry.record({
         type: 'WRITE',
         collection: 'tests',
-        path: `tests/${validId}`,
+        path: `users/${finalAuthorId}/tests/${validId}`,
         operation: 'setDoc',
         data: sanitized,
-        caller: 'Save/Create Test',
+        caller: 'Save/Create Test in User Subcollection',
       });
+
+
     } catch (err) {
       firestoreTelemetry.record({
         type: 'WRITE',
         collection: 'tests',
-        path: `tests/${validId}`,
+        path: `users/${finalAuthorId}/tests/${validId}`,
         operation: 'setDoc',
         caller: 'Save/Create Test',
         status: 'error',
         error: String(err),
       });
-      handleFirestoreError(err, OperationType.WRITE, `tests/${validId}`);
+      handleFirestoreError(err, OperationType.WRITE, `users/${finalAuthorId}/tests/${validId}`);
     }
   }
 }
@@ -1040,35 +1111,35 @@ export async function updateTestQuestionsInFirestore(
   const normalized = normalizeQuestions(Array.isArray(questions) ? questions : []);
   const now = new Date().toISOString();
 
-  // 1. Surgical update on the discrete /tests/{testId} document
+  // 1. Surgical update on the discrete /users/{finalAuthorId}/tests/{testId} document
   try {
-    const testDocRef = doc(db, 'tests', testId);
     const sanitized = sanitizeForFirestore(normalized);
     const payload = {
       questions: sanitized,
       questionCount: normalized.length,
       updatedAt: now,
     };
-    await setDoc(testDocRef, payload, { merge: true });
+    await setDoc(doc(db, 'users', finalAuthorId, 'tests', testId), payload, { merge: true });
+
     firestoreTelemetry.record({
       type: 'WRITE',
       collection: 'tests',
-      path: `tests/${testId}`,
+      path: `users/${finalAuthorId}/tests/${testId}`,
       operation: 'updateDoc',
       data: payload,
-      caller: 'Update Test Questions',
+      caller: 'Update Test Questions in User Subcollection',
     });
   } catch (err) {
     firestoreTelemetry.record({
       type: 'WRITE',
       collection: 'tests',
-      path: `tests/${testId}`,
+      path: `users/${finalAuthorId}/tests/${testId}`,
       operation: 'updateDoc',
       caller: 'Update Test Questions',
       status: 'error',
       error: String(err),
     });
-    handleFirestoreError(err, OperationType.UPDATE, `tests/${testId}`);
+    handleFirestoreError(err, OperationType.UPDATE, `users/${finalAuthorId}/tests/${testId}`);
   }
 
   // Update memory cache
@@ -1092,42 +1163,63 @@ export async function deleteTestFromFirestore(testId: string, userId?: string | 
   testsCache.clear();
   searchResultsCache.clear();
 
-  // 1. Delete from top-level tests collection
-  if (!isGlobalQuotaExceeded()) {
+  const currentUid = userId || auth.currentUser?.uid;
+
+  // 1. Delete from user subcollection users/{userId}/tests/{testId}
+  if (currentUid && currentUid !== 'anonymous' && currentUid !== 'guest-user') {
     try {
-      const testDocRef = doc(db, 'tests', testId);
-      await deleteDoc(testDocRef);
+      await deleteDoc(doc(db, 'users', currentUid, 'tests', testId));
       firestoreTelemetry.record({
         type: 'DELETE',
         collection: 'tests',
-        path: `tests/${testId}`,
+        path: `users/${currentUid}/tests/${testId}`,
         operation: 'deleteDoc',
         data: { testId },
-        caller: 'Delete Test',
+        caller: 'Delete Test From User Subcollection',
       });
     } catch (e) {
-      console.warn(`Could not delete test ${testId} from tests collection:`, e);
+      console.warn(`Could not delete test ${testId} from user tests subcollection:`, e);
     }
+  }
 
-    // 2. Persist tombstone in cloud user profile and remove from createdTests
-    const currentUid = userId || auth.currentUser?.uid;
-    if (currentUid && currentUid !== 'anonymous' && currentUid !== 'guest-user') {
-      try {
-        const userDocRef = doc(db, 'users', currentUid);
-        await setDoc(userDocRef, {
-          deletedTestIds: arrayUnion(testId),
-          [`createdTests.${testId}`]: deleteField(),
-          updatedAt: new Date().toISOString(),
-        }, { merge: true });
-      } catch (err) {
-        console.warn(`Could not add test ${testId} to user deletedTestIds:`, err);
-      }
+  // 2. Also delete from top-level tests collection
+  try {
+    const testDocRef = doc(db, 'tests', testId);
+    await deleteDoc(testDocRef);
+    firestoreTelemetry.record({
+      type: 'DELETE',
+      collection: 'tests',
+      path: `tests/${testId}`,
+      operation: 'deleteDoc',
+      data: { testId },
+      caller: 'Delete Test',
+    });
+  } catch (e) {
+    console.warn(`Could not delete test ${testId} from tests collection:`, e);
+  }
+
+  // 3. Persist tombstone in cloud user profile and remove from createdTests
+  if (currentUid && currentUid !== 'anonymous' && currentUid !== 'guest-user') {
+    try {
+      const userDocRef = doc(db, 'users', currentUid);
+      await setDoc(userDocRef, {
+        deletedTestIds: arrayUnion(testId),
+        [`createdTests.${testId}`]: deleteField(),
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
+      // Atomically bump sync beacon and align local sync revision
+      const nowRev = Date.now();
+      await updateUserSyncBeacon(currentUid, { testsRev: nowRev });
+      smartCoordinator.setLocalSyncRevision(currentUid, 'testsRev', nowRev);
+    } catch (err) {
+      console.warn(`Could not add test ${testId} to user deletedTestIds:`, err);
     }
   }
 }
 
 export async function markDeletedTestInFirestore(testId: string, userId?: string | null): Promise<void> {
-  if (isOfflineLocalOnlyMode() || isGlobalQuotaExceeded() || !testId) return;
+  if (isOfflineLocalOnlyMode() || !testId) return;
   const currentUid = userId || auth.currentUser?.uid;
   if (!currentUid || currentUid === 'anonymous' || currentUid === 'guest-user') return;
 
@@ -1138,6 +1230,10 @@ export async function markDeletedTestInFirestore(testId: string, userId?: string
       [`createdTests.${testId}`]: deleteField(),
       updatedAt: new Date().toISOString(),
     }, { merge: true });
+
+    const nowRev = Date.now();
+    await updateUserSyncBeacon(currentUid, { testsRev: nowRev });
+    smartCoordinator.setLocalSyncRevision(currentUid, 'testsRev', nowRev);
   } catch (error) {
     console.warn('Could not mark deleted test ID in cloud user profile:', error);
   }
@@ -1182,7 +1278,24 @@ export async function fetchTestsFromFirestore(limitCount = 50, forceRefresh = fa
   const isGuest = !currentUid || currentUid === 'anonymous' || currentUid === 'guest-user';
 
   if (isGuest || isOfflineLocalOnlyMode() || isGlobalQuotaExceeded()) {
+    const local = currentUid ? loadScopedTests(currentUid) : [];
+    if (local.length > 0) return local.slice(0, limitCount);
     return SAMPLE_MATH_TESTS.slice(0, limitCount);
+  }
+
+  // Zero-Cost Cache Check:
+  // If local tests exist in scoped storage and forceRefresh is false,
+  // compare local revision with cloud beacon. If local is up-to-date, return local tests immediately (0 reads)!
+  const localScoped = loadScopedTests(currentUid);
+  if (!forceRefresh && localScoped.length > 0) {
+    try {
+      const beacon = await getUserSyncBeacon(currentUid);
+      const localRev = smartCoordinator.getLocalSyncRevisions(currentUid).testsRev || 0;
+      if (beacon && beacon.testsRev && beacon.testsRev <= localRev) {
+        // Zero Firestore Reads! Local tests are already up-to-date with cloud.
+        return localScoped.slice(0, limitCount);
+      }
+    } catch {}
   }
 
   const resultsMap = new Map<string, MathTest>();
@@ -1200,9 +1313,19 @@ export async function fetchTestsFromFirestore(limitCount = 50, forceRefresh = fa
         caller: 'Fetch User Created Tests',
       });
       const data = userDocSnap.data();
+      if (Array.isArray(data?.deletedTestIds) && data.deletedTestIds.length > 0) {
+        data.deletedTestIds.forEach((delId: string) => {
+          if (delId) {
+            resultsMap.delete(delId);
+            markTestAsDeletedInScopedStorage(currentUid, delId);
+            deleteTestFromIndexedDB(currentUid, delId).catch(() => {});
+          }
+        });
+      }
       if (data?.createdTests && typeof data.createdTests === 'object') {
+        const deletedSet = new Set(data.deletedTestIds || []);
         Object.values(data.createdTests).forEach((t: any) => {
-          if (t && t.id) {
+          if (t && t.id && !deletedSet.has(t.id)) {
             resultsMap.set(t.id, {
               ...t,
               questions: normalizeQuestions(Array.isArray(t.questions) ? t.questions : []),
@@ -1213,29 +1336,48 @@ export async function fetchTestsFromFirestore(limitCount = 50, forceRefresh = fa
     }
   } catch (e) {}
 
-  // 2. Fetch from top-level tests collection where authorId == currentUid
+  // 2. Fetch from user subcollection /users/{currentUid}/tests
   try {
-    const q = query(collection(db, 'tests'), where('authorId', '==', currentUid), limit(limitCount));
-    const snap = await getDocs(q);
-    firestoreTelemetry.record({
-      type: 'READ',
-      collection: 'tests',
-      path: `tests?authorId=${currentUid}&limit=${limitCount}`,
-      operation: 'getDocs',
-      docCount: snap.docs.length,
-      data: snap.docs.map((d) => ({ id: d.id, title: (d.data() as any)?.title })),
-      caller: 'Fetch User Tests Collection',
-    });
-    snap.forEach((d) => {
-      const data = d.data() as MathTest;
-      if (data && data.id) {
-        resultsMap.set(data.id, {
-          ...data,
-          questions: normalizeQuestions(Array.isArray(data.questions) ? data.questions : []),
-        });
-      }
-    });
-  } catch (e) {}
+    const userTestsSnap = await getDocs(query(collection(db, 'users', currentUid, 'tests'), limit(limitCount)));
+    if (!userTestsSnap.empty) {
+      firestoreTelemetry.record({
+        type: 'READ',
+        collection: 'tests',
+        path: `users/${currentUid}/tests?limit=${limitCount}`,
+        operation: 'getDocs',
+        docCount: userTestsSnap.docs.length,
+        caller: 'Fetch User Tests Subcollection',
+      });
+      const allDeleted = getAllDeletedTestIds(currentUid);
+      userTestsSnap.forEach((d) => {
+        const data = d.data() as MathTest;
+        if (data && data.id && !allDeleted.has(data.id)) {
+          resultsMap.set(data.id, {
+            ...data,
+            questions: normalizeQuestions(Array.isArray(data.questions) ? data.questions : []),
+          });
+        }
+      });
+    } else {
+      // Fallback: Check legacy top-level tests collection where authorId == currentUid
+      const q = query(collection(db, 'tests'), where('authorId', '==', currentUid), limit(limitCount));
+      const snap = await getDocs(q);
+      const allDeleted = getAllDeletedTestIds(currentUid);
+      snap.forEach((d) => {
+        const data = d.data() as MathTest;
+        if (data && data.id && !allDeleted.has(data.id)) {
+          resultsMap.set(data.id, {
+            ...data,
+            questions: normalizeQuestions(Array.isArray(data.questions) ? data.questions : []),
+          });
+          // Seamlessly migrate legacy test to user subcollection
+          setDoc(doc(db, 'users', currentUid, 'tests', data.id), sanitizeForFirestore(data), { merge: true }).catch(() => {});
+        }
+      });
+    }
+  } catch (e) {
+    console.warn('Error fetching user tests:', e);
+  }
 
   // Merge with samples
   SAMPLE_MATH_TESTS.forEach((st) => {
@@ -1244,7 +1386,9 @@ export async function fetchTestsFromFirestore(limitCount = 50, forceRefresh = fa
     }
   });
 
-  return Array.from(resultsMap.values()).slice(0, limitCount);
+  const finalTests = Array.from(resultsMap.values()).slice(0, limitCount);
+  smartCoordinator.setLocalSyncRevision(currentUid, 'testsRev', Date.now());
+  return finalTests;
 }
 
 export interface FirestoreDocChange<T> {
@@ -1266,19 +1410,51 @@ export function subscribeToTests(
   let isFirstSnapshot = true;
 
   try {
-    const q = query(collection(db, 'tests'), where('authorId', '==', userId), limit(25));
-    return onSnapshot(q, (snap) => {
+    // Real-time listener on user-scoped subcollection: /users/{userId}/tests
+    const userTestsCol = collection(db, 'users', userId, 'tests');
+    return onSnapshot(userTestsCol, (snap) => {
       const deltas: FirestoreDocChange<MathTest>[] = [];
 
       firestoreTelemetry.record({
         type: isFirstSnapshot ? 'STREAM_LISTEN' : 'STREAM_DELTA',
         collection: 'tests',
-        path: `tests?authorId=${userId}&limit=25`,
+        path: `users/${userId}/tests`,
         operation: 'onSnapshot',
         docCount: isFirstSnapshot ? snap.docs.length : snap.docChanges().length,
         data: snap.docs.map((d) => ({ id: d.id, title: (d.data() as any)?.title })),
-        caller: isFirstSnapshot ? 'Initial Tests Real-time Stream' : 'Live Tests Delta Change',
+        caller: isFirstSnapshot ? 'Initial User Tests Real-time Stream' : 'Live User Tests Delta Change',
       });
+
+      // If user subcollection is empty on initial load, check legacy root /tests and migrate
+      if (isFirstSnapshot && snap.empty) {
+        isFirstSnapshot = false;
+        const legacyQ = query(collection(db, 'tests'), where('authorId', '==', userId), limit(100));
+        getDocs(legacyQ).then((legacySnap) => {
+          if (!legacySnap.empty) {
+            const migrated: MathTest[] = [];
+            legacySnap.forEach((d) => {
+              const data = d.data() as MathTest;
+              if (data && data.id) {
+                const norm: MathTest = {
+                  ...data,
+                  questions: normalizeQuestions(Array.isArray(data.questions) ? data.questions : []),
+                };
+                migrated.push(norm);
+                setDoc(doc(db, 'users', userId, 'tests', data.id), sanitizeForFirestore(norm), { merge: true }).catch(() => {});
+              }
+            });
+            if (migrated.length > 0) {
+              const mergedMap = new Map<string, MathTest>();
+              migrated.forEach((t) => mergedMap.set(t.id, t));
+              SAMPLE_MATH_TESTS.forEach((st) => {
+                if (!mergedMap.has(st.id)) mergedMap.set(st.id, st);
+              });
+              onUpdate(Array.from(mergedMap.values()));
+            }
+          }
+        }).catch(() => {});
+        return;
+      }
 
       snap.docChanges().forEach((change) => {
         const raw = change.doc.data() as MathTest;
@@ -1318,11 +1494,11 @@ export function subscribeToTests(
 
       onUpdate(Array.from(mergedMap.values()), deltas);
     }, (err) => {
-      console.warn('Tests snapshot listener warning:', err?.message);
-      handleFirestoreError(err, OperationType.LIST, 'tests');
+      console.warn('User tests snapshot listener warning:', err?.message);
+      handleFirestoreError(err, OperationType.LIST, `users/${userId}/tests`);
     });
   } catch (err) {
-    console.warn('Failed to attach tests snapshot listener:', err);
+    console.warn('Failed to attach user tests snapshot listener:', err);
     return () => {};
   }
 }
@@ -1353,35 +1529,39 @@ export async function saveAttemptToFirestore(attempt: TestAttempt, overrideUserI
     completedAt: attempt.completedAt || new Date().toISOString(),
   };
 
-  // 1. Direct write to top-level attempts collection
+  // 1. Direct write to user subcollection: /users/{userId}/attempts/{attemptId}
   if (!isGlobalQuotaExceeded()) {
     try {
-      const attemptDocRef = doc(db, 'attempts', validId);
       const attemptCopy = { ...attemptToSave };
       if (typeof attemptCopy.omrScannedImageUrl === 'string' && attemptCopy.omrScannedImageUrl.length > 80000) {
         delete attemptCopy.omrScannedImageUrl;
       }
       const sanitized = sanitizeForFirestore(attemptCopy);
-      await setDoc(attemptDocRef, sanitized, { merge: true });
+
+      const userAttemptDocRef = doc(db, 'users', finalUserId, 'attempts', validId);
+      await setDoc(userAttemptDocRef, sanitized, { merge: true });
+
       firestoreTelemetry.record({
         type: 'WRITE',
         collection: 'attempts',
-        path: `attempts/${validId}`,
+        path: `users/${finalUserId}/attempts/${validId}`,
         operation: 'setDoc',
         data: sanitized,
-        caller: 'Submit Test Attempt',
+        caller: 'Submit Test Attempt in User Subcollection',
       });
+
+
     } catch (err) {
       firestoreTelemetry.record({
         type: 'WRITE',
         collection: 'attempts',
-        path: `attempts/${validId}`,
+        path: `users/${finalUserId}/attempts/${validId}`,
         operation: 'setDoc',
         caller: 'Submit Test Attempt',
         status: 'error',
         error: String(err),
       });
-      handleFirestoreError(err, OperationType.WRITE, `attempts/${validId}`);
+      handleFirestoreError(err, OperationType.WRITE, `users/${finalUserId}/attempts/${validId}`);
     }
   }
 
@@ -1391,8 +1571,28 @@ export async function saveAttemptToFirestore(attempt: TestAttempt, overrideUserI
 }
 
 export async function deleteAttemptFromFirestore(attemptId: string, userId?: string | null): Promise<void> {
-  if (isOfflineLocalOnlyMode() || isGlobalQuotaExceeded() || !attemptId) return;
+  if (isOfflineLocalOnlyMode() || !attemptId) return;
 
+  const currentUid = userId || auth.currentUser?.uid;
+
+  // 1. Delete from user subcollection: /users/{userId}/attempts/{attemptId}
+  if (currentUid && currentUid !== 'anonymous' && currentUid !== 'guest-user') {
+    try {
+      await deleteDoc(doc(db, 'users', currentUid, 'attempts', attemptId));
+      firestoreTelemetry.record({
+        type: 'WRITE',
+        collection: 'attempts',
+        path: `users/${currentUid}/attempts/${attemptId}`,
+        operation: 'deleteDoc',
+        data: { id: attemptId },
+        caller: 'Delete Attempt From User Subcollection',
+      });
+    } catch (e) {
+      console.warn(`Could not delete attempt ${attemptId} from user attempts subcollection:`, e);
+    }
+  }
+
+  // 2. Also delete from top-level attempts collection
   try {
     const attemptDocRef = doc(db, 'attempts', attemptId);
     await deleteDoc(attemptDocRef);
@@ -1405,7 +1605,23 @@ export async function deleteAttemptFromFirestore(attemptId: string, userId?: str
       caller: 'Prune Old Last Attempt from Firestore',
     });
   } catch (e) {
-    console.warn(`Could not delete attempt ${attemptId} from Firestore attempts collection:`, e);
+    console.warn(`Could not delete attempt ${attemptId} from root attempts collection:`, e);
+  }
+
+  if (currentUid && currentUid !== 'anonymous' && currentUid !== 'guest-user') {
+    try {
+      const userDocRef = doc(db, 'users', currentUid);
+      await setDoc(userDocRef, {
+        deletedAttemptIds: arrayUnion(attemptId),
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
+      const nowRev = Date.now();
+      await updateUserSyncBeacon(currentUid, { attemptsRev: nowRev });
+      smartCoordinator.setLocalSyncRevision(currentUid, 'attemptsRev', nowRev);
+    } catch (err) {
+      console.warn(`Could not add attempt ${attemptId} to user deletedAttemptIds:`, err);
+    }
   }
 }
 
@@ -1416,27 +1632,54 @@ export async function fetchUserAttemptsFromFirestore(
 ): Promise<TestAttempt[]> {
   if (isOfflineLocalOnlyMode() || !userId || userId === 'anonymous' || userId === 'guest-user' || isGlobalQuotaExceeded()) return [];
 
+  // Zero-Cost Cache Check:
+  const localAttempts = loadScopedAttempts(userId);
+  if (!forceRefresh && localAttempts.length > 0) {
+    try {
+      const beacon = await getUserSyncBeacon(userId);
+      const localRev = smartCoordinator.getLocalSyncRevisions(userId).attemptsRev || 0;
+      if (beacon && beacon.attemptsRev && beacon.attemptsRev <= localRev) {
+        // Zero Firestore Reads! Local attempts are already authoritative.
+        return localAttempts.slice(0, limitCount);
+      }
+    } catch {}
+  }
+
   const results: TestAttempt[] = [];
   try {
-    const q = query(collection(db, 'attempts'), where('userId', '==', userId), limit(limitCount));
-    const snap = await getDocs(q);
-    firestoreTelemetry.record({
-      type: 'READ',
-      collection: 'attempts',
-      path: `attempts?userId=${userId}&limit=${limitCount}`,
-      operation: 'getDocs',
-      docCount: snap.docs.length,
-      data: snap.docs.map((d) => ({ id: d.id, testId: (d.data() as any)?.testId, score: (d.data() as any)?.score })),
-      caller: 'Fetch User Attempt History',
-    });
-    snap.forEach((d) => {
-      const data = d.data() as TestAttempt;
-      if (data && data.id) {
-        results.push(data);
-      }
-    });
+    // 1. Fetch from user subcollection: /users/{userId}/attempts
+    const userAttemptsCol = collection(db, 'users', userId, 'attempts');
+    const userAttemptsSnap = await getDocs(query(userAttemptsCol, limit(limitCount)));
+    if (!userAttemptsSnap.empty) {
+      firestoreTelemetry.record({
+        type: 'READ',
+        collection: 'attempts',
+        path: `users/${userId}/attempts?limit=${limitCount}`,
+        operation: 'getDocs',
+        docCount: userAttemptsSnap.docs.length,
+        caller: 'Fetch User Attempt History Subcollection',
+      });
+      userAttemptsSnap.forEach((d) => {
+        const data = d.data() as TestAttempt;
+        if (data && data.id) {
+          results.push(data);
+        }
+      });
+    } else {
+      // Fallback: check legacy root attempts collection where userId == userId and migrate
+      const q = query(collection(db, 'attempts'), where('userId', '==', userId), limit(limitCount));
+      const snap = await getDocs(q);
+      snap.forEach((d) => {
+        const data = d.data() as TestAttempt;
+        if (data && data.id) {
+          results.push(data);
+          setDoc(doc(db, 'users', userId, 'attempts', data.id), sanitizeForFirestore(data), { merge: true }).catch(() => {});
+        }
+      });
+    }
     // Sort descending by completion date
     results.sort((a, b) => new Date(b.completedAt || b.createdAt || 0).getTime() - new Date(a.completedAt || a.createdAt || 0).getTime());
+    smartCoordinator.setLocalSyncRevision(userId, 'attemptsRev', Date.now());
   } catch (err) {
     console.warn('fetchUserAttemptsFromFirestore notice:', err);
   }
@@ -1456,19 +1699,43 @@ export function subscribeToAttempts(
   let isFirstSnapshot = true;
 
   try {
-    const q = query(collection(db, 'attempts'), where('userId', '==', userId), limit(25));
-    return onSnapshot(q, (snap) => {
+    // Real-time listener on user-scoped subcollection: /users/{userId}/attempts
+    const userAttemptsCol = collection(db, 'users', userId, 'attempts');
+    return onSnapshot(userAttemptsCol, (snap) => {
       const deltas: FirestoreDocChange<TestAttempt>[] = [];
 
       firestoreTelemetry.record({
         type: isFirstSnapshot ? 'STREAM_LISTEN' : 'STREAM_DELTA',
         collection: 'attempts',
-        path: `attempts?userId=${userId}&limit=25`,
+        path: `users/${userId}/attempts`,
         operation: 'onSnapshot',
         docCount: isFirstSnapshot ? snap.docs.length : snap.docChanges().length,
         data: snap.docs.map((d) => ({ id: d.id, testId: (d.data() as any)?.testId, score: (d.data() as any)?.score })),
-        caller: isFirstSnapshot ? 'Initial Attempts Real-time Stream' : 'Live Attempt Delta Change',
+        caller: isFirstSnapshot ? 'Initial User Attempts Real-time Stream' : 'Live User Attempt Delta Change',
       });
+
+      // If user subcollection is empty on initial load, check legacy root /attempts and migrate
+      if (isFirstSnapshot && snap.empty) {
+        isFirstSnapshot = false;
+        const legacyQ = query(collection(db, 'attempts'), where('userId', '==', userId), limit(25));
+        getDocs(legacyQ).then((legacySnap) => {
+          if (!legacySnap.empty) {
+            const migrated: TestAttempt[] = [];
+            legacySnap.forEach((d) => {
+              const data = d.data() as TestAttempt;
+              if (data && data.id) {
+                migrated.push(data);
+                setDoc(doc(db, 'users', userId, 'attempts', data.id), sanitizeForFirestore(data), { merge: true }).catch(() => {});
+              }
+            });
+            if (migrated.length > 0) {
+              migrated.sort((a, b) => new Date(b.completedAt || b.createdAt || 0).getTime() - new Date(a.completedAt || a.createdAt || 0).getTime());
+              onUpdate(migrated);
+            }
+          }
+        }).catch(() => {});
+        return;
+      }
 
       snap.docChanges().forEach((change) => {
         const raw = change.doc.data() as TestAttempt;
@@ -1496,11 +1763,11 @@ export function subscribeToAttempts(
       list.sort((a, b) => new Date(b.completedAt || b.createdAt || 0).getTime() - new Date(a.completedAt || a.createdAt || 0).getTime());
       onUpdate(list, deltas);
     }, (err) => {
-      console.warn('Attempts snapshot listener warning:', err?.message);
-      handleFirestoreError(err, OperationType.LIST, 'attempts');
+      console.warn('User attempts snapshot listener warning:', err?.message);
+      handleFirestoreError(err, OperationType.LIST, `users/${userId}/attempts`);
     });
   } catch (err) {
-    console.warn('Failed to attach attempts snapshot listener:', err);
+    console.warn('Failed to attach user attempts snapshot listener:', err);
     return () => {};
   }
 }
@@ -1684,7 +1951,7 @@ export async function saveSingleChatSessionToFirestoreDirect(userId: string, ses
  * Deletes strictly ONE single chat session document from `users/{userId}/chatSessions/{sessionId}`.
  */
 export async function deleteSingleChatSessionFromFirestoreDirect(userId: string, sessionId: string): Promise<boolean> {
-  if (isOfflineLocalOnlyMode() || isGlobalQuotaExceeded() || !userId || userId === 'anonymous' || userId === 'guest-user') {
+  if (isOfflineLocalOnlyMode() || !userId || userId === 'anonymous' || userId === 'guest-user') {
     return false;
   }
   if (!sessionId) return false;
@@ -1695,6 +1962,21 @@ export async function deleteSingleChatSessionFromFirestoreDirect(userId: string,
   try {
     const sessionDocRef = doc(db, 'users', userId, 'chatSessions', sessionId);
     await deleteDoc(sessionDocRef);
+
+    // Atomically persist tombstone in user doc so other devices know it's deleted
+    try {
+      const userDocRef = doc(db, 'users', userId);
+      await setDoc(userDocRef, {
+        deletedChatSessionIds: arrayUnion(sessionId),
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
+      const nowRev = Date.now();
+      await updateUserSyncBeacon(userId, { chatsRev: nowRev });
+      smartCoordinator.setLocalSyncRevision(userId, 'chatsRev', nowRev);
+    } catch (err) {
+      console.warn(`Could not add chat session ${sessionId} to user deletedChatSessionIds:`, err);
+    }
 
     const latency = Math.round(performance.now() - start);
     firestoreTelemetry.record({
@@ -1738,12 +2020,28 @@ export async function fetchUserChatSessionsFromFirestoreDirect(userId: string, l
   const path = `users/${userId}/chatSessions?limit=${limitCount}`;
 
   try {
+    // Ingest cloud-recorded deleted chat session tombstones
+    try {
+      const userSnap = await getDoc(doc(db, 'users', userId));
+      if (userSnap.exists()) {
+        const uData = userSnap.data();
+        if (Array.isArray(uData?.deletedChatSessionIds)) {
+          uData.deletedChatSessionIds.forEach((id: string) => {
+            if (id) markChatSessionAsDeletedInScopedStorage(userId, id);
+          });
+        }
+      }
+    } catch {}
+
     const chatColRef = collection(db, 'users', userId, 'chatSessions');
     const q = query(chatColRef, limit(limitCount));
     const snap = await getDocs(q);
 
     if (!snap.empty) {
-      const sessions = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+      const deletedIds = getAllDeletedChatSessionIds(userId);
+      const sessions = snap.docs
+        .map((d) => ({ ...d.data(), id: d.id }))
+        .filter((s: any) => s && s.id && !deletedIds.has(s.id));
       const latency = Math.round(performance.now() - start);
 
       firestoreTelemetry.record({
@@ -1790,7 +2088,7 @@ export async function saveChatSessionToFirestore(userId: string, sessionOrSessio
 }
 
 export async function deleteChatSessionFromFirestore(userId: string, sessionId: string): Promise<void> {
-  if (!userId || userId === 'anonymous' || userId === 'guest-user' || isOfflineLocalOnlyMode() || isGlobalQuotaExceeded()) return;
+  if (!userId || userId === 'anonymous' || userId === 'guest-user' || isOfflineLocalOnlyMode()) return;
   if (sessionId) {
     await deleteSingleChatSessionFromFirestoreDirect(userId, sessionId);
   }
@@ -2019,9 +2317,16 @@ export async function fetchFullTestFromFirestore(testId: string): Promise<MathTe
   if (isGlobalQuotaExceeded()) return null;
 
   try {
-    const testDocRef = doc(db, 'tests', testId);
-    const snap = await getDoc(testDocRef);
-    if (snap.exists()) {
+    const currentUid = auth.currentUser?.uid;
+    let snap = currentUid && currentUid !== 'anonymous' && currentUid !== 'guest-user'
+      ? await getDoc(doc(db, 'users', currentUid, 'tests', testId))
+      : null;
+    if (!snap || !snap.exists()) {
+      try {
+        snap = await getDoc(doc(db, 'tests', testId));
+      } catch {}
+    }
+    if (snap && snap.exists()) {
       const data = snap.data() as MathTest;
       const normalized: MathTest = {
         ...data,
@@ -2031,7 +2336,7 @@ export async function fetchFullTestFromFirestore(testId: string): Promise<MathTe
       firestoreTelemetry.record({
         type: 'READ',
         collection: 'tests',
-        path: `tests/${testId}`,
+        path: currentUid ? `users/${currentUid}/tests/${testId}` : `tests/${testId}`,
         operation: 'getDoc',
         docCount: 1,
         data: { id: normalized.id, title: normalized.title, questionCount: normalized.questionCount },
@@ -2051,12 +2356,15 @@ export async function searchCloudTests(searchQuery: string, topic?: string, limi
   if (isGlobalQuotaExceeded()) return [];
 
   try {
-    const testsQuery = query(collection(db, 'tests'), limit(limitCount));
+    const currentUid = auth.currentUser?.uid;
+    const testsQuery = currentUid && currentUid !== 'anonymous' && currentUid !== 'guest-user'
+      ? query(collection(db, 'users', currentUid, 'tests'), limit(limitCount))
+      : query(collection(db, 'tests'), limit(limitCount));
     const snapshot = await getDocs(testsQuery);
     firestoreTelemetry.record({
       type: 'READ',
       collection: 'tests',
-      path: `tests?limit=${limitCount}`,
+      path: currentUid ? `users/${currentUid}/tests?limit=${limitCount}` : `tests?limit=${limitCount}`,
       operation: 'getDocs',
       docCount: snapshot.docs.length,
       data: snapshot.docs.map((d) => ({ id: d.id, title: (d.data() as any)?.title })),
@@ -2176,15 +2484,15 @@ export async function executeDiagnosticFirestoreWrite(): Promise<{ success: bool
   };
 
   try {
-    const testDocRef = doc(db, 'tests', testId);
+    const testDocRef = doc(db, 'test', 'diagnostic_probe');
     const sanitized = sanitizeForFirestore(testPayload);
     await setDoc(testDocRef, sanitized, { merge: true });
     const latency = Math.round(performance.now() - start);
 
     firestoreTelemetry.record({
       type: 'WRITE',
-      collection: 'tests',
-      path: `tests/${testId}`,
+      collection: 'test',
+      path: `test/diagnostic_probe`,
       operation: 'setDoc',
       durationMs: latency,
       data: sanitized,
@@ -2192,13 +2500,13 @@ export async function executeDiagnosticFirestoreWrite(): Promise<{ success: bool
       statusCode: '200 OK',
     });
 
-    return { success: true, docId: testId, latencyMs: latency };
+    return { success: true, docId: 'diagnostic_probe', latencyMs: latency };
   } catch (err: any) {
     const latency = Math.round(performance.now() - start);
     firestoreTelemetry.record({
       type: 'WRITE',
-      collection: 'tests',
-      path: `tests/${testId}`,
+      collection: 'test',
+      path: `test/diagnostic_probe`,
       operation: 'setDoc',
       durationMs: latency,
       caller: 'Live Diagnostic Write Request',
@@ -2206,35 +2514,34 @@ export async function executeDiagnosticFirestoreWrite(): Promise<{ success: bool
       statusCode: 'WRITE_FAILED',
       error: String(err?.message || err),
     });
-    return { success: false, docId: testId, latencyMs: latency, error: String(err?.message || err) };
+    return { success: false, docId: 'diagnostic_probe', latencyMs: latency, error: String(err?.message || err) };
   }
 }
 
 /**
  * Diagnostic Live Firestore Read verification
- * Immediately reads the public tests collection to measure roundtrip query latency and returned documents.
+ * Immediately reads the health check document to measure roundtrip query latency.
  */
 export async function executeDiagnosticFirestoreRead(): Promise<{ success: boolean; docCount: number; latencyMs: number; error?: string }> {
   const start = performance.now();
   try {
-    const q = query(collection(db, 'tests'), limit(10));
-    const snap = await getDocs(q);
+    const snap = await getDoc(doc(db, 'test', 'diagnostic_probe'));
     const latency = Math.round(performance.now() - start);
-    const docsSummary = snap.docs.map((d) => ({ id: d.id, title: (d.data() as any)?.title || 'Test Document' }));
+    const docsSummary = snap.exists() ? [{ id: snap.id, title: (snap.data() as any)?.title || 'Diagnostic Probe' }] : [];
 
     firestoreTelemetry.record({
       type: 'READ',
-      collection: 'tests',
-      path: 'tests?limit=10',
-      operation: 'getDocs',
+      collection: 'test',
+      path: 'test/diagnostic_probe',
+      operation: 'getDoc',
       durationMs: latency,
-      docCount: snap.docs.length,
+      docCount: snap.exists() ? 1 : 0,
       data: docsSummary,
       caller: 'Live Diagnostic Read Request',
       statusCode: '200 OK',
     });
 
-    return { success: true, docCount: snap.docs.length, latencyMs: latency };
+    return { success: true, docCount: snap.exists() ? 1 : 0, latencyMs: latency };
   } catch (err: any) {
     const latency = Math.round(performance.now() - start);
     firestoreTelemetry.record({
@@ -2309,84 +2616,137 @@ export async function deleteUserAccountAndAllData(
     let deletedTestsCount = 0;
     let deletedAttemptsCount = 0;
 
-    // Delete subcollections in user document (notes, bookmarks, chat_sessions, tests, attempts)
-    const subcollections = ['notes', 'bookmarks', 'chat_sessions', 'tests', 'attempts'];
-    for (const subcol of subcollections) {
+    // Fast non-blocking timeout helper (defaults to 2500ms max per task)
+    const withTimeout = <T>(promise: Promise<T>, ms: number = 2500): Promise<T | null> => {
+      return Promise.race([
+        promise,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+      ]);
+    };
+
+    // Fast safe batch committer with timeout
+    const safeBatchCommit = async (batch: any, ms: number = 2500): Promise<boolean> => {
       try {
-        const subSnap = await getDocs(collection(db, 'users', userId, subcol));
-        if (!subSnap.empty) {
-          const batch = writeBatch(db);
-          subSnap.docs.forEach((d) => batch.delete(d.ref));
-          await batch.commit();
-        }
+        const res = await withTimeout(batch.commit(), ms);
+        return res !== null;
       } catch (err) {
-        console.warn(`Note: Could not clear subcollection ${subcol}:`, err);
+        console.warn('Batch commit timed out or failed:', err);
+        return false;
       }
-    }
+    };
 
-    // Delete root tests created by user
-    try {
-      const testsQuery = query(collection(db, 'tests'), where('authorId', '==', userId));
-      const testsSnap = await getDocs(testsQuery);
-      if (!testsSnap.empty) {
+    // Safe chunked batch delete with timeout per chunk
+    const chunkBatchDelete = async (docs: any[]): Promise<number> => {
+      if (!docs || docs.length === 0) return 0;
+      let count = 0;
+      const chunkSize = 250;
+      for (let i = 0; i < docs.length; i += chunkSize) {
+        const chunk = docs.slice(i, i + chunkSize);
         const batch = writeBatch(db);
-        testsSnap.docs.forEach((d) => {
-          batch.delete(d.ref);
-          deletedTestsCount++;
-        });
-        await batch.commit();
+        chunk.forEach((d) => batch.delete(d.ref || d));
+        await safeBatchCommit(batch, 2500);
+        count += chunk.length;
       }
-      if (userEmail) {
-        const emailTestsQuery = query(collection(db, 'tests'), where('authorEmail', '==', userEmail));
-        const emailTestsSnap = await getDocs(emailTestsQuery);
-        if (!emailTestsSnap.empty) {
-          const batch = writeBatch(db);
-          emailTestsSnap.docs.forEach((d) => {
-            batch.delete(d.ref);
-            deletedTestsCount++;
-          });
-          await batch.commit();
-        }
-      }
-    } catch (err) {
-      console.warn('Note deleting authored tests from root collection:', err);
-    }
+      return count;
+    };
 
-    // Delete root attempts created by user
-    try {
-      const attemptsQuery = query(collection(db, 'attempts'), where('userId', '==', userId));
-      const attemptsSnap = await getDocs(attemptsQuery);
-      if (!attemptsSnap.empty) {
-        const batch = writeBatch(db);
-        attemptsSnap.docs.forEach((d) => {
-          batch.delete(d.ref);
-          deletedAttemptsCount++;
-        });
-        await batch.commit();
-      }
-      if (userEmail) {
-        const emailAttemptsQuery = query(collection(db, 'attempts'), where('userEmail', '==', userEmail));
-        const emailAttemptsSnap = await getDocs(emailAttemptsQuery);
-        if (!emailAttemptsSnap.empty) {
-          const batch = writeBatch(db);
-          emailAttemptsSnap.docs.forEach((d) => {
-            batch.delete(d.ref);
-            deletedAttemptsCount++;
-          });
-          await batch.commit();
-        }
-      }
-    } catch (err) {
-      console.warn('Note deleting attempts from root collection:', err);
-    }
+    // Execute all cloud Firestore purges fully in parallel with a strict global 4.5s deadline
+    const firestorePurgePromise = async () => {
+      const tasks: Promise<any>[] = [];
 
-    // Delete the root users document
-    try {
-      const userDocRef = doc(db, 'users', userId);
-      await deleteDoc(userDocRef);
-    } catch (err) {
-      console.warn('Note deleting user profile document:', err);
-    }
+      // 1. Subcollections under users/{userId}
+      const subcollections = [
+        'htmlNotesProjects',
+        'chatSessions',
+        'chat_sessions',
+        'notes',
+        'bookmarks',
+        'attempts',
+        'tests',
+        'sync_beacon',
+      ];
+
+      for (const subcol of subcollections) {
+        tasks.push(
+          (async () => {
+            try {
+              const subSnap = await withTimeout(getDocs(collection(db, 'users', userId, subcol)), 2500);
+              if (subSnap && !subSnap.empty) {
+                await chunkBatchDelete(subSnap.docs);
+              }
+            } catch (err) {
+              console.warn(`Could not clear subcollection ${subcol}:`, err);
+            }
+          })()
+        );
+      }
+
+      // 2. Direct deletion of known authored tests
+      const knownTests = loadScopedTests(userId);
+      if (knownTests.length > 0) {
+        tasks.push(
+          (async () => {
+            try {
+              const batch = writeBatch(db);
+              knownTests.forEach((t) => batch.delete(doc(db, 'tests', t.id)));
+              await safeBatchCommit(batch, 2500);
+              deletedTestsCount += knownTests.length;
+            } catch {}
+          })()
+        );
+      }
+
+      // Query root tests by authorId in case there are remote ones
+      tasks.push(
+        (async () => {
+          try {
+            const testsQuery = query(collection(db, 'tests'), where('authorId', '==', userId), limit(50));
+            const testsSnap = await withTimeout(getDocs(testsQuery), 2500);
+            if (testsSnap && !testsSnap.empty) {
+              deletedTestsCount += await chunkBatchDelete(testsSnap.docs);
+            }
+          } catch {}
+        })()
+      );
+
+      // 3. Direct deletion of known attempts
+      const knownAttempts = loadScopedAttempts(userId);
+      if (knownAttempts.length > 0) {
+        tasks.push(
+          (async () => {
+            try {
+              const batch = writeBatch(db);
+              knownAttempts.forEach((a) => batch.delete(doc(db, 'attempts', a.id)));
+              await safeBatchCommit(batch, 2500);
+              deletedAttemptsCount += knownAttempts.length;
+            } catch {}
+          })()
+        );
+      }
+
+      // Query root attempts by userId in case there are remote ones
+      tasks.push(
+        (async () => {
+          try {
+            const attemptsQuery = query(collection(db, 'attempts'), where('userId', '==', userId), limit(50));
+            const attemptsSnap = await withTimeout(getDocs(attemptsQuery), 2500);
+            if (attemptsSnap && !attemptsSnap.empty) {
+              deletedAttemptsCount += await chunkBatchDelete(attemptsSnap.docs);
+            }
+          } catch {}
+        })()
+      );
+
+      // 4. Root docs
+      tasks.push(withTimeout(deleteDoc(doc(db, 'users', userId)).catch(() => {}), 2500));
+      tasks.push(withTimeout(deleteDoc(doc(db, 'user_sync_beacons', userId)).catch(() => {}), 2500));
+      tasks.push(withTimeout(deleteDoc(doc(db, 'chat_archives', userId)).catch(() => {}), 2500));
+
+      await Promise.allSettled(tasks);
+    };
+
+    // Enforce strict 4.5s global deadline so account deletion never hangs
+    await withTimeout(firestorePurgePromise(), 4500);
 
     // Record deletion telemetry
     firestoreTelemetry.record({

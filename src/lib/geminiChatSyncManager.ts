@@ -334,6 +334,8 @@ export async function flushChatArchiveOnExit(userId?: string | null, sessionsToF
   }
 }
 
+export const flushAllDirtyChatSessionsOnExit = flushChatArchiveOnExit;
+
 /**
  * Manually or immediately triggers an instant Firestore cloud sync for active chat session.
  */

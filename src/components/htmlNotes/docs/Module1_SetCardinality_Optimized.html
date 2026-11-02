@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deep Dive: Module 1 — Set Cardinality & Countability</title>
+    <!-- Google Fonts: Inter & Fira Code -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css">
+    
+    <!-- KaTeX JS & Auto-render extension -->
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>
+
+    <style>
+        :root {
+            --primary-color: #1e3a8a;
+            --secondary-color: #0284c7;
+            --accent-color: #f59e0b;
+            --background-color: #f8fafc;
+            --card-background: #ffffff;
+            --text-color: #1e293b;
+            --border-color: #e2e8f0;
+            --table-header-bg: #1e3a8a;
+            --table-header-color: #ffffff;
+            --table-alt-bg: #f1f5f9;
+        }
+
+        @page {
+            size: A4 portrait;
+            margin: 10mm 10mm;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-weight: 500;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.5;
+            margin: 0;
+            padding: 0.5rem;
+            width: 100%;
+            max-width: 92rem;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        @media (min-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            body {
+                padding: 2rem;
+            }
+        }
+
+        /* --- Optimized Multi-Device Grid Flow (Mobile: 1 Col -> Tablet/Desktop: 2 Col) --- */
+        .notes-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        @media (min-width: 768px) {
+            .notes-layout {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1.25rem;
+            }
+            .full-width {
+                grid-column: span 2;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .notes-layout {
+                gap: 1.5rem;
+            }
+        }
+
+        /* --- Container Query Fluid Flow for Embedded Preview and Responsive Split View --- */
+        @container (max-width: 600px) {
+            .notes-layout {
+                grid-template-columns: 1fr !important;
+                gap: 1rem !important;
+            }
+            .full-width {
+                grid-column: span 1 !important;
+            }
+            .section-card {
+                width: 100% !important;
+                margin-right: 0 !important;
+            }
+        }
+
+        @container (min-width: 601px) {
+            .notes-layout {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1.25rem;
+            }
+            .full-width {
+                grid-column: span 2;
+            }
+        }
+
+        /* Clean Section block without white card background */
+        .section-card {
+            background: transparent;
+            padding: 0;
+            border: none;
+            box-shadow: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            page-break-inside: auto;
+            break-inside: auto;
+        } 
+
+        .header-plain {
+            padding: 0.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
+            page-break-after: avoid;
+            break-after: avoid;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .module-header {
+            border-bottom: 0.125rem solid var(--secondary-color);
+            padding-bottom: 0.375rem;
+            margin-top: 0;
+            margin-bottom: 0.25rem;
+            page-break-after: avoid;
+            break-after: avoid;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            font-size: clamp(1.35rem, 3vw, 1.85rem);
+            margin: 0;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            page-break-after: avoid;
+            break-after: avoid;
+        }
+
+        h2 {
+            color: var(--secondary-color);
+            font-size: clamp(1.05rem, 2vw, 1.25rem);
+            margin: 0 0 0.5rem 0;
+            border-bottom: 0.0625rem solid var(--border-color);
+            padding-bottom: 0.25rem;
+            font-weight: 700;
+            page-break-after: avoid;
+            break-after: avoid;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
+        }
+
+        li {
+            background: var(--table-alt-bg);
+            padding: 0.35rem 0.65rem;
+            border-radius: 0.3125rem;
+            border-left: 0.2rem solid var(--secondary-color);
+            word-break: break-word;
+            page-break-inside: avoid;
+            break-inside: avoid;
+            font-size: 0.86rem;
+            line-height: 1.4;
+        }
+
+        .definition-term {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        strong {
+            font-weight: 600;
+        }
+
+        p {
+            margin: 0.375rem 0;
+            orphans: 2;
+            widows: 2;
+        }
+
+        @media (min-width: 768px) {
+            p {
+                margin: 0.5rem 0;
+            }
+        }
+
+        /* --- Responsive Touch-Friendly Table Layout --- */
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin: 0.25rem 0;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            page-break-inside: auto;
+            break-inside: auto;
+        }
+
+        table.classified-table {
+            width: 100% !important;
+            max-width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            background: var(--card-background) !important;
+            min-width: 100%;
+            border-radius: 0.375rem;
+            border: 1.04px solid var(--border-color);
+            page-break-inside: auto;
+            break-inside: auto;
+        }
+
+        thead {
+            display: table-header-group;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        table.classified-table th {
+            background-color: var(--table-header-bg);
+            color: var(--table-header-color);
+            padding: 0.35rem 0.5rem;
+            font-size: 0.84rem;
+            font-weight: 600;
+            border: 1.04px solid var(--table-header-bg);
+        }
+
+        table.classified-table td {
+            padding: 0.35rem 0.5rem;
+            border: 1.04px solid var(--border-color);
+            vertical-align: middle;
+            background: var(--card-background);
+            font-size: 0.84rem;
+            line-height: 1.38;
+        }
+
+        table.classified-table tr:nth-child(even) td {
+            background-color: var(--table-alt-bg);
+        }
+
+        /* --- Production Print Flow (Eliminates Blank Space & Forced Page Push) --- */
+        @media print {
+            body {
+                background: #ffffff !important;
+                padding: 0 !important;
+                max-width: 100% !important;
+                font-size: 9.5pt;
+                line-height: 1.45;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .notes-layout {
+                display: grid !important;
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 1rem !important;
+                width: 100% !important;
+            }
+            .full-width {
+                grid-column: span 2 !important;
+                width: 100% !important;
+            }
+            .section-card {
+                break-inside: auto !important;
+                page-break-inside: auto !important;
+                margin-bottom: 0.5rem !important;
+                width: 100% !important;
+            }
+            .section-card:not(.full-width) {
+                grid-column: span 1 !important;
+                width: 100% !important;
+                margin: 0 !important;
+            }
+            .table-wrapper {
+                overflow: visible !important;
+                margin: 0.35rem 0 !important;
+            }
+            table.classified-table {
+                min-width: 100% !important;
+                width: 100% !important;
+                break-inside: auto !important;
+                page-break-inside: auto !important;
+            }
+            thead {
+                display: table-header-group !important;
+            }
+            tr {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+            }
+            h1, h2, .module-header {
+                break-after: avoid !important;
+                page-break-after: avoid !important;
+            }
+            li {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="notes-layout">
+
+        <!-- HEADER -->
+        <div class="header-plain full-width">
+            <div class="module-header" style="border-bottom: 0.1875rem solid var(--primary-color);">
+                <h1 data-note-id="head_mod1">Deep Dive: Module 1 — Set Cardinality &amp; Countability</h1>
+            </div>
+        </div>
+
+        <!-- SECTION 1 -->
+        <div class="section-card full-width">
+            <div class="module-header">
+                <h2 data-note-id="head_sec1">1. Mathematical Definitions &amp; Fundamental Concepts</h2>
+            </div>
+            <div class="table-wrapper">
+                <table data-note-id="block_sec1_table" class="classified-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">Term / Concept</th>
+                            <th style="width: 45%;">Precise Definition &amp; Conditions</th>
+                            <th style="width: 30%;">Key Properties / Mathematical Notation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Countable Set</strong></td>
+                            <td>A set \(S\) is defined as countable if it satisfies one of three conditions:<br>1. \(S = \emptyset\) (Empty set).<br>2. \(S\) is a finite set.<br>3. \(S\) is a countably infinite set.</td>
+                            <td>Covers both finite and countably infinite sets.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Countably Infinite (Denumerable) Set</strong></td>
+                            <td>An infinite set \(S\) is countably infinite if it is in a one-to-one correspondence (bijective equivalence) with the set of natural numbers \(\mathbb{N}\).</td>
+                            <td>Written as \(S \sim \mathbb{N}\)<br>&bull; Cardinality: \(|S| = |\mathbb{N}| = \aleph_0\) (Aleph-null)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Uncountable Set</strong></td>
+                            <td>A set \(S\) is uncountable if it is not countable.</td>
+                            <td>&bull; Cardinality Condition: \(|S| > \aleph_0\)<br>&bull; Denoted as continuum cardinality \(c = 2^{\aleph_0}\)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Cardinal Equivalence</strong></td>
+                            <td>Two sets \(A\) and \(B\) have the same cardinality if and only if there exists a bijective function between them.</td>
+                            <td>\(|A| = |B| \iff \exists f: A \to B\) that is both \(1-1\) (injective) and onto (surjective).</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Algebraic &amp; Transcendental</strong></td>
+                            <td>&bull; <strong>Algebraic Number:</strong> Any real or complex number that is the root of a non-zero polynomial with rational coefficients.<br>&bull; <strong>Transcendental Number:</strong> Any real number that is not algebraic.</td>
+                            <td>Classification of real/complex numbers based on polynomial roots.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SECTION 2 -->
+        <div class="section-card full-width">
+            <div class="module-header">
+                <h2 data-note-id="head_sec2">2. Injective &amp; Surjective Mapping Principles</h2>
+            </div>
+            <div class="table-wrapper">
+                <table data-note-id="block_sec2_table" class="classified-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">Theorem / Principle</th>
+                            <th style="width: 35%;">Core Definition &amp; Mapping Condition</th>
+                            <th style="width: 40%;">Implications, Results &amp; Mastery Points</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Theorem (Injective Bound)</strong></td>
+                            <td>Let \(A\) and \(B\) be sets, and let \(f: A \to B\) be a \(1-1\) (injective) function.</td>
+                            <td>&bull; Implication: \(|A| \le |B|\).<br>&bull; Result 1: If \(B\) is countable, then \(A\) MUST be countable.<br>&bull; Result 2: If \(A\) is uncountable, then \(B\) MUST be uncountable.<br>&bull; <strong>Mastery Point (Converse Failure):</strong> If \(A\) is countable, \(B\) is not guaranteed to be countable; if \(B\) is uncountable, \(A\) is not guaranteed to be uncountable.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Theorem (Surjective Bound)</strong></td>
+                            <td>Let \(f: A \to B\) be an onto (surjective) function.</td>
+                            <td>&bull; Implication: If \(A\) is countable, then \(B\) MUST be countable.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SECTION 3: TAXONOMY TABLE -->
+        <div class="section-card full-width">
+            <div class="module-header">
+                <h2 data-note-id="head_sec3">3. Comprehensive Taxonomy of Standard Sets</h2>
+            </div>
+            <div class="table-wrapper">
+                <table data-note-id="block_taxonomy" class="classified-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 35%;">Set Description</th>
+                            <th style="width: 20%;">Symbol</th>
+                            <th style="width: 20%;">Cardinality</th>
+                            <th style="width: 25%;">Classification</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Empty Set</strong></td>
+                            <td>$\emptyset$</td>
+                            <td>$0$</td>
+                            <td>Countable (Finite)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Natural Numbers</strong></td>
+                            <td>$\mathbb{N}$</td>
+                            <td>$\aleph_0$</td>
+                            <td>Countably Infinite</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Whole Numbers</strong></td>
+                            <td>$\mathbb{W}$</td>
+                            <td>$\aleph_0$</td>
+                            <td>Countably Infinite</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Integers</strong></td>
+                            <td>$\mathbb{Z}$</td>
+                            <td>$\aleph_0$</td>
+                            <td>Countably Infinite</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Rational Numbers</strong></td>
+                            <td>$\mathbb{Q}$</td>
+                            <td>$\aleph_0$</td>
+                            <td>Countably Infinite</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Algebraic Numbers</strong></td>
+                            <td>$\mathbb{A}$</td>
+                            <td>$\aleph_0$</td>
+                            <td>Countably Infinite</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Prime Numbers</strong></td>
+                            <td>$\mathbb{P}$</td>
+                            <td>$\aleph_0$</td>
+                            <td>Countably Infinite</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Sequence Ranges</strong></td>
+                            <td>$\{a_n\}$</td>
+                            <td>$\le \aleph_0$</td>
+                            <td>Countable</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Real Numbers</strong></td>
+                            <td>$\mathbb{R}$</td>
+                            <td>$c = 2^{\aleph_0}$</td>
+                            <td>Uncountable</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Irrational Numbers</strong></td>
+                            <td>$\mathbb{Q}^c \text{ or } \mathbb{I}$</td>
+                            <td>$c = 2^{\aleph_0}$</td>
+                            <td>Uncountable</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Transcendental Numbers</strong></td>
+                            <td>$\mathbb{T}$</td>
+                            <td>$c = 2^{\aleph_0}$</td>
+                            <td>Uncountable</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Intervals (Open/Closed/Semi)</strong></td>
+                            <td>$(a,b), [a,b]$</td>
+                            <td>$c = 2^{\aleph_0}$</td>
+                            <td>Uncountable</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Power Set of Natural Numbers</strong></td>
+                            <td>$2^\mathbb{N}$</td>
+                            <td>$c = 2^{\aleph_0}$</td>
+                            <td>Uncountable</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Power Sets of Infinite Sets</strong></td>
+                            <td>$2^\mathbb{Q}, 2^\mathbb{R}, 2^\mathbb{C}$</td>
+                            <td>$> \aleph_0$</td>
+                            <td>Uncountable</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SECTION 4 -->
+        <div class="section-card full-width">
+            <div class="module-header">
+                <h2 data-note-id="head_sec4">4. Fundamental Theorems &amp; Structural Algebra</h2>
+            </div>
+            <div class="table-wrapper">
+                <table data-note-id="block_sec4_table" class="classified-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">Structural Category</th>
+                            <th style="width: 45%;">Theorem / Principle</th>
+                            <th style="width: 30%;">Mathematical Formulations &amp; Examples</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>A. Subset &amp; Superset Theorems</strong></td>
+                            <td>&bull; <strong>Theorem (Subset Rule):</strong> Every subset of a countable set is countable.<br>&bull; <strong>Theorem (Superset Rule):</strong> Every superset of an uncountable set is uncountable.</td>
+                            <td>Relates cardinality bounds between sets and their subsets/supersets.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>B. Union &amp; Difference Theorems</strong></td>
+                            <td>&bull; <strong>Theorem (Countable Union):</strong> Countable union of countable sets is countable.<br>&bull; <strong>Theorem (Union with Uncountable):</strong> Countable \(\cup\) Uncountable is uncountable.<br>&bull; <strong>Theorem (Set Difference):</strong> Uncountable \(\setminus\) Countable is uncountable.</td>
+                            <td>Example: \(\mathbb{R} \setminus \mathbb{Q} = \mathbb{Q}^c\) (Irrational numbers are uncountable).</td>
+                        </tr>
+                        <tr>
+                            <td><strong>C. Product Theorems</strong></td>
+                            <td>&bull; Cartesian product of two countable sets is countable.<br>&bull; Infinite Cartesian product of non-singleton finite sets is uncountable.</td>
+                            <td>Expressed notationally as \(\prod_{i=1}^\infty A_i\).</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SECTION 5 -->
+        <div class="section-card">
+            <div class="module-header">
+                <h2 data-note-id="head_sec5">5. Function Spaces &amp; Power Sets</h2>
+            </div>
+            <ul>
+                <li><span class="definition-term">Function Set Cardinality:</span> For $S = \{f \mid f: A \to B\}$, total functions = $|B|^{|A|}$.<br>&bull; $f: \mathbb{N} \to \{0,1\}$ has cardinality $2^{\aleph_0} = c$ (Uncountable).<br>&bull; $f: \{0,1\} \to \mathbb{N}$ has cardinality $\aleph_0^2 = \aleph_0$ (Countably Infinite).</li>
+                <li><span class="definition-term">Power Set Theorems:</span> $P(\emptyset)$ is finite, $P(\mathbb{N})$ is uncountable. No set has a power set of cardinality $\aleph_0$. Finite subsets of $\mathbb{N}$ are countable, while arbitrary subsets ($P(\mathbb{N})$) are uncountable.</li>
+            </ul>
+        </div>
+
+        <!-- SECTION 6 -->
+        <div class="section-card">
+            <div class="module-header">
+                <h2 data-note-id="head_sec6">6. Exam Recognition Patterns &amp; Shortcut Tricks</h2>
+            </div>
+            <ul>
+                <li><span class="definition-term">Recognition Pattern 1 (\(\mathbb{R}^n\) Algebraic Constraints):</span> Sets defined by linear constraints in rational coordinates are subsets of $\mathbb{Q}^n$ (countable); continuous real equations in $\mathbb{R}^2$ or $\mathbb{R}^n$ form continuum lines (uncountable).</li>
+                <li><span class="definition-term">Recognition Pattern 2 (Recurring Decimals vs Irrational Constants):</span> Recurring decimals form subsets of $\mathbb{Q}$ (countable). Primes mapping $\mathbb{P} \times \mathbb{P}$ form countable sets.</li>
+            </ul>
+        </div>
+
+        <!-- SECTION 7: MATRIX TABLE -->
+        <div class="section-card full-width">
+            <div class="module-header">
+                <h2 data-note-id="head_sec7">7. Compact Revision Matrix: Module 1 Operations</h2>
+            </div>
+            <div class="table-wrapper">
+                <table data-note-id="block_matrix" class="classified-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">Operation / Expression</th>
+                            <th style="width: 30%;">Conditions</th>
+                            <th style="width: 25%;">Resulting Cardinality</th>
+                            <th style="width: 20%;">Source Reference</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>$A \cup B$</td>
+                            <td>$A, B$ countable</td>
+                            <td>Countable</td>
+                            <td>Standard Union</td>
+                        </tr>
+                        <tr>
+                            <td>$A \cup B$</td>
+                            <td>$A$ countable, $B$ uncountable</td>
+                            <td>Uncountable</td>
+                            <td>Mixed Union</td>
+                        </tr>
+                        <tr>
+                            <td>$A \cap B$</td>
+                            <td>$A, B$ countable</td>
+                            <td>Countable</td>
+                            <td>Intersection Rule</td>
+                        </tr>
+                        <tr>
+                            <td>$A \times B$</td>
+                            <td>$A, B$ countable</td>
+                            <td>Countable</td>
+                            <td>Cartesian Product</td>
+                        </tr>
+                        <tr>
+                            <td>$\prod_{i=1}^n A_i$</td>
+                            <td>$n \in \mathbb{N}, A_i \text{ countable}$</td>
+                            <td>Countable</td>
+                            <td>Finite Product</td>
+                        </tr>
+                        <tr>
+                            <td>$\prod_{i=1}^\infty A_i$</td>
+                            <td>$|A_i| \ge 2$</td>
+                            <td>Uncountable</td>
+                            <td>Infinite Product</td>
+                        </tr>
+                        <tr>
+                            <td>$A \setminus B$</td>
+                            <td>$A \text{ uncountable}, B \text{ countable}$</td>
+                            <td>Uncountable</td>
+                            <td>Set Difference</td>
+                        </tr>
+                        <tr>
+                            <td>$f: A \to B ; (1-1)$</td>
+                            <td>$B$ countable</td>
+                            <td>$A$ is Countable</td>
+                            <td>Injective Bound</td>
+                        </tr>
+                        <tr>
+                            <td>$f: A \to B ; (1-1)$</td>
+                            <td>$A$ uncountable</td>
+                            <td>$B$ is Uncountable</td>
+                            <td>Injective Bound</td>
+                        </tr>
+                        <tr>
+                            <td>$B^A$</td>
+                            <td>$|A|=\aleph_0, |B|=2$</td>
+                            <td>Uncountable $(2^{\aleph_0})$</td>
+                            <td>Function Space</td>
+                        </tr>
+                        <tr>
+                            <td>$B^A$</td>
+                            <td>$|A|=2, |B|=\aleph_0$</td>
+                            <td>Countable $(\aleph_0^2)$</td>
+                            <td>Function Space</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

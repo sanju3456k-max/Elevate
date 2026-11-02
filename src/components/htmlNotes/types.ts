@@ -25,8 +25,11 @@ export interface HtmlNotesStudioProps {
     onCreateNewProject: () => void; 
     onImportClick: () => void; 
     onAddFileToProject?: (projectId?: string) => void;
+    onImportDroppedFile?: (file: File) => void;
   }) => void;
   onViewChange?: (view: 'home' | 'editor') => void;
+  searchQuery?: string;
+  onClearSearch?: () => void;
 }
 
 export type ViewMode = 'split' | 'editor' | 'preview';

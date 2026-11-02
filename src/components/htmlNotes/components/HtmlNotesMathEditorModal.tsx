@@ -478,11 +478,11 @@ export const HtmlNotesMathEditorModal: React.FC<HtmlNotesMathEditorModalProps> =
 
   return (
     <div 
-      className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+      className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm m3-fade-in"
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-4xl bg-white dark:bg-[#16181d] rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-800 flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-150 text-slate-800 dark:text-zinc-100"
+        className="w-full max-w-4xl bg-white dark:bg-[#16181d] rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-800 flex flex-col max-h-[92vh] overflow-hidden m3-dialog-in text-slate-800 dark:text-zinc-100"
         onClick={(e) => e.stopPropagation()}
       >
         {/* HEADER */}

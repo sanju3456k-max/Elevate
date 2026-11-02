@@ -48,12 +48,12 @@ export const HtmlNotesVersionModal: React.FC<HtmlNotesVersionModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center p-4 animate-in fade-in duration-150"
+      className="fixed inset-0 z-[110] flex items-center justify-center p-4 m3-fade-in"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(6px)' }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl bg-white dark:bg-[#0b0c10] rounded-2xl shadow-2xl border border-slate-200/80 dark:border-zinc-800 overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150 text-[#1f1f1f] dark:text-[#e3e3e3]"
+        className="w-full max-w-2xl bg-white dark:bg-[#0b0c10] rounded-2xl shadow-2xl border border-slate-200/80 dark:border-zinc-800 overflow-hidden flex flex-col max-h-[85vh] m3-dialog-in text-[#1f1f1f] dark:text-[#e3e3e3]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* HEADER */}

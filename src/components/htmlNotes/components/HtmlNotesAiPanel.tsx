@@ -608,13 +608,13 @@ export const HtmlNotesAiPanel: React.FC<HtmlNotesAiPanelProps> = ({
       {/* Mobile Backdrop Sheet (Only shown on small mobile screens, NO backdrop/blur on desktop/tablet) */}
       <div 
         onClick={onClose}
-        className="md:hidden fixed inset-0 bg-black/40 z-40 animate-in fade-in duration-200"
+        className="md:hidden fixed inset-0 bg-black/40 z-40 m3-fade-in"
       />
 
       {/* Parallel Side-Tab / Docked Panel on Desktop/Tablet with Resizable Frame */}
       <aside 
         style={{ width: typeof window !== 'undefined' && window.innerWidth >= 768 ? `${activePanelWidth}px` : '100%' }}
-        className="fixed inset-y-0 right-0 z-50 w-full bg-white dark:bg-[#141619] shadow-2xl border-l border-slate-200 dark:border-zinc-800 flex flex-col transition-none animate-in slide-in-from-right duration-200 overflow-hidden h-[100dvh] [text-rendering:optimizeLegibility] [-webkit-font-smoothing:antialiased] [-moz-osx-font-smoothing:grayscale]"
+        className="fixed inset-y-0 right-0 z-50 w-full bg-white dark:bg-[#141619] shadow-2xl border-l border-slate-200 dark:border-zinc-800 flex flex-col transition-none m3-slide-right-in overflow-hidden h-[100dvh] [text-rendering:optimizeLegibility] [-webkit-font-smoothing:antialiased] [-moz-osx-font-smoothing:grayscale]"
       >
         {/* Resizable Splitter Handle (Desktop / Tablet) */}
         <div

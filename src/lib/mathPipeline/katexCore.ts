@@ -7,10 +7,9 @@
 import katex from 'katex';
 
 export const PIPELINE_KATEX_MACROS: Record<string, string> = {
-  '\\ne': '\\mathrel{≠}',
-  '\\neq': '\\mathrel{≠}',
-  '\\nequal': '\\mathrel{≠}',
-  '\\not=': '\\mathrel{≠}',
+  '\\ne': '\\neq',
+  '\\nequal': '\\neq',
+  '\\not=': '\\neq',
   '\\degree': '^\\circ',
   '\\deg': '^\\circ',
   '\\le': '\\leq',
@@ -22,10 +21,23 @@ export const PIPELINE_KATEX_MACROS: Record<string, string> = {
   '\\rank': '\\operatorname{rank}',
   '\\gcd': '\\operatorname{gcd}',
   '\\lcm': '\\operatorname{lcm}',
+  '\\sgn': '\\operatorname{sgn}',
+  '\\cosec': '\\csc',
+  '\\arccot': '\\operatorname{arccot}',
+  '\\arcsec': '\\operatorname{arcsec}',
+  '\\arccsc': '\\operatorname{arccsc}',
+  '\\sech': '\\operatorname{sech}',
+  '\\csch': '\\operatorname{csch}',
   '\\abs': '\\left|#1\\right|',
   '\\norm': '\\left\\|#1\\right\\|',
   '\\grad': '\\nabla',
   '\\curl': '\\nabla \\times',
+  '\\var': '\\operatorname{Var}',
+  '\\cov': '\\operatorname{Cov}',
+  '\\diag': '\\operatorname{diag}',
+  '\\sen': '\\sin',
+  '\\tg': '\\tan',
+  '\\cotg': '\\cot',
   '\\bold': '\\mathbf{#1}',
   '\\bm': '\\boldsymbol{#1}',
   '\\implies': '\\Longrightarrow',
@@ -35,6 +47,8 @@ export const PIPELINE_KATEX_MACROS: Record<string, string> = {
   '\\Z': '\\mathbb{Z}',
   '\\C': '\\mathbb{C}',
   '\\Q': '\\mathbb{Q}',
+  '\\oiint': '\\oint\\!\\!\\!\\oint',
+  '\\oiiint': '\\oint\\!\\!\\!\\oint\\!\\!\\!\\oint',
 };
 
 const LRU_CACHE = new Map<string, string>();
@@ -67,7 +81,7 @@ function autoScaleTallDelimiters(str: string, openChar: string, closeChar: strin
       while (j < str.length && depth > 0) {
         if (str[j] === '\\') {
           const rem = str.slice(j);
-          if (/^\\(?:frac|dfrac|cfrac|matrix|bmatrix|pmatrix|vmatrix|Vmatrix|cases|array|int|iint|iiint|oint|sum|prod|lim)\b/.test(rem)) {
+          if (/^\\(?:frac|dfrac|cfrac|tfrac|matrix|bmatrix|pmatrix|vmatrix|Vmatrix|cases|array|int|iint|iiint|oint|oiint|oiiint|idotsint|sum|prod|lim)\b/.test(rem)) {
             hasTall = true;
           }
           // Move past the backslash and command word, or single symbol escape
@@ -107,9 +121,10 @@ function autoScaleTallDelimiters(str: string, openChar: string, closeChar: strin
 
 /**
  * Pre-processes LaTeX math string:
- * - Fixes forward slash command typos (/frac -> \frac, /lim -> \lim)
+ * - Fixes forward slash command typos (/frac -> \frac, /int -> \int, /lim -> \lim)
+ * - Converts raw unicode mathematical symbols (∫, ∬, ∭, ∮, ∑, ∏, √, ∞, ≠, ≤, ≥, etc.) to standard LaTeX commands
  * - Auto-promotes brackets around fractions & matrices to full-height \left / \right delimiters
- * - Auto-injects \displaystyle for fractions, limits, integrals, and sums if not explicitly styled
+ * - Auto-injects \displaystyle for all integration signs, fractions, limits, sums, and matrices so integrals and limits render at full truth height
  */
 export function normalizeLatexMath(rawMath: string, isDisplay: boolean): string {
   let s = (rawMath || '').trim();
@@ -117,6 +132,50 @@ export function normalizeLatexMath(rawMath: string, isDisplay: boolean): string 
 
   // 1. Fix forward slash command typos (common user typing errors)
   s = s.replace(/\/(displaystyle|textstyle|frac|sqrt|sum|int|lim|infty|partial|mathbf|mathrm|text)\b/g, '\\$1');
+
+  // 1b. Fix double-escaped backslashes before known LaTeX math commands (e.g. \\neq -> \neq, \\int -> \int)
+  s = s.replace(/\\\\(?=(?:neq|ne|nequal|leq|le|geq|ge|pm|mp|times|cdot|div|approx|equiv|sim|propto|parallel|perp|in|notin|subset|subseteq|cap|cup|forall|exists|partial|nabla|sqrt|frac|dfrac|cfrac|tfrac|sum|prod|int|iint|iiint|oint|oiint|oiiint|idotsint|lim|sin|cos|tan|cot|sec|csc|cosec|log|ln|exp|det|deg|degree|circ|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|pi|sigma|phi|omega|left|right|text|mathrm|mathbf)\b)/g, '\\');
+
+  // 1c. Convert unicode mathematical symbols to standard LaTeX commands
+  s = s.replace(/\u222B/g, ' \\int ');    // ∫
+  s = s.replace(/\u222C/g, ' \\iint ');   // ∬
+  s = s.replace(/\u222D/g, ' \\iiint ');  // ∭
+  s = s.replace(/\u222E/g, ' \\oint ');   // ∮
+  s = s.replace(/\u2211/g, ' \\sum ');    // ∑
+  s = s.replace(/\u220F/g, ' \\prod ');   // ∏
+  s = s.replace(/\u221E/g, ' \\infty ');  // ∞
+  s = s.replace(/\u2260/g, ' \\neq ');    // ≠
+  s = s.replace(/!=/g, ' \\neq ');
+  s = s.replace(/<>/g, ' \\neq ');
+  s = s.replace(/\u2264/g, ' \\leq ');    // ≤
+  s = s.replace(/<=/g, ' \\leq ');
+  s = s.replace(/\u2265/g, ' \\geq ');    // ≥
+  s = s.replace(/>=/g, ' \\geq ');
+  s = s.replace(/\u00D7/g, ' \\times ');  // ×
+  s = s.replace(/\u00F7/g, ' \\div ');    // ÷
+  s = s.replace(/\u00B1/g, ' \\pm ');     // ±
+  s = s.replace(/\u2213/g, ' \\mp ');     // ∓
+  s = s.replace(/\u2248/g, ' \\approx '); // ≈
+  s = s.replace(/\u2261/g, ' \\equiv ');  // ≡
+  s = s.replace(/\u2208/g, ' \\in ');     // ∈
+  s = s.replace(/\u2209/g, ' \\notin ');  // ∉
+  s = s.replace(/\u2282/g, ' \\subset '); // ⊂
+  s = s.replace(/\u2286/g, ' \\subseteq '); // ⊆
+  s = s.replace(/\u222A/g, ' \\cup ');    // ∪
+  s = s.replace(/\u2229/g, ' \\cap ');    // ∩
+  s = s.replace(/\u2200/g, ' \\forall '); // ∀
+  s = s.replace(/\u2203/g, ' \\exists '); // ∃
+  s = s.replace(/\u2202/g, ' \\partial '); // ∂
+  s = s.replace(/\u2207/g, ' \\nabla ');  // ∇
+  s = s.replace(/\u2220/g, ' \\angle ');  // ∠
+  s = s.replace(/\u22A5/g, ' \\perp ');   // ⊥
+  s = s.replace(/\u2225/g, ' \\parallel ');// ∥
+  s = s.replace(/\u2192/g, ' \\to ');     // →
+  s = s.replace(/\u21D2/g, ' \\implies '); // ⇒
+  s = s.replace(/\u21D4/g, ' \\iff ');     // ⇔
+
+  // 1d. Spacing before differentials at the end of integrals: e.g. f(x)dx -> f(x) \, dx
+  s = s.replace(/([0-9a-zA-Z\)\}\]\|])\s*(d[xytuvz]|d\\theta|d\\phi)\b/g, '$1 \\, $2');
 
   // 2. Promote [ \begin{matrix} ... \end{matrix} ] to \begin{bmatrix} ... \end{bmatrix}
   s = s.replace(/(?:^|[^\\])\[\s*\\begin\{matrix\}([\s\S]*?)\\end\{matrix\}\s*\]/g, '\\begin{bmatrix}$1\\end{bmatrix}');
@@ -128,9 +187,10 @@ export function normalizeLatexMath(rawMath: string, isDisplay: boolean): string 
   s = autoScaleTallDelimiters(s, '[', ']', '\\left[', '\\right]');
   s = autoScaleTallDelimiters(s, '\\{', '\\}', '\\left\\{', '\\right\\}');
 
-  // 4. Inject \displaystyle for inline equations that contain tall operators (fractions, sums, integrals, limits, matrices)
+  // 4. Inject \displaystyle for all integration signs, fractions, sums, limits, matrices
+  // This guarantees integrals (\int, \iint, \iiint, \oint) render at full display height with beautiful tall symbols
   if (!isDisplay && !s.startsWith('\\displaystyle') && !s.startsWith('\\textstyle')) {
-    if (/\\(?:frac|dfrac|cfrac|int|iint|iiint|oint|sum|prod|lim|matrix|bmatrix|pmatrix|vmatrix|Vmatrix|cases|array)\b/.test(s)) {
+    if (/\\(?:frac|dfrac|cfrac|tfrac|int|iint|iiint|oint|oiint|oiiint|idotsint|sum|prod|coprod|lim|limsup|liminf|bigcup|bigcap|matrix|bmatrix|pmatrix|vmatrix|Vmatrix|cases|array)\b/.test(s)) {
       s = `\\displaystyle ${s}`;
     }
   }
