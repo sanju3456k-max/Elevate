@@ -21,8 +21,8 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs = 25000, errorMsg =
   }
 }
 
-export function getAiClient(): GoogleGenAI {
-  const apiKey = process.env.GEMINI_API_KEY;
+export function getAiClient(overrideApiKey?: string): GoogleGenAI {
+  const apiKey = overrideApiKey || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("Gemini API key is not configured");
   }

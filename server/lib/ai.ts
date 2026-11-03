@@ -10,8 +10,8 @@ export const withTimeout = <T>(promise: Promise<T>, timeoutMs = 15000, errorMsg 
   }) as Promise<T>;
 };
 
-export const getAiClient = () => {
-  const apiKey = process.env.GEMINI_API_KEY;
+export const getAiClient = (overrideApiKey?: string) => {
+  const apiKey = overrideApiKey || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("Gemini API key is not configured");
   }
