@@ -1,4 +1,4 @@
-// api/index.ts
+// server/api.ts
 import express from "express";
 import dotenv from "dotenv";
 
@@ -2998,7 +2998,7 @@ router8.use("/chatbot", chatbot_default);
 router8.use("/", test_default);
 var routes_default = router8;
 
-// api/index.ts
+// server/api.ts
 dotenv.config();
 var app = express();
 app.use(express.json({ limit: "50mb" }));
@@ -3008,7 +3008,7 @@ app.get(["/health", "/api/health"], (_req, res) => {
 });
 app.use("/api", routes_default);
 app.use("/", routes_default);
-var index_default = app;
+var api_default = app;
 export {
-  index_default as default
+  api_default as default
 };

@@ -11,9 +11,9 @@ try {
   console.log('2. Bundling server.ts...');
   execSync('npx esbuild server.ts --bundle --platform=node --format=esm --outdir=dist --packages=external', { stdio: 'inherit' });
 
-  console.log('2b. Bundling Vercel serverless function api/index.ts...');
-  if (fs.existsSync('api/index.ts')) {
-    execSync('npx esbuild api/index.ts --bundle --platform=node --format=esm --outfile=api/index.js --packages=external', { stdio: 'inherit' });
+  console.log('2b. Bundling Vercel serverless function server/api.ts...');
+  if (fs.existsSync('server/api.ts')) {
+    execSync('npx esbuild server/api.ts --bundle --platform=node --format=esm --outfile=api/index.js --packages=external', { stdio: 'inherit' });
   }
 
   // Create 404.html fallback for GitHub Pages SPA routing

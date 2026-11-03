@@ -28,7 +28,7 @@
     "scripts",
     "vite.config.ts",
     "server.ts",
-    "api"
+    "server"
   ],
   "exclude": [
     "node_modules",
