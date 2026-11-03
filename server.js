@@ -112,8 +112,8 @@ var withTimeout = (promise, timeoutMs = 15e3, errorMsg = "Gemini request timed o
     if (timer) clearTimeout(timer);
   });
 };
-var getAiClient = () => {
-  const apiKey = process.env.GEMINI_API_KEY;
+var getAiClient = (overrideApiKey) => {
+  const apiKey = overrideApiKey || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("Gemini API key is not configured");
   }
@@ -1955,8 +1955,8 @@ async function withTimeout2(promise, timeoutMs = 25e3, errorMsg = "Gemini reques
     clearTimeout(timer);
   }
 }
-function getAiClient2() {
-  const apiKey = process.env.GEMINI_API_KEY;
+function getAiClient2(overrideApiKey) {
+  const apiKey = overrideApiKey || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("Gemini API key is not configured");
   }
@@ -2942,17 +2942,20 @@ router6.post("/explain-math-question", async (req, res) => {
 QUESTION:
 ${questionText}
 
-${Array.isArray(options) && options.length > 0 ? `OPTIONS:\n${options.map((opt, i) => `(${String.fromCharCode(65 + i)}) ${opt}`).join("\n")}\n` : ""}
+${Array.isArray(options) && options.length > 0 ? `OPTIONS:
+${options.map((opt, i) => `(${String.fromCharCode(65 + i)}) ${opt}`).join("\n")}
+` : ""}
 STUDENT'S ANSWER: ${userAnswer || "Unattempted"}
 CORRECT ANSWER: ${correctAnswer || "Not provided"}
-${explanation ? `REFERENCE SOLUTION:\n${explanation}\n` : ""}
+${explanation ? `REFERENCE SOLUTION:
+${explanation}
+` : ""}
 
 INSTRUCTIONS:
 1. Explain step-by-step why the correct answer is right using clear mathematical derivation and LaTeX notation ($...$ inline, $$...$$ display).
 2. If the student selected an incorrect option or left it unattempted, briefly explain why common pitfalls lead to that mistake.
 3. Provide a helpful formula or quick tip to solve similar problems in future tests.
 4. Keep the tone encouraging, structured, and easy to read.`;
-
     const response = await generateWithFallback(ai, {
       contents: [{ role: "user", parts: [{ text: prompt }] }]
     });
@@ -2961,11 +2964,16 @@ INSTRUCTIONS:
       return res.json({ explanation: explanationText });
     }
     return res.json({
-      explanation: `**Correct Answer:** \`${correctAnswer}\`\n\n**Step-by-Step Explanation:**\n${explanation || "Review the core definitions and formulas for this question."}`
+      explanation: `**Correct Answer:** \`${correctAnswer}\`
+
+**Step-by-Step Explanation:**
+${explanation || "Review the core definitions and formulas for this question."}`
     });
   } catch (err) {
     console.error("Error in /api/explain-math-question:", err);
-    const fallback = req.body?.explanation || `**Correct Answer:** \`${req.body?.correctAnswer || "N/A"}\`\n\nApply foundational theorems and identities to verify this solution.`;
+    const fallback = req.body?.explanation || `**Correct Answer:** \`${req.body?.correctAnswer || "N/A"}\`
+
+Apply foundational theorems and identities to verify this solution.`;
     return res.json({ explanation: fallback });
   }
 });

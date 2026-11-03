@@ -5,6 +5,27 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Splash Screen Initial Load Animation */
+@keyframes splash-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.02); opacity: 0.94; }
+}
+.splash-logo-anim {
+  animation: splash-pulse 1.8s ease-in-out infinite;
+}
+@media (prefers-color-scheme: dark) {
+  #app-initial-splash {
+    background-color: #0b0c10 !important;
+    color: #e3e3e3 !important;
+  }
+  #app-initial-splash .splash-text {
+    color: #e3e3e3 !important;
+  }
+  #app-initial-splash .splash-sub {
+    color: #9aa0a6 !important;
+  }
+}
+
 :root {
   --color-primary: #0b57d0;
   --color-primary-contrast: #ffffff;
