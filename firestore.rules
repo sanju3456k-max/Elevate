@@ -16,9 +16,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Health/connection check
+    // Health/connection check (Read-only ping, no writes permitted)
     match /test/{docId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if false;
     }
 
     // User profile documents and all subcollections (notes, sessions, settings, htmlNotesStudio, etc.)
@@ -46,16 +47,16 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
-    // Math Tests: Deprecated legacy collection. Only delete is permitted for cleanup.
+    // Math Tests: Deprecated legacy collection. Only owner delete is permitted for cleanup.
     match /tests/{testId} {
       allow read, create, update: if false;
-      allow delete: if isSignedIn();
+      allow delete: if isSignedIn() && (resource == null || resource.data.authorId == request.auth.uid || resource.data.userId == request.auth.uid);
     }
 
-    // Test Attempts: Deprecated legacy collection. Only delete is permitted for cleanup.
+    // Test Attempts: Deprecated legacy collection. Only owner delete is permitted for cleanup.
     match /attempts/{attemptId} {
       allow read, create, update: if false;
-      allow delete: if isSignedIn();
+      allow delete: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
     }
   }
 }

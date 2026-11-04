@@ -2984,18 +2984,78 @@ router7.use("/image", image_default);
 router7.use("/test", test_default);
 var ai_default = router7;
 
+// server/middleware/rateLimiter.ts
+function createRateLimiter(options) {
+  const {
+    windowMs,
+    max,
+    message = "Too many requests. Please slow down and try again shortly."
+  } = options;
+  const hits = /* @__PURE__ */ new Map();
+  const cleanupTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [ip, record] of hits.entries()) {
+      if (now > record.resetTime) {
+        hits.delete(ip);
+      }
+    }
+  }, 3 * 60 * 1e3);
+  if (cleanupTimer.unref) {
+    cleanupTimer.unref();
+  }
+  return (req, res, next) => {
+    const forwarded = req.headers["x-forwarded-for"];
+    const ip = (typeof forwarded === "string" ? forwarded.split(",")[0].trim() : Array.isArray(forwarded) ? forwarded[0] : req.socket?.remoteAddress) || "127.0.0.1";
+    const now = Date.now();
+    let record = hits.get(ip);
+    if (!record || now > record.resetTime) {
+      record = {
+        count: 1,
+        resetTime: now + windowMs
+      };
+      hits.set(ip, record);
+    } else {
+      record.count += 1;
+    }
+    const remaining = Math.max(0, max - record.count);
+    const retryAfterSec = Math.ceil((record.resetTime - now) / 1e3);
+    res.setHeader("X-RateLimit-Limit", max.toString());
+    res.setHeader("X-RateLimit-Remaining", remaining.toString());
+    res.setHeader("X-RateLimit-Reset", Math.ceil(record.resetTime / 1e3).toString());
+    if (record.count > max) {
+      res.setHeader("Retry-After", retryAfterSec.toString());
+      res.status(429).json({
+        error: message,
+        retryAfter: retryAfterSec
+      });
+      return;
+    }
+    next();
+  };
+}
+
 // server/routes/index.ts
 var router8 = Router8();
-router8.use("/drive", drive_default);
-router8.use("/share", share_default);
-router8.use("/ai", ai_default);
-router8.use("/", image_default);
-router8.use("/ai", notes_default);
-router8.use("/gemini/chatbot", chatbot_default);
-router8.use("/gemini", chatbot_default);
-router8.use("/gemini", notes_default);
-router8.use("/chatbot", chatbot_default);
-router8.use("/", test_default);
+var aiRateLimiter = createRateLimiter({
+  windowMs: 60 * 1e3,
+  max: 60,
+  message: "AI service request limit reached. Please wait a minute before making more requests."
+});
+var generalRateLimiter = createRateLimiter({
+  windowMs: 60 * 1e3,
+  max: 180,
+  message: "Too many requests. Please slow down and try again in a moment."
+});
+router8.use("/drive", generalRateLimiter, drive_default);
+router8.use("/share", generalRateLimiter, share_default);
+router8.use("/ai", aiRateLimiter, ai_default);
+router8.use("/", aiRateLimiter, image_default);
+router8.use("/ai", aiRateLimiter, notes_default);
+router8.use("/gemini/chatbot", aiRateLimiter, chatbot_default);
+router8.use("/gemini", aiRateLimiter, chatbot_default);
+router8.use("/gemini", aiRateLimiter, notes_default);
+router8.use("/chatbot", aiRateLimiter, chatbot_default);
+router8.use("/", aiRateLimiter, test_default);
 var routes_default = router8;
 
 // server/api.ts

@@ -58,8 +58,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Bypass Firebase API or telemetry calls
-  if (request.url.includes('firestore.googleapis.com') || request.url.includes('identitytoolkit.googleapis.com')) {
+  // Bypass backend API calls, Firebase API, or telemetry calls
+  if (
+    request.url.includes('/api/') ||
+    request.url.includes('firestore.googleapis.com') || 
+    request.url.includes('identitytoolkit.googleapis.com')
+  ) {
     return;
   }
 

@@ -87,6 +87,7 @@ import '@material/web/elevation/elevation.js';
 import '@material/web/icon/icon.js';
 
 import App from './App.tsx';
+import { RootErrorBoundary } from './components/RootErrorBoundary.tsx';
 import './index.css';
 import { registerServiceWorker } from './serviceWorkerRegistration';
 import { applyM3ThemeToDOM } from './lib/m3Theme';
@@ -101,7 +102,9 @@ const rootElement = document.getElementById('root');
 if (rootElement) {
   createRoot(rootElement).render(
     <StrictMode>
-      <App />
+      <RootErrorBoundary>
+        <App />
+      </RootErrorBoundary>
     </StrictMode>,
   );
 }
