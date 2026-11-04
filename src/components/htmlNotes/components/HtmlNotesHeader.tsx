@@ -16,7 +16,7 @@ import {
   Plus,
   Cloud,
   RefreshCw,
-  Sparkles,
+  Bot,
   History,
   Maximize2,
   Minimize2,
@@ -473,10 +473,10 @@ const HtmlNotesHeaderComponent: React.FC<HtmlNotesHeaderProps> = ({
                     ? 'bg-[#0b57d0] hover:bg-[#0842a0] text-white shadow-[0_2px_6px_rgba(11,87,208,0.25)] font-bold'
                     : 'bg-slate-100 hover:bg-slate-200 dark:bg-[#32353c] dark:hover:bg-[#3f424c] text-slate-700 dark:text-zinc-200'
                 }`}
-                title="AI Studio Project Assistant (Co-Developer & File Maintainer)"
+                title="Theta AI Note Assistant"
               >
-                <Sparkles className={`w-3.5 h-3.5 shrink-0 ${isAiAssistantOpen ? 'text-white' : 'text-[#0b57d0] dark:text-[#a8c7fa]'}`} />
-                <span className="hidden sm:inline">AI Studio</span>
+                <Bot className={`w-3.5 h-3.5 shrink-0 ${isAiAssistantOpen ? 'text-white' : 'text-[#0b57d0] dark:text-[#a8c7fa]'}`} />
+                <span className="hidden sm:inline">Theta</span>
               </button>
             )}
 
