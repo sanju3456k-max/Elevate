@@ -346,7 +346,7 @@ export function freeUpLocalStorageQuota(userId?: string | null): void {
           const lightenedQ = parsed.map((t: any) => {
             if (t.data && typeof t.data === 'object') {
               const cleanData = { ...t.data };
-              if (cleanData.omrScannedImageUrl && cleanData.omrScannedImageUrl.length > 5000) {
+              if (cleanData.omrScannedImageUrl && cleanData.omrScannedImageUrl.length > 500000) {
                 delete cleanData.omrScannedImageUrl;
               }
               return { ...t, data: cleanData };
@@ -358,15 +358,15 @@ export function freeUpLocalStorageQuota(userId?: string | null): void {
       }
     } catch {}
 
-    // 5. Purge large scanned camera images from saved attempts in localStorage to free up MBs of quota
+    // 5. Purge large uncompressed camera images from saved attempts in localStorage to free up MBs of quota
     const attemptsKey = isGuest ? GUEST_STORAGE_ATTEMPTS_KEY : `math_mock_attempts_account_${userId}`;
     const rawAttempts = localStorage.getItem(attemptsKey);
-    if (rawAttempts && rawAttempts.length > 300000) {
+    if (rawAttempts && rawAttempts.length > 1500000) {
       try {
         const parsedAttempts = JSON.parse(rawAttempts);
         if (Array.isArray(parsedAttempts)) {
           const cleanedAttempts = parsedAttempts.map((a: any) => {
-            if (a.omrScannedImageUrl && a.omrScannedImageUrl.length > 5000) {
+            if (a.omrScannedImageUrl && a.omrScannedImageUrl.length > 500000) {
               const { omrScannedImageUrl, ...rest } = a;
               return rest;
             }
@@ -1103,7 +1103,7 @@ export function saveScopedAttempts(userId: string | null | undefined, attempts: 
 
     // 3. Best-effort mirror to localStorage (lightened version to avoid localStorage quota crash)
     const lightened = pruned.map((att) => {
-      if (att.omrScannedImageUrl && att.omrScannedImageUrl.length > 5000) {
+      if (att.omrScannedImageUrl && att.omrScannedImageUrl.length > 500000) {
         const { omrScannedImageUrl, ...rest } = att;
         return rest as TestAttempt;
       }

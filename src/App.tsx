@@ -172,6 +172,7 @@ export default function App() {
 
   const [returnTabAfterResults, setReturnTabAfterResults] = useState<ActiveTab>('tests');
   const [omrInitialTab, setOmrInitialTab] = useState<'print' | 'scan' | 'keys' | 'review'>('print');
+  const [omrSessionKey, setOmrSessionKey] = useState<string>(() => `omr_session_${Date.now()}`);
 
   // Instant synchronous auth hydration from local cache to prevent awakening/flickering effect
   const [cachedUser, setCachedUser] = useState<CachedAuthUser | null>(() => getCachedAuthUser());
@@ -991,6 +992,7 @@ export default function App() {
     setLastAttempt(null);
     setCurrentTest(fullTest);
     setOmrInitialTab(initialTab);
+    setOmrSessionKey(`omr_${test.id}_${Date.now()}`);
     setActiveTab('omr-test');
   };
 
@@ -1133,6 +1135,13 @@ export default function App() {
     // Direct real-time write to Firebase for authenticated users
     if (activeUid && activeUid !== 'anonymous' && activeUid !== 'guest-user') {
       saveAttemptToFirestore(validatedAttempt, activeUid).catch(console.warn);
+    }
+
+    const isOmr = attempt.attemptMode === 'omr' || isAttemptOmrMode(attempt) || activeTab === 'omr-test';
+    if (isOmr) {
+      // Stay on the OMR scanned page! Do NOT switch to online results view!
+      showToast(`OMR Attempt Saved & Synced! Score: ${attempt.percentage}%`, attempt.passed ? 'success' : 'info');
+      return;
     }
 
     setReturnTabAfterResults('tests');
@@ -1390,6 +1399,7 @@ export default function App() {
     const isOmr = isAttemptOmrMode(attempt);
     if (isOmr) {
       setOmrInitialTab('scan');
+      setOmrSessionKey(`omr_review_${attempt.id}`);
       setActiveTab('omr-test');
     } else {
       setActiveTab('results');
@@ -1469,16 +1479,13 @@ export default function App() {
 
       {activeTab === 'omr-test' && currentTest && (
         <OmrExamStudio
-          key={`omr-${currentTest.id}-${omrInitialTab}-${omrInitialTab === 'scan' ? (lastAttempt?.id || 'view') : 'fresh'}`}
+          key={omrSessionKey}
           test={currentTest}
           currentUser={currentUser}
           isDarkMode={isDarkMode}
           initialAttempt={omrInitialTab === 'scan' && lastAttempt?.testId === currentTest.id ? lastAttempt : null}
           initialTab={omrInitialTab}
-          onFinishTest={(attempt) => {
-            handleFinishTest(attempt);
-            setActiveTab('results');
-          }}
+          onFinishTest={handleFinishTest}
           onExit={() => {
             goBack();
           }}

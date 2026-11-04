@@ -282,7 +282,7 @@ export function cleanUserDataForFirestore(data: any): any {
 export function cleanAttemptDataForFirestore(data: any): any {
   if (!data || typeof data !== 'object') return data;
   const clean = { ...data };
-  if (typeof clean.omrScannedImageUrl === 'string' && clean.omrScannedImageUrl.length > 100000) {
+  if (typeof clean.omrScannedImageUrl === 'string' && clean.omrScannedImageUrl.length > 650000) {
     delete clean.omrScannedImageUrl;
   }
   delete clean.processedImageDataUrl;

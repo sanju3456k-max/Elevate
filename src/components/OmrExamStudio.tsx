@@ -59,6 +59,7 @@ import { QuestionDiagramViewer } from './QuestionDiagramViewer';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { triggerSystemPrint, triggerOmrSheetPrint, exportOmrSheetToPng } from '../lib/omrPrintDownload';
 import { studioTabVariants, gpuAcceleratedStyle } from '../lib/animationConfig';
+import { compressOmrSheetImage } from '../lib/imageOptimization';
 import { APP_STYLES } from './ui/AppStyles';
 
 interface OmrExamStudioProps {
@@ -397,6 +398,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
 
   // Manual Bubble Adjustment
   const handleManualBubbleChange = (questionNumber: number, optionLetter: string) => {
+    setIsSaved(false);
     setEditableDetections((prev) => {
       const updated = prev.map((d) => {
         if (d.questionNumber === questionNumber) {
@@ -467,51 +469,57 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
     };
   }, [editableDetections, test]);
 
-  // Compress OMR scanned image to lightweight JPEG thumbnail (< 50KB) to ensure instant UI loads and zero quota bloat
-  const compressOmrImage = async (url?: string): Promise<string | undefined> => {
-    if (!url) return undefined;
-    if (!url.startsWith('data:image')) return url;
-
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const maxDim = 800;
-          let w = img.width;
-          let h = img.height;
-          if (w > maxDim || h > maxDim) {
-            if (w > h) {
-              h = Math.round((h * maxDim) / w);
-              w = maxDim;
-            } else {
-              w = Math.round((w * maxDim) / h);
-              h = maxDim;
-            }
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, w, h);
-            const compressed = canvas.toDataURL('image/jpeg', 0.65);
-            resolve(compressed);
-            return;
-          }
-        } catch {
-          // fallback to original if canvas fails
-        }
-        resolve(url.length > 50000 ? url.substring(0, 50000) : url);
-      };
-      img.onerror = () => resolve(undefined);
-      img.src = url;
-    });
-  };
-
   // Finalize and Save to Storage / Firebase
   const handleFinalizeAndSubmit = async () => {
     setIsScanning(true);
-    const compressedImage = await compressOmrImage(capturedImageUrl || undefined);
+    setScanStatusMessage('Compressing and saving OMR evaluation...');
+
+    // 1. Prioritize the evaluated image containing all checking bubble marks (green/red/yellow)
+    let imageToSave = scanResult?.processedImageDataUrl;
+
+    // Fallback: If processedImageDataUrl is missing but we have clean image and detections, redraw overlay
+    if (!imageToSave && (cleanImageRef.current || capturedImageUrl) && editableDetections.length > 0) {
+      const baseSrc = cleanImageRef.current || capturedImageUrl;
+      if (baseSrc) {
+        try {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          await new Promise<void>((resolve) => {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+            img.src = baseSrc;
+          });
+          if (img.width > 0 && img.height > 0) {
+            imageToSave = redrawOmrOverlay(img, editableDetections, scanQuestionCount, scanResult?.refinedCenters);
+          }
+        } catch (err) {
+          console.warn('Fallback redraw overlay failed:', err);
+        }
+      }
+    }
+
+    if (!imageToSave) {
+      imageToSave = capturedImageUrl || undefined;
+    }
+
+    // 2. Compress the marked sheet image by ~85% while preserving 100% visual fidelity
+    let compressedImage: string | undefined = undefined;
+    if (imageToSave) {
+      try {
+        compressedImage = await compressOmrSheetImage(imageToSave, 1600, 0.82);
+      } catch (err) {
+        console.warn('Error compressing OMR sheet image, keeping original:', err);
+        compressedImage = imageToSave;
+      }
+    }
+    const finalImageUrl = compressedImage || imageToSave;
+
+    // 3. Update local state immediately so the scanned OMR card displays the marked image
+    if (finalImageUrl) {
+      setScanResult((prev) => prev ? { ...prev, processedImageDataUrl: finalImageUrl } : null);
+      setCapturedImageUrl(finalImageUrl);
+    }
+
     setIsScanning(false);
 
     const totalTimeSpent = (totalMinutes * 60) - timerSeconds;
@@ -557,7 +565,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
       timeSpentSeconds: Math.max(60, totalTimeSpent),
       answers: answersRecord,
       attemptMode: 'omr',
-      omrScannedImageUrl: compressedImage,
+      omrScannedImageUrl: finalImageUrl,
       completedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
       _syncStatus: 'pending',
@@ -1156,9 +1164,9 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
 
                       {/* Image Frame - Exact dimensions of frame as of image with straight sharp corners */}
                       <div className="w-full overflow-hidden relative flex items-center justify-center rounded-none border border-slate-300 dark:border-zinc-700/80 bg-white dark:bg-[#141619] p-0 shadow-xs">
-                        {scanResult.processedImageDataUrl && scanResult.processedImageDataUrl.trim() ? (
+                        {(scanResult.processedImageDataUrl || capturedImageUrl) ? (
                           <img
-                            src={scanResult.processedImageDataUrl}
+                            src={scanResult.processedImageDataUrl || capturedImageUrl || ''}
                             alt="Scanned OMR Sheet with Detected Bubbles"
                             className="w-full h-auto object-contain block rounded-none bg-white cursor-pointer hover:opacity-95 transition-opacity"
                             onClick={() => setIsImageFullscreen(true)}
@@ -1169,7 +1177,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                   )}
 
                   {/* Right Column: Scorecard & Solutions Table */}
-                  <div className={`space-y-4 sm:space-y-6 ${scanResult.processedImageDataUrl ? 'lg:col-span-7 xl:col-span-7' : 'lg:col-span-12'}`}>
+                  <div className={`space-y-4 sm:space-y-6 ${(scanResult.processedImageDataUrl || capturedImageUrl) ? 'lg:col-span-7 xl:col-span-7' : 'lg:col-span-12'}`}>
                     {/* Score Card */}
                     <div className="p-5 sm:p-6 rounded-[28px] bg-white dark:bg-[#1e2024] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-all duration-200 space-y-4">
                       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-zinc-800/80">
@@ -1675,7 +1683,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
           FULLSCREEN SCANNED OMR IMAGE MODAL
           ======================================================== */}
       <AnimatePresence>
-        {isImageFullscreen && scanResult?.processedImageDataUrl && (
+        {isImageFullscreen && (scanResult?.processedImageDataUrl || capturedImageUrl) && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85">
             <motion.div
               initial={{ opacity: 0, scale: 0.97, y: 6 }}
@@ -1709,9 +1717,9 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
               </div>
 
               <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-black">
-                {scanResult.processedImageDataUrl && scanResult.processedImageDataUrl.trim() ? (
+                {(scanResult?.processedImageDataUrl || capturedImageUrl) ? (
                   <img
-                    src={scanResult.processedImageDataUrl}
+                    src={scanResult?.processedImageDataUrl || capturedImageUrl || ''}
                     alt="Scanned OMR Fullscreen"
                     className="max-w-full max-h-full object-contain rounded-none shadow-none border border-zinc-800"
                   />

@@ -1533,7 +1533,7 @@ export async function saveAttemptToFirestore(attempt: TestAttempt, overrideUserI
   if (!isGlobalQuotaExceeded()) {
     try {
       const attemptCopy = { ...attemptToSave };
-      if (typeof attemptCopy.omrScannedImageUrl === 'string' && attemptCopy.omrScannedImageUrl.length > 80000) {
+      if (typeof attemptCopy.omrScannedImageUrl === 'string' && attemptCopy.omrScannedImageUrl.length > 650000) {
         delete attemptCopy.omrScannedImageUrl;
       }
       const sanitized = sanitizeForFirestore(attemptCopy);
