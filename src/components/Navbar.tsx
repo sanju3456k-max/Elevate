@@ -219,7 +219,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <div>
                   <div className="flex items-center gap-1.5">
                     <span className="font-extrabold text-base sm:text-lg text-[#1f1f1f] dark:text-[#e3e3e3] tracking-tight">
-                      MockMc
+                      PrepLens
                     </span>
                     <span className="text-[9px] sm:text-[10px] px-2 py-0.5 font-bold rounded-full bg-[#bad6ff] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff]">
                       PRO
@@ -404,7 +404,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <div>
                       <div className="flex items-center gap-1.5">
                         <span className="font-extrabold text-base text-[#1f1f1f] dark:text-[#e3e3e3] tracking-tight">
-                          MockMc
+                          PrepLens
                         </span>
                         <span className="text-[9px] px-2 py-0.5 font-bold rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff]">
                           PRO
@@ -634,7 +634,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {/* Drawer Bottom Bar: Theme Switcher */}
                 <div className="p-4 bg-white dark:bg-[#1e2024] flex items-center justify-between text-xs font-bold text-[#1f1f1f] dark:text-[#e3e3e3] shrink-0 border-t border-slate-100 dark:border-zinc-800/80 rounded-br-[24px]">
                   <div className="flex items-center gap-1.5">
-                    <span>MockMc Pro</span>
+                    <span>PrepLens Pro</span>
                     <span className="text-[10px] text-[#5e5e5e] dark:text-[#9aa0a6]">v2.0</span>
                   </div>
                   <button

@@ -4,7 +4,7 @@ import path from 'path';
 // Brand-consistent white background round icon with green summation (Sigma) matching top header logo
 // The Sigma symbol is centered and scaled down inside the ring with ample padding/margin
 const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="512" height="512">
-  <!-- Round white background circle with MockMc green accent ring -->
+  <!-- Round white background circle with PrepLens green accent ring -->
   <circle cx="12" cy="12" r="10.5" fill="#ffffff" stroke="#0da574" stroke-width="1.4" />
   
   <!-- Green summation Sigma symbol cleanly centered inside the ring with generous margin -->
@@ -94,7 +94,7 @@ async function buildIcons() {
         .png()
         .toFile(path.join(publicDir, 'icon-maskable-512.png'));
 
-      console.log('Successfully generated all MockMc premium round and maskable icons and PNGs!');
+      console.log('Successfully generated all PrepLens premium round and maskable icons and PNGs!');
     } else {
       console.log('Vector icons updated; using pre-generated PNG icons in public/.');
     }

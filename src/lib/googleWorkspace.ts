@@ -1926,7 +1926,7 @@ export async function exportNoteToVisibleGoogleDrive(
     },
     {
       title: 'Study Metadata',
-      body: `Exported from Mock MC App\nDate: ${new Date().toLocaleString()}\nCategory: ${(note.tag || 'General').toUpperCase()}${testTitle ? `\nTest: ${testTitle}` : ''}`,
+      body: `Exported from PrepLens App\nDate: ${new Date().toLocaleString()}\nCategory: ${(note.tag || 'General').toUpperCase()}${testTitle ? `\nTest: ${testTitle}` : ''}`,
       isHeading: false,
     },
   ];

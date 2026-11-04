@@ -1,7 +1,7 @@
 {
-  "name": "MockMc",
-  "short_name": "MockMc",
-  "description": "MockMc - Practice, create, and master mathematics mock tests with timed assessments, KaTeX formulas, and cross-device Google sync.",
+  "name": "PrepLens - Math Mock Tests & OMR Studio",
+  "short_name": "PrepLens",
+  "description": "PrepLens - Practice, create, and master mathematics mock tests with timed assessments, KaTeX formulas, optical OMR sheet scanning, notes studio, and cross-device Google sync.",
   "start_url": "/",
   "scope": "/",
   "id": "/",

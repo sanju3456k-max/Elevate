@@ -853,7 +853,7 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
         </main>
 
         <footer className="py-4 text-center text-xs text-[#5e5e5e] dark:text-[#9aa0a6]">
-          MockMc Assessment Platform
+          PrepLens Assessment Platform
         </footer>
       </div>
     );

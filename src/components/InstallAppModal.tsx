@@ -79,7 +79,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-bold text-[#1a1b1f] dark:text-[#e3e2e6] leading-snug">
-                Install MockMc App
+                Install PrepLens App
               </h2>
               <p className="text-xs text-[#44474f] dark:text-[#c4c6d0]">
                 Official Progressive Web App for All Devices
@@ -119,7 +119,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
                 className="w-full h-10 text-xs font-bold"
                 icon={<Download className="w-4 h-4" />}
               >
-                Install MockMc Web App
+                Install PrepLens Web App
               </M3Button>
             </div>
           ) : (
@@ -127,7 +127,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
               <div className="p-3.5 rounded-[20px] bg-[#f3edf7] dark:bg-[#1a1b1f] text-xs text-[#44474f] dark:text-[#c4c6d0] flex items-start gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0 mt-0.5" />
                 <span>
-                  Install MockMc directly from your browser options to run as a full-screen, native application with offline test access.
+                  Install PrepLens directly from your browser options to run as a full-screen, native application with offline test access.
                 </span>
               </div>
 
@@ -162,7 +162,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
                       Click or tap the Chrome <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Menu</strong> icon (top right).
                     </li>
                     <li>
-                      Select <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Install MockMc</strong> or <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Install application</strong>.
+                      Select <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Install PrepLens</strong> or <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Install application</strong>.
                     </li>
                     <li>
                       Confirm <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Install</strong> when prompted by Chrome.
