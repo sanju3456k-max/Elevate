@@ -93,7 +93,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
           <div className="p-3.5 rounded-[22px] bg-white dark:bg-[#1a1b1f] border border-slate-200/80 dark:border-zinc-800 shadow-xs flex items-center gap-3.5">
             <div className="relative w-14 h-14 rounded-[16px] bg-[#f0f4f8] dark:bg-[#282a30] p-1.5 flex items-center justify-center shrink-0 border border-slate-200/60 dark:border-zinc-700">
               <img 
-                src="./assets/preplens-icon.png?v=11" 
+                src="./assets/preplens-icon.png?v=12" 
                 alt="Elevate Home Screen Icon" 
                 className="w-full h-full object-contain" 
               />
