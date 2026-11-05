@@ -46,7 +46,7 @@ export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({
             className="flex flex-col items-center justify-center gap-4 text-center p-6"
           >
             {/* Authentic Static Aperture Lens Emblem - Clean without white shadow */}
-            <div className="relative w-22 h-22 sm:w-24 sm:h-24 rounded-full flex items-center justify-center overflow-hidden">
+            <div className="relative w-25 h-25 sm:w-28 sm:h-28 rounded-full flex items-center justify-center overflow-hidden">
               <img
                 src="./assets/preplens-icon.png"
                 alt="Elevate"
@@ -56,7 +56,7 @@ export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({
 
             {/* Brand Wordmark & Calibration Arc */}
             <div className="flex flex-col items-center">
-              <h1 className="text-3xl sm:text-4xl font-black text-[#0f172a] dark:text-[#f8fafc] tracking-tight leading-tight">
+              <h1 className="text-3xl sm:text-4xl font-black text-[#0b57d0] dark:text-[#a8c7fa] tracking-tight leading-tight">
                 Elevate
               </h1>
               <div className="w-32 h-[2.5px] mt-2 mb-1 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 opacity-90" />

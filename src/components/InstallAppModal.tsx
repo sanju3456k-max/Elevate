@@ -74,7 +74,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
 
           {/* Header */}
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
+            <div className="w-13 h-13 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
               <img 
                 src="./assets/preplens-icon.png" 
                 alt="Elevate" 
@@ -82,7 +82,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
               />
             </div>
             <div>
-              <h2 className="text-lg font-black text-[#1a1b1f] dark:text-[#e3e2e6] leading-snug">
+              <h2 className="text-lg font-black text-[#0b57d0] dark:text-[#a8c7fa] leading-snug">
                 Install Elevate App
               </h2>
               <div className="w-24 h-[2px] mt-1 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 opacity-90" />
@@ -91,7 +91,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
 
           {/* Home Screen App Icon Visual Preview */}
           <div className="p-3.5 rounded-[22px] bg-white dark:bg-[#1a1b1f] border border-slate-200/80 dark:border-zinc-800 shadow-xs flex items-center gap-3.5">
-            <div className="relative w-13 h-13 rounded-[16px] bg-[#f0f4f8] dark:bg-[#282a30] p-1.5 flex items-center justify-center shrink-0 border border-slate-200/60 dark:border-zinc-700">
+            <div className="relative w-14 h-14 rounded-[16px] bg-[#f0f4f8] dark:bg-[#282a30] p-1.5 flex items-center justify-center shrink-0 border border-slate-200/60 dark:border-zinc-700">
               <img 
                 src="./assets/preplens-icon.png" 
                 alt="Elevate Home Screen Icon" 
@@ -100,7 +100,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-sm text-[#1a1b1f] dark:text-[#e3e2e6] tracking-tight">
+                <span className="font-bold text-sm text-[#0b57d0] dark:text-[#a8c7fa] tracking-tight">
                   Elevate
                 </span>
                 <span className="text-[10px] px-2 py-0.5 font-bold rounded-full bg-teal-500/15 text-teal-700 dark:text-teal-300">

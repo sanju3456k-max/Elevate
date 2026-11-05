@@ -213,7 +213,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="flex items-center gap-2 sm:gap-2.5 cursor-pointer select-none group"
                 onClick={() => handleNavClick('tests')}
               >
-                <div className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0 overflow-hidden group-hover:scale-105 transition-transform">
+                <div className="w-9.5 h-9.5 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden group-hover:scale-105 transition-transform">
                   <img 
                     src="./assets/preplens-icon.png" 
                     alt="Elevate" 
@@ -221,7 +221,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   />
                 </div>
                 <div className="flex flex-col justify-center">
-                  <span className="font-black text-base sm:text-lg text-[#0f172a] dark:text-[#f8fafc] tracking-tight leading-tight">
+                  <span className="font-black text-base sm:text-lg text-[#0b57d0] dark:text-[#a8c7fa] tracking-tight leading-tight">
                     Elevate
                   </span>
                   <div className="w-full h-[2px] mt-0.5 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 opacity-90" />
@@ -398,7 +398,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {/* Drawer Top Drag Indicator & Header */}
                 <div className="p-4 sm:p-5 pt-[calc(env(safe-area-inset-top,0px)+1rem)] bg-white dark:bg-[#1e2024] flex items-center justify-between shrink-0 rounded-tr-[24px] border-b border-slate-100 dark:border-zinc-800/80">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
+                    <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
                       <img 
                         src="./assets/preplens-icon.png" 
                         alt="Elevate" 
@@ -407,7 +407,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <span className="font-black text-base text-[#0f172a] dark:text-[#f8fafc] tracking-tight">
+                        <span className="font-black text-base text-[#0b57d0] dark:text-[#a8c7fa] tracking-tight">
                           Elevate
                         </span>
                       </div>
@@ -635,7 +635,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {/* Drawer Bottom Bar: Theme Switcher */}
                 <div className="p-4 bg-white dark:bg-[#1e2024] flex items-center justify-between text-xs font-bold text-[#1f1f1f] dark:text-[#e3e3e3] shrink-0 border-t border-slate-100 dark:border-zinc-800/80 rounded-br-[24px]">
                   <div className="flex items-center gap-1.5">
-                    <span>Elevate</span>
+                    <span className="text-[#0b57d0] dark:text-[#a8c7fa] font-black">Elevate</span>
                     <span className="text-[10px] text-[#5e5e5e] dark:text-[#9aa0a6]">v2.0</span>
                   </div>
                   <button
