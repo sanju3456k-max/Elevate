@@ -7,7 +7,9 @@ import {
   RotateCw, 
   Move, 
   Maximize2,
-  Loader2
+  Loader2,
+  Camera,
+  Upload
 } from 'lucide-react';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { useScrollLock } from '../hooks/useScrollLock';
@@ -28,6 +30,8 @@ interface OmrCropModalProps {
   targetHeightMm?: number;
   bottomFiducialY_mm?: number;
   totalQuestions?: number;
+  onRetake?: () => void;
+  onUploadNew?: () => void;
 }
 
 type CornerId = 'tl' | 'tr' | 'br' | 'bl';
@@ -64,6 +68,8 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
   targetHeightMm = 297,
   bottomFiducialY_mm,
   totalQuestions,
+  onRetake,
+  onUploadNew,
 }) => {
   useScrollLock(isOpen);
   useBackHandler({ isOpen, onBack: onClose });
@@ -73,6 +79,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
   const imgRef = useRef<HTMLImageElement | null>(null);
   const rotCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const loupeCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const currentLoadedUrlRef = useRef<string>('');
 
   const [imageLoaded, setImageLoaded] = useState<boolean>(false);
   const [rotationDeg, setRotationDeg] = useState<number>(0);
@@ -107,10 +114,10 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
     setLoupePos(null);
   }, []);
 
-  // Prepare rotated source canvas cache
-  const updateRotatedCanvasCache = useCallback(() => {
-    if (!imgRef.current) return;
-    const img = imgRef.current;
+  // Prepare rotated source canvas cache strictly for the active image
+  const updateRotatedCanvasCache = useCallback((sourceImg?: HTMLImageElement | null) => {
+    const img = sourceImg || imgRef.current;
+    if (!img) return;
     const nw = img.naturalWidth || img.width || 800;
     const nh = img.naturalHeight || img.height || 1100;
 
@@ -202,13 +209,23 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
 
   // Load source image
   useEffect(() => {
-    if (!isOpen || !imageUrl) return;
+    if (!isOpen || !imageUrl) {
+      cleanupActiveDrag();
+      setImageLoaded(false);
+      setRotationDeg(0);
+      imgRef.current = null;
+      rotCanvasRef.current = null;
+      currentLoadedUrlRef.current = '';
+      return;
+    }
 
+    // Always reset stale canvas and image references when loading an image
     cleanupActiveDrag();
     setImageLoaded(false);
     setRotationDeg(0);
     imgRef.current = null;
     rotCanvasRef.current = null;
+    currentLoadedUrlRef.current = '';
 
     let isCancelled = false;
     const img = new Image();
@@ -217,22 +234,23 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
     const handleLoaded = () => {
       if (isCancelled) return;
       imgRef.current = img;
+      currentLoadedUrlRef.current = imageUrl;
       const nw = img.naturalWidth || img.width || 800;
       const nh = img.naturalHeight || img.height || 1100;
       setImgNaturalSize({ width: nw, height: nh });
+      setCorners(DEFAULT_CORNERS);
 
-      // Synchronously build initial rotated canvas cache from the new image
+      // Immediately create a fresh canvas for this exact image
       const canvas = document.createElement('canvas');
       canvas.width = nw;
       canvas.height = nh;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.drawImage(img, 0, 0);
+        ctx.drawImage(img, 0, 0, nw, nh);
+        rotCanvasRef.current = canvas;
       }
-      rotCanvasRef.current = canvas;
 
       setImageLoaded(true);
-      setCorners(DEFAULT_CORNERS);
     };
 
     img.onload = handleLoaded;
@@ -254,8 +272,8 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
 
   // Sync rotated canvas when image or rotation changes
   useEffect(() => {
-    if (imageLoaded) {
-      updateRotatedCanvasCache();
+    if (imageLoaded && imgRef.current) {
+      updateRotatedCanvasCache(imgRef.current);
     }
   }, [imageLoaded, rotationDeg, updateRotatedCanvasCache]);
 
@@ -600,21 +618,20 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
     cleanupActiveDrag();
 
     try {
-      let rotCanvas = rotCanvasRef.current;
-      if (!rotCanvas && imgRef.current) {
-        updateRotatedCanvasCache();
-        rotCanvas = rotCanvasRef.current;
+      const activeImg = imgRef.current;
+      // Re-generate rotated canvas cache strictly using current loaded image
+      if (activeImg && currentLoadedUrlRef.current === imageUrl) {
+        updateRotatedCanvasCache(activeImg);
       }
 
-      if (!rotCanvas) {
+      let rotCanvas = rotCanvasRef.current;
+      if (!rotCanvas && activeImg) {
         // Emergency canvas creation if cache missed
         const fallbackCanvas = document.createElement('canvas');
-        if (imgRef.current) {
-          fallbackCanvas.width = imgRef.current.naturalWidth || 800;
-          fallbackCanvas.height = imgRef.current.naturalHeight || 1100;
-          const ctx = fallbackCanvas.getContext('2d');
-          if (ctx) ctx.drawImage(imgRef.current, 0, 0);
-        }
+        fallbackCanvas.width = activeImg.naturalWidth || 800;
+        fallbackCanvas.height = activeImg.naturalHeight || 1100;
+        const ctx = fallbackCanvas.getContext('2d');
+        if (ctx) ctx.drawImage(activeImg, 0, 0);
         rotCanvas = fallbackCanvas;
       }
 
@@ -753,18 +770,49 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
                 </span>
               </div>
 
-              <button
-                id="close-omr-crop-modal-btn"
-                type="button"
-                onClick={() => {
-                  cleanupActiveDrag();
-                  onClose();
-                }}
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-200/80 dark:bg-[#222634] hover:bg-slate-300 dark:hover:bg-[#282a39] text-slate-800 dark:text-zinc-100 flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 border-0 ring-0 shadow-none"
-                title="Close"
-              >
-                <X className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {onRetake && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      cleanupActiveDrag();
+                      onRetake();
+                    }}
+                    className="px-3 py-1.5 bg-[#d3e3fd] hover:bg-[#c2e7ff] text-[#041e49] dark:bg-[#004a77] dark:hover:bg-[#00385a] dark:text-[#c2e7ff] rounded-full text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 border-0 shadow-none"
+                    title="Take another photo with camera"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>Retake</span>
+                  </button>
+                )}
+                {onUploadNew && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      cleanupActiveDrag();
+                      onUploadNew();
+                    }}
+                    className="px-3 py-1.5 bg-slate-200/80 hover:bg-slate-300 dark:bg-[#222634] dark:hover:bg-[#282a39] text-slate-800 dark:text-zinc-100 rounded-full text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 border-0 shadow-none"
+                    title="Upload a different image"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                    <span>Upload New</span>
+                  </button>
+                )}
+
+                <button
+                  id="close-omr-crop-modal-btn"
+                  type="button"
+                  onClick={() => {
+                    cleanupActiveDrag();
+                    onClose();
+                  }}
+                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-200/80 dark:bg-[#222634] hover:bg-slate-300 dark:hover:bg-[#282a39] text-slate-800 dark:text-zinc-100 flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 border-0 ring-0 shadow-none"
+                  title="Close"
+                >
+                  <X className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                </button>
+              </div>
             </header>
 
             {/* ========================================================

@@ -223,6 +223,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
   const [editableDetections, setEditableDetections] = useState<OmrQuestionDetection[]>([]);
   const [selectedReviewQIndex, setSelectedReviewQIndex] = useState<number | null>(null);
   const [isSaved, setIsSaved] = useState<boolean>(Boolean(initialAttempt));
+  const [imageSessionId, setImageSessionId] = useState<number>(0);
 
   // Solution Modal & Dropdown State
   const [solutionModalQIndex, setSolutionModalQIndex] = useState<number | null>(null);
@@ -311,37 +312,28 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
     };
   }, [isTimerRunning, timerSeconds, soundEnabled]);
 
-  const triggerCameraInput = () => {
-    if (cameraInputRef.current) {
-      cameraInputRef.current.value = '';
-      cameraInputRef.current.click();
-    }
-  };
-
-  const triggerFileInput = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-      fileInputRef.current.click();
-    }
-  };
-
   // Handle Photo Capture from System Camera or Gallery
   // Directly opens the Crop page so the user can crop the sheet manually
   const handlePhotoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Immediately purge all previous state, cached scans, and old image references
+    // Reset file input value immediately so re-selecting triggers change
+    const targetInput = e.target;
+
+    // Increment session ID to completely isolate this selection
+    setImageSessionId((prev) => prev + 1);
+
+    // Immediately reset ALL previous scan state and cached images!
     setIsSaved(false);
     setScanError(null);
     setScanResult(null);
     setEditableDetections([]);
-    setIsScanning(false);
-    setIsCropModalOpen(false);
-    setRawOriginalImageUrl(null);
-    rawOriginalImageRef.current = '';
     setCapturedImageUrl(null);
     cleanImageRef.current = '';
+    setRawOriginalImageUrl(null);
+    rawOriginalImageRef.current = '';
+    setIsCropModalOpen(false);
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -361,8 +353,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
       setScanError('Failed to read image file. Please try again.');
     };
     reader.readAsDataURL(file);
-    // Reset file input value
-    e.target.value = '';
+    targetInput.value = '';
   };
 
   // Execute Optical Bubble Recognition
@@ -910,7 +901,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                 onClick={() => {
                   setIsTimerRunning(false);
                   setActiveTab('scan');
-                  triggerCameraInput();
+                  cameraInputRef.current?.click();
                 }}
                 className="w-full px-8 py-3.5 bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] rounded-[28px] text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 transition-all shadow-sm border-0 active:scale-95 cursor-pointer"
               >
@@ -1012,7 +1003,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                 <div className="flex items-center justify-center gap-2.5 pt-2">
                   <button
                     type="button"
-                    onClick={triggerCameraInput}
+                    onClick={() => cameraInputRef.current?.click()}
                     className="flex items-center gap-2 px-6 py-2.5 bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] rounded-[28px] text-xs font-extrabold transition-all shadow-sm border-0 cursor-pointer active:scale-95"
                   >
                     <Camera className="w-4 h-4" />
@@ -1020,7 +1011,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={triggerFileInput}
+                    onClick={() => fileInputRef.current?.click()}
                     className="flex items-center gap-2 px-6 py-2.5 bg-[#f0f4f9] hover:bg-slate-200 dark:bg-[#141619] dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-100 rounded-[28px] text-xs font-extrabold transition-all cursor-pointer active:scale-95 border-0 outline-none"
                   >
                     <Upload className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
@@ -1045,7 +1036,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      onClick={triggerCameraInput}
+                      onClick={() => cameraInputRef.current?.click()}
                       className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#d3e3fd] hover:bg-[#c2e7ff] text-[#041e49] dark:bg-[#004a77] dark:hover:bg-[#00385a] dark:text-[#c2e7ff] rounded-[28px] text-xs font-bold transition-all shadow-xs hover:shadow-sm border-0 cursor-pointer active:scale-95"
                       title="Retake photo with camera"
                     >
@@ -1054,7 +1045,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                     </button>
                     <button
                       type="button"
-                      onClick={triggerFileInput}
+                      onClick={() => fileInputRef.current?.click()}
                       className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#f0f4f9] hover:bg-slate-200 dark:bg-[#141619] dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-100 rounded-[28px] text-xs font-bold transition-all cursor-pointer active:scale-95 shadow-xs hover:shadow-sm border-0"
                       title="Upload a different image"
                     >
@@ -1136,7 +1127,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                           <div className="flex flex-wrap items-center gap-1.5">
                             <button
                               type="button"
-                              onClick={triggerCameraInput}
+                              onClick={() => cameraInputRef.current?.click()}
                               className="px-3 py-1 bg-[#d3e3fd] hover:bg-[#c2e7ff] text-[#041e49] dark:bg-[#004a77] dark:hover:bg-[#00385a] dark:text-[#c2e7ff] rounded-[28px] text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-xs border-0"
                               title="Take new photo with camera"
                             >
@@ -1146,7 +1137,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
 
                             <button
                               type="button"
-                              onClick={triggerFileInput}
+                              onClick={() => fileInputRef.current?.click()}
                               className="px-3 py-1 bg-[#f0f4f9] dark:bg-[#141619] hover:bg-slate-200 dark:hover:bg-[#282a30] text-slate-700 dark:text-zinc-300 rounded-[28px] text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-xs border-0"
                               title="Upload a different sheet image"
                             >
@@ -1760,15 +1751,19 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
         const layoutConfig = getOmrLayoutConfig(totalQs, undefined, 'a4');
         return (
           <OmrCropModal
-            key={`crop_modal_${rawOriginalImageUrl ? rawOriginalImageUrl.length + '_' + rawOriginalImageUrl.slice(-32) : (capturedImageUrl ? capturedImageUrl.length + '_' + capturedImageUrl.slice(-32) : 'fresh')}`}
+            key={`omr-crop-${imageSessionId}`}
             isOpen={isCropModalOpen}
-            imageUrl={rawOriginalImageUrl || capturedImageUrl || ''}
+            imageUrl={rawOriginalImageUrl || rawOriginalImageRef.current || cleanImageRef.current || capturedImageUrl || ''}
             onClose={() => setIsCropModalOpen(false)}
+            onRetake={() => cameraInputRef.current?.click()}
+            onUploadNew={() => fileInputRef.current?.click()}
             targetWidthMm={layoutConfig.pageWidthMm}
             targetHeightMm={layoutConfig.pageHeightMm}
             bottomFiducialY_mm={layoutConfig.bottomFiducialY_mm}
             onApplyCrop={async (croppedUrl) => {
               setIsSaved(false);
+              setScanResult(null);
+              setEditableDetections([]);
               setCapturedImageUrl(croppedUrl);
               cleanImageRef.current = croppedUrl;
               setIsScanning(true);
