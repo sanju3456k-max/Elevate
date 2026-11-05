@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-// PWA icons are generated directly from the authentic PrepLens static aperture emblem
+// PWA icons are generated directly from the authentic Elevate static aperture emblem
 // in public/assets/preplens-icon.png with pure transparent alpha boundaries (no white outer body).
 
 async function generate() {

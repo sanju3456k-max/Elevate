@@ -13,7 +13,7 @@ interface State {
 }
 
 /**
- * Top-Level Root Error Boundary for PrepLens
+ * Top-Level Root Error Boundary for Elevate
  * Prevents full-screen blank white screen crashes by catching uncaught render errors
  * and providing users with safe, one-click recovery options without losing local data.
  */
@@ -28,7 +28,7 @@ export class RootErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('PrepLens RootErrorBoundary caught an unhandled rendering error:', error, errorInfo);
+    console.error('Elevate RootErrorBoundary caught an unhandled rendering error:', error, errorInfo);
   }
 
   private handleReload = () => {
@@ -60,7 +60,7 @@ export class RootErrorBoundary extends Component<Props, State> {
                 Something went wrong
               </h1>
               <p className="text-xs sm:text-sm text-slate-600 dark:text-zinc-400 leading-relaxed">
-                PrepLens encountered an unexpected display error. Your offline tests, practice notes, and stored questions remain safely intact.
+                Elevate encountered an unexpected display error. Your offline tests, practice notes, and stored questions remain safely intact.
               </p>
             </div>
 

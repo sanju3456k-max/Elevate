@@ -35,7 +35,7 @@ export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({
     <AnimatePresence>
       {isVisible && (
         <motion.div
-          key="preplens-welcome-splash"
+          key="elevate-welcome-splash"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.35, ease: 'easeInOut' } }}
           className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#0f172a] dark:text-[#f8fafc] select-none pointer-events-none transition-colors"
@@ -49,7 +49,7 @@ export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({
             <div className="relative w-22 h-22 sm:w-24 sm:h-24 rounded-full flex items-center justify-center overflow-hidden">
               <img
                 src="./assets/preplens-icon.png"
-                alt="PrepLens"
+                alt="Elevate"
                 className="w-full h-full object-contain"
               />
             </div>
@@ -57,7 +57,7 @@ export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({
             {/* Brand Wordmark & Calibration Arc */}
             <div className="flex flex-col items-center">
               <h1 className="text-3xl sm:text-4xl font-black text-[#0f172a] dark:text-[#f8fafc] tracking-tight leading-tight">
-                PrepLens
+                Elevate
               </h1>
               <div className="w-32 h-[2.5px] mt-2 mb-1 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 opacity-90" />
             </div>

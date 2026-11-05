@@ -1926,7 +1926,7 @@ export async function exportNoteToVisibleGoogleDrive(
     },
     {
       title: 'Study Metadata',
-      body: `Exported from PrepLens App\nDate: ${new Date().toLocaleString()}\nCategory: ${(note.tag || 'General').toUpperCase()}${testTitle ? `\nTest: ${testTitle}` : ''}`,
+      body: `Exported from Elevate App\nDate: ${new Date().toLocaleString()}\nCategory: ${(note.tag || 'General').toUpperCase()}${testTitle ? `\nTest: ${testTitle}` : ''}`,
       isHeading: false,
     },
   ];

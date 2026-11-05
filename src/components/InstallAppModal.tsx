@@ -77,13 +77,13 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
             <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
               <img 
                 src="./assets/preplens-icon.png" 
-                alt="PrepLens" 
+                alt="Elevate" 
                 className="w-full h-full object-contain"
               />
             </div>
             <div>
               <h2 className="text-lg font-black text-[#1a1b1f] dark:text-[#e3e2e6] leading-snug">
-                Install PrepLens App
+                Install Elevate App
               </h2>
               <div className="w-24 h-[2px] mt-1 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 opacity-90" />
             </div>
@@ -94,14 +94,14 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
             <div className="relative w-13 h-13 rounded-[16px] bg-[#f0f4f8] dark:bg-[#282a30] p-1.5 flex items-center justify-center shrink-0 border border-slate-200/60 dark:border-zinc-700">
               <img 
                 src="./assets/preplens-icon.png" 
-                alt="PrepLens Home Screen Icon" 
+                alt="Elevate Home Screen Icon" 
                 className="w-full h-full object-contain" 
               />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-sm text-[#1a1b1f] dark:text-[#e3e2e6] tracking-tight">
-                  PrepLens
+                  Elevate
                 </span>
                 <span className="text-[10px] px-2 py-0.5 font-bold rounded-full bg-teal-500/15 text-teal-700 dark:text-teal-300">
                   Home Screen Icon
@@ -145,7 +145,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
                 className="w-full h-10 text-xs font-bold"
                 icon={<Download className="w-4 h-4" />}
               >
-                Install PrepLens Web App
+                Install Elevate Web App
               </M3Button>
             </div>
           ) : (
@@ -153,7 +153,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
               <div className="p-3.5 rounded-[20px] bg-[#f3edf7] dark:bg-[#1a1b1f] text-xs text-[#44474f] dark:text-[#c4c6d0] flex items-start gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0 mt-0.5" />
                 <span>
-                  Install PrepLens directly from your browser options to run as a full-screen, native application with offline test access.
+                  Install Elevate directly from your browser options to run as a full-screen, native application with offline test access.
                 </span>
               </div>
 
@@ -174,7 +174,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
                     <li className="flex items-center gap-1.5 flex-wrap">
                       <span>Tap <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Add</strong>. Look for the</span>
                       <img src="./assets/preplens-icon.png" alt="" className="w-4 h-4 object-contain inline-block" />
-                      <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">PrepLens</strong>
+                      <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Elevate</strong>
                       <span>icon on your home screen.</span>
                     </li>
                   </ol>
@@ -191,12 +191,12 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
                       Click or tap the Chrome <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Menu</strong> icon (top right).
                     </li>
                     <li>
-                      Select <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Install PrepLens</strong> or <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Add to Home screen</strong>.
+                      Select <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Install Elevate</strong> or <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Add to Home screen</strong>.
                     </li>
                     <li className="flex items-center gap-1.5 flex-wrap">
                       <span>The</span>
                       <img src="./assets/preplens-icon.png" alt="" className="w-4 h-4 object-contain inline-block" />
-                      <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">PrepLens</strong>
+                      <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Elevate</strong>
                       <span>app icon will be added to your home screen.</span>
                     </li>
                   </ol>

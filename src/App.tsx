@@ -1713,7 +1713,7 @@ export default function App() {
         }}
       />
 
-      {/* PWA Install Modal with Authentic PrepLens Home Screen App Icon */}
+      {/* PWA Install Modal with Authentic Elevate Home Screen App Icon */}
       <InstallAppModal
         isOpen={isInstallModalOpen}
         onClose={() => setIsInstallModalOpen(false)}

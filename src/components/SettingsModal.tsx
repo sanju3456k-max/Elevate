@@ -115,7 +115,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const a = document.createElement('a');
       const dateStr = new Date().toISOString().split('T')[0];
       a.href = url;
-      a.download = `preplens_storage_backup_${dateStr}.json`;
+      a.download = `elevate_storage_backup_${dateStr}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
