@@ -471,100 +471,10 @@ export const OmrSheetGenerator: React.FC<OmrSheetGeneratorProps> = ({
                     top: `${Math.max(layout.gridBottomMm + 35, 205)}mm`,
                     left: `${OMR_GEOMETRY.pagePaddingLeftMm}mm`,
                     width: `${OMR_GEOMETRY.usableWidthMm}mm`,
-                    height: '42mm',
+                    height: '46mm',
                   }}
                 >
                   <span className="text-[7pt] font-bold uppercase tracking-wider text-neutral-700">Rough Work / Calculations Area</span>
-                </div>
-
-                {/* Bottom Margin Divider Line */}
-                <div
-                  className="absolute border-b border-black select-none pointer-events-none"
-                  style={{
-                    top: '277mm',
-                    left: `${OMR_GEOMETRY.pagePaddingLeftMm}mm`,
-                    width: `${OMR_GEOMETRY.usableWidthMm}mm`,
-                  }}
-                />
-
-                {/* Dedicated Footer Bar after Margin Line */}
-                <div
-                  className="absolute flex items-center justify-between text-black select-none pointer-events-none"
-                  style={{
-                    top: '278.5mm',
-                    left: `${OMR_GEOMETRY.pagePaddingLeftMm}mm`,
-                    width: `${OMR_GEOMETRY.usableWidthMm}mm`,
-                    height: '7mm',
-                  }}
-                >
-                  <div className="flex items-center gap-1.5 text-[7pt] text-neutral-500 font-medium">
-                    <span className="font-bold text-neutral-800 uppercase tracking-wider">Form E-OMR-A4</span>
-                    <span>•</span>
-                    <span>Optical Recognition Verified</span>
-                  </div>
-
-                  {/* Very Bottom Right Corner: Full Elevate App Branding */}
-                  <div className="flex items-center gap-1.5 shrink-0 pr-1">
-                    <div className="w-4 h-4 flex items-center justify-center shrink-0">
-                      <img
-                        src="./assets/preplens-icon.png?v=11"
-                        alt="Elevate"
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="font-black text-[9pt] text-[#0b57d0] tracking-tight leading-none">
-                        Elevate
-                      </span>
-                      <span className="text-[6.5pt] font-bold text-neutral-500 uppercase tracking-wider leading-none">
-                        OMR Studio
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Compact Format Footer Branding */}
-            {!layout.isFullA4 && (
-              <>
-                <div
-                  className="absolute border-b border-black select-none pointer-events-none"
-                  style={{
-                    top: `${layout.pageHeightMm - 10}mm`,
-                    left: `${OMR_GEOMETRY.pagePaddingLeftMm}mm`,
-                    width: `${OMR_GEOMETRY.usableWidthMm}mm`,
-                  }}
-                />
-                <div
-                  className="absolute flex items-center justify-between text-black select-none pointer-events-none"
-                  style={{
-                    top: `${layout.pageHeightMm - 8.5}mm`,
-                    left: `${OMR_GEOMETRY.pagePaddingLeftMm}mm`,
-                    width: `${OMR_GEOMETRY.usableWidthMm}mm`,
-                    height: '6.5mm',
-                  }}
-                >
-                  <span className="text-[6.5pt] font-semibold text-neutral-500 uppercase tracking-wider">
-                    Form E-OMR-C • Optical Recognition
-                  </span>
-                  <div className="flex items-center gap-1.5 shrink-0 pr-1">
-                    <div className="w-3.5 h-3.5 flex items-center justify-center shrink-0">
-                      <img
-                        src="./assets/preplens-icon.png?v=11"
-                        alt="Elevate"
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="font-black text-[8.5pt] text-[#0b57d0] tracking-tight leading-none">
-                        Elevate
-                      </span>
-                      <span className="text-[6pt] font-bold text-neutral-500 uppercase tracking-wider leading-none">
-                        OMR Studio
-                      </span>
-                    </div>
-                  </div>
                 </div>
               </>
             )}
