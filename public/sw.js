@@ -1,16 +1,16 @@
-// Service Worker for Math Mock Test Practice PWA (WebAPK Compliant)
-const CACHE_NAME = 'math-mock-pwa-v3';
+// Service Worker for PrepLens Math Practice PWA (WebAPK Compliant)
+const CACHE_NAME = 'preplens-pwa-v5';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
   '/manifest.json',
-  '/favicon.svg',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/icon-maskable-192.png',
-  '/icon-maskable-512.png',
-  '/apple-touch-icon.png'
+  '/favicon.svg?v=5',
+  '/icon-192.png?v=5',
+  '/icon-512.png?v=5',
+  '/icon-maskable-192.png?v=5',
+  '/icon-maskable-512.png?v=5',
+  '/apple-touch-icon.png?v=5'
 ];
 
 // Install: Cache critical shell assets safely without failing if one asset is missing
