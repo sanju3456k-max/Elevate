@@ -586,13 +586,26 @@
   print-color-adjust: exact !important;
 }
 
-.a4-page-item p,
-.a4-page-item span:not(.katex *):not(.delimsizing *),
-.a4-page-item div:not(.katex *),
-.a4-page-item strong,
+.a4-page-item p:not(.elevate-brand-text),
+.a4-page-item span:not(.katex *):not(.delimsizing *):not(.elevate-brand-text),
+.a4-page-item div:not(.katex *):not(.elevate-brand-bar):not(.elevate-brand-lockup),
+.a4-page-item strong:not(.elevate-brand-text),
 .a4-page-item em {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: #000000 !important;
+}
+
+.elevate-brand-text {
+  color: #0b57d0 !important;
+  -webkit-text-fill-color: #0b57d0 !important;
+  print-color-adjust: exact !important;
+  -webkit-print-color-adjust: exact !important;
+}
+
+.elevate-brand-bar {
+  background: linear-gradient(to right, #22d3ee, #0ea5e9, #2563eb) !important;
+  print-color-adjust: exact !important;
+  -webkit-print-color-adjust: exact !important;
 }
 
 .a4-page-item .katex,

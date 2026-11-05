@@ -1060,7 +1060,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
     const maxColH = Math.max(leftColH, rightColH);
 
     const headerOverheadPx = page.isFirstPage ? 185 : 55;
-    const pagePaddingOverheadPx = 60; // 10mm top (38px) + preview bottom clearance (~57px)
+    const pagePaddingOverheadPx = 75; // 10mm top (38px) + preview bottom clearance (~75px)
     const footerOverheadPx = 40; // footer border + margins
 
     const calculatedContentHeight = Math.ceil(
@@ -1354,7 +1354,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                     maxWidth: '210mm',
                     height: `${currentPageHPx}px`,
                     minHeight: `${pageHPx + PREVIEW_BOTTOM_EXTRA_HEIGHT_PX}px`,
-                    padding: '10mm 12mm 16mm 12mm',
+                    padding: '10mm 12mm 20mm 12mm',
                     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                     boxSizing: 'border-box',
                     textRendering: 'optimizeLegibility',
@@ -1440,9 +1440,9 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                   {/* Bottom Margin Divider Line - strictly at the ending of the questions */}
                   <div className="shrink-0 border-t-[1.5pt] border-black mt-2 mb-1" />
 
-                  {/* Dedicated Page Footer Bar - strictly at the very bottom of every page */}
+                  {/* Dedicated Page Footer Bar - uplifted with clean bottom breathing room */}
                   <div
-                    className="mt-auto shrink-0 flex items-center justify-between text-black select-none text-[8pt] pt-2 pb-0 min-h-[30px] w-full"
+                    className="mt-auto shrink-0 flex items-center justify-between text-black select-none text-[8.5pt] pt-2 pb-3 mb-2.5 min-h-[34px] w-full"
                     style={{
                       printColorAdjust: 'exact',
                       WebkitPrintColorAdjust: 'exact',
@@ -1450,14 +1450,14 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                   >
                     {/* Left: Page Pagination */}
                     <div className="flex items-center text-neutral-800 font-extrabold">
-                      <span className="uppercase tracking-wider text-[8pt]">
-                        Page {page.pageNumber} of {page.totalPages}
+                      <span className="uppercase tracking-wider text-[8.5pt] font-black">
+                        PAGE {page.pageNumber} OF {page.totalPages}
                       </span>
                     </div>
 
                     {/* Right: Authentic Elevate App Header Branding Lockup */}
                     <div
-                      className="flex items-center gap-2 select-none shrink-0 pl-3"
+                      className="elevate-brand-lockup flex items-center gap-2 select-none shrink-0 pl-3"
                       style={{
                         printColorAdjust: 'exact',
                         WebkitPrintColorAdjust: 'exact',
@@ -1476,9 +1476,10 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                       </div>
                       <div className="flex flex-col justify-center">
                         <span
-                          className="font-black text-[11pt] text-[#0b57d0] tracking-tight leading-tight"
+                          className="elevate-brand-text font-black text-[11pt] tracking-tight leading-tight"
                           style={{
-                            color: '#0b57d0',
+                            color: '#0b57d0 !important',
+                            WebkitTextFillColor: '#0b57d0',
                             fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                             fontWeight: 900,
                             printColorAdjust: 'exact',
@@ -1488,7 +1489,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                           Elevate
                         </span>
                         <div
-                          className="w-full h-[2px] mt-0.5 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 opacity-95"
+                          className="elevate-brand-bar w-full h-[2.5px] mt-0.5 rounded-full opacity-95"
                           style={{
                             background: 'linear-gradient(to right, #22d3ee, #0ea5e9, #2563eb)',
                             printColorAdjust: 'exact',
