@@ -1437,11 +1437,41 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                     </div>
                   </div>
 
-                  {isLastPage ? (
-                    <div className="shrink-0 border-t-[1.5pt] border-black mt-3 mb-1" />
-                  ) : (
-                    <div className="shrink-0 border-t-[1.5pt] border-black mt-auto" />
-                  )}
+                  {/* Bottom Margin Divider Line */}
+                  <div className={`shrink-0 border-t-[1.5pt] border-black ${isLastPage ? 'mt-3 mb-1' : 'mt-auto mb-1'}`} />
+
+                  {/* Dedicated Page Footer Bar (Guaranteed on Every Page, Zero Question Content Conflict) */}
+                  <div className="shrink-0 flex items-center justify-between text-black select-none text-[8pt] pt-0.5 pb-0.5 min-h-[22px]">
+                    {/* Left: Page Pagination & Confidentiality Notice */}
+                    <div className="flex items-center gap-2 text-neutral-600 font-medium">
+                      <span className="font-extrabold text-black uppercase tracking-wider text-[8pt]">
+                        Page {page.pageNumber} of {page.totalPages}
+                      </span>
+                      <span className="text-neutral-300">•</span>
+                      <span className="text-[7.5pt] text-neutral-500 font-normal">
+                        Confidential — For Assessment Use Only
+                      </span>
+                    </div>
+
+                    {/* Right: Full Elevate App Branding at Very Bottom Right Corner */}
+                    <div className="flex items-center gap-1.5 shrink-0 pl-3">
+                      <div className="w-4 h-4 flex items-center justify-center shrink-0">
+                        <img
+                          src="./assets/preplens-icon.png?v=11"
+                          alt="Elevate"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="font-black text-[9pt] text-[#0b57d0] tracking-tight leading-none">
+                          Elevate
+                        </span>
+                        <span className="text-[6.5pt] font-bold text-neutral-500 uppercase tracking-wider leading-none">
+                          Exam Paper
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             );

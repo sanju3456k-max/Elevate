@@ -224,6 +224,96 @@ export function renderOmrSheetToCanvas(
     ctx.stroke();
   }
 
+  // 11. Bottom Margin Line & Elevated Full App Branding
+  const marginLineYMm = layout.isFullA4 ? 277 : (layout.pageHeightMm - 10);
+  const marginLineYPx = marginLineYMm * pxPerMm;
+
+  ctx.beginPath();
+  ctx.lineWidth = Math.max(1, 0.45 * pxPerMm);
+  ctx.strokeStyle = '#000000';
+  ctx.moveTo(paddingLeftPx, marginLineYPx);
+  ctx.lineTo(paddingLeftPx + usableWidthPx, marginLineYPx);
+  ctx.stroke();
+
+  // Footer text Y (vertically centered in bottom margin)
+  const footerYMm = layout.isFullA4 ? 282 : (layout.pageHeightMm - 5.5);
+  const footerYPx = footerYMm * pxPerMm;
+
+  // Left side: Form label & Optical Verification
+  const formCode = layout.isFullA4 
+    ? 'Form E-OMR-A4 • Optical Recognition Verified' 
+    : 'Form E-OMR-C • Optical Recognition';
+  ctx.font = `600 ${Math.round(6.8 * (4 / 3) * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  ctx.fillStyle = '#475569';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(formCode, paddingLeftPx, footerYPx);
+
+  // Right side: Full Elevate App Branding (Aperture emblem + "Elevate" + "OMR Studio")
+  const brandRightX = paddingLeftPx + usableWidthPx;
+  const logoRadiusPx = 2.4 * pxPerMm;
+
+  ctx.font = `900 ${Math.round(9.5 * (4 / 3) * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  const elevateTextWidth = ctx.measureText('Elevate').width;
+
+  ctx.font = `700 ${Math.round(6.5 * (4 / 3) * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  const subTextWidth = ctx.measureText('OMR Studio').width;
+
+  const totalBrandWidth = logoRadiusPx * 2 + 5 * scale + elevateTextWidth + 4 * scale + subTextWidth;
+  const brandStartX = brandRightX - totalBrandWidth;
+
+  // Draw Aperture Logo Icon
+  const logoCx = brandStartX + logoRadiusPx;
+  const logoCy = footerYPx;
+
+  ctx.save();
+  // Outer circle with gradient from cyan to royal blue
+  const grad = ctx.createLinearGradient(
+    logoCx - logoRadiusPx, 
+    logoCy - logoRadiusPx, 
+    logoCx + logoRadiusPx, 
+    logoCy + logoRadiusPx
+  );
+  grad.addColorStop(0, '#00d2ff');
+  grad.addColorStop(0.5, '#0284c7');
+  grad.addColorStop(1, '#0b57d0');
+
+  ctx.beginPath();
+  ctx.arc(logoCx, logoCy, logoRadiusPx, 0, Math.PI * 2);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Inner opening with app body background color #e5e9f0
+  const innerR = logoRadiusPx * 0.42;
+  ctx.beginPath();
+  ctx.arc(logoCx, logoCy, innerR, 0, Math.PI * 2);
+  ctx.fillStyle = '#e5e9f0';
+  ctx.fill();
+
+  // Mathematical Serif Sigma symbol inside inner opening in royal blue #0b57d0
+  ctx.fillStyle = '#0b57d0';
+  ctx.font = `bold ${Math.round(innerR * 1.55)}px "Times New Roman", "Cambria", serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Σ', logoCx, logoCy + innerR * 0.05);
+  ctx.restore();
+
+  // "Elevate" wordmark in system royal blue #0b57d0
+  const textStartX = logoCx + logoRadiusPx + 4 * scale;
+  ctx.font = `900 ${Math.round(9.5 * (4 / 3) * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  ctx.fillStyle = '#0b57d0';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Elevate', textStartX, footerYPx);
+
+  // "OMR Studio" subtitle in slate-500
+  const subStartX = textStartX + elevateTextWidth + 3.5 * scale;
+  ctx.font = `700 ${Math.round(6.5 * (4 / 3) * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  ctx.fillStyle = '#64748b';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('OMR Studio', subStartX, footerYPx);
+
   return canvas;
 }
 
