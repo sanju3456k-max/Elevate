@@ -220,6 +220,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
   const rawOriginalImageRef = useRef<string>('');
   const cleanImageRef = useRef<string>('');
   const [isCropModalOpen, setIsCropModalOpen] = useState<boolean>(false);
+  const [isDraggingOmr, setIsDraggingOmr] = useState<boolean>(false);
   const [editableDetections, setEditableDetections] = useState<OmrQuestionDetection[]>([]);
   const [selectedReviewQIndex, setSelectedReviewQIndex] = useState<number | null>(null);
   const [isSaved, setIsSaved] = useState<boolean>(Boolean(initialAttempt));
@@ -312,14 +313,11 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
     };
   }, [isTimerRunning, timerSeconds, soundEnabled]);
 
-  // Handle Photo Capture from System Camera or Gallery
-  // Directly opens the Crop page so the user can crop the sheet manually
-  const handlePhotoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Reset file input value immediately so re-selecting triggers change
-    const targetInput = e.target;
+  const processSelectedPhotoFile = (file: File) => {
+    if (!file.type.startsWith('image/') && !/\.(png|jpe?g|webp|bmp)$/i.test(file.name)) {
+      setScanError('Please select or drop a valid image file (PNG, JPG, WebP).');
+      return;
+    }
 
     // Increment session ID to completely isolate this selection
     setImageSessionId((prev) => prev + 1);
@@ -353,6 +351,17 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
       setScanError('Failed to read image file. Please try again.');
     };
     reader.readAsDataURL(file);
+  };
+
+  // Handle Photo Capture from System Camera or Gallery
+  // Directly opens the Crop page so the user can crop the sheet manually
+  const handlePhotoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset file input value immediately so re-selecting triggers change
+    const targetInput = e.target;
+    processSelectedPhotoFile(file);
     targetInput.value = '';
   };
 
@@ -986,18 +995,49 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
               </div>
             )}
 
-            {/* Initial Empty Prompt State (Body Card Only) */}
+            {/* Initial Empty Prompt State with Drag & Drop */}
             {!capturedImageUrl && !scanResult && !isScanning && (
-              <div className="p-10 text-center space-y-4 bg-white dark:bg-[#1e2024] rounded-[28px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] max-w-lg mx-auto my-6">
-                <div className="w-14 h-14 rounded-[28px] bg-[#f0f4f9] dark:bg-[#141619] text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center mx-auto border-0 shadow-none">
-                  <Camera className="w-7 h-7" />
+              <div 
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingOmr(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingOmr(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingOmr(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) {
+                    processSelectedPhotoFile(file);
+                  }
+                }}
+                className={`p-10 text-center space-y-4 rounded-[28px] max-w-lg mx-auto my-6 transition-all ${
+                  isDraggingOmr
+                    ? 'border-2 border-dashed border-[#0b57d0] dark:border-[#a8c7fa] bg-blue-50/70 dark:bg-blue-950/40 shadow-lg scale-[1.01]'
+                    : 'bg-white dark:bg-[#1e2024] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]'
+                }`}
+              >
+                <div className={`w-14 h-14 rounded-[28px] flex items-center justify-center mx-auto border-0 shadow-none transition-colors ${
+                  isDraggingOmr
+                    ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49]'
+                    : 'bg-[#f0f4f9] dark:bg-[#141619] text-[#0b57d0] dark:text-[#a8c7fa]'
+                }`}>
+                  <Camera className={`w-7 h-7 ${isDraggingOmr ? 'animate-bounce' : ''}`} />
                 </div>
                 <div className="space-y-1">
                   <h4 className="text-base font-black text-slate-900 dark:text-zinc-100">
-                    Capture or Upload Your OMR Sheet
+                    {isDraggingOmr ? 'Drop OMR Sheet Image Here' : 'Capture or Upload Your OMR Sheet'}
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium max-w-sm mx-auto">
-                    Take a clear photo of your filled OMR sheet, adjust the outer boundary lines, and get instant evaluation results.
+                    {isDraggingOmr 
+                      ? 'Release to begin cropping & optical evaluation' 
+                      : 'Take a clear photo of your filled OMR sheet, upload from gallery, or drag & drop here.'}
                   </p>
                 </div>
                 <div className="flex items-center justify-center gap-2.5 pt-2">

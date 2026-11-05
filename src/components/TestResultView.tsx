@@ -187,6 +187,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
   const [newNoteTag, setNewNoteTag] = useState<'trick' | 'formula' | 'mistake' | 'general'>('general');
   const [newNoteQNum, setNewNoteQNum] = useState<number>(0);
   const [attachedFile, setAttachedFile] = useState<{ url: string; name: string; type: 'image' | 'pdf' | 'file' } | null>(null);
+  const [isDraggingUpload, setIsDraggingUpload] = useState<boolean>(false);
   const [previewFile, setPreviewFile] = useState<PreviewableFile | null>(null);
 
   const [isTokenExpired, setIsTokenExpired] = useState<boolean>(() => isGoogleDriveTokenExpired());
@@ -728,15 +729,12 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processFileUpload = (file: File) => {
     const fileNameLower = file.name.toLowerCase();
-    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.pdf'];
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.pdf', '.webp', '.svg'];
     const isAllowed =
       allowedExtensions.some((ext) => fileNameLower.endsWith(ext)) ||
-      ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'].includes(file.type);
+      ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/svg+xml', 'application/pdf'].includes(file.type);
 
     if (!isAllowed) {
       alert('Invalid file type. Supported formats are JPG, PNG, and PDF only.');
@@ -753,7 +751,9 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
       file.type.startsWith('image/') ||
       fileNameLower.endsWith('.jpg') ||
       fileNameLower.endsWith('.jpeg') ||
-      fileNameLower.endsWith('.png');
+      fileNameLower.endsWith('.png') ||
+      fileNameLower.endsWith('.webp') ||
+      fileNameLower.endsWith('.svg');
 
     const isPdf =
       file.type === 'application/pdf' ||
@@ -770,6 +770,13 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
       });
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processFileUpload(file);
+    e.target.value = '';
   };
 
   const formatDuration = (seconds: number) => {
@@ -1957,10 +1964,41 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                     </div>
                   </div>
                 ) : (
-                  <label className="flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-dashed border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-[#252838]/50 hover:bg-slate-100 dark:hover:bg-[#282a39] cursor-pointer transition-colors group shadow-xs">
-                    <FileUp className="w-6 h-6 text-slate-400 group-hover:text-[#0084ff] transition-colors mb-1" />
-                    <span className="text-xs font-bold text-slate-700 dark:text-zinc-300">Upload Image or PDF</span>
-                    <span className="text-[10px] text-slate-400 dark:text-zinc-500">JPG, PNG, PDF only</span>
+                  <label 
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDraggingUpload(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDraggingUpload(false);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDraggingUpload(false);
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) {
+                        processFileUpload(file);
+                      }
+                    }}
+                    className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-dashed cursor-pointer transition-all group shadow-xs ${
+                      isDraggingUpload
+                        ? 'border-[#0084ff] bg-blue-50/80 dark:bg-blue-950/50 scale-[1.01]'
+                        : 'border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-[#252838]/50 hover:bg-slate-100 dark:hover:bg-[#282a39]'
+                    }`}
+                  >
+                    <FileUp className={`w-6 h-6 mb-1 transition-colors ${
+                      isDraggingUpload ? 'text-[#0084ff] animate-bounce' : 'text-slate-400 group-hover:text-[#0084ff]'
+                    }`} />
+                    <span className="text-xs font-bold text-slate-700 dark:text-zinc-300">
+                      {isDraggingUpload ? 'Drop Image or PDF here' : 'Upload Image or PDF'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 dark:text-zinc-500">
+                      {isDraggingUpload ? 'Release to attach immediately' : 'JPG, PNG, PDF only (or drag & drop)'}
+                    </span>
                     <input
                       type="file"
                       accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"

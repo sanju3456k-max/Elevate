@@ -80,6 +80,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [confirmDeleteTarget, setConfirmDeleteTarget] = useState<ConfirmDeleteTarget>(null);
   const [isDeletingCustomData, setIsDeletingCustomData] = useState(false);
+  const [isDraggingBackup, setIsDraggingBackup] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -126,9 +127,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processImportBackupFile = (file: File) => {
+    const fileNameLower = file.name.toLowerCase();
+    const isJson = fileNameLower.endsWith('.json') || fileNameLower.endsWith('.txt') || file.type.includes('json') || file.type.includes('text');
+    if (!isJson) {
+      setSyncStatus({ type: 'error', message: 'Invalid file type. Please provide a valid JSON (.json) backup file.' });
+      return;
+    }
 
     setSyncStatus({ type: 'loading', message: 'Restoring backup data...' });
     const reader = new FileReader();
@@ -170,6 +175,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       if (fileInputRef.current) fileInputRef.current.value = '';
     };
     reader.readAsText(file);
+  };
+
+  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processImportBackupFile(file);
   };
 
   const handleCloudBackupAll = async () => {
@@ -490,15 +501,48 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </M3Button>
               </div>
 
-              {/* Import JSON */}
-              <div className={`flex items-center justify-between gap-3 ${APP_STYLES.subcard.base}`}>
+              {/* Import JSON with Drag & Drop */}
+              <div 
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingBackup(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingBackup(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingBackup(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) {
+                    processImportBackupFile(file);
+                  }
+                }}
+                className={`flex items-center justify-between gap-3 transition-all ${APP_STYLES.subcard.base} ${
+                  isDraggingBackup 
+                    ? 'ring-2 ring-[#0b57d0] dark:ring-[#a8c7fa] bg-[#0b57d0]/10 dark:bg-[#a8c7fa]/15 scale-[1.01]' 
+                    : ''
+                }`}
+              >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-[#ece6f0] dark:bg-[#2a2b30] text-[#1a1b1f] dark:text-[#e3e2e6] flex items-center justify-center shrink-0 border-0">
-                    <Upload className="w-5 h-5" />
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-0 transition-colors ${
+                    isDraggingBackup
+                      ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#062e6f]'
+                      : 'bg-[#ece6f0] dark:bg-[#2a2b30] text-[#1a1b1f] dark:text-[#e3e2e6]'
+                  }`}>
+                    <Upload className={`w-5 h-5 ${isDraggingBackup ? 'animate-bounce' : ''}`} />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-xs font-bold text-[#1a1b1f] dark:text-[#e3e2e6] truncate">Import Backup</div>
-                    <div className="text-[11px] text-[#44474f] dark:text-[#c4c6d0] truncate">Restore from .json file</div>
+                    <div className="text-xs font-bold text-[#1a1b1f] dark:text-[#e3e2e6] truncate">
+                      {isDraggingBackup ? 'Drop .json backup file here' : 'Import Backup'}
+                    </div>
+                    <div className="text-[11px] text-[#44474f] dark:text-[#c4c6d0] truncate">
+                      {isDraggingBackup ? 'Release to restore immediately' : 'Restore from .json (or drag & drop)'}
+                    </div>
                   </div>
                 </div>
 

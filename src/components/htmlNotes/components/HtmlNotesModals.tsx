@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   X,
   FileCode,
@@ -56,6 +56,7 @@ interface HtmlNotesModalsProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   imageUploadRef: React.RefObject<HTMLInputElement | null>;
   onImportFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onImportDroppedFile?: (file: File) => void;
   onImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
@@ -90,8 +91,10 @@ export const HtmlNotesModals: React.FC<HtmlNotesModalsProps> = ({
   fileInputRef,
   imageUploadRef,
   onImportFile,
+  onImportDroppedFile,
   onImageUpload
 }) => {
+  const [isDraggingImport, setIsDraggingImport] = useState(false);
   return (
     <>
       {/* SAVED TOAST FEEDBACK */}
@@ -157,10 +160,39 @@ export const HtmlNotesModals: React.FC<HtmlNotesModalsProps> = ({
                   onImportClick();
                   setIsMobileMoreOpen(false);
                 }}
-                className="w-full px-3 py-2 rounded-xl hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center gap-2.5 text-left font-semibold border-0 outline-none transition-colors cursor-pointer"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingImport(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingImport(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingImport(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file && onImportDroppedFile) {
+                    onImportDroppedFile(file);
+                    setIsMobileMoreOpen(false);
+                  }
+                }}
+                className={`w-full px-3 py-2 rounded-xl flex items-center gap-2.5 text-left font-semibold border-2 transition-all cursor-pointer outline-none ${
+                  isDraggingImport
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 scale-[1.01]'
+                    : 'border-transparent hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3]'
+                }`}
               >
-                <FileCode className="w-4 h-4 text-blue-500 shrink-0" />
-                <span>Import .html File</span>
+                <FileCode className={`w-4 h-4 text-blue-500 shrink-0 ${isDraggingImport ? 'animate-bounce' : ''}`} />
+                <div className="flex flex-col min-w-0">
+                  <span>{isDraggingImport ? 'Drop HTML or ZIP File' : 'Import .html File'}</span>
+                  <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-normal">
+                    {isDraggingImport ? 'Release to import project' : 'Supports HTML, HTM, TXT, ZIP'}
+                  </span>
+                </div>
               </button>
 
               {onTriggerInsertImage && (

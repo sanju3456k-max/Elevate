@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Upload, Link2, Sparkles, Image as ImageIcon, Check } from 'lucide-react';
+import { compressImageForDocument } from '../utils/imageCompressor';
 
 interface HtmlNotesImageModalProps {
   isOpen: boolean;
@@ -24,8 +25,35 @@ export const HtmlNotesImageModal: React.FC<HtmlNotesImageModalProps> = ({
   const [caption, setCaption] = useState<string>('');
   const [align, setAlign] = useState<'center' | 'left' | 'right' | 'full'>('center');
   const [urlError, setUrlError] = useState<string>('');
+  const [isDragging, setIsDragging] = useState<boolean>(false);
 
   if (!isOpen) return null;
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && (file.type.startsWith('image/') || /\.(png|jpe?g|webp|svg|gif)$/i.test(file.name))) {
+      try {
+        const compressed = await compressImageForDocument(file);
+        if (compressed) {
+          onInsertImage(compressed, file.name, caption.trim() || undefined, align);
+          onClose();
+        }
+      } catch {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64 = event.target?.result as string;
+          if (base64) {
+            onInsertImage(base64, file.name, caption.trim() || undefined, align);
+            onClose();
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+  };
 
   const handleInsertUrl = () => {
     const trimmed = webUrl.trim();
@@ -137,18 +165,41 @@ export const HtmlNotesImageModal: React.FC<HtmlNotesImageModalProps> = ({
         <div className="p-5 space-y-4">
           {activeTab === 'upload' && (
             <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(false);
+              }}
+              onDrop={handleDrop}
               onClick={() => {
                 onTriggerDeviceUpload();
                 onClose();
               }}
-              className="border-2 border-dashed border-blue-400/60 dark:border-blue-600/40 rounded-xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-all text-center"
+              className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all text-center ${
+                isDragging
+                  ? 'border-blue-500 bg-blue-100/70 dark:bg-blue-900/40 scale-[1.01]'
+                  : 'border-blue-400/60 dark:border-blue-600/40 hover:bg-blue-50/50 dark:hover:bg-blue-950/20'
+              }`}
             >
-              <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                <Upload className="w-6 h-6" />
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
+                isDragging
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
+              }`}>
+                <Upload className={`w-6 h-6 ${isDragging ? 'animate-bounce' : ''}`} />
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-800 dark:text-zinc-200 m-0">Click to upload from device</p>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 m-0 mt-1">or drag & drop anywhere onto the preview canvas</p>
+                <p className="text-sm font-bold text-slate-800 dark:text-zinc-200 m-0">
+                  {isDragging ? 'Drop image here to insert' : 'Click to upload from device'}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 m-0 mt-1">
+                  {isDragging ? 'Release to compress and insert into note' : 'or drag & drop file directly here'}
+                </p>
               </div>
               <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">PNG, JPG, WebP, SVG, GIF up to 10MB</span>
             </div>

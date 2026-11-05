@@ -93,6 +93,7 @@ export const NotesRepositoryView: React.FC<NotesRepositoryViewProps> = ({
 
   // In-App File & Document Preview Modal
   const [previewFile, setPreviewFile] = useState<PreviewableFile | null>(null);
+  const [isDraggingAttachment, setIsDraggingAttachment] = useState<boolean>(false);
   const modalFileInputRef = useRef<HTMLInputElement>(null);
 
   const [googleToken, setGoogleToken] = useState<string | null>(getCachedGoogleAccessToken());
@@ -417,12 +418,14 @@ export const NotesRepositoryView: React.FC<NotesRepositoryViewProps> = ({
     setIsAddNoteModalOpen(false);
   };
 
-  const handleModalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processModalFile = (file: File) => {
+    const isImg = file.type.startsWith('image/') || /\.(png|jpe?g|webp|svg|gif)$/i.test(file.name);
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
-    const isImg = file.type.startsWith('image/');
-    const isPdf = file.type === 'application/pdf' || file.name.endsWith('.pdf');
+    if (!isImg && !isPdf) {
+      alert('Supported attachment formats are Images (JPG, PNG, WebP) and PDF documents.');
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -433,6 +436,12 @@ export const NotesRepositoryView: React.FC<NotesRepositoryViewProps> = ({
       });
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleModalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processModalFile(file);
     e.target.value = '';
   };
 
@@ -629,8 +638,29 @@ export const NotesRepositoryView: React.FC<NotesRepositoryViewProps> = ({
                   />
                 </div>
 
-                {/* File Attachment Box */}
-                <div className="space-y-1.5">
+                {/* File Attachment Box with Drag & Drop */}
+                <div 
+                  className="space-y-1.5"
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDraggingAttachment(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDraggingAttachment(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDraggingAttachment(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) {
+                      processModalFile(file);
+                    }
+                  }}
+                >
                   <input
                     type="file"
                     ref={modalFileInputRef}
@@ -640,7 +670,9 @@ export const NotesRepositoryView: React.FC<NotesRepositoryViewProps> = ({
                   />
 
                   {attachedFile ? (
-                    <div className="p-3 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border-0 shadow-sm flex items-center justify-between gap-2">
+                    <div className={`p-3 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border-0 shadow-sm flex items-center justify-between gap-2 transition-all ${
+                      isDraggingAttachment ? 'ring-2 ring-blue-500 bg-blue-100 dark:bg-blue-900/60 scale-[1.01]' : ''
+                    }`}>
                       <div className="flex items-center gap-2 truncate">
                         {attachedFile.type === 'image' ? (
                           <ImageIcon className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
@@ -663,10 +695,14 @@ export const NotesRepositoryView: React.FC<NotesRepositoryViewProps> = ({
                     <button
                       type="button"
                       onClick={() => modalFileInputRef.current?.click()}
-                      className="w-full py-3 px-4 rounded-2xl border-0 shadow-sm bg-slate-100/50 dark:bg-[#18181c] hover:bg-slate-200/60 dark:hover:bg-[#22222a] text-slate-600 dark:text-zinc-300 text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                      className={`w-full py-3 px-4 rounded-2xl border-2 border-dashed shadow-sm text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                        isDraggingAttachment
+                          ? 'border-blue-500 bg-blue-50/80 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 scale-[1.01]'
+                          : 'border-transparent bg-slate-100/50 dark:bg-[#18181c] hover:bg-slate-200/60 dark:hover:bg-[#22222a] text-slate-600 dark:text-zinc-300'
+                      }`}
                     >
-                      <Paperclip className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                      <span>Attach Diagram, Photo, or PDF Document</span>
+                      <Paperclip className={`w-3.5 h-3.5 text-blue-600 dark:text-blue-400 ${isDraggingAttachment ? 'animate-bounce' : ''}`} />
+                      <span>{isDraggingAttachment ? 'Drop Image or PDF to Attach' : 'Attach Diagram, Photo, or PDF Document'}</span>
                     </button>
                   )}
                 </div>

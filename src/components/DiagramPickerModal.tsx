@@ -64,6 +64,7 @@ export const DiagramPickerModal: React.FC<DiagramPickerModalProps> = ({
   const [promptInput, setPromptInput] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
+  const [isDraggingUpload, setIsDraggingUpload] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isExpandedPreview, setIsExpandedPreview] = useState(false);
   const [isContextDrawerOpen, setIsContextDrawerOpen] = useState(false);
@@ -445,7 +446,27 @@ export const DiagramPickerModal: React.FC<DiagramPickerModalProps> = ({
 
           {/* TAB 2: UPLOAD */}
           {activeTab === 'upload' && (
-            <div className="flex-1 flex flex-col items-center justify-center min-h-[260px] w-full">
+            <div 
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDraggingUpload(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDraggingUpload(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDraggingUpload(false);
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                  handleFileUpload(e.dataTransfer.files[0]);
+                }
+              }}
+              className="flex-1 flex flex-col items-center justify-center min-h-[260px] w-full relative"
+            >
               <input
                 ref={fileInputRef}
                 type="file"
@@ -457,6 +478,14 @@ export const DiagramPickerModal: React.FC<DiagramPickerModalProps> = ({
                   }
                 }}
               />
+
+              {/* Dragging over overlay */}
+              {isDraggingUpload && (
+                <div className="absolute inset-0 z-30 bg-blue-50/90 dark:bg-blue-950/90 border-2 border-dashed border-[#0084ff] rounded-2xl flex flex-col items-center justify-center gap-2 backdrop-blur-xs pointer-events-none animate-in fade-in duration-150">
+                  <Upload className="w-8 h-8 text-[#0084ff] animate-bounce" />
+                  <span className="text-xs font-bold text-[#0084ff]">Drop Image to Replace Diagram</span>
+                </div>
+              )}
 
               {currentUrl ? (
                 <div className="w-full h-full flex flex-col items-center justify-center relative p-3 bg-white dark:bg-black rounded-2xl dark:border dark:border-[#1c1c1e]">

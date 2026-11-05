@@ -163,6 +163,7 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
     type: 'image' | 'pdf' | 'file';
   } | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState<boolean>(false);
+  const [isDraggingEditAttachment, setIsDraggingEditAttachment] = useState<boolean>(false);
   const editFileInputRef = useRef<HTMLInputElement>(null);
 
   // Local Notes State
@@ -1051,12 +1052,14 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
     }
   };
 
-  const handleEditFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processEditAttachment = (file: File) => {
+    const isImg = file.type.startsWith('image/') || /\.(png|jpe?g|webp|svg|gif)$/i.test(file.name);
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
-    const isImg = file.type.startsWith('image/');
-    const isPdf = file.type === 'application/pdf' || file.name.endsWith('.pdf');
+    if (!isImg && !isPdf) {
+      alert('Supported attachment formats are Images (JPG, PNG, WebP) and PDF documents.');
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -1067,6 +1070,12 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
       });
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleEditFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processEditAttachment(file);
     e.target.value = '';
   };
 
@@ -2013,8 +2022,29 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
                 />
               </div>
 
-              {/* Attachment Management */}
-              <div className="space-y-1.5">
+              {/* Attachment Management with Drag & Drop */}
+              <div 
+                className="space-y-1.5"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingEditAttachment(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingEditAttachment(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingEditAttachment(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) {
+                    processEditAttachment(file);
+                  }
+                }}
+              >
                 <input
                   type="file"
                   ref={editFileInputRef}
@@ -2024,7 +2054,9 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
                 />
 
                  {editAttachedFile ? (
-                  <div className="p-2.5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border-0 shadow-sm flex items-center justify-between gap-2">
+                  <div className={`p-2.5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border-0 shadow-sm flex items-center justify-between gap-2 transition-all ${
+                    isDraggingEditAttachment ? 'ring-2 ring-[#0084ff] bg-blue-100 dark:bg-blue-900/60 scale-[1.01]' : ''
+                  }`}>
                     <div className="flex items-center gap-2 truncate">
                       {editAttachedFile.type === 'image' ? (
                         <ImageIcon className="w-4 h-4 text-[#0084ff] shrink-0" />
@@ -2048,10 +2080,14 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
                   <button
                     type="button"
                     onClick={() => editFileInputRef.current?.click()}
-                    className="w-full py-2.5 px-3 rounded-2xl border-0 shadow-sm bg-slate-100/50 dark:bg-[#18181c] hover:bg-slate-200/60 dark:hover:bg-[#22222a] text-slate-600 dark:text-zinc-300 text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    className={`w-full py-2.5 px-3 rounded-2xl border-2 border-dashed shadow-sm text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      isDraggingEditAttachment
+                        ? 'border-[#0084ff] bg-blue-50/80 dark:bg-blue-950/50 text-[#0084ff] scale-[1.01]'
+                        : 'border-transparent bg-slate-100/50 dark:bg-[#18181c] hover:bg-slate-200/60 dark:hover:bg-[#22222a] text-slate-600 dark:text-zinc-300'
+                    }`}
                   >
-                    <Paperclip className="w-3.5 h-3.5 text-[#0084ff]" />
-                    <span>Attach Diagram, Photo, or PDF Document</span>
+                    <Paperclip className={`w-3.5 h-3.5 text-[#0084ff] ${isDraggingEditAttachment ? 'animate-bounce' : ''}`} />
+                    <span>{isDraggingEditAttachment ? 'Drop Image or PDF to Attach' : 'Attach Diagram, Photo, or PDF Document'}</span>
                   </button>
                 )}
               </div>

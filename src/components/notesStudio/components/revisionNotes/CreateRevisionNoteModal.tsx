@@ -52,6 +52,7 @@ export const CreateRevisionNoteModal: React.FC<CreateRevisionNoteModalProps> = (
     name: string;
     type: 'image' | 'pdf' | 'file';
   } | null>(null);
+  const [isDraggingAttachment, setIsDraggingAttachment] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -77,12 +78,14 @@ export const CreateRevisionNoteModal: React.FC<CreateRevisionNoteModalProps> = (
     }
   }, [editingNote, isOpen]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processFile = (file: File) => {
+    const isImg = file.type.startsWith('image/') || /\.(png|jpe?g|webp|svg|gif)$/i.test(file.name);
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
 
-    const isImg = file.type.startsWith('image/');
-    const isPdf = file.type === 'application/pdf' || file.name.endsWith('.pdf');
+    if (!isImg && !isPdf) {
+      alert('Supported attachment formats are Images (JPG, PNG, WebP) and PDF documents.');
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -93,6 +96,12 @@ export const CreateRevisionNoteModal: React.FC<CreateRevisionNoteModalProps> = (
       });
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processFile(file);
     e.target.value = '';
   };
 
@@ -256,14 +265,38 @@ export const CreateRevisionNoteModal: React.FC<CreateRevisionNoteModalProps> = (
                   </button>
                 </div>
               ) : (
-                <div>
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDraggingAttachment(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDraggingAttachment(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDraggingAttachment(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) {
+                      processFile(file);
+                    }
+                  }}
+                >
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full py-2.5 px-4 rounded-xl border border-dashed border-slate-300 dark:border-zinc-700 hover:border-blue-500 dark:hover:border-blue-400 bg-slate-50/50 dark:bg-zinc-800/40 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    className={`w-full py-2.5 px-4 rounded-xl border-2 border-dashed text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      isDraggingAttachment
+                        ? 'border-blue-500 bg-blue-50/80 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 scale-[1.01]'
+                        : 'border-slate-300 dark:border-zinc-700 hover:border-blue-500 dark:hover:border-blue-400 bg-slate-50/50 dark:bg-zinc-800/40 text-slate-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400'
+                    }`}
                   >
-                    <Paperclip className="w-4 h-4" />
-                    <span>Upload Diagram / PDF File</span>
+                    <Paperclip className={`w-4 h-4 ${isDraggingAttachment ? 'animate-bounce text-blue-500' : ''}`} />
+                    <span>{isDraggingAttachment ? 'Drop Image or PDF to Attach' : 'Upload Diagram / PDF File (or drag & drop)'}</span>
                   </button>
                   <input
                     ref={fileInputRef}

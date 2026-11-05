@@ -1757,6 +1757,7 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
         fileInputRef={fileInputRef}
         imageUploadRef={imageUploadRef}
         onImportFile={handleImportFile}
+        onImportDroppedFile={handleImportDroppedFile}
         onImageUpload={handleImageUpload}
       />
 
