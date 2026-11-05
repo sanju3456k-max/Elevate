@@ -29,7 +29,7 @@
 :root {
   --color-primary: #0b57d0;
   --color-primary-contrast: #ffffff;
-  --color-bg: #f8fafd;
+  --color-bg: #e5e9f0;
   --color-surface: #ffffff;
   --color-text: #1f1f1f;
   --color-muted: #5e5e5e;
@@ -46,7 +46,7 @@
 .dark {
   --color-primary: #a8c7fa;
   --color-primary-contrast: #041e49;
-  --color-bg: #131314;
+  --color-bg: #0b0c10;
   --color-surface: #1e1f20;
   --color-text: #e3e3e3;
   --color-muted: #9aa0a6;
@@ -72,7 +72,7 @@
   --radius: 20px;
   --color-primary: #0b57d0;
   --color-primary-contrast: #ffffff;
-  --color-bg: #f8f9fa;
+  --color-bg: #e5e9f0;
   --color-surface: #ffffff;
   --color-text: #1f1f1f;
   --color-muted: #5e5e5e;
