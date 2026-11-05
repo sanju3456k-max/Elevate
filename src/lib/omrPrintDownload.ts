@@ -338,6 +338,39 @@ const QUESTION_PAPER_PRINT_CSS = `
     letter-spacing: 0.025em !important;
   }
 
+  /* Centered Transparent App Logo Watermark on Each Question Paper Page */
+  .elevate-question-watermark {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    pointer-events: none !important;
+    user-select: none !important;
+    z-index: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .elevate-question-watermark img,
+  .elevate-watermark-img {
+    width: 90mm !important;
+    height: 90mm !important;
+    max-width: 350px !important;
+    max-height: 350px !important;
+    object-fit: contain !important;
+    opacity: 0.17 !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    pointer-events: none !important;
+    user-select: none !important;
+  }
+
   /* KaTeX Math Equation Styling */
   .katex {
     font-size: 1.05em !important;
