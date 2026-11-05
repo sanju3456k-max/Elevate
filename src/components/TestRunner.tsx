@@ -855,7 +855,6 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
         <footer className="py-4 text-center text-xs text-[#5e5e5e] dark:text-[#9aa0a6] flex items-center justify-center gap-1.5 flex-wrap">
           <img src="./assets/preplens-icon.png" alt="" className="w-4 h-4 object-contain inline-block" />
           <span className="font-semibold text-[#1f1f1f] dark:text-[#e3e3e3]">PrepLens</span>
-          <span className="opacity-70">• Your Vision. Your Path. Your Success.</span>
         </footer>
       </div>
     );

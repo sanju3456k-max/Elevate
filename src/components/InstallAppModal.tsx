@@ -85,10 +85,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
               <h2 className="text-lg font-black text-[#1a1b1f] dark:text-[#e3e2e6] leading-snug">
                 Install PrepLens App
               </h2>
-              <div className="w-24 h-[2px] my-0.5 rounded-full bg-gradient-to-r from-teal-500 via-sky-500 to-amber-400 opacity-90" />
-              <p className="text-xs text-[#44474f] dark:text-[#c4c6d0]">
-                Your Vision. Your Path. Your Success.
-              </p>
+              <div className="w-24 h-[2px] mt-1 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 opacity-90" />
             </div>
           </div>
 

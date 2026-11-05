@@ -59,10 +59,7 @@ export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({
               <h1 className="text-3xl sm:text-4xl font-black text-[#0f172a] dark:text-[#f8fafc] tracking-tight leading-tight">
                 PrepLens
               </h1>
-              <div className="w-32 h-[2.5px] mt-1.5 mb-2 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 opacity-90" />
-              <p className="text-xs sm:text-sm font-medium italic text-[#475569] dark:text-[#94a3b8] tracking-tight">
-                Your Vision. Your Path. Your Success.
-              </p>
+              <div className="w-32 h-[2.5px] mt-2 mb-1 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 opacity-90" />
             </div>
 
             {/* Subtle Progress Bar */}
