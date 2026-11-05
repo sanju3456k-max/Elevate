@@ -59,7 +59,7 @@ export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({
               <h1 className="text-3xl sm:text-4xl font-black text-[#0f172a] dark:text-[#f8fafc] tracking-tight leading-tight">
                 PrepLens
               </h1>
-              <div className="w-32 h-[2.5px] mt-1.5 mb-2 rounded-full bg-gradient-to-r from-teal-500 via-sky-500 to-amber-400 opacity-90" />
+              <div className="w-32 h-[2.5px] mt-1.5 mb-2 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 opacity-90" />
               <p className="text-xs sm:text-sm font-medium italic text-[#475569] dark:text-[#94a3b8] tracking-tight">
                 Your Vision. Your Path. Your Success.
               </p>
@@ -71,7 +71,7 @@ export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({
                 initial={{ x: '-100%' }}
                 animate={{ x: '100%' }}
                 transition={{ repeat: Infinity, duration: 1, ease: 'easeInOut' }}
-                className="w-1/2 h-full bg-gradient-to-r from-teal-500 to-sky-500 rounded-full"
+                className="w-1/2 h-full bg-gradient-to-r from-cyan-400 to-sky-500 rounded-full"
               />
             </div>
           </motion.div>

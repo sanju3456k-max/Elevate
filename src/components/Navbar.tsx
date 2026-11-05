@@ -224,7 +224,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span className="font-black text-base sm:text-lg text-[#0f172a] dark:text-[#f8fafc] tracking-tight leading-tight">
                     PrepLens
                   </span>
-                  <div className="w-full h-[2px] mt-0.5 rounded-full bg-gradient-to-r from-teal-500 via-sky-500 to-amber-400 opacity-90" />
+                  <div className="w-full h-[2px] mt-0.5 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 opacity-90" />
                 </div>
               </div>
             </div>
@@ -411,7 +411,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           PrepLens
                         </span>
                       </div>
-                      <div className="w-full h-[2px] mt-0.5 mb-1 rounded-full bg-gradient-to-r from-teal-500 via-sky-500 to-amber-400 opacity-90" />
+                      <div className="w-full h-[2px] mt-0.5 mb-1 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 opacity-90" />
                       <p className="text-[10px] font-medium text-[#475569] dark:text-[#94a3b8] italic tracking-tight">Your Vision. Your Path. Your Success.</p>
                     </div>
                   </div>
