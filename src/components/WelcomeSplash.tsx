@@ -13,10 +13,20 @@ export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({
   const [isVisible, setIsVisible] = useState<boolean>(true);
 
   useEffect(() => {
+    // Detect standalone PWA mode (where Android already displayed the OS native splash screen)
+    const isStandalone = typeof window !== 'undefined' && (
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true ||
+      document.referrer.includes('android-app://')
+    );
+
+    // In standalone mode, transition out quickly to avoid duplicate splash screens
+    const effectiveDuration = isStandalone ? 350 : durationMs;
+
     const timer = setTimeout(() => {
       setIsVisible(false);
       if (onFinish) onFinish();
-    }, durationMs);
+    }, effectiveDuration);
 
     return () => clearTimeout(timer);
   }, [durationMs, onFinish]);
