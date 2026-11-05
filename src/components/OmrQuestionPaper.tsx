@@ -275,27 +275,26 @@ export function determineOptionLayout(
 }
 
 function estimateStatementHeight(text: string): number {
-  if (!text) return 18;
+  if (!text) return 20;
 
   let matrixExtra = 0;
   const matrixMatches = text.match(/\\begin\{(?:bmatrix|pmatrix|vmatrix|matrix|cases|aligned)\}[\s\S]+?\\end\{(?:bmatrix|pmatrix|vmatrix|matrix|cases|aligned)\}/g);
   if (matrixMatches) {
     matrixMatches.forEach((m) => {
       const rows = (m.match(/\\\\/g) || []).length + 1;
-      const isShortInlineMatrix = m.length < 65 && rows <= 2;
-      if (isShortInlineMatrix) {
-        matrixExtra += 10;
+      if (rows <= 2) {
+        matrixExtra += 32;
       } else {
-        matrixExtra += Math.max(20, rows * 16);
+        matrixExtra += 20 + rows * 18;
       }
     });
   }
 
   const displayMathBlocks = (text.match(/\$\$[\s\S]+?\$\$/g) || []).length;
-  const displayMathExtra = displayMathBlocks * 22;
+  const displayMathExtra = displayMathBlocks * 30;
 
   const fracMatches = (text.match(/\\(?:frac|dfrac)\{[^{}]+\}\{[^{}]+\}/g) || []).length;
-  const fracExtra = fracMatches * 4;
+  const fracExtra = fracMatches * 10;
 
   const cleanText = text
     .replace(/\$\$[\s\S]+?\$\$/g, ' ')
@@ -307,18 +306,18 @@ function estimateStatementHeight(text: string): number {
   paragraphs.forEach((p) => {
     const trimmed = p.trim();
     if (!trimmed) {
-      lineCount += 0.2;
+      lineCount += 0.3;
     } else {
       lineCount += Math.max(1, Math.ceil(trimmed.length / CHARS_PER_COL_LINE));
     }
   });
 
-  const baseHeight = lineCount * 14.5 + matrixExtra + displayMathExtra + fracExtra + 1;
-  return Math.max(16, Math.min(420, Math.round(baseHeight)));
+  const baseHeight = lineCount * 18.5 + matrixExtra + displayMathExtra + fracExtra + 4;
+  return Math.max(22, Math.min(500, Math.round(baseHeight)));
 }
 
 function estimateOptionRowHeight(opts: OptionData[]): number {
-  let maxHeight = 16;
+  let maxHeight = 20;
   opts.forEach((opt) => {
     const text = opt.text || '';
     const is3x3 = /\\begin\{(?:bmatrix|pmatrix|vmatrix|matrix)\}(?:[^\\]*\\\\){2,}/.test(text);
@@ -327,13 +326,13 @@ function estimateOptionRowHeight(opts: OptionData[]): number {
     const isIntOrSqrt = /\\(?:int|sqrt)\b/.test(text);
 
     if (is3x3) {
-      maxHeight = Math.max(maxHeight, 42);
+      maxHeight = Math.max(maxHeight, 68);
     } else if (is2x2) {
-      maxHeight = Math.max(maxHeight, 28);
+      maxHeight = Math.max(maxHeight, 46);
     } else if (isFrac || isIntOrSqrt) {
-      maxHeight = Math.max(maxHeight, 20);
+      maxHeight = Math.max(maxHeight, 28);
     } else {
-      maxHeight = Math.max(maxHeight, 16);
+      maxHeight = Math.max(maxHeight, 20);
     }
   });
   return maxHeight;
@@ -346,15 +345,15 @@ function estimateSingleOptionHeight(opt: OptionData): number {
   const isFrac = /\\(?:frac|dfrac)\b/.test(text);
   const isInt = /\\(?:int|iint|iiint)\b/.test(text);
 
-  if (is3x3) return 42;
-  if (is2x2) return 28;
+  if (is3x3) return 68;
+  if (is2x2) return 46;
+  if (isFrac || isInt) return 34;
 
   const analysis = analyzeOptionDimensions(text);
   const lines = Math.max(1, Math.ceil(analysis.effectiveWidthPx / 315));
 
-  let baseH = lines * 15;
-  if (isFrac || isInt) baseH += 3;
-  return Math.max(15, baseH);
+  let baseH = lines * 19;
+  return Math.max(20, baseH);
 }
 
 export function cleanBlankLines(text: string): string {
@@ -437,7 +436,7 @@ function buildLinearStreamItems(questions: MathQuestion[]): StreamFlowItem[] {
         gridCols: 4,
         isFirstOptionOfQuestion: true,
         isLastOptionOfQuestion: true,
-        estimatedHeight: 20,
+        estimatedHeight: 22,
         paperLayout,
       });
     } else if (layout === '2x2_grid') {
@@ -943,6 +942,9 @@ const RenderStreamItem: React.FC<{
   return null;
 });
 
+// Module-level cache to keep measured DOM heights consistent across test visits within the session
+const GLOBAL_MEASURED_HEIGHTS_CACHE = new Map<string, Record<string, number>>();
+
 export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
   test,
   className = '',
@@ -1021,36 +1023,115 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
     return buildLinearStreamItems(test.questions || []);
   }, [test.questions]);
 
-  const [measuredHeights, setMeasuredHeights] = useState<Record<string, number>>({});
+  const testIdKey = useMemo(() => {
+    const qCount = test.questions?.length || 0;
+    const tId = test.id || test.title || 'test';
+    return `${tId}_${qCount}_${layoutDensity}`;
+  }, [test.id, test.title, test.questions?.length, layoutDensity]);
+
+  const [measuredHeights, setMeasuredHeights] = useState<Record<string, number>>(() => {
+    if (testIdKey && GLOBAL_MEASURED_HEIGHTS_CACHE.has(testIdKey)) {
+      return { ...GLOBAL_MEASURED_HEIGHTS_CACHE.get(testIdKey)! };
+    }
+    return {};
+  });
+
+  const heightsRef = useRef(measuredHeights);
+  useEffect(() => {
+    heightsRef.current = measuredHeights;
+  }, [measuredHeights]);
 
   useEffect(() => {
-    const root = document.getElementById('question-paper-printable-root');
-    if (!root) return;
+    let isCancelled = false;
 
-    const elements = root.querySelectorAll<HTMLElement>('[data-stream-id]');
-    if (elements.length === 0) return;
+    const measureDomHeights = () => {
+      if (isCancelled) return false;
+      const root = document.getElementById('question-paper-printable-root');
+      if (!root) return false;
 
-    let hasDiff = false;
-    const newHeights: Record<string, number> = {};
+      const elements = root.querySelectorAll<HTMLElement>('[data-stream-id]');
+      if (elements.length === 0) return false;
 
-    elements.forEach((el) => {
-      const id = el.getAttribute('data-stream-id');
-      if (id) {
-        const h = el.offsetHeight;
-        if (h > 0) {
-          newHeights[id] = h;
-          const oldH = measuredHeights[id];
-          if (oldH === undefined || Math.abs(oldH - h) > 3) {
-            hasDiff = true;
+      let hasDiff = false;
+      const nextHeights: Record<string, number> = { ...heightsRef.current };
+
+      elements.forEach((el) => {
+        const id = el.getAttribute('data-stream-id');
+        if (id) {
+          const h = el.offsetHeight;
+          if (h > 0) {
+            const oldH = heightsRef.current[id];
+            if (oldH === undefined || Math.abs(oldH - h) > 2) {
+              nextHeights[id] = h;
+              hasDiff = true;
+            }
           }
         }
+      });
+
+      if (hasDiff && !isCancelled) {
+        heightsRef.current = nextHeights;
+        if (testIdKey) {
+          GLOBAL_MEASURED_HEIGHTS_CACHE.set(testIdKey, nextHeights);
+        }
+        setMeasuredHeights(nextHeights);
       }
+      return hasDiff;
+    };
+
+    // 1. Immediate measurement pass
+    measureDomHeights();
+
+    // 2. Next animation frame (after first paint)
+    const rafId = requestAnimationFrame(() => {
+      measureDomHeights();
     });
 
-    if (hasDiff) {
-      setMeasuredHeights(newHeights);
+    // 3. Staged timeout passes to catch KaTeX rendering and layout shifts
+    const timers = [
+      setTimeout(measureDomHeights, 60),
+      setTimeout(measureDomHeights, 180),
+      setTimeout(measureDomHeights, 360),
+      setTimeout(measureDomHeights, 750),
+      setTimeout(measureDomHeights, 1400),
+    ];
+
+    // 4. Web fonts ready hook (KaTeX & Inter fonts finish loading)
+    if (typeof document !== 'undefined' && 'fonts' in document) {
+      document.fonts.ready
+        .then(() => {
+          if (!isCancelled) {
+            measureDomHeights();
+          }
+        })
+        .catch(() => {});
     }
-  }, [streamItems, layoutDensity]);
+
+    // 5. ResizeObserver to catch any dynamic size changes (math expansion, image load)
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      const root = document.getElementById('question-paper-printable-root');
+      if (root) {
+        resizeObserver = new ResizeObserver(() => {
+          if (!isCancelled) {
+            measureDomHeights();
+          }
+        });
+        resizeObserver.observe(root);
+        const elements = root.querySelectorAll<HTMLElement>('[data-stream-id]');
+        elements.forEach((el) => resizeObserver?.observe(el));
+      }
+    }
+
+    return () => {
+      isCancelled = true;
+      cancelAnimationFrame(rafId);
+      timers.forEach((t) => clearTimeout(t));
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
+  }, [streamItems, layoutDensity, testIdKey]);
 
   const activePageLayouts = useMemo(() => {
     return paginateLinearStream(streamItems, measuredHeights, layoutDensity);

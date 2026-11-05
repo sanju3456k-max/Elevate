@@ -595,8 +595,26 @@ export async function triggerSystemPrint(
     }
   `;
 
-  // Brief delay to ensure portal DOM settles and images decode
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  // Ensure web fonts (KaTeX math glyphs) and images are fully loaded and rendered before sending to native printer
+  if (typeof document !== 'undefined' && 'fonts' in document) {
+    await document.fonts.ready.catch(() => {});
+  }
+
+  // Ensure all images in the print portal are loaded/decoded
+  const portalImages = Array.from(portalEl.querySelectorAll('img'));
+  await Promise.all(
+    portalImages.map((img) => {
+      if (img.complete) return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        setTimeout(resolve, 350);
+      });
+    })
+  );
+
+  // Brief delay to ensure portal DOM settles
+  await new Promise((resolve) => setTimeout(resolve, 120));
 
   const originalDocTitle = document.title;
   document.title = documentTitle;
