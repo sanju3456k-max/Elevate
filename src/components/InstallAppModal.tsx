@@ -74,15 +74,44 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
 
           {/* Header */}
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-full bg-[#bad6ff] dark:bg-[#004a77] text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0 shadow-xs">
-              <Sigma className="w-6 h-6 stroke-[2.5] text-[#0b57d0] dark:text-[#a8c7fa]" />
+            <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
+              <img 
+                src="./assets/preplens-icon.png" 
+                alt="PrepLens" 
+                className="w-full h-full object-contain"
+              />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-[#1a1b1f] dark:text-[#e3e2e6] leading-snug">
+              <h2 className="text-lg font-black text-[#1a1b1f] dark:text-[#e3e2e6] leading-snug">
                 Install PrepLens App
               </h2>
+              <div className="w-24 h-[2px] my-0.5 rounded-full bg-gradient-to-r from-teal-500 via-sky-500 to-amber-400 opacity-90" />
               <p className="text-xs text-[#44474f] dark:text-[#c4c6d0]">
-                Official Progressive Web App for All Devices
+                Your Vision. Your Path. Your Success.
+              </p>
+            </div>
+          </div>
+
+          {/* Home Screen App Icon Visual Preview */}
+          <div className="p-3.5 rounded-[22px] bg-white dark:bg-[#1a1b1f] border border-slate-200/80 dark:border-zinc-800 shadow-xs flex items-center gap-3.5">
+            <div className="relative w-13 h-13 rounded-[16px] bg-[#f0f4f8] dark:bg-[#282a30] p-1.5 flex items-center justify-center shrink-0 border border-slate-200/60 dark:border-zinc-700">
+              <img 
+                src="./assets/preplens-icon.png" 
+                alt="PrepLens Home Screen Icon" 
+                className="w-full h-full object-contain" 
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-[#1a1b1f] dark:text-[#e3e2e6] tracking-tight">
+                  PrepLens
+                </span>
+                <span className="text-[10px] px-2 py-0.5 font-bold rounded-full bg-teal-500/15 text-teal-700 dark:text-teal-300">
+                  Home Screen Icon
+                </span>
+              </div>
+              <p className="text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] mt-0.5 leading-snug">
+                One-tap instant launch directly from your home screen with offline mock test access.
               </p>
             </div>
           </div>
@@ -145,8 +174,11 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
                     <li>
                       Scroll down and select <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Add to Home Screen</strong>.
                     </li>
-                    <li>
-                      Tap <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Add</strong> in the top right corner.
+                    <li className="flex items-center gap-1.5 flex-wrap">
+                      <span>Tap <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Add</strong>. Look for the</span>
+                      <img src="./assets/preplens-icon.png" alt="" className="w-4 h-4 object-contain inline-block" />
+                      <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">PrepLens</strong>
+                      <span>icon on your home screen.</span>
                     </li>
                   </ol>
                 </div>
@@ -162,10 +194,13 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
                       Click or tap the Chrome <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Menu</strong> icon (top right).
                     </li>
                     <li>
-                      Select <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Install PrepLens</strong> or <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Install application</strong>.
+                      Select <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Install PrepLens</strong> or <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Add to Home screen</strong>.
                     </li>
-                    <li>
-                      Confirm <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Install</strong> when prompted by Chrome.
+                    <li className="flex items-center gap-1.5 flex-wrap">
+                      <span>The</span>
+                      <img src="./assets/preplens-icon.png" alt="" className="w-4 h-4 object-contain inline-block" />
+                      <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">PrepLens</strong>
+                      <span>app icon will be added to your home screen.</span>
                     </li>
                   </ol>
                 </div>

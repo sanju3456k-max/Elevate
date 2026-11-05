@@ -207,24 +207,24 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <Menu className="w-[18px] h-[18px] text-[#1f1f1f] dark:text-[#e3e3e3]" />
               </button>
 
-              {/* Brand Logo with Google-style Round Icon */}
+              {/* Brand Logo with Authentic PrepLens Aperture Emblem */}
               <div 
                 id="brand-logo"
-                className="flex items-center gap-2.5 cursor-pointer select-none group"
+                className="flex items-center gap-2 sm:gap-2.5 cursor-pointer select-none group"
                 onClick={() => handleNavClick('tests')}
               >
-                <div className="w-9 h-9 rounded-full bg-[#bad6ff] dark:bg-[#004a77] group-hover:bg-[#a8cbfd] dark:group-hover:bg-[#005a92] text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0 border-0 ring-0 shadow-none transition-all">
-                  <Sigma className="w-5 h-5 stroke-[2.5] text-[#0b57d0] dark:text-[#a8c7fa]" />
+                <div className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0 overflow-hidden group-hover:scale-105 transition-transform">
+                  <img 
+                    src="./assets/preplens-icon.png" 
+                    alt="PrepLens" 
+                    className="w-full h-full object-contain"
+                  />
                 </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-extrabold text-base sm:text-lg text-[#1f1f1f] dark:text-[#e3e3e3] tracking-tight">
-                      PrepLens
-                    </span>
-                    <span className="text-[9px] sm:text-[10px] px-2 py-0.5 font-bold rounded-full bg-[#bad6ff] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff]">
-                      PRO
-                    </span>
-                  </div>
+                <div className="flex flex-col justify-center">
+                  <span className="font-black text-base sm:text-lg text-[#0f172a] dark:text-[#f8fafc] tracking-tight leading-tight">
+                    PrepLens
+                  </span>
+                  <div className="w-full h-[2px] mt-0.5 rounded-full bg-gradient-to-r from-teal-500 via-sky-500 to-amber-400 opacity-90" />
                 </div>
               </div>
             </div>
@@ -398,19 +398,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {/* Drawer Top Drag Indicator & Header */}
                 <div className="p-4 sm:p-5 pt-[calc(env(safe-area-inset-top,0px)+1rem)] bg-white dark:bg-[#1e2024] flex items-center justify-between shrink-0 rounded-tr-[24px] border-b border-slate-100 dark:border-zinc-800/80">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0 border-0 ring-0 shadow-none">
-                      <Sigma className="w-5 h-5 stroke-[2.5] text-[#0b57d0] dark:text-[#a8c7fa]" />
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
+                      <img 
+                        src="./assets/preplens-icon.png" 
+                        alt="PrepLens" 
+                        className="w-full h-full object-contain"
+                      />
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <span className="font-extrabold text-base text-[#1f1f1f] dark:text-[#e3e3e3] tracking-tight">
+                        <span className="font-black text-base text-[#0f172a] dark:text-[#f8fafc] tracking-tight">
                           PrepLens
                         </span>
-                        <span className="text-[9px] px-2 py-0.5 font-bold rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff]">
-                          PRO
-                        </span>
                       </div>
-                      <p className="text-[10.5px] font-medium text-[#5e5e5e] dark:text-[#9aa0a6]">Navigation & Test Suite</p>
+                      <div className="w-full h-[2px] mt-0.5 mb-1 rounded-full bg-gradient-to-r from-teal-500 via-sky-500 to-amber-400 opacity-90" />
+                      <p className="text-[10px] font-medium text-[#475569] dark:text-[#94a3b8] italic tracking-tight">Your Vision. Your Path. Your Success.</p>
                     </div>
                   </div>
                   <md-icon-button
@@ -634,7 +636,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {/* Drawer Bottom Bar: Theme Switcher */}
                 <div className="p-4 bg-white dark:bg-[#1e2024] flex items-center justify-between text-xs font-bold text-[#1f1f1f] dark:text-[#e3e3e3] shrink-0 border-t border-slate-100 dark:border-zinc-800/80 rounded-br-[24px]">
                   <div className="flex items-center gap-1.5">
-                    <span>PrepLens Pro</span>
+                    <span>PrepLens</span>
                     <span className="text-[10px] text-[#5e5e5e] dark:text-[#9aa0a6]">v2.0</span>
                   </div>
                   <button

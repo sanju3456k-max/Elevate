@@ -1,0 +1,72 @@
+import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+
+interface WelcomeSplashProps {
+  durationMs?: number;
+  onFinish?: () => void;
+}
+
+export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({
+  durationMs = 1200,
+  onFinish,
+}) => {
+  const [isVisible, setIsVisible] = useState<boolean>(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsVisible(false);
+      if (onFinish) onFinish();
+    }, durationMs);
+
+    return () => clearTimeout(timer);
+  }, [durationMs, onFinish]);
+
+  return (
+    <AnimatePresence>
+      {isVisible && (
+        <motion.div
+          key="preplens-welcome-splash"
+          initial={{ opacity: 1 }}
+          exit={{ opacity: 0, transition: { duration: 0.35, ease: 'easeInOut' } }}
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#0f172a] dark:text-[#f8fafc] select-none pointer-events-none transition-colors"
+        >
+          <motion.div
+            initial={{ scale: 0.92, opacity: 0, y: 6 }}
+            animate={{ scale: 1, opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] } }}
+            className="flex flex-col items-center justify-center gap-4 text-center p-6"
+          >
+            {/* Authentic Static Aperture Lens Emblem - Clean without white shadow */}
+            <div className="relative w-22 h-22 sm:w-24 sm:h-24 rounded-full flex items-center justify-center overflow-hidden">
+              <img
+                src="./assets/preplens-icon.png"
+                alt="PrepLens"
+                className="w-full h-full object-contain"
+              />
+            </div>
+
+            {/* Brand Wordmark & Calibration Arc */}
+            <div className="flex flex-col items-center">
+              <h1 className="text-3xl sm:text-4xl font-black text-[#0f172a] dark:text-[#f8fafc] tracking-tight leading-tight">
+                PrepLens
+              </h1>
+              <div className="w-32 h-[2.5px] mt-1.5 mb-2 rounded-full bg-gradient-to-r from-teal-500 via-sky-500 to-amber-400 opacity-90" />
+              <p className="text-xs sm:text-sm font-medium italic text-[#475569] dark:text-[#94a3b8] tracking-tight">
+                Your Vision. Your Path. Your Success.
+              </p>
+            </div>
+
+            {/* Subtle Progress Bar */}
+            <div className="w-36 h-1 mt-3 bg-slate-300/60 dark:bg-zinc-800 rounded-full overflow-hidden">
+              <motion.div
+                initial={{ x: '-100%' }}
+                animate={{ x: '100%' }}
+                transition={{ repeat: Infinity, duration: 1, ease: 'easeInOut' }}
+                className="w-1/2 h-full bg-gradient-to-r from-teal-500 to-sky-500 rounded-full"
+              />
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};

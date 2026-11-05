@@ -21,7 +21,6 @@ import {
   ChevronUp, 
   Bookmark, 
   XCircle, 
-  CheckCircle2, 
   Filter,
   Sparkles,
   RotateCcw,
@@ -785,37 +784,12 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
                       <span className="font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">{all.length} Total Qs</span>
                       <span>&bull;</span>
                       {attempt ? (
-                        <div className="inline-flex items-center gap-2 text-[11px] font-medium text-[#1f1f1f] dark:text-[#e3e3e3] flex-wrap">
+                        <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#1f1f1f] dark:text-[#e3e3e3]">
                           <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-normal">Last Attempt:</span>
                           <span className="inline-flex items-center gap-1 font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
                             <Target className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
                             <span>{attempt.percentage}%</span>
                           </span>
-                          <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-light">•</span>
-                          <div className="flex items-center gap-1.5 text-[#0b57d0] dark:text-[#a8c7fa]" title="Correct Questions">
-                            <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.2] shrink-0" />
-                            <span>
-                              <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{all.length - wrong.length - unattempted.length}</strong> <span>correct</span>
-                            </span>
-                          </div>
-                          <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-light">•</span>
-                          <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400" title="Incorrect Questions">
-                            <XCircle className="w-3.5 h-3.5 stroke-[2.2] shrink-0" />
-                            <span>
-                              <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{wrong.length}</strong> <span>wrong</span>
-                            </span>
-                          </div>
-                          {marked.length > 0 && (
-                            <>
-                              <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-light">•</span>
-                              <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400" title="Marked Questions">
-                                <Bookmark className="w-3.5 h-3.5 stroke-[2.2] shrink-0" />
-                                <span>
-                                  <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{marked.length}</strong> <span>marked</span>
-                                </span>
-                              </div>
-                            </>
-                          )}
                         </div>
                       ) : (
                         <span className="text-[#5e5e5e] dark:text-[#9aa0a6] italic text-[11px]">Not yet attempted</span>

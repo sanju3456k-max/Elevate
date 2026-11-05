@@ -30,7 +30,7 @@ export interface MathQuestion {
   type?: 'mcq' | 'numerical';
   difficulty?: DifficultyLevel;
   options?: string[];
-  correctAnswer: string; // Either the option text, 0-based index string ("0", "1", "2", "3"), or numerical answer
+  correctAnswer: string | number; // Either the option text, 0-based index (0, 1, 2, 3 or "0", "1", "2", "3"), or numerical answer
   correctOptionIndex?: number; // Explicit 0-based index (0=A, 1=B, 2=C, 3=D) when question is MCQ
   explanation?: string; // Step-by-step solution derivation
   solution?: string; // Alias for explanation in compact JSON

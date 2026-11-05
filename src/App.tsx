@@ -69,6 +69,9 @@ import { GeminiChatbotView } from './components/GeminiChatbotView';
 import { NotesStudio } from './components/notesStudio/NotesStudio';
 import { BulkPrintStudio } from './components/BulkPrintStudio';
 import { SettingsModal } from './components/SettingsModal';
+import { InstallAppModal } from './components/InstallAppModal';
+import { WelcomeSplash } from './components/WelcomeSplash';
+import { usePWAInstall } from './hooks/usePWAInstall';
 import { useUIScale } from './hooks/useUIScale';
 import { useViewHistory, useBackHandler } from './hooks/useBackNavigation';
 import { forceUnlockAllScrollLocks } from './hooks/useScrollLock';
@@ -130,6 +133,15 @@ export default function App() {
   const [tabHistory, setTabHistory] = useState<ActiveTab[]>([]);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [chatbotInitialPrompt, setChatbotInitialPrompt] = useState<string | null>(null);
+
+  const {
+    deferredPrompt,
+    isIOS,
+    isIframe,
+    isModalOpen: isInstallModalOpen,
+    setIsModalOpen: setIsInstallModalOpen,
+    triggerInstallPrompt,
+  } = usePWAInstall();
 
   const setActiveTab = useCallback((newTab: ActiveTab | ((prev: ActiveTab) => ActiveTab)) => {
     setActiveTabState((prev) => {
@@ -1392,6 +1404,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#ededed] dark:bg-[#111318] text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col font-sans antialiased selection:bg-[#0b57d0]/20 selection:text-[#0b57d0] dark:selection:text-[#a8c7fa] transition-colors duration-200">
+      {/* Brand Welcome Screen on App Opening */}
+      <WelcomeSplash />
       {/* Toast Notification */}
       {notification && (
         <div 
@@ -1697,6 +1711,16 @@ export default function App() {
           lastSavedTestsRef.current = freshTests;
           lastSavedAttemptsRef.current = freshAttempts;
         }}
+      />
+
+      {/* PWA Install Modal with Authentic PrepLens Home Screen App Icon */}
+      <InstallAppModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+        deferredPrompt={deferredPrompt}
+        isIOS={isIOS}
+        isIframe={isIframe}
+        onTriggerInstall={triggerInstallPrompt}
       />
 
       {/* SHARED TEST IMPORT CONFIRMATION MODAL */}
