@@ -338,6 +338,13 @@ const QUESTION_PAPER_PRINT_CSS = `
     letter-spacing: 0.025em !important;
   }
 
+  /* Question Paper Diagrams: Blend seamlessly with the watermark logo without white cutouts */
+  .a4-page-item img:not(.elevate-watermark-img),
+  .a4-page-item svg:not(.elevate-watermark-img) {
+    mix-blend-mode: multiply !important;
+    background-color: transparent !important;
+  }
+
   /* Centered Transparent App Logo Watermark on Each Question Paper Page */
   .elevate-question-watermark {
     position: absolute !important;
@@ -352,7 +359,8 @@ const QUESTION_PAPER_PRINT_CSS = `
     justify-content: center !important;
     pointer-events: none !important;
     user-select: none !important;
-    z-index: 0 !important;
+    z-index: 10 !important;
+    mix-blend-mode: multiply !important;
     overflow: hidden !important;
   }
 
@@ -364,6 +372,7 @@ const QUESTION_PAPER_PRINT_CSS = `
     max-height: 350px !important;
     object-fit: contain !important;
     opacity: 0.17 !important;
+    mix-blend-mode: multiply !important;
     print-color-adjust: exact !important;
     -webkit-print-color-adjust: exact !important;
     color-adjust: exact !important;

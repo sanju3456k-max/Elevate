@@ -831,7 +831,7 @@ const RenderStreamItem: React.FC<{
         </div>
 
         {(item.imageUrl || (Array.isArray(item.imageUrls) && item.imageUrls.some(Boolean))) && (
-          <div className="relative group/diagram my-1 flex flex-col items-center justify-center w-full">
+          <div className="relative group/diagram my-1 flex flex-col items-center justify-center w-full [mix-blend-mode:multiply] bg-transparent">
             <QuestionDiagramViewer
               imageUrl={item.imageUrl}
               imageUrls={item.imageUrls}
@@ -840,7 +840,7 @@ const RenderStreamItem: React.FC<{
               width={item.paperLayout?.imageWidth}
               maxHeightClass="max-h-28"
               allowZoom={true}
-              className="!my-0 print:!my-0"
+              className="!my-0 print:!my-0 [mix-blend-mode:multiply] bg-transparent"
               showSizeControls={Boolean(isEditableLayout && showBadges && onUpdateQuestionLayout && typeof item.questionIndex === 'number')}
               onUpdateWidth={(photoIndex, newWidth) => {
                 if (!onUpdateQuestionLayout || typeof item.questionIndex !== 'number') return;
@@ -893,7 +893,11 @@ const RenderStreamItem: React.FC<{
                   <img
                     src={normalizeDiagramUrl(opt.imageUrl)}
                     alt={`Option (${opt.label}) diagram`}
-                    className="max-h-[60px] max-w-full object-contain rounded"
+                    className="max-h-[60px] max-w-full object-contain rounded [mix-blend-mode:multiply] bg-transparent"
+                    style={{
+                      mixBlendMode: 'multiply',
+                      backgroundColor: 'transparent',
+                    }}
                   />
                 </div>
               ) : null}
@@ -922,7 +926,11 @@ const RenderStreamItem: React.FC<{
                 <img
                   src={normalizeDiagramUrl(opt.imageUrl)}
                   alt={`Option (${opt.label}) diagram`}
-                  className="max-h-[60px] max-w-full object-contain rounded"
+                  className="max-h-[60px] max-w-full object-contain rounded [mix-blend-mode:multiply] bg-transparent"
+                  style={{
+                    mixBlendMode: 'multiply',
+                    backgroundColor: 'transparent',
+                  }}
                 />
               </div>
             ) : null}
@@ -1372,7 +1380,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                 >
                   {/* Authentic Elevate Central Transparent App Logo Watermark on Each Page */}
                   <div
-                    className="elevate-question-watermark absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0 overflow-hidden"
+                    className="elevate-question-watermark absolute inset-0 flex items-center justify-center pointer-events-none select-none z-10 overflow-hidden"
                     aria-hidden="true"
                     style={{
                       position: 'absolute',
@@ -1387,7 +1395,8 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                       justifyContent: 'center',
                       pointerEvents: 'none',
                       userSelect: 'none',
-                      zIndex: 0,
+                      zIndex: 10,
+                      mixBlendMode: 'multiply',
                     }}
                   >
                     <img
@@ -1405,6 +1414,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                         opacity: 0.17,
                         pointerEvents: 'none',
                         userSelect: 'none',
+                        mixBlendMode: 'multiply',
                         printColorAdjust: 'exact',
                         WebkitPrintColorAdjust: 'exact',
                       }}
