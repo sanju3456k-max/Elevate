@@ -3,7 +3,6 @@ import { auth, db, isGlobalQuotaExceeded, updateUserSyncBeacon, getUserSyncBeaco
 import { smartCoordinator } from './smartLocalCoordinator';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { safeSetItem, getCachedAuthUser } from './storage';
-import { TEMPLATE_LANDSCAPE_SLIDES } from '../components/htmlNotes/constants/templates';
 import { checkFirestoreDocSize } from './firestoreDocSizeValidator';
 
 
@@ -277,7 +276,7 @@ export function loadLocalProjects(defaultMatricesTemplate?: string, userId?: str
           .map(p => ({
             ...p,
             files: (p.files || [])
-              .filter(f => f && f.id && !deletedFiles.has(f.id))
+              .filter(f => f && f.id && !deletedFiles.has(f.id) && f.title !== 'A4 Landscape Slide Reference' && !f.id.startsWith('note_slides_ref_'))
               .map(f => ({
                 ...f,
                 code: sanitizeAndRepairCode(f.code)
@@ -302,7 +301,7 @@ export function loadLocalProjects(defaultMatricesTemplate?: string, userId?: str
           .map(p => ({
             ...p,
             files: (p.files || [])
-              .filter(f => f && f.id && !deletedFiles.has(f.id))
+              .filter(f => f && f.id && !deletedFiles.has(f.id) && f.title !== 'A4 Landscape Slide Reference' && !f.id.startsWith('note_slides_ref_'))
               .map(f => ({
                 ...f,
                 code: sanitizeAndRepairCode(f.code)
@@ -320,7 +319,7 @@ export function loadLocalProjects(defaultMatricesTemplate?: string, userId?: str
       .filter(p => p && p.id && !deletedProjects.has(p.id))
       .map(p => ({
         ...p,
-        files: (p.files || []).filter(f => f && f.id && !deletedFiles.has(f.id))
+        files: (p.files || []).filter(f => f && f.id && !deletedFiles.has(f.id) && f.title !== 'A4 Landscape Slide Reference' && !f.id.startsWith('note_slides_ref_'))
       }));
   }
 
@@ -329,8 +328,8 @@ export function loadLocalProjects(defaultMatricesTemplate?: string, userId?: str
     const now = Date.now();
     const seedProject: HtmlProject = {
       id: 'proj_seed_' + now,
-      name: 'Class 12 Mathematics & Slide Decks',
-      description: 'Chapter revision notes, 16:9 slides & formulas',
+      name: 'Class 12 Mathematics Revision',
+      description: 'Chapter revision notes & formulas',
       createdAt: now,
       updatedAt: now,
       files: [
@@ -341,14 +340,6 @@ export function loadLocalProjects(defaultMatricesTemplate?: string, userId?: str
           createdAt: now,
           updatedAt: now,
           tags: ['Calculus', 'Module 1', 'Sample Template']
-        },
-        {
-          id: 'note_slides_ref_' + now,
-          title: 'A4 Landscape Slide Reference',
-          code: TEMPLATE_LANDSCAPE_SLIDES,
-          createdAt: now,
-          updatedAt: now,
-          tags: ['Slide Deck', 'A4 Landscape', 'Reference']
         }
       ]
     };

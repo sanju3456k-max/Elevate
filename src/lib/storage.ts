@@ -482,8 +482,10 @@ export function getAllDeletedTestIds(userId?: string | null): Set<string> {
   const ids = new Set<string>();
   if (typeof localStorage === 'undefined') return ids;
 
-  // 1. Account scope
-  if (userId && typeof userId === 'string' && userId.trim() !== '' && userId !== 'guest-user' && userId !== 'anonymous') {
+  const isGuest = !userId || userId === 'guest-user' || userId === 'anonymous';
+
+  // 1. Account scope (only when user is authenticated)
+  if (!isGuest && typeof userId === 'string' && userId.trim() !== '') {
     try {
       const userRaw = localStorage.getItem(`math_mock_deleted_tests_account_${userId.trim()}`);
       if (userRaw) {
@@ -492,23 +494,23 @@ export function getAllDeletedTestIds(userId?: string | null): Set<string> {
         });
       }
     } catch {}
+  } else {
+    // 2. Guest / unauthenticated scope (only when in guest mode)
+    try {
+      const guestRaw = localStorage.getItem(GUEST_STORAGE_DELETED_TESTS_KEY);
+      if (guestRaw) {
+        JSON.parse(guestRaw).forEach((id: string) => {
+          if (id) ids.add(id);
+        });
+      }
+    } catch {}
   }
 
-  // 2. Global deleted tests scope
+  // 3. Global deleted tests scope (for system sample tests)
   try {
     const globalRaw = localStorage.getItem(GLOBAL_DELETED_TESTS_KEY);
     if (globalRaw) {
       JSON.parse(globalRaw).forEach((id: string) => {
-        if (id) ids.add(id);
-      });
-    }
-  } catch {}
-
-  // 3. Guest / unauthenticated scope
-  try {
-    const guestRaw = localStorage.getItem(GUEST_STORAGE_DELETED_TESTS_KEY);
-    if (guestRaw) {
-      JSON.parse(guestRaw).forEach((id: string) => {
         if (id) ids.add(id);
       });
     }
@@ -523,60 +525,53 @@ export function getAllDeletedTestIds(userId?: string | null): Set<string> {
 export function markTestAsDeletedInScopedStorage(userId: string | null | undefined, testId: string): void {
   if (!testId || typeof localStorage === 'undefined') return;
   try {
+    const isAuthenticUser = Boolean(userId && typeof userId === 'string' && userId.trim() !== '' && userId !== 'guest-user' && userId !== 'anonymous');
+
     // 1. Store in user account deleted set if authenticated
-    if (userId && typeof userId === 'string' && userId.trim() !== '' && userId !== 'guest-user' && userId !== 'anonymous') {
-      const userKey = `math_mock_deleted_tests_account_${userId.trim()}`;
+    if (isAuthenticUser) {
+      const userKey = `math_mock_deleted_tests_account_${userId!.trim()}`;
       const userRaw = localStorage.getItem(userKey);
       const userIds: string[] = userRaw ? JSON.parse(userRaw) : [];
       if (!userIds.includes(testId)) {
         userIds.push(testId);
         safeSetItem(userKey, JSON.stringify(userIds), userId);
       }
+    } else {
+      // 2. Store in guest deleted set ONLY when in guest mode
+      const guestRaw = localStorage.getItem(GUEST_STORAGE_DELETED_TESTS_KEY);
+      const guestIds: string[] = guestRaw ? JSON.parse(guestRaw) : [];
+      if (!guestIds.includes(testId)) {
+        guestIds.push(testId);
+        safeSetItem(GUEST_STORAGE_DELETED_TESTS_KEY, JSON.stringify(guestIds), userId);
+      }
     }
 
-    // 2. Store in guest deleted set
-    const guestRaw = localStorage.getItem(GUEST_STORAGE_DELETED_TESTS_KEY);
-    const guestIds: string[] = guestRaw ? JSON.parse(guestRaw) : [];
-    if (!guestIds.includes(testId)) {
-      guestIds.push(testId);
-      safeSetItem(GUEST_STORAGE_DELETED_TESTS_KEY, JSON.stringify(guestIds), userId);
+    // 3. Store in global device-wide deleted set ONLY for system sample tests
+    if (testId.startsWith('sample-') || testId.startsWith('math-')) {
+      const globalRaw = localStorage.getItem(GLOBAL_DELETED_TESTS_KEY);
+      const globalIds: string[] = globalRaw ? JSON.parse(globalRaw) : [];
+      if (!globalIds.includes(testId)) {
+        globalIds.push(testId);
+        safeSetItem(GLOBAL_DELETED_TESTS_KEY, JSON.stringify(globalIds), userId);
+      }
     }
 
-    // 3. Store in global device-wide deleted set
-    const globalRaw = localStorage.getItem(GLOBAL_DELETED_TESTS_KEY);
-    const globalIds: string[] = globalRaw ? JSON.parse(globalRaw) : [];
-    if (!globalIds.includes(testId)) {
-      globalIds.push(testId);
-      safeSetItem(GLOBAL_DELETED_TESTS_KEY, JSON.stringify(globalIds), userId);
-    }
-
-    // 4. Actively purge the test from memory and IndexedDB
+    // 4. Actively purge the test from memory and IndexedDB for the target user ONLY
     deleteTestFromIndexedDB(userId, testId).catch(() => {});
-    if (userId) {
-      deleteTestFromIndexedDB(null, testId).catch(() => {});
-    }
     saveDeletedTestIdsToIndexedDB(userId, getAllDeletedTestIds(userId)).catch(() => {});
 
-    // 5. Actively purge the test from all localStorage arrays immediately
-    const testKeysToPurge = [
-      GUEST_STORAGE_TESTS_KEY,
-      LEGACY_STORAGE_TESTS_KEY,
-      'math_mock_tests',
-      userId ? `math_mock_tests_account_${userId.trim()}` : null
-    ].filter(Boolean) as string[];
-
-    testKeysToPurge.forEach((k) => {
-      try {
-        const raw = localStorage.getItem(k);
-        if (raw) {
-          const list: MathTest[] = JSON.parse(raw);
-          if (Array.isArray(list)) {
-            const filtered = list.filter((t) => t && t.id !== testId);
-            safeSetItem(k, JSON.stringify(filtered), userId);
-          }
+    // 5. Actively purge the test from the target scope's localStorage array only
+    const targetKey = isAuthenticUser ? `math_mock_tests_account_${userId!.trim()}` : GUEST_STORAGE_TESTS_KEY;
+    try {
+      const raw = localStorage.getItem(targetKey);
+      if (raw) {
+        const list: MathTest[] = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          const filtered = list.filter((t) => t && t.id !== testId);
+          safeSetItem(targetKey, JSON.stringify(filtered), userId);
         }
-      } catch {}
-    });
+      }
+    } catch {}
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('tests-updated'));
@@ -1383,143 +1378,16 @@ export function clearScopedActiveSession(userId?: string | null, testId?: string
 }
 
 /**
- * Migrates any custom tests and attempts created during guest mode to the user's account.
- * This is triggered upon successful login.
+ * Guest mode and user account storages are strictly isolated.
+ * Guest data is preserved locally in guest storage and never leaked or transferred to user accounts,
+ * nor wiped upon authentication.
  */
 export function migrateGuestDataToUserAccount(
-  userId: string,
-  displayName: string | null,
-  userEmail: string | null
+  _userId: string,
+  _displayName: string | null,
+  _userEmail: string | null
 ): { migratedTests: MathTest[]; migratedAttempts: TestAttempt[] } {
-  const migratedTests: MathTest[] = [];
-  const migratedAttempts: TestAttempt[] = [];
-
-  try {
-    const cleanUid = userId?.trim();
-    if (!cleanUid || cleanUid === 'guest-user' || cleanUid === 'anonymous') {
-      return { migratedTests, migratedAttempts };
-    }
-
-    // 1. Migrate custom tests from guest storage and legacy keys (only if not already completed)
-    const migrationFlagKey = `math_mock_migration_completed_${cleanUid}`;
-    if (!localStorage.getItem(migrationFlagKey)) {
-      const rawTestsSources = [
-        localStorage.getItem(GUEST_STORAGE_TESTS_KEY),
-        localStorage.getItem(LEGACY_STORAGE_TESTS_KEY),
-        localStorage.getItem('math_mock_tests')
-      ].filter(Boolean);
-
-      for (const guestTestsRaw of rawTestsSources) {
-        if (!guestTestsRaw) continue;
-        try {
-          const guestTests: MathTest[] = JSON.parse(guestTestsRaw);
-          if (Array.isArray(guestTests)) {
-            const userTests = loadScopedTests(cleanUid);
-            const userTestIds = new Set(userTests.map(t => t.id));
-
-            const deletedRaw = localStorage.getItem(`math_mock_deleted_tests_account_${cleanUid}`);
-            const guestDeletedRaw = localStorage.getItem(GUEST_STORAGE_DELETED_TESTS_KEY);
-            const deletedIds = new Set<string>([
-              ...(deletedRaw ? JSON.parse(deletedRaw) : []),
-              ...(guestDeletedRaw ? JSON.parse(guestDeletedRaw) : [])
-            ]);
-
-            const customGuestTests = guestTests.filter(
-              t => t && t.id && !deletedIds.has(t.id) && !SAMPLE_MATH_TESTS.some(s => s.id === t.id)
-            );
-
-            customGuestTests.forEach(t => {
-              if (!userTestIds.has(t.id)) {
-                const migrated: MathTest = {
-                  ...t,
-                  authorId: cleanUid,
-                  authorName: displayName || userEmail?.split('@')[0] || 'Teacher',
-                  updatedAt: new Date().toISOString()
-                };
-                migratedTests.push(migrated);
-                userTests.push(migrated);
-                userTestIds.add(t.id);
-              }
-            });
-
-            if (migratedTests.length > 0) {
-              saveScopedTests(cleanUid, userTests);
-              console.log(`Successfully migrated ${migratedTests.length} custom tests from guest/legacy storage to account ${cleanUid}`);
-            }
-          }
-        } catch (err) {
-          console.warn('Failed to parse guest tests during migration:', err);
-        }
-      }
-    }
-
-    // 2. Migrate attempts from guest storage and legacy keys (only if migration not already completed)
-    if (!localStorage.getItem(migrationFlagKey)) {
-      const rawAttemptsSources = [
-        localStorage.getItem(GUEST_STORAGE_ATTEMPTS_KEY),
-        localStorage.getItem(LEGACY_STORAGE_ATTEMPTS_KEY),
-        localStorage.getItem('math_mock_attempts')
-      ].filter(Boolean);
-
-      for (const guestAttemptsRaw of rawAttemptsSources) {
-        if (!guestAttemptsRaw) continue;
-        try {
-          const guestAttempts: TestAttempt[] = JSON.parse(guestAttemptsRaw);
-          if (Array.isArray(guestAttempts)) {
-            const userAttempts = loadScopedAttempts(cleanUid);
-            const userAttemptIds = new Set(userAttempts.map(a => a.id));
-
-            guestAttempts.forEach(a => {
-              if (a && a.id && !userAttemptIds.has(a.id)) {
-                const migrated: TestAttempt = {
-                  ...a,
-                  userId: cleanUid,
-                  userEmail: userEmail || '',
-                  userName: displayName || userEmail?.split('@')[0] || 'Learner'
-                };
-                migratedAttempts.push(migrated);
-                userAttempts.push(migrated);
-                userAttemptIds.add(a.id);
-              }
-            });
-
-            if (migratedAttempts.length > 0) {
-              saveScopedAttempts(cleanUid, userAttempts);
-              console.log(`Successfully migrated ${migratedAttempts.length} test attempts locally to account ${cleanUid}`);
-            }
-          }
-        } catch (err) {
-          console.warn('Failed to parse guest attempts during migration:', err);
-        }
-      }
-      try {
-        localStorage.setItem(migrationFlagKey, 'true');
-      } catch {}
-    }
-
-    // Clean up all guest AND legacy keys permanently to prevent re-triggering
-    try {
-      localStorage.removeItem(GUEST_STORAGE_TESTS_KEY);
-      localStorage.removeItem(GUEST_STORAGE_ATTEMPTS_KEY);
-      localStorage.removeItem(GUEST_STORAGE_ACTIVE_SESSION_KEY);
-      localStorage.removeItem(GUEST_STORAGE_ACTIVE_SESSIONS_MAP_KEY);
-      localStorage.removeItem(GUEST_STORAGE_DELETED_TESTS_KEY);
-      localStorage.removeItem(LEGACY_STORAGE_TESTS_KEY);
-      localStorage.removeItem(LEGACY_STORAGE_ATTEMPTS_KEY);
-      localStorage.removeItem('math_mock_tests');
-      localStorage.removeItem('math_mock_attempts');
-
-      // Also clean up guest data from IndexedDB
-      putAllTestsToIndexedDB('guest-user', []).catch(() => {});
-      putAllAttemptsToIndexedDB('guest-user', []).catch(() => {});
-      clearActiveSessionInIndexedDB('guest-user', null).catch(() => {});
-    } catch {}
-
-  } catch (err) {
-    console.error('Error during guest data migration:', err);
-  }
-
-  return { migratedTests, migratedAttempts };
+  return { migratedTests: [], migratedAttempts: [] };
 }
 
 /**

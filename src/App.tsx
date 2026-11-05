@@ -50,7 +50,6 @@ import {
   clearScopedActiveSession,
   getCachedAuthUser,
   setCachedAuthUser,
-  migrateGuestDataToUserAccount,
   loadFullTestOnDemand,
   getAllDeletedTestIds,
   type CachedAuthUser
@@ -242,7 +241,6 @@ export default function App() {
   const initialUid = getCachedAuthUser()?.uid || null;
   const prevUserIdRef = useRef<string | null | undefined>(initialUid);
   const loadedUserIdRef = useRef<string | null>(initialUid);
-  const hasMigratedUserUidRef = useRef<string | null>(null);
   const hasCalculatedRollupRef = useRef(false);
 
   // System navigation back gestures and browser history tracking across all devices
@@ -482,7 +480,7 @@ export default function App() {
     prevUserIdRef.current = currentUid;
   }, [currentUser?.uid, cachedUser?.uid]);
 
-  // Reusable callback to process a newly authenticated user account and migrate any offline guest work
+  // Reusable callback to process a newly authenticated user account
   const handleUserAuthenticated = useCallback((user: User) => {
     setCurrentUser(user);
     const cachePayload: CachedAuthUser = {
@@ -495,43 +493,25 @@ export default function App() {
     setCachedAuthUser(cachePayload);
     setIsAuthLoading(false);
 
-    // 1. Perform guest-to-user scoped local migration of tests and attempts (only once per session)
-    if (hasMigratedUserUidRef.current === user.uid) {
-      return;
-    }
-    hasMigratedUserUidRef.current = user.uid;
+    // Reload tests, attempts and active sessions strictly from the authenticated user's scope
+    const scopedTests = loadScopedTests(user.uid);
+    const scopedAttempts = loadScopedAttempts(user.uid);
+    const scopedSessions = loadAllScopedActiveSessions(user.uid);
+    lastSavedTestsRef.current = scopedTests;
+    lastSavedAttemptsRef.current = scopedAttempts;
+    setTests(scopedTests);
+    setAttempts(scopedAttempts);
+    setActiveSessionsMap(scopedSessions);
+    setActiveTestSession(loadScopedActiveSession(user.uid));
+    loadedUserIdRef.current = user.uid;
+    prevUserIdRef.current = user.uid;
 
-    const { migratedTests, migratedAttempts } = migrateGuestDataToUserAccount(
-      user.uid,
-      user.displayName,
-      user.email
-    );
-
-    // 2. Feed migrated records directly into state locally (ZERO network writes)
-    if (migratedTests.length > 0) {
-      setTests((prev) => {
-        const seen = new Set(prev.map((t) => t.id));
-        const added = migratedTests.filter((t) => !seen.has(t.id));
-        return [...added, ...prev];
-      });
-    }
-
-    if (migratedAttempts.length > 0) {
-      setAttempts((prev) => {
-        const seen = new Set(prev.map((a) => a.id));
-        const added = migratedAttempts.filter((a) => !seen.has(a.id));
-        const combined = [...added, ...prev];
-        combined.sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
-        return combined;
-      });
-    }
-
-    // 3. Register or merge user profile stats in Firestore background
+    // Register or merge user profile stats in Firestore background
     syncUserProfile(user).catch((err) => {
       console.warn('Background sync user profile warning:', err);
     });
 
-    // 4. Ensure app-initial-splash placeholder is removed if present
+    // Ensure app-initial-splash placeholder is removed if present
     const splashEl = document.getElementById('app-initial-splash');
     if (splashEl && splashEl.parentNode) {
       splashEl.parentNode.removeChild(splashEl);
@@ -1250,7 +1230,6 @@ export default function App() {
     const targetUid = currentUser?.uid || cachedUser?.uid || null;
     // Mark as deleted in scoped storage and guest fallback so it stays deleted even on page reload or sample re-hydration
     markTestAsDeletedInScopedStorage(targetUid, testId);
-    markTestAsDeletedInScopedStorage(null, testId);
     smartCoordinator.recordTest({ id: testId } as MathTest, targetUid, 'delete');
     syncHub.deleteTest(testId);
     if (targetUid && targetUid !== 'anonymous' && targetUid !== 'guest-user') {
@@ -1258,7 +1237,6 @@ export default function App() {
     }
 
     clearScopedActiveSession(targetUid, testId);
-    clearScopedActiveSession(null, testId);
     setActiveSessionsMap((prev) => {
       const next = { ...prev };
       delete next[testId];
@@ -1269,9 +1247,6 @@ export default function App() {
       lastSavedTestsRef.current = updated;
       setTimeout(() => {
         saveScopedTests(targetUid, updated);
-        if (targetUid) {
-          saveScopedTests(null, loadScopedTests(null).filter((t) => t.id !== testId));
-        }
       }, 0);
       return updated;
     });

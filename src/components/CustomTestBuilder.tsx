@@ -248,30 +248,64 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
     });
   };
 
-  // Select all questions in a specific category for a test
+  // Select or toggle all questions in a specific category for a test without wiping other categories
   const selectCategoryForTest = (test: MathTest, category: QuestionCategory) => {
     const { all, wrong, marked, unattempted } = getCategorizedQuestions(test);
-    let targetQs: MathQuestion[] = [];
-    if (category === 'all') targetQs = all;
-    if (category === 'wrong') targetQs = wrong;
-    if (category === 'marked') targetQs = marked;
-    if (category === 'unattempted') targetQs = unattempted;
 
     setSelectedQuestionIds((prev) => {
       const next = new Set(prev);
-      const isTargetAll = category === 'all';
-      const allTargetSelected = targetQs.length > 0 && targetQs.every((q) => next.has(getQuestionKey(test.id, q.id)));
-      const selectedCountForThisTest = all.filter((q) => next.has(getQuestionKey(test.id, q.id))).length;
-      const isExclusivelyTargetSelected = allTargetSelected && selectedCountForThisTest === targetQs.length;
 
-      if (isExclusivelyTargetSelected || (isTargetAll && allTargetSelected)) {
-        // Toggle off if already selected for this category
-        targetQs.forEach((q) => next.delete(getQuestionKey(test.id, q.id)));
-      } else {
-        // Clear all previous selections for this test and select the target category questions
-        all.forEach((q) => next.delete(getQuestionKey(test.id, q.id)));
-        targetQs.forEach((q) => next.add(getQuestionKey(test.id, q.id)));
+      if (category === 'all') {
+        const isAllSelected = all.length > 0 && all.every((q) => next.has(getQuestionKey(test.id, q.id)));
+        if (isAllSelected) {
+          // Deselect all questions for this test
+          all.forEach((q) => next.delete(getQuestionKey(test.id, q.id)));
+        } else {
+          // Select all questions for this test (merges with any already selected)
+          all.forEach((q) => next.add(getQuestionKey(test.id, q.id)));
+        }
+        return next;
       }
+
+      let targetQs: MathQuestion[] = [];
+      if (category === 'wrong') targetQs = wrong;
+      else if (category === 'marked') targetQs = marked;
+      else if (category === 'unattempted') targetQs = unattempted;
+
+      if (targetQs.length === 0) return next;
+
+      const isTargetFullySelected = targetQs.every((q) => next.has(getQuestionKey(test.id, q.id)));
+
+      if (isTargetFullySelected) {
+        // Toggle OFF: Remove questions in targetQs UNLESS they belong to another still-active category
+        const keepQuestionIds = new Set<string>();
+
+        const isWrongActive = wrong.length > 0 && wrong.every((q) => next.has(getQuestionKey(test.id, q.id)));
+        const isMarkedActive = marked.length > 0 && marked.every((q) => next.has(getQuestionKey(test.id, q.id)));
+        const isUnattemptedActive = unattempted.length > 0 && unattempted.every((q) => next.has(getQuestionKey(test.id, q.id)));
+
+        if (category !== 'wrong' && isWrongActive) {
+          wrong.forEach((q) => keepQuestionIds.add(q.id));
+        }
+        if (category !== 'marked' && isMarkedActive) {
+          marked.forEach((q) => keepQuestionIds.add(q.id));
+        }
+        if (category !== 'unattempted' && isUnattemptedActive) {
+          unattempted.forEach((q) => keepQuestionIds.add(q.id));
+        }
+
+        targetQs.forEach((q) => {
+          if (!keepQuestionIds.has(q.id)) {
+            next.delete(getQuestionKey(test.id, q.id));
+          }
+        });
+      } else {
+        // Toggle ON: Add all target questions to existing selections (merges seamlessly without conflict/duplicate)
+        targetQs.forEach((q) => {
+          next.add(getQuestionKey(test.id, q.id));
+        });
+      }
+
       return next;
     });
   };
@@ -709,10 +743,22 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
             const isExpanded = expandedTestIds.has(test.id);
             const testQKeys = all.map((q) => getQuestionKey(test.id, q.id));
             const selectedInThisTest = testQKeys.filter((key) => selectedQuestionIds.has(key)).length;
+
+            const wrongSelectedCount = wrong.filter((q) => selectedQuestionIds.has(getQuestionKey(test.id, q.id))).length;
+            const markedSelectedCount = marked.filter((q) => selectedQuestionIds.has(getQuestionKey(test.id, q.id))).length;
+            const unattemptedSelectedCount = unattempted.filter((q) => selectedQuestionIds.has(getQuestionKey(test.id, q.id))).length;
+
             const isAllSelected = all.length > 0 && selectedInThisTest === all.length;
-            const isWrongActive = wrong.length > 0 && selectedInThisTest === wrong.length && wrong.every((q) => selectedQuestionIds.has(getQuestionKey(test.id, q.id)));
-            const isMarkedActive = marked.length > 0 && selectedInThisTest === marked.length && marked.every((q) => selectedQuestionIds.has(getQuestionKey(test.id, q.id)));
-            const isUnattemptedActive = unattempted.length > 0 && selectedInThisTest === unattempted.length && unattempted.every((q) => selectedQuestionIds.has(getQuestionKey(test.id, q.id)));
+            const isAllPartial = selectedInThisTest > 0 && !isAllSelected;
+
+            const isWrongActive = wrong.length > 0 && wrongSelectedCount === wrong.length;
+            const isWrongPartial = wrongSelectedCount > 0 && !isWrongActive;
+
+            const isMarkedActive = marked.length > 0 && markedSelectedCount === marked.length;
+            const isMarkedPartial = markedSelectedCount > 0 && !isMarkedActive;
+
+            const isUnattemptedActive = unattempted.length > 0 && unattemptedSelectedCount === unattempted.length;
+            const isUnattemptedPartial = unattemptedSelectedCount > 0 && !isUnattemptedActive;
 
             return (
               <motion.div
@@ -783,9 +829,12 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
                     <button
                       type="button"
                       onClick={() => selectCategoryForTest(test, 'all')}
+                      title={isAllSelected ? "Deselect all questions in this test" : "Select all questions in this test"}
                       className={`px-3.5 py-1.5 text-xs font-bold rounded-[28px] transition-all flex items-center gap-1.5 cursor-pointer border-0 ring-0 outline-none ${
                         isAllSelected
                           ? 'bg-[#0b57d0] text-white shadow-xs'
+                          : isAllPartial
+                          ? 'bg-blue-50 dark:bg-[#004a77]/30 text-[#0b57d0] dark:text-[#a8c7fa] border border-[#0b57d0]/40 font-bold shadow-xs'
                           : 'bg-white hover:bg-[#f8f9fc] dark:bg-[#1e2024] dark:hover:bg-[#25282e] text-[#1f1f1f] dark:text-[#e3e3e3] shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]'
                       }`}
                     >
@@ -797,9 +846,12 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
                       <button
                         type="button"
                         onClick={() => selectCategoryForTest(test, 'wrong')}
+                        title={isWrongActive ? "Deselect wrong questions" : "Select wrong questions"}
                         className={`px-3.5 py-1.5 text-xs font-bold rounded-[28px] transition-all flex items-center gap-1 cursor-pointer border-0 ring-0 outline-none ${
                           isWrongActive
                             ? 'bg-rose-600 text-white shadow-xs'
+                            : isWrongPartial
+                            ? 'bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 font-bold'
                             : 'bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
                         }`}
                       >
@@ -813,9 +865,12 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
                       <button
                         type="button"
                         onClick={() => selectCategoryForTest(test, 'marked')}
+                        title={isMarkedActive ? "Deselect marked questions" : "Select marked questions"}
                         className={`px-3.5 py-1.5 text-xs font-bold rounded-[28px] transition-all flex items-center gap-1 cursor-pointer border-0 ring-0 outline-none ${
                           isMarkedActive
                             ? 'bg-amber-600 text-white shadow-xs'
+                            : isMarkedPartial
+                            ? 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/80 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-800 font-bold'
                             : 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
                         }`}
                       >
@@ -829,9 +884,12 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
                       <button
                         type="button"
                         onClick={() => selectCategoryForTest(test, 'unattempted')}
+                        title={isUnattemptedActive ? "Deselect unattempted questions" : "Select unattempted questions"}
                         className={`px-3.5 py-1.5 text-xs font-bold rounded-[28px] transition-all flex items-center gap-1 cursor-pointer border-0 ring-0 outline-none ${
                           isUnattemptedActive
                             ? 'bg-slate-800 dark:bg-zinc-700 text-white shadow-xs'
+                            : isUnattemptedPartial
+                            ? 'bg-slate-200 hover:bg-slate-300 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 border border-slate-300 dark:border-zinc-700 font-bold'
                             : 'bg-white hover:bg-[#f8f9fc] dark:bg-[#1e2024] dark:hover:bg-[#25282e] text-[#1f1f1f] dark:text-[#e3e3e3] shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]'
                         }`}
                       >
