@@ -311,16 +311,37 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
     };
   }, [isTimerRunning, timerSeconds, soundEnabled]);
 
+  const triggerCameraInput = () => {
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = '';
+      cameraInputRef.current.click();
+    }
+  };
+
+  const triggerFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
+  };
+
   // Handle Photo Capture from System Camera or Gallery
   // Directly opens the Crop page so the user can crop the sheet manually
   const handlePhotoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Immediately purge all previous state, cached scans, and old image references
     setIsSaved(false);
     setScanError(null);
     setScanResult(null);
     setEditableDetections([]);
+    setIsScanning(false);
+    setIsCropModalOpen(false);
+    setRawOriginalImageUrl(null);
+    rawOriginalImageRef.current = '';
+    setCapturedImageUrl(null);
+    cleanImageRef.current = '';
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -889,7 +910,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                 onClick={() => {
                   setIsTimerRunning(false);
                   setActiveTab('scan');
-                  cameraInputRef.current?.click();
+                  triggerCameraInput();
                 }}
                 className="w-full px-8 py-3.5 bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] rounded-[28px] text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 transition-all shadow-sm border-0 active:scale-95 cursor-pointer"
               >
@@ -991,7 +1012,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                 <div className="flex items-center justify-center gap-2.5 pt-2">
                   <button
                     type="button"
-                    onClick={() => cameraInputRef.current?.click()}
+                    onClick={triggerCameraInput}
                     className="flex items-center gap-2 px-6 py-2.5 bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] rounded-[28px] text-xs font-extrabold transition-all shadow-sm border-0 cursor-pointer active:scale-95"
                   >
                     <Camera className="w-4 h-4" />
@@ -999,7 +1020,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={triggerFileInput}
                     className="flex items-center gap-2 px-6 py-2.5 bg-[#f0f4f9] hover:bg-slate-200 dark:bg-[#141619] dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-100 rounded-[28px] text-xs font-extrabold transition-all cursor-pointer active:scale-95 border-0 outline-none"
                   >
                     <Upload className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
@@ -1024,7 +1045,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => cameraInputRef.current?.click()}
+                      onClick={triggerCameraInput}
                       className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#d3e3fd] hover:bg-[#c2e7ff] text-[#041e49] dark:bg-[#004a77] dark:hover:bg-[#00385a] dark:text-[#c2e7ff] rounded-[28px] text-xs font-bold transition-all shadow-xs hover:shadow-sm border-0 cursor-pointer active:scale-95"
                       title="Retake photo with camera"
                     >
@@ -1033,7 +1054,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                     </button>
                     <button
                       type="button"
-                      onClick={() => fileInputRef.current?.click()}
+                      onClick={triggerFileInput}
                       className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#f0f4f9] hover:bg-slate-200 dark:bg-[#141619] dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-100 rounded-[28px] text-xs font-bold transition-all cursor-pointer active:scale-95 shadow-xs hover:shadow-sm border-0"
                       title="Upload a different image"
                     >
@@ -1115,7 +1136,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                           <div className="flex flex-wrap items-center gap-1.5">
                             <button
                               type="button"
-                              onClick={() => cameraInputRef.current?.click()}
+                              onClick={triggerCameraInput}
                               className="px-3 py-1 bg-[#d3e3fd] hover:bg-[#c2e7ff] text-[#041e49] dark:bg-[#004a77] dark:hover:bg-[#00385a] dark:text-[#c2e7ff] rounded-[28px] text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-xs border-0"
                               title="Take new photo with camera"
                             >
@@ -1125,7 +1146,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
 
                             <button
                               type="button"
-                              onClick={() => fileInputRef.current?.click()}
+                              onClick={triggerFileInput}
                               className="px-3 py-1 bg-[#f0f4f9] dark:bg-[#141619] hover:bg-slate-200 dark:hover:bg-[#282a30] text-slate-700 dark:text-zinc-300 rounded-[28px] text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-xs border-0"
                               title="Upload a different sheet image"
                             >
@@ -1739,8 +1760,9 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
         const layoutConfig = getOmrLayoutConfig(totalQs, undefined, 'a4');
         return (
           <OmrCropModal
+            key={`crop_modal_${rawOriginalImageUrl ? rawOriginalImageUrl.length + '_' + rawOriginalImageUrl.slice(-32) : (capturedImageUrl ? capturedImageUrl.length + '_' + capturedImageUrl.slice(-32) : 'fresh')}`}
             isOpen={isCropModalOpen}
-            imageUrl={rawOriginalImageUrl || rawOriginalImageRef.current || cleanImageRef.current || capturedImageUrl || ''}
+            imageUrl={rawOriginalImageUrl || capturedImageUrl || ''}
             onClose={() => setIsCropModalOpen(false)}
             targetWidthMm={layoutConfig.pageWidthMm}
             targetHeightMm={layoutConfig.pageHeightMm}

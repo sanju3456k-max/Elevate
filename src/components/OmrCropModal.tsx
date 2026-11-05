@@ -207,6 +207,8 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
     cleanupActiveDrag();
     setImageLoaded(false);
     setRotationDeg(0);
+    imgRef.current = null;
+    rotCanvasRef.current = null;
 
     let isCancelled = false;
     const img = new Image();
@@ -218,6 +220,17 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
       const nw = img.naturalWidth || img.width || 800;
       const nh = img.naturalHeight || img.height || 1100;
       setImgNaturalSize({ width: nw, height: nh });
+
+      // Synchronously build initial rotated canvas cache from the new image
+      const canvas = document.createElement('canvas');
+      canvas.width = nw;
+      canvas.height = nh;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+      }
+      rotCanvasRef.current = canvas;
+
       setImageLoaded(true);
       setCorners(DEFAULT_CORNERS);
     };
