@@ -359,7 +359,7 @@ const QUESTION_PAPER_PRINT_CSS = `
     justify-content: center !important;
     pointer-events: none !important;
     user-select: none !important;
-    z-index: 10 !important;
+    z-index: 25 !important;
     mix-blend-mode: multiply !important;
     overflow: hidden !important;
   }

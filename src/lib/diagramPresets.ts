@@ -55,13 +55,19 @@ export function normalizeDiagramUrl(url?: string): string {
           }
         }
 
+        // Strip full-canvas solid white background rectangles to keep diagrams transparent
+        repaired = repaired.replace(/<rect\s+width=["'][0-9]+%?["']\s+height=["'][0-9]+%?["']\s+fill=["']#(?:ffffff|fff|white)["'][^>]*\/?>\s*/gi, '');
+        repaired = repaired.replace(/<rect\s+fill=["']#(?:ffffff|fff|white)["']\s+width=["'][0-9]+%?["']\s+height=["'][0-9]+%?["'][^>]*\/?>\s*/gi, '');
+
         return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(repaired)}`;
       }
     } catch {
       const commaIndex = cleanUrl.indexOf(',');
       if (commaIndex !== -1) {
-        const rawPart = cleanUrl.slice(commaIndex + 1);
+        let rawPart = cleanUrl.slice(commaIndex + 1);
         if (rawPart.includes('<svg')) {
+          rawPart = rawPart.replace(/<rect\s+width=["'][0-9]+%?["']\s+height=["'][0-9]+%?["']\s+fill=["']#(?:ffffff|fff|white)["'][^>]*\/?>\s*/gi, '');
+          rawPart = rawPart.replace(/<rect\s+fill=["']#(?:ffffff|fff|white)["']\s+width=["'][0-9]+%?["']\s+height=["'][0-9]+%?["'][^>]*\/?>\s*/gi, '');
           return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(rawPart)}`;
         }
       }
@@ -73,6 +79,10 @@ export function normalizeDiagramUrl(url?: string): string {
 
 export function svgToDataUrl(svg: string): string {
   let processed = svg.trim();
+  // Strip full-canvas solid white background rectangles so diagrams are natively transparent
+  processed = processed.replace(/<rect\s+width=["'][0-9]+%?["']\s+height=["'][0-9]+%?["']\s+fill=["']#(?:ffffff|fff|white)["'][^>]*\/?>\s*/gi, '');
+  processed = processed.replace(/<rect\s+fill=["']#(?:ffffff|fff|white)["']\s+width=["'][0-9]+%?["']\s+height=["'][0-9]+%?["'][^>]*\/?>\s*/gi, '');
+
   const viewBoxMatch = processed.match(/viewBox=["']\s*([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s*["']/);
   if (viewBoxMatch) {
     const vbW = viewBoxMatch[3];
@@ -89,7 +99,6 @@ export function svgToDataUrl(svg: string): string {
 // 1. STATICS: Block on Inclined Plane with Forces
 const svgStaticsInclinedPlane = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 280" width="400" height="280">
-  <rect width="400" height="280" fill="#ffffff"/>
   <!-- Ground -->
   <line x1="40" y1="240" x2="360" y2="240" stroke="#1e293b" stroke-width="2.5"/>
   <line x1="40" y1="240" x2="330" y2="90" stroke="#1e293b" stroke-width="2.5"/>
@@ -119,7 +128,6 @@ const svgStaticsInclinedPlane = `
 // 2. STATICS: Concurrent Coplanar Forces (Lami's Theorem)
 const svgStaticsLami = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 280" width="400" height="280">
-  <rect width="400" height="280" fill="#ffffff"/>
   <!-- Axes -->
   <line x1="50" y1="140" x2="350" y2="140" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="3,3"/>
   <line x1="200" y1="30" x2="200" y2="250" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="3,3"/>
@@ -151,7 +159,6 @@ const svgStaticsLami = `
 // 3. STATICS: Simply Supported Beam with Point Load
 const svgStaticsBeam = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 260" width="420" height="260">
-  <rect width="420" height="260" fill="#ffffff"/>
   <!-- Beam -->
   <rect x="60" y="120" width="300" height="18" fill="#cbd5e1" stroke="#0f172a" stroke-width="2" rx="2"/>
   <!-- Left Support A (Pin) -->
@@ -186,7 +193,6 @@ const svgStaticsBeam = `
 // 4. DYNAMICS: Velocity-Time Graph (Uniform Motion - Constant Velocity)
 const svgDynamicsUniformMotion = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 280" width="420" height="280">
-  <rect width="420" height="280" fill="#ffffff"/>
   <!-- Axes -->
   <line x1="50" y1="240" x2="380" y2="240" stroke="#0f172a" stroke-width="2.5"/>
   <polygon points="386,240 376,236 376,244" fill="#0f172a"/>
@@ -215,7 +221,6 @@ const svgDynamicsUniformMotion = `
 // 5. DYNAMICS: Velocity-Time Graph (Uniform Acceleration)
 const svgDynamicsUniformAcceleration = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 280" width="420" height="280">
-  <rect width="420" height="280" fill="#ffffff"/>
   <!-- Axes -->
   <line x1="50" y1="240" x2="380" y2="240" stroke="#0f172a" stroke-width="2.5"/>
   <polygon points="386,240 376,236 376,244" fill="#0f172a"/>
@@ -242,7 +247,6 @@ const svgDynamicsUniformAcceleration = `
 // 6. DYNAMICS: Atwood Machine / Pulley System
 const svgDynamicsPulley = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 290" width="380" height="290">
-  <rect width="380" height="290" fill="#ffffff"/>
   <!-- Ceiling -->
   <line x1="120" y1="20" x2="260" y2="20" stroke="#0f172a" stroke-width="3"/>
   <line x1="190" y1="20" x2="190" y2="55" stroke="#475569" stroke-width="2.5"/>
@@ -277,7 +281,6 @@ const svgDynamicsPulley = `
 // 7. DYNAMICS: Projectile Motion Trajectory
 const svgDynamicsProjectile = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 280" width="420" height="280">
-  <rect width="420" height="280" fill="#ffffff"/>
   <!-- Axes -->
   <line x1="40" y1="240" x2="380" y2="240" stroke="#0f172a" stroke-width="2.5"/>
   <polygon points="386,240 376,236 376,244" fill="#0f172a"/>
@@ -307,7 +310,6 @@ const svgDynamicsProjectile = `
 // 8. CONIC SECTIONS: Parabola y^2 = 4ax (Focus & Directrix)
 const svgConicParabola = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 280" width="400" height="280">
-  <rect width="400" height="280" fill="#ffffff"/>
   <!-- Coordinate Axes -->
   <line x1="40" y1="140" x2="360" y2="140" stroke="#94a3b8" stroke-width="2"/>
   <polygon points="366,140 356,136 356,144" fill="#94a3b8"/>
@@ -338,7 +340,6 @@ const svgConicParabola = `
 // 9. CONIC SECTIONS: Ellipse with Foci & Major/Minor Axes
 const svgConicEllipse = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 280" width="400" height="280">
-  <rect width="400" height="280" fill="#ffffff"/>
   <!-- Axes -->
   <line x1="30" y1="140" x2="370" y2="140" stroke="#94a3b8" stroke-width="2"/>
   <polygon points="376,140 366,136 366,144" fill="#94a3b8"/>
@@ -368,7 +369,6 @@ const svgConicEllipse = `
 // 10. CONIC SECTIONS: Hyperbola with Asymptotes
 const svgConicHyperbola = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 280" width="400" height="280">
-  <rect width="400" height="280" fill="#ffffff"/>
   <!-- Axes -->
   <line x1="30" y1="140" x2="370" y2="140" stroke="#94a3b8" stroke-width="2"/>
   <polygon points="376,140 366,136 366,144" fill="#94a3b8"/>

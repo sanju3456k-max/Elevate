@@ -1459,50 +1459,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                     overflow: 'hidden',
                   }}
                 >
-                  {/* Authentic Elevate Central Transparent App Logo Watermark on Each Page */}
-                  <div
-                    className="elevate-question-watermark absolute inset-0 flex items-center justify-center pointer-events-none select-none z-10 overflow-hidden"
-                    aria-hidden="true"
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      width: '100%',
-                      height: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      pointerEvents: 'none',
-                      userSelect: 'none',
-                      zIndex: 10,
-                      mixBlendMode: 'multiply',
-                    }}
-                  >
-                    <img
-                      src="./assets/preplens-icon.png?v=12"
-                      alt=""
-                      className="elevate-watermark-img pointer-events-none select-none"
-                      crossOrigin="anonymous"
-                      loading="eager"
-                      style={{
-                        width: '90mm',
-                        height: '90mm',
-                        maxWidth: '350px',
-                        maxHeight: '350px',
-                        objectFit: 'contain',
-                        opacity: 0.17,
-                        pointerEvents: 'none',
-                        userSelect: 'none',
-                        mixBlendMode: 'multiply',
-                        printColorAdjust: 'exact',
-                        WebkitPrintColorAdjust: 'exact',
-                      }}
-                    />
-                  </div>
-
-                  <div className="shrink-0 mb-2 relative z-10">
+                  <div className="shrink-0 mb-2 relative z-1">
                     {page.isFirstPage ? (
                       <div className="border-b-2 border-black pb-1.5">
                         <h1 className="text-center font-semibold text-[14pt] tracking-wide uppercase text-black leading-tight mb-1">
@@ -1538,7 +1495,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                     )}
                   </div>
 
-                  <div className={`relative mb-2 flex flex-col justify-start z-10 ${isLastPage ? 'flex-none' : 'flex-1'}`}>
+                  <div className={`relative mb-2 flex flex-col justify-start z-1 ${isLastPage ? 'flex-none' : 'flex-1'}`}>
                     <div className={`grid grid-cols-2 gap-x-5 text-black relative ${isLastPage ? '' : 'flex-1'}`}>
                       <div className="flex flex-col justify-start pr-2">
                         {page.leftColumn.map((item) => (
@@ -1571,10 +1528,53 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                   </div>
 
                   {isLastPage ? (
-                    <div className="shrink-0 border-t-[1.5pt] border-black mt-3 mb-1 relative z-10" />
+                    <div className="shrink-0 border-t-[1.5pt] border-black mt-3 mb-1 relative z-1" />
                   ) : (
-                    <div className="shrink-0 border-t-[1.5pt] border-black mt-auto relative z-10" />
+                    <div className="shrink-0 border-t-[1.5pt] border-black mt-auto relative z-1" />
                   )}
+
+                  {/* Authentic Elevate Central Transparent App Logo Watermark on Each Page (Overlay layer with mix-blend-mode: multiply) */}
+                  <div
+                    className="elevate-question-watermark absolute inset-0 flex items-center justify-center pointer-events-none select-none z-25 overflow-hidden"
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      width: '100%',
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      pointerEvents: 'none',
+                      userSelect: 'none',
+                      zIndex: 25,
+                      mixBlendMode: 'multiply',
+                    }}
+                  >
+                    <img
+                      src="./assets/preplens-icon.png?v=12"
+                      alt=""
+                      className="elevate-watermark-img pointer-events-none select-none"
+                      crossOrigin="anonymous"
+                      loading="eager"
+                      style={{
+                        width: '90mm',
+                        height: '90mm',
+                        maxWidth: '350px',
+                        maxHeight: '350px',
+                        objectFit: 'contain',
+                        opacity: 0.17,
+                        pointerEvents: 'none',
+                        userSelect: 'none',
+                        mixBlendMode: 'multiply',
+                        printColorAdjust: 'exact',
+                        WebkitPrintColorAdjust: 'exact',
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             );
