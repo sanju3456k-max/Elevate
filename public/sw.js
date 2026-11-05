@@ -1,17 +1,18 @@
 // Service Worker for Elevate Math Practice PWA (WebAPK Compliant)
-const CACHE_NAME = 'elevate-pwa-v10';
+const CACHE_NAME = 'elevate-pwa-v11';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
   '/manifest.json',
-  '/favicon.ico?v=10',
-  '/favicon.svg?v=10',
-  '/icon-192.png?v=10',
-  '/icon-512.png?v=10',
-  '/icon-maskable-192.png?v=10',
-  '/icon-maskable-512.png?v=10',
-  '/apple-touch-icon.png?v=10'
+  '/favicon.ico?v=11',
+  '/favicon.svg?v=11',
+  '/icon-192.png?v=11',
+  '/icon-512.png?v=11',
+  '/icon-maskable-192.png?v=11',
+  '/icon-maskable-512.png?v=11',
+  '/apple-touch-icon.png?v=11',
+  '/assets/preplens-icon.png?v=11'
 ];
 
 // Install: Cache critical shell assets safely without failing if one asset is missing

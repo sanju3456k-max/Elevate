@@ -45,10 +45,10 @@ export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({
             animate={{ scale: 1, opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] } }}
             className="flex flex-col items-center justify-center gap-4 text-center p-6"
           >
-            {/* Authentic Static Aperture Lens Emblem - Clean without white shadow */}
-            <div className="relative w-25 h-25 sm:w-28 sm:h-28 rounded-full flex items-center justify-center overflow-hidden">
+            {/* Authentic Static Aperture Lens Emblem - Pure edge without clipping artifacts */}
+            <div className="relative w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center">
               <img
-                src="./assets/preplens-icon.png"
+                src="./assets/preplens-icon.png?v=11"
                 alt="Elevate"
                 className="w-full h-full object-contain"
               />

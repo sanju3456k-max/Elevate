@@ -213,9 +213,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="flex items-center gap-2 sm:gap-2.5 cursor-pointer select-none group"
                 onClick={() => handleNavClick('tests')}
               >
-                <div className="w-9.5 h-9.5 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden group-hover:scale-105 transition-transform">
+                <div className="w-9.5 h-9.5 sm:w-10 sm:h-10 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                   <img 
-                    src="./assets/preplens-icon.png" 
+                    src="./assets/preplens-icon.png?v=11" 
                     alt="Elevate" 
                     className="w-full h-full object-contain"
                   />
@@ -398,9 +398,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {/* Drawer Top Drag Indicator & Header */}
                 <div className="p-4 sm:p-5 pt-[calc(env(safe-area-inset-top,0px)+1rem)] bg-white dark:bg-[#1e2024] flex items-center justify-between shrink-0 rounded-tr-[24px] border-b border-slate-100 dark:border-zinc-800/80">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
+                    <div className="w-11 h-11 flex items-center justify-center shrink-0">
                       <img 
-                        src="./assets/preplens-icon.png" 
+                        src="./assets/preplens-icon.png?v=11" 
                         alt="Elevate" 
                         className="w-full h-full object-contain"
                       />
