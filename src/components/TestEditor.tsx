@@ -56,6 +56,9 @@ import {
   Image as ImageIcon,
   Wand2,
   Share2,
+  LayoutGrid,
+  MoveRight,
+  Unlock,
 } from 'lucide-react';
 import { encodeTestToShareUrl, createShareUrlAsync } from '../utils/shareUtils';
 import { MathRenderer } from './MathRenderer';
@@ -156,7 +159,32 @@ export function formatQuestionCompact(q: Partial<MathQuestion>): Record<string, 
     }
   }
 
-  // NEVER output paperLayout, explanationImageUrl, explanationImageUrls, solutionImageUrl, or solution into clean question code!
+  // Retain teacher's custom question paper layout overrides (grid layout, break before, allow split/no break)
+  if (q.paperLayout && typeof q.paperLayout === 'object') {
+    const cleanLayout: Record<string, any> = {};
+    if (q.paperLayout.optionLayout && q.paperLayout.optionLayout !== 'auto') {
+      cleanLayout.optionLayout = q.paperLayout.optionLayout;
+    }
+    if (q.paperLayout.breakBefore && q.paperLayout.breakBefore !== 'none') {
+      cleanLayout.breakBefore = q.paperLayout.breakBefore;
+    }
+    if (q.paperLayout.keepTogether === false) {
+      cleanLayout.keepTogether = false;
+    }
+    if (typeof q.paperLayout.imageWidth === 'number' && q.paperLayout.imageWidth > 0) {
+      cleanLayout.imageWidth = Math.round(q.paperLayout.imageWidth);
+    }
+    if (Array.isArray(q.paperLayout.imageWidths) && q.paperLayout.imageWidths.some((w: any) => typeof w === 'number' && w > 0)) {
+      cleanLayout.imageWidths = q.paperLayout.imageWidths;
+    }
+    if (typeof q.paperLayout.imageUrl === 'string' && q.paperLayout.imageUrl.trim()) {
+      cleanLayout.imageUrl = q.paperLayout.imageUrl.trim();
+    }
+    if (Object.keys(cleanLayout).length > 0) {
+      result.paperLayout = cleanLayout;
+    }
+  }
+
   return result;
 }
 
@@ -345,7 +373,17 @@ export function normalizeQuestion(raw: any, index: number): MathQuestion {
   if (normalizedExplanationImageWidths && normalizedExplanationImageWidths.some(Boolean)) qObj.explanationImageWidths = normalizedExplanationImageWidths;
   if (raw.hint) qObj.hint = raw.hint;
   if (raw.paperLayout || raw.layout) {
-    qObj.paperLayout = raw.paperLayout || raw.layout;
+    const rawPl = raw.paperLayout || raw.layout;
+    if (rawPl && typeof rawPl === 'object') {
+      qObj.paperLayout = {
+        ...(rawPl.optionLayout ? { optionLayout: rawPl.optionLayout } : {}),
+        ...(rawPl.breakBefore ? { breakBefore: rawPl.breakBefore } : {}),
+        ...(rawPl.keepTogether !== undefined ? { keepTogether: Boolean(rawPl.keepTogether) } : {}),
+        ...(typeof rawPl.imageWidth === 'number' && rawPl.imageWidth > 0 ? { imageWidth: Math.round(rawPl.imageWidth) } : {}),
+        ...(Array.isArray(rawPl.imageWidths) ? { imageWidths: rawPl.imageWidths } : {}),
+        ...(typeof rawPl.imageUrl === 'string' && rawPl.imageUrl.trim() ? { imageUrl: rawPl.imageUrl.trim() } : {}),
+      };
+    }
   }
 
   return qObj;
@@ -985,10 +1023,13 @@ export const TestEditor: React.FC<TestEditorProps> = ({
       const compactObj = formatTestCompact(title, topic, timeLimitMinutes, nextQs);
       const newJson = JSON.stringify(compactObj, null, 2);
       setJsonText(newJson);
+      if (qIndex === currentQIndex && nextQs[qIndex]) {
+        setQuestionCodeDraft(JSON.stringify(formatQuestionCompact(nextQs[qIndex]), null, 2));
+      }
       pushHistory(newJson, undefined, qIndex);
       return nextQs;
     });
-  }, [title, topic, timeLimitMinutes, pushHistory]);
+  }, [title, topic, timeLimitMinutes, pushHistory, currentQIndex]);
 
   const handleResetAllLayouts = useCallback(() => {
     setQuestions((prevQs) => {
@@ -3652,6 +3693,160 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                         </div>
                       </div>
                     )}
+
+                    {/* Question Paper Layout Settings (Print & OMR Optimization) */}
+                    <div className="pt-3 border-t border-slate-200/80 dark:border-zinc-800/80">
+                      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                        <div className="flex items-center gap-1.5">
+                          <SlidersHorizontal className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-zinc-300">
+                            Paper Layout &amp; Print Optimization
+                          </span>
+                        </div>
+                        {currentQuestion.paperLayout && (
+                          (currentQuestion.paperLayout.optionLayout && currentQuestion.paperLayout.optionLayout !== 'auto') ||
+                          (currentQuestion.paperLayout.breakBefore && currentQuestion.paperLayout.breakBefore !== 'none') ||
+                          currentQuestion.paperLayout.keepTogether === false
+                        ) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleUpdateQuestionLayout(currentQIndex, {
+                                ...(currentQuestion.paperLayout || {}),
+                                optionLayout: 'auto',
+                                breakBefore: 'none',
+                                keepTogether: true,
+                              });
+                            }}
+                            className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors cursor-pointer"
+                          >
+                            Reset to Default
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-slate-50 dark:bg-[#141619] p-2.5 sm:p-3 rounded-2xl border border-slate-200/60 dark:border-zinc-800/60">
+                        {/* 1. Option Grid Layout */}
+                        {isMcqQuestion(currentQuestion) && (
+                          <div className="space-y-1">
+                            <label className="text-[11px] font-bold text-slate-600 dark:text-zinc-400 flex items-center gap-1">
+                              <LayoutGrid className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                              <span>Option Grid</span>
+                            </label>
+                            <div className="flex rounded-xl bg-white dark:bg-[#1e2024] p-0.5 border border-slate-200/80 dark:border-zinc-700/80 shadow-2xs">
+                              {(['auto', '4_across', '2x2_grid', 'stacked'] as const).map((mode) => {
+                                const currentOptionLayout = currentQuestion.paperLayout?.optionLayout || 'auto';
+                                const isSelected = currentOptionLayout === mode;
+                                const label = mode === 'auto' ? 'Auto' : mode === '4_across' ? '4 Across' : mode === '2x2_grid' ? '2x2' : 'Stacked';
+                                const titleDesc = mode === 'auto'
+                                  ? 'Automatic layout (Strictly consecutive rows if options contain = or ≠)'
+                                  : mode === '4_across'
+                                  ? 'Force 4 across in 1 horizontal line'
+                                  : mode === '2x2_grid'
+                                  ? 'Force 2x2 grid'
+                                  : 'Force 4 consecutive stacked rows';
+                                return (
+                                  <button
+                                    key={mode}
+                                    type="button"
+                                    onClick={() => {
+                                      handleUpdateQuestionLayout(currentQIndex, {
+                                        ...(currentQuestion.paperLayout || {}),
+                                        optionLayout: mode,
+                                      });
+                                    }}
+                                    title={titleDesc}
+                                    className={`flex-1 py-1 px-1 text-[11px] rounded-lg text-center transition-all cursor-pointer truncate ${
+                                      isSelected
+                                        ? 'bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#041e49] font-bold shadow-2xs'
+                                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 font-medium'
+                                    }`}
+                                  >
+                                    {label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 2. Break Flow */}
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-slate-600 dark:text-zinc-400 flex items-center gap-1">
+                            <MoveRight className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                            <span>Break Before</span>
+                          </label>
+                          <div className="flex rounded-xl bg-white dark:bg-[#1e2024] p-0.5 border border-slate-200/80 dark:border-zinc-700/80 shadow-2xs">
+                            {(['none', 'column', 'page'] as const).map((mode) => {
+                              const currentBreak = currentQuestion.paperLayout?.breakBefore || 'none';
+                              const isSelected = currentBreak === mode;
+                              const label = mode === 'none' ? 'None' : mode === 'column' ? 'Push Col' : 'Push Page';
+                              return (
+                                <button
+                                  key={mode}
+                                  type="button"
+                                  onClick={() => {
+                                    handleUpdateQuestionLayout(currentQIndex, {
+                                      ...(currentQuestion.paperLayout || {}),
+                                      breakBefore: mode,
+                                    });
+                                  }}
+                                  title={mode === 'none' ? 'Normal flow without forced break' : mode === 'column' ? 'Force question to start at top of next column' : 'Force question to start at top of next page'}
+                                  className={`flex-1 py-1 px-1 text-[11px] rounded-lg text-center transition-all cursor-pointer truncate ${
+                                    isSelected
+                                      ? 'bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#041e49] font-bold shadow-2xs'
+                                      : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 font-medium'
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* 3. Spacing / Keep Together */}
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-slate-600 dark:text-zinc-400 flex items-center gap-1">
+                            {(currentQuestion.paperLayout?.keepTogether ?? true) ? (
+                              <Lock className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                            ) : (
+                              <Unlock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                            )}
+                            <span>Column Splitting</span>
+                          </label>
+                          <div className="flex rounded-xl bg-white dark:bg-[#1e2024] p-0.5 border border-slate-200/80 dark:border-zinc-700/80 shadow-2xs">
+                            {([true, false] as const).map((keepTogether) => {
+                              const currentKeep = currentQuestion.paperLayout?.keepTogether ?? true;
+                              const isSelected = currentKeep === keepTogether;
+                              const label = keepTogether ? 'No Break' : 'Allow Split';
+                              return (
+                                <button
+                                  key={String(keepTogether)}
+                                  type="button"
+                                  onClick={() => {
+                                    handleUpdateQuestionLayout(currentQIndex, {
+                                      ...(currentQuestion.paperLayout || {}),
+                                      keepTogether,
+                                    });
+                                  }}
+                                  title={keepTogether ? 'Keep statement and options strictly together in one column (No Break)' : 'Allow statement and options to split across columns to fill space'}
+                                  className={`flex-1 py-1 px-1 text-[11px] rounded-lg text-center transition-all cursor-pointer truncate ${
+                                    isSelected
+                                      ? keepTogether
+                                        ? 'bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#041e49] font-bold shadow-2xs'
+                                        : 'bg-amber-600 text-white font-bold shadow-2xs'
+                                      : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 font-medium'
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
                     {/* Hint Card */}
                     {currentQuestion.hint && (
