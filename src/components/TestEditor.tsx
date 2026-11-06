@@ -59,7 +59,9 @@ import {
   LayoutGrid,
   MoveRight,
   Unlock,
+  Lock,
 } from 'lucide-react';
+import { parseAssessmentJsonFaultTolerant, repairJsonBackslashes } from '../utils/jsonFaultTolerantParser';
 import { encodeTestToShareUrl, createShareUrlAsync } from '../utils/shareUtils';
 import { MathRenderer } from './MathRenderer';
 import { OmrQuestionPaper } from './OmrQuestionPaper';
@@ -384,6 +386,11 @@ export function normalizeQuestion(raw: any, index: number): MathQuestion {
         ...(typeof rawPl.imageUrl === 'string' && rawPl.imageUrl.trim() ? { imageUrl: rawPl.imageUrl.trim() } : {}),
       };
     }
+  }
+
+  if (raw._hasSyntaxError) {
+    (qObj as any)._hasSyntaxError = true;
+    (qObj as any)._errorMessage = raw._errorMessage;
   }
 
   return qObj;
@@ -1100,7 +1107,8 @@ export const TestEditor: React.FC<TestEditorProps> = ({
 
   const parseAndSyncState = useCallback((text: string, recordHistory = true): boolean => {
     try {
-      const parsed = JSON.parse(text);
+      const parseResult = parseAssessmentJsonFaultTolerant(text);
+      const parsed = parseResult.test;
       if (!parsed || typeof parsed !== 'object') {
         throw new Error('JSON root must be an object.');
       }
@@ -1128,9 +1136,19 @@ export const TestEditor: React.FC<TestEditorProps> = ({
       
       const normalizedQs = parsed.questions.map((q: any, idx: number) => normalizeQuestion(q, idx));
       setQuestions(normalizedQs);
-      setJsonError(null);
+      if (parseResult.errors.length > 0) {
+        setJsonError(parseResult.errors.map(e => e.message).join(' | '));
+      } else {
+        setJsonError(null);
+      }
 
-      const targetIdx = currentQIndex >= normalizedQs.length ? Math.max(0, normalizedQs.length - 1) : currentQIndex;
+      let targetIdx = currentQIndex >= normalizedQs.length ? Math.max(0, normalizedQs.length - 1) : currentQIndex;
+      if (parseResult.errors.length > 0) {
+        const firstErrIdx = parseResult.errors[0].questionNumber - 1;
+        if (firstErrIdx >= 0 && firstErrIdx < normalizedQs.length) {
+          targetIdx = firstErrIdx;
+        }
+      }
       setCurrentQIndex(targetIdx);
 
       let nextDraft = questionCodeDraft;
@@ -1464,7 +1482,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     if (codeDraftChangeTimeoutRef.current) clearTimeout(codeDraftChangeTimeoutRef.current);
     codeDraftChangeTimeoutRef.current = setTimeout(() => {
       try {
-        const parsedQ = JSON.parse(newDraft);
+        const parsedQ = JSON.parse(repairJsonBackslashes(newDraft));
         if (parsedQ && typeof parsedQ === 'object' && parsedQ.text) {
           const normalized = normalizeQuestion(parsedQ, currentQIndex);
           let fullTestParsed: any;
@@ -2034,7 +2052,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
 
   const handleUpdateQuestionCode = (): boolean => {
     try {
-      const parsedQ = JSON.parse(questionCodeDraft);
+      const parsedQ = JSON.parse(repairJsonBackslashes(questionCodeDraft));
       if (!parsedQ || typeof parsedQ !== 'object') {
         throw new Error('Question must be a valid JSON object.');
       }
@@ -2320,7 +2338,8 @@ export const TestEditor: React.FC<TestEditorProps> = ({
   const handleProcessImportJson = (text: string) => {
     try {
       setImportError(null);
-      const parsed = JSON.parse(text);
+      const parseResult = parseAssessmentJsonFaultTolerant(text);
+      const parsed = parseResult.test;
 
       let importedQuestions: MathQuestion[] = [];
       let importedTitle = 'Imported Assessment';
@@ -2427,16 +2446,38 @@ export const TestEditor: React.FC<TestEditorProps> = ({
       // Save the imported test as well so both tests exist independently in library & database
       onSaveTest(importedTestPayload);
       
-      setImportSuccess(`Successfully loaded and saved ${importedQuestions.length} questions!`);
-      const noticeMsg = savedPreviousTitle
-        ? `Saved previous test "${savedPreviousTitle}" and loaded imported test "${importedTitle}".`
-        : `Imported and saved "${importedTitle}" (${importedQuestions.length} questions).`;
-      setSaveSuccessNotice(noticeMsg);
-      setTimeout(() => setSaveSuccessNotice(''), 4500);
-      setTimeout(() => {
-        setIsImportModalOpen(false);
-        setImportSuccess(null);
-      }, 800);
+      if (parseResult.errors.length > 0) {
+        const errorSummary = parseResult.errors.map(e => e.message).join(' | ');
+        const firstErrQNum = parseResult.errors[0].questionNumber;
+        const validCount = importedQuestions.filter(q => !(q as any)._hasSyntaxError).length;
+        const alertMsg = `${errorSummary}. Accepted ${validCount} valid question${validCount === 1 ? '' : 's'} as is. Navigated to Question ${firstErrQNum} for correction.`;
+        setErrorMessage(alertMsg);
+        setSaveSuccessNotice(alertMsg);
+        const errIndex = firstErrQNum - 1;
+        if (errIndex >= 0 && errIndex < normalizedImportedQs.length) {
+          setCurrentQIndex(errIndex);
+        }
+        setImportSuccess(`Imported with ${parseResult.errors.length} issue(s) flagged: ${parseResult.errors.map(e => `Question ${e.questionNumber}`).join(', ')}`);
+        setTimeout(() => setSaveSuccessNotice(''), 8000);
+        setTimeout(() => {
+          setIsImportModalOpen(false);
+          setImportSuccess(null);
+        }, 1800);
+      } else {
+        const successMsg = parseResult.hasRepairs
+          ? `Imported and saved "${importedTitle}" (${importedQuestions.length} questions, auto-repaired LaTeX backslashes).`
+          : `Imported and saved "${importedTitle}" (${importedQuestions.length} questions).`;
+        setImportSuccess(`Successfully loaded and saved ${importedQuestions.length} questions!`);
+        const noticeMsg = savedPreviousTitle
+          ? `Saved previous test "${savedPreviousTitle}" and loaded imported test "${importedTitle}".`
+          : successMsg;
+        setSaveSuccessNotice(noticeMsg);
+        setTimeout(() => setSaveSuccessNotice(''), 4500);
+        setTimeout(() => {
+          setIsImportModalOpen(false);
+          setImportSuccess(null);
+        }, 800);
+      }
     } catch (err: any) {
       setImportError(err.message || 'Invalid JSON format');
     }
@@ -3268,6 +3309,9 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                   >
                     <Compass className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa]" />
                     <span>{currentQIndex + 1}/{questions.length}</span>
+                    {questions.some((q) => (q as any)?._hasSyntaxError) && (
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" title="Question with syntax error needs review" />
+                    )}
                     <ChevronDown className="w-2.5 h-2.5 text-slate-400" />
                   </button>
 
@@ -3277,7 +3321,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                         Jump to Question
                       </div>
                       <div className="grid grid-cols-5 gap-1.5 max-h-48 overflow-y-auto p-1">
-                        {questions.map((_, idx) => (
+                        {questions.map((qItem, idx) => (
                           <button
                             key={idx}
                             type="button"
@@ -3291,13 +3335,18 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                                 setQuestionCodeDraft(JSON.stringify(formatQuestionCompact(questions[idx]), null, 2));
                               }
                             }}
-                            className={`h-8 rounded-xl font-bold text-xs flex items-center justify-center transition-all cursor-pointer ${
+                            className={`h-8 rounded-xl font-bold text-xs flex items-center justify-center transition-all cursor-pointer relative ${
                               currentQIndex === idx 
                                 ? 'bg-[#0b57d0] text-white' 
+                                : (qItem as any)?._hasSyntaxError
+                                ? 'bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/70 dark:text-amber-200 dark:border-amber-700'
                                 : 'bg-slate-100 dark:bg-[#222634] hover:bg-[#dedcd6] dark:hover:bg-[#282a39] text-[#1d283a] dark:text-zinc-200'
                             }`}
                           >
                             {idx + 1}
+                            {(qItem as any)?._hasSyntaxError && (
+                              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-500 rounded-full ring-2 ring-white dark:ring-zinc-900" />
+                            )}
                           </button>
                         ))}
                       </div>
@@ -3401,6 +3450,20 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                     id={`studio-preview-question-card-${currentQIndex}`}
                     className="bg-white dark:bg-[#1e2024] rounded-[28px] border-0 ring-1 ring-[#0b57d0]/25 dark:ring-[#a8c7fa]/30 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] px-4 sm:px-5 md:px-6 py-4 sm:py-5 relative space-y-4 max-w-full w-full"
                   >
+                    {(currentQuestion as any)?._hasSyntaxError && (
+                      <div className="p-3 mb-3 rounded-2xl bg-amber-50 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700/80 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5 shadow-xs">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <span className="font-bold block text-[13px] text-amber-900 dark:text-amber-200">
+                            {(currentQuestion as any)._errorMessage || `Error in Question ${currentQIndex + 1}`}
+                          </span>
+                          <p className="mt-0.5 text-[11.5px] leading-relaxed text-amber-800 dark:text-amber-300/90">
+                            Other questions were imported successfully. You can edit this question text and options below to repair it.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Question Statement */}
                     <div className="text-slate-900 dark:text-zinc-100 text-[18px] sm:text-[19px] font-medium leading-relaxed max-w-full">
                       <div className="flex items-start gap-1 sm:gap-1.5 max-w-full">
@@ -3926,6 +3989,20 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                         >
                           <X className="w-3 h-3" />
                         </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {(currentQuestion as any)?._hasSyntaxError && (
+                    <div className="p-3 mb-2 rounded-xl bg-amber-950/80 border border-amber-600/70 text-xs text-amber-200 flex items-start gap-2.5 shrink-0">
+                      <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <span className="font-bold block text-amber-300">
+                          {(currentQuestion as any)._errorMessage || `Syntax error in Question ${currentQIndex + 1}`}
+                        </span>
+                        <p className="mt-0.5 text-[11px] text-amber-200/90 leading-relaxed">
+                          Fix the JSON syntax / backslashes below. Other questions were loaded cleanly.
+                        </p>
                       </div>
                     </div>
                   )}
