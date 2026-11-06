@@ -604,30 +604,30 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-2 shrink-0 flex-nowrap w-full sm:w-auto">
             {availableTopics.length > 1 && (
-              <div className="relative inline-flex items-center">
+              <div className="relative inline-flex items-center flex-1 sm:flex-initial min-w-0">
                 <select
                   id="analytics-topic-filter-select"
                   value={selectedTopicFilter}
                   onChange={(e) => setSelectedTopicFilter(e.target.value)}
-                  className="appearance-none h-9 pl-4 pr-8 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold border-0 ring-0 focus:ring-0 focus:outline-none cursor-pointer min-w-[130px] sm:min-w-[150px] transition-all shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] outline-none"
+                  className="appearance-none h-8 sm:h-9 pl-3 sm:pl-4 pr-7 sm:pr-8 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold border-0 ring-0 focus:ring-0 focus:outline-none cursor-pointer w-full sm:min-w-[130px] transition-all shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] outline-none truncate"
                 >
                   <option value="all">All Topics</option>
                   {availableTopics.map((t) => (
                     <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
-                <ChevronDown className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] absolute right-3 pointer-events-none" />
+                <ChevronDown className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] absolute right-2.5 sm:right-3 pointer-events-none shrink-0" />
               </div>
             )}
 
-            <div className="relative inline-flex items-center">
+            <div className="relative inline-flex items-center flex-1 sm:flex-initial min-w-0">
               <select
                 id="analytics-sort-by-select"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
-                className="appearance-none h-9 pl-4 pr-8 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold border-0 ring-0 focus:ring-0 focus:outline-none cursor-pointer min-w-[130px] sm:min-w-[150px] transition-all shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] outline-none"
+                className="appearance-none h-8 sm:h-9 pl-3 sm:pl-4 pr-7 sm:pr-8 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold border-0 ring-0 focus:ring-0 focus:outline-none cursor-pointer w-full sm:min-w-[130px] transition-all shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] outline-none truncate"
               >
                 <option value="recent">Most Recent</option>
                 <option value="online">Online Mode</option>
@@ -635,7 +635,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                 <option value="score">Highest Score</option>
                 <option value="accuracy">Highest Accuracy</option>
               </select>
-              <ChevronDown className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] absolute right-3 pointer-events-none" />
+              <ChevronDown className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] absolute right-2.5 sm:right-3 pointer-events-none shrink-0" />
             </div>
           </div>
         </div>
