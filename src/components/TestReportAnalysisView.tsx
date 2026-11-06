@@ -26,7 +26,9 @@ import {
   ChevronUp,
   BrainCircuit,
   Check,
-  FileText
+  FileText,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import type { TestAttempt, MathTest, MathQuestion } from '../types';
 import { isAttemptOmrMode } from '../lib/storage';
@@ -243,8 +245,33 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
   const [expandedActionableTopics, setExpandedActionableTopics] = useState<Record<string, boolean>>({});
   const [performanceFilter, setPerformanceFilter] = useState<'all' | 'strong' | 'actionable' | 'practice' | 'unattempted'>('all');
   const [multiChapterViewMode, setMultiChapterViewMode] = useState<'chapters' | 'concepts'>('chapters');
+  const [fullScreenChapterId, setFullScreenChapterId] = useState<string | null>(null);
+  const [fullScreenSubtopicFilter, setFullScreenSubtopicFilter] = useState<'all' | 'strong' | 'practice' | 'unattempted'>('all');
   const [extraAddonsPrompt, setExtraAddonsPrompt] = useState<string>('');
   const promptBarInputRef = useRef<HTMLInputElement>(null);
+
+  // Close full screen modal on ESC key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && fullScreenChapterId) {
+        setFullScreenChapterId(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [fullScreenChapterId]);
+
+  // Prevent background scrolling when modal is open
+  useEffect(() => {
+    if (fullScreenChapterId) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [fullScreenChapterId]);
 
   // Guarantee clean scroll reset on mount
   useEffect(() => {
@@ -895,6 +922,27 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
     return allEvaluatedSubtopics;
   }, [allEvaluatedSubtopics, performanceFilter]);
 
+  // Full-Screen Chapter View Data
+  const fullScreenChapter = useMemo(() => {
+    if (!fullScreenChapterId) return null;
+    return unifiedPerformanceItems.find((c) => c.id === fullScreenChapterId) || null;
+  }, [fullScreenChapterId, unifiedPerformanceItems]);
+
+  const fullScreenDisplayedSubtopics = useMemo(() => {
+    if (!fullScreenChapter) return [];
+    const subs = fullScreenChapter.subtopicItems || [];
+    if (fullScreenSubtopicFilter === 'strong') {
+      return subs.filter((s: any) => s.category === 'strong');
+    }
+    if (fullScreenSubtopicFilter === 'practice') {
+      return subs.filter((s: any) => s.category === 'weak' || s.category === 'moderate');
+    }
+    if (fullScreenSubtopicFilter === 'unattempted') {
+      return subs.filter((s: any) => s.category === 'unattempted');
+    }
+    return subs;
+  }, [fullScreenChapter, fullScreenSubtopicFilter]);
+
   // Toggle or append a preset add-on to extraAddonsPrompt
   const handleTogglePresetAddon = (addon: PresetAddon) => {
     const cleanLabel = addon.label.trim();
@@ -1463,7 +1511,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
           ) : (
             /* VIEW 2: CHAPTER-WISE ADAPTIVE ACCORDION CARDS */
             <div
-              className={`grid gap-3 lg:gap-4 ${
+              className={`grid gap-3 lg:gap-4 items-start ${
                 filteredPerformanceItems.length === 1
                   ? 'grid-cols-1'
                   : 'grid-cols-1 md:grid-cols-2'
@@ -1498,7 +1546,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                   return (
                     <div
                       key={item.id}
-                      className="bg-white dark:bg-[#181a20] rounded-[24px] ring-1 ring-slate-400 dark:ring-zinc-600 border-0 shadow-none overflow-hidden flex flex-col justify-between transition-all"
+                      className="bg-white dark:bg-[#181a20] rounded-[24px] ring-1 ring-slate-400 dark:ring-zinc-600 border-0 shadow-none overflow-hidden flex flex-col h-fit self-start transition-all"
                     >
                       <div>
                         {/* Main Clickable Topic Row */}
@@ -1572,7 +1620,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-1.5 shrink-0">
                             <span
                               className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border-0 ring-0 ${
                                 item.category === 'strong'
@@ -1588,6 +1636,19 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                             >
                               {item.statusBadge}
                             </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFullScreenSubtopicFilter('all');
+                                setFullScreenChapterId(item.id);
+                              }}
+                              className="w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-[#252830] dark:hover:bg-[#34374a] border-0 ring-0 flex items-center justify-center text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
+                              title="Open Full Screen Chapter View"
+                              aria-label="Open Full Screen Chapter View"
+                            >
+                              <Maximize2 className="w-3.5 h-3.5" />
+                            </button>
                             <button
                               type="button"
                               className="w-6 h-6 rounded-full bg-slate-100 dark:bg-[#252830] border-0 ring-0 flex items-center justify-center text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white transition-transform cursor-pointer"
@@ -1607,18 +1668,33 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                                   ? `Filtered Concepts (${displayedSubItems.length} of ${subItems.length}):`
                                   : `Subtopic Concept Breakdown (${subItems.length}):`}
                               </span>
-                              {isSingleChapter && performanceFilter !== 'all' && (
+                              <div className="flex items-center gap-2">
                                 <button
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setPerformanceFilter('all');
+                                    setFullScreenSubtopicFilter('all');
+                                    setFullScreenChapterId(item.id);
                                   }}
-                                  className="text-[10px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] hover:underline cursor-pointer"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#0b57d0]/10 hover:bg-[#0b57d0]/20 text-[#0b57d0] dark:bg-[#a8c7fa]/10 dark:hover:bg-[#a8c7fa]/20 dark:text-[#a8c7fa] transition-colors cursor-pointer"
+                                  title="View in full screen modal"
                                 >
-                                  Show All {subItems.length} Concepts
+                                  <Maximize2 className="w-3 h-3" />
+                                  <span>Full View</span>
                                 </button>
-                              )}
+                                {isSingleChapter && performanceFilter !== 'all' && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPerformanceFilter('all');
+                                    }}
+                                    className="text-[10px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] hover:underline cursor-pointer"
+                                  >
+                                    Show All {subItems.length} Concepts
+                                  </button>
+                                )}
+                              </div>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1811,6 +1887,267 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
           </div>
         </div>
       </main>
+
+      {/* ==================================================================== */}
+      {/* FULL SCREEN CHAPTER VIEW MODAL OVERLAY                               */}
+      {/* ==================================================================== */}
+      {fullScreenChapter && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Full Screen Analysis for ${fullScreenChapter.topic}`}
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 md:p-6 animate-in fade-in duration-200"
+          onClick={() => setFullScreenChapterId(null)}
+        >
+          <div
+            className="bg-white dark:bg-[#181a20] rounded-3xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl ring-1 ring-slate-400 dark:ring-zinc-600 border-0 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-3 bg-slate-50/80 dark:bg-[#1e2024]/80">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-[#0b57d0]/10 dark:bg-[#a8c7fa]/10 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-zinc-100 truncate" title={fullScreenChapter.topic}>
+                      {fullScreenChapter.topic}
+                    </h3>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[#0b57d0]/10 text-[#0b57d0] dark:text-[#a8c7fa]">
+                      {fullScreenChapter.subtopicItems.length} Concepts
+                    </span>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border-0 ring-0 ${
+                        fullScreenChapter.category === 'strong'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                          : fullScreenChapter.category === 'moderate'
+                          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                          : fullScreenChapter.category === 'unattempted'
+                          ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
+                          : fullScreenChapter.statusType === 'danger'
+                          ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                      }`}
+                    >
+                      {fullScreenChapter.statusBadge}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-2 mt-0.5 flex-wrap">
+                    <span>{fullScreenChapter.correctCount}/{fullScreenChapter.totalQuestions} Correct ({fullScreenChapter.accuracy}%)</span>
+                    <span>•</span>
+                    <span>{fullScreenChapter.wrongCount} Wrong</span>
+                    <span>•</span>
+                    <span>{fullScreenChapter.skippedCount} Skipped</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setFullScreenChapterId(null)}
+                className="w-8 h-8 rounded-full bg-slate-200/80 hover:bg-slate-300 dark:bg-[#252830] dark:hover:bg-[#34374a] text-slate-700 dark:text-zinc-300 flex items-center justify-center transition-all cursor-pointer shrink-0 border-0 ring-0"
+                title="Close Full Screen View (Esc)"
+                aria-label="Close Full Screen View"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Concept Filter Pills & Multi-segment Progress Bar */}
+            <div className="px-4 sm:px-6 py-3 border-b border-slate-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#181a20]">
+              {/* Progress Bar + Mastery Counters */}
+              <div className="flex-1 max-w-md">
+                <div className="w-full h-2 bg-slate-200/80 dark:bg-zinc-800 rounded-full overflow-hidden flex">
+                  {fullScreenChapter.strongSubtopicsCount > 0 && (
+                    <div
+                      style={{ width: `${(fullScreenChapter.strongSubtopicsCount / (fullScreenChapter.subtopicItems.length || 1)) * 100}%` }}
+                      className="bg-emerald-500 h-full"
+                      title={`${fullScreenChapter.strongSubtopicsCount} Strong Concepts`}
+                    />
+                  )}
+                  {fullScreenChapter.practiceSubtopicsCount > 0 && (
+                    <div
+                      style={{ width: `${(fullScreenChapter.practiceSubtopicsCount / (fullScreenChapter.subtopicItems.length || 1)) * 100}%` }}
+                      className="bg-rose-500 h-full"
+                      title={`${fullScreenChapter.practiceSubtopicsCount} Needs Practice`}
+                    />
+                  )}
+                  {fullScreenChapter.unattemptedSubtopicsCount > 0 && (
+                    <div
+                      style={{ width: `${(fullScreenChapter.unattemptedSubtopicsCount / (fullScreenChapter.subtopicItems.length || 1)) * 100}%` }}
+                      className="bg-slate-300 dark:bg-zinc-600 h-full"
+                      title={`${fullScreenChapter.unattemptedSubtopicsCount} Unattempted`}
+                    />
+                  )}
+                </div>
+                <div className="flex items-center gap-3 mt-1.5 text-[11px] font-semibold flex-wrap">
+                  <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    {fullScreenChapter.strongSubtopicsCount} Strong
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400">
+                    <span className="w-2 h-2 rounded-full bg-rose-500" />
+                    {fullScreenChapter.practiceSubtopicsCount} Needs Practice
+                  </span>
+                  {fullScreenChapter.unattemptedSubtopicsCount > 0 && (
+                    <span className="inline-flex items-center gap-1 text-slate-500 dark:text-zinc-400">
+                      <span className="w-2 h-2 rounded-full bg-slate-400" />
+                      {fullScreenChapter.unattemptedSubtopicsCount} Unattempted
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Filter Pills */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setFullScreenSubtopicFilter('all')}
+                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all border-0 ring-0 cursor-pointer ${
+                    fullScreenSubtopicFilter === 'all'
+                      ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49]'
+                      : 'bg-slate-100 dark:bg-[#252830] text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-[#34374a]'
+                  }`}
+                >
+                  All ({fullScreenChapter.subtopicItems.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFullScreenSubtopicFilter('strong')}
+                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all border-0 ring-0 cursor-pointer ${
+                    fullScreenSubtopicFilter === 'strong'
+                      ? 'bg-emerald-600 text-white dark:bg-emerald-500 dark:text-white'
+                      : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100'
+                  }`}
+                >
+                  Strong ({fullScreenChapter.strongSubtopicsCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFullScreenSubtopicFilter('practice')}
+                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all border-0 ring-0 cursor-pointer ${
+                    fullScreenSubtopicFilter === 'practice'
+                      ? 'bg-rose-600 text-white dark:bg-rose-500 dark:text-white'
+                      : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100'
+                  }`}
+                >
+                  Needs Practice ({fullScreenChapter.practiceSubtopicsCount})
+                </button>
+                {fullScreenChapter.unattemptedSubtopicsCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setFullScreenSubtopicFilter('unattempted')}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all border-0 ring-0 cursor-pointer ${
+                      fullScreenSubtopicFilter === 'unattempted'
+                        ? 'bg-slate-700 text-white dark:bg-slate-300 dark:text-slate-900'
+                        : 'bg-slate-100 dark:bg-[#252830] text-slate-700 dark:text-zinc-300 hover:bg-slate-200'
+                    }`}
+                  >
+                    Unattempted ({fullScreenChapter.unattemptedSubtopicsCount})
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* AI Recommendation Banner */}
+            {fullScreenChapter.recommendation && (
+              <div className="mx-4 sm:mx-6 mt-4 p-3 rounded-2xl bg-[#d3e3fd]/40 dark:bg-[#004a77]/30 border-0 ring-0 shadow-xs flex items-start gap-2.5 text-xs text-slate-800 dark:text-zinc-200 shrink-0">
+                <Sparkles className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0 mt-0.5" />
+                <p className="leading-relaxed font-medium">
+                  {fullScreenChapter.recommendation}
+                </p>
+              </div>
+            )}
+
+            {/* Scrollable Subtopics Grid */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {fullScreenDisplayedSubtopics.length > 0 ? (
+                  fullScreenDisplayedSubtopics.map((sub: any, sIdx: number) => (
+                    <div
+                      key={sIdx}
+                      className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#1e2024] border border-slate-200/70 dark:border-zinc-800 flex flex-col justify-between gap-2.5 shadow-xs transition-all hover:border-[#0b57d0]/40 dark:hover:border-[#a8c7fa]/40"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-1.5 mb-2">
+                          <span className="font-bold text-slate-900 dark:text-zinc-100 text-xs sm:text-sm line-clamp-1" title={sub.subtopic}>
+                            {sub.subtopic}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 border-0 ring-0 ${
+                              sub.category === 'strong'
+                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                : sub.category === 'moderate'
+                                ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                                : sub.category === 'unattempted'
+                                ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
+                                : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                            }`}
+                          >
+                            {sub.statusBadge}
+                          </span>
+                        </div>
+
+                        {/* Question Chips */}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {sub.questions.map((q: any) => {
+                            let chipStyle = 'bg-slate-200/80 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300';
+                            let iconNode = <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-zinc-500 shrink-0 inline-block" />;
+                            if (q.isCorrect) {
+                              chipStyle = 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] font-bold';
+                              iconNode = <Check className="w-2.5 h-2.5 stroke-[3] shrink-0" />;
+                            } else if (q.isAttempted) {
+                              chipStyle = 'bg-rose-100 text-rose-600 dark:bg-rose-950/80 dark:text-rose-400 font-bold';
+                              iconNode = <X className="w-2.5 h-2.5 stroke-[3] shrink-0" />;
+                            }
+
+                            return (
+                              <span
+                                key={q.questionNumber}
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] border-0 ring-0 ${chipStyle}`}
+                                title={`Q${q.questionNumber}: ${q.isCorrect ? 'Correct' : q.isAttempted ? 'Wrong' : 'Skipped'}`}
+                              >
+                                <span className="w-3 h-3 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center shrink-0">
+                                  {iconNode}
+                                </span>
+                                <span>Q{q.questionNumber}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-zinc-400 pt-2 border-t border-slate-200/60 dark:border-zinc-800">
+                        <span className="font-semibold text-slate-700 dark:text-zinc-300">{sub.correctCount}/{sub.totalQuestions} Correct</span>
+                        <span>{sub.wrongCount} Wrong • {sub.skippedCount} Skipped</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full p-8 text-center text-xs text-slate-500 dark:text-zinc-400 bg-slate-50 dark:bg-[#1e2024] rounded-2xl border border-slate-200/60 dark:border-zinc-800">
+                    No concepts found matching the selected filter.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3 sm:px-6 py-2.5 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between text-xs text-slate-600 dark:text-zinc-400 bg-slate-50/80 dark:bg-[#1e2024]/80">
+              <span className="font-semibold text-[11px] sm:text-xs">
+                Chapter Total: <strong className="text-slate-900 dark:text-zinc-100">{fullScreenChapter.correctCount}/{fullScreenChapter.totalQuestions}</strong> ({fullScreenChapter.accuracy}%)
+              </span>
+              <button
+                type="button"
+                onClick={() => setFullScreenChapterId(null)}
+                className="px-4 py-1.5 rounded-full bg-white hover:bg-slate-100 dark:bg-[#252830] dark:hover:bg-[#34374a] text-slate-800 dark:text-zinc-200 text-xs font-bold border border-slate-300 dark:border-zinc-700 transition-all cursor-pointer shadow-xs active:scale-95"
+              >
+                Close Full View
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
