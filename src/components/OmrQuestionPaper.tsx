@@ -1592,10 +1592,10 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                       crossOrigin="anonymous"
                       loading="eager"
                       style={{
-                        width: '90mm',
-                        height: '90mm',
-                        maxWidth: '350px',
-                        maxHeight: '350px',
+                        width: '126mm',
+                        height: '126mm',
+                        maxWidth: '490px',
+                        maxHeight: '490px',
                         objectFit: 'contain',
                         opacity: 0.17,
                         pointerEvents: 'none',

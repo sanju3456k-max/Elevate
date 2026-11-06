@@ -366,10 +366,10 @@ const QUESTION_PAPER_PRINT_CSS = `
 
   .elevate-question-watermark img,
   .elevate-watermark-img {
-    width: 90mm !important;
-    height: 90mm !important;
-    max-width: 350px !important;
-    max-height: 350px !important;
+    width: 126mm !important;
+    height: 126mm !important;
+    max-width: 490px !important;
+    max-height: 490px !important;
     object-fit: contain !important;
     opacity: 0.17 !important;
     mix-blend-mode: multiply !important;

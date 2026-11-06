@@ -2926,15 +2926,15 @@ export const TestEditor: React.FC<TestEditorProps> = ({
           </div>
         </div>
 
-        {/* ROW 2: ACTION BUTTONS CARD (Unified compact card with no dead space) */}
-        <div className="bg-white dark:bg-[#1e2024] px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-[20px] sm:rounded-[24px] flex items-center gap-1 sm:gap-1.5 flex-wrap shrink-0 z-20 border-0 ring-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] w-full">
+        {/* ROW 2: ACTION BUTTONS CARD (Equally spaced 2 rows on mobile, flexible on desktop) */}
+        <div className="bg-white dark:bg-[#1e2024] px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-[20px] sm:rounded-[24px] grid grid-cols-3 gap-1 sm:gap-1.5 sm:flex sm:flex-wrap sm:items-center shrink-0 z-20 border-0 ring-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] w-full">
           {/* Action Dropdown Menu Button */}
-          <div className="relative shrink-0" ref={actionsMenuRef}>
+          <div className="relative w-full sm:w-auto shrink-0" ref={actionsMenuRef}>
             <button
               type="button"
               id="test-editor-actions-menu-btn"
               onClick={() => setIsActionsMenuOpen(!isActionsMenuOpen)}
-              className="flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+              className="w-full sm:w-auto flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
             >
               <Sliders className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
               <span>Action</span>
@@ -3011,7 +3011,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                 setTimeout(() => aiPromptInputRef.current?.focus(), 150);
               }
             }}
-            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
+            className={`w-full sm:w-auto flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
               isAiPromptOpen
                 ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff]'
                 : 'hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3]'
@@ -3027,7 +3027,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
             type="button"
             id="test-editor-action-export-json-btn"
             onClick={handleExportCurrentTest}
-            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+            className="w-full sm:w-auto flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
             title="Export current test as JSON file"
           >
             <Download className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
@@ -3042,7 +3042,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
             onDragOver={handleImportDragOver}
             onDragLeave={handleImportDragLeave}
             onDrop={handleImportDrop}
-            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
+            className={`w-full sm:w-auto flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
               isDraggingImport ? 'ring-2 ring-[#0b57d0] bg-blue-50 dark:bg-blue-950/40' : ''
             }`}
             title="Import JSON assessment file (Click or Drag & Drop)"
@@ -3056,19 +3056,19 @@ export const TestEditor: React.FC<TestEditorProps> = ({
             type="button"
             id="test-editor-action-create-new-test-btn"
             onClick={handleLoadSampleJsonInEditor}
-            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+            className="w-full sm:w-auto flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
             title="Load New Test Template in Editor"
           >
             <Plus className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
             <span>New Template</span>
           </button>
 
-          {/* History Button (Compact & aligns right on wider viewports) */}
+          {/* History Button (Equal space on mobile, right-aligned on desktop) */}
           <button
             type="button"
             id="test-editor-action-test-history-btn"
             onClick={handleOpenHistoryDrawer}
-            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap sm:ml-auto"
+            className="w-full sm:w-auto flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap sm:ml-auto"
             title="Open Test History and Saved Assessments"
           >
             <History className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
