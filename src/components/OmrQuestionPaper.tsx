@@ -1487,8 +1487,13 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                 >
                   <div className="shrink-0 mb-2 relative z-1">
                     {page.isFirstPage ? (
-                      <div className="border-b-2 border-black pb-1.5">
-                        <h1 className="text-center font-semibold text-[14pt] tracking-wide uppercase text-black leading-tight mb-1">
+                      <div className="border-b-2 border-black pb-1.5 relative">
+                        {/* Page indicator positioned in top-right corner without changing header flow or page structure */}
+                        <div className="absolute top-0.5 right-0 text-[8.5pt] font-extrabold text-black uppercase tracking-wide select-none leading-normal">
+                          PAGE {page.pageNumber} OF {page.totalPages}
+                        </div>
+
+                        <h1 className="text-center font-semibold text-[14pt] tracking-wide uppercase text-black leading-tight mb-1 px-20">
                           {test.title || 'MIX ASSESSMENT TEST'}
                         </h1>
 
