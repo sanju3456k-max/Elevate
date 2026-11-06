@@ -2885,295 +2885,163 @@ export const TestEditor: React.FC<TestEditorProps> = ({
           </div>
         </div>
 
-        {/* ROW 2: ACTION BUTTONS (Action, Edit with AI, Import, New Template, History Button) */}
-        <div className="flex items-center justify-between gap-1.5 pt-1 w-full flex-wrap">
-          
-          {/* DESKTOP UI: INLINE ACTION BUTTONS STYLED AS CLEAN WHITE BUTTONS */}
-          <div className="hidden lg:flex items-center justify-start w-full gap-2">
-            <div className="flex items-center gap-2 flex-wrap w-full">
-              
-              {/* Action Dropdown Menu Button */}
-              <div className="relative shrink-0" ref={actionsMenuRef}>
-                <button
-                  type="button"
-                  id="desktop-action-menu-btn"
-                  onClick={() => setIsActionsMenuOpen(!isActionsMenuOpen)}
-                  className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]"
-                >
-                  <Sliders className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-                  <span>Action</span>
-                  <ChevronDown className="w-3.5 h-3.5 text-[#1f1f1f] dark:text-[#e3e3e3] shrink-0" />
-                </button>
+        {/* ROW 2: ACTION BUTTONS CARD (Unified white card matching bottom title card) */}
+        <div className="bg-white dark:bg-[#1e2024] px-3 sm:px-4 py-2 sm:py-2.5 rounded-[24px] flex items-center justify-between gap-1.5 sm:gap-2 shrink-0 z-20 border-0 ring-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] w-full">
+          {/* Left Group: Action, Edit with AI, Export JSON, Import, New Template */}
+          <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-wrap">
+            {/* Action Dropdown Menu Button */}
+            <div className="relative shrink-0" ref={actionsMenuRef}>
+              <button
+                type="button"
+                id="test-editor-actions-menu-btn"
+                onClick={() => setIsActionsMenuOpen(!isActionsMenuOpen)}
+                className="flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+              >
+                <Sliders className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+                <span>Action</span>
+                <ChevronDown className="w-3.5 h-3.5 text-[#1f1f1f] dark:text-[#e3e3e3] shrink-0" />
+              </button>
 
-                {isActionsMenuOpen && (
-                  <div className="absolute left-0 top-full mt-1.5 w-56 max-w-[calc(100vw-24px)] bg-white dark:bg-[#21222e] text-slate-900 dark:text-zinc-100 rounded-2xl shadow-xl border-0 ring-0 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
-                    <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-zinc-800/60 mb-1">
-                      Quick Actions
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsActionsMenuOpen(false);
-                        if (onOpenCustomPanel) {
-                          onOpenCustomPanel();
-                        }
-                      }}
-                      className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-[#282a39] text-emerald-700 dark:text-emerald-300 font-bold transition-colors cursor-pointer"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-[#0b7a56] dark:text-emerald-400 shrink-0" />
-                      <span>Create Custom Test</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsActionsMenuOpen(false);
-                        handleCreateNewBlankTest();
-                      }}
-                      className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-[#e6f7f1] dark:hover:bg-emerald-950/40 text-[#0b7a56] dark:text-emerald-300 font-bold transition-colors cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5 text-[#0b7a56] dark:text-emerald-400 shrink-0" />
-                      <span>New Assessment (Blank)</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleExportCurrentTest();
-                        setIsActionsMenuOpen(false);
-                      }}
-                      className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-[#282a39] text-slate-700 dark:text-zinc-200 transition-colors cursor-pointer font-bold"
-                    >
-                      <Download className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-                      <span>Export JSON File</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsActionsMenuOpen(false);
-                        handleDownloadSampleJson();
-                      }}
-                      className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-[#282a39] text-slate-700 dark:text-zinc-200 transition-colors cursor-pointer font-bold"
-                    >
-                      <Code2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-                      <span>Sample JSON Template</span>
-                    </button>
+              {isActionsMenuOpen && (
+                <div className="absolute left-0 top-full mt-1.5 w-56 max-w-[calc(100vw-24px)] bg-white dark:bg-[#21222e] text-slate-900 dark:text-zinc-100 rounded-2xl shadow-xl border-0 ring-0 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-zinc-800/60 mb-1">
+                    Quick Actions
                   </div>
-                )}
-              </div>
 
-              {/* Edit with AI Button */}
-              <button
-                type="button"
-                id="desktop-action-edit-with-ai-btn"
-                onClick={() => {
-                  const nextState = !isAiPromptOpen;
-                  setIsAiPromptOpen(nextState);
-                  if (nextState) {
-                    setTimeout(() => aiPromptInputRef.current?.focus(), 150);
-                  }
-                }}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs sm:text-sm font-bold border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer active:scale-95 ${
-                  isAiPromptOpen
-                    ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff]'
-                    : 'bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3]'
-                }`}
-                title="Prompt Gemini AI to edit, format, or enhance this assessment"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-                <span>Edit with AI</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsActionsMenuOpen(false);
+                      if (onOpenCustomPanel) {
+                        onOpenCustomPanel();
+                      }
+                    }}
+                    className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-[#282a39] text-emerald-700 dark:text-emerald-300 font-bold transition-colors cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-[#0b7a56] dark:text-emerald-400 shrink-0" />
+                    <span>Create Custom Test</span>
+                  </button>
 
-              {/* Export JSON Button */}
-              <button
-                type="button"
-                id="desktop-action-export-json-btn"
-                onClick={handleExportCurrentTest}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs sm:text-sm font-bold border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer active:scale-95"
-                title="Export current test as JSON file"
-              >
-                <Download className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-                <span>Export JSON</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsActionsMenuOpen(false);
+                      handleCreateNewBlankTest();
+                    }}
+                    className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-[#e6f7f1] dark:hover:bg-emerald-950/40 text-[#0b7a56] dark:text-emerald-300 font-bold transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-[#0b7a56] dark:text-emerald-400 shrink-0" />
+                    <span>New Assessment (Blank)</span>
+                  </button>
 
-              {/* Import Button with Drag & Drop */}
-              <button
-                type="button"
-                id="desktop-action-import-json-btn"
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={handleImportDragOver}
-                onDragLeave={handleImportDragLeave}
-                onDrop={handleImportDrop}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs sm:text-sm font-bold border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer active:scale-95 ${
-                  isDraggingImport ? 'ring-2 ring-[#0b57d0] bg-blue-50 dark:bg-blue-950/40' : ''
-                }`}
-                title="Import JSON assessment file (Click or Drag & Drop)"
-              >
-                <Upload className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] rotate-180" />
-                <span>Import</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleExportCurrentTest();
+                      setIsActionsMenuOpen(false);
+                    }}
+                    className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-[#282a39] text-slate-700 dark:text-zinc-200 transition-colors cursor-pointer font-bold"
+                  >
+                    <Download className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+                    <span>Export JSON File</span>
+                  </button>
 
-              {/* New Template Button */}
-              <button
-                type="button"
-                id="desktop-action-create-new-test-btn"
-                onClick={handleLoadSampleJsonInEditor}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs sm:text-sm font-bold border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer active:scale-95"
-                title="Load New Test Template in Editor"
-              >
-                <Plus className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                <span>New Template</span>
-              </button>
-
-              {/* History Button */}
-              <button
-                type="button"
-                id="desktop-action-test-history-btn"
-                onClick={handleOpenHistoryDrawer}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs sm:text-sm font-bold border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer active:scale-95 ml-auto"
-                title="Open Test History and Saved Assessments"
-              >
-                <History className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                <span>History button</span>
-                {allTests.length > 0 && (
-                  <span className="text-[10px] px-2 py-0.5 bg-[#0b57d0] text-white rounded-full font-bold shadow-xs">
-                    {allTests.length}
-                  </span>
-                )}
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsActionsMenuOpen(false);
+                      handleDownloadSampleJson();
+                    }}
+                    className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-[#282a39] text-slate-700 dark:text-zinc-200 transition-colors cursor-pointer font-bold"
+                  >
+                    <Code2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+                    <span>Sample JSON Template</span>
+                  </button>
+                </div>
+              )}
             </div>
+
+            {/* Edit with AI Button */}
+            <button
+              type="button"
+              id="test-editor-action-edit-with-ai-btn"
+              onClick={() => {
+                const nextState = !isAiPromptOpen;
+                setIsAiPromptOpen(nextState);
+                if (nextState) {
+                  setTimeout(() => aiPromptInputRef.current?.focus(), 150);
+                }
+              }}
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
+                isAiPromptOpen
+                  ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff]'
+                  : 'hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3]'
+              }`}
+              title="Prompt Gemini AI to edit, format, or enhance this assessment"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+              <span>Edit with AI</span>
+            </button>
+
+            {/* Export JSON Button */}
+            <button
+              type="button"
+              id="test-editor-action-export-json-btn"
+              onClick={handleExportCurrentTest}
+              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+              title="Export current test as JSON file"
+            >
+              <Download className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+              <span>Export JSON</span>
+            </button>
+
+            {/* Import Button with Drag & Drop */}
+            <button
+              type="button"
+              id="test-editor-action-import-json-btn"
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={handleImportDragOver}
+              onDragLeave={handleImportDragLeave}
+              onDrop={handleImportDrop}
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
+                isDraggingImport ? 'ring-2 ring-[#0b57d0] bg-blue-50 dark:bg-blue-950/40' : ''
+              }`}
+              title="Import JSON assessment file (Click or Drag & Drop)"
+            >
+              <Upload className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] rotate-180 shrink-0" />
+              <span>Import</span>
+            </button>
+
+            {/* New Template Button */}
+            <button
+              type="button"
+              id="test-editor-action-create-new-test-btn"
+              onClick={handleLoadSampleJsonInEditor}
+              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+              title="Load New Test Template in Editor"
+            >
+              <Plus className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+              <span>New Template</span>
+            </button>
           </div>
 
-          {/* MOBILE & TABLET UI: ACTION BUTTONS STYLED AS CLEAN WHITE BUTTONS */}
-          <div className="flex lg:hidden items-center justify-between w-full gap-1.5 sm:gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap w-full">
-              {/* Action Dropdown Menu Button */}
-              <div className="relative shrink-0" ref={actionsMenuRef}>
-                <button
-                  type="button"
-                  id="test-editor-actions-menu-btn"
-                  onClick={() => setIsActionsMenuOpen(!isActionsMenuOpen)}
-                  className="flex items-center justify-center gap-1 sm:gap-1.5 px-3 py-1.5 sm:py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]"
-                >
-                  <Sliders className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-                  <span>Action</span>
-                  <ChevronDown className="w-3 h-3 text-[#1f1f1f] dark:text-[#e3e3e3] shrink-0" />
-                </button>
-
-                {isActionsMenuOpen && (
-                  <div className="absolute left-0 top-full mt-1.5 w-56 max-w-[calc(100vw-24px)] bg-white dark:bg-[#21222e] text-slate-900 dark:text-zinc-100 rounded-2xl shadow-xl border-0 ring-0 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
-                    <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-zinc-800/60 mb-1">
-                      Quick Actions
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsActionsMenuOpen(false);
-                        if (onOpenCustomPanel) {
-                          onOpenCustomPanel();
-                        }
-                      }}
-                      className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-[#282a39] text-emerald-700 dark:text-emerald-300 font-bold transition-colors cursor-pointer"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-[#0b7a56] dark:text-emerald-400 shrink-0" />
-                      <span>Create Custom Test</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleExportCurrentTest();
-                        setIsActionsMenuOpen(false);
-                      }}
-                      className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-[#282a39] text-slate-700 dark:text-zinc-200 transition-colors cursor-pointer font-bold"
-                    >
-                      <Download className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-                      <span>Export JSON File</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Edit with AI Button */}
-              <button
-                type="button"
-                id="mobile-action-edit-with-ai-btn"
-                onClick={() => {
-                  const nextState = !isAiPromptOpen;
-                  setIsAiPromptOpen(nextState);
-                  if (nextState) {
-                    setTimeout(() => aiPromptInputRef.current?.focus(), 150);
-                  }
-                }}
-                className={`flex items-center gap-1 px-3 py-1.5 sm:py-2 rounded-full text-xs font-bold border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer active:scale-95 ${
-                  isAiPromptOpen
-                    ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff]'
-                    : 'bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3]'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-                <span>Edit with AI</span>
-              </button>
-
-              {/* Export JSON Button */}
-              <button
-                type="button"
-                id="mobile-action-export-btn"
-                onClick={handleExportCurrentTest}
-                className="flex items-center gap-1 px-3 py-1.5 sm:py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer active:scale-95"
-                title="Export current test as JSON file"
-              >
-                <Download className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-                <span>Export JSON</span>
-              </button>
-
-              {/* Import Button with Drag & Drop */}
-              <button
-                type="button"
-                id="mobile-action-import-btn"
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={handleImportDragOver}
-                onDragLeave={handleImportDragLeave}
-                onDrop={handleImportDrop}
-                className={`flex items-center gap-1 px-3 py-1.5 sm:py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer active:scale-95 ${
-                  isDraggingImport ? 'ring-2 ring-[#0b57d0] bg-blue-50 dark:bg-blue-950/40' : ''
-                }`}
-                title="Import JSON assessment file (Click or Drag & Drop)"
-              >
-                <Upload className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] rotate-180 shrink-0" />
-                <span>Import</span>
-              </button>
-
-              {/* New Template Button */}
-              <button
-                type="button"
-                id="mobile-action-new-template-btn"
-                onClick={handleLoadSampleJsonInEditor}
-                className="flex items-center gap-1 px-3 py-1.5 sm:py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer active:scale-95"
-              >
-                <Plus className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-                <span>New Template</span>
-              </button>
-
-              {/* History Button */}
-              <button
-                type="button"
-                id="mobile-action-history-btn"
-                onClick={handleOpenHistoryDrawer}
-                className="flex items-center gap-1 px-3 py-1.5 sm:py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer active:scale-95 ml-auto"
-              >
-                <History className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-                <span>History</span>
-                {allTests.length > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.2 bg-[#0b57d0] text-white rounded-full font-bold shadow-xs">
-                    {allTests.length}
-                  </span>
-                )}
-              </button>
-            </div>
+          {/* Right Group: History Button */}
+          <div className="flex items-center shrink-0 ml-auto pl-1 sm:pl-2">
+            <button
+              type="button"
+              id="test-editor-action-test-history-btn"
+              onClick={handleOpenHistoryDrawer}
+              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+              title="Open Test History and Saved Assessments"
+            >
+              <History className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+              <span>History button</span>
+              {allTests.length > 0 && (
+                <span className="text-[10px] px-2 py-0.5 bg-[#0b57d0] text-white rounded-full font-bold shadow-xs">
+                  {allTests.length}
+                </span>
+              )}
+            </button>
           </div>
         </div>
       </header>
