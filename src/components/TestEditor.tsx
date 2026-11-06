@@ -2926,9 +2926,11 @@ export const TestEditor: React.FC<TestEditorProps> = ({
           </div>
         </div>
 
-        {/* ROW 2: ACTION BUTTONS CARD (Equally spaced 2 rows on mobile, flexible on desktop) */}
-        <div className="bg-white dark:bg-[#1e2024] px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-[20px] sm:rounded-[24px] grid grid-cols-3 gap-1 sm:gap-1.5 sm:flex sm:flex-wrap sm:items-center shrink-0 z-20 border-0 ring-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] w-full">
-          {/* Action Dropdown Menu Button */}
+        {/* UNIFIED COMMAND & ASSESSMENT CONTROL CARD */}
+        <div className="bg-white dark:bg-[#1e2024] px-3 sm:px-4 py-2 sm:py-2.5 rounded-[24px] flex flex-col gap-2 shrink-0 z-20 border-0 ring-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] w-full">
+          {/* TOP SECTION: ACTION BUTTONS (Equally spaced across 3 columns on mobile, fluid row on desktop) */}
+          <div className="grid grid-cols-3 gap-1 sm:gap-1.5 sm:flex sm:flex-wrap sm:items-center w-full">
+{/* Action Dropdown Menu Button */}
           <div className="relative w-full sm:w-auto shrink-0" ref={actionsMenuRef}>
             <button
               type="button"
@@ -3079,13 +3081,14 @@ export const TestEditor: React.FC<TestEditorProps> = ({
               </span>
             )}
           </button>
-        </div>
-      </header>
+          </div>
 
-      {/* STRIP: CURRENT TEST TITLE WITH PARAMETERS DROPDOWN & SHORT "SAVE" BUTTON WITH UNDO/REDO */}
-      <div className="bg-white dark:bg-[#1e2024] px-4 py-2.5 rounded-[24px] flex items-center justify-between gap-2 sm:gap-3 shrink-0 mb-2 z-20 border-0 ring-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
-        
-        {/* Title with dropdown for test settings (flex-1 and min-w-0 ensures graceful truncation without overlapping buttons) */}
+          {/* DIVIDER */}
+          <div className="h-px bg-slate-100 dark:bg-zinc-800/60 w-full" />
+
+          {/* BOTTOM SECTION: CURRENT TEST TITLE WITH PARAMETERS DROPDOWN & SHORT "SAVE" BUTTON WITH UNDO/REDO */}
+          <div className="flex items-center justify-between gap-2 sm:gap-3 w-full">
+{/* Title with dropdown for test settings (flex-1 and min-w-0 ensures graceful truncation without overlapping buttons) */}
         <div className="relative flex-1 min-w-0 pr-1" ref={titleSettingsMenuRef}>
           <button
             type="button"
@@ -3244,10 +3247,12 @@ export const TestEditor: React.FC<TestEditorProps> = ({
             <Save className="w-3.5 h-3.5" />
             <span>Save</span>
           </button>
+          </div>
         </div>
-      </div>
+        </div>
+      </header>
 
-      {/* Success Notice */}
+{/* Success Notice */}
       {saveSuccessNotice && (
         <div className="p-2.5 rounded-2xl bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 text-xs font-semibold flex items-center justify-between shrink-0 mb-2 animate-in fade-in duration-150">
           <div className="flex items-center gap-2">
