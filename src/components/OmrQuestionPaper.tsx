@@ -106,7 +106,23 @@ export interface OptionDimensionAnalysis {
   hasFractions: boolean;
   hasIntegralOrSum: boolean;
   hasTrigOrLog: boolean;
+  hasEqualOrNotEqual: boolean;
   plainTextLength: number;
+}
+
+/**
+ * Detects whether an option contains an equal to (=) or not equal to (≠, \ne, \neq, !=) sign.
+ * If any ABCD option element contains an equal or not equal to sign, the options must be rendered
+ * as 4 consecutive rows (stacked) rather than in a 4-across or 2x2 grid.
+ */
+export function hasEqualOrNotEqualSign(optText: string): boolean {
+  if (!optText) return false;
+  // Matches:
+  // 1. Literal '=' (covers '=', '==', '!=', ':=', '&=', etc.)
+  // 2. Unicode NOT EQUAL TO '≠' (\u2260) or IDENTICAL TO '≡' (\u2261)
+  // 3. LaTeX '\neq', '\ne', '\nequal', '\equiv' without trailing letters (avoids false matching on \newline, \negative)
+  // 4. LaTeX '\not=' or '\not ='
+  return /(?:=|\u2260|\u2261|\\ne(?:q|qual)?(?![a-zA-Z])|\\not\s*=|\\equiv(?![a-zA-Z]))/.test(optText);
 }
 
 export function analyzeOptionDimensions(optText: string): OptionDimensionAnalysis {
@@ -121,11 +137,13 @@ export function analyzeOptionDimensions(optText: string): OptionDimensionAnalysi
       hasFractions: false,
       hasIntegralOrSum: false,
       hasTrigOrLog: false,
+      hasEqualOrNotEqual: false,
       plainTextLength: 0,
     };
   }
 
   const isMultiLine = text.includes('\n');
+  const hasEqualOrNotEqual = hasEqualOrNotEqualSign(text);
   const hasMatrix = /\\begin\{(?:bmatrix|pmatrix|vmatrix|matrix|cases|aligned)\}/.test(text);
   const hasIntegralOrSum = /\\(?:int|iint|iiint|oint|sum|prod|lim|bigcup|bigcap)\b/.test(text);
   const hasTrigOrLog = /\\(?:sin|cos|tan|cot|sec|csc|log|ln|arcsin|arccos|arctan|sinh|cosh|tanh)\b/.test(text);
@@ -219,6 +237,7 @@ export function analyzeOptionDimensions(optText: string): OptionDimensionAnalysi
     hasFractions,
     hasIntegralOrSum,
     hasTrigOrLog,
+    hasEqualOrNotEqual,
     plainTextLength,
   };
 }
@@ -232,6 +251,13 @@ export function determineOptionLayout(
   }
 
   if (!options || options.length !== 4) {
+    return 'stacked';
+  }
+
+  // If options like ABCD options contain an element containing an equal to or not equal to sign,
+  // then the options are to be made in 4 consecutive rows (stacked), not in grid form.
+  const hasEqualOrNotEqual = options.some((o) => hasEqualOrNotEqualSign(o.text));
+  if (hasEqualOrNotEqual) {
     return 'stacked';
   }
 
