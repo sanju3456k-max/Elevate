@@ -3421,7 +3421,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
 
 
             <div 
-              className="flex-1 min-h-0 overflow-y-auto py-2.5 px-1 sm:px-2 md:px-2.5 w-full transition-opacity duration-100 flex flex-col items-center"
+              className="flex-1 min-h-0 overflow-y-auto py-1.5 px-0.5 sm:px-1.5 w-full transition-opacity duration-100 flex flex-col items-center"
               style={{ zoom: `${zoomProportion}%` }}
             >
               {questions.length === 0 ? (
@@ -3445,10 +3445,10 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                   />
                 </div>
               ) : cardMode === 'rendered' ? (
-                <div className="w-full max-w-full mx-auto pb-3">
+                <div className="w-full max-w-full mx-auto pb-2">
                   <div 
                     id={`studio-preview-question-card-${currentQIndex}`}
-                    className="bg-white dark:bg-[#1e2024] rounded-[28px] border-0 ring-1 ring-[#0b57d0]/25 dark:ring-[#a8c7fa]/30 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] px-4 sm:px-5 md:px-6 py-4 sm:py-5 relative space-y-4 max-w-full w-full"
+                    className="bg-transparent border-0 ring-0 shadow-none px-1 sm:px-2 py-1.5 sm:py-2 relative space-y-3.5 max-w-full w-full"
                   >
                     {(currentQuestion as any)?._hasSyntaxError && (
                       <div className="p-3 mb-3 rounded-2xl bg-amber-50 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700/80 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5 shadow-xs">
