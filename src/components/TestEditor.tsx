@@ -2926,164 +2926,159 @@ export const TestEditor: React.FC<TestEditorProps> = ({
           </div>
         </div>
 
-        {/* ROW 2: ACTION BUTTONS CARD (Unified white card matching bottom title card) */}
-        <div className="bg-white dark:bg-[#1e2024] px-3 sm:px-4 py-2 sm:py-2.5 rounded-[24px] flex items-center justify-between gap-1.5 sm:gap-2 shrink-0 z-20 border-0 ring-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] w-full">
-          {/* Left Group: Action, Edit with AI, Export JSON, Import, New Template */}
-          <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-wrap">
-            {/* Action Dropdown Menu Button */}
-            <div className="relative shrink-0" ref={actionsMenuRef}>
-              <button
-                type="button"
-                id="test-editor-actions-menu-btn"
-                onClick={() => setIsActionsMenuOpen(!isActionsMenuOpen)}
-                className="flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
-              >
-                <Sliders className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-                <span>Action</span>
-                <ChevronDown className="w-3.5 h-3.5 text-[#1f1f1f] dark:text-[#e3e3e3] shrink-0" />
-              </button>
+        {/* ROW 2: ACTION BUTTONS CARD (Unified compact card with no dead space) */}
+        <div className="bg-white dark:bg-[#1e2024] px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-[20px] sm:rounded-[24px] flex items-center gap-1 sm:gap-1.5 flex-wrap shrink-0 z-20 border-0 ring-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] w-full">
+          {/* Action Dropdown Menu Button */}
+          <div className="relative shrink-0" ref={actionsMenuRef}>
+            <button
+              type="button"
+              id="test-editor-actions-menu-btn"
+              onClick={() => setIsActionsMenuOpen(!isActionsMenuOpen)}
+              className="flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+            >
+              <Sliders className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+              <span>Action</span>
+              <ChevronDown className="w-3.5 h-3.5 text-[#1f1f1f] dark:text-[#e3e3e3] shrink-0" />
+            </button>
 
-              {isActionsMenuOpen && (
-                <div className="absolute left-0 top-full mt-1.5 w-56 max-w-[calc(100vw-24px)] bg-white dark:bg-[#21222e] text-slate-900 dark:text-zinc-100 rounded-2xl shadow-xl border-0 ring-0 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
-                  <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-zinc-800/60 mb-1">
-                    Quick Actions
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsActionsMenuOpen(false);
-                      if (onOpenCustomPanel) {
-                        onOpenCustomPanel();
-                      }
-                    }}
-                    className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-[#282a39] text-emerald-700 dark:text-emerald-300 font-bold transition-colors cursor-pointer"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-[#0b7a56] dark:text-emerald-400 shrink-0" />
-                    <span>Create Custom Test</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsActionsMenuOpen(false);
-                      handleCreateNewBlankTest();
-                    }}
-                    className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-[#e6f7f1] dark:hover:bg-emerald-950/40 text-[#0b7a56] dark:text-emerald-300 font-bold transition-colors cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5 text-[#0b7a56] dark:text-emerald-400 shrink-0" />
-                    <span>New Assessment (Blank)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleExportCurrentTest();
-                      setIsActionsMenuOpen(false);
-                    }}
-                    className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-[#282a39] text-slate-700 dark:text-zinc-200 transition-colors cursor-pointer font-bold"
-                  >
-                    <Download className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-                    <span>Export JSON File</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsActionsMenuOpen(false);
-                      handleDownloadSampleJson();
-                    }}
-                    className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-[#282a39] text-slate-700 dark:text-zinc-200 transition-colors cursor-pointer font-bold"
-                  >
-                    <Code2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-                    <span>Sample JSON Template</span>
-                  </button>
+            {isActionsMenuOpen && (
+              <div className="absolute left-0 top-full mt-1.5 w-56 max-w-[calc(100vw-24px)] bg-white dark:bg-[#21222e] text-slate-900 dark:text-zinc-100 rounded-2xl shadow-xl border-0 ring-0 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-zinc-800/60 mb-1">
+                  Quick Actions
                 </div>
-              )}
-            </div>
 
-            {/* Edit with AI Button */}
-            <button
-              type="button"
-              id="test-editor-action-edit-with-ai-btn"
-              onClick={() => {
-                const nextState = !isAiPromptOpen;
-                setIsAiPromptOpen(nextState);
-                if (nextState) {
-                  setTimeout(() => aiPromptInputRef.current?.focus(), 150);
-                }
-              }}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
-                isAiPromptOpen
-                  ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff]'
-                  : 'hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3]'
-              }`}
-              title="Prompt Gemini AI to edit, format, or enhance this assessment"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-              <span>Edit with AI</span>
-            </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsActionsMenuOpen(false);
+                    if (onOpenCustomPanel) {
+                      onOpenCustomPanel();
+                    }
+                  }}
+                  className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-[#282a39] text-emerald-700 dark:text-emerald-300 font-bold transition-colors cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-[#0b7a56] dark:text-emerald-400 shrink-0" />
+                  <span>Create Custom Test</span>
+                </button>
 
-            {/* Export JSON Button */}
-            <button
-              type="button"
-              id="test-editor-action-export-json-btn"
-              onClick={handleExportCurrentTest}
-              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
-              title="Export current test as JSON file"
-            >
-              <Download className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-              <span>Export JSON</span>
-            </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsActionsMenuOpen(false);
+                    handleCreateNewBlankTest();
+                  }}
+                  className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-[#e6f7f1] dark:hover:bg-emerald-950/40 text-[#0b7a56] dark:text-emerald-300 font-bold transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 text-[#0b7a56] dark:text-emerald-400 shrink-0" />
+                  <span>New Assessment (Blank)</span>
+                </button>
 
-            {/* Import Button with Drag & Drop */}
-            <button
-              type="button"
-              id="test-editor-action-import-json-btn"
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={handleImportDragOver}
-              onDragLeave={handleImportDragLeave}
-              onDrop={handleImportDrop}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
-                isDraggingImport ? 'ring-2 ring-[#0b57d0] bg-blue-50 dark:bg-blue-950/40' : ''
-              }`}
-              title="Import JSON assessment file (Click or Drag & Drop)"
-            >
-              <Upload className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] rotate-180 shrink-0" />
-              <span>Import</span>
-            </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleExportCurrentTest();
+                    setIsActionsMenuOpen(false);
+                  }}
+                  className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-[#282a39] text-slate-700 dark:text-zinc-200 transition-colors cursor-pointer font-bold"
+                >
+                  <Download className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+                  <span>Export JSON File</span>
+                </button>
 
-            {/* New Template Button */}
-            <button
-              type="button"
-              id="test-editor-action-create-new-test-btn"
-              onClick={handleLoadSampleJsonInEditor}
-              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
-              title="Load New Test Template in Editor"
-            >
-              <Plus className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-              <span>New Template</span>
-            </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsActionsMenuOpen(false);
+                    handleDownloadSampleJson();
+                  }}
+                  className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-[#282a39] text-slate-700 dark:text-zinc-200 transition-colors cursor-pointer font-bold"
+                >
+                  <Code2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+                  <span>Sample JSON Template</span>
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Right Group: History Button */}
-          <div className="flex items-center shrink-0 ml-auto pl-1 sm:pl-2">
-            <button
-              type="button"
-              id="test-editor-action-test-history-btn"
-              onClick={handleOpenHistoryDrawer}
-              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
-              title="Open Test History and Saved Assessments"
-            >
-              <History className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-              <span>History button</span>
-              {allTests.length > 0 && (
-                <span className="text-[10px] px-2 py-0.5 bg-[#0b57d0] text-white rounded-full font-bold shadow-xs">
-                  {allTests.length}
-                </span>
-              )}
-            </button>
-          </div>
+          {/* Edit with AI Button */}
+          <button
+            type="button"
+            id="test-editor-action-edit-with-ai-btn"
+            onClick={() => {
+              const nextState = !isAiPromptOpen;
+              setIsAiPromptOpen(nextState);
+              if (nextState) {
+                setTimeout(() => aiPromptInputRef.current?.focus(), 150);
+              }
+            }}
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
+              isAiPromptOpen
+                ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff]'
+                : 'hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3]'
+            }`}
+            title="Prompt Gemini AI to edit, format, or enhance this assessment"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+            <span>Edit with AI</span>
+          </button>
+
+          {/* Export JSON Button */}
+          <button
+            type="button"
+            id="test-editor-action-export-json-btn"
+            onClick={handleExportCurrentTest}
+            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+            title="Export current test as JSON file"
+          >
+            <Download className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+            <span>Export JSON</span>
+          </button>
+
+          {/* Import Button with Drag & Drop */}
+          <button
+            type="button"
+            id="test-editor-action-import-json-btn"
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={handleImportDragOver}
+            onDragLeave={handleImportDragLeave}
+            onDrop={handleImportDrop}
+            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
+              isDraggingImport ? 'ring-2 ring-[#0b57d0] bg-blue-50 dark:bg-blue-950/40' : ''
+            }`}
+            title="Import JSON assessment file (Click or Drag & Drop)"
+          >
+            <Upload className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] rotate-180 shrink-0" />
+            <span>Import</span>
+          </button>
+
+          {/* New Template Button */}
+          <button
+            type="button"
+            id="test-editor-action-create-new-test-btn"
+            onClick={handleLoadSampleJsonInEditor}
+            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+            title="Load New Test Template in Editor"
+          >
+            <Plus className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+            <span>New Template</span>
+          </button>
+
+          {/* History Button (Compact & aligns right on wider viewports) */}
+          <button
+            type="button"
+            id="test-editor-action-test-history-btn"
+            onClick={handleOpenHistoryDrawer}
+            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap sm:ml-auto"
+            title="Open Test History and Saved Assessments"
+          >
+            <History className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+            <span>History</span>
+            {allTests.length > 0 && (
+              <span className="text-[10px] px-1.5 py-0.2 bg-[#0b57d0] text-white rounded-full font-bold shadow-xs">
+                {allTests.length}
+              </span>
+            )}
+          </button>
         </div>
       </header>
 
@@ -3624,160 +3619,6 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                         </div>
                       </div>
                     )}
-
-                    {/* Question Paper Layout Settings (Print & OMR Optimization) */}
-                    <div className="pt-3 border-t border-slate-200/80 dark:border-zinc-800/80">
-                      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-                        <div className="flex items-center gap-1.5">
-                          <SlidersHorizontal className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-zinc-300">
-                            Paper Layout &amp; Print Optimization
-                          </span>
-                        </div>
-                        {currentQuestion.paperLayout && (
-                          (currentQuestion.paperLayout.optionLayout && currentQuestion.paperLayout.optionLayout !== 'auto') ||
-                          (currentQuestion.paperLayout.breakBefore && currentQuestion.paperLayout.breakBefore !== 'none') ||
-                          currentQuestion.paperLayout.keepTogether === false
-                        ) && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              handleUpdateQuestionLayout(currentQIndex, {
-                                ...(currentQuestion.paperLayout || {}),
-                                optionLayout: 'auto',
-                                breakBefore: 'none',
-                                keepTogether: true,
-                              });
-                            }}
-                            className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors cursor-pointer"
-                          >
-                            Reset to Default
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-slate-50 dark:bg-[#141619] p-2.5 sm:p-3 rounded-2xl border border-slate-200/60 dark:border-zinc-800/60">
-                        {/* 1. Option Grid Layout */}
-                        {isMcqQuestion(currentQuestion) && (
-                          <div className="space-y-1">
-                            <label className="text-[11px] font-bold text-slate-600 dark:text-zinc-400 flex items-center gap-1">
-                              <LayoutGrid className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                              <span>Option Grid</span>
-                            </label>
-                            <div className="flex rounded-xl bg-white dark:bg-[#1e2024] p-0.5 border border-slate-200/80 dark:border-zinc-700/80 shadow-2xs">
-                              {(['auto', '4_across', '2x2_grid', 'stacked'] as const).map((mode) => {
-                                const currentOptionLayout = currentQuestion.paperLayout?.optionLayout || 'auto';
-                                const isSelected = currentOptionLayout === mode;
-                                const label = mode === 'auto' ? 'Auto' : mode === '4_across' ? '4 Across' : mode === '2x2_grid' ? '2x2' : 'Stacked';
-                                const titleDesc = mode === 'auto'
-                                  ? 'Automatic layout (Strictly consecutive rows if options contain = or ≠)'
-                                  : mode === '4_across'
-                                  ? 'Force 4 across in 1 horizontal line'
-                                  : mode === '2x2_grid'
-                                  ? 'Force 2x2 grid'
-                                  : 'Force 4 consecutive stacked rows';
-                                return (
-                                  <button
-                                    key={mode}
-                                    type="button"
-                                    onClick={() => {
-                                      handleUpdateQuestionLayout(currentQIndex, {
-                                        ...(currentQuestion.paperLayout || {}),
-                                        optionLayout: mode,
-                                      });
-                                    }}
-                                    title={titleDesc}
-                                    className={`flex-1 py-1 px-1 text-[11px] rounded-lg text-center transition-all cursor-pointer truncate ${
-                                      isSelected
-                                        ? 'bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#041e49] font-bold shadow-2xs'
-                                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 font-medium'
-                                    }`}
-                                  >
-                                    {label}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* 2. Break Flow */}
-                        <div className="space-y-1">
-                          <label className="text-[11px] font-bold text-slate-600 dark:text-zinc-400 flex items-center gap-1">
-                            <MoveRight className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                            <span>Break Before</span>
-                          </label>
-                          <div className="flex rounded-xl bg-white dark:bg-[#1e2024] p-0.5 border border-slate-200/80 dark:border-zinc-700/80 shadow-2xs">
-                            {(['none', 'column', 'page'] as const).map((mode) => {
-                              const currentBreak = currentQuestion.paperLayout?.breakBefore || 'none';
-                              const isSelected = currentBreak === mode;
-                              const label = mode === 'none' ? 'None' : mode === 'column' ? 'Push Col' : 'Push Page';
-                              return (
-                                <button
-                                  key={mode}
-                                  type="button"
-                                  onClick={() => {
-                                    handleUpdateQuestionLayout(currentQIndex, {
-                                      ...(currentQuestion.paperLayout || {}),
-                                      breakBefore: mode,
-                                    });
-                                  }}
-                                  title={mode === 'none' ? 'Normal flow without forced break' : mode === 'column' ? 'Force question to start at top of next column' : 'Force question to start at top of next page'}
-                                  className={`flex-1 py-1 px-1 text-[11px] rounded-lg text-center transition-all cursor-pointer truncate ${
-                                    isSelected
-                                      ? 'bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#041e49] font-bold shadow-2xs'
-                                      : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 font-medium'
-                                  }`}
-                                >
-                                  {label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* 3. Spacing / Keep Together */}
-                        <div className="space-y-1">
-                          <label className="text-[11px] font-bold text-slate-600 dark:text-zinc-400 flex items-center gap-1">
-                            {(currentQuestion.paperLayout?.keepTogether ?? true) ? (
-                              <Lock className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                            ) : (
-                              <Unlock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-                            )}
-                            <span>Column Splitting</span>
-                          </label>
-                          <div className="flex rounded-xl bg-white dark:bg-[#1e2024] p-0.5 border border-slate-200/80 dark:border-zinc-700/80 shadow-2xs">
-                            {([true, false] as const).map((keepTogether) => {
-                              const currentKeep = currentQuestion.paperLayout?.keepTogether ?? true;
-                              const isSelected = currentKeep === keepTogether;
-                              const label = keepTogether ? 'No Break' : 'Allow Split';
-                              return (
-                                <button
-                                  key={String(keepTogether)}
-                                  type="button"
-                                  onClick={() => {
-                                    handleUpdateQuestionLayout(currentQIndex, {
-                                      ...(currentQuestion.paperLayout || {}),
-                                      keepTogether,
-                                    });
-                                  }}
-                                  title={keepTogether ? 'Keep statement and options strictly together in one column (No Break)' : 'Allow statement and options to split across columns to fill space'}
-                                  className={`flex-1 py-1 px-1 text-[11px] rounded-lg text-center transition-all cursor-pointer truncate ${
-                                    isSelected
-                                      ? keepTogether
-                                        ? 'bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#041e49] font-bold shadow-2xs'
-                                        : 'bg-amber-600 text-white font-bold shadow-2xs'
-                                      : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 font-medium'
-                                  }`}
-                                >
-                                  {label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
 
                     {/* Hint Card */}
                     {currentQuestion.hint && (
