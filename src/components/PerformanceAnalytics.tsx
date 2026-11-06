@@ -653,7 +653,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
             </p>
           </div>
         ) : (
-          <div className="space-y-2.5 sm:space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
             {filteredAndSortedAttempts.map((attempt) => {
               const answersList = Object.values(attempt.answers || {}) as { 
                 selectedOption?: string; 
@@ -683,7 +683,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                   key={attempt.id}
                   id={`history-attempt-card-${attempt.id}`}
                   onClick={() => setSelectedReportAttempt(attempt)}
-                  className="bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] rounded-[24px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 flex flex-col gap-2.5 sm:gap-3 p-4 sm:p-5 cursor-pointer group"
+                  className="bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] rounded-[24px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 flex flex-col justify-between gap-2.5 sm:gap-3 p-4 sm:p-5 cursor-pointer group h-full"
                 >
                   {/* Row 1: Test Title & Mode Tag */}
                   <div className="flex items-center justify-between gap-2.5">
@@ -755,7 +755,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                   </div>
 
                   {/* Thin Subtle Divider Line matching Home Test Cards */}
-                  <div className="w-full border-t border-[#edf0f5] dark:border-[#2f3238] my-0.5 pointer-events-none" />
+                  <div className="w-full border-t border-[#edf0f5] dark:border-[#2f3238] my-0.5 pointer-events-none mt-auto" />
 
                   {/* Row 4: Accuracy & Score (Left) and Action Buttons (Right End) */}
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
