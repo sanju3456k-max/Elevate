@@ -1318,14 +1318,14 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
 
               {/* Filter Tabs: Adaptive for Single-Chapter vs Multi-Chapter */}
               {isSingleChapter || multiChapterViewMode === 'concepts' ? (
-                <div className="flex items-center bg-slate-100/80 dark:bg-[#141619] p-1 rounded-full gap-1 border border-slate-300 dark:border-zinc-700 shadow-xs">
+                <div className="flex items-center bg-[#f0f4f9] dark:bg-[#141619] p-1 rounded-full gap-0.5 sm:gap-1 border border-slate-300 dark:border-zinc-700 shadow-xs">
                   <button
                     type="button"
                     onClick={() => setPerformanceFilter('all')}
-                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border-0 ring-0 ${
+                    className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                       performanceFilter === 'all'
-                        ? 'bg-white dark:bg-[#282a30] text-slate-900 dark:text-white shadow-xs'
-                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                        ? 'bg-white dark:bg-[#282a30] text-[#041e49] dark:text-white border-[1.5px] border-black dark:border-white shadow-xs'
+                        : 'text-[#0b57d0] dark:text-[#a8c7fa] hover:text-[#0842a0] dark:hover:text-white border-[1.5px] border-transparent'
                     }`}
                   >
                     All ({subtopicCounts.all})
@@ -1333,10 +1333,10 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setPerformanceFilter('strong')}
-                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border-0 ring-0 ${
+                    className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                       performanceFilter === 'strong'
-                        ? 'bg-emerald-500 text-white shadow-xs'
-                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                        ? 'bg-white dark:bg-[#282a30] text-[#041e49] dark:text-white border-[1.5px] border-black dark:border-white shadow-xs'
+                        : 'text-[#0b57d0] dark:text-[#a8c7fa] hover:text-[#0842a0] dark:hover:text-white border-[1.5px] border-transparent'
                     }`}
                   >
                     Strong ({subtopicCounts.strong})
@@ -1344,10 +1344,10 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setPerformanceFilter('practice')}
-                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border-0 ring-0 ${
+                    className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                       performanceFilter === 'practice'
-                        ? 'bg-rose-500 text-white shadow-xs'
-                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                        ? 'bg-white dark:bg-[#282a30] text-[#041e49] dark:text-white border-[1.5px] border-black dark:border-white shadow-xs'
+                        : 'text-[#0b57d0] dark:text-[#a8c7fa] hover:text-[#0842a0] dark:hover:text-white border-[1.5px] border-transparent'
                     }`}
                   >
                     Needs Practice ({subtopicCounts.practice})
@@ -1356,10 +1356,10 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setPerformanceFilter('unattempted')}
-                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border-0 ring-0 ${
+                      className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                         performanceFilter === 'unattempted'
-                          ? 'bg-slate-600 dark:bg-zinc-600 text-white shadow-xs'
-                          : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                          ? 'bg-white dark:bg-[#282a30] text-[#041e49] dark:text-white border-[1.5px] border-black dark:border-white shadow-xs'
+                          : 'text-[#0b57d0] dark:text-[#a8c7fa] hover:text-[#0842a0] dark:hover:text-white border-[1.5px] border-transparent'
                       }`}
                     >
                       Unattempted ({subtopicCounts.unattempted})
@@ -1367,14 +1367,14 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                   )}
                 </div>
               ) : (
-                <div className="flex items-center bg-slate-100/80 dark:bg-[#141619] p-1 rounded-full gap-1 border border-slate-300 dark:border-zinc-700 shadow-xs">
+                <div className="flex items-center bg-[#f0f4f9] dark:bg-[#141619] p-1 rounded-full gap-0.5 sm:gap-1 border border-slate-300 dark:border-zinc-700 shadow-xs">
                   <button
                     type="button"
                     onClick={() => setPerformanceFilter('all')}
-                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border-0 ring-0 ${
+                    className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                       performanceFilter === 'all'
-                        ? 'bg-white dark:bg-[#282a30] text-slate-900 dark:text-white shadow-xs'
-                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                        ? 'bg-white dark:bg-[#282a30] text-[#041e49] dark:text-white border-[1.5px] border-black dark:border-white shadow-xs'
+                        : 'text-[#0b57d0] dark:text-[#a8c7fa] hover:text-[#0842a0] dark:hover:text-white border-[1.5px] border-transparent'
                     }`}
                   >
                     All Chapters ({chapterCounts.all})
@@ -1382,10 +1382,10 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setPerformanceFilter('strong')}
-                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border-0 ring-0 ${
+                    className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                       performanceFilter === 'strong'
-                        ? 'bg-emerald-500 text-white shadow-xs'
-                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                        ? 'bg-white dark:bg-[#282a30] text-[#041e49] dark:text-white border-[1.5px] border-black dark:border-white shadow-xs'
+                        : 'text-[#0b57d0] dark:text-[#a8c7fa] hover:text-[#0842a0] dark:hover:text-white border-[1.5px] border-transparent'
                     }`}
                   >
                     Strong ({chapterCounts.strong})
@@ -1393,10 +1393,10 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setPerformanceFilter('actionable')}
-                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border-0 ring-0 ${
+                    className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                       performanceFilter === 'actionable'
-                        ? 'bg-amber-500 text-white shadow-xs'
-                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                        ? 'bg-white dark:bg-[#282a30] text-[#041e49] dark:text-white border-[1.5px] border-black dark:border-white shadow-xs'
+                        : 'text-[#0b57d0] dark:text-[#a8c7fa] hover:text-[#0842a0] dark:hover:text-white border-[1.5px] border-transparent'
                     }`}
                   >
                     Actionable Focus ({chapterCounts.actionable})
@@ -1948,7 +1948,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
           {/* Main Full-Page Body Container with Pure White Background */}
           <main className="flex-1 max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 pb-12 space-y-4">
             {/* 1. Mastery Breakdown & Filter Controls Card */}
-            <div className="p-4 sm:p-5 rounded-[24px] bg-slate-50/80 dark:bg-black/20 ring-1 ring-slate-300 dark:ring-zinc-700 border-0 space-y-3 shadow-none">
+            <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#181a20] ring-1 ring-slate-300 dark:ring-zinc-700 border-0 space-y-3 shadow-none">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 {/* Multi-Segment Concept Progress Bar & Mastery Counters */}
                 <div className="flex-1 max-w-lg">
@@ -1994,15 +1994,15 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                   </div>
                 </div>
 
-                {/* Concept Filter Pills */}
-                <div className="flex items-center gap-1.5 flex-wrap">
+                {/* Concept Filter Pills - Matching Exact Segmented Pill Control */}
+                <div className="flex items-center bg-[#f0f4f9] dark:bg-[#141619] p-1 rounded-full gap-0.5 sm:gap-1 border border-slate-300 dark:border-zinc-700 shadow-xs flex-wrap sm:flex-nowrap">
                   <button
                     type="button"
                     onClick={() => setFullScreenSubtopicFilter('all')}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border-0 ring-0 cursor-pointer ${
+                    className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                       fullScreenSubtopicFilter === 'all'
-                        ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49] shadow-xs'
-                        : 'bg-white hover:bg-slate-100 text-slate-700 dark:bg-[#282a30] dark:hover:bg-[#34374a] dark:text-zinc-200 border border-slate-300 dark:border-zinc-700 shadow-xs'
+                        ? 'bg-white dark:bg-[#282a30] text-[#041e49] dark:text-white border-[1.5px] border-black dark:border-white shadow-xs'
+                        : 'text-[#0b57d0] dark:text-[#a8c7fa] hover:text-[#0842a0] dark:hover:text-white border-[1.5px] border-transparent'
                     }`}
                   >
                     All ({fullScreenChapter.subtopicItems.length})
@@ -2010,10 +2010,10 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setFullScreenSubtopicFilter('strong')}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border-0 ring-0 cursor-pointer ${
+                    className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                       fullScreenSubtopicFilter === 'strong'
-                        ? 'bg-emerald-600 text-white dark:bg-emerald-500 dark:text-white shadow-xs'
-                        : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 border border-emerald-200 dark:border-emerald-800/40'
+                        ? 'bg-white dark:bg-[#282a30] text-[#041e49] dark:text-white border-[1.5px] border-black dark:border-white shadow-xs'
+                        : 'text-[#0b57d0] dark:text-[#a8c7fa] hover:text-[#0842a0] dark:hover:text-white border-[1.5px] border-transparent'
                     }`}
                   >
                     Strong ({fullScreenChapter.strongSubtopicsCount})
@@ -2021,10 +2021,10 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setFullScreenSubtopicFilter('practice')}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border-0 ring-0 cursor-pointer ${
+                    className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                       fullScreenSubtopicFilter === 'practice'
-                        ? 'bg-rose-600 text-white dark:bg-rose-500 dark:text-white shadow-xs'
-                        : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 border border-rose-200 dark:border-rose-800/40'
+                        ? 'bg-white dark:bg-[#282a30] text-[#041e49] dark:text-white border-[1.5px] border-black dark:border-white shadow-xs'
+                        : 'text-[#0b57d0] dark:text-[#a8c7fa] hover:text-[#0842a0] dark:hover:text-white border-[1.5px] border-transparent'
                     }`}
                   >
                     Needs Practice ({fullScreenChapter.practiceSubtopicsCount})
@@ -2033,10 +2033,10 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setFullScreenSubtopicFilter('unattempted')}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border-0 ring-0 cursor-pointer ${
+                      className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                         fullScreenSubtopicFilter === 'unattempted'
-                          ? 'bg-slate-700 text-white dark:bg-slate-300 dark:text-slate-900 shadow-xs'
-                          : 'bg-white hover:bg-slate-100 text-slate-700 dark:bg-[#282a30] dark:hover:bg-[#34374a] dark:text-zinc-200 border border-slate-300 dark:border-zinc-700 shadow-xs'
+                          ? 'bg-white dark:bg-[#282a30] text-[#041e49] dark:text-white border-[1.5px] border-black dark:border-white shadow-xs'
+                          : 'text-[#0b57d0] dark:text-[#a8c7fa] hover:text-[#0842a0] dark:hover:text-white border-[1.5px] border-transparent'
                       }`}
                     >
                       Unattempted ({fullScreenChapter.unattemptedSubtopicsCount})
