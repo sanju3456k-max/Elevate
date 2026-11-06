@@ -61,6 +61,11 @@ export interface SubtopicAnalysisItem {
     isAttempted: boolean;
     subtopic?: string;
   }>;
+  category?: 'strong' | 'moderate' | 'weak' | 'unattempted';
+  statusBadge?: string;
+  statusType?: 'success' | 'warning' | 'danger' | 'info';
+  isStrong?: boolean;
+  recommendation?: string;
 }
 
 export interface TopicAnalysisItem {
@@ -236,7 +241,8 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
 }) => {
   const [expandedPerformanceTopics, setExpandedPerformanceTopics] = useState<Record<string, boolean>>({});
   const [expandedActionableTopics, setExpandedActionableTopics] = useState<Record<string, boolean>>({});
-  const [performanceFilter, setPerformanceFilter] = useState<'all' | 'strong' | 'actionable'>('all');
+  const [performanceFilter, setPerformanceFilter] = useState<'all' | 'strong' | 'actionable' | 'practice' | 'unattempted'>('all');
+  const [multiChapterViewMode, setMultiChapterViewMode] = useState<'chapters' | 'concepts'>('chapters');
   const [extraAddonsPrompt, setExtraAddonsPrompt] = useState<string>('');
   const promptBarInputRef = useRef<HTMLInputElement>(null);
 
@@ -471,7 +477,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
 
     questionDetails.forEach((q) => {
       const top = q.topic || 'General Mathematics';
-      const sub = q.subtopic?.trim() || '';
+      const sub = q.subtopic?.trim() || `${top} - Core Concept`;
 
       if (!topicMap[top]) {
         topicMap[top] = {
@@ -664,13 +670,68 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
     return list;
   }, [topicBreakdown]);
 
-  // Unified Performance & Actionable Items (Professional 4-Tier Categorization)
+  // Helper to evaluate subtopic performance consistently
+  const evaluateSubtopic = (sub: SubtopicAnalysisItem) => {
+    const hasAttempted = sub.attemptedCount > 0;
+    let category: 'strong' | 'moderate' | 'weak' | 'unattempted';
+    let statusBadge: string;
+    let statusType: 'success' | 'warning' | 'danger' | 'info';
+    let recommendation: string;
+
+    if (!hasAttempted) {
+      category = 'unattempted';
+      statusBadge = 'Unattempted';
+      statusType = 'info';
+      recommendation = `Left unattempted (${sub.skippedCount} skipped). Review foundational formulas to attempt with speed.`;
+    } else if (sub.accuracy >= 75 && sub.wrongCount === 0) {
+      category = 'strong';
+      statusBadge = `${sub.accuracy}% (Strong)`;
+      statusType = 'success';
+      recommendation = `Mastered with 100% precision. Maintain periodic revision to preserve speed.`;
+    } else if (sub.accuracy >= 60 && sub.correctCount >= sub.wrongCount) {
+      category = 'moderate';
+      statusBadge = `${sub.accuracy}% (Developing)`;
+      statusType = 'warning';
+      recommendation = `Good foundation, but ${sub.wrongCount} slips occurred. Practice 5-10 varied problems to eliminate mistakes.`;
+    } else {
+      category = 'weak';
+      statusBadge = `${sub.accuracy}% (Needs Practice)`;
+      statusType = 'danger';
+      recommendation = `Priority focus required: Review core theorems, formula constraints, and standard counterexamples.`;
+    }
+
+    return {
+      category,
+      statusBadge,
+      statusType,
+      isStrong: category === 'strong',
+      recommendation,
+    };
+  };
+
+  // Adaptive Granularity Detection: Single-Chapter vs Multi-Chapter Test
+  const isSingleChapter = topicBreakdown.length <= 1;
+
+  // Unified Performance & Actionable Items (Professional 4-Tier Categorization with Subtopic Diagnostics)
   const unifiedPerformanceItems = useMemo(() => {
     return topicBreakdown.map((t) => {
       const hasAttempted = t.attemptedCount > 0;
       const netScore = Math.max(0, Number((t.correctCount - 0.25 * t.wrongCount).toFixed(2)));
       const coverageRate = t.totalQuestions > 0 ? t.attemptedCount / t.totalQuestions : 0;
       const precisionRate = t.totalQuestions > 0 ? Math.round((t.correctCount / t.totalQuestions) * 100) : 0;
+
+      // Evaluate each subtopic
+      const evaluatedSubtopics = (t.subtopicItems || []).map((sub) => {
+        const evalResult = evaluateSubtopic(sub);
+        return {
+          ...sub,
+          ...evalResult,
+        };
+      });
+
+      const strongSubtopicsCount = evaluatedSubtopics.filter((s) => s.category === 'strong').length;
+      const practiceSubtopicsCount = evaluatedSubtopics.filter((s) => s.category === 'weak' || s.category === 'moderate').length;
+      const unattemptedSubtopicsCount = evaluatedSubtopics.filter((s) => s.category === 'unattempted').length;
 
       let category: 'strong' | 'moderate' | 'weak' | 'unattempted';
       let statusBadge: string;
@@ -739,24 +800,100 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
         statusBadge,
         statusType,
         recommendation,
-        subtopicItems: t.subtopicItems || [],
+        subtopicItems: evaluatedSubtopics,
+        strongSubtopicsCount,
+        practiceSubtopicsCount,
+        unattemptedSubtopicsCount,
         questions: t.questions,
       };
     });
   }, [topicBreakdown]);
 
-  const strongCount = useMemo(() => unifiedPerformanceItems.filter((i) => i.isStrong).length, [unifiedPerformanceItems]);
-  const actionableCount = useMemo(() => unifiedPerformanceItems.filter((i) => !i.isStrong).length, [unifiedPerformanceItems]);
+  // All evaluated subtopics aggregated across all chapters (for All Concepts Radar)
+  const allEvaluatedSubtopics = useMemo(() => {
+    const list: Array<SubtopicAnalysisItem & {
+      category: 'strong' | 'moderate' | 'weak' | 'unattempted';
+      statusBadge: string;
+      statusType: 'success' | 'warning' | 'danger' | 'info';
+      isStrong: boolean;
+      recommendation: string;
+      parentTopic: string;
+    }> = [];
 
+    unifiedPerformanceItems.forEach((t) => {
+      (t.subtopicItems || []).forEach((sub) => {
+        list.push({
+          ...sub,
+          parentTopic: t.topic,
+          category: sub.category || 'weak',
+          statusBadge: sub.statusBadge || 'Needs Practice',
+          statusType: sub.statusType || 'danger',
+          isStrong: !!sub.isStrong,
+          recommendation: sub.recommendation || '',
+        });
+      });
+    });
+
+    return list;
+  }, [unifiedPerformanceItems]);
+
+  // Counts for Subtopics & Concepts
+  const subtopicCounts = useMemo(() => {
+    const strong = allEvaluatedSubtopics.filter((s) => s.category === 'strong').length;
+    const practice = allEvaluatedSubtopics.filter((s) => s.category === 'weak' || s.category === 'moderate').length;
+    const unattempted = allEvaluatedSubtopics.filter((s) => s.category === 'unattempted').length;
+    return {
+      all: allEvaluatedSubtopics.length,
+      strong,
+      practice,
+      unattempted,
+      actionable: practice + unattempted,
+    };
+  }, [allEvaluatedSubtopics]);
+
+  // Counts for Chapters
+  const chapterCounts = useMemo(() => {
+    const strong = unifiedPerformanceItems.filter((i) => i.isStrong).length;
+    const actionable = unifiedPerformanceItems.filter((i) => !i.isStrong).length;
+    return {
+      all: unifiedPerformanceItems.length,
+      strong,
+      actionable,
+    };
+  }, [unifiedPerformanceItems]);
+
+  const strongCount = chapterCounts.strong;
+  const actionableCount = chapterCounts.actionable;
+
+  // Filtered Performance Items (Chapters or Concepts based on isSingleChapter & multiChapterViewMode)
   const filteredPerformanceItems = useMemo(() => {
-    if (performanceFilter === 'strong') {
-      return unifiedPerformanceItems.filter((item) => item.isStrong);
+    if (isSingleChapter) {
+      // In Single Chapter mode, we display the chapter card, but its subtopics are filtered by performanceFilter
+      return unifiedPerformanceItems;
     }
-    if (performanceFilter === 'actionable') {
+
+    if (performanceFilter === 'strong') {
+      return unifiedPerformanceItems.filter((item) => item.isStrong || item.strongSubtopicsCount > 0);
+    }
+    if (performanceFilter === 'actionable' || performanceFilter === 'practice') {
       return unifiedPerformanceItems.filter((item) => !item.isStrong);
     }
     return unifiedPerformanceItems;
-  }, [unifiedPerformanceItems, performanceFilter]);
+  }, [unifiedPerformanceItems, performanceFilter, isSingleChapter]);
+
+  // Filtered All Concepts Radar items
+  const filteredRadarConcepts = useMemo(() => {
+    if (performanceFilter === 'strong') {
+      return allEvaluatedSubtopics.filter((s) => s.category === 'strong');
+    }
+    if (performanceFilter === 'practice' || performanceFilter === 'actionable') {
+      return allEvaluatedSubtopics.filter((s) => s.category === 'weak' || s.category === 'moderate');
+    }
+    if (performanceFilter === 'unattempted') {
+      return allEvaluatedSubtopics.filter((s) => s.category === 'unattempted');
+    }
+    return allEvaluatedSubtopics;
+  }, [allEvaluatedSubtopics, performanceFilter]);
 
   // Toggle or append a preset add-on to extraAddonsPrompt
   const handleTogglePresetAddon = (addon: PresetAddon) => {
@@ -1074,280 +1211,516 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
         </div>
 
         {/* ==================================================================== */}
-        {/* 2. TOPIC-WISE PERFORMANCE & ACTIONABLE INSIGHTS (UNIFIED SECTION)     */}
+        {/* 2. TOPIC-WISE PERFORMANCE & ACTIONABLE INSIGHTS (ADAPTIVE SECTION)   */}
         {/* ==================================================================== */}
         <div className={`${APP_STYLES.card.base} p-5 sm:p-6 space-y-4`}>
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 pb-3 border-b border-slate-100 dark:border-[#2c3040]">
+          {/* Section Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#2c3040]">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-full bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center font-bold shrink-0 border-0 ring-0">
                 <Compass className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-zinc-100 tracking-tight">
-                  Topic-Wise Performance &amp; Actionable Insights
-                </h3>
-                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                  Complete chapter &amp; subtopic concept classification paired with targeted AI recommendations
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-zinc-100 tracking-tight">
+                    {isSingleChapter ? 'Topic-Wise Performance & Actionable Insights' : 'Curriculum & Chapter-Wise Performance'}
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[#0b57d0]/10 text-[#0b57d0] dark:text-[#a8c7fa]">
+                    {isSingleChapter ? 'Single-Chapter Diagnostic' : 'Multi-Chapter Mock'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                  {isSingleChapter
+                    ? 'Granular subtopic concept classification with cognitive diagnosis & targeted AI recommendations'
+                    : 'Complete chapter & subtopic concept classification with cross-chapter diagnostic radar'}
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap shrink-0">
-              {/* Filter Tabs */}
-              <div className="flex items-center bg-slate-100/80 dark:bg-[#141619] p-1 rounded-full gap-1 border border-slate-300 dark:border-zinc-700 shadow-xs">
-                <button
-                  type="button"
-                  onClick={() => setPerformanceFilter('all')}
-                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border-0 ring-0 ${
-                    performanceFilter === 'all'
-                      ? 'bg-white dark:bg-[#282a30] text-slate-900 dark:text-white shadow-xs'
-                      : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  All ({unifiedPerformanceItems.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPerformanceFilter('strong')}
-                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border-0 ring-0 ${
-                    performanceFilter === 'strong'
-                      ? 'bg-emerald-500 text-white shadow-xs'
-                      : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  Strong ({strongCount})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPerformanceFilter('actionable')}
-                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border-0 ring-0 ${
-                    performanceFilter === 'actionable'
-                      ? 'bg-amber-500 text-white shadow-xs'
-                      : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  Actionable Focus ({actionableCount})
-                </button>
-              </div>
+              {/* Multi-Chapter View Mode Switcher: By Chapters vs All Concepts Radar */}
+              {!isSingleChapter && (
+                <div className="flex items-center bg-slate-200/70 dark:bg-[#1e2024] p-0.5 rounded-full text-[11px] font-bold border border-slate-300/80 dark:border-zinc-700">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMultiChapterViewMode('chapters');
+                      setPerformanceFilter('all');
+                    }}
+                    className={`px-2.5 py-1 rounded-full transition-all cursor-pointer flex items-center gap-1 ${
+                      multiChapterViewMode === 'chapters'
+                        ? 'bg-white dark:bg-[#2c3040] text-slate-900 dark:text-white shadow-xs'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
+                    }`}
+                  >
+                    <Layers className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                    <span>By Chapters</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMultiChapterViewMode('concepts');
+                      setPerformanceFilter('all');
+                    }}
+                    className={`px-2.5 py-1 rounded-full transition-all cursor-pointer flex items-center gap-1 ${
+                      multiChapterViewMode === 'concepts'
+                        ? 'bg-white dark:bg-[#2c3040] text-slate-900 dark:text-white shadow-xs'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
+                    }`}
+                  >
+                    <Compass className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                    <span>All Concepts Radar</span>
+                  </button>
+                </div>
+              )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  const allKeys = filteredPerformanceItems.map((item) => item.id);
-                  const allExpanded = allKeys.every((k) => !!expandedPerformanceTopics[k]);
-                  const nextState: Record<string, boolean> = { ...expandedPerformanceTopics };
-                  allKeys.forEach((k) => {
-                    nextState[k] = !allExpanded;
-                  });
-                  setExpandedPerformanceTopics(nextState);
-                }}
-                className="px-3.5 py-1.5 rounded-full text-[11px] font-bold bg-white hover:bg-slate-50 text-slate-700 dark:text-zinc-200 dark:bg-[#282a30] dark:hover:bg-[#34374a] border border-slate-300 dark:border-zinc-700 transition-colors cursor-pointer ring-0 shadow-xs active:scale-95"
-              >
-                Toggle All
-              </button>
+              {/* Filter Tabs: Adaptive for Single-Chapter vs Multi-Chapter */}
+              {isSingleChapter || multiChapterViewMode === 'concepts' ? (
+                <div className="flex items-center bg-slate-100/80 dark:bg-[#141619] p-1 rounded-full gap-1 border border-slate-300 dark:border-zinc-700 shadow-xs">
+                  <button
+                    type="button"
+                    onClick={() => setPerformanceFilter('all')}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border-0 ring-0 ${
+                      performanceFilter === 'all'
+                        ? 'bg-white dark:bg-[#282a30] text-slate-900 dark:text-white shadow-xs'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    All ({subtopicCounts.all})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPerformanceFilter('strong')}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border-0 ring-0 ${
+                      performanceFilter === 'strong'
+                        ? 'bg-emerald-500 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Strong ({subtopicCounts.strong})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPerformanceFilter('practice')}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border-0 ring-0 ${
+                      performanceFilter === 'practice'
+                        ? 'bg-rose-500 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Needs Practice ({subtopicCounts.practice})
+                  </button>
+                  {subtopicCounts.unattempted > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setPerformanceFilter('unattempted')}
+                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border-0 ring-0 ${
+                        performanceFilter === 'unattempted'
+                          ? 'bg-slate-600 dark:bg-zinc-600 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      Unattempted ({subtopicCounts.unattempted})
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center bg-slate-100/80 dark:bg-[#141619] p-1 rounded-full gap-1 border border-slate-300 dark:border-zinc-700 shadow-xs">
+                  <button
+                    type="button"
+                    onClick={() => setPerformanceFilter('all')}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border-0 ring-0 ${
+                      performanceFilter === 'all'
+                        ? 'bg-white dark:bg-[#282a30] text-slate-900 dark:text-white shadow-xs'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    All Chapters ({chapterCounts.all})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPerformanceFilter('strong')}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border-0 ring-0 ${
+                      performanceFilter === 'strong'
+                        ? 'bg-emerald-500 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Strong ({chapterCounts.strong})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPerformanceFilter('actionable')}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border-0 ring-0 ${
+                      performanceFilter === 'actionable'
+                        ? 'bg-amber-500 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Actionable Focus ({chapterCounts.actionable})
+                  </button>
+                </div>
+              )}
+
+              {/* Toggle All Chapters (only in chapters view) */}
+              {(isSingleChapter || multiChapterViewMode === 'chapters') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const allKeys = filteredPerformanceItems.map((item) => item.id);
+                    const allExpanded = allKeys.every((k) => !!expandedPerformanceTopics[k]);
+                    const nextState: Record<string, boolean> = { ...expandedPerformanceTopics };
+                    allKeys.forEach((k) => {
+                      nextState[k] = !allExpanded;
+                    });
+                    setExpandedPerformanceTopics(nextState);
+                  }}
+                  className="px-3.5 py-1.5 rounded-full text-[11px] font-bold bg-white hover:bg-slate-50 text-slate-700 dark:text-zinc-200 dark:bg-[#282a30] dark:hover:bg-[#34374a] border border-slate-300 dark:border-zinc-700 transition-colors cursor-pointer ring-0 shadow-xs active:scale-95"
+                >
+                  Toggle All
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Unified Dynamic Grid - Topic Cards */}
-          <div
-            className={`grid gap-3 lg:gap-4 ${
-              filteredPerformanceItems.length === 1
-                ? 'grid-cols-1'
-                : filteredPerformanceItems.length === 2
-                ? 'grid-cols-1 md:grid-cols-2'
-                : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
-            }`}
-          >
-            {filteredPerformanceItems.length > 0 ? (
-              filteredPerformanceItems.map((item) => {
-                const isExpanded = !!expandedPerformanceTopics[item.id];
-                const subItems = item.subtopicItems || [];
-                const isStronger = item.isStrong;
-
-                return (
-                  <div
-                    key={item.id}
-                    className="bg-white dark:bg-[#181a20] rounded-[24px] ring-1 ring-slate-400 dark:ring-zinc-600 border-0 shadow-none overflow-hidden flex flex-col justify-between transition-all"
-                  >
-                    <div>
-                      {/* Main Clickable Topic Row */}
-                      <div
-                        onClick={() => togglePerformanceTopic(item.id)}
-                        className="p-3.5 sm:p-4 flex items-center justify-between gap-2 cursor-pointer hover:bg-slate-50/80 dark:hover:bg-white/5 transition-colors select-none"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100 truncate" title={item.topic}>
-                              {item.topic}
-                            </h4>
-                            {subItems.length > 0 && (
-                              <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 shrink-0">
-                                ({subItems.length} {subItems.length === 1 ? 'subtopic' : 'subtopics'})
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[11px] text-slate-600 dark:text-zinc-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                            <span>
-                              {item.correctCount}/{item.totalQuestions} Correct {item.attemptedCount > 0 ? `(${item.accuracy}%)` : '(0% attempted)'}
+          {/* VIEW 1: ALL CONCEPTS RADAR (When in Multi-Chapter mode and radar selected) */}
+          {!isSingleChapter && multiChapterViewMode === 'concepts' ? (
+            <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2">
+              {filteredRadarConcepts.length > 0 ? (
+                filteredRadarConcepts.map((sub, sIdx) => {
+                  return (
+                    <div
+                      key={sIdx}
+                      className="p-3 rounded-[20px] bg-white dark:bg-[#1e2024] border border-slate-200/80 dark:border-zinc-800 space-y-2 text-xs shadow-xs text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col justify-between"
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-start justify-between gap-1.5">
+                          <div>
+                            <span className="font-bold text-slate-900 dark:text-zinc-100 text-xs block leading-snug">
+                              {sub.subtopic}
                             </span>
-                            <span>•</span>
-                            <span>{item.wrongCount} Wrong</span>
-                            <span>•</span>
-                            <span>{item.skippedCount} Skipped</span>
+                            <span className="inline-block mt-0.5 px-2 py-0.5 rounded-md text-[9px] font-bold bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">
+                              {sub.parentTopic}
+                            </span>
                           </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
                           <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border-0 ring-0 ${
-                              item.category === 'strong'
+                            className={`px-2 py-0.5 rounded-full text-[9.5px] font-extrabold shrink-0 border-0 ring-0 ${
+                              sub.category === 'strong'
                                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                : item.category === 'moderate'
+                                : sub.category === 'moderate'
                                 ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                                : item.category === 'unattempted'
+                                : sub.category === 'unattempted'
                                 ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
-                                : item.statusType === 'danger'
-                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
                             }`}
                           >
-                            {item.statusBadge}
+                            {sub.statusBadge}
                           </span>
-                          <button
-                            type="button"
-                            className="w-6 h-6 rounded-full bg-slate-100 dark:bg-[#252830] border-0 ring-0 flex items-center justify-center text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white transition-transform cursor-pointer"
-                            aria-label="Toggle subtopics dropdown"
-                          >
-                            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                          </button>
+                        </div>
+
+                        {/* Question Chips */}
+                        <div className="flex flex-wrap items-center gap-1 pt-1">
+                          {sub.questions.map((q) => {
+                            let chipStyle = 'bg-slate-200/80 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300';
+                            let iconNode = <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-zinc-500 shrink-0 inline-block" />;
+                            if (q.isCorrect) {
+                              chipStyle = 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] font-bold';
+                              iconNode = <Check className="w-2.5 h-2.5 stroke-[3] shrink-0" />;
+                            } else if (q.isAttempted) {
+                              chipStyle = 'bg-rose-100 text-rose-600 dark:bg-rose-950/80 dark:text-rose-400 font-bold';
+                              iconNode = <X className="w-2.5 h-2.5 stroke-[3] shrink-0" />;
+                            }
+
+                            return (
+                              <span
+                                key={q.questionNumber}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] border-0 ring-0 ${chipStyle}`}
+                                title={`Q${q.questionNumber}: ${q.isCorrect ? 'Correct' : q.isAttempted ? 'Wrong' : 'Skipped'}`}
+                              >
+                                <span className="w-3 h-3 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center shrink-0">
+                                  {iconNode}
+                                </span>
+                                <span>Q{q.questionNumber}</span>
+                              </span>
+                            );
+                          })}
                         </div>
                       </div>
 
-                      {/* Expanded Subtopics Breakdown & AI Action Recommendation */}
-                      {isExpanded && (
-                        <div className="p-3 pt-1.5 border-t border-slate-100 dark:border-zinc-800 space-y-2 bg-slate-50/70 dark:bg-black/20 text-[#1f1f1f] dark:text-[#e3e3e3]">
-                          <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block">
-                            Subtopic Concept Breakdown ({subItems.length}):
-                          </span>
+                      <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between text-[10px] text-slate-500 dark:text-zinc-400">
+                        <span>{sub.correctCount}/{sub.totalQuestions} Correct</span>
+                        <span>{sub.wrongCount} Wrong • {sub.skippedCount} Skipped</span>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="col-span-full p-8 text-center text-xs text-slate-500 dark:text-zinc-400 bg-white dark:bg-[#181a20] rounded-[24px] ring-1 ring-slate-400 dark:ring-zinc-600 border-0 shadow-none">
+                  No concepts match the selected filter.
+                </div>
+              )}
+            </div>
+          ) : (
+            /* VIEW 2: CHAPTER-WISE ADAPTIVE ACCORDION CARDS */
+            <div
+              className={`grid gap-3 lg:gap-4 ${
+                filteredPerformanceItems.length === 1
+                  ? 'grid-cols-1'
+                  : 'grid-cols-1 md:grid-cols-2'
+              }`}
+            >
+              {filteredPerformanceItems.length > 0 ? (
+                filteredPerformanceItems.map((item) => {
+                  // In single-chapter mode or single item, default to expanded!
+                  const isExpanded = expandedPerformanceTopics[item.id] !== undefined
+                    ? !!expandedPerformanceTopics[item.id]
+                    : (isSingleChapter || filteredPerformanceItems.length === 1);
+                  const subItems = item.subtopicItems || [];
 
-                          <div
-                            className={`grid gap-1.5 ${
-                              filteredPerformanceItems.length === 1
-                                ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2'
-                                : 'grid-cols-1'
-                            }`}
-                          >
-                            {subItems.map((sub, sIdx) => {
-                              const subHasAttempted = sub.attemptedCount > 0;
-                              let subCategory: 'strong' | 'moderate' | 'weak' | 'unattempted';
-                              let subBadgeLabel: string;
+                  // Filter subtopics based on performanceFilter
+                  let displayedSubItems = subItems;
+                  if (isSingleChapter) {
+                    if (performanceFilter === 'strong') {
+                      displayedSubItems = subItems.filter((s: any) => s.category === 'strong');
+                    } else if (performanceFilter === 'practice') {
+                      displayedSubItems = subItems.filter((s: any) => s.category === 'weak' || s.category === 'moderate');
+                    } else if (performanceFilter === 'unattempted') {
+                      displayedSubItems = subItems.filter((s: any) => s.category === 'unattempted');
+                    }
+                  } else {
+                    if (performanceFilter === 'strong') {
+                      displayedSubItems = subItems.filter((s: any) => s.category === 'strong');
+                    } else if (performanceFilter === 'actionable' || performanceFilter === 'practice') {
+                      displayedSubItems = subItems.filter((s: any) => s.category !== 'strong');
+                    }
+                  }
 
-                              if (!subHasAttempted) {
-                                subCategory = 'unattempted';
-                                subBadgeLabel = 'Unattempted';
-                              } else if (sub.accuracy >= 75 && sub.wrongCount === 0) {
-                                subCategory = 'strong';
-                                subBadgeLabel = `${sub.accuracy}% (Stronger)`;
-                              } else if (sub.accuracy >= 60 && sub.correctCount >= sub.wrongCount) {
-                                subCategory = 'moderate';
-                                subBadgeLabel = `${sub.accuracy}% (Moderate)`;
-                              } else {
-                                subCategory = 'weak';
-                                subBadgeLabel = `${sub.accuracy}% (Weaker)`;
-                              }
+                  return (
+                    <div
+                      key={item.id}
+                      className="bg-white dark:bg-[#181a20] rounded-[24px] ring-1 ring-slate-400 dark:ring-zinc-600 border-0 shadow-none overflow-hidden flex flex-col justify-between transition-all"
+                    >
+                      <div>
+                        {/* Main Clickable Topic Row */}
+                        <div
+                          onClick={() => togglePerformanceTopic(item.id)}
+                          className="p-3.5 sm:p-4 flex items-center justify-between gap-2 cursor-pointer hover:bg-slate-50/80 dark:hover:bg-white/5 transition-colors select-none"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100 truncate" title={item.topic}>
+                                {item.topic}
+                              </h4>
+                              {subItems.length > 0 && (
+                                <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 shrink-0">
+                                  ({subItems.length} {subItems.length === 1 ? 'subtopic' : 'subtopics'})
+                                </span>
+                              )}
+                            </div>
+                            
+                            <div className="text-[11px] text-slate-600 dark:text-zinc-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                              <span>
+                                {item.correctCount}/{item.totalQuestions} Correct {item.attemptedCount > 0 ? `(${item.accuracy}%)` : '(0% attempted)'}
+                              </span>
+                              <span>•</span>
+                              <span>{item.wrongCount} Wrong</span>
+                              <span>•</span>
+                              <span>{item.skippedCount} Skipped</span>
+                            </div>
 
-                              return (
+                            {/* Multi-Segment Concept Progress Bar */}
+                            <div className="w-full h-1.5 bg-slate-200/80 dark:bg-zinc-800 rounded-full overflow-hidden flex mt-2 max-w-md">
+                              {item.strongSubtopicsCount > 0 && (
                                 <div
-                                  key={sIdx}
-                                  className="p-2.5 rounded-[18px] bg-white dark:bg-[#1e2024] border border-slate-200/60 dark:border-zinc-800/80 space-y-1.5 text-xs shadow-xs text-[#1f1f1f] dark:text-[#e3e3e3]"
-                                >
-                                  <div className="flex items-center justify-between gap-1">
-                                    <span className="font-bold text-slate-900 dark:text-zinc-100 truncate text-[11px]">
-                                      {sub.subtopic}
-                                    </span>
-                                    <span
-                                      className={`px-2 py-0.5 rounded-full text-[9.5px] font-extrabold shrink-0 border-0 ring-0 ${
-                                        subCategory === 'strong'
-                                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                          : subCategory === 'moderate'
-                                          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                                          : subCategory === 'unattempted'
-                                          ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
-                                          : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                                      }`}
-                                    >
-                                      {subBadgeLabel}
-                                    </span>
-                                  </div>
+                                  style={{ width: `${(item.strongSubtopicsCount / (subItems.length || 1)) * 100}%` }}
+                                  className="bg-emerald-500 h-full"
+                                  title={`${item.strongSubtopicsCount} Strong Concepts`}
+                                />
+                              )}
+                              {item.practiceSubtopicsCount > 0 && (
+                                <div
+                                  style={{ width: `${(item.practiceSubtopicsCount / (subItems.length || 1)) * 100}%` }}
+                                  className="bg-rose-500 h-full"
+                                  title={`${item.practiceSubtopicsCount} Needs Practice`}
+                                />
+                              )}
+                              {item.unattemptedSubtopicsCount > 0 && (
+                                <div
+                                  style={{ width: `${(item.unattemptedSubtopicsCount / (subItems.length || 1)) * 100}%` }}
+                                  className="bg-slate-300 dark:bg-zinc-600 h-full"
+                                  title={`${item.unattemptedSubtopicsCount} Unattempted`}
+                                />
+                              )}
+                            </div>
 
-                                  {/* Question Chips */}
-                                  <div className="flex flex-wrap items-center gap-1">
-                                    {sub.questions.map((q) => {
-                                      let chipStyle = 'bg-slate-200/80 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300';
-                                      let iconNode = <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-zinc-500 shrink-0 inline-block" />;
-                                      if (q.isCorrect) {
-                                        chipStyle = 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] font-bold';
-                                        iconNode = <Check className="w-2.5 h-2.5 stroke-[3] shrink-0" />;
-                                      } else if (q.isAttempted) {
-                                        chipStyle = 'bg-rose-100 text-rose-600 dark:bg-rose-950/80 dark:text-rose-400 font-bold';
-                                        iconNode = <X className="w-2.5 h-2.5 stroke-[3] shrink-0" />;
-                                      }
-
-                                      return (
-                                        <span
-                                          key={q.questionNumber}
-                                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] border-0 ring-0 ${chipStyle}`}
-                                          title={`Q${q.questionNumber}: ${q.isCorrect ? 'Correct' : q.isAttempted ? 'Wrong' : 'Skipped'}`}
-                                        >
-                                          <span className="w-3 h-3 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center shrink-0">
-                                            {iconNode}
-                                          </span>
-                                          <span>Q{q.questionNumber}</span>
-                                        </span>
-                                      );
-                                    })}
-                                  </div>
-
-                                  <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-zinc-400 pt-1 border-t border-slate-100 dark:border-zinc-800">
-                                    <span>{sub.correctCount}/{sub.totalQuestions} Correct</span>
-                                    <span>{sub.wrongCount} Wrong • {sub.skippedCount} Skipped</span>
-                                  </div>
-                                </div>
-                              );
-                            })}
+                            {/* Concept Mastery Distribution Badges */}
+                            <div className="flex items-center gap-2 mt-1.5 text-[10px] font-semibold flex-wrap">
+                              <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 inline-block" />
+                                {item.strongSubtopicsCount} Strong
+                              </span>
+                              <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0 inline-block" />
+                                {item.practiceSubtopicsCount} Practice
+                              </span>
+                              {item.unattemptedSubtopicsCount > 0 && (
+                                <span className="inline-flex items-center gap-1 text-slate-500 dark:text-zinc-400">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0 inline-block" />
+                                  {item.unattemptedSubtopicsCount} Skipped
+                                </span>
+                              )}
+                            </div>
                           </div>
 
-                          {/* Embedded Sparkles Actionable Recommendation Box */}
-                          <div className="p-3 rounded-2xl bg-[#d3e3fd]/40 dark:bg-[#004a77]/30 border-0 ring-0 shadow-xs flex items-start gap-2 text-xs text-slate-800 dark:text-zinc-200 mt-1">
-                            <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0 mt-0.5" />
-                            <p className="leading-relaxed font-medium text-[11px] sm:text-xs">
-                              {item.recommendation}
-                            </p>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border-0 ring-0 ${
+                                item.category === 'strong'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                  : item.category === 'moderate'
+                                  ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                                  : item.category === 'unattempted'
+                                  ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
+                                  : item.statusType === 'danger'
+                                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                              }`}
+                            >
+                              {item.statusBadge}
+                            </span>
+                            <button
+                              type="button"
+                              className="w-6 h-6 rounded-full bg-slate-100 dark:bg-[#252830] border-0 ring-0 flex items-center justify-center text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white transition-transform cursor-pointer"
+                              aria-label="Toggle subtopics dropdown"
+                            >
+                              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                            </button>
                           </div>
                         </div>
-                      )}
-                    </div>
 
-                    {/* Stats Bar Footer */}
-                    <div className="p-3 sm:px-4 py-2.5 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between text-xs text-slate-600 dark:text-zinc-400 bg-slate-50/50 dark:bg-white/[0.02]">
-                      <span className="font-semibold text-[11px]">
-                        Score: <strong className="text-slate-900 dark:text-zinc-100">{item.correctCount}/{item.totalQuestions}</strong> ({item.accuracy}%)
-                      </span>
-                      <span className="text-[10.5px]">
-                        {item.correctCount} Correct • {item.wrongCount} Wrong • {item.skippedCount} Skipped
-                      </span>
+                        {/* Expanded Subtopics Breakdown & AI Action Recommendation */}
+                        {isExpanded && (
+                          <div className="p-3 pt-1.5 border-t border-slate-100 dark:border-zinc-800 space-y-2 bg-slate-50/70 dark:bg-black/20 text-[#1f1f1f] dark:text-[#e3e3e3]">
+                            <div className="flex items-center justify-between gap-1 flex-wrap">
+                              <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block">
+                                {isSingleChapter && performanceFilter !== 'all'
+                                  ? `Filtered Concepts (${displayedSubItems.length} of ${subItems.length}):`
+                                  : `Subtopic Concept Breakdown (${subItems.length}):`}
+                              </span>
+                              {isSingleChapter && performanceFilter !== 'all' && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPerformanceFilter('all');
+                                  }}
+                                  className="text-[10px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] hover:underline cursor-pointer"
+                                >
+                                  Show All {subItems.length} Concepts
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {displayedSubItems.length > 0 ? (
+                                displayedSubItems.map((sub: any, sIdx: number) => {
+                                  return (
+                                    <div
+                                      key={sIdx}
+                                      className="p-2.5 rounded-[18px] bg-white dark:bg-[#1e2024] border border-slate-200/60 dark:border-zinc-800/80 space-y-1.5 text-xs shadow-xs text-[#1f1f1f] dark:text-[#e3e3e3]"
+                                    >
+                                      <div className="flex items-center justify-between gap-1">
+                                        <span className="font-bold text-slate-900 dark:text-zinc-100 truncate text-[11px]" title={sub.subtopic}>
+                                          {sub.subtopic}
+                                        </span>
+                                        <span
+                                          className={`px-2 py-0.5 rounded-full text-[9.5px] font-extrabold shrink-0 border-0 ring-0 ${
+                                            sub.category === 'strong'
+                                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                              : sub.category === 'moderate'
+                                              ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                                              : sub.category === 'unattempted'
+                                              ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
+                                              : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                          }`}
+                                        >
+                                          {sub.statusBadge}
+                                        </span>
+                                      </div>
+
+                                      {/* Question Chips */}
+                                      <div className="flex flex-wrap items-center gap-1">
+                                        {sub.questions.map((q: any) => {
+                                          let chipStyle = 'bg-slate-200/80 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300';
+                                          let iconNode = <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-zinc-500 shrink-0 inline-block" />;
+                                          if (q.isCorrect) {
+                                            chipStyle = 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] font-bold';
+                                            iconNode = <Check className="w-2.5 h-2.5 stroke-[3] shrink-0" />;
+                                          } else if (q.isAttempted) {
+                                            chipStyle = 'bg-rose-100 text-rose-600 dark:bg-rose-950/80 dark:text-rose-400 font-bold';
+                                            iconNode = <X className="w-2.5 h-2.5 stroke-[3] shrink-0" />;
+                                          }
+
+                                          return (
+                                            <span
+                                              key={q.questionNumber}
+                                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] border-0 ring-0 ${chipStyle}`}
+                                              title={`Q${q.questionNumber}: ${q.isCorrect ? 'Correct' : q.isAttempted ? 'Wrong' : 'Skipped'}`}
+                                            >
+                                              <span className="w-3 h-3 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center shrink-0">
+                                                {iconNode}
+                                              </span>
+                                              <span>Q{q.questionNumber}</span>
+                                            </span>
+                                          );
+                                        })}
+                                      </div>
+
+                                      <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-zinc-400 pt-1 border-t border-slate-100 dark:border-zinc-800">
+                                        <span>{sub.correctCount}/{sub.totalQuestions} Correct</span>
+                                        <span>{sub.wrongCount} Wrong • {sub.skippedCount} Skipped</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <div className="col-span-full p-4 text-center text-xs text-slate-500 dark:text-zinc-400 bg-white dark:bg-[#1e2024] rounded-2xl border border-slate-200/60 dark:border-zinc-800">
+                                  No concepts found matching the selected filter.
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Embedded Sparkles Actionable Recommendation Box */}
+                            <div className="p-3 rounded-2xl bg-[#d3e3fd]/40 dark:bg-[#004a77]/30 border-0 ring-0 shadow-xs flex items-start gap-2 text-xs text-slate-800 dark:text-zinc-200 mt-1">
+                              <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0 mt-0.5" />
+                              <p className="leading-relaxed font-medium text-[11px] sm:text-xs">
+                                {item.recommendation}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Stats Bar Footer */}
+                      <div className="p-3 sm:px-4 py-2.5 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between text-xs text-slate-600 dark:text-zinc-400 bg-slate-50/50 dark:bg-white/[0.02]">
+                        <span className="font-semibold text-[11px]">
+                          Score: <strong className="text-slate-900 dark:text-zinc-100">{item.correctCount}/{item.totalQuestions}</strong> ({item.accuracy}%)
+                        </span>
+                        <span className="text-[10.5px]">
+                          {item.correctCount} Correct • {item.wrongCount} Wrong • {item.skippedCount} Skipped
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="col-span-full p-8 text-center text-xs text-slate-500 dark:text-zinc-400 bg-white dark:bg-[#181a20] rounded-[24px] ring-1 ring-slate-400 dark:ring-zinc-600 border-0 shadow-none">
-                No items match the selected filter tab.
-              </div>
-            )}
-          </div>
+                  );
+                })
+              ) : (
+                <div className="col-span-full p-8 text-center text-xs text-slate-500 dark:text-zinc-400 bg-white dark:bg-[#181a20] rounded-[24px] ring-1 ring-slate-400 dark:ring-zinc-600 border-0 shadow-none">
+                  No items match the selected filter tab.
+                </div>
+              )}
+            </div>
+          )}
         </div>
-
         {/* ==================================================================== */}
         {/* 5. THETA AI DIAGNOSTIC REMEDIAL COURSE & STUDY GENERATOR             */}
         {/* ==================================================================== */}
