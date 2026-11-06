@@ -1889,64 +1889,66 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
         <div
           role="region"
           aria-label={`Full Page Analysis for ${fullScreenChapter.topic}`}
-          className={`fixed inset-0 z-50 ${APP_STYLES.page} overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150`}
+          className="fixed inset-0 z-50 bg-white dark:bg-[#181a20] text-[#1f1f1f] dark:text-[#e3e3e3] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150"
         >
-          {/* Transparent Clean Header Banner */}
-          <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)]">
-            <div className="flex items-center justify-between gap-3 px-0.5 py-1">
-              {/* Left: Icon-Only Back Button & Chapter Title */}
-              <div className="flex items-center gap-2.5 min-w-0">
-                <button
-                  id="fullscreen-chapter-back-btn"
-                  type="button"
-                  onClick={() => setFullScreenChapterId(null)}
-                  className={APP_STYLES.button.icon}
-                  title="Back to Performance Analysis (Device Gesture / Esc)"
-                  aria-label="Back to Performance Analysis"
-                >
-                  <ArrowLeft className="w-4 h-4 text-slate-700 dark:text-zinc-200" />
-                </button>
+          {/* Transparent Clean Header Banner - White surface with subtle divider */}
+          <header className="sticky top-0 z-30 bg-white/95 dark:bg-[#181a20]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-zinc-800/80 shrink-0">
+            <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)]">
+              <div className="flex items-center justify-between gap-3 px-0.5 py-1">
+                {/* Left: Adjusted Back Button for White Surface & Chapter Title */}
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                  <button
+                    id="fullscreen-chapter-back-btn"
+                    type="button"
+                    onClick={() => setFullScreenChapterId(null)}
+                    className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200/90 dark:bg-[#252830] dark:hover:bg-[#34374a] text-slate-700 dark:text-zinc-200 border border-slate-200/80 dark:border-zinc-700/80 flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 outline-none shadow-xs"
+                    title="Back to Performance Analysis (Device Gesture / Esc)"
+                    aria-label="Back to Performance Analysis"
+                  >
+                    <ArrowLeft className="w-4 h-4 text-slate-700 dark:text-zinc-200 stroke-[2.2]" />
+                  </button>
 
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white truncate tracking-tight">
-                      {fullScreenChapter.topic}
-                    </h1>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold bg-[#0b57d0]/10 text-[#0b57d0] dark:text-[#a8c7fa]">
-                      {fullScreenChapter.subtopicItems.length} Concepts
-                    </span>
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold border-0 ring-0 ${
-                        fullScreenChapter.category === 'strong'
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                          : fullScreenChapter.category === 'moderate'
-                          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                          : fullScreenChapter.category === 'unattempted'
-                          ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
-                          : fullScreenChapter.statusType === 'danger'
-                          ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                      }`}
-                    >
-                      {fullScreenChapter.statusBadge}
-                    </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white truncate tracking-tight">
+                        {fullScreenChapter.topic}
+                      </h1>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold bg-[#0b57d0]/10 text-[#0b57d0] dark:text-[#a8c7fa]">
+                        {fullScreenChapter.subtopicItems.length} Concepts
+                      </span>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold border-0 ring-0 ${
+                          fullScreenChapter.category === 'strong'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                            : fullScreenChapter.category === 'moderate'
+                            ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                            : fullScreenChapter.category === 'unattempted'
+                            ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
+                            : fullScreenChapter.statusType === 'danger'
+                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                            : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                        }`}
+                      >
+                        {fullScreenChapter.statusBadge}
+                      </span>
+                    </div>
+                    <p className="text-[11px] sm:text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5 mt-0.5">
+                      <span>{fullScreenChapter.correctCount}/{fullScreenChapter.totalQuestions} Correct ({fullScreenChapter.accuracy}%)</span>
+                      <span>•</span>
+                      <span>{fullScreenChapter.wrongCount} Wrong</span>
+                      <span>•</span>
+                      <span>{fullScreenChapter.skippedCount} Skipped</span>
+                    </p>
                   </div>
-                  <p className="text-[11px] sm:text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5 mt-0.5">
-                    <span>{fullScreenChapter.correctCount}/{fullScreenChapter.totalQuestions} Correct ({fullScreenChapter.accuracy}%)</span>
-                    <span>•</span>
-                    <span>{fullScreenChapter.wrongCount} Wrong</span>
-                    <span>•</span>
-                    <span>{fullScreenChapter.skippedCount} Skipped</span>
-                  </p>
                 </div>
               </div>
             </div>
-          </div>
+          </header>
 
-          {/* Main Full-Page Body Container */}
-          <main className="flex-1 max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-1 pb-12 space-y-4">
+          {/* Main Full-Page Body Container with Pure White Background */}
+          <main className="flex-1 max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 pb-12 space-y-4">
             {/* 1. Mastery Breakdown & Filter Controls Card */}
-            <div className={`${APP_STYLES.card.base} p-4 sm:p-5 space-y-3`}>
+            <div className="p-4 sm:p-5 rounded-[24px] bg-slate-50/80 dark:bg-black/20 ring-1 ring-slate-300 dark:ring-zinc-700 border-0 space-y-3 shadow-none">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 {/* Multi-Segment Concept Progress Bar & Mastery Counters */}
                 <div className="flex-1 max-w-lg">
@@ -2000,7 +2002,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                     className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border-0 ring-0 cursor-pointer ${
                       fullScreenSubtopicFilter === 'all'
                         ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49] shadow-xs'
-                        : 'bg-white hover:bg-slate-100 text-slate-700 dark:bg-[#282a30] dark:hover:bg-[#34374a] dark:text-zinc-200 border border-slate-300 dark:border-zinc-700'
+                        : 'bg-white hover:bg-slate-100 text-slate-700 dark:bg-[#282a30] dark:hover:bg-[#34374a] dark:text-zinc-200 border border-slate-300 dark:border-zinc-700 shadow-xs'
                     }`}
                   >
                     All ({fullScreenChapter.subtopicItems.length})
@@ -2011,7 +2013,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                     className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border-0 ring-0 cursor-pointer ${
                       fullScreenSubtopicFilter === 'strong'
                         ? 'bg-emerald-600 text-white dark:bg-emerald-500 dark:text-white shadow-xs'
-                        : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100'
+                        : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 border border-emerald-200 dark:border-emerald-800/40'
                     }`}
                   >
                     Strong ({fullScreenChapter.strongSubtopicsCount})
@@ -2022,7 +2024,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                     className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border-0 ring-0 cursor-pointer ${
                       fullScreenSubtopicFilter === 'practice'
                         ? 'bg-rose-600 text-white dark:bg-rose-500 dark:text-white shadow-xs'
-                        : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100'
+                        : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 border border-rose-200 dark:border-rose-800/40'
                     }`}
                   >
                     Needs Practice ({fullScreenChapter.practiceSubtopicsCount})
@@ -2034,7 +2036,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                       className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border-0 ring-0 cursor-pointer ${
                         fullScreenSubtopicFilter === 'unattempted'
                           ? 'bg-slate-700 text-white dark:bg-slate-300 dark:text-slate-900 shadow-xs'
-                          : 'bg-slate-100 dark:bg-[#252830] text-slate-700 dark:text-zinc-300 hover:bg-slate-200'
+                          : 'bg-white hover:bg-slate-100 text-slate-700 dark:bg-[#282a30] dark:hover:bg-[#34374a] dark:text-zinc-200 border border-slate-300 dark:border-zinc-700 shadow-xs'
                       }`}
                     >
                       Unattempted ({fullScreenChapter.unattemptedSubtopicsCount})
@@ -2046,7 +2048,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
 
             {/* 2. Actionable Revision / AI Recommendation */}
             {fullScreenChapter.recommendation && (
-              <div className="p-3.5 sm:p-4 rounded-[24px] bg-[#d3e3fd]/40 dark:bg-[#004a77]/30 border-0 ring-0 shadow-xs flex items-start gap-3 text-xs text-slate-800 dark:text-zinc-200">
+              <div className="p-3.5 sm:p-4 rounded-[24px] bg-[#d3e3fd]/40 dark:bg-[#004a77]/30 border border-[#0b57d0]/20 dark:border-[#a8c7fa]/20 shadow-xs flex items-start gap-3 text-xs text-slate-800 dark:text-zinc-200">
                 <Sparkles className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0 mt-0.5" />
                 <p className="leading-relaxed font-medium text-xs sm:text-sm">
                   {fullScreenChapter.recommendation}
@@ -2054,13 +2056,13 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
               </div>
             )}
 
-            {/* 3. Comprehensive Subtopics Grid */}
+            {/* 3. Comprehensive Subtopics Grid with Crisp Elevated Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
               {fullScreenDisplayedSubtopics.length > 0 ? (
                 fullScreenDisplayedSubtopics.map((sub: any, sIdx: number) => (
                   <div
                     key={sIdx}
-                    className="bg-white dark:bg-[#181a20] rounded-[24px] ring-1 ring-slate-400 dark:ring-zinc-600 border-0 p-4 flex flex-col justify-between gap-3 shadow-none transition-all hover:ring-[#0b57d0]/60 dark:hover:ring-[#a8c7fa]/60"
+                    className="bg-white dark:bg-[#1e2024] rounded-[24px] ring-1 ring-slate-300 dark:ring-zinc-700 border-0 p-4 flex flex-col justify-between gap-3 shadow-xs hover:ring-[#0b57d0]/70 dark:hover:ring-[#a8c7fa]/70 transition-all"
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between gap-1.5">
@@ -2118,7 +2120,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                   </div>
                 ))
               ) : (
-                <div className="col-span-full p-8 text-center text-xs text-slate-500 dark:text-zinc-400 bg-white dark:bg-[#181a20] rounded-[24px] ring-1 ring-slate-400 dark:ring-zinc-600 border-0">
+                <div className="col-span-full p-8 text-center text-xs text-slate-500 dark:text-zinc-400 bg-slate-50 dark:bg-[#1e2024] rounded-[24px] ring-1 ring-slate-300 dark:ring-zinc-700 border-0">
                   No concepts found matching the selected filter.
                 </div>
               )}
