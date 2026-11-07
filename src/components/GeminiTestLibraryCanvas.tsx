@@ -412,7 +412,7 @@ export const GeminiTestLibraryCanvas: React.FC<GeminiTestLibraryCanvasProps> = (
                             } else {
                               setEditingQuestionId(q.id || `q_${idx+1}`);
                               setEditedQuestionText(q.text);
-                              setEditedCorrectAnswer(q.correctAnswer || '');
+                              setEditedCorrectAnswer(String(q.correctAnswer ?? ''));
                             }
                           }}
                           className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"

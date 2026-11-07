@@ -140,7 +140,7 @@ export default function App() {
     isIframe,
     isModalOpen: isInstallModalOpen,
     setIsModalOpen: setIsInstallModalOpen,
-    triggerInstallPrompt,
+    triggerInstall: triggerInstallPrompt,
   } = usePWAInstall();
 
   const setActiveTab = useCallback((newTab: ActiveTab | ((prev: ActiveTab) => ActiveTab)) => {

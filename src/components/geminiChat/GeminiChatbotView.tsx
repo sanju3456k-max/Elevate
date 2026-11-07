@@ -3089,7 +3089,7 @@ MANDATORY INSTRUCTIONS:
             text: q.text,
             type: q.type || 'mcq',
             options: q.options || [],
-            correctAnswer: q.correctAnswer,
+            correctAnswer: String(q.correctAnswer ?? ''),
             explanation: q.explanation || q.solution || ''
           };
           if (matchIdx >= 0) {

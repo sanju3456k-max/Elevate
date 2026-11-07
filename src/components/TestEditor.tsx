@@ -69,7 +69,7 @@ import { QuestionDiagramViewer } from './QuestionDiagramViewer';
 import { EditorDiagramResizable } from './EditorDiagramResizable';
 import { DiagramPickerModal } from './DiagramPickerModal';
 import { normalizeDiagramUrl } from '../lib/diagramPresets';
-import { isMcqQuestion, checkIsOptionCorrect, type MathTest, type MathQuestion, type MathTopic, type QuestionPaperLayout } from '../types';
+import { isMcqQuestion, checkIsOptionCorrect, type MathTest, type MathQuestion, type MathTopic, type DifficultyLevel, type QuestionPaperLayout } from '../types';
 import { DEFAULT_TOPICS, getSavedCustomTopics, saveCustomTopic, getAllAvailableTopics } from '../utils/topics';
 import { generateProceduralExamSvg } from '../utils/diagramSynthesizer';
 import type { User } from 'firebase/auth';
@@ -2352,7 +2352,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
         importedQuestions = parsed;
       } else if (parsed && typeof parsed === 'object') {
         importedTitle = parsed.title || importedTitle;
-        importedTopic = parsed.topic || importedTopic;
+        importedTopic = (parsed.topic as MathTopic) || importedTopic;
         importedDesc = parsed.description || importedDesc;
         importedTime = parsed.timeLimitMinutes ?? parsed.time ?? importedTime;
         importedPassing = parsed.passingScorePercentage ?? importedPassing;
@@ -2422,7 +2422,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
         title: importedTitle.trim(),
         description: importedDesc.trim(),
         topic: importedTopicFinal,
-        difficulty: parsed.difficulty || 'Medium',
+        difficulty: (parsed.difficulty as DifficultyLevel) || 'Medium',
         timeLimitMinutes: importedTime,
         passingScorePercentage: importedPassing,
         questions: normalizedImportedQs,
@@ -2569,7 +2569,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
         title: (parsed.title || title || 'New Mathematics Assessment').trim(),
         description: parsed.description?.trim() || 'Curated mock assessment with derivations.',
         topic: finalTopic,
-        difficulty: parsed.difficulty || 'Medium',
+        difficulty: (parsed.difficulty as DifficultyLevel) || 'Medium',
         time: mins,
         timeLimitMinutes: mins,
         passingScorePercentage: typeof parsed.passingScorePercentage === 'number' ? parsed.passingScorePercentage : 60,
@@ -3620,7 +3620,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                           <span className="w-5.5 h-5.5 rounded-full bg-[#0b57d0] text-white flex items-center justify-center font-bold text-xs">✓</span>
                         </div>
                         <div className="text-[18px] sm:text-[19px] font-medium text-slate-900 dark:text-zinc-100">
-                          <MathRenderer content={currentQuestion.correctAnswer} />
+                          <MathRenderer content={String(currentQuestion.correctAnswer ?? '')} />
                         </div>
                       </div>
                     )}

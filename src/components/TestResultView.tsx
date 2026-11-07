@@ -1383,7 +1383,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                           <span className="w-5 h-5 rounded-full bg-[#0b57d0] text-white flex items-center justify-center font-bold text-[10px]">✓</span>
                         </div>
                         <div className="text-[18px] sm:text-[19px] font-medium text-[#041e49] dark:text-[#c2e7ff]">
-                          <MathRenderer content={currentQ.correctAnswer} />
+                          <MathRenderer content={String(currentQ.correctAnswer ?? '')} />
                         </div>
                       </div>
                       <div className={`p-4 rounded-[28px] border-0 space-y-1 shadow-none ${isCurrentCorrect ? 'bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 text-[#041e49] dark:text-[#c2e7ff]' : 'bg-rose-100/80 dark:bg-rose-950/60 text-rose-900 dark:text-rose-200'}`}>
@@ -1570,7 +1570,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                           <span className="w-6 h-6 rounded-full bg-[#0b57d0] text-white flex items-center justify-center font-bold text-xs">✓</span>
                         </div>
                         <div className="text-[18px] sm:text-[19px] font-medium text-[#041e49] dark:text-[#c2e7ff]">
-                          <MathRenderer content={currentQ.correctAnswer} />
+                          <MathRenderer content={String(currentQ.correctAnswer ?? '')} />
                         </div>
                       </div>
                       <div className={`p-4 rounded-[28px] border-0 space-y-1.5 shadow-none ${
