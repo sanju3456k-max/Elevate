@@ -62,6 +62,7 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
 }) => {
   const [customTitle, setCustomTitle] = useState('Custom Revision Test');
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<Set<string>>(new Set());
+  const [activeCategoriesByTestId, setActiveCategoriesByTestId] = useState<Map<string, Set<QuestionCategory>>>(() => new Map());
   const [expandedTestIds, setExpandedTestIds] = useState<Set<string>>(() => new Set());
   const [activeFilterTopic, setActiveFilterTopic] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -247,66 +248,111 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
     });
   };
 
-  // Select or toggle all questions in a specific category for a test without wiping other categories
+  // Select or toggle all questions in a specific category for a test with clean decoupled intent tracking
   const selectCategoryForTest = (test: MathTest, category: QuestionCategory) => {
     const { all, wrong, marked, unattempted } = getCategorizedQuestions(test);
+    const currentActiveCats = new Set(activeCategoriesByTestId.get(test.id) || []);
 
-    setSelectedQuestionIds((prev) => {
-      const next = new Set(prev);
+    if (category === 'all') {
+      const isAllCurrentlySelected = all.length > 0 && all.every((q) => selectedQuestionIds.has(getQuestionKey(test.id, q.id)));
 
-      if (category === 'all') {
-        const isAllSelected = all.length > 0 && all.every((q) => next.has(getQuestionKey(test.id, q.id)));
-        if (isAllSelected) {
-          // Deselect all questions for this test
+      if (isAllCurrentlySelected) {
+        // Toggle OFF All: Deselect all questions for this test and clear category intent
+        setSelectedQuestionIds((prev) => {
+          const next = new Set(prev);
           all.forEach((q) => next.delete(getQuestionKey(test.id, q.id)));
-        } else {
-          // Select all questions for this test (merges with any already selected)
+          return next;
+        });
+        setActiveCategoriesByTestId((prev) => {
+          const next = new Map(prev);
+          next.delete(test.id);
+          return next;
+        });
+      } else {
+        // Toggle ON All: Select all questions for this test and register 'all' intent
+        setSelectedQuestionIds((prev) => {
+          const next = new Set(prev);
           all.forEach((q) => next.add(getQuestionKey(test.id, q.id)));
-        }
-        return next;
+          return next;
+        });
+        setActiveCategoriesByTestId((prev) => {
+          const next = new Map(prev);
+          const cats = new Set(next.get(test.id) || []);
+          cats.add('all');
+          next.set(test.id, cats);
+          return next;
+        });
+      }
+      return;
+    }
+
+    let targetQs: MathQuestion[] = [];
+    if (category === 'wrong') targetQs = wrong;
+    else if (category === 'marked') targetQs = marked;
+    else if (category === 'unattempted') targetQs = unattempted;
+
+    if (targetQs.length === 0) return;
+
+    // Check if this category is currently active for this test
+    const isTargetFullySelected = targetQs.every((q) => selectedQuestionIds.has(getQuestionKey(test.id, q.id)));
+    const isCategoryCurrentlyActive = currentActiveCats.has(category) && isTargetFullySelected;
+
+    if (isCategoryCurrentlyActive) {
+      // Toggle OFF: user explicitly toggles OFF this category
+      const nextActiveCats = new Set(currentActiveCats);
+      nextActiveCats.delete(category);
+      nextActiveCats.delete('all'); // No longer all questions if a subset is removed
+
+      // Only preserve questions that belong to other STILL-ACTIVE categories
+      const keepQuestionIds = new Set<string>();
+      if (nextActiveCats.has('wrong')) {
+        wrong.forEach((q) => keepQuestionIds.add(q.id));
+      }
+      if (nextActiveCats.has('marked')) {
+        marked.forEach((q) => keepQuestionIds.add(q.id));
+      }
+      if (nextActiveCats.has('unattempted')) {
+        unattempted.forEach((q) => keepQuestionIds.add(q.id));
       }
 
-      let targetQs: MathQuestion[] = [];
-      if (category === 'wrong') targetQs = wrong;
-      else if (category === 'marked') targetQs = marked;
-      else if (category === 'unattempted') targetQs = unattempted;
-
-      if (targetQs.length === 0) return next;
-
-      const isTargetFullySelected = targetQs.every((q) => next.has(getQuestionKey(test.id, q.id)));
-
-      if (isTargetFullySelected) {
-        // Toggle OFF: Remove questions in targetQs UNLESS they belong to another still-active category
-        const keepQuestionIds = new Set<string>();
-
-        const isWrongActive = wrong.length > 0 && wrong.every((q) => next.has(getQuestionKey(test.id, q.id)));
-        const isMarkedActive = marked.length > 0 && marked.every((q) => next.has(getQuestionKey(test.id, q.id)));
-        const isUnattemptedActive = unattempted.length > 0 && unattempted.every((q) => next.has(getQuestionKey(test.id, q.id)));
-
-        if (category !== 'wrong' && isWrongActive) {
-          wrong.forEach((q) => keepQuestionIds.add(q.id));
-        }
-        if (category !== 'marked' && isMarkedActive) {
-          marked.forEach((q) => keepQuestionIds.add(q.id));
-        }
-        if (category !== 'unattempted' && isUnattemptedActive) {
-          unattempted.forEach((q) => keepQuestionIds.add(q.id));
-        }
-
+      setSelectedQuestionIds((prev) => {
+        const next = new Set(prev);
         targetQs.forEach((q) => {
           if (!keepQuestionIds.has(q.id)) {
             next.delete(getQuestionKey(test.id, q.id));
           }
         });
-      } else {
-        // Toggle ON: Add all target questions to existing selections (merges seamlessly without conflict/duplicate)
+        return next;
+      });
+
+      setActiveCategoriesByTestId((prev) => {
+        const next = new Map(prev);
+        if (nextActiveCats.size === 0) {
+          next.delete(test.id);
+        } else {
+          next.set(test.id, nextActiveCats);
+        }
+        return next;
+      });
+    } else {
+      // Toggle ON: user explicitly activates this category
+      const nextActiveCats = new Set(currentActiveCats);
+      nextActiveCats.add(category);
+
+      setSelectedQuestionIds((prev) => {
+        const next = new Set(prev);
         targetQs.forEach((q) => {
           next.add(getQuestionKey(test.id, q.id));
         });
-      }
+        return next;
+      });
 
-      return next;
-    });
+      setActiveCategoriesByTestId((prev) => {
+        const next = new Map(prev);
+        next.set(test.id, nextActiveCats);
+        return next;
+      });
+    }
   };
 
   // Global counts for wrong, marked, unattempted, and all questions across tests
@@ -337,6 +383,18 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
       });
       return next;
     });
+    setActiveCategoriesByTestId((prev) => {
+      const next = new Map(prev);
+      tests.forEach((t) => {
+        const { wrong } = getCategorizedQuestions(t);
+        if (wrong.length > 0) {
+          const cats = new Set(next.get(t.id) || []);
+          cats.add('wrong');
+          next.set(t.id, cats);
+        }
+      });
+      return next;
+    });
     setIsFilterDropdownOpen(false);
   };
 
@@ -347,6 +405,18 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
       tests.forEach((t) => {
         const { marked } = getCategorizedQuestions(t);
         marked.forEach((q) => next.add(getQuestionKey(t.id, q.id)));
+      });
+      return next;
+    });
+    setActiveCategoriesByTestId((prev) => {
+      const next = new Map(prev);
+      tests.forEach((t) => {
+        const { marked } = getCategorizedQuestions(t);
+        if (marked.length > 0) {
+          const cats = new Set(next.get(t.id) || []);
+          cats.add('marked');
+          next.set(t.id, cats);
+        }
       });
       return next;
     });
@@ -363,6 +433,18 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
       });
       return next;
     });
+    setActiveCategoriesByTestId((prev) => {
+      const next = new Map(prev);
+      tests.forEach((t) => {
+        const { unattempted } = getCategorizedQuestions(t);
+        if (unattempted.length > 0) {
+          const cats = new Set(next.get(t.id) || []);
+          cats.add('unattempted');
+          next.set(t.id, cats);
+        }
+      });
+      return next;
+    });
     setIsFilterDropdownOpen(false);
   };
 
@@ -375,12 +457,22 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
       });
       return next;
     });
+    setActiveCategoriesByTestId((prev) => {
+      const next = new Map(prev);
+      tests.forEach((t) => {
+        const cats = new Set(next.get(t.id) || []);
+        cats.add('all');
+        next.set(t.id, cats);
+      });
+      return next;
+    });
     setIsFilterDropdownOpen(false);
   };
 
   // Clear all selections
   const clearSelections = () => {
     setSelectedQuestionIds(new Set());
+    setActiveCategoriesByTestId(new Map());
   };
 
   // Toggle card expansion
@@ -536,20 +628,20 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
                   type="button"
                   id="filter-select-all-marked-btn"
                   onClick={selectAllMarkedAcrossAllTests}
-                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-[20px] text-xs font-medium text-left hover:bg-amber-50 dark:hover:bg-amber-950/40 text-[#1f1f1f] dark:text-[#e3e3e3] hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer group border-0 ring-0"
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-[20px] text-xs font-medium text-left hover:bg-orange-50 dark:hover:bg-orange-950/40 text-[#1f1f1f] dark:text-[#e3e3e3] hover:text-orange-600 dark:hover:text-orange-400 transition-colors cursor-pointer group border-0 ring-0"
                 >
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                      <Bookmark className="w-3.5 h-3.5" />
+                    <div className="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0">
+                      <Bookmark className="w-3.5 h-3.5 fill-current" />
                     </div>
                     <div>
-                      <div className="font-bold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-amber-600 dark:group-hover:text-amber-400">
+                      <div className="font-bold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-orange-600 dark:group-hover:text-orange-400">
                         All Marked Questions
                       </div>
                       <div className="text-[10px] text-[#5e5e5e] dark:text-[#9aa0a6]">Flagged for review</div>
                     </div>
                   </div>
-                  <span className="text-[11px] px-2.5 py-0.5 rounded-[28px] font-mono font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400">
+                  <span className="text-[11px] px-2.5 py-0.5 rounded-[28px] font-mono font-bold bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400">
                     {globalQuestionStats.totalMarked}
                   </span>
                 </button>
@@ -747,17 +839,19 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
             const markedSelectedCount = marked.filter((q) => selectedQuestionIds.has(getQuestionKey(test.id, q.id))).length;
             const unattemptedSelectedCount = unattempted.filter((q) => selectedQuestionIds.has(getQuestionKey(test.id, q.id))).length;
 
+            const activeCats = activeCategoriesByTestId.get(test.id) || new Set<QuestionCategory>();
+
             const isAllSelected = all.length > 0 && selectedInThisTest === all.length;
             const isAllPartial = selectedInThisTest > 0 && !isAllSelected;
 
-            const isWrongActive = wrong.length > 0 && wrongSelectedCount === wrong.length;
-            const isWrongPartial = wrongSelectedCount > 0 && !isWrongActive;
+            const isWrongActive = activeCats.has('wrong') && wrong.length > 0 && wrongSelectedCount === wrong.length;
+            const isWrongPartial = activeCats.has('wrong') && wrongSelectedCount > 0 && !isWrongActive;
 
-            const isMarkedActive = marked.length > 0 && markedSelectedCount === marked.length;
-            const isMarkedPartial = markedSelectedCount > 0 && !isMarkedActive;
+            const isMarkedActive = activeCats.has('marked') && marked.length > 0 && markedSelectedCount === marked.length;
+            const isMarkedPartial = activeCats.has('marked') && markedSelectedCount > 0 && !isMarkedActive;
 
-            const isUnattemptedActive = unattempted.length > 0 && unattemptedSelectedCount === unattempted.length;
-            const isUnattemptedPartial = unattemptedSelectedCount > 0 && !isUnattemptedActive;
+            const isUnattemptedActive = activeCats.has('unattempted') && unattempted.length > 0 && unattemptedSelectedCount === unattempted.length;
+            const isUnattemptedPartial = activeCats.has('unattempted') && unattemptedSelectedCount > 0 && !isUnattemptedActive;
 
             return (
               <motion.div
@@ -842,13 +936,13 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
                         title={isMarkedActive ? "Deselect marked questions" : "Select marked questions"}
                         className={`px-3.5 py-1.5 text-xs font-bold rounded-[28px] transition-all flex items-center gap-1 cursor-pointer border-0 ring-0 outline-none ${
                           isMarkedActive
-                            ? 'bg-amber-600 text-white shadow-xs'
+                            ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-xs'
                             : isMarkedPartial
-                            ? 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/80 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-800 font-bold'
-                            : 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                            ? 'bg-orange-100 hover:bg-orange-200 dark:bg-orange-950/80 text-orange-800 dark:text-orange-200 border border-orange-300 dark:border-orange-800 font-bold'
+                            : 'bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300'
                         }`}
                       >
-                        <Bookmark className="w-3.5 h-3.5" />
+                        <Bookmark className={`w-3.5 h-3.5 ${isMarkedActive ? 'fill-white text-white' : 'text-orange-600 dark:text-orange-400'}`} />
                         <span>Marked ({marked.length})</span>
                       </button>
                     )}
@@ -921,7 +1015,7 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
                                   </span>
                                 )}
                                 {isMarked && (
-                                  <span className="px-1.5 py-0.2 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 font-bold border-0 ring-0">
+                                  <span className="px-1.5 py-0.2 rounded-full bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400 font-bold border-0 ring-0">
                                     Marked
                                   </span>
                                 )}
