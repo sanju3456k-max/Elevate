@@ -2333,52 +2333,40 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
         >
           {/* Header Bar */}
           <header className="sticky top-0 z-30 bg-white/95 dark:bg-[#181a20]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-zinc-800/80 shrink-0">
-            <div className="max-w-4xl w-full mx-auto px-3 sm:px-6 py-2.5 sm:py-3.5 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)]">
+            <div className="max-w-5xl w-full mx-auto px-3 sm:px-6 py-2.5 sm:py-3.5 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)]">
               <div className="flex items-center justify-between gap-3 px-0.5 py-1">
-                {/* Back button & Subtopic Title */}
-                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedSubtopicQuestionsModal(null)}
-                    className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200/90 dark:bg-[#252830] dark:hover:bg-[#34374a] text-slate-700 dark:text-zinc-200 border border-slate-200/80 dark:border-zinc-700/80 flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 outline-none shadow-xs"
-                    title="Back (Device Gesture / Esc)"
-                    aria-label="Back"
-                  >
-                    <ArrowLeft className="w-4 h-4 text-slate-700 dark:text-zinc-200 stroke-[2.2]" />
-                  </button>
-
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h2 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white truncate tracking-tight">
-                        {selectedSubtopicQuestionsModal.subtopic}
-                      </h2>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold bg-[#0b57d0]/10 text-[#0b57d0] dark:text-[#a8c7fa]">
-                        {selectedSubtopicQuestionsModal.chapter}
-                      </span>
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold border-0 ring-0 ${
-                          selectedSubtopicQuestionsModal.subtopicItem.category === 'strong'
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                            : selectedSubtopicQuestionsModal.subtopicItem.category === 'moderate'
-                            ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                            : selectedSubtopicQuestionsModal.subtopicItem.category === 'unattempted'
-                            ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
-                            : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                        }`}
-                      >
-                        {selectedSubtopicQuestionsModal.subtopicItem.statusBadge}
-                      </span>
-                    </div>
-                    <p className="text-[11px] sm:text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5 mt-0.5">
-                      <span>
-                        {selectedSubtopicQuestionsModal.subtopicItem.correctCount}/{selectedSubtopicQuestionsModal.subtopicItem.totalQuestions} Correct
-                      </span>
-                      <span>•</span>
-                      <span>{selectedSubtopicQuestionsModal.subtopicItem.wrongCount} Wrong</span>
-                      <span>•</span>
-                      <span>{selectedSubtopicQuestionsModal.subtopicItem.skippedCount} Skipped</span>
-                    </p>
+                {/* Subtopic Title & Badges */}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white truncate tracking-tight">
+                      {selectedSubtopicQuestionsModal.subtopic}
+                    </h2>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold bg-[#0b57d0]/10 text-[#0b57d0] dark:text-[#a8c7fa]">
+                      {selectedSubtopicQuestionsModal.chapter}
+                    </span>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold border-0 ring-0 ${
+                        selectedSubtopicQuestionsModal.subtopicItem.category === 'strong'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                          : selectedSubtopicQuestionsModal.subtopicItem.category === 'moderate'
+                          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                          : selectedSubtopicQuestionsModal.subtopicItem.category === 'unattempted'
+                          ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
+                          : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                      }`}
+                    >
+                      {selectedSubtopicQuestionsModal.subtopicItem.statusBadge}
+                    </span>
                   </div>
+                  <p className="text-[11px] sm:text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5 mt-0.5">
+                    <span>
+                      {selectedSubtopicQuestionsModal.subtopicItem.correctCount}/{selectedSubtopicQuestionsModal.subtopicItem.totalQuestions} Correct
+                    </span>
+                    <span>•</span>
+                    <span>{selectedSubtopicQuestionsModal.subtopicItem.wrongCount} Wrong</span>
+                    <span>•</span>
+                    <span>{selectedSubtopicQuestionsModal.subtopicItem.skippedCount} Skipped</span>
+                  </p>
                 </div>
 
                 {/* Close button */}
@@ -2386,7 +2374,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                   type="button"
                   onClick={() => setSelectedSubtopicQuestionsModal(null)}
                   className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200/90 dark:bg-[#252830] dark:hover:bg-[#34374a] text-slate-700 dark:text-zinc-200 border border-slate-200/80 dark:border-zinc-700/80 flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 outline-none shadow-xs"
-                  title="Close"
+                  title="Close (Device Gesture / Esc)"
                   aria-label="Close"
                 >
                   <X className="w-4 h-4 text-slate-700 dark:text-zinc-200 stroke-[2.2]" />
@@ -2396,10 +2384,10 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
           </header>
 
           {/* Main Content Area */}
-          <main className="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-6 py-4 pb-16 space-y-4">
+          <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-6 py-4 pb-16 space-y-4">
             {/* Quick Diagnostic / Recommendation Banner if available */}
             {selectedSubtopicQuestionsModal.subtopicItem.recommendation && (
-              <div className="p-3.5 rounded-[24px] bg-[#d3e3fd]/40 dark:bg-[#004a77]/30 border-0 ring-0 shadow-xs flex items-start gap-2.5 text-xs text-slate-800 dark:text-zinc-200">
+              <div className="p-3.5 rounded-[24px] bg-[#d3e3fd]/40 dark:bg-[#004a77]/30 border-0 ring-0 shadow-xs flex items-start gap-2.5 text-xs sm:text-sm text-slate-800 dark:text-zinc-200">
                 <Sparkles className="w-4 h-4 shrink-0 text-[#0b57d0] dark:text-[#a8c7fa] mt-0.5" />
                 <div>
                   <span className="font-bold">Concept Recommendation: </span>
@@ -2411,7 +2399,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
             {/* Quick Question Jump Pill Bar (if multiple questions in subtopic) */}
             {selectedSubtopicQuestionsModal.subtopicItem.questions.length > 1 && (
               <div className="p-3 rounded-[24px] bg-[#f0f4f9] dark:bg-[#141619] flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 shrink-0 ml-1">
+                <span className="text-xs font-bold text-slate-500 dark:text-zinc-400 shrink-0 ml-1">
                   Questions ({selectedSubtopicQuestionsModal.subtopicItem.questions.length}):
                 </span>
                 {selectedSubtopicQuestionsModal.subtopicItem.questions.map((qMeta) => {
@@ -2458,41 +2446,42 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                   <div
                     key={qNum}
                     id={`subtopic-q-${qNum}`}
-                    className="bg-[#f0f4f9] dark:bg-[#141619] p-4 sm:p-5 space-y-3.5 rounded-[28px] scroll-mt-24 border-0"
+                    className="bg-[#f0f4f9] dark:bg-[#141619] p-4 sm:p-6 space-y-4 rounded-[28px] scroll-mt-24 border border-slate-200/60 dark:border-zinc-800/80 shadow-xs"
                   >
                     {/* Question Statement Header */}
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100">
+                        <div className="flex items-center gap-2 sm:gap-2.5">
+                          <span className="text-sm sm:text-base font-bold text-slate-900 dark:text-zinc-100">
                             Question {qNum}:
                           </span>
                           {qDetail?.isCorrect ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300">
-                              <Check className="w-2.5 h-2.5 stroke-[3]" />
+                            <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300">
+                              <Check className="w-3 h-3 stroke-[3]" />
                               Correct
                             </span>
                           ) : qDetail?.isAttempted ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300">
-                              <X className="w-2.5 h-2.5 stroke-[3]" />
+                            <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-extrabold bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300">
+                              <X className="w-3 h-3 stroke-[3]" />
                               Incorrect
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-200/80 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs font-extrabold bg-slate-200/80 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300">
                               Skipped
                             </span>
                           )}
                         </div>
 
                         {qDetail?.timeSpentSeconds ? (
-                          <span className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
+                          <span className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-zinc-400 flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
                             {qDetail.timeSpentSeconds}s
                           </span>
                         ) : null}
                       </div>
 
-                      <div className="p-4 rounded-[28px] bg-white dark:bg-[#1e2024] shadow-[0_2px_6px_rgba(0,0,0,0.08)] border-0 text-xs sm:text-sm text-slate-900 dark:text-zinc-100 font-medium leading-relaxed overflow-x-auto">
+                      {/* Question Text Box matching Test Result View font size [18px] sm:[19px] */}
+                      <div className="p-4 sm:p-5 rounded-[28px] bg-white dark:bg-[#1e2024] shadow-[0_2px_6px_rgba(0,0,0,0.08)] border-0 text-[18px] sm:text-[19px] text-[#1f1f1f] dark:text-[#e3e3e3] font-medium leading-relaxed overflow-x-auto">
                         {q ? (
                           <MathRenderer text={q.text || (q as any).question || ''} />
                         ) : (
@@ -2511,10 +2500,10 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                       )}
                     </div>
 
-                    {/* Options List with Answer Highlights (2-column grid matching OMR evaluation table) */}
+                    {/* Options List matching Test Result View font size [17px] sm:[18px] */}
                     {q?.options && q.options.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="space-y-2 pt-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           {q.options.map((optText, optIdx) => {
                             const letter = String.fromCharCode(65 + optIdx);
                             const isActualCorrect = letter === correctOpt;
@@ -2523,16 +2512,16 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                             return (
                               <div
                                 key={optIdx}
-                                className={`p-3 rounded-[28px] text-xs flex items-start gap-2.5 transition-all text-left border-0 ${
+                                className={`p-3 sm:p-3.5 rounded-[28px] flex items-start gap-3 transition-all text-left border-0 ${
                                   isActualCorrect
                                     ? 'bg-blue-100/90 dark:bg-blue-950/80 text-slate-900 dark:text-blue-100 font-bold shadow-xs'
                                     : isUserMarked && !isActualCorrect
                                     ? 'bg-rose-100/90 dark:bg-rose-950/60 text-rose-950 dark:text-rose-100 font-semibold shadow-xs'
-                                    : 'bg-white dark:bg-[#1e2024] text-slate-700 dark:text-zinc-300 shadow-xs'
+                                    : 'bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] shadow-xs'
                                 }`}
                               >
                                 <div
-                                  className={`w-6 h-6 rounded-full font-mono font-bold flex items-center justify-center shrink-0 text-xs shadow-none border-0 ${
+                                  className={`w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full font-mono font-extrabold flex items-center justify-center shrink-0 text-xs sm:text-xs shadow-none border-0 mt-0.5 ${
                                     isActualCorrect
                                       ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49] font-black'
                                       : isUserMarked && !isActualCorrect
@@ -2543,13 +2532,13 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                                   {letter}
                                 </div>
 
-                                <div className="flex-1 min-w-0 pt-0.5 overflow-x-auto text-[11.5px] sm:text-xs">
+                                <div className="flex-1 min-w-0 pt-0.5 overflow-x-auto text-[17px] sm:text-[18px] font-medium leading-snug">
                                   <MathRenderer text={optText} />
                                 </div>
 
                                 {isUserMarked && (
                                   <span
-                                    className={`text-[9.5px] font-extrabold px-2 py-0.5 rounded-full shrink-0 ${
+                                    className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full shrink-0 mt-0.5 ${
                                       isActualCorrect
                                         ? 'bg-blue-200 text-blue-900 dark:bg-blue-900 dark:text-blue-100'
                                         : 'bg-rose-200 text-rose-900 dark:bg-rose-900 dark:text-rose-100'
@@ -2565,16 +2554,18 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                       </div>
                     )}
 
-                    {/* Step-by-Step Derivation & Explanation (Exact OMR Design) */}
-                    <div className="space-y-2 py-1">
-                      <div className="flex items-center gap-1.5 text-[#0b57d0] dark:text-[#a8c7fa]">
-                        <Lightbulb className="w-3.5 h-3.5" />
-                        <span className="text-xs font-bold uppercase tracking-wider">
+                    {/* Step-by-Step Derivation & Explanation matching Test Result View font size [18px] sm:[19px] */}
+                    <div className="space-y-2 py-1 pt-2">
+                      <div className="flex items-center gap-2 text-[#0b57d0] dark:text-[#a8c7fa]">
+                        <div className="w-6 h-6 rounded-full bg-[#0b57d0]/10 dark:bg-[#004a77]/30 flex items-center justify-center shrink-0">
+                          <Lightbulb className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                        </div>
+                        <span className="text-xs sm:text-sm font-bold uppercase tracking-wider">
                           Step-by-Step Solution Derivation
                         </span>
                       </div>
 
-                      <div className="text-xs leading-relaxed text-slate-800 dark:text-zinc-200 pl-3 border-l-2 border-[#0b57d0]/40 dark:border-[#a8c7fa]/40 overflow-x-auto">
+                      <div className="text-[18px] sm:text-[19px] font-medium leading-relaxed text-[#1f1f1f] dark:text-[#e3e3e3] pl-3.5 border-l-2 border-[#0b57d0]/40 dark:border-[#a8c7fa]/40 overflow-x-auto">
                         {q && getQuestionExplanation(q) ? (
                           <MathRenderer text={getQuestionExplanation(q)} />
                         ) : (
@@ -2585,12 +2576,14 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Question Formula / Hint if available */}
+                    {/* Question Formula / Hint matching eye-friendly font size */}
                     {q?.hint && (
-                      <div className="p-3.5 rounded-[28px] bg-amber-50/80 dark:bg-amber-950/30 shadow-none border-0 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2">
-                        <Sparkles className="w-3.5 h-3.5 shrink-0 text-amber-500 mt-0.5" />
-                        <div className="overflow-x-auto">
-                          <span className="font-bold">Key Formula / Hint: </span>
+                      <div className="p-4 rounded-[28px] bg-amber-50/80 dark:bg-amber-950/30 shadow-none border-0 text-[18px] sm:text-[19px] font-medium text-amber-950 dark:text-amber-200 flex items-start gap-3">
+                        <Sparkles className="w-4.5 h-4.5 shrink-0 text-amber-500 mt-1" />
+                        <div className="overflow-x-auto space-y-0.5">
+                          <span className="font-bold text-xs sm:text-sm block uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                            Key Formula / Hint:
+                          </span>
                           <MathRenderer text={q.hint} />
                         </div>
                       </div>
