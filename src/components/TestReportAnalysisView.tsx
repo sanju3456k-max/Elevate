@@ -1583,7 +1583,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                           handleOpenSubtopicQuestions(sub);
                         }
                       }}
-                      className="p-3 rounded-[20px] bg-white dark:bg-[#1e2024] border border-slate-200/80 dark:border-zinc-800 space-y-2 text-xs shadow-xs text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col justify-between cursor-pointer select-none"
+                      className="p-3 rounded-[20px] bg-white dark:bg-[#1e2024] border border-slate-200/80 dark:border-zinc-800 space-y-2 text-xs shadow-xs hover:shadow-md transition-shadow duration-200 text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col justify-between cursor-pointer select-none"
                       title={`Click to view questions & step-by-step solutions for ${sub.subtopic}`}
                     >
                       <div className="space-y-1.5">
@@ -1864,7 +1864,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                                           handleOpenSubtopicQuestions(sub);
                                         }
                                       }}
-                                      className="p-2.5 rounded-[18px] bg-white dark:bg-[#1e2024] border border-slate-200/60 dark:border-zinc-800/80 space-y-1.5 text-xs shadow-xs text-[#1f1f1f] dark:text-[#e3e3e3] cursor-pointer select-none"
+                                      className="p-2.5 rounded-[18px] bg-white dark:bg-[#1e2024] border border-slate-200/60 dark:border-zinc-800/80 space-y-1.5 text-xs shadow-xs hover:shadow-md transition-shadow duration-200 text-[#1f1f1f] dark:text-[#e3e3e3] cursor-pointer select-none"
                                       title={`Click to view questions & step-by-step solutions for ${sub.subtopic}`}
                                     >
                                       <div className="flex items-center justify-between gap-1">
@@ -2246,7 +2246,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                         handleOpenSubtopicQuestions(sub);
                       }
                     }}
-                    className="bg-white dark:bg-[#1e2024] rounded-[24px] ring-1 ring-slate-300 dark:ring-zinc-700 border-0 p-4 flex flex-col justify-between gap-3 shadow-xs cursor-pointer select-none"
+                    className="bg-white dark:bg-[#1e2024] rounded-[24px] ring-1 ring-slate-300 dark:ring-zinc-700 border-0 p-4 flex flex-col justify-between gap-3 shadow-xs hover:shadow-md transition-shadow duration-200 cursor-pointer select-none"
                     title={`Click to view questions & step-by-step solutions for ${sub.subtopic}`}
                   >
                     <div className="space-y-2">
