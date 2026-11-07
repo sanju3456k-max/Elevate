@@ -107,22 +107,46 @@ export interface OptionDimensionAnalysis {
   hasIntegralOrSum: boolean;
   hasTrigOrLog: boolean;
   hasEqualOrNotEqual: boolean;
+  hasInequality: boolean;
   plainTextLength: number;
 }
 
 /**
- * Detects whether an option contains an equal to (=) or not equal to (≠, \ne, \neq, !=) sign.
- * If any ABCD option element contains an equal or not equal to sign, the options must be rendered
- * as 4 consecutive rows (stacked) rather than in a 4-across or 2x2 grid.
+ * Detects whether an option contains any of the four inequality relation signs:
+ * 1. Less than (<, \lt, \less, &lt;)
+ * 2. Greater than (>, \gt, \greater, &gt;)
+ * 3. Less than or equal to (<=, ≤, \le, \leq, \leqslant, \leqq, &le;)
+ * 4. Greater than or equal to (>=, ≥, \ge, \geq, \geqslant, \geqq, &ge;)
+ * Also covers negated inequalities (\nless, \ngtr, \nleq, \ngeq, ≮, ≯, ≰, ≱).
+ *
+ * If any ABCD option element contains an inequality sign, single row (4_across)
+ * is disallowed. Instead, options automatically layout as a 2x2 grid or four
+ * consecutive rows (stacked) according to their width and length, with full
+ * manual override support via existing editing tools.
+ */
+export function hasInequalitySign(optText: string): boolean {
+  if (!optText) return false;
+  // Strip out HTML tags first so <br>, <span>, etc. don't trigger '<' or '>'
+  const textWithoutHtml = optText.replace(/<\/?[a-zA-Z][^>]*>/g, ' ');
+  return /(?:<=|>=|[<>]|&le;|&ge;|&lt;|&gt;|\u2264|\u2265|\u2266|\u2267|\u226a|\u226b|\u226e|\u226f|\u2270|\u2271|\\(?:le|leq|leqslant|leqq|ge|geq|geqslant|geqq|lt|gt|less|greater|nless|ngtr|nleq|ngeq)(?![a-zA-Z]))/.test(textWithoutHtml);
+}
+
+/**
+ * Detects whether an option contains an equal to (=) or not equal to (≠, \ne, \neq, !=) sign,
+ * specifically excluding inequality operators (<=, >=, etc.).
+ * If any ABCD option element contains an equal or not equal to sign (and no inequality signs),
+ * the options are rendered as 4 consecutive rows (stacked).
  */
 export function hasEqualOrNotEqualSign(optText: string): boolean {
   if (!optText) return false;
+  // Remove inequality patterns so <= and >= are not misidentified as pure equality
+  const textClean = optText.replace(/<=|>=|&le;|&ge;/g, ' ');
   // Matches:
-  // 1. Literal '=' (covers '=', '==', '!=', ':=', '&=', etc.)
+  // 1. Literal '=' (covers '=', '==', ':=', '!=') as long as not preceded by '<' or '>'
   // 2. Unicode NOT EQUAL TO '≠' (\u2260) or IDENTICAL TO '≡' (\u2261)
   // 3. LaTeX '\neq', '\ne', '\nequal', '\equiv' without trailing letters (avoids false matching on \newline, \negative)
   // 4. LaTeX '\not=' or '\not ='
-  return /(?:=|\u2260|\u2261|\\ne(?:q|qual)?(?![a-zA-Z])|\\not\s*=|\\equiv(?![a-zA-Z]))/.test(optText);
+  return /(?:(?<![<>!])=|!=|\u2260|\u2261|\\ne(?:q|qual)?(?![a-zA-Z])|\\not\s*=|\\equiv(?![a-zA-Z]))/.test(textClean);
 }
 
 export function analyzeOptionDimensions(optText: string): OptionDimensionAnalysis {
@@ -138,12 +162,14 @@ export function analyzeOptionDimensions(optText: string): OptionDimensionAnalysi
       hasIntegralOrSum: false,
       hasTrigOrLog: false,
       hasEqualOrNotEqual: false,
+      hasInequality: false,
       plainTextLength: 0,
     };
   }
 
   const isMultiLine = text.includes('\n');
   const hasEqualOrNotEqual = hasEqualOrNotEqualSign(text);
+  const hasInequality = hasInequalitySign(text);
   const hasMatrix = /\\begin\{(?:bmatrix|pmatrix|vmatrix|matrix|cases|aligned)\}/.test(text);
   const hasIntegralOrSum = /\\(?:int|iint|iiint|oint|sum|prod|lim|bigcup|bigcap)\b/.test(text);
   const hasTrigOrLog = /\\(?:sin|cos|tan|cot|sec|csc|log|ln|arcsin|arccos|arctan|sinh|cosh|tanh)\b/.test(text);
@@ -203,7 +229,7 @@ export function analyzeOptionDimensions(optText: string): OptionDimensionAnalysi
   const bigOpMatches = (text.match(/\\(?:sum|prod|lim)\b/g) || []).length;
   const bigOpExtraWidth = bigOpMatches * 36;
 
-  const opMatches = (text.match(/[+\-=]|\\(?:pm|mp|times|cdot|div|neq|leq|geq)\b/g) || []).length;
+  const opMatches = (text.match(/[+\-=<>]|\\(?:pm|mp|times|cdot|div|neq|leq|le|geq|ge|leqslant|geqslant|lt|gt)\b/g) || []).length;
   const opExtraWidth = opMatches * 14;
 
   const cleanText = text
@@ -238,6 +264,7 @@ export function analyzeOptionDimensions(optText: string): OptionDimensionAnalysi
     hasIntegralOrSum,
     hasTrigOrLog,
     hasEqualOrNotEqual,
+    hasInequality,
     plainTextLength,
   };
 }
@@ -246,6 +273,7 @@ export function determineOptionLayout(
   options: OptionData[],
   forcedLayout?: 'auto' | '4_across' | '2x2_grid' | 'stacked'
 ): '4_across' | '2x2_grid' | 'stacked' {
+  // Manual adjustments via existing question paper editing tools take absolute priority
   if (forcedLayout && forcedLayout !== 'auto') {
     return forcedLayout;
   }
@@ -254,10 +282,15 @@ export function determineOptionLayout(
     return 'stacked';
   }
 
-  // If options like ABCD options contain an element containing an equal to or not equal to sign,
-  // then the options are to be made in 4 consecutive rows (stacked), not in grid form.
+  // 1. Detect if options contain any of the four inequality relation signs (<, >, <=, >=, etc.)
+  const hasInequality = options.some((o) => hasInequalitySign(o.text));
+
+  // 2. Detect if options contain equal to or not equal to signs (=, ≠, !=, \neq, \equiv) excluding inequalities
   const hasEqualOrNotEqual = options.some((o) => hasEqualOrNotEqualSign(o.text));
-  if (hasEqualOrNotEqual) {
+
+  // If options contain equal to or not equal to signs AND NO inequality signs,
+  // then those options are rendered as 4 consecutive rows (stacked)
+  if (hasEqualOrNotEqual && !hasInequality) {
     return 'stacked';
   }
 
@@ -280,7 +313,10 @@ export function determineOptionLayout(
   const hasAnyIntegral = analyses.some((a) => a.hasIntegralOrSum);
   const hasComplexFraction = analyses.some((a) => a.hasFractions && a.effectiveWidthPx > 48);
 
+  // Single row (4_across):
+  // Strictly disallowed if any option contains an inequality sign (<, >, <=, >=, etc.)
   if (
+    !hasInequality &&
     !hasAnyMatrix &&
     !hasAnyIntegral &&
     !hasComplexFraction &&
@@ -290,6 +326,8 @@ export function determineOptionLayout(
     return '4_across';
   }
 
+  // 2x2 grid:
+  // Auto-selected if options fit nicely within 2 columns (maxEffectiveWidth <= 135 and plain text length <= 18)
   if (
     maxEffectiveWidth <= 135 &&
     !analyses.some((a) => a.plainTextLength > 18)
@@ -297,6 +335,7 @@ export function determineOptionLayout(
     return '2x2_grid';
   }
 
+  // Otherwise, wider or longer options become 4 consecutive rows (stacked)
   return 'stacked';
 }
 
