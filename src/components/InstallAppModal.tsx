@@ -76,7 +76,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
           <div className="flex items-center gap-3.5">
             <div className="w-13 h-13 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
               <img 
-                src="./assets/preplens-icon.png" 
+                src="./assets/preplens-icon.png?v=13" 
                 alt="Elevate" 
                 className="w-full h-full object-contain"
               />
@@ -93,7 +93,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
           <div className="p-3.5 rounded-[22px] bg-white dark:bg-[#1a1b1f] border border-slate-200/80 dark:border-zinc-800 shadow-xs flex items-center gap-3.5">
             <div className="relative w-14 h-14 rounded-[16px] bg-[#f0f4f8] dark:bg-[#282a30] p-1.5 flex items-center justify-center shrink-0 border border-slate-200/60 dark:border-zinc-700">
               <img 
-                src="./assets/preplens-icon.png?v=12" 
+                src="./assets/preplens-icon.png?v=13" 
                 alt="Elevate Home Screen Icon" 
                 className="w-full h-full object-contain" 
               />
@@ -173,7 +173,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
                     </li>
                     <li className="flex items-center gap-1.5 flex-wrap">
                       <span>Tap <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Add</strong>. Look for the</span>
-                      <img src="./assets/preplens-icon.png" alt="" className="w-4 h-4 object-contain inline-block" />
+                      <img src="./assets/preplens-icon.png?v=13" alt="" className="w-4 h-4 object-contain inline-block" />
                       <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Elevate</strong>
                       <span>icon on your home screen.</span>
                     </li>
@@ -195,7 +195,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
                     </li>
                     <li className="flex items-center gap-1.5 flex-wrap">
                       <span>The</span>
-                      <img src="./assets/preplens-icon.png" alt="" className="w-4 h-4 object-contain inline-block" />
+                      <img src="./assets/preplens-icon.png?v=13" alt="" className="w-4 h-4 object-contain inline-block" />
                       <strong className="text-[#1a1b1f] dark:text-[#e3e2e6]">Elevate</strong>
                       <span>app icon will be added to your home screen.</span>
                     </li>
