@@ -11,8 +11,12 @@ async function generate() {
   }
 
   const iconPngPath = path.join(publicDir, 'assets', 'preplens-icon.png');
+  const maskablePngPath = path.join(publicDir, 'icon-maskable-192.png');
   if (fs.existsSync(iconPngPath)) {
     const pngBase64 = fs.readFileSync(iconPngPath).toString('base64');
+    const maskableBase64 = fs.existsSync(maskablePngPath)
+      ? fs.readFileSync(maskablePngPath).toString('base64')
+      : pngBase64;
     const svgLens = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
   <image href="data:image/png;base64,${pngBase64}" width="192" height="192" />
@@ -20,8 +24,7 @@ async function generate() {
 `;
     const svgMaskable = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
-  <rect width="192" height="192" fill="#c3ddfe" />
-  <image href="data:image/png;base64,${pngBase64}" x="19.2" y="19.2" width="153.6" height="153.6" />
+  <image href="data:image/png;base64,${maskableBase64}" width="192" height="192" />
 </svg>
 `;
     fs.writeFileSync(path.join(publicDir, 'favicon.svg'), svgLens, 'utf-8');

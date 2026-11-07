@@ -48,7 +48,7 @@ export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({
             {/* Authentic Static Aperture Lens Emblem - Pure edge without clipping artifacts */}
             <div className="relative w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center">
               <img
-                src="./assets/preplens-icon.png?v=14"
+                src="./assets/preplens-icon.png?v=15"
                 alt="Elevate"
                 className="w-full h-full object-contain"
               />
