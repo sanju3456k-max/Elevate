@@ -1054,7 +1054,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                   <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa] inline-block" /> Correct</span>
                   <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#f05252] inline-block" /> Incorrect</span>
                   <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400 dark:bg-zinc-500 inline-block" /> Skipped</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> Marked</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500 inline-block" /> Marked</span>
                 </div>
               </div>
 
@@ -1087,7 +1087,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                       } else if (isAttempted && !isCorrect) {
                         circleColor = 'bg-[#f05252] text-white';
                       } else if (isMarked) {
-                        circleColor = 'bg-amber-500 text-white';
+                        circleColor = 'bg-orange-500 text-white';
                       }
 
                       return (
@@ -1652,11 +1652,11 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
               aria-label={isCurrentMarked ? "Marked for Review" : "Mark for Review"}
               className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-150 cursor-pointer select-none border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] active:scale-92 ${
                 isCurrentMarked
-                  ? 'bg-[#ffe088] text-[#241a00] dark:bg-[#5b4300] dark:text-[#ffe088]'
+                  ? 'bg-orange-500 hover:bg-orange-600 dark:bg-orange-500 dark:hover:bg-orange-600 text-white shadow-[0_2px_8px_rgba(249,115,22,0.35)]'
                   : 'bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30]'
               }`}
             >
-              <Bookmark className={`w-4 h-4 shrink-0 ${isCurrentMarked ? 'fill-current stroke-[2.2]' : 'stroke-[2.2]'}`} />
+              <Bookmark className={`w-4 h-4 shrink-0 ${isCurrentMarked ? 'fill-white text-white stroke-[2.2]' : 'stroke-[2.2]'}`} />
             </button>
 
             {/* Center-Right: Retake Test Button */}

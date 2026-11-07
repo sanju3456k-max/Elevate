@@ -1188,7 +1188,7 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
             aria-label={answers[currentQuestion?.id]?.flagged ? "Marked for Review" : "Mark for Review"}
             className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-150 cursor-pointer select-none border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] ${
               answers[currentQuestion?.id]?.flagged
-                ? 'bg-[#ffe088] text-[#241a00] dark:bg-[#5b4300] dark:text-[#ffe088]'
+                ? 'bg-orange-500 hover:bg-orange-600 dark:bg-orange-500 dark:hover:bg-orange-600 text-white shadow-[0_2px_8px_rgba(249,115,22,0.35)]'
                 : 'bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30]'
             }`}
           >
@@ -1197,9 +1197,9 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
               initial={{ scale: 0.85 }}
               animate={{ scale: 1 }}
               transition={{ duration: 0.15 }}
-              className="flex items-center justify-center"
+              className="flex items-center justify-center text-current"
             >
-              <Bookmark className={`w-4 h-4 shrink-0 ${answers[currentQuestion?.id]?.flagged ? 'fill-current stroke-[2.2]' : 'stroke-[2.2]'}`} />
+              <Bookmark className={`w-4 h-4 shrink-0 ${answers[currentQuestion?.id]?.flagged ? 'fill-white text-white stroke-[2.2]' : 'stroke-[2.2]'}`} />
             </motion.div>
           </motion.button>
 
@@ -1376,7 +1376,7 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
                       <>
                         <span className="text-[#5e5e5e] opacity-40">•</span>
                         <span className="flex items-center gap-1 font-semibold text-amber-600 dark:text-amber-400">
-                          <span className="w-2 h-2 rounded-full bg-amber-600 dark:bg-amber-400" /> {markedCount} Marked
+                          <span className="w-2 h-2 rounded-full bg-orange-500 dark:bg-orange-400" /> {markedCount} Marked
                         </span>
                       </>
                     )}
@@ -1460,7 +1460,7 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
                       } else if (isAttempted) {
                         circleColor = 'bg-[#0b57d0] text-white';
                       } else if (isMarked) {
-                        circleColor = 'bg-amber-500 text-white';
+                        circleColor = 'bg-orange-500 text-white';
                       }
 
                       return (
