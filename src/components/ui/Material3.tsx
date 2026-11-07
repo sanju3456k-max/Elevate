@@ -246,33 +246,48 @@ export const M3Switch: React.FC<M3SwitchProps> = ({
   id,
   icons = true,
 }) => {
-  const switchRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const el = switchRef.current;
-    if (!el) return;
-    const handleChange = (e: Event) => {
-      const target = e.target as any;
-      if (target && typeof target.checked !== 'undefined') {
-        onChange(target.checked);
-      } else if (target && typeof target.selected !== 'undefined') {
-        onChange(target.selected);
-      }
-    };
-    el.addEventListener('change', handleChange);
-    return () => el.removeEventListener('change', handleChange);
-  }, [onChange]);
-
   return (
-    <md-switch
-      ref={switchRef}
-      id={id}
-      selected={checked}
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
       disabled={disabled}
-      icons={icons}
-      class={className}
-      onClick={() => onChange(!checked)}
-    />
+      id={id}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (!disabled) {
+          onChange(!checked);
+        }
+      }}
+      className={`relative inline-flex h-8 w-13 shrink-0 cursor-pointer items-center rounded-full p-1 transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0b57d0] dark:focus-visible:ring-[#a8c7fa] select-none ${
+        disabled ? 'opacity-40 cursor-not-allowed' : ''
+      } ${
+        checked
+          ? 'bg-[#0b57d0] dark:bg-[#a8c7fa]'
+          : 'bg-[#e1e3e1] dark:bg-[#36383e] border-2 border-[#74777f] dark:border-[#8e9199]'
+      } ${className}`}
+    >
+      <span
+        className={`pointer-events-none inline-flex h-6 w-6 transform items-center justify-center rounded-full shadow-xs transition duration-200 ease-in-out ${
+          checked
+            ? 'translate-x-5 bg-white dark:bg-[#062e6f] text-[#0b57d0] dark:text-[#a8c7fa]'
+            : 'translate-x-0 bg-[#74777f] dark:bg-[#938f99] text-white'
+        }`}
+      >
+        {icons && (
+          checked ? (
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          )
+        )}
+      </span>
+    </button>
   );
 };
 

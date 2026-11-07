@@ -375,10 +375,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
             <div className="space-y-2 pt-1">
               {/* Dark Theme Toggle with M3Switch */}
-              <div className={`flex items-center justify-between p-3.5 sm:p-4 rounded-[20px] ${APP_STYLES.subcard.base}`}>
+              <div 
+                className={`flex items-center justify-between p-3.5 sm:p-4 rounded-[20px] cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors select-none ${APP_STYLES.subcard.base}`}
+                onClick={() => onToggleTheme && onToggleTheme()}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onToggleTheme && onToggleTheme();
+                  }
+                }}
+              >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-full bg-[#ece6f0] dark:bg-[#2a2b30] text-[#1a1b1f] dark:text-[#e3e2e6] flex items-center justify-center shrink-0">
-                    {isDarkMode ? <Moon className="w-5 h-5 text-[#a8c7fa]" /> : <Sun className="w-5 h-5 text-amber-500" />}
+                    {isDarkMode ? <Moon className="w-5 h-5 text-[#a8c7fa] fill-[#a8c7fa]/20" /> : <Sun className="w-5 h-5 text-amber-500 fill-amber-500/20" />}
                   </div>
                   <div className="min-w-0">
                     <div className="text-xs sm:text-sm font-bold text-[#1a1b1f] dark:text-[#e3e2e6]">Dark Theme</div>
@@ -389,11 +400,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {onToggleTheme && (
-                  <M3Switch
-                    checked={!!isDarkMode}
-                    onChange={() => onToggleTheme()}
-                    id="m3-settings-dark-mode-toggle"
-                  />
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleTheme();
+                    }}
+                    className="shrink-0"
+                  >
+                    <M3Switch
+                      checked={!!isDarkMode}
+                      onChange={() => onToggleTheme()}
+                      id="m3-settings-dark-mode-toggle"
+                    />
+                  </div>
                 )}
               </div>
 
@@ -402,7 +421,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className={`flex items-center justify-between p-3.5 sm:p-4 rounded-[20px] flex-wrap sm:flex-nowrap gap-3 ${APP_STYLES.subcard.base}`}>
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 rounded-full bg-[#ece6f0] dark:bg-[#2a2b30] text-[#1a1b1f] dark:text-[#e3e2e6] flex items-center justify-center shrink-0">
-                      <Monitor className="w-5 h-5" />
+                      <Monitor className="w-5 h-5 text-[#0b57d0] dark:text-[#a8c7fa]" />
                     </div>
                     <div className="min-w-0">
                       <div className="text-xs sm:text-sm font-bold text-[#1a1b1f] dark:text-[#e3e2e6]">Interface Density</div>
@@ -413,17 +432,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1.5 bg-[#ece6f0] dark:bg-[#2a2b30] p-1 rounded-full shrink-0">
-                    {['compact', 'standard', 'comfortable'].map((scaleOption) => {
-                      const isSelected = uiScale === scaleOption || (!uiScale && scaleOption === 'standard');
+                    {(['compact', 'standard', 'comfortable'] as const).map((scaleOption) => {
+                      const isSelected = (uiScale || 'standard') === scaleOption;
                       return (
                         <button
                           key={scaleOption}
                           type="button"
                           onClick={() => onScaleChange(scaleOption)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-semibold capitalize transition-all cursor-pointer border-0 outline-none select-none ${
+                          aria-pressed={isSelected}
+                          className={`px-3.5 py-1.5 rounded-full text-xs font-bold capitalize transition-all cursor-pointer border-0 outline-none select-none ${
                             isSelected
                               ? 'bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#062e6f] shadow-xs'
-                              : 'bg-transparent text-[#44474f] dark:text-[#c4c6d0] hover:text-[#1a1b1f] dark:hover:text-white'
+                              : 'bg-transparent text-[#44474f] dark:text-[#c4c6d0] hover:text-[#1a1b1f] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
                           }`}
                         >
                           {scaleOption}
