@@ -132,6 +132,7 @@ export const UnifiedFileViewerModal: React.FC<UnifiedFileViewerModalProps> = ({ 
   const [isEditingNote, setIsEditingNote] = useState<boolean>(false);
   const [isOptionsMenuOpen, setIsOptionsMenuOpen] = useState<boolean>(false);
   const optionsMenuRef = useRef<HTMLDivElement>(null);
+  const printHandlerRef = useRef<(() => void) | null>(null);
 
   // Close options menu when clicking outside
   useEffect(() => {
@@ -521,10 +522,26 @@ export const UnifiedFileViewerModal: React.FC<UnifiedFileViewerModalProps> = ({ 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [file, resolvedType, viewMode, onClose]);
 
-  // Print Document Page
-  const handlePrint = () => {
-    window.print();
-  };
+  // Print Document Page (Delegates to multi-page isolated print engine)
+  const handlePrint = useCallback(() => {
+    if (resolvedType === 'file' && printHandlerRef.current) {
+      printHandlerRef.current();
+    } else {
+      window.print();
+    }
+  }, [resolvedType]);
+
+  // Keyboard Shortcut: Ctrl+P / Cmd+P triggers clean multi-page print
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        handlePrint();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handlePrint]);
 
   // Download Note or Media
   const handleDownload = () => {
@@ -597,6 +614,7 @@ export const UnifiedFileViewerModal: React.FC<UnifiedFileViewerModalProps> = ({ 
   return (
     <AnimatePresence>
       <motion.div
+        data-unified-viewer="true"
         variants={studioFadeVariants}
         initial="initial"
         animate="animate"
@@ -973,6 +991,9 @@ export const UnifiedFileViewerModal: React.FC<UnifiedFileViewerModalProps> = ({ 
               onZoomChange={setDocZoom}
               isEditing={isEditingNote}
               onIsEditingChange={setIsEditingNote}
+              onRegisterPrintHandler={(handler) => {
+                printHandlerRef.current = handler;
+              }}
               onSaveNote={(updated) => {
                 setTextContent(updated.content);
               }}

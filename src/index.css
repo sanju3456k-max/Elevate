@@ -1051,6 +1051,124 @@
   }
 }
 
+/* ==========================================================================
+   Notes Repository & GoogleDocsNoteViewer Full Multi-Page Print Styles
+   ========================================================================== */
+@media print {
+  body:has([data-unified-viewer="true"]),
+  body:has([data-google-docs-viewer="true"]) {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  [data-unified-viewer="true"] {
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    display: block !important;
+    box-shadow: none !important;
+  }
+
+  [data-unified-viewer="true"] header,
+  [data-unified-viewer="true"] .no-print,
+  [data-unified-viewer="true"] button,
+  [data-unified-viewer="true"] [role="button"] {
+    display: none !important;
+  }
+
+  [data-unified-viewer="true"] main {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  [data-google-docs-viewer="true"] {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  [data-google-docs-viewer="true"] header,
+  [data-google-docs-viewer="true"] .no-print,
+  [data-google-docs-viewer="true"] button {
+    display: none !important;
+  }
+
+  [data-note-workspace="true"] {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+  }
+
+  [data-note-scalable-container="true"] {
+    transform: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  [data-note-printable-content="true"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  [data-note-printable-content="true"] img {
+    max-width: 100% !important;
+    height: auto !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  [data-note-printable-content="true"] table {
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+    width: 100% !important;
+  }
+
+  [data-note-printable-content="true"] tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  [data-note-printable-content="true"] .katex-display {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}
+
 /* High-Definition Sharp Cards & Buttons for App UI */
 .sharp-card-grid {
   display: grid;

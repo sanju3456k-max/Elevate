@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   FileText,
   ExternalLink,
@@ -22,6 +22,7 @@ import { getCachedGoogleAccessToken, signInWithGoogle } from '../lib/firebase';
 import { exportNoteToVisibleGoogleDrive, saveNoteToGoogleDrive } from '../lib/googleWorkspace';
 import { copyFormattedTextToClipboard } from '../lib/tableClipboard';
 import { saveSingleNoteToIDB } from '../lib/idbNotes';
+import { printNoteDocument } from '../lib/notePrintUtility';
 import { APP_STYLES } from './ui/AppStyles';
 
 export interface GoogleDocsNoteViewerProps {
@@ -48,6 +49,7 @@ export interface GoogleDocsNoteViewerProps {
   onZoomChange?: (newZoom: number) => void;
   isEditing?: boolean;
   onIsEditingChange?: (isEditing: boolean) => void;
+  onRegisterPrintHandler?: (handler: () => void) => void;
   onSaveNote?: (updated: {
     noteId?: string;
     title: string;
@@ -82,8 +84,10 @@ export const GoogleDocsNoteViewer: React.FC<GoogleDocsNoteViewerProps> = ({
   onZoomChange,
   isEditing: controlledIsEditing,
   onIsEditingChange,
+  onRegisterPrintHandler,
   onSaveNote,
 }) => {
+  const printableRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState<boolean>(false);
   const [internalDocZoom, setInternalDocZoom] = useState<number>(1.0);
   const [internalPaperTheme, setInternalPaperTheme] = useState<'classic-light' | 'dark-canvas'>(() => {
@@ -440,10 +444,38 @@ export const GoogleDocsNoteViewer: React.FC<GoogleDocsNoteViewerProps> = ({
     }
   };
 
-  // Print Document Page
-  const handlePrint = () => {
-    window.print();
-  };
+  // Print Document Page (Full Multi-Page Isolated Print Engine)
+  const handlePrint = useCallback(() => {
+    if (printableRef.current) {
+      printNoteDocument({
+        title: cleanTitle,
+        element: printableRef.current,
+        createdAt: formattedDate,
+        tag: currentTag,
+      });
+    } else {
+      window.print();
+    }
+  }, [cleanTitle, formattedDate, currentTag]);
+
+  // Register print trigger with parent modal if available
+  useEffect(() => {
+    if (onRegisterPrintHandler) {
+      onRegisterPrintHandler(handlePrint);
+    }
+  }, [onRegisterPrintHandler, handlePrint]);
+
+  // Keyboard Shortcut: Ctrl+P / Cmd+P triggers clean multi-page print
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        handlePrint();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handlePrint]);
 
   // Download Note as Markdown
   const handleDownloadMarkdown = () => {
@@ -460,7 +492,7 @@ export const GoogleDocsNoteViewer: React.FC<GoogleDocsNoteViewerProps> = ({
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-black text-slate-100 overflow-hidden font-sans">
+    <div data-google-docs-viewer="true" className="w-full h-full flex flex-col bg-black text-slate-100 overflow-hidden font-sans">
       {/* Top Document Toolbar */}
       {!hideHeaderToolbar && (
         <div className={`${APP_STYLES.surface.header} flex flex-wrap items-center justify-between px-3 sm:px-6 py-2 sm:py-2.5 gap-2 shrink-0 select-none`}>
@@ -617,6 +649,7 @@ export const GoogleDocsNoteViewer: React.FC<GoogleDocsNoteViewerProps> = ({
 
       {/* Main Document Workspace / Canvas */}
       <div
+        data-note-workspace="true"
         className={`flex-1 overflow-y-auto overflow-x-auto p-4 sm:p-8 md:p-12 flex justify-center items-start ${
           paperTheme === 'classic-light'
             ? 'bg-white text-slate-900'
@@ -624,6 +657,7 @@ export const GoogleDocsNoteViewer: React.FC<GoogleDocsNoteViewerProps> = ({
         }`}
       >
         <div
+          data-note-scalable-container="true"
           style={{
             transform: `scale(${docZoom})`,
             transformOrigin: 'top center',
@@ -769,7 +803,12 @@ export const GoogleDocsNoteViewer: React.FC<GoogleDocsNoteViewerProps> = ({
             </div>
           ) : (
             /* Document Body in Read Mode */
-            <div className="space-y-6 select-text" style={{ WebkitUserSelect: 'text', userSelect: 'text', WebkitTouchCallout: 'default' }}>
+            <div
+              ref={printableRef}
+              data-note-printable-content="true"
+              className="space-y-6 select-text"
+              style={{ WebkitUserSelect: 'text', userSelect: 'text', WebkitTouchCallout: 'default' }}
+            >
               {/* Clean Document Title in Read Mode (Study note and repository badges removed) */}
               <div className="pb-4 sm:pb-5 border-b border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-between gap-3">
                 <h1 className="text-base sm:text-xl md:text-2xl font-black text-slate-900 dark:text-zinc-100 tracking-tight leading-snug">
@@ -851,7 +890,7 @@ export const GoogleDocsNoteViewer: React.FC<GoogleDocsNoteViewerProps> = ({
                   </div>
 
                   {/* Actions Under Response: Round Copy Button (Duplicate Edit Button Removed) */}
-                  <div className="pt-4 border-t border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-start gap-2.5 select-none flex-wrap">
+                  <div className="pt-4 border-t border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-start gap-2.5 select-none flex-wrap no-print">
                     <button
                       type="button"
                       onClick={handleCopy}
@@ -872,7 +911,7 @@ export const GoogleDocsNoteViewer: React.FC<GoogleDocsNoteViewerProps> = ({
                   </div>
                 </>
               ) : fileUrl ? (
-                <div className="pt-4 border-t border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-start gap-2.5 select-none flex-wrap">
+                <div className="pt-4 border-t border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-start gap-2.5 select-none flex-wrap no-print">
                   <button
                     type="button"
                     onClick={handleCopy}

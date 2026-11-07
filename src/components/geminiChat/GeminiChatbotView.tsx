@@ -455,41 +455,84 @@ export function extractTestAction(content: string): { cleanContent: string; test
 export function extractAppAction(content: string): { cleanContent: string; appAction: ParsedAppAction | null } {
   if (!content) return { cleanContent: '', appAction: null };
 
-  const appActionBlockRegex = /```(?:app-action|app_action|appaction|json:app-action)\s*([\s\S]*?)```/i;
-  const match = content.match(appActionBlockRegex);
+  let matchedStr = '';
+  let jsonStr = '';
 
-  if (!match) {
-    return { cleanContent: content, appAction: null };
+  // 1. Check for closed code block with app-action, app_action, appaction, json:app-action, action, or app-command
+  const closedMatch = content.match(/```(?:app-action|app_action|appaction|json:app-action|action|app-command)\s*([\s\S]*?)\s*```/i);
+  if (closedMatch) {
+    matchedStr = closedMatch[0];
+    jsonStr = closedMatch[1].trim();
+  } else {
+    // 1b. Check for unclosed code block (e.g. streaming or truncated)
+    const unclosedMatch = content.match(/```(?:app-action|app_action|appaction|json:app-action|action|app-command)\s*([\s\S]+)$/i);
+    if (unclosedMatch) {
+      matchedStr = unclosedMatch[0];
+      jsonStr = unclosedMatch[1].trim();
+    }
   }
 
-  const matchedStr = match[0];
-  const jsonStr = match[1].trim();
-
-  try {
-    const parsed = JSON.parse(jsonStr);
-    if (parsed && typeof parsed === 'object' && parsed.type) {
-      const cleanContent = content.replace(matchedStr, '').trim();
-      return {
-        cleanContent,
-        appAction: parsed as ParsedAppAction
-      };
+  // 2. Check for ```json block containing "type": "LAUNCH_TEST" / "OPEN_STUDIO" / etc.
+  if (!jsonStr) {
+    const jsonMatch = content.match(/```(?:json)?\s*(\{\s*"type"\s*:\s*"(?:LAUNCH_TEST|OPEN_STUDIO|OPEN_CUSTOM_BUILDER|OPEN_OMR|OPEN_ANALYTICS|DIAGNOSE_WEAKNESSES|EXPORT_DATA|OPEN_HTML_NOTES|OPEN_NOTES|NAVIGATE)"[\s\S]*?\})\s*```/i);
+    if (jsonMatch) {
+      matchedStr = jsonMatch[0];
+      jsonStr = jsonMatch[1].trim();
     }
-  } catch {
-    try {
+  }
+
+  // 3. Fallback: Raw JSON object with app action type
+  if (!jsonStr) {
+    const rawMatch = content.match(/(\{\s*"type"\s*:\s*"(?:LAUNCH_TEST|OPEN_STUDIO|OPEN_CUSTOM_BUILDER|OPEN_OMR|OPEN_ANALYTICS|DIAGNOSE_WEAKNESSES|EXPORT_DATA|OPEN_HTML_NOTES|OPEN_NOTES|NAVIGATE)"[\s\S]*?\})/i);
+    if (rawMatch) {
+      matchedStr = rawMatch[0];
+      jsonStr = rawMatch[1].trim();
+    }
+  }
+
+  // Always scrub matched action block and any leftover action fences from cleanContent
+  let cleanContent = matchedStr ? content.replace(matchedStr, '').trim() : content;
+  cleanContent = cleanContent
+    .replace(/```(?:app-action|app_action|appaction|json:app-action|action|app-command)[\s\S]*?(?:```|$)/gi, '')
+    .trim();
+
+  if (!jsonStr) {
+    return { cleanContent, appAction: null };
+  }
+
+  let parsed: any = null;
+  const attempts = [
+    () => JSON.parse(jsonStr),
+    () => {
       let s = jsonStr.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
       s = s.replace(/,\s*([\]}])/g, '$1');
-      const parsed = JSON.parse(s);
+      return JSON.parse(s);
+    },
+    () => {
+      let s = jsonStr.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+      s = s.replace(/,\s*([\]}])/g, '$1');
+      s = s.replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
+      return JSON.parse(s);
+    }
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      parsed = attempt();
       if (parsed && typeof parsed === 'object' && parsed.type) {
-        const cleanContent = content.replace(matchedStr, '').trim();
-        return {
-          cleanContent,
-          appAction: parsed as ParsedAppAction
-        };
+        break;
       }
     } catch {}
   }
 
-  return { cleanContent: content, appAction: null };
+  if (parsed && typeof parsed === 'object' && parsed.type) {
+    return {
+      cleanContent,
+      appAction: parsed as ParsedAppAction
+    };
+  }
+
+  return { cleanContent, appAction: null };
 }
 
 export function extractQuestionsFromText(text: string): SessionStagedQuestion[] {
@@ -3387,12 +3430,19 @@ MANDATORY INSTRUCTIONS:
     isAiGeneratedImage?: boolean
   ) => {
     try {
-      const titleMatch = text.match(/^#+\s*(.+)$/m);
+      // Clean and scrub any test-action and backend app-action code blocks so they NEVER appear in notes
+      const { cleanContent: withoutTestAction } = extractTestAction(text || '');
+      const { cleanContent: cleanTextOnly } = extractAppAction(withoutTestAction);
+      let fullContent = cleanTextOnly
+        .replace(/```(?:app-action|app_action|appaction|json:app-action|action|app-command)[\s\S]*?(?:```|$)/gi, '')
+        .replace(/```(?:test-action|json:test-action|test_action|testaction)[\s\S]*?(?:```|$)/gi, '')
+        .trim();
+
+      const titleMatch = fullContent.match(/^#+\s*(.+)$/m);
       const inferredTitle = titleMatch ? titleMatch[1].trim() : `${roleUsed || 'AI'} Response`;
       const cleanFileName = inferredTitle.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 30);
 
       // Assemble full rich content including any embedded images and plots
-      let fullContent = text || '';
       let primaryFileUrl: string | undefined = undefined;
       let primaryFileType: 'image' | 'pdf' | 'file' | undefined = undefined;
 
@@ -3485,7 +3535,10 @@ MANDATORY INSTRUCTIONS:
       window.speechSynthesis.cancel();
     } catch {}
 
-    const formattedText = formatTextForSpeech(text);
+    // Clean test actions and app actions from spoken text
+    const { cleanContent: withoutTestAction } = extractTestAction(text || '');
+    const { cleanContent: cleanText } = extractAppAction(withoutTestAction);
+    const formattedText = formatTextForSpeech(cleanText);
     if (!formattedText || !formattedText.trim()) return;
 
     try {
