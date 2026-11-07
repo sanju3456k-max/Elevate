@@ -1586,7 +1586,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                     }}
                   >
                     <img
-                      src="./assets/preplens-icon.png?v=13"
+                      src="./assets/preplens-icon.png?v=14"
                       alt=""
                       className="elevate-watermark-img pointer-events-none select-none"
                       crossOrigin="anonymous"

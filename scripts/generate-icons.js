@@ -20,7 +20,7 @@ async function generate() {
 `;
     const svgMaskable = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
-  <rect width="192" height="192" fill="#e5e9f0" />
+  <rect width="192" height="192" fill="#c3ddfe" />
   <image href="data:image/png;base64,${pngBase64}" x="19.2" y="19.2" width="153.6" height="153.6" />
 </svg>
 `;
