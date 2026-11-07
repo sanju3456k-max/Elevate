@@ -1583,7 +1583,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                           handleOpenSubtopicQuestions(sub);
                         }
                       }}
-                      className="p-3 rounded-[20px] bg-white dark:bg-[#1e2024] border border-slate-200/80 dark:border-zinc-800 space-y-2 text-xs shadow-xs hover:shadow-md transition-shadow duration-200 text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col justify-between cursor-pointer select-none"
+                      className="bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] rounded-[24px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 p-3.5 space-y-2 text-xs text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col justify-between cursor-pointer select-none"
                       title={`Click to view questions & step-by-step solutions for ${sub.subtopic}`}
                     >
                       <div className="space-y-1.5">
@@ -1864,7 +1864,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                                           handleOpenSubtopicQuestions(sub);
                                         }
                                       }}
-                                      className="p-2.5 rounded-[18px] bg-white dark:bg-[#1e2024] border border-slate-200/60 dark:border-zinc-800/80 space-y-1.5 text-xs shadow-xs hover:shadow-md transition-shadow duration-200 text-[#1f1f1f] dark:text-[#e3e3e3] cursor-pointer select-none"
+                                      className="bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] rounded-[24px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 p-3 space-y-1.5 text-xs text-[#1f1f1f] dark:text-[#e3e3e3] cursor-pointer select-none"
                                       title={`Click to view questions & step-by-step solutions for ${sub.subtopic}`}
                                     >
                                       <div className="flex items-center justify-between gap-1">
@@ -2246,7 +2246,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                         handleOpenSubtopicQuestions(sub);
                       }
                     }}
-                    className="bg-white dark:bg-[#1e2024] rounded-[24px] ring-1 ring-slate-300 dark:ring-zinc-700 border-0 p-4 flex flex-col justify-between gap-3 shadow-xs hover:shadow-md transition-shadow duration-200 cursor-pointer select-none"
+                    className="bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] rounded-[24px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 p-4 flex flex-col justify-between gap-3 cursor-pointer select-none"
                     title={`Click to view questions & step-by-step solutions for ${sub.subtopic}`}
                   >
                     <div className="space-y-2">
@@ -2312,7 +2312,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                   </div>
                 ))
               ) : (
-                <div className="col-span-full p-8 text-center text-xs text-slate-500 dark:text-zinc-400 bg-slate-50 dark:bg-[#1e2024] rounded-[24px] ring-1 ring-slate-300 dark:ring-zinc-700 border-0">
+                <div className="col-span-full p-8 text-center text-xs text-slate-500 dark:text-zinc-400 bg-slate-50 dark:bg-[#1e2024] rounded-[24px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
                   No concepts found matching the selected filter.
                 </div>
               )}
