@@ -1172,8 +1172,8 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
             id="test-prev-btn"
             onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
             disabled={currentIndex === 0}
-            whileTap={currentIndex > 0 ? { scale: 0.95 } : undefined}
-            className="w-[125px] sm:w-[140px] h-10 px-4 rounded-full bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] disabled:opacity-38 disabled:pointer-events-none flex items-center justify-center gap-1.5 font-medium text-xs sm:text-sm transition-all cursor-pointer shrink-0 border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
+            whileTap={currentIndex > 0 ? { scale: 0.96 } : undefined}
+            className="w-[125px] sm:w-[140px] h-10 px-4 rounded-full bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] active:scale-[0.96] active:bg-[#f0f4f9] dark:active:bg-[#282a30] disabled:opacity-38 disabled:pointer-events-none flex items-center justify-center gap-1.5 font-medium text-xs sm:text-sm transition-transform duration-100 ease-out select-none cursor-pointer shrink-0 border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
           >
             <ChevronLeft className="w-4 h-4 shrink-0" />
             <span>Previous</span>
@@ -1208,8 +1208,8 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
               type="button"
               id="test-next-btn"
               onClick={() => setCurrentIndex((prev) => prev + 1)}
-              whileTap={{ scale: 0.95 }}
-              className="w-[125px] sm:w-[140px] h-10 px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] active:bg-[#041e49] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#062e6f] flex items-center justify-center gap-1.5 font-medium text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shrink-0 border-0 shadow-[0_2px_6px_rgba(0,0,0,0.12)]"
+              whileTap={{ scale: 0.96 }}
+              className="w-[125px] sm:w-[140px] h-10 px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] active:bg-[#041e49] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#062e6f] flex items-center justify-center gap-1.5 font-medium text-xs sm:text-sm transition-transform duration-100 ease-out active:scale-[0.96] select-none cursor-pointer shrink-0 border-0 shadow-[0_2px_6px_rgba(0,0,0,0.12)]"
             >
               <span>Next</span>
               <ChevronRight className="w-4 h-4 shrink-0" />
@@ -1219,8 +1219,8 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
               type="button"
               id="test-submit-btn"
               onClick={() => setIsSubmitModalOpen(true)}
-              whileTap={{ scale: 0.95 }}
-              className="w-[125px] sm:w-[140px] h-10 px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] active:bg-[#041e49] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#062e6f] flex items-center justify-center gap-1.5 font-medium text-xs sm:text-sm transition-all active:scale-95 cursor-pointer shrink-0 border-0 shadow-[0_2px_6px_rgba(0,0,0,0.12)]"
+              whileTap={{ scale: 0.96 }}
+              className="w-[125px] sm:w-[140px] h-10 px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] active:bg-[#041e49] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#062e6f] flex items-center justify-center gap-1.5 font-medium text-xs sm:text-sm transition-transform duration-100 ease-out active:scale-[0.96] select-none cursor-pointer shrink-0 border-0 shadow-[0_2px_6px_rgba(0,0,0,0.12)]"
             >
               <Check className="w-4 h-4 shrink-0" />
               <span>Submit</span>
