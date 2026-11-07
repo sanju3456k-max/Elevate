@@ -2,8 +2,51 @@
  * Google Workspace (Drive & Docs) Integration Client
  * All requests are executed client-side using standard fetch and the cached user access token.
  */
-import { setCachedGoogleAccessToken } from './firebase';
+import {
+  setCachedGoogleAccessToken,
+  refreshGoogleDriveTokenSilently,
+  getCachedGoogleAccessToken,
+  ensureValidGoogleDriveToken,
+} from './firebase';
 import { isTombstoned, getDeletedTombstones } from './idbNotes';
+
+/**
+ * Transparent 401 Auto-Recovery Interceptor:
+ * Wraps Google Drive / Docs API calls. If the token expires (HTTP 401),
+ * it silently requests a fresh access token from Google Identity Services
+ * and repeats the request once, guaranteeing that note/table/manifest saves never fail.
+ */
+export async function authedDriveFetch(
+  url: string,
+  options: RequestInit = {},
+  providedToken?: string,
+  allowRetry: boolean = true
+): Promise<Response> {
+  let token = providedToken || getCachedGoogleAccessToken();
+  if (!token) {
+    token = (await ensureValidGoogleDriveToken()) || undefined;
+  }
+
+  const reqHeaders = new Headers(options.headers || {});
+  if (token) {
+    reqHeaders.set('Authorization', `Bearer ${token}`);
+  }
+
+  const res = await fetch(url, { ...options, headers: reqHeaders });
+
+  if (res.status === 401 && allowRetry) {
+    console.warn('Google Drive API returned 401 Unauthorized. Performing transparent token auto-refresh & retry...');
+    const refreshed = await refreshGoogleDriveTokenSilently();
+    if (refreshed) {
+      reqHeaders.set('Authorization', `Bearer ${refreshed}`);
+      return await fetch(url, { ...options, headers: reqHeaders });
+    } else {
+      setCachedGoogleAccessToken(null);
+    }
+  }
+
+  return res;
+}
 
 export interface GoogleDriveFile {
   id: string;
@@ -203,13 +246,12 @@ export async function listGoogleDriveFiles(
   const spacesParam = isAppData ? '&spaces=appDataFolder' : '';
   const url = `https://www.googleapis.com/drive/v3/files?pageSize=60&fields=files(id,name,mimeType,modifiedTime,size,webViewLink,iconLink,appProperties)${spacesParam}&q=${encodeURIComponent(q)}&orderBy=modifiedTime desc`;
 
-  const res = await fetch(url, {
+  const res = await authedDriveFetch(url, {
     method: 'GET',
     headers: {
-      Authorization: `Bearer ${accessToken}`,
       Accept: 'application/json',
     },
-  });
+  }, accessToken);
 
   if (!res.ok) {
     if (res.status === 401) {
@@ -230,10 +272,9 @@ export async function listGoogleDriveFiles(
  */
 export async function setDriveFilePublic(accessToken: string, fileId: string): Promise<boolean> {
   try {
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
+    const res = await authedDriveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -241,7 +282,7 @@ export async function setDriveFilePublic(accessToken: string, fileId: string): P
         type: 'anyone',
         allowFileDiscovery: false,
       }),
-    });
+    }, accessToken);
     return res.ok;
   } catch (e) {
     console.warn('Failed to set public reader permission on Drive file:', e);
@@ -293,13 +334,35 @@ export async function uploadFileToGoogleDrive(
     form.append('file', new Blob([data], { type: mimeType }));
   }
 
-  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,modifiedTime,size,webViewLink,iconLink,appProperties', {
+  let res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,modifiedTime,size,webViewLink,iconLink,appProperties', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
     body: form,
   });
+
+  if (res.status === 401) {
+    console.warn('uploadFileToGoogleDrive received 401. Silently refreshing token and retrying...');
+    const refreshed = await refreshGoogleDriveTokenSilently();
+    if (refreshed) {
+      accessToken = refreshed;
+      const retryForm = new FormData();
+      retryForm.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+      if (data instanceof Blob) {
+        retryForm.append('file', data);
+      } else {
+        retryForm.append('file', new Blob([data], { type: mimeType }));
+      }
+      res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,modifiedTime,size,webViewLink,iconLink,appProperties', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${refreshed}`,
+        },
+        body: retryForm,
+      });
+    }
+  }
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -326,14 +389,11 @@ export async function uploadFileToGoogleDrive(
  * Delete a file from Google Drive (requires user confirmation before calling)
  */
 export async function deleteGoogleDriveFile(accessToken: string, fileId: string): Promise<void> {
-  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+  const res = await authedDriveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
     method: 'DELETE',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  }, accessToken);
 
-  if (!res.ok) {
+  if (!res.ok && res.status !== 404) {
     const errorText = await res.text();
     throw new Error(`Failed to delete Google Drive file: ${errorText}`);
   }
@@ -1579,35 +1639,32 @@ export async function saveNoteToGoogleDrive(
     try {
       if (note.fileUrl && (isImageAttachment || isPdfAttachment)) {
         const fileData = note.fileUrl.startsWith('data:') ? dataUrlToBlob(note.fileUrl) : note.fileUrl;
-        await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=media`, {
+        await authedDriveFetch(`https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=media`, {
           method: 'PATCH',
           headers: {
-            Authorization: `Bearer ${accessToken}`,
             'Content-Type': isPdfAttachment ? 'application/pdf' : 'image/png',
           },
           body: fileData,
-        });
+        }, accessToken);
       } else {
         const markdownBody = note.content || '';
-        await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=media`, {
+        await authedDriveFetch(`https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=media`, {
           method: 'PATCH',
           headers: {
-            Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'text/markdown; charset=UTF-8',
           },
           body: markdownBody,
-        });
+        }, accessToken);
       }
 
       // Update appProperties metadata
-      await fetch(`https://www.googleapis.com/drive/v3/files/${existingFileId}`, {
+      await authedDriveFetch(`https://www.googleapis.com/drive/v3/files/${existingFileId}`, {
         method: 'PATCH',
         headers: {
-          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ appProperties }),
-      });
+      }, accessToken);
 
       return {
         driveFileId: existingFileId,
@@ -1785,9 +1842,11 @@ export async function syncNotesManifestToGoogleDrive(
 
     // Check if manifest already exists in appDataFolder
     const q = "name = 'mockmc_notes_manifest.json' and trashed = false";
-    const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${encodeURIComponent(q)}&fields=files(id)`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const searchRes = await authedDriveFetch(
+      `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${encodeURIComponent(q)}&fields=files(id)`,
+      {},
+      accessToken
+    );
 
     let manifestFileId: string | null = null;
     if (searchRes.ok) {
@@ -1799,14 +1858,13 @@ export async function syncNotesManifestToGoogleDrive(
 
     if (manifestFileId) {
       // Update existing
-      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${manifestFileId}?uploadType=media`, {
+      await authedDriveFetch(`https://www.googleapis.com/upload/drive/v3/files/${manifestFileId}?uploadType=media`, {
         method: 'PATCH',
         headers: {
-          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
         body: manifestJson,
-      });
+      }, accessToken);
     } else {
       // Upload new into appDataFolder
       await uploadFileToGoogleDrive(

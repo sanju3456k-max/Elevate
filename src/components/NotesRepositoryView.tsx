@@ -239,20 +239,22 @@ export const NotesRepositoryView: React.FC<NotesRepositoryViewProps> = ({
   const loadAllNotes = useCallback(async () => {
     setIsLoading(true);
     try {
-      const stored = await getAllNotesFromIDB();
+      const stored = await getAllNotesFromIDB(currentUser?.uid);
       const tombstones = getDeletedTombstones();
+      const activeUid = currentUser?.uid;
       const userCreated = stored.filter(
         (n: any) =>
           !n.id?.startsWith('seed_') &&
           !n.id?.startsWith('seed') &&
           !n.id?.startsWith('auto_') &&
           !tombstones.has(n.id) &&
-          (!n.driveFileId || (!tombstones.has(n.driveFileId) && !tombstones.has(`drive_${n.driveFileId}`)))
+          (!n.driveFileId || (!tombstones.has(n.driveFileId) && !tombstones.has(`drive_${n.driveFileId}`))) &&
+          (activeUid ? (!n.userId || n.userId === activeUid) : (n.userId === 'guest-user' || n.userId === 'anonymous'))
       );
       setUserNotes(userCreated);
 
-      const token = getCachedGoogleAccessToken();
-      if (token) {
+      const token = activeUid ? getCachedGoogleAccessToken(activeUid) : null;
+      if (token && activeUid) {
         loadAllNotesManifestsFromGoogleDrive(token)
           .then((remoteNotes) => {
             if (remoteNotes !== null && Array.isArray(remoteNotes)) {
@@ -266,13 +268,14 @@ export const NotesRepositoryView: React.FC<NotesRepositoryViewProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [handleImportDriveNotes]);
+  }, [handleImportDriveNotes, currentUser]);
 
   useEffect(() => {
     loadAllNotes();
     const handleFocus = () => {
-      const token = getCachedGoogleAccessToken();
-      if (token) {
+      const activeUid = currentUser?.uid;
+      const token = activeUid ? getCachedGoogleAccessToken(activeUid) : null;
+      if (token && activeUid) {
         loadAllNotesManifestsFromGoogleDrive(token)
           .then((remoteNotes) => {
             if (remoteNotes !== null && Array.isArray(remoteNotes)) {
@@ -288,7 +291,7 @@ export const NotesRepositoryView: React.FC<NotesRepositoryViewProps> = ({
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('notes-updated', loadAllNotes);
     };
-  }, [loadAllNotes, handleImportDriveNotes]);
+  }, [loadAllNotes, handleImportDriveNotes, currentUser]);
 
   const handleNoteDriveSynced = useCallback((noteId: string, driveFileId: string, webViewLink: string) => {
     setUserNotes((prev) => {
@@ -352,8 +355,9 @@ export const NotesRepositoryView: React.FC<NotesRepositoryViewProps> = ({
     setUserNotes(remainingNotes);
     await saveAllNotesToIDB(remainingNotes, true);
 
-    const token = getCachedGoogleAccessToken();
-    if (token) {
+    const activeUid = currentUser?.uid;
+    const token = activeUid ? getCachedGoogleAccessToken(activeUid) : null;
+    if (token && activeUid) {
       if (driveFileIdToDelete) {
         try {
           await deleteGoogleDriveFile(token, driveFileIdToDelete);
@@ -363,7 +367,7 @@ export const NotesRepositoryView: React.FC<NotesRepositoryViewProps> = ({
       }
       syncNotesManifestToGoogleDrive(token, remainingNotes).catch(() => {});
     }
-  }, [userNotes]);
+  }, [userNotes, currentUser]);
 
   const handleRenameNote = useCallback((noteId: string, newName: string) => {
     setUserNotes((prev) => {

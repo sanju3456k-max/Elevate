@@ -246,24 +246,78 @@ function openNotesDB(): Promise<IDBDatabase | null> {
   });
 }
 
-export async function saveAllNotesToIDB(notes: any[], allowEmpty: boolean = false): Promise<void> {
+export function resetMemoryNotes(): void {
+  memoryNotes = [];
+}
+
+export async function saveAllNotesToIDB(
+  notes: any[],
+  allowEmpty: boolean = false,
+  targetScopeUid?: string | null
+): Promise<void> {
   if (!allowEmpty && (!notes || notes.length === 0)) {
     // Protect against accidental wipes from empty remote snapshots
     return;
   }
-  memoryNotes = [...notes];
 
-  // Permanent localStorage backup (sanitizing large data urls)
-  try {
-    const backupList = notes.map((n) => {
-      const copy = { ...n };
-      if (copy.fileUrl && copy.fileUrl.length > 2000) {
-        copy.isLocalAttachmentOnly = true;
-        delete copy.fileUrl;
+  // Merge into memoryNotes without destroying other users' notes or guest notes
+  const notesMap = new Map<string, any>();
+  for (const existing of memoryNotes) {
+    if (existing && existing.id) {
+      notesMap.set(existing.id, existing);
+    }
+  }
+
+  // Determine active scope if specified
+  const effectiveUid = targetScopeUid;
+  const isGuestScope = effectiveUid === 'guest-user' || effectiveUid === 'anonymous';
+
+  if (targetScopeUid !== undefined && targetScopeUid !== null) {
+    for (const [id, item] of notesMap.entries()) {
+      if (isGuestScope) {
+        if ((item.userId === 'guest-user' || item.userId === 'anonymous') && !notes.some((n) => n.id === id)) {
+          notesMap.delete(id);
+        }
+      } else if (effectiveUid) {
+        if (item.userId === effectiveUid && !notes.some((n) => n.id === id)) {
+          notesMap.delete(id);
+        }
       }
-      return copy;
-    });
-    localStorage.setItem('mockmc_saved_notes_permanent', JSON.stringify(backupList));
+    }
+  }
+
+  for (const note of notes) {
+    if (note && note.id) {
+      notesMap.set(note.id, note);
+    }
+  }
+
+  const mergedAllNotes = Array.from(notesMap.values());
+  memoryNotes = mergedAllNotes;
+
+  // Permanent & Scoped localStorage backup (sanitizing large data urls)
+  try {
+    const sanitizeList = (list: any[]) =>
+      list.map((n) => {
+        const copy = { ...n };
+        if (copy.fileUrl && copy.fileUrl.length > 2000) {
+          copy.isLocalAttachmentOnly = true;
+          delete copy.fileUrl;
+        }
+        return copy;
+      });
+
+    // 1. Scoped backups
+    if (isGuestScope) {
+      const guestNotes = notes.filter((n) => n.userId === 'guest-user' || n.userId === 'anonymous');
+      localStorage.setItem('mockmc_saved_notes_guest', JSON.stringify(sanitizeList(guestNotes)));
+    } else if (effectiveUid) {
+      const userNotes = notes.filter((n) => !n.userId || n.userId === effectiveUid);
+      localStorage.setItem(`mockmc_saved_notes_account_${effectiveUid}`, JSON.stringify(sanitizeList(userNotes)));
+    }
+
+    // 2. Global union backup (guarantees legacy loaders and device recovery never lose files)
+    localStorage.setItem('mockmc_saved_notes_permanent', JSON.stringify(sanitizeList(mergedAllNotes)));
   } catch (err) {
     // Ignore
   }
@@ -276,10 +330,34 @@ export async function saveAllNotesToIDB(notes: any[], allowEmpty: boolean = fals
 
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
-    store.clear();
-    for (const note of notes) {
-      store.put(note);
+
+    // If a specific user scope is being updated, only prune stale notes belonging to that scope
+    if (targetScopeUid !== undefined && targetScopeUid !== null) {
+      const getAllReq = store.getAll();
+      getAllReq.onsuccess = () => {
+        const storedItems: any[] = getAllReq.result || [];
+        for (const item of storedItems) {
+          if (isGuestScope) {
+            if ((item.userId === 'guest-user' || item.userId === 'anonymous') && !notes.some((n) => n.id === item.id)) {
+              store.delete(item.id);
+            }
+          } else if (effectiveUid) {
+            if (item.userId === effectiveUid && !notes.some((n) => n.id === item.id)) {
+              store.delete(item.id);
+            }
+          }
+        }
+        for (const note of notes) {
+          store.put(note);
+        }
+      };
+    } else {
+      // General update: put every note by ID without wiping other records
+      for (const note of notes) {
+        store.put(note);
+      }
     }
+
     return new Promise((resolve) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => {
@@ -298,7 +376,7 @@ export async function saveAllNotesToIDB(notes: any[], allowEmpty: boolean = fals
   }
 }
 
-export async function getAllNotesFromIDB(): Promise<any[]> {
+export async function getAllNotesFromIDB(targetScopeUid?: string | null): Promise<any[]> {
   let result: any[] = [];
   if (!isIDBBlocked) {
     try {
@@ -339,6 +417,23 @@ export async function getAllNotesFromIDB(): Promise<any[]> {
     memoryNotes = clean;
     return clean;
   }
+
+  // Scoped localStorage fallback recovery
+  try {
+    if (targetScopeUid) {
+      const isGuest = targetScopeUid === 'guest-user' || targetScopeUid === 'anonymous';
+      const key = isGuest ? 'mockmc_saved_notes_guest' : `mockmc_saved_notes_account_${targetScopeUid}`;
+      const scopedRaw = localStorage.getItem(key);
+      if (scopedRaw) {
+        const parsed = JSON.parse(scopedRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const clean = filterTombstones(parsed);
+          memoryNotes = clean;
+          return clean;
+        }
+      }
+    }
+  } catch {}
 
   // Indestructible permanent backup recovery from localStorage
   try {
@@ -491,30 +586,31 @@ export async function deleteNotesForTestFromIDB(testId: string): Promise<void> {
   }
 }
 
-export async function clearAllNotesFromIDB(): Promise<void> {
-  memoryNotes = [];
-  if (isIDBBlocked) return;
-
-  try {
-    const db = await openNotesDB();
-    if (!db) return;
-
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    store.clear();
-    return new Promise((resolve) => {
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => {
-        if (isClosingError(tx.error)) {
-          closeCachedDB();
+export async function clearAllNotesFromIDB(targetUid?: string | null): Promise<void> {
+  if (targetUid) {
+    memoryNotes = memoryNotes.filter((n) => n.userId !== targetUid);
+    try {
+      localStorage.removeItem(`mockmc_saved_notes_account_${targetUid}`);
+    } catch {}
+    if (isIDBBlocked) return;
+    try {
+      const db = await openNotesDB();
+      if (!db) return;
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const items = req.result || [];
+        for (const item of items) {
+          if (item.userId === targetUid) {
+            store.delete(item.id);
+          }
         }
-        resolve();
       };
-    });
-  } catch (e) {
-    if (isClosingError(e)) {
-      closeCachedDB();
-    }
+    } catch {}
+  } else {
+    // General sign-out reset: reset active memory cache only, preserve disk storage
+    memoryNotes = [];
   }
 }
 

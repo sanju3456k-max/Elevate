@@ -314,28 +314,30 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
   }, [currentUser]);
 
   useEffect(() => {
-    if (!currentUser?.uid) {
-      setUserNotes([]);
-    }
+    loadAllNotes();
 
     const unsub = subscribeSimpleNotesUpdates((remoteNotes) => {
-      if (remoteNotes) {
-        if (currentUser?.uid) {
-          setUserNotes(remoteNotes);
-        } else {
-          setUserNotes([]);
-        }
+      if (remoteNotes && Array.isArray(remoteNotes)) {
+        const tombstones = getDeletedTombstones();
+        const activeUid = currentUser?.uid;
+        const scoped = remoteNotes.filter((n: any) => {
+          if (n.id?.startsWith('seed_') || n.id?.startsWith('seed') || n.id?.startsWith('auto_')) return false;
+          if (tombstones.has(n.id)) return false;
+          if (n.driveFileId && (tombstones.has(n.driveFileId) || tombstones.has(`drive_${n.driveFileId}`))) return false;
+          if (activeUid) {
+            return !n.userId || n.userId === activeUid;
+          } else {
+            return n.userId === 'guest-user' || n.userId === 'anonymous';
+          }
+        });
+        setUserNotes(scoped);
       }
     });
 
     return () => {
       unsub();
     };
-  }, [currentUser]);
-
-  useEffect(() => {
-    loadAllNotes();
-  }, [loadAllNotes]);
+  }, [currentUser, loadAllNotes]);
 
   // Note Handlers
   const handleDeleteNote = useCallback(
@@ -355,8 +357,8 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
       await saveAllNotesToIDB(remainingNotes, true);
       recordSimpleNotesUpdate(remainingNotes);
 
-      const token = getCachedGoogleAccessToken();
-      if (token) {
+      const token = currentUser?.uid ? getCachedGoogleAccessToken(currentUser.uid) : null;
+      if (token && currentUser?.uid) {
         if (driveFileIdToDelete) {
           try {
             await deleteGoogleDriveFile(token, driveFileIdToDelete);
@@ -367,7 +369,7 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
         syncNotesManifestToGoogleDrive(token, remainingNotes).catch(() => {});
       }
     },
-    [userNotes]
+    [userNotes, currentUser]
   );
 
   const handleRenameNote = useCallback((noteId: string, newName: string) => {
@@ -423,8 +425,8 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
           });
           saveAllNotesToIDB(updated);
           recordSimpleNotesUpdate(updated);
-          const token = getCachedGoogleAccessToken();
-          if (token) {
+          const token = currentUser?.uid ? getCachedGoogleAccessToken(currentUser.uid) : null;
+          if (token && currentUser?.uid) {
             syncNotesManifestToGoogleDrive(token, updated).catch(() => {});
           }
           return updated;
@@ -450,26 +452,26 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
         setUserNotes(updatedList);
         recordSimpleNotesUpdate(updatedList);
 
-        const token = getCachedGoogleAccessToken();
-        if (token) {
+        const token = currentUser?.uid ? getCachedGoogleAccessToken(currentUser.uid) : null;
+        if (token && currentUser?.uid) {
           syncNotesManifestToGoogleDrive(token, updatedList).catch(() => {});
         }
       }
       setEditingNoteTarget(null);
     },
-    [userNotes]
+    [userNotes, currentUser]
   );
 
   const handleAddNewFileNote = useCallback(
     async (newNote: UserNoteItem) => {
       setUserNotes((prev) => [newNote, ...prev]);
       await saveSingleNoteToIDB(newNote);
-      const token = getCachedGoogleAccessToken();
-      if (token) {
+      const token = currentUser?.uid ? getCachedGoogleAccessToken(currentUser.uid) : null;
+      if (token && currentUser?.uid) {
         syncNotesManifestToGoogleDrive(token, [newNote, ...userNotes]).catch(() => {});
       }
     },
-    [userNotes]
+    [userNotes, currentUser]
   );
 
   const handleNoteDriveSynced = useCallback(

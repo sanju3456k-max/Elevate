@@ -313,16 +313,106 @@ googleProvider.addScope('https://www.googleapis.com/auth/drive');
 googleProvider.addScope('https://www.googleapis.com/auth/drive.appdata');
 googleProvider.addScope('https://www.googleapis.com/auth/documents');
 
-let cachedAccessToken: string | null = null;
+// ============================================================================
+// METHOD 1: GOOGLE IDENTITY SERVICES (GIS) CONTINUOUS SILENT REFRESH ENGINE
+// ============================================================================
 
-export function isGoogleDriveTokenExpired(): boolean {
+export const GOOGLE_OAUTH_CLIENT_ID: string =
+  (firebaseConfig as any).oAuthClientId ||
+  '649642031919-tmtgoi10dbdq6jka2662pqdrnkdkpp9s.apps.googleusercontent.com';
+
+export const GOOGLE_DRIVE_SCOPES =
+  'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/documents';
+
+let cachedAccessToken: string | null = null;
+let gisScriptLoadingPromise: Promise<boolean> | null = null;
+let activeSilentRefreshPromise: Promise<string | null> | null = null;
+let isDaemonInitialized = false;
+
+// Helpers to get account-scoped token keys
+function getDriveTokenStorageKey(uid?: string | null): string {
+  const effectiveUid = uid || auth.currentUser?.uid;
+  if (!effectiveUid || effectiveUid === 'guest-user' || effectiveUid === 'anonymous') {
+    return 'mockmc_drive_token_guest';
+  }
+  return `mockmc_drive_token_${effectiveUid.trim()}`;
+}
+
+function getDriveTokenTimeStorageKey(uid?: string | null): string {
+  const effectiveUid = uid || auth.currentUser?.uid;
+  if (!effectiveUid || effectiveUid === 'guest-user' || effectiveUid === 'anonymous') {
+    return 'mockmc_drive_token_time_guest';
+  }
+  return `mockmc_drive_token_time_${effectiveUid.trim()}`;
+}
+
+function getDriveTokenEmailStorageKey(uid?: string | null): string {
+  const effectiveUid = uid || auth.currentUser?.uid;
+  if (!effectiveUid || effectiveUid === 'guest-user' || effectiveUid === 'anonymous') {
+    return 'mockmc_drive_token_email_guest';
+  }
+  return `mockmc_drive_token_email_${effectiveUid.trim()}`;
+}
+
+/**
+ * Dynamically loads the official Google Identity Services client script if not already present.
+ */
+export function loadGoogleIdentityServices(): Promise<boolean> {
+  if (typeof window === 'undefined') return Promise.resolve(false);
+  if ((window as any).google?.accounts?.oauth2) return Promise.resolve(true);
+  if (gisScriptLoadingPromise) return gisScriptLoadingPromise;
+
+  gisScriptLoadingPromise = new Promise((resolve) => {
+    const existing = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+    if (existing) {
+      const check = setInterval(() => {
+        if ((window as any).google?.accounts?.oauth2) {
+          clearInterval(check);
+          resolve(true);
+        }
+      }, 50);
+      setTimeout(() => {
+        clearInterval(check);
+        resolve(Boolean((window as any).google?.accounts?.oauth2));
+      }, 5000);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      resolve(Boolean((window as any).google?.accounts?.oauth2));
+    };
+    script.onerror = (err) => {
+      console.warn('Failed to load Google Identity Services client script:', err);
+      resolve(false);
+    };
+    document.head.appendChild(script);
+  });
+
+  return gisScriptLoadingPromise;
+}
+
+/**
+ * Checks whether the Google Drive access token is expired (> 3600s).
+ * Strictly returns false for guests since guest mode does not use Google Drive.
+ */
+export function isGoogleDriveTokenExpired(uid?: string | null): boolean {
   if (typeof window === 'undefined') return false;
+  const effectiveUid = uid || auth.currentUser?.uid;
+  if (!effectiveUid || effectiveUid === 'guest-user' || effectiveUid === 'anonymous') {
+    return false;
+  }
   try {
-    const rawToken = cachedAccessToken || sessionStorage.getItem('mockmc_google_access_token');
-    const hadAuth = localStorage.getItem('mockmc_had_google_auth') === 'true';
+    const key = getDriveTokenStorageKey(effectiveUid);
+    const timeKey = getDriveTokenTimeStorageKey(effectiveUid);
+    const rawToken = cachedAccessToken || localStorage.getItem(key) || sessionStorage.getItem('mockmc_google_access_token');
+    const hadAuth = localStorage.getItem('mockmc_had_google_auth') === 'true' || localStorage.getItem(key) !== null;
     if (!rawToken && hadAuth) return true;
     if (rawToken) {
-      const storedTimeStr = sessionStorage.getItem('mockmc_google_token_time');
+      const storedTimeStr = localStorage.getItem(timeKey) || sessionStorage.getItem('mockmc_google_token_time');
       if (storedTimeStr) {
         const storedTime = parseInt(storedTimeStr, 10);
         // Google OAuth access tokens expire in 3600 seconds (1 hour)
@@ -335,27 +425,46 @@ export function isGoogleDriveTokenExpired(): boolean {
   return false;
 }
 
-export function clearGoogleDriveAuth(): void {
+/**
+ * Clears active Google Drive token from memory and session.
+ * Does not wipe other users' saved offline data.
+ */
+export function clearGoogleDriveAuth(clearUserScoped: boolean = true): void {
   cachedAccessToken = null;
   try {
+    const effectiveUid = auth.currentUser?.uid;
     sessionStorage.removeItem('mockmc_google_access_token');
     sessionStorage.removeItem('mockmc_google_token_time');
     localStorage.removeItem('mockmc_had_google_auth');
+    if (clearUserScoped && effectiveUid && effectiveUid !== 'guest-user' && effectiveUid !== 'anonymous') {
+      localStorage.removeItem(getDriveTokenStorageKey(effectiveUid));
+      localStorage.removeItem(getDriveTokenTimeStorageKey(effectiveUid));
+      localStorage.removeItem(getDriveTokenEmailStorageKey(effectiveUid));
+    }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('mockmc-drive-token-changed', { detail: null }));
     }
   } catch {}
 }
 
-export function getCachedGoogleAccessToken(): string | null {
-  if (isGoogleDriveTokenExpired()) {
+/**
+ * Retrieves the active Google Drive access token.
+ * Strictly returns null for guest users to prevent cross-contamination.
+ */
+export function getCachedGoogleAccessToken(uid?: string | null): string | null {
+  const effectiveUid = uid || auth.currentUser?.uid;
+  if (!effectiveUid || effectiveUid === 'guest-user' || effectiveUid === 'anonymous') {
+    return null;
+  }
+  if (isGoogleDriveTokenExpired(effectiveUid)) {
     return null;
   }
   if (cachedAccessToken) {
     return cachedAccessToken;
   }
   try {
-    const stored = sessionStorage.getItem('mockmc_google_access_token');
+    const key = getDriveTokenStorageKey(effectiveUid);
+    const stored = localStorage.getItem(key) || sessionStorage.getItem('mockmc_google_access_token');
     if (stored) {
       cachedAccessToken = stored;
       return stored;
@@ -364,21 +473,205 @@ export function getCachedGoogleAccessToken(): string | null {
   return null;
 }
 
-export function setCachedGoogleAccessToken(token: string | null): void {
+/**
+ * Stores the Google Drive token across memory, user-scoped localStorage, and sessionStorage.
+ */
+export function setCachedGoogleAccessToken(
+  token: string | null,
+  targetUid?: string | null,
+  _expiresInSeconds?: number,
+  email?: string | null
+): void {
   cachedAccessToken = token;
+  const effectiveUid = targetUid || auth.currentUser?.uid;
+  const targetEmail = email || auth.currentUser?.email;
   try {
     if (token) {
       sessionStorage.setItem('mockmc_google_access_token', token);
       sessionStorage.setItem('mockmc_google_token_time', Date.now().toString());
       localStorage.setItem('mockmc_had_google_auth', 'true');
+      if (effectiveUid && effectiveUid !== 'guest-user' && effectiveUid !== 'anonymous') {
+        localStorage.setItem(getDriveTokenStorageKey(effectiveUid), token);
+        localStorage.setItem(getDriveTokenTimeStorageKey(effectiveUid), Date.now().toString());
+        if (targetEmail) {
+          localStorage.setItem(getDriveTokenEmailStorageKey(effectiveUid), targetEmail);
+        }
+      }
     } else {
       sessionStorage.removeItem('mockmc_google_access_token');
       sessionStorage.removeItem('mockmc_google_token_time');
+      if (effectiveUid && effectiveUid !== 'guest-user' && effectiveUid !== 'anonymous') {
+        localStorage.removeItem(getDriveTokenStorageKey(effectiveUid));
+        localStorage.removeItem(getDriveTokenTimeStorageKey(effectiveUid));
+      }
     }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('mockmc-drive-token-changed', { detail: token }));
     }
   } catch {}
+}
+
+/**
+ * Silently refreshes the Google Drive OAuth2 token via Google Identity Services
+ * using an invisible background prompt without interrupting the user.
+ */
+export async function refreshGoogleDriveTokenSilently(userEmail?: string): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+
+  const user = auth.currentUser;
+  if (!user || user.isAnonymous) {
+    return null;
+  }
+
+  if (activeSilentRefreshPromise) {
+    return activeSilentRefreshPromise;
+  }
+
+  activeSilentRefreshPromise = (async () => {
+    try {
+      const email = userEmail || user.email || localStorage.getItem(getDriveTokenEmailStorageKey(user.uid));
+      if (!email) {
+        console.warn('Cannot silently refresh Google Drive token: user email is missing.');
+        return null;
+      }
+
+      const gisLoaded = await loadGoogleIdentityServices();
+      if (!gisLoaded || !(window as any).google?.accounts?.oauth2) {
+        console.warn('Google Identity Services library not available for silent refresh.');
+        return null;
+      }
+
+      return await new Promise<string | null>((resolve) => {
+        let isSettled = false;
+        const timeoutTimer = setTimeout(() => {
+          if (!isSettled) {
+            isSettled = true;
+            console.warn('Google Drive silent token refresh timed out (15s).');
+            resolve(null);
+          }
+        }, 15000);
+
+        try {
+          const client = (window as any).google.accounts.oauth2.initTokenClient({
+            client_id: GOOGLE_OAUTH_CLIENT_ID,
+            scope: GOOGLE_DRIVE_SCOPES,
+            callback: (response: any) => {
+              if (isSettled) return;
+              isSettled = true;
+              clearTimeout(timeoutTimer);
+              if (response && response.access_token) {
+                const expiresIn = response.expires_in ? parseInt(response.expires_in, 10) : 3600;
+                setCachedGoogleAccessToken(response.access_token, user.uid, expiresIn, email);
+                resolve(response.access_token);
+              } else {
+                console.warn('Silent refresh returned without access token:', response);
+                resolve(null);
+              }
+            },
+            error_callback: (err: any) => {
+              if (isSettled) return;
+              isSettled = true;
+              clearTimeout(timeoutTimer);
+              console.warn('Google Identity Services silent token request error:', err);
+              resolve(null);
+            },
+          });
+
+          client.requestAccessToken({
+            prompt: '',
+            login_hint: email,
+          });
+        } catch (initErr) {
+          if (!isSettled) {
+            isSettled = true;
+            clearTimeout(timeoutTimer);
+            console.warn('Failed to initialize Google token client:', initErr);
+            resolve(null);
+          }
+        }
+      });
+    } finally {
+      activeSilentRefreshPromise = null;
+    }
+  })();
+
+  return activeSilentRefreshPromise;
+}
+
+/**
+ * Ensures a valid Google Drive token is available. If near expiration (> 50 min),
+ * silently refreshes before returning.
+ */
+export async function ensureValidGoogleDriveToken(): Promise<string | null> {
+  const user = auth.currentUser;
+  if (!user || user.isAnonymous) return null;
+
+  const currentToken = getCachedGoogleAccessToken(user.uid);
+  const timeKey = getDriveTokenTimeStorageKey(user.uid);
+  const storedTimeStr = localStorage.getItem(timeKey) || sessionStorage.getItem('mockmc_google_token_time');
+  const storedTime = storedTimeStr ? parseInt(storedTimeStr, 10) : 0;
+  const ageMs = Date.now() - storedTime;
+
+  if (currentToken && ageMs < 50 * 60 * 1000) {
+    return currentToken;
+  }
+
+  const refreshed = await refreshGoogleDriveTokenSilently(user.email || undefined);
+  return refreshed || currentToken || null;
+}
+
+/**
+ * Starts the continuous background daemon that proactively refreshes Drive tokens
+ * at minute 50 to guarantee continuous access across the entire app session.
+ */
+export function initGoogleDriveAutoRefreshDaemon(): void {
+  if (typeof window === 'undefined' || isDaemonInitialized) return;
+  isDaemonInitialized = true;
+
+  // Pre-load Google Identity Services script in idle time
+  loadGoogleIdentityServices().catch(() => {});
+
+  // Proactive check every 60 seconds
+  setInterval(() => {
+    const user = auth.currentUser;
+    if (!user || user.isAnonymous) return;
+
+    const hadAuth =
+      localStorage.getItem('mockmc_had_google_auth') === 'true' ||
+      localStorage.getItem(getDriveTokenStorageKey(user.uid)) !== null;
+    if (!hadAuth) return;
+
+    const timeKey = getDriveTokenTimeStorageKey(user.uid);
+    const storedTimeStr = localStorage.getItem(timeKey) || sessionStorage.getItem('mockmc_google_token_time');
+    if (!storedTimeStr) return;
+
+    const storedTime = parseInt(storedTimeStr, 10);
+    const ageMs = Date.now() - storedTime;
+
+    // Refresh proactively at 50 minutes (10 minutes before the 60-minute Google OAuth expiry)
+    if (ageMs >= 50 * 60 * 1000) {
+      refreshGoogleDriveTokenSilently(user.email || undefined).catch((e) => {
+        console.warn('Background auto-refresh silent attempt warning:', e);
+      });
+    }
+  }, 60 * 1000);
+
+  // Tab focus / visibility change handler
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      const user = auth.currentUser;
+      if (!user || user.isAnonymous) return;
+
+      const timeKey = getDriveTokenTimeStorageKey(user.uid);
+      const storedTimeStr = localStorage.getItem(timeKey) || sessionStorage.getItem('mockmc_google_token_time');
+      if (storedTimeStr) {
+        const storedTime = parseInt(storedTimeStr, 10);
+        if (Date.now() - storedTime >= 50 * 60 * 1000) {
+          refreshGoogleDriveTokenSilently(user.email || undefined).catch(() => {});
+        }
+      }
+    }
+  });
 }
 
 // Operation Types for error logging
@@ -515,7 +808,8 @@ export async function signInWithGoogle(): Promise<User | null> {
       
       const credential = GoogleAuthProvider.credentialFromResult(result);
       if (credential?.accessToken) {
-        setCachedGoogleAccessToken(credential.accessToken);
+        setCachedGoogleAccessToken(credential.accessToken, result.user?.uid, 3600, result.user?.email);
+        initGoogleDriveAutoRefreshDaemon();
       }
       
       if (result.user) {
@@ -624,6 +918,11 @@ export async function checkRedirectResult(): Promise<User | null> {
     const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
     const result = await Promise.race([redirectPromise, timeoutPromise]);
     if (result && typeof result === 'object' && 'user' in result && result.user) {
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (credential?.accessToken) {
+        setCachedGoogleAccessToken(credential.accessToken, result.user.uid, 3600, result.user.email);
+        initGoogleDriveAutoRefreshDaemon();
+      }
       firestoreTelemetry.setAuthContext({
         uid: result.user.uid,
         email: result.user.email,
@@ -655,7 +954,7 @@ export async function signOutUser(): Promise<void> {
   const start = performance.now();
   try {
     invalidateFirestoreCaches();
-    cachedAccessToken = null;
+    clearGoogleDriveAuth(false);
     await signOut(auth);
     const duration = Math.round(performance.now() - start);
     

@@ -197,11 +197,23 @@ export function addDeletedFileTombstone(id: string): void {
 // L1/L2 Cache Helpers
 // ==========================================
 
-function getLocalCachedManifest(): UserNotesManifestDoc | null {
-  if (cachedManifestDoc) return cachedManifestDoc;
+function getManifestStorageKey(userId?: string | null): string {
+  const effectiveUid = userId || auth.currentUser?.uid;
+  if (!effectiveUid || effectiveUid === 'guest' || effectiveUid === 'guest-user' || effectiveUid === 'anonymous') {
+    return 'mockmc_notes_manifest_doc_guest';
+  }
+  return `mockmc_notes_manifest_doc_${effectiveUid.trim()}`;
+}
+
+function getLocalCachedManifest(userId?: string | null): UserNotesManifestDoc | null {
+  const effectiveUid = userId || auth.currentUser?.uid || 'guest';
+  if (cachedManifestDoc && cachedManifestDoc.userId === effectiveUid) {
+    return cachedManifestDoc;
+  }
   try {
     if (typeof localStorage !== 'undefined') {
-      const stored = localStorage.getItem(LOCAL_STORAGE_MANIFEST_KEY);
+      const targetKey = getManifestStorageKey(effectiveUid);
+      const stored = localStorage.getItem(targetKey) || localStorage.getItem(LOCAL_STORAGE_MANIFEST_KEY);
       if (stored) {
         cachedManifestDoc = JSON.parse(stored);
         return cachedManifestDoc;
@@ -213,12 +225,14 @@ function getLocalCachedManifest(): UserNotesManifestDoc | null {
 
 function setLocalCachedManifest(docData: UserNotesManifestDoc): void {
   cachedManifestDoc = docData;
+  const targetKey = getManifestStorageKey(docData.userId);
   try {
     if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(targetKey, JSON.stringify(docData));
       localStorage.setItem(LOCAL_STORAGE_MANIFEST_KEY, JSON.stringify(docData));
     }
   } catch {
-    safeSetItem(LOCAL_STORAGE_MANIFEST_KEY, JSON.stringify(docData), docData.userId);
+    safeSetItem(targetKey, JSON.stringify(docData), docData.userId);
   }
 }
 
