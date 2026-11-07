@@ -1583,13 +1583,13 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                           handleOpenSubtopicQuestions(sub);
                         }
                       }}
-                      className="p-3 rounded-[20px] bg-white dark:bg-[#1e2024] border border-slate-200/80 dark:border-zinc-800 space-y-2 text-xs shadow-xs text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col justify-between cursor-pointer hover:border-[#0b57d0]/60 dark:hover:border-[#a8c7fa]/60 hover:shadow-sm hover:scale-[1.01] active:scale-[0.99] transition-all group select-none"
+                      className="p-3 rounded-[20px] bg-white dark:bg-[#1e2024] border border-slate-200/80 dark:border-zinc-800 space-y-2 text-xs shadow-xs text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col justify-between cursor-pointer select-none"
                       title={`Click to view questions & step-by-step solutions for ${sub.subtopic}`}
                     >
                       <div className="space-y-1.5">
                         <div className="flex items-start justify-between gap-1.5">
                           <div>
-                            <span className="font-bold text-slate-900 dark:text-zinc-100 text-xs block leading-snug group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors">
+                            <span className="font-bold text-slate-900 dark:text-zinc-100 text-xs block leading-snug">
                               {sub.subtopic}
                             </span>
                             <span className="inline-block mt-0.5 px-2 py-0.5 rounded-md text-[9px] font-bold bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">
@@ -1632,7 +1632,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                                   e.stopPropagation();
                                   handleOpenSubtopicQuestions(sub, q.questionNumber);
                                 }}
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] border-0 ring-0 cursor-pointer hover:scale-105 active:scale-95 transition-all ${chipStyle}`}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] border-0 ring-0 cursor-pointer ${chipStyle}`}
                                 title={`View Q${q.questionNumber} Question & Solution`}
                               >
                                 <span className="w-3 h-3 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center shrink-0">
@@ -1864,11 +1864,11 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                                           handleOpenSubtopicQuestions(sub);
                                         }
                                       }}
-                                      className="p-2.5 rounded-[18px] bg-white dark:bg-[#1e2024] border border-slate-200/60 dark:border-zinc-800/80 space-y-1.5 text-xs shadow-xs text-[#1f1f1f] dark:text-[#e3e3e3] cursor-pointer hover:border-[#0b57d0]/60 dark:hover:border-[#a8c7fa]/60 hover:shadow-sm hover:scale-[1.01] active:scale-[0.99] transition-all group select-none"
+                                      className="p-2.5 rounded-[18px] bg-white dark:bg-[#1e2024] border border-slate-200/60 dark:border-zinc-800/80 space-y-1.5 text-xs shadow-xs text-[#1f1f1f] dark:text-[#e3e3e3] cursor-pointer select-none"
                                       title={`Click to view questions & step-by-step solutions for ${sub.subtopic}`}
                                     >
                                       <div className="flex items-center justify-between gap-1">
-                                        <span className="font-bold text-slate-900 dark:text-zinc-100 truncate text-[11px] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors" title={sub.subtopic}>
+                                        <span className="font-bold text-slate-900 dark:text-zinc-100 truncate text-[11px]" title={sub.subtopic}>
                                           {sub.subtopic}
                                         </span>
                                         <span
@@ -1907,7 +1907,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                                                 e.stopPropagation();
                                                 handleOpenSubtopicQuestions(sub, q.questionNumber);
                                               }}
-                                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] border-0 ring-0 cursor-pointer hover:scale-105 active:scale-95 transition-all ${chipStyle}`}
+                                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] border-0 ring-0 cursor-pointer ${chipStyle}`}
                                               title={`View Q${q.questionNumber} Question & Solution`}
                                             >
                                               <span className="w-3 h-3 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center shrink-0">
@@ -2246,12 +2246,12 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                         handleOpenSubtopicQuestions(sub);
                       }
                     }}
-                    className="bg-white dark:bg-[#1e2024] rounded-[24px] ring-1 ring-slate-300 dark:ring-zinc-700 border-0 p-4 flex flex-col justify-between gap-3 shadow-xs hover:ring-[#0b57d0]/70 dark:hover:ring-[#a8c7fa]/70 hover:shadow-sm hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer group select-none"
+                    className="bg-white dark:bg-[#1e2024] rounded-[24px] ring-1 ring-slate-300 dark:ring-zinc-700 border-0 p-4 flex flex-col justify-between gap-3 shadow-xs cursor-pointer select-none"
                     title={`Click to view questions & step-by-step solutions for ${sub.subtopic}`}
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between gap-1.5">
-                        <h4 className="font-bold text-slate-900 dark:text-zinc-100 text-xs sm:text-sm line-clamp-1 group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors" title={sub.subtopic}>
+                        <h4 className="font-bold text-slate-900 dark:text-zinc-100 text-xs sm:text-sm line-clamp-1" title={sub.subtopic}>
                           {sub.subtopic}
                         </h4>
                         <span
@@ -2290,7 +2290,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                                 e.stopPropagation();
                                 handleOpenSubtopicQuestions(sub, q.questionNumber);
                               }}
-                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] border-0 ring-0 cursor-pointer hover:scale-105 active:scale-95 transition-all ${chipStyle}`}
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] border-0 ring-0 cursor-pointer ${chipStyle}`}
                               title={`View Q${q.questionNumber} Question & Solution`}
                             >
                               <span className="w-3 h-3 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center shrink-0">
@@ -2305,7 +2305,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
 
                     <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-zinc-400 pt-2 border-t border-slate-100 dark:border-zinc-800">
                       <span className="font-semibold text-slate-700 dark:text-zinc-300">{sub.correctCount}/{sub.totalQuestions} Correct</span>
-                      <span className="flex items-center gap-1 group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] font-medium transition-colors">
+                      <span className="flex items-center gap-1 font-medium">
                         <span>{sub.wrongCount} Wrong • {sub.skippedCount} Skipped</span>
                       </span>
                     </div>
