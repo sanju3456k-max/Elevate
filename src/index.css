@@ -313,7 +313,7 @@
 /* Inline math ($...$ or \(...\)): sits inline with text seamlessly matching size, height, and baseline */
 .inline-math {
   display: inline;
-  vertical-align: -0.05em;
+  vertical-align: baseline;
   line-height: inherit;
   margin: 0 0.08em;
   padding: 0;
@@ -326,17 +326,10 @@
 
 .inline-math .katex {
   display: inline !important;
-  vertical-align: -0.05em !important;
+  vertical-align: baseline !important;
   font-size: 1.0em !important;
   line-height: inherit !important;
   font-style: normal !important;
-}
-
-.inline-math .katex .strut {
-  display: inline-block;
-  height: auto !important;
-  min-height: 0 !important;
-  vertical-align: baseline !important;
 }
 
 /* Display block math ($$...$$ or \[...\]) */
