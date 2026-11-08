@@ -90,6 +90,9 @@ export const SHARED_KATEX_FONTS_AND_DELIMITER_STYLES = `
   .katex .delimsizing.size4, .katex .delimsizing.size4 * { font-family: KaTeX_Size4, KaTeX_Main, sans-serif !important; }
   .katex .delimsizing.mult .delim-size1 > span { font-family: KaTeX_Size1, KaTeX_Main, sans-serif !important; }
   .katex .delimsizing.mult .delim-size4 > span { font-family: KaTeX_Size4, KaTeX_Main, sans-serif !important; }
+  .katex .large-op { font-family: KaTeX_Size2, KaTeX_Size1, KaTeX_Main, sans-serif !important; }
+  .katex .small-op { font-family: KaTeX_Size1, KaTeX_Main, sans-serif !important; }
+  .katex .op-symbol:not(.large-op):not(.small-op) { font-family: KaTeX_Size2, KaTeX_Size1, KaTeX_Main, sans-serif !important; }
   .katex .mopen:not(.delimsizing), .katex .mclose:not(.delimsizing) { font-family: KaTeX_Main, 'Inter', sans-serif !important; }
   .katex .mtable {
     vertical-align: middle !important;

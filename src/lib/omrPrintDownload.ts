@@ -425,6 +425,15 @@ const QUESTION_PAPER_PRINT_CSS = `
   .katex .delimsizing {
     font-family: KaTeX_Size1, KaTeX_Size2, KaTeX_Size3, KaTeX_Size4, KaTeX_Main, sans-serif;
   }
+  .katex .large-op {
+    font-family: KaTeX_Size2, KaTeX_Size1, KaTeX_Main, sans-serif !important;
+  }
+  .katex .small-op {
+    font-family: KaTeX_Size1, KaTeX_Main, sans-serif !important;
+  }
+  .katex .op-symbol:not(.large-op):not(.small-op) {
+    font-family: KaTeX_Size2, KaTeX_Size1, KaTeX_Main, sans-serif !important;
+  }
 
   /* Images and Diagrams */
   img, svg {

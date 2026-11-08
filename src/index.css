@@ -258,7 +258,7 @@
 }
 
 /* Guarantee math relation symbols (\neq, \leq, \geq, \approx, \in, \notin, \subset, \equiv), operators, 
-   delimiters, radicals, integral/summation symbols, and negated glyphs preserve KaTeX symbol glyphs */
+   delimiters, radicals, and negated glyphs preserve KaTeX symbol glyphs */
 .katex .mrel,
 .katex .mbin,
 .katex .mord:not(.mathnormal),
@@ -266,10 +266,21 @@
 .katex .sqrt-sign,
 .katex .sqrt > .sqrt-sign,
 .katex .stretchy,
-.katex .stretchy *,
-.katex .large-op,
-.katex .op-symbol {
+.katex .stretchy * {
   font-family: KaTeX_Main, KaTeX_Math, KaTeX_AMS, KaTeX_Symbols, KaTeX_Size1, KaTeX_Size2, KaTeX_Size3, KaTeX_Size4, 'Inter', sans-serif !important;
+}
+
+/* Large and small math operators (\int, \iint, \iiint, \oint, \sum, \prod, \coprod, \bigcap, \bigcup) preserve proper mathematical operator sizing */
+.katex .large-op {
+  font-family: KaTeX_Size2, KaTeX_Size1, KaTeX_Main, sans-serif !important;
+}
+
+.katex .small-op {
+  font-family: KaTeX_Size1, KaTeX_Main, sans-serif !important;
+}
+
+.katex .op-symbol:not(.large-op):not(.small-op) {
+  font-family: KaTeX_Size2, KaTeX_Size1, KaTeX_Main, sans-serif !important;
 }
 
 /* Binary math operators (+, -, \times, \cdot, \pm, \div) */
