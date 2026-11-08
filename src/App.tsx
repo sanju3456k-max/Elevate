@@ -52,7 +52,9 @@ import {
   setCachedAuthUser,
   loadFullTestOnDemand,
   getAllDeletedTestIds,
-  type CachedAuthUser
+  getGuestDataSummary,
+  type CachedAuthUser,
+  type GuestDataSummary
 } from './lib/storage';
 
 // Subcomponents
@@ -70,6 +72,7 @@ import { NotesStudio } from './components/notesStudio/NotesStudio';
 import { BulkPrintStudio } from './components/BulkPrintStudio';
 import { SettingsModal } from './components/SettingsModal';
 import { InstallAppModal } from './components/InstallAppModal';
+import { GuestMigrationModal } from './components/auth/GuestMigrationModal';
 import { WelcomeSplash } from './components/WelcomeSplash';
 import { usePWAInstall } from './hooks/usePWAInstall';
 import { useUIScale } from './hooks/useUIScale';
@@ -132,6 +135,8 @@ export default function App() {
   const [activeTab, setActiveTabState] = useState<ActiveTab>('tests');
   const [tabHistory, setTabHistory] = useState<ActiveTab[]>([]);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
+  const [isGuestMigrationOpen, setIsGuestMigrationOpen] = useState<boolean>(false);
+  const [guestMigrationSummary, setGuestMigrationSummary] = useState<GuestDataSummary | null>(null);
   const [chatbotInitialPrompt, setChatbotInitialPrompt] = useState<string | null>(null);
 
   const {
@@ -546,6 +551,20 @@ export default function App() {
           handleUserAuthenticated(user);
           syncHub.startSyncHub(user.uid);
           smartCoordinator.flushWriteQueue().catch(() => {});
+
+          // Feature C: Prompt for atomic guest data migration if unmigrated progress exists
+          try {
+            const isDismissed = typeof localStorage !== 'undefined' && localStorage.getItem(`mockmc_guest_migration_dismissed_${user.uid}`);
+            const isAlreadyMigrated = typeof localStorage !== 'undefined' && localStorage.getItem(`mockmc_guest_migrated_to_${user.uid}`);
+            if (!isDismissed && !isAlreadyMigrated) {
+              getGuestDataSummary().then((summary) => {
+                if (summary.hasData) {
+                  setGuestMigrationSummary(summary);
+                  setIsGuestMigrationOpen(true);
+                }
+              }).catch(() => {});
+            }
+          } catch {}
         } else {
           setCurrentUser(null);
           setCachedUser(null);
@@ -1689,6 +1708,25 @@ export default function App() {
           }}
         />
       )}
+
+      {/* Atomic Guest-to-Account Migration Modal */}
+      <GuestMigrationModal
+        isOpen={isGuestMigrationOpen}
+        onClose={() => setIsGuestMigrationOpen(false)}
+        currentUser={currentUser}
+        summary={guestMigrationSummary}
+        onMigrationComplete={(res) => {
+          showToast(
+            `Transferred ${res.migratedAttempts} attempts and ${res.migratedTests} custom tests to your account!`,
+            'success'
+          );
+          const activeUid = currentUser?.uid || null;
+          const freshTests = loadScopedTests(activeUid);
+          setTests(freshTests);
+          const freshAttempts = loadScopedAttempts(activeUid);
+          setAttempts(freshAttempts);
+        }}
+      />
 
       {/* Settings & Offline Storage Modal */}
       <SettingsModal

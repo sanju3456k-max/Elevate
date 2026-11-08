@@ -18,8 +18,18 @@ import {
   Tag as TagIcon,
 } from 'lucide-react';
 import { MathRenderer } from './MathRenderer';
-import { getCachedGoogleAccessToken, signInWithGoogle } from '../lib/firebase';
-import { exportNoteToVisibleGoogleDrive, saveNoteToGoogleDrive } from '../lib/googleWorkspace';
+import {
+  getCachedGoogleAccessToken,
+  signInWithGoogle,
+  ensureValidGoogleDriveToken,
+  requestGoogleDriveTokenInteractive,
+} from '../lib/firebase';
+import {
+  exportNoteToVisibleGoogleDrive,
+  saveNoteToGoogleDrive,
+  getOrCreateGoogleDocForNote,
+  preparePlaceholderTab,
+} from '../lib/googleWorkspace';
 import { copyFormattedTextToClipboard } from '../lib/tableClipboard';
 import { saveSingleNoteToIDB } from '../lib/idbNotes';
 import { printNoteDocument } from '../lib/notePrintUtility';
@@ -413,7 +423,11 @@ export const GoogleDocsNoteViewer: React.FC<GoogleDocsNoteViewerProps> = ({
   const [isOpeningInDocs, setIsOpeningInDocs] = useState<boolean>(false);
 
   const handleOpenInDocs = async () => {
-    let token = getCachedGoogleAccessToken();
+    const targetTab = preparePlaceholderTab('Opening in Google Docs...');
+    let token = await ensureValidGoogleDriveToken();
+    if (!token) {
+      token = await requestGoogleDriveTokenInteractive();
+    }
     if (!token) {
       try {
         await signInWithGoogle();
@@ -423,21 +437,27 @@ export const GoogleDocsNoteViewer: React.FC<GoogleDocsNoteViewerProps> = ({
       }
     }
     if (!token) {
+      if (targetTab) targetTab.close();
       return;
     }
 
     setIsOpeningInDocs(true);
     try {
-      const res = await exportNoteToVisibleGoogleDrive(token, {
-        id: driveFileId || 'note',
+      const res = await getOrCreateGoogleDocForNote(token, {
+        id: noteId || driveFileId || 'note',
         content: cleanBody || currentContent,
         fileName: cleanTitle,
         tag: currentTag,
       }, testTitle);
       if (res.webViewLink) {
-        window.open(res.webViewLink, '_blank');
+        if (targetTab) {
+          targetTab.location.href = res.webViewLink;
+        } else {
+          window.open(res.webViewLink, '_blank');
+        }
       }
     } catch (err: any) {
+      if (targetTab) targetTab.close();
       console.warn('Failed to export to Google Docs:', err);
     } finally {
       setIsOpeningInDocs(false);

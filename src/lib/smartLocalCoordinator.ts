@@ -29,6 +29,9 @@ import {
   setGlobalQuotaExceeded,
   type UserSyncBeacon,
   updateUserSyncBeacon,
+  getUserSyncBeacon,
+  fetchUserAttemptsFromFirestore,
+  fetchTestsFromFirestore,
   deleteSingleChatSessionFromFirestoreDirect
 } from './firebase';
 import { 
@@ -54,8 +57,15 @@ import {
   putTestToIndexedDB,
   deleteTestFromIndexedDB,
   putAttemptToIndexedDB,
-  deleteAttemptFromIndexedDB
+  deleteAttemptFromIndexedDB,
+  putAllAttemptsToIndexedDB,
+  putAllTestsToIndexedDB
 } from './indexedDbStorage';
+import {
+  mergeAttemptLogs,
+  reconcileMutableEntity,
+  mergeQuestionArrays
+} from './reconciliationEngine';
 import type { MathTest, TestAttempt } from '../types';
 import { 
   optimizeTestForFirestore, 
@@ -357,6 +367,7 @@ export class SmartLocalCoordinator {
   private writeTimer: NodeJS.Timeout | number | null = null;
   private isFlushingWrites = false;
   private readonly WRITE_DEBOUNCE_MS = 200; // 200ms write buffer window
+  private needsReconciliationCheck = true; // Pull-Before-Push flag on startup / reconnect
 
   // UI Subscribers: `collection:id` or `collection` -> Set<Callback>
   private subscribers: Map<string, Set<(data: any) => void>> = new Map();
@@ -547,7 +558,14 @@ export class SmartLocalCoordinator {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
         handleExit();
+      } else if (document.visibilityState === 'visible') {
+        this.needsReconciliationCheck = true;
+        this.flushWriteQueue().catch(() => {});
       }
+    });
+    window.addEventListener('focus', () => {
+      this.needsReconciliationCheck = true;
+      this.flushWriteQueue().catch(() => {});
     });
   }
 
@@ -1769,6 +1787,7 @@ export class SmartLocalCoordinator {
 
   /**
    * Flushes queued writes into atomic Firestore `writeBatch` transactions (up to 500 ops).
+   * Guarded by Web Locks API (multi-tab leader election) and Pull-Before-Push reconciliation.
    */
   public async flushWriteQueue(): Promise<void> {
     if (this.isFlushingWrites || this.writeQueue.length === 0) return;
@@ -1778,15 +1797,109 @@ export class SmartLocalCoordinator {
       if (!hasDeletes) return;
     }
 
-    // Critical Auth Guard: All Firestore writes require an active authenticated user.
-    // When the user is unauthenticated or in guest mode, all mutations remain safely stored
-    // in browser memory (L1), localStorage (L2), and IndexedDB (L2) without remote errors.
     const currentUser = auth.currentUser;
     if (!currentUser || currentUser.isAnonymous) {
       return;
     }
 
+    // Web Locks API multi-tab leader election: exactly one tab acts as synchronization leader
+    if (typeof navigator !== 'undefined' && 'locks' in navigator && (navigator.locks as any)?.request) {
+      try {
+        const lockName = `mockmc_outbox_leader_${currentUser.uid}`;
+        await (navigator.locks as any).request(lockName, { ifAvailable: true }, async (lock: any) => {
+          if (!lock) {
+            // Another tab is currently leader and actively flushing outbox
+            return;
+          }
+          await this.executeLeaderFlush(currentUser);
+        });
+        return;
+      } catch (e) {
+        // Fallback to direct flush if Web Locks fails
+      }
+    }
+
+    await this.executeLeaderFlush(currentUser);
+  }
+
+  /**
+   * Feature A: Pull-Before-Push Delta Reconciliation
+   * Queries UserSyncBeacon before transmitting local outbox mutations to prevent
+   * overwriting edits committed by other devices of the same account during offline/quota-lockout.
+   */
+  private async reconcileCloudDeltasBeforeFlush(currentUid: string): Promise<void> {
+    if (!currentUid || isOfflineLocalOnlyMode() || isGlobalQuotaExceeded()) return;
+    try {
+      const beacon = await getUserSyncBeacon(currentUid);
+      if (!beacon) return;
+
+      const localRevs = this.getLocalSyncRevisions(currentUid);
+
+      // 1. Attempts Reconciliation (CRDT OR-Set Merge)
+      if (beacon.attemptsRev && beacon.attemptsRev > (localRevs.attemptsRev || 0)) {
+        console.log('SmartLocalCoordinator: Cloud has newer attempts during quota recovery. Pulling before push...');
+        const remoteAttempts = await fetchUserAttemptsFromFirestore(currentUid, 100, true);
+        if (remoteAttempts && remoteAttempts.length > 0) {
+          const localAttempts = loadScopedAttempts(currentUid);
+          const { merged, addedToLocalCount } = mergeAttemptLogs(localAttempts, remoteAttempts);
+          if (addedToLocalCount > 0 || merged.length !== localAttempts.length) {
+            saveScopedAttempts(currentUid, merged);
+            putAllAttemptsToIndexedDB(currentUid, merged).catch(() => {});
+            this.notify('attempts', merged);
+          }
+          this.setLocalSyncRevision(currentUid, 'attemptsRev', beacon.attemptsRev);
+        }
+      }
+
+      // 2. Tests Reconciliation (Lamport Timestamps & Question Array Merging)
+      if (beacon.testsRev && beacon.testsRev > (localRevs.testsRev || 0)) {
+        console.log('SmartLocalCoordinator: Cloud has newer tests during quota recovery. Pulling before push...');
+        const remoteTests = await fetchTestsFromFirestore(100, true);
+        if (remoteTests && remoteTests.length > 0) {
+          const localTests = loadScopedTests(currentUid);
+          const localMap = new Map<string, MathTest>(localTests.map((t) => [t.id, t]));
+          let testsChanged = false;
+
+          remoteTests.forEach((remoteTest) => {
+            if (!localMap.has(remoteTest.id)) {
+              localMap.set(remoteTest.id, remoteTest);
+              testsChanged = true;
+            } else {
+              const localTest = localMap.get(remoteTest.id)!;
+              const reconciled = reconcileMutableEntity(localTest, remoteTest);
+              const qMerge = mergeQuestionArrays(reconciled.resolved.questions, remoteTest.questions);
+              reconciled.resolved.questions = qMerge.mergedQuestions;
+              localMap.set(remoteTest.id, reconciled.resolved);
+              if (reconciled.wasConflicted || qMerge.changed) {
+                testsChanged = true;
+              }
+            }
+          });
+
+          if (testsChanged) {
+            const finalMergedTests = Array.from(localMap.values());
+            saveScopedTests(currentUid, finalMergedTests);
+            putAllTestsToIndexedDB(currentUid, finalMergedTests).catch(() => {});
+            this.notify('tests', finalMergedTests);
+          }
+          this.setLocalSyncRevision(currentUid, 'testsRev', beacon.testsRev);
+        }
+      }
+    } catch (err) {
+      console.warn('SmartLocalCoordinator: Pull-Before-Push delta reconciliation warning (safe to proceed):', err);
+    }
+  }
+
+  private async executeLeaderFlush(currentUser: any): Promise<void> {
+    if (this.isFlushingWrites || this.writeQueue.length === 0) return;
+
     this.isFlushingWrites = true;
+
+    // Feature A: Pull-Before-Push Reconciliation on reconnect/rollover
+    if (this.needsReconciliationCheck) {
+      this.needsReconciliationCheck = false;
+      await this.reconcileCloudDeltasBeforeFlush(currentUser.uid);
+    }
 
     // Grab pending mutations up to 500 (Firestore WriteBatch limit)
     const rawBatch = this.writeQueue.splice(0, 500);
@@ -2162,11 +2275,13 @@ export class SmartLocalCoordinator {
   private setupOfflineOnlineListeners(): void {
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => {
-        console.log('SmartLocalCoordinator: Online event detected. Flushing queued writes.');
+        console.log('SmartLocalCoordinator: Online event detected. Triggering Pull-Before-Push reconciliation & flush.');
+        this.needsReconciliationCheck = true;
         this.flushWriteQueue();
       });
       window.addEventListener('firestore-quota-reset', () => {
-        console.log('SmartLocalCoordinator: Daily quota reset detected. Flushing queued writes.');
+        console.log('SmartLocalCoordinator: Daily quota reset detected. Triggering Pull-Before-Push reconciliation & flush.');
+        this.needsReconciliationCheck = true;
         this.flushWriteQueue();
       });
     }

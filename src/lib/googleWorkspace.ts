@@ -61,6 +61,29 @@ export interface GoogleDriveFile {
 }
 
 /**
+ * Safe Browser Tab Launcher:
+ * Solves modern browser popup blockers (Chrome, Safari, Edge, Firefox) by opening
+ * an initial blank window synchronously within the user gesture event loop,
+ * displaying a clean branded spinner, and later redirecting the location
+ * once the asynchronous Google Drive or Docs API network call resolves.
+ */
+export function preparePlaceholderTab(title: string = 'Opening Google Workspace...'): Window | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const tab = window.open('about:blank', '_blank');
+    if (tab) {
+      try {
+        tab.document.write(`<!DOCTYPE html><html><head><title>${title}</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1e293b;}.box{text-align:center;padding:24px;max-width:380px;}.spinner{width:36px;height:36px;border:3px solid #e2e8f0;border-top-color:#0b57d0;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;}@keyframes spin{to{transform:rotate(360deg);}}h3{margin:0 0 6px;font-size:16px;font-weight:600;color:#0f172a;}p{margin:0;font-size:13px;color:#64748b;line-height:1.5;}@media(prefers-color-scheme:dark){body{background:#0b0c10;color:#f1f5f9;}.spinner{border-color:#27272a;border-top-color:#38bdf8;}h3{color:#f8fafc;}p{color:#94a3b8;}}</style></head><body><div class="box"><div class="spinner"></div><h3>${title}</h3><p>Connecting to Google Workspace securely...</p></div></body></html>`);
+      } catch {}
+    }
+    return tab;
+  } catch (e) {
+    console.warn('Failed to prepare placeholder tab:', e);
+    return null;
+  }
+}
+
+/**
  * Strips raw file extensions (.md, .txt, .json, etc), cleans raw LaTeX/Markdown table syntax,
  * and formats clean, human-readable titles.
  */
@@ -770,7 +793,8 @@ export async function createGoogleDoc(
   accessToken: string,
   title: string,
   sections: DocSection[],
-  parentId?: string
+  parentId?: string,
+  appProperties?: Record<string, string>
 ): Promise<{ documentId: string; title: string; webViewLink?: string }> {
   // Build HTML formatted document body
   const htmlContent = markdownToGoogleDocHtml(title, sections);
@@ -781,6 +805,9 @@ export async function createGoogleDoc(
   };
   if (parentId && parentId !== 'appDataFolder') {
     metadata.parents = [parentId];
+  }
+  if (appProperties) {
+    metadata.appProperties = appProperties;
   }
 
   const boundary = 'foo_bar_baz_doc';
@@ -796,7 +823,7 @@ export async function createGoogleDoc(
     `${htmlContent}\r\n` +
     `${closeDelimiter}`;
 
-  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink', {
+  let res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -804,6 +831,22 @@ export async function createGoogleDoc(
     },
     body: multipartRequestBody,
   });
+
+  if (res.status === 401) {
+    console.warn('createGoogleDoc received 401. Silently refreshing token and retrying...');
+    const refreshed = await refreshGoogleDriveTokenSilently();
+    if (refreshed) {
+      accessToken = refreshed;
+      res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${refreshed}`,
+          'Content-Type': `multipart/related; boundary=${boundary}`,
+        },
+        body: multipartRequestBody,
+      });
+    }
+  }
 
   if (!res.ok) {
     const errText = await res.text();
@@ -1478,34 +1521,93 @@ export function sanitizeFolderName(name: string): string {
   return name.replace(/[/\\?%*:|"<>]/g, '-').trim().slice(0, 80);
 }
 
+export const NOTES_STUDIO_ROOT_FOLDER_NAME = 'Notes Studio';
+
+let cachedNotesStudioRootFolderId: string | null = null;
+
 /**
- * Plan C: Virtual Folder Reference for AppDataFolder
- * No physical folders are created in Google Drive, eliminating folder duplication and visible Drive clutter.
+ * Resolves or creates the canonical "Notes Studio" folder in the user's My Drive.
+ * All user notes, Google Docs, and study sheets are contained here to prevent root Drive clutter.
  */
-export function getOrCreateNotesFolder(
-  _accessToken: string
-): Promise<{ appFolderId: string; notesFolderId: string }> {
-  return Promise.resolve({
-    appFolderId: 'appDataFolder',
-    notesFolderId: 'appDataFolder',
-  });
+export async function getOrCreateNotesStudioRootFolder(accessToken: string): Promise<string> {
+  if (cachedNotesStudioRootFolderId) {
+    return cachedNotesStudioRootFolderId;
+  }
+  try {
+    const existing = await findAllDriveFolders(accessToken, NOTES_STUDIO_ROOT_FOLDER_NAME, undefined, { key: 'app', value: 'notes_studio' });
+    if (existing.length > 0) {
+      cachedNotesStudioRootFolderId = existing[0].id;
+      return existing[0].id;
+    }
+  } catch (e) {
+    console.warn('Could not query Notes Studio root folder:', e);
+  }
+  const createdId = await createDriveFolder(accessToken, NOTES_STUDIO_ROOT_FOLDER_NAME, undefined, { app: 'notes_studio', role: 'root' });
+  cachedNotesStudioRootFolderId = createdId;
+  return createdId;
 }
 
 /**
- * Plan C: Dedicated Virtual Test Folder mapping to appDataFolder
- * No subfolders are spawned in Google Drive. All test organization is handled virtually via appProperties metadata.
+ * Resolves the primary Notes folder reference inside "Notes Studio".
  */
-export function getOrCreateTestNotesFolder(
-  _accessToken: string,
+export async function getOrCreateNotesFolder(
+  accessToken: string
+): Promise<{ appFolderId: string; notesFolderId: string }> {
+  const rootId = await getOrCreateNotesStudioRootFolder(accessToken);
+  return {
+    appFolderId: rootId,
+    notesFolderId: rootId,
+  };
+}
+
+/**
+ * Resolves or creates a dedicated test/topic subfolder inside "Notes Studio" in Google Drive.
+ * Keeps all study materials organized, visible, and 100% accessible in Google Drive & Docs.
+ */
+export async function getOrCreateTestNotesFolder(
+  accessToken: string,
   testTitle?: string
 ): Promise<{ appFolderId: string; notesFolderId: string; testFolderId: string; testFolderName: string }> {
+  const rootId = await getOrCreateNotesStudioRootFolder(accessToken);
   const testFolderName = sanitizeFolderName(testTitle || 'General Repository');
-  return Promise.resolve({
-    appFolderId: 'appDataFolder',
-    notesFolderId: 'appDataFolder',
-    testFolderId: 'appDataFolder',
-    testFolderName,
-  });
+
+  if (testFolderName === 'General Repository' || testFolderName === 'Study Materials Repository' || testFolderName === 'global_repo') {
+    return {
+      appFolderId: rootId,
+      notesFolderId: rootId,
+      testFolderId: rootId,
+      testFolderName,
+    };
+  }
+
+  // Create or retrieve subfolder under Notes Studio root
+  try {
+    const existingSubfolder = await findDriveFolder(accessToken, testFolderName, rootId);
+    if (existingSubfolder) {
+      return {
+        appFolderId: rootId,
+        notesFolderId: rootId,
+        testFolderId: existingSubfolder,
+        testFolderName,
+      };
+    }
+
+    const newSubfolderId = await createDriveFolder(accessToken, testFolderName, rootId, { app: 'notes_studio', testFolderName });
+    return {
+      appFolderId: rootId,
+      notesFolderId: rootId,
+      testFolderId: newSubfolderId,
+      testFolderName,
+    };
+  } catch (err) {
+    console.warn('Failed to resolve test subfolder, defaulting to Notes Studio root:', err);
+    return {
+      appFolderId: rootId,
+      notesFolderId: rootId,
+      testFolderId: rootId,
+      testFolderName,
+    };
+  }
 }
 
 /**
@@ -1562,31 +1664,44 @@ export async function moveDriveFileToFolder(
 }
 
 /**
- * Plan C: Find existing file in appDataFolder by noteId to prevent duplicate file creation
+ * Finds an existing file in Google Drive by unique noteId to prevent duplicate file creation.
  */
-export async function findAppDataFileByNoteId(
+export async function findDriveFileByNoteId(
   accessToken: string,
   noteId: string
-): Promise<string | null> {
+): Promise<{ id: string; webViewLink?: string } | null> {
   try {
     const cleanId = noteId.replace(/'/g, "\\'");
     const q = `trashed = false and appProperties has { key='noteId' and value='${cleanId}' }`;
-    const url = `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${encodeURIComponent(q)}&fields=files(id)&pageSize=1`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,webViewLink)&pageSize=1`;
+    const res = await authedDriveFetch(url, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    }, accessToken);
     if (!res.ok) return null;
     const data = await res.json();
-    return data.files && data.files.length > 0 ? data.files[0].id : null;
+    return data.files && data.files.length > 0 ? { id: data.files[0].id, webViewLink: data.files[0].webViewLink } : null;
   } catch {
     return null;
   }
 }
 
 /**
- * Plan C: Save a personal study note into Google Drive's isolated 'appDataFolder'
- * - Zero visible folders or clutter in user's personal Google Drive
- * - Deduplication guaranteed: checks for existing noteId before uploading
+ * Backward compatibility alias for finding note file
+ */
+export async function findAppDataFileByNoteId(
+  accessToken: string,
+  noteId: string
+): Promise<string | null> {
+  const found = await findDriveFileByNoteId(accessToken, noteId);
+  return found?.id || null;
+}
+
+/**
+ * Enterprise Google Drive Storage Engine:
+ * - Saves notes cleanly into the dedicated "Notes Studio" folder in user's My Drive
+ * - Guaranteed in-place deduplication: checks for existing noteId before uploading
+ * - Generates real, clickable webViewLinks that open in Google Drive without 404s
  * - Preserves tables, LaTeX formulas, and Markdown format cleanly
  */
 export async function saveNoteToGoogleDrive(
@@ -1602,15 +1717,22 @@ export async function saveNoteToGoogleDrive(
     fileName?: string;
     fileType?: 'image' | 'pdf' | 'file';
     createdAt: string;
+    driveFileId?: string;
+    driveWebViewLink?: string;
   },
   testTitle?: string
 ): Promise<{ driveFileId: string; webViewLink: string; notesFolderId: string; testFolderId: string; testFolderName: string; isAppData: boolean }> {
-  const testFolderName = sanitizeFolderName(testTitle || note.testId || 'General Repository');
+  const { notesFolderId, testFolderId, testFolderName } = await getOrCreateTestNotesFolder(accessToken, testTitle || note.testId);
 
-  // Step 1: Check if this note was already uploaded and has an ID or already exists in appDataFolder
+  // Step 1: Check if this note was already uploaded and has an ID or already exists in Drive
   let existingFileId = (note as any).driveFileId;
+  let existingWebViewLink = (note as any).driveWebViewLink;
   if (!existingFileId) {
-    existingFileId = await findAppDataFileByNoteId(accessToken, note.id);
+    const existing = await findDriveFileByNoteId(accessToken, note.id);
+    if (existing) {
+      existingFileId = existing.id;
+      existingWebViewLink = existing.webViewLink;
+    }
   }
 
   // Handle attachment vs text-based note
@@ -1631,7 +1753,7 @@ export async function saveNoteToGoogleDrive(
     tag: note.tag || '',
     questionNumber: String(note.questionNumber || ''),
     fileType: note.fileType || (isImageAttachment ? 'image' : isPdfAttachment ? 'pdf' : 'text'),
-    isAppData: 'true',
+    app: 'notes_studio',
   };
 
   // If file already exists in Drive, update its content in-place (ZERO DUPLICATES)
@@ -1666,20 +1788,21 @@ export async function saveNoteToGoogleDrive(
         body: JSON.stringify({ appProperties }),
       }, accessToken);
 
+      const resolvedLink = existingWebViewLink || `https://drive.google.com/file/d/${existingFileId}/view`;
       return {
         driveFileId: existingFileId,
-        webViewLink: (note as any).driveWebViewLink || `https://drive.google.com/file/d/${existingFileId}/view`,
-        notesFolderId: 'appDataFolder',
-        testFolderId: 'appDataFolder',
+        webViewLink: resolvedLink,
+        notesFolderId,
+        testFolderId,
         testFolderName,
-        isAppData: true,
+        isAppData: false,
       };
     } catch (updateErr) {
-      console.warn('In-place update of appData file failed, will re-upload:', updateErr);
+      console.warn('In-place update of Drive file failed, will re-upload:', updateErr);
     }
   }
 
-  // Step 2: Upload new file directly into 'appDataFolder'
+  // Step 2: Upload new file directly into testFolderId inside Notes Studio
   let driveFileId = '';
   let webViewLink = '';
 
@@ -1709,14 +1832,14 @@ export async function saveNoteToGoogleDrive(
       cleanFileName,
       mimeType,
       fileData,
-      'appDataFolder',
+      testFolderId,
       appProperties
     );
 
     driveFileId = uploaded.id;
     webViewLink = uploaded.webViewLink || `https://drive.google.com/file/d/${uploaded.id}/view`;
   } else {
-    // Pure text / formula / table note: Store as structured Markdown in appDataFolder
+    // Pure text / formula / table note: Store as structured Markdown in Notes Studio
     const cleanDocName = (note.fileName || (note.questionNumber ? `Q${note.questionNumber}_Note` : note.content.slice(0, 30))).replace(/[/\\?%*:|"<>]/g, '_').trim() || 'Study_Note';
     const fileName = `${cleanDocName}.md`;
     const markdownBody = note.content || '';
@@ -1726,7 +1849,7 @@ export async function saveNoteToGoogleDrive(
       fileName,
       'text/markdown',
       markdownBody,
-      'appDataFolder',
+      testFolderId,
       appProperties
     );
 
@@ -1737,10 +1860,10 @@ export async function saveNoteToGoogleDrive(
   return {
     driveFileId,
     webViewLink,
-    notesFolderId: 'appDataFolder',
-    testFolderId: 'appDataFolder',
+    notesFolderId,
+    testFolderId,
     testFolderName,
-    isAppData: true,
+    isAppData: false,
   };
 }
 
@@ -1967,14 +2090,44 @@ export async function cleanUpLegacyVisibleDriveFolders(
 }
 
 /**
- * Plan C On-Demand Export: Exports a note directly to the user's visible Google Drive (root or Google Docs)
- * if they explicitly want a visible copy outside the private appDataFolder.
+ * Resolves or creates a single, canonical Google Doc for a note inside "Notes Studio".
+ * Enforces strict deduplication: if a Google Doc already exists for this noteId,
+ * it returns the existing document instead of spawning duplicate files.
  */
-export async function exportNoteToVisibleGoogleDrive(
+export async function getOrCreateGoogleDocForNote(
   accessToken: string,
-  note: { id: string; content: string; fileName?: string; tag?: string },
+  note: { id: string; content: string; fileName?: string; tag?: string; googleDocId?: string; googleDocEditLink?: string },
   testTitle?: string
-): Promise<{ fileId: string; webViewLink: string }> {
+): Promise<{ documentId: string; webViewLink: string; isNew: boolean }> {
+  // 1. Direct reuse if note already has known Google Doc ID
+  if (note.googleDocId) {
+    const link = note.googleDocEditLink || `https://docs.google.com/document/d/${note.googleDocId}/edit`;
+    return { documentId: note.googleDocId, webViewLink: link, isNew: false };
+  }
+
+  // 2. Query Drive for existing Doc with matching docNoteId to prevent duplicates
+  try {
+    const cleanId = note.id.replace(/'/g, "\\'");
+    const q = `mimeType = 'application/vnd.google-apps.document' and trashed = false and appProperties has { key='docNoteId' and value='${cleanId}' }`;
+    const res = await authedDriveFetch(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,webViewLink)&pageSize=1`,
+      { method: 'GET', headers: { Accept: 'application/json' } },
+      accessToken
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (data.files && data.files.length > 0) {
+        const found = data.files[0];
+        const link = found.webViewLink || `https://docs.google.com/document/d/${found.id}/edit`;
+        return { documentId: found.id, webViewLink: link, isNew: false };
+      }
+    }
+  } catch (e) {
+    console.warn('Error querying existing Google Doc:', e);
+  }
+
+  // 3. Create single Google Doc inside Notes Studio
+  const { testFolderId } = await getOrCreateTestNotesFolder(accessToken, testTitle);
   const cleanTitle = getCleanFileName(note.fileName, note.content) || `Study Note - ${(note.tag || 'General').toUpperCase()} (${new Date().toLocaleDateString()})`;
   const sections: DocSection[] = [
     {
@@ -1984,17 +2137,39 @@ export async function exportNoteToVisibleGoogleDrive(
     },
     {
       title: 'Study Metadata',
-      body: `Exported from Elevate App\nDate: ${new Date().toLocaleString()}\nCategory: ${(note.tag || 'General').toUpperCase()}${testTitle ? `\nTest: ${testTitle}` : ''}`,
+      body: `Exported from Notes Studio\nDate: ${new Date().toLocaleString()}\nCategory: ${(note.tag || 'General').toUpperCase()}${testTitle ? `\nTest: ${testTitle}` : ''}`,
       isHeading: false,
     },
   ];
 
-  // Creates visible Google Doc directly in the user's Drive root
-  const doc = await createGoogleDoc(accessToken, cleanTitle, sections);
+  const appProperties = {
+    docNoteId: note.id,
+    tag: note.tag || '',
+    app: 'notes_studio',
+  };
+
+  const doc = await createGoogleDoc(accessToken, cleanTitle, sections, testFolderId, appProperties);
   const link = doc.webViewLink || `https://docs.google.com/document/d/${doc.documentId}/edit`;
+
   return {
-    fileId: doc.documentId,
+    documentId: doc.documentId,
     webViewLink: link,
+    isNew: true,
+  };
+}
+
+/**
+ * Exports a note directly to Google Drive / Docs with deduplication guarantee.
+ */
+export async function exportNoteToVisibleGoogleDrive(
+  accessToken: string,
+  note: { id: string; content: string; fileName?: string; tag?: string; googleDocId?: string; googleDocEditLink?: string },
+  testTitle?: string
+): Promise<{ fileId: string; webViewLink: string }> {
+  const result = await getOrCreateGoogleDocForNote(accessToken, note, testTitle);
+  return {
+    fileId: result.documentId,
+    webViewLink: result.webViewLink,
   };
 }
 

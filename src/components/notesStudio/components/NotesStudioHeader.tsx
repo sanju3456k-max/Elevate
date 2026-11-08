@@ -81,12 +81,40 @@ export const NotesStudioHeader: React.FC<NotesStudioHeaderProps> = ({
           </div>
         </div>
 
-        {/* Right Controls: Firebase Cloud */}
+        {/* Right Controls: Google Drive & Cloud Status */}
         <div className="shrink-0 flex items-center gap-2">
-          <div className="flex items-center gap-1.5 h-9 px-3.5 sm:px-4 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/50 text-xs font-semibold shadow-xs text-blue-700 dark:text-blue-300 whitespace-nowrap">
-            <Cloud className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
-            <span className="text-[11px] font-bold">Firebase Cloud Storage</span>
-          </div>
+          {googleToken && !isTokenExpired ? (
+            <div
+              className="flex items-center gap-1.5 h-9 px-3 sm:px-3.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-900/60 text-xs font-semibold shadow-xs text-emerald-700 dark:text-emerald-300 whitespace-nowrap select-none"
+              title="Google Drive & Docs Connected to Notes Studio"
+            >
+              <Cloud className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span className="text-[11px] font-bold hidden sm:inline">Drive Connected</span>
+              <span className="text-[11px] font-bold sm:hidden">Drive</span>
+            </div>
+          ) : isTokenExpired ? (
+            <button
+              type="button"
+              onClick={onConnectDrive}
+              disabled={isConnectingDrive}
+              className="flex items-center gap-1.5 h-9 px-3 sm:px-3.5 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-xs font-semibold shadow-xs text-amber-800 dark:text-amber-300 whitespace-nowrap cursor-pointer active:scale-95 transition-all outline-none"
+              title="Click to reconnect Google Drive"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 ${isConnectingDrive ? 'animate-spin' : ''}`} />
+              <span className="text-[11px] font-bold">Reconnect Drive</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onConnectDrive}
+              disabled={isConnectingDrive}
+              className="flex items-center gap-1.5 h-9 px-3 sm:px-3.5 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] border border-slate-200 dark:border-zinc-700 text-xs font-semibold shadow-xs text-slate-700 dark:text-zinc-200 whitespace-nowrap cursor-pointer active:scale-95 transition-all outline-none"
+              title="Connect Google Drive & Docs"
+            >
+              <Cloud className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+              <span className="text-[11px] font-bold">Connect Drive</span>
+            </button>
+          )}
         </div>
       </div>
 

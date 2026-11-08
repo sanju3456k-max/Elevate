@@ -24,11 +24,14 @@ import {
   isGoogleDriveTokenExpired,
   clearGoogleDriveAuth,
   signInWithGoogle,
+  ensureValidGoogleDriveToken,
+  requestGoogleDriveTokenInteractive,
 } from '../../lib/firebase';
 import {
   loadAllNotesManifestsFromGoogleDrive,
   syncNotesManifestToGoogleDrive,
   deleteGoogleDriveFile,
+  saveNoteToGoogleDrive,
 } from '../../lib/googleWorkspace';
 import {
   attachNotesManifestListener,
@@ -180,20 +183,26 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
   const handleConnectDrive = async () => {
     setIsConnectingDrive(true);
     try {
-      const user = await signInWithGoogle();
-      if (user) {
-        const token = getCachedGoogleAccessToken();
+      let token = await ensureValidGoogleDriveToken();
+      if (!token) {
+        token = await requestGoogleDriveTokenInteractive();
+      }
+      if (!token) {
+        const user = await signInWithGoogle();
+        if (user) {
+          token = getCachedGoogleAccessToken();
+        }
+      }
+      if (token) {
         setGoogleToken(token);
         setIsTokenExpired(false);
-        if (token) {
-          loadAllNotesManifestsFromGoogleDrive(token)
-            .then((remoteNotes) => {
-              if (remoteNotes !== null && Array.isArray(remoteNotes)) {
-                handleImportDriveNotes(remoteNotes);
-              }
-            })
-            .catch(() => {});
-        }
+        loadAllNotesManifestsFromGoogleDrive(token)
+          .then((remoteNotes) => {
+            if (remoteNotes !== null && Array.isArray(remoteNotes)) {
+              handleImportDriveNotes(remoteNotes);
+            }
+          })
+          .catch(() => {});
       }
     } catch (err) {
       console.warn('Google connection error:', err);
@@ -394,6 +403,26 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
     setEditingNoteTarget(note);
   }, []);
 
+  const handleNoteDriveSynced = useCallback(
+    async (noteId: string, driveFileId: string, webViewLink: string) => {
+      setUserNotes((prev) => {
+        const updated = prev.map((n) => {
+          if (n.id === noteId) {
+            return {
+              ...n,
+              driveFileId,
+              driveWebViewLink: webViewLink,
+            };
+          }
+          return n;
+        });
+        saveAllNotesToIDB(updated);
+        return updated;
+      });
+    },
+    []
+  );
+
   const handleSaveModalNote = useCallback(
     async (noteData: {
       id?: string;
@@ -408,10 +437,11 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
     }) => {
       if (noteData.id) {
         // Edit existing note
+        let updatedNoteTarget: UserNoteItem | null = null;
         setUserNotes((prev) => {
           const updated = prev.map((n) => {
             if (n.id === noteData.id) {
-              return {
+              updatedNoteTarget = {
                 ...n,
                 content: noteData.content,
                 tag: noteData.tag,
@@ -420,6 +450,7 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
                 fileType: noteData.attachedFile?.type || n.fileType,
                 fileUrl: noteData.attachedFile?.url || n.fileUrl,
               };
+              return updatedNoteTarget;
             }
             return n;
           });
@@ -428,6 +459,15 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
           const token = currentUser?.uid ? getCachedGoogleAccessToken(currentUser.uid) : null;
           if (token && currentUser?.uid) {
             syncNotesManifestToGoogleDrive(token, updated).catch(() => {});
+            if (updatedNoteTarget) {
+              saveNoteToGoogleDrive(token, updatedNoteTarget, noteData.testId)
+                .then((res) => {
+                  if (res?.driveFileId) {
+                    handleNoteDriveSynced((updatedNoteTarget as UserNoteItem).id, res.driveFileId, res.webViewLink || '');
+                  }
+                })
+                .catch(() => {});
+            }
           }
           return updated;
         });
@@ -455,11 +495,18 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
         const token = currentUser?.uid ? getCachedGoogleAccessToken(currentUser.uid) : null;
         if (token && currentUser?.uid) {
           syncNotesManifestToGoogleDrive(token, updatedList).catch(() => {});
+          saveNoteToGoogleDrive(token, newNote, noteData.testId)
+            .then((res) => {
+              if (res?.driveFileId) {
+                handleNoteDriveSynced(newNote.id, res.driveFileId, res.webViewLink || '');
+              }
+            })
+            .catch(() => {});
         }
       }
       setEditingNoteTarget(null);
     },
-    [userNotes, currentUser]
+    [userNotes, currentUser, handleNoteDriveSynced]
   );
 
   const handleAddNewFileNote = useCallback(
@@ -469,29 +516,16 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
       const token = currentUser?.uid ? getCachedGoogleAccessToken(currentUser.uid) : null;
       if (token && currentUser?.uid) {
         syncNotesManifestToGoogleDrive(token, [newNote, ...userNotes]).catch(() => {});
+        saveNoteToGoogleDrive(token, newNote, newNote.testId)
+          .then((res) => {
+            if (res?.driveFileId) {
+              handleNoteDriveSynced(newNote.id, res.driveFileId, res.webViewLink || '');
+            }
+          })
+          .catch(() => {});
       }
     },
-    [userNotes, currentUser]
-  );
-
-  const handleNoteDriveSynced = useCallback(
-    async (noteId: string, driveFileId: string, webViewLink: string) => {
-      setUserNotes((prev) => {
-        const updated = prev.map((n) => {
-          if (n.id === noteId) {
-            return {
-              ...n,
-              driveFileId,
-              driveWebViewLink: webViewLink,
-            };
-          }
-          return n;
-        });
-        saveAllNotesToIDB(updated);
-        return updated;
-      });
-    },
-    []
+    [userNotes, currentUser, handleNoteDriveSynced]
   );
 
   const handlePreviewAttachment = useCallback((note: UserNoteItem) => {

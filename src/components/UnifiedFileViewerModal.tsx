@@ -28,11 +28,18 @@ import { PdfCanvasViewer } from './PdfCanvasViewer';
 import { GoogleDocsNoteViewer } from './GoogleDocsNoteViewer';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useBackHandler } from '../hooks/useBackNavigation';
-import { getCachedGoogleAccessToken, signInWithGoogle } from '../lib/firebase';
+import {
+  getCachedGoogleAccessToken,
+  signInWithGoogle,
+  ensureValidGoogleDriveToken,
+  requestGoogleDriveTokenInteractive,
+} from '../lib/firebase';
 import {
   fetchGoogleDrivePreviewBlob,
   getCleanFileName,
   exportNoteToVisibleGoogleDrive,
+  getOrCreateGoogleDocForNote,
+  preparePlaceholderTab,
 } from '../lib/googleWorkspace';
 import {
   isImageFile,
@@ -569,7 +576,11 @@ export const UnifiedFileViewerModal: React.FC<UnifiedFileViewerModalProps> = ({ 
   const [isExportingToDrive, setIsExportingToDrive] = useState<boolean>(false);
 
   const handleOpenInDocsOrDrive = async () => {
-    let token = getCachedGoogleAccessToken();
+    const targetTab = preparePlaceholderTab('Opening in Google Docs...');
+    let token = await ensureValidGoogleDriveToken();
+    if (!token) {
+      token = await requestGoogleDriveTokenInteractive();
+    }
     if (!token) {
       try {
         await signInWithGoogle();
@@ -579,21 +590,27 @@ export const UnifiedFileViewerModal: React.FC<UnifiedFileViewerModalProps> = ({ 
       }
     }
     if (!token) {
+      if (targetTab) targetTab.close();
       return;
     }
 
     setIsExportingToDrive(true);
     try {
-      const res = await exportNoteToVisibleGoogleDrive(token, {
+      const res = await getOrCreateGoogleDocForNote(token, {
         id: file?.noteId || file?.driveFileId || 'note',
         content: textContent || file?.content || '',
         fileName: displayTitle,
         tag: file?.tag,
       });
       if (res.webViewLink) {
-        window.open(res.webViewLink, '_blank');
+        if (targetTab) {
+          targetTab.location.href = res.webViewLink;
+        } else {
+          window.open(res.webViewLink, '_blank');
+        }
       }
     } catch (err: any) {
+      if (targetTab) targetTab.close();
       console.warn('Failed to export to Google Drive / Docs:', err);
     } finally {
       setIsExportingToDrive(false);

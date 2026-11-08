@@ -151,6 +151,22 @@ class RealtimeSyncManager {
           });
         }
       });
+
+      window.addEventListener('mockmc-guest-migrated', (e: Event) => {
+        const detail = (e as CustomEvent)?.detail;
+        if (detail && detail.targetUid && detail.targetUid === this.activeUserId) {
+          const updatedTests = loadScopedTests(detail.targetUid);
+          this.testsMap.clear();
+          updatedTests.forEach((t) => this.testsMap.set(t.id, t));
+
+          const updatedAttempts = loadScopedAttempts(detail.targetUid);
+          this.attemptsMap.clear();
+          updatedAttempts.forEach((a) => this.attemptsMap.set(a.id, a));
+
+          this.notify('tests', this.getTests());
+          this.notify('attempts', this.getAttempts());
+        }
+      });
     }
   }
 

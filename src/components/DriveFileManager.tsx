@@ -28,6 +28,7 @@ import {
   RefreshCw,
   Zap,
   Table,
+  AlertCircle,
 } from 'lucide-react';
 import { MathRenderer } from './MathRenderer';
 import { useBackHandler } from '../hooks/useBackNavigation';
@@ -36,6 +37,8 @@ import {
   signInWithGoogle,
   getCachedGoogleAccessToken,
   setCachedGoogleAccessToken,
+  ensureValidGoogleDriveToken,
+  requestGoogleDriveTokenInteractive,
 } from '../lib/firebase';
 import {
   listGoogleDriveFiles,
@@ -57,6 +60,8 @@ import {
   fetchGoogleDriveFileContent,
   cleanUpLegacyVisibleDriveFolders,
   exportNoteToVisibleGoogleDrive,
+  getOrCreateGoogleDocForNote,
+  preparePlaceholderTab,
   type GoogleDriveFile,
   type DocSection,
 } from '../lib/googleWorkspace';
@@ -301,11 +306,12 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
       setAvailableTestFolders(folders);
 
       if (folderMode === 'test' || folderMode === 'notes') {
-        const { testFolderName } = await getOrCreateTestNotesFolder(token, testTitle || 'General Repository');
-        setNotesFolderId('appDataFolder');
-        setTestFolderId('appDataFolder');
-        setActiveFolderName(folderMode === 'test' ? testFolderName : 'Google Drive AppData');
-        targetFolderId = 'appDataFolder';
+        const folder = await getOrCreateTestNotesFolder(token, testTitle || 'General Repository');
+        const resolvedFolderId = folderMode === 'test' ? folder.testFolderId : folder.notesFolderId;
+        setNotesFolderId(folder.notesFolderId);
+        setTestFolderId(folder.testFolderId);
+        setActiveFolderName(folderMode === 'test' ? folder.testFolderName : '📁 Notes Studio');
+        targetFolderId = resolvedFolderId;
 
         // Auto-load manifest from Google Drive appDataFolder
         const remoteNotes = await loadNotesManifestFromGoogleDrive(token, testTitle || 'General Repository');
@@ -316,7 +322,7 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
         setActiveFolderName('All Drive Files');
       }
 
-      const files = await listGoogleDriveFiles(token, search, filter, targetFolderId, targetFolderId === 'appDataFolder' ? 'appDataFolder' : undefined);
+      const files = await listGoogleDriveFiles(token, search, filter, targetFolderId);
       // Filter out internal manifest JSON from file list display
       const displayFiles = files.filter((f) => f.name !== 'mockmc_notes_manifest.json');
       setDriveFiles(displayFiles);
@@ -415,23 +421,36 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
     };
   }, []);
 
-  // Authenticate & connect Google Workspace
+  // Authenticate & connect Google Workspace with multi-tier non-intrusive recovery
   const handleConnectGoogle = async (): Promise<string | null> => {
     if (isDriveLoading) return null;
     setIsDriveLoading(true);
     setDriveError(null);
     try {
-      const user = await signInWithGoogle();
-      if (user) {
-        const token = getCachedGoogleAccessToken();
-        setGoogleToken(token);
-        if (token) {
-          await loadDriveFiles(token);
-          syncPendingNotesToDrive(token);
-          return token;
-        } else {
-          setDriveError("Unable to retrieve Google OAuth access token. Please authorize all scopes.");
+      // 1. First check if token is valid or can be silently refreshed without popping up UI
+      let token = await ensureValidGoogleDriveToken();
+
+      // 2. If silent refresh was blocked (e.g. 3P cookie restrictions), request non-destructive GIS consent
+      if (!token) {
+        token = await requestGoogleDriveTokenInteractive();
+      }
+
+      // 3. Fall back to standard sign-in if neither returned a token
+      if (!token) {
+        const user = await signInWithGoogle();
+        if (user) {
+          token = getCachedGoogleAccessToken();
         }
+      }
+
+      if (token) {
+        setGoogleToken(token);
+        setIsTokenExpired(false);
+        await loadDriveFiles(token);
+        syncPendingNotesToDrive(token);
+        return token;
+      } else {
+        setDriveError("Google Drive authorization was not granted. Please authorize Drive permissions to sync notes.");
       }
       return null;
     } catch (err: any) {
@@ -530,23 +549,34 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
 
   // Open the specific test's notes folder in Google Drive directly
   const handleOpenFolderInDrive = async () => {
+    const targetTab = preparePlaceholderTab('Opening Notes Studio Folder...');
     let token = googleToken || getCachedGoogleAccessToken();
     if (!token) {
       token = await handleConnectGoogle();
-      if (!token) return;
+      if (!token) {
+        if (targetTab) targetTab.close();
+        setDriveError("Please connect your Google account to open Drive folders.");
+        return;
+      }
     }
     setIsOpeningDriveFolder(true);
+    setDriveError(null);
     try {
       const folder = await getOrCreateTestNotesFolder(token, testTitle || 'General Repository');
       const targetFolderId = folder?.testFolderId || folder?.notesFolderId || folder?.appFolderId;
-      if (targetFolderId) {
-        window.open(`https://drive.google.com/drive/folders/${targetFolderId}`, '_blank');
+      const targetUrl = targetFolderId ? `https://drive.google.com/drive/folders/${targetFolderId}` : 'https://drive.google.com/drive/my-drive';
+      if (targetTab) {
+        targetTab.location.href = targetUrl;
       } else {
-        window.open('https://drive.google.com/drive/my-drive', '_blank');
+        window.open(targetUrl, '_blank');
       }
     } catch (err: any) {
       console.warn('Error opening folder in Drive:', err);
-      window.open('https://drive.google.com/drive/my-drive', '_blank');
+      if (targetTab) {
+        targetTab.location.href = 'https://drive.google.com/drive/my-drive';
+      } else {
+        window.open('https://drive.google.com/drive/my-drive', '_blank');
+      }
     } finally {
       setIsOpeningDriveFolder(false);
     }
@@ -557,15 +587,20 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
     let token = googleToken || getCachedGoogleAccessToken();
     if (!token) {
       token = await handleConnectGoogle();
-      if (!token) return;
+      if (!token) {
+        setDriveError("Google account connection required to sync notes.");
+        return;
+      }
     }
     setIsBulkSyncing(true);
+    setDriveError(null);
     try {
       await syncPendingNotesToDrive(token);
-      setExportSuccessMessage("All notes and files synchronized with Google Drive!");
+      setExportSuccessMessage("All notes and files synchronized with Notes Studio in Google Drive!");
       setTimeout(() => setExportSuccessMessage(null), 4000);
     } catch (err: any) {
       console.warn('Sync all notes error:', err);
+      setDriveError(err?.message || "Sync to Google Drive failed. Please try reconnecting.");
     } finally {
       setIsBulkSyncing(false);
     }
@@ -633,32 +668,40 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
     let token = googleToken || getCachedGoogleAccessToken();
     if (!token) {
       token = await handleConnectGoogle();
-      if (!token) return;
+      if (!token) {
+        setDriveError("Please connect your Google account to save notes to Google Drive.");
+        return;
+      }
     }
 
     setSyncingNoteId(note.id);
+    setDriveError(null);
     try {
       const res = await saveNoteToGoogleDrive(token, note, testTitle);
       if (onNoteDriveSynced) {
         onNoteDriveSynced(note.id, res.driveFileId, res.webViewLink);
       }
-      setExportSuccessMessage('Saved to Google Drive AppData Sandbox (Plan C: zero duplicate folders)!');
+      const noteTitle = getCleanFileName(note.fileName, note.content);
+      setExportSuccessMessage(`"${noteTitle}" saved to Notes Studio in Google Drive!`);
       setTimeout(() => setExportSuccessMessage(null), 4500);
       loadDriveFiles(token);
     } catch (err: any) {
       console.warn('Google Drive save error:', err);
-      setDriveError("Save to Google Drive failed. Please check your connection or reconnect.");
+      setDriveError(err?.message || "Save to Google Drive failed. Please check your connection or reconnect.");
     } finally {
       setSyncingNoteId(null);
     }
   };
 
-  // Sync all notes to Google Drive AppData Sandbox (Plan C)
+  // Sync all notes to Google Drive Notes Studio folder
   const handleSyncAllNotesToDrive = async () => {
     let token = googleToken || getCachedGoogleAccessToken();
     if (!token) {
       token = await handleConnectGoogle();
-      if (!token) return;
+      if (!token) {
+        setDriveError("Please connect your Google account to sync all notes.");
+        return;
+      }
     }
 
     if (notes.length === 0) {
@@ -666,6 +709,7 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
     }
 
     setIsBulkSyncing(true);
+    setDriveError(null);
     try {
       for (const note of notes) {
         if (!note.driveFileId) {
@@ -676,12 +720,12 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
         }
       }
       await syncNotesManifestToGoogleDrive(token, notes, testTitle);
-      setExportSuccessMessage(`All ${notes.length} notes synced cleanly to Google Drive AppData (Plan C: zero duplicates)!`);
+      setExportSuccessMessage(`All ${notes.length} notes synced cleanly to Notes Studio in Google Drive!`);
       setTimeout(() => setExportSuccessMessage(null), 4500);
       loadDriveFiles(token);
     } catch (err: any) {
       console.warn('Sync all notes error:', err);
-      setDriveError("Sync to Google Drive failed. Reconnect required.");
+      setDriveError(err?.message || "Sync to Google Drive failed. Please reconnect.");
     } finally {
       setIsBulkSyncing(false);
     }
@@ -713,23 +757,38 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
     }
   };
 
-  // Open Note directly in Google Docs (create or sync if not yet created)
+  // Open Note directly in Google Docs with deduplication and popup-safe tab
   const handleOpenInGoogleDoc = async (item: UserNoteItem) => {
     setActiveMenuId(null);
+    const targetTab = preparePlaceholderTab('Opening in Google Docs...');
+
     let token = googleToken || getCachedGoogleAccessToken();
     if (!token) {
       token = await handleConnectGoogle();
-      if (!token) return;
+      if (!token) {
+        if (targetTab) targetTab.close();
+        setDriveError("Google account connection required to open in Google Docs.");
+        return;
+      }
     }
 
     try {
       setIsExportingToDoc(true);
-      const res = await exportNoteToVisibleGoogleDrive(token, item, testTitle || item.testId || 'General Repository');
+      setDriveError(null);
+      const res = await getOrCreateGoogleDocForNote(token, item, testTitle || item.testId || 'General Repository');
       if (res.webViewLink) {
-        window.open(res.webViewLink, '_blank');
+        if (targetTab) {
+          targetTab.location.href = res.webViewLink;
+        } else {
+          window.open(res.webViewLink, '_blank');
+        }
+      }
+      if (onNoteDriveSynced) {
+        onNoteDriveSynced(item.id, res.documentId, res.webViewLink);
       }
       loadDriveFiles(token);
     } catch (err: any) {
+      if (targetTab) targetTab.close();
       console.warn('Failed to open/export in Google Docs:', err);
       setDriveError(`Failed to open in Google Docs: ${err?.message || err}`);
     } finally {
@@ -737,23 +796,45 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
     }
   };
 
-  // Open Note directly in Google Drive (save/upload if not yet in Drive)
+  // Open Note directly in Google Drive with deduplication and popup-safe tab
   const handleOpenInGoogleDrive = async (item: UserNoteItem) => {
     setActiveMenuId(null);
+    const targetTab = preparePlaceholderTab('Opening in Google Drive...');
+
     let token = googleToken || getCachedGoogleAccessToken();
     if (!token) {
       token = await handleConnectGoogle();
-      if (!token) return;
+      if (!token) {
+        if (targetTab) targetTab.close();
+        setDriveError("Google account connection required to open in Google Drive.");
+        return;
+      }
     }
 
     try {
       setSyncingNoteId(item.id);
-      const res = await exportNoteToVisibleGoogleDrive(token, item, testTitle || item.testId || 'General Repository');
-      if (res.webViewLink) {
-        window.open(res.webViewLink, '_blank');
+      setDriveError(null);
+      let targetLink = item.driveWebViewLink;
+      if (!targetLink && item.driveFileId) {
+        targetLink = `https://drive.google.com/file/d/${item.driveFileId}/view`;
+      }
+      if (!targetLink) {
+        const res = await saveNoteToGoogleDrive(token, item, testTitle || item.testId || 'General Repository');
+        targetLink = res.webViewLink;
+        if (onNoteDriveSynced) {
+          onNoteDriveSynced(item.id, res.driveFileId, res.webViewLink);
+        }
+      }
+      if (targetLink) {
+        if (targetTab) {
+          targetTab.location.href = targetLink;
+        } else {
+          window.open(targetLink, '_blank');
+        }
       }
       loadDriveFiles(token);
     } catch (err: any) {
+      if (targetTab) targetTab.close();
       console.warn('Failed to upload/open in Google Drive:', err);
       setDriveError(`Failed to open in Google Drive: ${err?.message || err}`);
     } finally {
@@ -763,10 +844,15 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
 
   // Google Doc creation for an individual note inside test folder
   const handleExportNoteToGoogleDoc = async (note: UserNoteItem) => {
+    const targetTab = preparePlaceholderTab('Opening in Google Docs...');
     let token = googleToken || getCachedGoogleAccessToken();
     if (!token) {
       token = await handleConnectGoogle();
-      if (!token) return;
+      if (!token) {
+        if (targetTab) targetTab.close();
+        setDriveError("Google account connection required to open in Google Docs.");
+        return;
+      }
     }
 
     const title = getCleanFileName(note.fileName, note.content) || `Math Note - ${note.tag.toUpperCase()} (${new Date().toLocaleDateString()})`;
@@ -777,14 +863,22 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
     setDriveError(null);
 
     try {
-      const res = await exportNoteToVisibleGoogleDrive(token, note, testTitle || note.testId || 'General Repository');
+      const res = await getOrCreateGoogleDocForNote(token, note, testTitle || note.testId || 'General Repository');
       setExportedDocLink(res.webViewLink || null);
-      setExportSuccessMessage(`Created Google Doc "${title}" in your Google Drive!`);
+      setExportSuccessMessage(`"${title}" ready in Google Docs!`);
       if (res.webViewLink) {
-        window.open(res.webViewLink, '_blank');
+        if (targetTab) {
+          targetTab.location.href = res.webViewLink;
+        } else {
+          window.open(res.webViewLink, '_blank');
+        }
+      }
+      if (onNoteDriveSynced) {
+        onNoteDriveSynced(note.id, res.documentId, res.webViewLink);
       }
       loadDriveFiles(token);
     } catch (err: any) {
+      if (targetTab) targetTab.close();
       console.warn('Google Doc export error:', err);
       setDriveError(`Google Doc export failed: ${err?.message || err}`);
     } finally {
@@ -1288,6 +1382,39 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
 
   return (
     <div className="space-y-3 sm:space-y-4 font-sans text-slate-800 dark:text-zinc-100">
+
+      {/* GOOGLE DRIVE ERROR NOTIFICATION BANNER */}
+      {driveError && (
+        <div className="p-3 sm:p-4 bg-rose-50 dark:bg-rose-950/40 rounded-2xl border border-rose-200 dark:border-rose-900/60 flex items-center justify-between gap-3 animate-in slide-in-from-top duration-200">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+            <div className="min-w-0">
+              <span className="text-xs font-semibold text-rose-900 dark:text-rose-200 block truncate">
+                {driveError}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {(!googleToken || isTokenExpired) && (
+              <button
+                type="button"
+                onClick={handleConnectGoogle}
+                className="px-2.5 py-1 text-xs font-bold rounded-lg bg-rose-600 hover:bg-rose-700 text-white cursor-pointer transition-colors"
+              >
+                Connect Drive
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setDriveError(null)}
+              className="p-1 text-rose-400 hover:text-rose-600 dark:hover:text-rose-200 cursor-pointer"
+              title="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* COMPILATION AND GOOGLE DOC SUCCESS PORTAL POP-UP */}
       {exportSuccessMessage && (

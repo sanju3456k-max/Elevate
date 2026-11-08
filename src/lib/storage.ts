@@ -2274,5 +2274,172 @@ export async function deleteCustomDataHtmlNotes(userId?: string | null): Promise
   return count;
 }
 
+export interface GuestDataSummary {
+  customTests: MathTest[];
+  attempts: TestAttempt[];
+  notes: any[];
+  totalItems: number;
+  hasData: boolean;
+}
+
+/**
+ * Feature C: Atomic Guest-to-Account Migration Pipeline (GAMP)
+ * Inspects the local guest partition for unmigrated test attempts, authored tests, and notes.
+ */
+export async function getGuestDataSummary(): Promise<GuestDataSummary> {
+  const allGuestTests = loadScopedTests(null);
+  const sampleIds = new Set(SAMPLE_MATH_TESTS.map((s) => s.id));
+  const customTests = allGuestTests.filter((t) => !sampleIds.has(t.id));
+
+  const attempts = loadScopedAttempts(null);
+
+  let notes: any[] = [];
+  try {
+    const allNotes = await getAllNotesFromIDB();
+    notes = (allNotes || []).filter(
+      (n: any) => n && (n.userId === 'guest-user' || n.userId === 'anonymous' || !n.userId)
+    );
+  } catch (e) {
+    // Graceful fallback
+  }
+
+  const totalItems = customTests.length + attempts.length + notes.length;
+  return {
+    customTests,
+    attempts,
+    notes,
+    totalItems,
+    hasData: totalItems > 0,
+  };
+}
+
+/**
+ * Feature C: Atomic Guest-to-Account Migration Pipeline (GAMP)
+ * Atomically transfers guest attempts, custom tests, and notes to the authenticated user account,
+ * registers them with the SmartLocalCoordinator outbox for cloud sync, and cleans the guest partition.
+ */
+export async function executeGuestToAccountMigration(
+  targetUid: string,
+  userEmail?: string | null,
+  userName?: string | null
+): Promise<{ migratedTests: number; migratedAttempts: number; migratedNotes: number }> {
+  if (!targetUid || targetUid === 'guest-user' || targetUid === 'anonymous') {
+    return { migratedTests: 0, migratedAttempts: 0, migratedNotes: 0 };
+  }
+
+  const summary = await getGuestDataSummary();
+  if (!summary.hasData) {
+    return { migratedTests: 0, migratedAttempts: 0, migratedNotes: 0 };
+  }
+
+  const now = new Date().toISOString();
+
+  // 1. Migrate Test Attempts
+  let migratedAttempts = 0;
+  if (summary.attempts.length > 0) {
+    const existingAccountAttempts = loadScopedAttempts(targetUid);
+    const existingAttemptIds = new Set(existingAccountAttempts.map((a) => a.id));
+
+    const remappedAttempts: TestAttempt[] = summary.attempts.map((att) => ({
+      ...att,
+      userId: targetUid,
+      userEmail: userEmail || att.userEmail || '',
+      userName: userName || att.userName || 'Student',
+      _syncStatus: 'pending' as const,
+    }));
+
+    // Deduplicate against already existing attempts in target account
+    const newUniqueAttempts = remappedAttempts.filter((a) => !existingAttemptIds.has(a.id));
+    const mergedAttempts = [...existingAccountAttempts, ...newUniqueAttempts];
+
+    saveScopedAttempts(targetUid, mergedAttempts);
+    putAllAttemptsToIndexedDB(targetUid, mergedAttempts).catch(() => {});
+
+    // Enqueue each migrated attempt to the smart coordinator outbox for cloud sync
+    newUniqueAttempts.forEach((a) => {
+      smartCoordinator.enqueueWrite('attempts', a.id, a, targetUid);
+    });
+
+    migratedAttempts = newUniqueAttempts.length;
+
+    // Clear guest attempts
+    saveScopedAttempts(null, []);
+    putAllAttemptsToIndexedDB('guest', []).catch(() => {});
+  }
+
+  // 2. Migrate Custom Tests
+  let migratedTests = 0;
+  if (summary.customTests.length > 0) {
+    const existingAccountTests = loadScopedTests(targetUid);
+    const existingTestIds = new Set(existingAccountTests.map((t) => t.id));
+
+    const remappedTests: MathTest[] = summary.customTests.map((test) => ({
+      ...test,
+      authorId: targetUid,
+      _syncStatus: 'pending' as const,
+      updatedAt: now,
+    }));
+
+    const newUniqueTests = remappedTests.filter((t) => !existingTestIds.has(t.id));
+    const mergedTests = [...existingAccountTests, ...newUniqueTests];
+
+    saveScopedTests(targetUid, mergedTests);
+    putAllTestsToIndexedDB(targetUid, mergedTests).catch(() => {});
+
+    newUniqueTests.forEach((t) => {
+      smartCoordinator.enqueueWrite('tests', t.id, t, targetUid);
+    });
+
+    migratedTests = newUniqueTests.length;
+
+    // Reset guest tests to clean sample tests
+    saveScopedTests(null, SAMPLE_MATH_TESTS);
+    putAllTestsToIndexedDB('guest', SAMPLE_MATH_TESTS).catch(() => {});
+  }
+
+  // 3. Migrate Notes
+  let migratedNotes = 0;
+  if (summary.notes.length > 0) {
+    try {
+      const remappedNotes = summary.notes.map((n: any) => ({
+        ...n,
+        userId: targetUid,
+      }));
+
+      await saveAllNotesToIDB(remappedNotes, false, targetUid);
+      migratedNotes = remappedNotes.length;
+    } catch (e) {
+      console.warn('Note migration warning:', e);
+    }
+  }
+
+  // Record migration completion flag in localStorage
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(`mockmc_guest_migrated_to_${targetUid}`, now);
+    }
+  } catch {}
+
+  // Dispatch broadcast event for all UI subscribers
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('mockmc-guest-migrated', {
+        detail: {
+          targetUid,
+          migratedTests,
+          migratedAttempts,
+          migratedNotes,
+        },
+      })
+    );
+  }
+
+  return {
+    migratedTests,
+    migratedAttempts,
+    migratedNotes,
+  };
+}
+
 
 

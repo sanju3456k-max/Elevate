@@ -599,6 +599,61 @@ export async function refreshGoogleDriveTokenSilently(userEmail?: string): Promi
 }
 
 /**
+ * Interactively requests Google Drive & Docs authorization via Google Identity Services
+ * without signing out of Firebase Auth or popping up the full account selector.
+ */
+export async function requestGoogleDriveTokenInteractive(userEmail?: string): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+
+  const user = auth.currentUser;
+  const email = userEmail || user?.email || (user ? localStorage.getItem(getDriveTokenEmailStorageKey(user.uid)) : null);
+
+  const gisLoaded = await loadGoogleIdentityServices();
+  if (!gisLoaded || !(window as any).google?.accounts?.oauth2) {
+    console.warn('Google Identity Services library not available for interactive token request.');
+    return null;
+  }
+
+  return new Promise<string | null>((resolve) => {
+    let isSettled = false;
+    try {
+      const client = (window as any).google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_OAUTH_CLIENT_ID,
+        scope: GOOGLE_DRIVE_SCOPES,
+        callback: (response: any) => {
+          if (isSettled) return;
+          isSettled = true;
+          if (response && response.access_token) {
+            const expiresIn = response.expires_in ? parseInt(response.expires_in, 10) : 3600;
+            const uid = user?.uid || 'user';
+            setCachedGoogleAccessToken(response.access_token, uid, expiresIn, email);
+            resolve(response.access_token);
+          } else {
+            resolve(null);
+          }
+        },
+        error_callback: (err: any) => {
+          if (isSettled) return;
+          isSettled = true;
+          console.warn('Interactive token request error:', err);
+          resolve(null);
+        },
+      });
+
+      client.requestAccessToken({
+        prompt: 'consent',
+        login_hint: email || undefined,
+      });
+    } catch (e) {
+      if (!isSettled) {
+        isSettled = true;
+        resolve(null);
+      }
+    }
+  });
+}
+
+/**
  * Ensures a valid Google Drive token is available. If near expiration (> 50 min),
  * silently refreshes before returning.
  */

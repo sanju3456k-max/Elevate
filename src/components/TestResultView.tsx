@@ -1403,32 +1403,6 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                       </div>
                     </div>
                   )}
-
-                  {/* Step-by-Step Derivation & Solution */}
-                  {(currentQ.explanation || currentQ.solution || currentQ.explanationImageUrl || (Array.isArray(currentQ.explanationImageUrls) && currentQ.explanationImageUrls.some(Boolean))) && (
-                    <div className="pt-3 mt-2 border-t border-[#e1e3e1]/60 dark:border-[#44474f]/40 space-y-2">
-                      <div className="font-bold text-[#0b57d0] dark:text-[#a8c7fa] flex items-center gap-2 text-xs sm:text-sm">
-                        <div className="w-6 h-6 rounded-full bg-[#0b57d0]/10 dark:bg-[#004a77]/30 flex items-center justify-center shrink-0">
-                          <Lightbulb className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                        </div>
-                        <span>Step-by-Step Derivation & Solution:</span>
-                      </div>
-                      {currentQ.explanation && (
-                        <div className="pt-0.5 text-[18px] sm:text-[19px] font-medium leading-relaxed max-w-full overflow-x-auto overflow-y-hidden text-[#1f1f1f] dark:text-[#e3e3e3]">
-                          <MathRenderer content={currentQ.explanation || currentQ.solution || ''} />
-                        </div>
-                      )}
-                      {(currentQ.explanationImageUrl || (Array.isArray(currentQ.explanationImageUrls) && currentQ.explanationImageUrls.some(Boolean))) && (
-                        <QuestionDiagramViewer
-                          imageUrl={currentQ.explanationImageUrl}
-                          imageUrls={currentQ.explanationImageUrls}
-                          imageWidths={currentQ.explanationImageWidths}
-                          alt={`Solution Explanation Diagram`}
-                          width={currentQ.explanationImageWidth}
-                        />
-                      )}
-                    </div>
-                  )}
                 </div>
 
                 {/* RIGHT COLUMN: Derivation & Explanation */}
@@ -1450,6 +1424,16 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                     <div className="p-3.5 bg-slate-50 dark:bg-[#202330] rounded-[18px] text-xs text-slate-400 dark:text-zinc-500 text-center border-0 ring-0 shadow-xs">
                       No detailed derivation provided for this question.
                     </div>
+                  )}
+
+                  {(currentQ.explanationImageUrl || (Array.isArray(currentQ.explanationImageUrls) && currentQ.explanationImageUrls.some(Boolean))) && (
+                    <QuestionDiagramViewer
+                      imageUrl={currentQ.explanationImageUrl}
+                      imageUrls={currentQ.explanationImageUrls}
+                      imageWidths={currentQ.explanationImageWidths}
+                      alt={`Solution Explanation Diagram`}
+                      width={currentQ.explanationImageWidth}
+                    />
                   )}
 
                   {currentQ.hint && (
