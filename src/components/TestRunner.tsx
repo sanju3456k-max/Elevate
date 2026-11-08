@@ -30,6 +30,7 @@ import { auth } from '../lib/firebase';
 import type { UiScale } from '../hooks/useUIScale';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useBackHandler } from '../hooks/useBackNavigation';
+import { useWakeLock } from '../hooks/useWakeLock';
 import { 
   studioDrawerRightVariants, 
   studioBackdropVariants, 
@@ -121,6 +122,9 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
   const [isSubmittingTest, setIsSubmittingTest] = useState(false);
   const [showScratchpad, setShowScratchpad] = useState(false);
   const [showHint, setShowHint] = useState(false);
+
+  // Prevent device screen from sleeping while test is in progress
+  useWakeLock(hasStarted && !isPaused && !isSubmitModalOpen);
 
   // Timer states
   const totalSeconds = (test.timeLimitMinutes > 0 && mode === 'timed') ? test.timeLimitMinutes * 60 : 0;

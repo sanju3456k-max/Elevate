@@ -37,7 +37,8 @@ import {
   Crop,
   Image as ImageIcon,
   FileDown,
-  Download
+  Download,
+  Sun
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -57,6 +58,7 @@ import { evaluateScannedOmrImage, redrawOmrOverlay } from '../lib/omrScannerEngi
 import { MathRenderer } from './MathRenderer';
 import { QuestionDiagramViewer } from './QuestionDiagramViewer';
 import { useBackHandler } from '../hooks/useBackNavigation';
+import { useWakeLock } from '../hooks/useWakeLock';
 import { triggerSystemPrint, triggerOmrSheetPrint, exportOmrSheetToPng } from '../lib/omrPrintDownload';
 import { studioTabVariants, gpuAcceleratedStyle } from '../lib/animationConfig';
 import { compressOmrSheetImage } from '../lib/imageOptimization';
@@ -207,6 +209,9 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
   const [timerSeconds, setTimerSeconds] = useState<number>(totalMinutes * 60);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+
+  // Screen Wake Lock: prevents device from sleeping or turning off during exam timer
+  const { isLocked: isScreenAwake } = useWakeLock(isTimerRunning);
 
   // Scanner & Camera State
   const defaultTotalQuestions = test.questions?.length || 50;
@@ -842,9 +847,18 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                   <div className="text-4xl sm:text-6xl font-black font-mono tracking-tight text-slate-900 dark:text-zinc-100">
                     {formatTime(timerSeconds)}
                   </div>
-                  <div className="text-xs text-slate-500 dark:text-zinc-400 mt-2 font-bold flex items-center justify-center gap-2">
+                  <div className="text-xs text-slate-500 dark:text-zinc-400 mt-2 font-bold flex items-center justify-center gap-2 flex-wrap">
                     <span className={`w-2.5 h-2.5 rounded-full ${isTimerRunning ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
                     <span>{isTimerRunning ? 'Exam in progress' : 'Ready / Paused'}</span>
+                    {isTimerRunning && (
+                      <span 
+                        className="inline-flex items-center gap-1.5 ml-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 select-none animate-in fade-in"
+                        title="Screen Wake Lock is active: display will not sleep or turn off during the timer"
+                      >
+                        <Sun className="w-3 h-3 text-amber-500 animate-spin" style={{ animationDuration: '8s' }} />
+                        <span>Screen Awake</span>
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -943,6 +957,12 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                     3
                   </span>
                   <span>Scan your sheet honestly as soon as timer countdown expires.</span>
+                </div>
+                <div className="p-3.5 rounded-[28px] bg-[#f0f4f9] dark:bg-[#141619] flex items-start gap-3 border-0 shadow-none">
+                  <span className="w-5 h-5 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff] font-extrabold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+                    4
+                  </span>
+                  <span>Screen Wake Lock keeps your display awake automatically so the timer stays visible without sleeping.</span>
                 </div>
               </div>
             </div>
