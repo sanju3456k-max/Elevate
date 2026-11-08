@@ -843,12 +843,24 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
 
                 {/* Rectangular Timer Clock Box */}
                 <div className="w-full h-36 sm:h-44 rounded-[28px] bg-[#f0f4f9] dark:bg-[#141619] flex flex-col items-center justify-center p-4 border-0 shadow-none">
-                  <div className="text-4xl sm:text-6xl font-black font-mono tracking-tight text-slate-900 dark:text-zinc-100">
+                  <div className={`text-4xl sm:text-6xl font-black font-mono tracking-tight transition-colors ${timerSeconds === 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-zinc-100'}`}>
                     {formatTime(timerSeconds)}
                   </div>
                   <div className="text-xs text-slate-500 dark:text-zinc-400 mt-2 font-bold flex items-center justify-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full ${isTimerRunning ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                    <span>{isTimerRunning ? 'Exam in progress' : 'Ready / Paused'}</span>
+                    <span className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                      isTimerRunning 
+                        ? 'bg-emerald-500 animate-pulse' 
+                        : timerSeconds === 0 
+                          ? 'bg-rose-500' 
+                          : 'bg-slate-400'
+                    }`} />
+                    <span className={timerSeconds === 0 ? 'text-rose-600 dark:text-rose-400 font-extrabold' : ''}>
+                      {isTimerRunning 
+                        ? 'Exam in progress' 
+                        : timerSeconds === 0 
+                          ? 'Exam is finished' 
+                          : 'Ready / Paused'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -857,12 +869,19 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
               <div className="flex items-center justify-center gap-3 flex-wrap w-full">
                 <button
                   type="button"
-                  onClick={() => setIsTimerRunning(!isTimerRunning)}
-                  className={`flex items-center justify-center gap-2 px-6 py-3 rounded-[28px] text-xs sm:text-sm font-extrabold text-white transition-all shadow-sm border-0 active:scale-95 cursor-pointer ${
-                    isTimerRunning
-                      ? 'bg-amber-500 hover:bg-amber-600'
-                      : 'bg-emerald-600 hover:bg-emerald-700'
+                  disabled={timerSeconds === 0}
+                  onClick={() => {
+                    if (timerSeconds === 0) return;
+                    setIsTimerRunning(!isTimerRunning);
+                  }}
+                  className={`flex items-center justify-center gap-2 px-6 py-3 rounded-[28px] text-xs sm:text-sm font-extrabold text-white transition-all shadow-sm border-0 ${
+                    timerSeconds === 0
+                      ? 'bg-slate-300 dark:bg-zinc-800 text-slate-500 dark:text-zinc-500 opacity-60 cursor-not-allowed shadow-none'
+                      : isTimerRunning
+                        ? 'bg-amber-500 hover:bg-amber-600 active:scale-95 cursor-pointer'
+                        : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95 cursor-pointer'
                   }`}
+                  title={timerSeconds === 0 ? 'Exam is finished' : isTimerRunning ? 'Pause Timer' : 'Start Timer'}
                 >
                   {isTimerRunning ? (
                     <>
@@ -872,7 +891,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                   ) : (
                     <>
                       <Play className="w-4 h-4 fill-current" />
-                      <span>{timerSeconds === totalMinutes * 60 ? 'Start Timer' : 'Resume'}</span>
+                      <span>{timerSeconds === 0 ? 'Finished' : timerSeconds === totalMinutes * 60 ? 'Start Timer' : 'Resume'}</span>
                     </>
                   )}
                 </button>
