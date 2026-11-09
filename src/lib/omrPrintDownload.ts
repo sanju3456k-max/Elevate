@@ -365,6 +365,7 @@ const QUESTION_PAPER_PRINT_CSS = `
   }
 
   .elevate-question-watermark img,
+  .elevate-question-watermark svg,
   .elevate-watermark-img {
     width: 126mm !important;
     height: 126mm !important;
