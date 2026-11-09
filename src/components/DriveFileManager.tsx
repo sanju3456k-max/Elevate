@@ -48,6 +48,7 @@ import {
   downloadGoogleDriveFile,
   createGoogleDoc,
   exportGoogleDoc,
+  getOrCreateNotesStudioRootFolder,
   getOrCreateNotesFolder,
   getOrCreateTestNotesFolder,
   listTestDriveFolders,
@@ -321,7 +322,10 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
           onImportDriveNotes(remoteNotes);
         }
       } else {
-        setActiveFolderName('All Drive Files');
+        const rootFolderId = await getOrCreateNotesStudioRootFolder(token);
+        setNotesFolderId(rootFolderId);
+        setActiveFolderName('📁 Notes Studio');
+        targetFolderId = rootFolderId;
       }
 
       const files = await listGoogleDriveFiles(token, search, filter, targetFolderId);

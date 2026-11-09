@@ -175,6 +175,19 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
       setGoogleToken(getCachedGoogleAccessToken());
     }, 15000);
     window.addEventListener('mockmc-drive-token-changed', handleTokenChanged);
+
+    // Automatically hydrate notes from Google Drive on mount if token is active
+    const initialToken = getCachedGoogleAccessToken();
+    if (initialToken && !isGoogleDriveTokenExpired()) {
+      loadAllNotesManifestsFromGoogleDrive(initialToken)
+        .then((remoteNotes) => {
+          if (remoteNotes !== null && Array.isArray(remoteNotes) && remoteNotes.length > 0) {
+            handleImportDriveNotes(remoteNotes);
+          }
+        })
+        .catch(() => {});
+    }
+
     return () => {
       clearInterval(interval);
       window.removeEventListener('mockmc-drive-token-changed', handleTokenChanged);

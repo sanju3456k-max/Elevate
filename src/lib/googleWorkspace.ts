@@ -1588,23 +1588,46 @@ let cachedNotesStudioRootFolderId: string | null = null;
 
 /**
  * Resolves or creates the canonical "Notes Studio" folder in the user's My Drive.
- * All user notes, Google Docs, and study sheets are contained here to prevent root Drive clutter.
+ * Guarantees that EXACTLY ONE unique folder exists in Google Drive.
+ * If duplicate folders exist from previous runs or other devices, merges them into
+ * the oldest canonical folder, trashes empty duplicates, and caches the folder ID.
  */
 export async function getOrCreateNotesStudioRootFolder(accessToken: string): Promise<string> {
   if (cachedNotesStudioRootFolderId) {
     return cachedNotesStudioRootFolderId;
   }
+  const cachedFromStorage =
+    typeof window !== 'undefined'
+      ? sessionStorage.getItem('mockmc_canonical_notes_studio_folder_id') ||
+        localStorage.getItem('mockmc_canonical_notes_studio_folder_id')
+      : null;
+  if (cachedFromStorage) {
+    cachedNotesStudioRootFolderId = cachedFromStorage;
+    return cachedFromStorage;
+  }
+
   try {
-    const existing = await findAllDriveFolders(accessToken, NOTES_STUDIO_ROOT_FOLDER_NAME, undefined, { key: 'app', value: 'notes_studio' });
-    if (existing.length > 0) {
-      cachedNotesStudioRootFolderId = existing[0].id;
-      return existing[0].id;
+    // Deduplicate: Find all folders named "Notes Studio", merge files into canonical, trash duplicates
+    const canonicalId = await deduplicateDriveFolder(accessToken, NOTES_STUDIO_ROOT_FOLDER_NAME, undefined);
+    if (canonicalId) {
+      cachedNotesStudioRootFolderId = canonicalId;
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('mockmc_canonical_notes_studio_folder_id', canonicalId);
+        localStorage.setItem('mockmc_canonical_notes_studio_folder_id', canonicalId);
+      }
+      return canonicalId;
     }
   } catch (e) {
-    console.warn('Could not query Notes Studio root folder:', e);
+    console.warn('Could not query/deduplicate Notes Studio root folder:', e);
   }
+
+  // If none exists, create ONE single canonical folder
   const createdId = await createDriveFolder(accessToken, NOTES_STUDIO_ROOT_FOLDER_NAME, undefined, { app: 'notes_studio', role: 'root' });
   cachedNotesStudioRootFolderId = createdId;
+  if (typeof window !== 'undefined') {
+    sessionStorage.setItem('mockmc_canonical_notes_studio_folder_id', createdId);
+    localStorage.setItem('mockmc_canonical_notes_studio_folder_id', createdId);
+  }
   return createdId;
 }
 
@@ -1641,9 +1664,9 @@ export async function getOrCreateTestNotesFolder(
     };
   }
 
-  // Create or retrieve subfolder under Notes Studio root
+  // Deduplicate and resolve subfolder under canonical Notes Studio root
   try {
-    const existingSubfolder = await findDriveFolder(accessToken, testFolderName, rootId);
+    const existingSubfolder = await deduplicateDriveFolder(accessToken, testFolderName, rootId);
     if (existingSubfolder) {
       return {
         appFolderId: rootId,
