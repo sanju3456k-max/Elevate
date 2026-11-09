@@ -672,7 +672,79 @@ export async function ensureValidGoogleDriveToken(): Promise<string | null> {
   }
 
   const refreshed = await refreshGoogleDriveTokenSilently(user.email || undefined);
-  return refreshed || currentToken || null;
+  if (refreshed) {
+    return refreshed;
+  }
+
+  // If silent refresh failed but token is still within its 60-minute lifetime, return currentToken
+  if (currentToken && ageMs < 60 * 60 * 1000) {
+    return currentToken;
+  }
+
+  return null;
+}
+
+/**
+ * Single-flight unified Google Drive connection function.
+ * Guarantees that AT MOST ONE interactive popup window is ever displayed to the user.
+ * 
+ * Flow:
+ * 1. Checks if a valid token already exists or can be silently refreshed (0 popups).
+ * 2. If user is signed into Firebase Auth, requests Drive authorization via Google Identity Services
+ *    (GIS) with login_hint set to user.email (a single focused consent popup).
+ * 3. If user is NOT signed into Firebase Auth (or GIS is unavailable), invokes signInWithGoogle()
+ *    (which signs into Firebase and requests Drive scopes in a single Firebase Auth popup).
+ * 4. Never executes GIS and signInWithGoogle() in parallel or in cascading fallback loops.
+ * 5. Uses a concurrency lock so rapid clicks cannot spawn duplicate windows.
+ */
+let activeConnectDrivePromise: Promise<string | null> | null = null;
+
+export async function connectGoogleDrive(preferredEmail?: string): Promise<string | null> {
+  if (activeConnectDrivePromise) {
+    return activeConnectDrivePromise;
+  }
+
+  activeConnectDrivePromise = (async () => {
+    try {
+      // 1. Check if token is already valid or silently renewable
+      const existingToken = await ensureValidGoogleDriveToken();
+      if (existingToken) {
+        return existingToken;
+      }
+
+      const user = auth.currentUser;
+      const isRegisteredUser = user && !user.isAnonymous;
+
+      if (isRegisteredUser) {
+        // User already has an authenticated Firebase session.
+        // Use GIS interactive consent popup with their known email.
+        const email = preferredEmail || user.email || localStorage.getItem(getDriveTokenEmailStorageKey(user.uid)) || undefined;
+        const gisLoaded = await loadGoogleIdentityServices();
+        if (gisLoaded && (window as any).google?.accounts?.oauth2) {
+          const gisToken = await requestGoogleDriveTokenInteractive(email);
+          if (gisToken) {
+            return gisToken;
+          }
+          // Note: If GIS failed (e.g. user closed popup or origin_mismatch occurred),
+          // DO NOT immediately fire signInWithGoogle()! Chaining them was the exact cause
+          // of the dual-popup issue.
+          return null;
+        }
+      }
+
+      // 2. User is not signed in to Firebase (or GIS is missing from environment).
+      // Fire the Firebase Auth Google Popup (a single popup handling both Auth & Drive scopes).
+      const signedInUser = await signInWithGoogle();
+      if (signedInUser) {
+        return getCachedGoogleAccessToken(signedInUser.uid);
+      }
+      return null;
+    } finally {
+      activeConnectDrivePromise = null;
+    }
+  })();
+
+  return activeConnectDrivePromise;
 }
 
 /**

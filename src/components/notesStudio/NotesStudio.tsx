@@ -26,6 +26,7 @@ import {
   signInWithGoogle,
   ensureValidGoogleDriveToken,
   requestGoogleDriveTokenInteractive,
+  connectGoogleDrive,
 } from '../../lib/firebase';
 import {
   loadAllNotesManifestsFromGoogleDrive,
@@ -183,16 +184,7 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
   const handleConnectDrive = async () => {
     setIsConnectingDrive(true);
     try {
-      let token = await ensureValidGoogleDriveToken();
-      if (!token) {
-        token = await requestGoogleDriveTokenInteractive();
-      }
-      if (!token) {
-        const user = await signInWithGoogle();
-        if (user) {
-          token = getCachedGoogleAccessToken();
-        }
-      }
+      const token = await connectGoogleDrive();
       if (token) {
         setGoogleToken(token);
         setIsTokenExpired(false);

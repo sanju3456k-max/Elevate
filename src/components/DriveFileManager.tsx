@@ -39,6 +39,7 @@ import {
   setCachedGoogleAccessToken,
   ensureValidGoogleDriveToken,
   requestGoogleDriveTokenInteractive,
+  connectGoogleDrive,
 } from '../lib/firebase';
 import {
   listGoogleDriveFiles,
@@ -64,6 +65,7 @@ import {
   preparePlaceholderTab,
   type GoogleDriveFile,
   type DocSection,
+  formatGoogleDriveError,
 } from '../lib/googleWorkspace';
 import { getAllNotesFromIDB, saveSingleNoteToIDB, getCacheStats, addDeletedTombstone, isTombstoned, getDeletedTombstones } from '../lib/idbNotes';
 import {
@@ -327,7 +329,7 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
       const displayFiles = files.filter((f) => f.name !== 'mockmc_notes_manifest.json');
       setDriveFiles(displayFiles);
     } catch (err: any) {
-      setDriveError(err?.message || "Failed to load Google Drive files.");
+      setDriveError(formatGoogleDriveError(err, "Failed to load Google Drive files."));
       if (err?.message?.includes('401') || err?.message?.toLowerCase().includes('expire') || err?.message?.toLowerCase().includes('unauthorized')) {
         setGoogleToken(null);
         setCachedGoogleAccessToken(null);
@@ -427,21 +429,8 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
     setIsDriveLoading(true);
     setDriveError(null);
     try {
-      // 1. First check if token is valid or can be silently refreshed without popping up UI
-      let token = await ensureValidGoogleDriveToken();
-
-      // 2. If silent refresh was blocked (e.g. 3P cookie restrictions), request non-destructive GIS consent
-      if (!token) {
-        token = await requestGoogleDriveTokenInteractive();
-      }
-
-      // 3. Fall back to standard sign-in if neither returned a token
-      if (!token) {
-        const user = await signInWithGoogle();
-        if (user) {
-          token = getCachedGoogleAccessToken();
-        }
-      }
+      // Connects Google Drive ensuring AT MOST ONE popup window is ever displayed
+      const token = await connectGoogleDrive();
 
       if (token) {
         setGoogleToken(token);
@@ -464,7 +453,7 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
       ) {
         return null;
       }
-      setDriveError(err?.message || "Google Workspace authentication failed. Please retry.");
+      setDriveError(formatGoogleDriveError(err, "Google Workspace authentication failed. Please retry."));
       return null;
     } finally {
       setIsDriveLoading(false);
@@ -1385,13 +1374,39 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
 
       {/* GOOGLE DRIVE ERROR NOTIFICATION BANNER */}
       {driveError && (
-        <div className="p-3 sm:p-4 bg-rose-50 dark:bg-rose-950/40 rounded-2xl border border-rose-200 dark:border-rose-900/60 flex items-center justify-between gap-3 animate-in slide-in-from-top duration-200">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
-            <div className="min-w-0">
-              <span className="text-xs font-semibold text-rose-900 dark:text-rose-200 block truncate">
+        <div className="p-3.5 sm:p-4 bg-rose-50 dark:bg-rose-950/40 rounded-2xl border border-rose-200 dark:border-rose-900/60 flex items-start justify-between gap-3 animate-in slide-in-from-top duration-200">
+          <div className="flex items-start gap-2.5 min-w-0 flex-1">
+            <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            <div className="min-w-0 space-y-1.5 flex-1">
+              <span className="text-xs font-semibold text-rose-900 dark:text-rose-200 block break-words leading-relaxed">
                 {driveError}
               </span>
+              {driveError.includes('Google Drive API is disabled') && (
+                <div className="pt-0.5 flex flex-wrap items-center gap-2">
+                  <a
+                    href="https://console.developers.google.com/apis/api/drive.googleapis.com/overview?project=649642031919"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer transition-colors shadow-sm"
+                  >
+                    <span>Enable Drive API in Cloud Console</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              )}
+              {driveError.includes('Origin Mismatch') && (
+                <div className="pt-0.5 flex flex-wrap items-center gap-2">
+                  <a
+                    href="https://console.cloud.google.com/apis/credentials?project=649642031919"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer transition-colors shadow-sm"
+                  >
+                    <span>Add Origin in Cloud Console</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">

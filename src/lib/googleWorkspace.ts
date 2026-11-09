@@ -48,6 +48,64 @@ export async function authedDriveFetch(
   return res;
 }
 
+/**
+ * Transforms raw Google API error responses (such as JSON SERVICE_DISABLED, origin_mismatch, or 401/403)
+ * into human-readable, actionable diagnostic messages with clear guidance.
+ */
+export function formatGoogleDriveError(err: unknown, defaultMsg: string = 'Google Drive operation failed.'): string {
+  if (!err) return defaultMsg;
+  const rawMsg = err instanceof Error ? err.message : String(err);
+
+  // Check for disabled Google Drive API in Google Cloud Console
+  if (
+    rawMsg.includes('SERVICE_DISABLED') ||
+    rawMsg.includes('has not been used in project') ||
+    rawMsg.includes('drive.googleapis.com/overview') ||
+    rawMsg.includes('it is disabled') ||
+    (rawMsg.includes('403') && rawMsg.includes('drive.googleapis.com'))
+  ) {
+    return 'Google Drive API is disabled in Google Cloud Project 649642031919. Please enable it in the Google Cloud Console to sync notes.';
+  }
+
+  // Check for disabled Google Docs API
+  if (rawMsg.includes('docs.googleapis.com') && (rawMsg.includes('SERVICE_DISABLED') || rawMsg.includes('disabled'))) {
+    return 'Google Docs API is disabled in Google Cloud Project 649642031919. Please enable it in the Google Cloud Console to export and open notes in Google Docs.';
+  }
+
+  // Check for Origin Mismatch (Google OAuth JavaScript Origin)
+  if (rawMsg.includes('origin_mismatch') || rawMsg.includes('OAuth 2.0 policy') || rawMsg.includes('register the JavaScript origin')) {
+    return 'Origin Mismatch: Your current local address is not registered under Authorized JavaScript Origins in Google Cloud Console.';
+  }
+
+  // Check for expired token / 401
+  if (rawMsg.includes('401') || rawMsg.toLowerCase().includes('token expired') || rawMsg.toLowerCase().includes('invalid credentials')) {
+    return 'Google Drive session expired. Please click "Reconnect Drive" to refresh permissions.';
+  }
+
+  // Check for rate limit or quota
+  if (rawMsg.includes('RATE_LIMIT_EXCEEDED') || rawMsg.includes('User Rate Limit Exceeded')) {
+    return 'Google Drive rate limit reached. Please wait a moment and try again.';
+  }
+
+  // Check for storage full
+  if (rawMsg.includes('storageQuotaExceeded') || rawMsg.includes('insufficientFilePermissions')) {
+    return 'Google Drive storage is full or insufficient account permissions.';
+  }
+
+  // Parse embedded JSON message if present
+  try {
+    const jsonMatch = rawMsg.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed?.error?.message) {
+        return parsed.error.message;
+      }
+    }
+  } catch {}
+
+  return rawMsg || defaultMsg;
+}
+
 export interface GoogleDriveFile {
   id: string;
   name: string;
@@ -395,7 +453,7 @@ export async function uploadFileToGoogleDrive(
       const fallbackParent = rootFolders.length > 0 ? rootFolders[0].id : undefined;
       return uploadFileToGoogleDrive(accessToken, name, mimeType, data, fallbackParent, appProperties);
     }
-    throw new Error(`Failed to upload to Google Drive: ${errorText}`);
+    throw new Error(formatGoogleDriveError(errorText, 'Failed to upload to Google Drive.'));
   }
 
   const fileData = await res.json();
@@ -850,7 +908,7 @@ export async function createGoogleDoc(
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`Failed to create Google Doc: ${errText}`);
+    throw new Error(formatGoogleDriveError(errText, 'Failed to create Google Doc.'));
   }
 
   const data = await res.json();
@@ -1300,14 +1358,17 @@ export async function createDriveFolder(
         metadata.parents = [parentId];
       }
 
-      const res = await fetch('https://www.googleapis.com/drive/v3/files?fields=id,name,appProperties', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
+      const res = await authedDriveFetch(
+        'https://www.googleapis.com/drive/v3/files?fields=id,name,appProperties',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(metadata),
         },
-        body: JSON.stringify(metadata),
-      });
+        accessToken
+      );
 
       if (!res.ok) {
         const errText = await res.text();
@@ -1315,7 +1376,7 @@ export async function createDriveFolder(
           console.warn(`Parent folder ${parentId} not found. Retrying createDriveFolder at root.`);
           return createDriveFolder(accessToken, folderName, undefined, appProperties);
         }
-        throw new Error(`Failed to create Google Drive folder "${folderName}": ${errText}`);
+        throw new Error(formatGoogleDriveError(errText, `Failed to create Google Drive folder "${folderName}".`));
       }
 
       const data = await res.json();

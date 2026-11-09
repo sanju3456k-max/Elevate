@@ -33,6 +33,7 @@ import {
   signInWithGoogle,
   ensureValidGoogleDriveToken,
   requestGoogleDriveTokenInteractive,
+  connectGoogleDrive,
 } from '../lib/firebase';
 import {
   fetchGoogleDrivePreviewBlob,
@@ -577,18 +578,7 @@ export const UnifiedFileViewerModal: React.FC<UnifiedFileViewerModalProps> = ({ 
 
   const handleOpenInDocsOrDrive = async () => {
     const targetTab = preparePlaceholderTab('Opening in Google Docs...');
-    let token = await ensureValidGoogleDriveToken();
-    if (!token) {
-      token = await requestGoogleDriveTokenInteractive();
-    }
-    if (!token) {
-      try {
-        await signInWithGoogle();
-        token = getCachedGoogleAccessToken();
-      } catch (err) {
-        console.warn('Google sign-in error:', err);
-      }
-    }
+    const token = await connectGoogleDrive();
     if (!token) {
       if (targetTab) targetTab.close();
       return;
