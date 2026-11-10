@@ -1154,12 +1154,12 @@ export const TestList: React.FC<TestListProps> = ({
                                         setDetailedTest(null);
                                         onViewAttemptResult(attempt);
                                       }}
-                                      className="inline-flex items-center justify-center gap-1 px-2.5 sm:px-3 py-1 bg-[#0b57d0] hover:bg-[#0842a0] text-white active:scale-95 text-[10.5px] sm:text-xs font-bold rounded-full border-0 shadow-[0_2px_6px_rgba(11,87,208,0.25)] transition-all cursor-pointer whitespace-nowrap shrink-0"
+                                      className="inline-flex items-center justify-center gap-1 px-3 py-1 bg-[#0b57d0] hover:bg-[#0842a0] text-white active:scale-95 text-[10.5px] sm:text-xs font-bold rounded-full border-0 shadow-[0_2px_6px_rgba(11,87,208,0.25)] transition-all cursor-pointer whitespace-nowrap shrink-0"
                                       title="View detailed test solutions"
                                       aria-label="Solutions"
                                     >
-                                      <Info className="w-3.5 h-3.5 stroke-[2.2] shrink-0" />
-                                      <span className="hidden sm:inline">Solutions</span>
+                                      <Eye className="w-3.5 h-3.5 stroke-[2.2] shrink-0" />
+                                      <span>Solutions</span>
                                     </button>
                                   )}
                                 </div>
