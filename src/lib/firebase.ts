@@ -2041,6 +2041,27 @@ export function getLocalLeaderboardEntries(testId: string, testTitle?: string): 
   }
 }
 
+/**
+ * Synchronous instant getter for cached leaderboard data (in-memory or localStorage).
+ * Returns immediately with 0ms delay to eliminate loading spinner flicker and page opening lag.
+ */
+export function getSynchronousCachedLeaderboard(testId: string, testTitle?: string, currentUserId?: string): TestLeaderboardSummary | null {
+  try {
+    const canonicalId = getCanonicalLeaderboardId(testId, testTitle);
+    const rawSafeId = (testId || '').replace(/[./[\]*~#$]/g, '_');
+    const cached = inMemoryLeaderboardCache.get(canonicalId) || inMemoryLeaderboardCache.get(rawSafeId);
+    if (cached?.data) {
+      return cached.data;
+    }
+    const local = getLocalLeaderboardEntries(testId, testTitle);
+    if (local && local.length > 0) {
+      const uid = currentUserId || auth.currentUser?.uid;
+      return buildLeaderboardSummaryFromList(local, uid);
+    }
+  } catch {}
+  return null;
+}
+
 export function saveLocalLeaderboardEntry(testId: string, entry: LeaderboardEntry, testTitle?: string): boolean {
   try {
     const canonicalKey = getLocalLeaderboardKey(testId, testTitle);

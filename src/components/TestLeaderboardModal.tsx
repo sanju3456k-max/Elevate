@@ -16,10 +16,12 @@ import type { MathTest, LeaderboardEntry, TestLeaderboardSummary } from '../type
 import type { User } from 'firebase/auth';
 import { 
   fetchTestLeaderboard, 
-  syncAllUserAttemptsToLeaderboard 
+  syncAllUserAttemptsToLeaderboard,
+  getSynchronousCachedLeaderboard
 } from '../lib/firebase';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useBackHandler } from '../hooks/useBackNavigation';
+import { studioFadeVariants } from '../lib/animationConfig';
 
 interface TestLeaderboardModalProps {
   isOpen: boolean;
@@ -55,10 +57,16 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
   onClose,
 }) => {
   useScrollLock(isOpen);
-  useBackHandler({ isOpen, onBack: onClose });
+  useBackHandler({ isOpen, onBack: onClose, priority: 60 });
 
-  const [summary, setSummary] = useState<TestLeaderboardSummary | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  // 1. Immediately hydrate initial summary synchronously to prevent layout shifts & loading flashes on open
+  const initialCache = useMemo(() => {
+    if (!isOpen || (!test?.id && !test?.title)) return null;
+    return getSynchronousCachedLeaderboard(test.id || '', test.title, currentUser?.uid);
+  }, [isOpen, test?.id, test?.title, currentUser?.uid]);
+
+  const [summary, setSummary] = useState<TestLeaderboardSummary | null>(initialCache);
+  const [isLoading, setIsLoading] = useState<boolean>(!initialCache);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [justRefreshed, setJustRefreshed] = useState<boolean>(false);
   const [modeFilter, setModeFilter] = useState<'all' | 'online' | 'omr'>('all');
@@ -67,7 +75,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
     if (!test?.id && !test?.title) return;
     if (force) {
       setIsRefreshing(true);
-    } else {
+    } else if (!summary) {
       setIsLoading(true);
     }
 
@@ -90,15 +98,20 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [test?.id, test?.title, currentUser?.uid]);
+  }, [test?.id, test?.title, currentUser?.uid, summary]);
 
   useEffect(() => {
     if (isOpen && (test?.id || test?.title)) {
+      const syncData = getSynchronousCachedLeaderboard(test.id || '', test.title, currentUser?.uid);
+      if (syncData) {
+        setSummary(syncData);
+        setIsLoading(false);
+      }
       loadLeaderboardData(false);
     } else {
       setSummary(null);
     }
-  }, [isOpen, test?.id, test?.title, loadLeaderboardData]);
+  }, [isOpen, test?.id, test?.title, loadLeaderboardData, currentUser?.uid]);
 
   // Synchronize status bar theme-color to match leaderboard page body (#ffffff light / #0c0e12 dark)
   useEffect(() => {
@@ -234,20 +247,20 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
     );
   };
 
-  if (!isOpen || !test) return null;
-
   return createPortal(
     <AnimatePresence>
-      <motion.div
-        key="leaderboard-fullpage-container"
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 16 }}
-        transition={{ duration: 0.2 }}
-        className="fixed inset-0 z-50 bg-white dark:bg-[#0c0e12] overflow-y-auto flex flex-col font-sans pb-10"
-      >
-        {/* Top Header - Seamless Plain Background & Full Screen Width */}
-        <header className="sticky top-0 z-20 bg-white/95 dark:bg-[#0c0e12]/95 backdrop-blur-md">
+      {isOpen && test && (
+        <motion.div
+          key="leaderboard-fullpage-container"
+          variants={studioFadeVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          style={{ willChange: 'opacity' }}
+          className="fixed inset-0 z-[60] bg-white dark:bg-[#0c0e12] overflow-y-auto flex flex-col font-sans pb-10 select-text [scrollbar-width:thin]"
+        >
+          {/* Top Header - Seamless Fixed Background Without Heavy Blur Shader */}
+          <header className="sticky top-0 z-20 bg-white/98 dark:bg-[#0c0e12]/98 border-b border-slate-100 dark:border-zinc-800/80 shrink-0">
           <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-2.5 sm:py-3.5 flex items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
               <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-amber-950 flex items-center justify-center shadow-xs shrink-0">
@@ -366,7 +379,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                   <div className="flex flex-col items-center flex-1 min-w-0 max-w-[120px] sm:max-w-[160px]">
                     {top1 ? (
                       <div className="flex flex-col items-center mb-1.5 sm:mb-2 text-center w-full">
-                        <Crown className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500 fill-amber-400 animate-bounce mb-0.5" />
+                        <Crown className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500 fill-amber-400 mb-0.5 drop-shadow-xs" />
                         <div className="relative mb-1.5 sm:mb-2">
                           <div className={`w-14 h-14 sm:w-18 sm:h-18 lg:w-19 lg:h-19 rounded-full ${getAvatarBgColor(top1.userName)} text-white font-black text-xl sm:text-2xl flex items-center justify-center shadow-lg ring-3 sm:ring-4 ring-amber-400`}>
                             {top1.userName.charAt(0).toUpperCase()}
@@ -555,6 +568,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                   return (
                     <div
                       key={entry.userId}
+                      style={{ contentVisibility: 'auto', containIntrinsicSize: '0 62px' }}
                       className={`p-3 sm:px-5 sm:py-3.5 rounded-[18px] sm:rounded-[22px] flex items-center justify-between gap-2.5 sm:gap-4 transition-all ${
                         isCurrentUser
                           ? 'bg-[#0b57d0]/10 border-2 border-[#0b57d0]/40 dark:bg-[#a8c7fa]/10 dark:border-[#a8c7fa]/40 shadow-xs'
@@ -677,7 +691,8 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
           </div>
         </main>
       </motion.div>
-    </AnimatePresence>,
+    )}
+  </AnimatePresence>,
     document.body
   );
 };

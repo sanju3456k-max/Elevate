@@ -939,10 +939,10 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                   </div>
 
                   {/* Horizontal Light Partition Line */}
-                  <div className="w-full h-px bg-slate-100 dark:bg-zinc-800/80 my-1.5" />
+                  <div className="w-full h-px bg-slate-100 dark:bg-zinc-800/80 !mt-1.5 !mb-1.5" />
 
                   {/* Row 4: Single combined strip for Rank, Time, and Score matching App UI */}
-                  <div className="flex items-center gap-2 pt-0.5">
+                  <div className="flex items-center gap-2 !mt-0">
                     <div className="inline-flex items-center gap-2 sm:gap-2.5 px-3 py-1 rounded-full bg-[#edf2f9] dark:bg-[#26282e] border-0 ring-0 shadow-none shrink-0 text-[10.5px] sm:text-xs">
                       {/* Rank Section */}
                       {firstRank && (
@@ -1122,10 +1122,10 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                                 </div>
 
                                 {/* Horizontal Light Partition Line */}
-                                <div className="w-full h-px bg-slate-100 dark:bg-zinc-800/80 my-1.5" />
+                                <div className="w-full h-px bg-slate-100 dark:bg-zinc-800/80 !mt-1.5 !mb-1.5" />
 
                                 {/* Row 4: Single combined strip for Rank, Time, and Score matching App UI + Actions */}
-                                <div className="flex items-center justify-between text-[10.5px] pt-0.5 flex-wrap gap-2">
+                                <div className="flex items-center justify-between text-[10.5px] !mt-0 flex-wrap gap-2">
                                   <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#edf2f9] dark:bg-[#26282e] border-0 ring-0 shadow-none shrink-0 text-[10px] sm:text-[10.5px]">
                                     {isFirst && firstRank ? (
                                       <>

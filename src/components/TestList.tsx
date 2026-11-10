@@ -1083,10 +1083,10 @@ export const TestList: React.FC<TestListProps> = ({
                               </div>
 
                               {/* Horizontal Light Partition Line */}
-                              <div className="w-full h-px bg-slate-100 dark:bg-zinc-800/80 my-1.5" />
+                              <div className="w-full h-px bg-slate-100 dark:bg-zinc-800/80 !mt-1.5 !mb-1.5" />
 
                               {/* Row 4: Single combined strip of Rank, Time, and Score + Action Buttons on the Same Row */}
-                              <div className="flex items-center justify-between gap-1.5 sm:gap-2 pt-0.5 flex-wrap sm:flex-nowrap">
+                              <div className="flex items-center justify-between gap-1.5 sm:gap-2 !mt-0 flex-wrap sm:flex-nowrap">
                                 {/* Single combined strip for Rank, Time, and Score matching App UI */}
                                 <div className="inline-flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#edf2f9] dark:bg-[#26282e] border-0 ring-0 shadow-none shrink-0 text-[10px] sm:text-xs">
                                   {/* Rank Section */}
