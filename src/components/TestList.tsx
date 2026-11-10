@@ -33,7 +33,8 @@ import {
   BarChart2,
   Eye,
   RotateCcw,
-  Bookmark
+  Bookmark,
+  Info
 } from 'lucide-react';
 import type { MathTest, TestAttempt, ActiveTestSession, UserProfile, TestHistoryEntry } from '../types';
 import { getAllAvailableTopics } from '../utils/topics';
@@ -1085,8 +1086,8 @@ export const TestList: React.FC<TestListProps> = ({
                               {/* Horizontal Light Partition Line */}
                               <div className="w-full h-px bg-slate-100 dark:bg-zinc-800/80 !mt-1.5 !mb-1.5" />
 
-                              {/* Row 4: Single combined strip for Rank, Time, and Score matching App UI */}
-                              <div className="flex items-center gap-2 !mt-0">
+                              {/* Row 4: Single combined strip of Rank, Time, Score + Action Buttons with flex-wrap */}
+                              <div className="flex items-center justify-between gap-1.5 sm:gap-2 !mt-0 flex-wrap">
                                 {/* Single combined strip for Rank, Time, and Score matching App UI */}
                                 <div className="inline-flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#edf2f9] dark:bg-[#26282e] border-0 ring-0 shadow-none shrink-0 text-[10px] sm:text-xs">
                                   {/* Rank Section */}
@@ -1127,40 +1128,42 @@ export const TestList: React.FC<TestListProps> = ({
                                     <span className="text-[11px] sm:text-sm font-black font-mono tracking-tight text-[#0b57d0] dark:text-[#a8c7fa]">{correctCount}/{totalQs}</span>
                                   </div>
                                 </div>
+
+                                {/* Action Buttons: Icon-only on mobile portrait, with labels on larger screens */}
+                                <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedReportAttempt(attempt);
+                                    }}
+                                    className="inline-flex items-center justify-center gap-1 px-2.5 sm:px-3 py-1 bg-[#d3e3fd] hover:bg-[#c2e7ff] dark:bg-[#004a77] dark:hover:bg-[#005a92] active:scale-95 text-[#041e49] dark:text-[#c2e7ff] text-[10.5px] sm:text-xs font-bold rounded-full border-0 transition-all cursor-pointer whitespace-nowrap shrink-0"
+                                    title="View detailed test report & analysis"
+                                    aria-label="Analysis"
+                                  >
+                                    <BarChart2 className="w-3.5 h-3.5 stroke-[2.2] shrink-0" />
+                                    <span className="hidden sm:inline">Analysis</span>
+                                  </button>
+
+                                  {onViewAttemptResult && (
+                                    <button
+                                      id={`view-attempt-btn-${label.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDetailedTest(null);
+                                        onViewAttemptResult(attempt);
+                                      }}
+                                      className="inline-flex items-center justify-center gap-1 px-2.5 sm:px-3 py-1 bg-[#0b57d0] hover:bg-[#0842a0] text-white active:scale-95 text-[10.5px] sm:text-xs font-bold rounded-full border-0 shadow-[0_2px_6px_rgba(11,87,208,0.25)] transition-all cursor-pointer whitespace-nowrap shrink-0"
+                                      title="View detailed test solutions"
+                                      aria-label="Solutions"
+                                    >
+                                      <Info className="w-3.5 h-3.5 stroke-[2.2] shrink-0" />
+                                      <span className="hidden sm:inline">Solutions</span>
+                                    </button>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-
-                            {/* Row 5: Action Buttons (Analysis & Solutions) wrapped to next row strictly at bottom */}
-                            <div className="flex items-center justify-end gap-1.5 sm:gap-2 pt-2 mt-auto">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedReportAttempt(attempt);
-                                }}
-                                className="inline-flex items-center justify-center gap-1 px-3 py-1 bg-[#d3e3fd] hover:bg-[#c2e7ff] dark:bg-[#004a77] dark:hover:bg-[#005a92] active:scale-95 text-[#041e49] dark:text-[#c2e7ff] text-[10.5px] sm:text-xs font-bold rounded-full border-0 transition-all cursor-pointer whitespace-nowrap shrink-0"
-                                title="View detailed test report & analysis"
-                              >
-                                <BarChart2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[2.2] shrink-0" />
-                                <span>Analysis</span>
-                              </button>
-
-                              {onViewAttemptResult && (
-                                <button
-                                  id={`view-attempt-btn-${label.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDetailedTest(null);
-                                    onViewAttemptResult(attempt);
-                                  }}
-                                  className="inline-flex items-center justify-center gap-1 px-3 py-1 bg-[#0b57d0] hover:bg-[#0842a0] text-white active:scale-95 text-[10.5px] sm:text-xs font-bold rounded-full border-0 shadow-[0_2px_6px_rgba(11,87,208,0.25)] transition-all cursor-pointer whitespace-nowrap shrink-0"
-                                  title="View detailed test solutions"
-                                >
-                                  <Eye className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[2.2] shrink-0" />
-                                  <span>Solutions</span>
-                                </button>
-                              )}
                             </div>
                           </div>
                         );
