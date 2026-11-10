@@ -113,7 +113,7 @@ export const APP_STYLES = {
   customBuilder: {
     container: 'h-full w-full flex flex-col overflow-hidden bg-[#e5e9f0] dark:bg-[#0b0c10] font-sans',
     headerArea: 'shrink-0 bg-[#e5e9f0] dark:bg-[#0b0c10] border-0 z-20 shadow-none',
-    maxContent: 'max-w-5xl w-full mx-auto px-3 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.6rem)] pb-2.5 space-y-2',
+    maxContent: 'w-full px-3.5 sm:px-6 lg:px-8 pt-[calc(env(safe-area-inset-top,0px)+0.6rem)] pb-2.5 space-y-2',
     card: 'bg-white dark:bg-[#1e2024] hover:bg-[#f8f9fc] dark:hover:bg-[#25282e] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] rounded-[28px] transition-all duration-200 overflow-hidden'
   },
 

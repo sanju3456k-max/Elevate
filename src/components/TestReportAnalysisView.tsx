@@ -28,11 +28,14 @@ import {
   Check,
   FileText,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Trophy
 } from 'lucide-react';
-import type { TestAttempt, MathTest, MathQuestion } from '../types';
+import type { TestAttempt, MathTest, MathQuestion, TestLeaderboardSummary } from '../types';
 import { getQuestionExplanation } from '../types';
 import { isAttemptOmrMode } from '../lib/storage';
+import { fetchTestLeaderboard } from '../lib/firebase';
+import { TestLeaderboardModal } from './TestLeaderboardModal';
 import { APP_STYLES } from './ui/AppStyles';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { MathRenderer } from './MathRenderer';
@@ -298,6 +301,15 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
     subtopicItem: SubtopicAnalysisItem;
     initialQuestionNumber?: number;
   } | null>(null);
+
+  const [leaderboardSummary, setLeaderboardSummary] = useState<TestLeaderboardSummary | null>(null);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (attempt?.testId || attempt?.testTitle) {
+      fetchTestLeaderboard(attempt.testId || '', attempt.testTitle).then(setLeaderboardSummary).catch(() => {});
+    }
+  }, [attempt?.testId, attempt?.testTitle]);
   const [extraAddonsPrompt, setExtraAddonsPrompt] = useState<string>('');
   const promptBarInputRef = useRef<HTMLInputElement>(null);
 
@@ -1217,11 +1229,11 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                   {attempt.testTitle || 'Test Report & Analysis'}
                 </h1>
                 {isOmr ? (
-                  <span className={APP_STYLES.pill.amber}>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold bg-[#c4eed0] text-[#072711] dark:bg-[#0f5223] dark:text-[#c4eed0] shrink-0 border-0 outline-none">
                     OMR
                   </span>
                 ) : (
-                  <span className={APP_STYLES.pill.blue}>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] shrink-0 border-0 outline-none">
                     Online
                   </span>
                 )}
@@ -1234,8 +1246,18 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
             </div>
           </div>
 
-          {/* Right: Actions (View Solutions) */}
+          {/* Right: Actions (View Solutions, Leaderboard without border ring) */}
           <div className="flex items-center gap-2">
+            <button
+              id="report-top-leaderboard-btn"
+              type="button"
+              onClick={() => setIsLeaderboardOpen(true)}
+              className="w-9 h-9 sm:w-auto sm:h-9 sm:px-3.5 rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 font-bold text-xs border-0 ring-0 shadow-none flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all outline-none"
+              title="View Test Leaderboard & Rankings"
+            >
+              <Trophy className="w-4 h-4 sm:w-3.5 sm:h-3.5 stroke-[2.2]" />
+              <span className="hidden sm:inline">Leaderboard</span>
+            </button>
             {onViewRawSolutions && (
               <button
                 id="report-top-view-solutions-btn"
@@ -1258,7 +1280,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
         {/* 1. SCORECARD & PRIMARY KPI HERO SECTION                              */}
         {/* ==================================================================== */}
         <div className={`${APP_STYLES.card.base} p-5 sm:p-6 space-y-4`}>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-[#2c3040]">
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#2c3040]">
             <div>
               <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest">
                 Test Scorecard
@@ -1268,11 +1290,18 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
               </h2>
             </div>
 
-            {/* Pass / Status Badge */}
-            <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-extrabold border-0 ring-0 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>{attempt.passed ? 'PASSED' : 'SCORED'}</span>
-            </div>
+            {/* Global Rank Tag strictly at the top-right corner without border ring or hash */}
+            {leaderboardSummary?.currentUserRank ? (
+              <button
+                type="button"
+                onClick={() => setIsLeaderboardOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black bg-amber-500/15 text-amber-800 dark:text-amber-300 hover:bg-amber-500/25 active:scale-95 transition-all cursor-pointer border-0 ring-0 shadow-none shrink-0"
+                title={`Leaderboard Rank ${leaderboardSummary.currentUserRank}${leaderboardSummary.totalParticipants > 0 ? ` of ${leaderboardSummary.totalParticipants}` : ''} - Click to view leaderboard`}
+              >
+                <Trophy className="w-3.5 h-3.5 text-amber-500 stroke-[2.2]" />
+                <span>Rank {leaderboardSummary.currentUserRank}</span>
+              </button>
+            ) : null}
           </div>
 
           {/* KPI Grid - Minimal Surfaces with Thin Border Ring */}
@@ -2595,6 +2624,14 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
           </main>
         </div>
       )}
+
+      {/* Leaderboard Modal */}
+      <TestLeaderboardModal
+        isOpen={isLeaderboardOpen}
+        test={(test || { id: attempt.testId, title: attempt.testTitle, questions: [] }) as MathTest}
+        currentUser={attempt.userId ? ({ uid: attempt.userId } as any) : null}
+        onClose={() => setIsLeaderboardOpen(false)}
+      />
     </div>
   );
 };

@@ -19,10 +19,17 @@ import {
   Loader2,
   Printer,
   Share2,
+  Trophy,
   Sparkles,
   Zap,
   ArrowUpRight,
-  Package
+  Package,
+  Calendar,
+  CheckCircle2,
+  XCircle,
+  MinusCircle,
+  Target,
+  Percent
 } from 'lucide-react';
 import type { MathTest, TestAttempt, ActiveTestSession, UserProfile, TestHistoryEntry } from '../types';
 import { getAllAvailableTopics } from '../utils/topics';
@@ -41,6 +48,7 @@ import {
   gpuAcceleratedStyle 
 } from '../lib/animationConfig';
 import { APP_STYLES } from './ui/AppStyles';
+import { TestLeaderboardModal } from './TestLeaderboardModal';
 
 interface TestListProps {
   tests: MathTest[];
@@ -256,6 +264,7 @@ export const TestList: React.FC<TestListProps> = ({
   // Selected test for Test Details & Attempt Records Modal
   const [detailedTest, setDetailedTest] = useState<MathTest | null>(null);
   const [isCopiedDetailedTest, setIsCopiedDetailedTest] = useState<boolean>(false);
+  const [leaderboardTest, setLeaderboardTest] = useState<MathTest | null>(null);
 
   const handleShareDetailedTest = async (e: React.MouseEvent, testToShare: MathTest) => {
     e.stopPropagation();
@@ -712,6 +721,13 @@ export const TestList: React.FC<TestListProps> = ({
                       )}
                     </md-icon-button>
                     <md-icon-button
+                      id="leaderboard-detailed-test-modal-btn"
+                      onClick={() => setLeaderboardTest(detailedTest)}
+                      title="View Test Leaderboard & Rankings"
+                    >
+                      <Trophy className="w-5 h-5 text-amber-500 hover:text-amber-600 transition-colors" />
+                    </md-icon-button>
+                    <md-icon-button
                       id="close-detailed-modal-btn"
                       onClick={() => setDetailedTest(null)}
                       title="Close"
@@ -815,11 +831,11 @@ export const TestList: React.FC<TestListProps> = ({
                         try {
                           const d = new Date(dateStr);
                           if (isNaN(d.getTime())) return 'Recent attempt';
-                          const m = d.getMonth() + 1;
+                          const month = d.toLocaleDateString('en-US', { month: 'short' });
                           const day = d.getDate();
                           const yr = d.getFullYear();
                           const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-                          return `${m}/${day}/${yr} • ${time}`;
+                          return `${month} ${day}, ${yr} • ${time}`;
                         } catch {
                           return 'Recent attempt';
                         }
@@ -834,16 +850,37 @@ export const TestList: React.FC<TestListProps> = ({
                         const totalQs = detailedTest.questions?.length || detailedTest.questionCount || answersList.length || 10;
                         const correctCount = answersList.filter(a => a.isCorrect).length || Math.round((attempt.score / (attempt.totalPoints || 1)) * totalQs);
                         const answeredCount = answersList.filter(a => a.selectedOption && a.selectedOption.trim() !== '').length || correctCount;
-                        const precision = answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 100;
+                        const wrongCount = Math.max(0, answeredCount - correctCount);
+                        const unansweredCount = Math.max(0, totalQs - answeredCount);
+                        const accuracy = answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 0;
+                        const precision = attempt.percentage !== undefined ? attempt.percentage : (totalQs > 0 ? Math.round((correctCount / totalQs) * 100) : 0);
                         const isOmr = isAttemptOmrMode(attempt);
                         const modeLabel = isOmr ? 'OMR' : 'Online';
+
+                        const formatAttemptDuration = (attemptItem: TestAttempt) => {
+                          let sec = attemptItem.timeSpentSeconds;
+                          if ((!sec || sec <= 0) && attemptItem.completedAt && attemptItem.createdAt) {
+                            const diff = Math.round((new Date(attemptItem.completedAt).getTime() - new Date(attemptItem.createdAt).getTime()) / 1000);
+                            if (diff > 0 && diff < 86400) {
+                              sec = diff;
+                            }
+                          }
+                          if (!sec || isNaN(sec) || sec <= 0) return '0s';
+                          const m = Math.floor(sec / 60);
+                          const s = Math.round(sec % 60);
+                          if (m === 0) return `${s}s`;
+                          if (s === 0) return `${m}m`;
+                          return `${m}m ${s}s`;
+                        };
+                        const timeTakenStr = formatAttemptDuration(attempt);
 
                         return (
                           <div 
                             key={label}
                             className="p-4 sm:p-5 rounded-[28px] bg-white dark:bg-[#1e2024] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-3 transition-all flex flex-col justify-between"
                           >
-                            <div className="space-y-2">
+                            <div className="space-y-2.5">
+                              {/* Row 1: Attempt Label & Mode Tag */}
                               <div className="flex items-center justify-between gap-2">
                                 <span className="text-[11px] font-bold tracking-widest text-[#5e5e5e] dark:text-[#9aa0a6] uppercase truncate flex-1 min-w-0">
                                   {label}
@@ -857,25 +894,83 @@ export const TestList: React.FC<TestListProps> = ({
                                 </span>
                               </div>
 
-                              <div className="flex items-baseline gap-2.5">
-                                <span className="text-2xl sm:text-3xl font-black font-mono text-[#1f1f1f] dark:text-[#e3e3e3]">
-                                  {attempt.percentage}%
-                                </span>
-                                <span className="px-2.5 py-0.5 rounded-[28px] text-[11px] font-semibold bg-transparent text-[#5e5e5e] dark:text-[#9aa0a6] border-0">
-                                  {precision}% precision
-                                </span>
-                              </div>
-
-                              <div className="text-xs font-semibold text-[#1f1f1f] dark:text-[#e3e3e3]">
-                                Correct Answers: <strong className="font-bold">{correctCount}</strong> / {totalQs} Questions
-                              </div>
-
-                              <div className="flex items-center justify-between text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] pt-1">
-                                <div>
-                                  Answered: <strong className="font-semibold text-[#1f1f1f] dark:text-[#e3e3e3]">{answeredCount}/{totalQs}</strong>
+                              {/* Row 2: Date and Time in Single Strip with Month Name & Duration */}
+                              <div className="flex items-center justify-between gap-2 text-[11px] font-medium text-[#444746] dark:text-[#c4c7c5] flex-wrap">
+                                <div className="flex items-center gap-1.5" title="Completion Date">
+                                  <Calendar className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                                  <span className="font-semibold text-[#1f1f1f] dark:text-[#e3e3e3]">
+                                    {formatDateTime(attempt.completedAt || attempt.createdAt)}
+                                  </span>
                                 </div>
-                                <div className="px-2.5 py-0.5 rounded-[28px] bg-transparent text-[#5e5e5e] dark:text-[#9aa0a6] font-mono text-[11px] font-semibold border-0">
-                                  {formatDateTime(attempt.completedAt || attempt.createdAt)}
+
+                                {timeTakenStr && (
+                                  <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[#444746] dark:text-[#c4c7c5] text-[11px] font-bold" title="Time Taken">
+                                    <Clock className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400 stroke-[2.2] shrink-0" />
+                                    <span>{timeTakenStr}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Row 3: Correct, Wrong, Skipped in Single Strip (matching Performance Analytics) */}
+                              <div className="flex items-center">
+                                <div className="inline-flex items-center gap-2 sm:gap-2.5 text-[#1f1f1f] dark:text-[#e3e3e3] text-[11px] font-medium shrink-0 flex-wrap">
+                                  {/* Correct */}
+                                  <div className="flex items-center gap-1.5" title="Correct Questions">
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                                    <span>
+                                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{correctCount}</strong> <span>correct</span>
+                                    </span>
+                                  </div>
+
+                                  <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                                  {/* Wrong */}
+                                  <div className="flex items-center gap-1.5" title="Incorrect Questions">
+                                    <XCircle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400 stroke-[2.2] shrink-0" />
+                                    <span>
+                                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{wrongCount}</strong> <span>wrong</span>
+                                    </span>
+                                  </div>
+
+                                  <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                                  {/* Skipped */}
+                                  <div className="flex items-center gap-1.5" title="Skipped / Unattempted Questions">
+                                    <MinusCircle className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] stroke-[2.2] shrink-0" />
+                                    <span>
+                                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{unansweredCount}</strong> <span>skipped</span>
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Row 4: Accuracy, Precision, and Score in Single Strip (matching Performance Analytics) */}
+                              <div className="flex items-center">
+                                <div className="inline-flex items-center gap-2 sm:gap-2.5 text-[#1f1f1f] dark:text-[#e3e3e3] text-[11px] font-semibold shrink-0 flex-wrap">
+                                  {/* Accuracy */}
+                                  <div className="flex items-center gap-1" title="Accuracy">
+                                    <Target className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                                    <span>Acc</span>
+                                    <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{accuracy}%</strong>
+                                  </div>
+
+                                  <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                                  {/* Precision */}
+                                  <div className="flex items-center gap-1" title="Precision">
+                                    <Percent className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 stroke-[2.2] shrink-0" />
+                                    <span>Precision</span>
+                                    <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{precision}%</strong>
+                                  </div>
+
+                                  <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                                  {/* Score */}
+                                  <div className="flex items-center gap-1" title="Score">
+                                    <Award className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                                    <span>Score</span>
+                                    <strong className="text-[#0b57d0] dark:text-[#a8c7fa] font-extrabold">{correctCount}/{totalQs}</strong>
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -955,6 +1050,14 @@ export const TestList: React.FC<TestListProps> = ({
         </AnimatePresence>,
         document.body
       )}
+
+      {/* Test Leaderboard Modal */}
+      <TestLeaderboardModal
+        isOpen={!!leaderboardTest}
+        test={leaderboardTest}
+        currentUser={currentUser}
+        onClose={() => setLeaderboardTest(null)}
+      />
     </div>
   );
 };

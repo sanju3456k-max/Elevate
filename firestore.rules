@@ -47,6 +47,24 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
+    // Test Leaderboards: Lightweight rankings per test
+    // 1. Top Bucket Document: Single document containing top 100 students (1 Read for everyone)
+    match /test_leaderboards/{testId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    match /test_leaderboards/{testId}/summary/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // 2. Individual user entries (1 doc per user)
+    match /test_leaderboards/{testId}/entries/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId);
+    }
+
     // Math Tests: Deprecated legacy collection. Only owner delete is permitted for cleanup.
     match /tests/{testId} {
       allow read, create, update: if false;

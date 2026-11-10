@@ -33,11 +33,13 @@ import {
   Calendar,
   Loader2,
   Scan,
-  Globe
+  Globe,
+  Trophy
 } from 'lucide-react';
 import type { TestAttempt, MathTest, MathQuestion, UserProfile, TopicStatRollup } from '../types';
 import type { User } from 'firebase/auth';
 import { isAttemptOmrMode, type CachedAuthUser } from '../lib/storage';
+import { getLocalLeaderboardEntries, fetchTestLeaderboard } from '../lib/firebase';
 import { TestReportAnalysisView } from './TestReportAnalysisView';
 import { APP_STYLES } from './ui/AppStyles';
 
@@ -81,6 +83,50 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
   const [selectedTopicFilter, setSelectedTopicFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'online' | 'omr' | 'score' | 'accuracy'>('recent');
   const [selectedReportAttempt, setSelectedReportAttempt] = useState<TestAttempt | null>(null);
+  const [testRanks, setTestRanks] = useState<Record<string, { rank: number; total?: number }>>({});
+
+  // Asynchronously resolve leaderboard ranks for test history cards
+  useEffect(() => {
+    let isMounted = true;
+    const testKeys = new Set<string>();
+    attempts.forEach(a => {
+      const key = `${a.testId || ''}:::${a.testTitle || ''}`;
+      testKeys.add(key);
+    });
+
+    testKeys.forEach(async (key) => {
+      const [testId, testTitle] = key.split(':::');
+      try {
+        const summary = await fetchTestLeaderboard(testId, testTitle);
+        if (!isMounted || !summary) return;
+
+        let rank = summary.currentUserRank;
+        if (!rank && summary.entries?.length) {
+          const currentUid = currentUser?.uid;
+          const currentName = currentUser?.displayName;
+          const match = summary.entries.find(e => 
+            (currentUid && e.userId === currentUid) || 
+            (currentName && e.userName && e.userName.toLowerCase() === currentName.toLowerCase())
+          );
+          if (match?.rank) {
+            rank = match.rank;
+          }
+        }
+
+        if (rank) {
+          setTestRanks(prev => ({
+            ...prev,
+            [key]: {
+              rank,
+              total: summary.totalParticipants || summary.entries.length
+            }
+          }));
+        }
+      } catch {}
+    });
+
+    return () => { isMounted = false; };
+  }, [attempts, currentUser?.uid, currentUser?.displayName]);
 
   // Guarantee clean scroll reset on mount and report drill-down transitions
   useEffect(() => {
@@ -135,27 +181,49 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
       }
     }
 
-    // 2. Supplement / compute from loaded attempts using question-specific topic & subtopic classifications
+    // 2. Compute deduplicated question metrics from loaded attempts (1 test = unique questions, no retake duplication)
     if (attempts.length > 0) {
       let localCorr = 0;
       let localAtt = 0;
       let localQCount = 0;
       let localTime = 0;
 
+      // Group attempts by canonical test to isolate each unique test's latest attempt
+      const testAttemptsMap = new Map<string, TestAttempt[]>();
       attempts.forEach((att) => {
-        localTime += att.timeSpentSeconds || 0;
-        const answersMap = att.answers || {};
+        localTime += att.timeSpentSeconds || 0; // Cumulative practice duration across all attempts is preserved
+        const canonicalKey = (att.testId || att.testTitle || 'unknown').trim();
+        let list = testAttemptsMap.get(canonicalKey);
+        if (!list) {
+          list = [];
+          testAttemptsMap.set(canonicalKey, list);
+        }
+        list.push(att);
+      });
+
+      // Clear topic/subtopic stats to compute from unique tests (no duplicate multiplication)
+      Object.keys(topicStats).forEach((key) => delete topicStats[key]);
+      Object.keys(subtopicStats).forEach((key) => delete subtopicStats[key]);
+
+      testAttemptsMap.forEach((testAttempts) => {
+        // Chronological descending sort to obtain latest attempt (current mastery state)
+        const sortedDesc = [...testAttempts].sort((a, b) => {
+          return new Date(b.completedAt || b.createdAt).getTime() - new Date(a.completedAt || a.createdAt).getTime();
+        });
+        const latestAtt = sortedDesc[0];
+
+        const answersMap = latestAtt.answers || {};
         const answersList = Object.values(answersMap) as { 
           selectedOption?: string; 
           isCorrect?: boolean; 
           timeSpentSeconds?: number; 
         }[];
         
-        const foundTest = tests.find(t => (t && t.id && t.id === att.testId) || (t && t.title && t.title === att.testTitle));
-        const testCategory = foundTest?.topic || att.testTopic || 'General Mathematics';
+        const foundTest = tests.find(t => (t && t.id && t.id === latestAtt.testId) || (t && t.title && t.title === latestAtt.testTitle));
+        const testCategory = foundTest?.topic || latestAtt.testTopic || 'General Mathematics';
         const questionsList: MathQuestion[] = Array.isArray(foundTest?.questions) && foundTest.questions.length > 0
           ? foundTest.questions
-          : (Array.isArray((att as any).questions) ? (att as any).questions : []);
+          : (Array.isArray((latestAtt as any).questions) ? (latestAtt as any).questions : []);
 
         const qCount = questionsList.length > 0 ? questionsList.length : (answersList.length || 1);
 
@@ -216,13 +284,11 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
         }
       });
 
-      // If no rollup was present, use the calculated local totals
-      if (!rollup || !rollup.totalTestsAttempted) {
-        totalCorrect = localCorr;
-        totalAttempted = localAtt;
-        totalQuestionsCount = localQCount;
-        totalTimeSpentSec = localTime;
-      }
+      // Always use deduplicated question counts for accurate curriculum analytics
+      totalCorrect = localCorr;
+      totalAttempted = localAtt;
+      totalQuestionsCount = localQCount;
+      totalTimeSpentSec = localTime;
     }
 
     totalWrong = Math.max(0, totalAttempted - totalCorrect);
@@ -260,51 +326,141 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
   const formatSimpleDate = (dateStr: string) => {
     try {
       const d = new Date(dateStr);
-      return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+      const m = d.toLocaleDateString('en-US', { month: 'short' });
+      return `${m} ${d.getDate()}, ${d.getFullYear()}`;
     } catch {
       return 'Recent';
     }
   };
 
-  // Filter and sort attempts
-  const filteredAndSortedAttempts = useMemo(() => {
-    let result = [...attempts];
+  // State to track which test master cards have their past attempts expanded
+  const [expandedGroupKeys, setExpandedGroupKeys] = useState<Set<string>>(new Set());
 
+  const toggleExpandGroup = (key: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedGroupKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  // Group and sort attempts by unique test (1 master card per test)
+  const groupedTestHistory = useMemo(() => {
+    const groupMap = new Map<string, {
+      groupKey: string;
+      testId: string;
+      testTitle: string;
+      testTopic: string;
+      attempts: TestAttempt[];
+    }>();
+
+    attempts.forEach((att) => {
+      const canonicalKey = (att.testId || att.testTitle || 'unknown').trim();
+      let group = groupMap.get(canonicalKey);
+      if (!group) {
+        const foundTest = tests.find((t) => (t && t.id && t.id === att.testId) || (t && t.title && t.title === att.testTitle));
+        group = {
+          groupKey: canonicalKey,
+          testId: att.testId || foundTest?.id || '',
+          testTitle: att.testTitle || foundTest?.title || 'Mock Test',
+          testTopic: foundTest?.topic || att.testTopic || 'General Mathematics',
+          attempts: [],
+        };
+        groupMap.set(canonicalKey, group);
+      }
+      group.attempts.push(att);
+    });
+
+    const groups = Array.from(groupMap.values()).map((g) => {
+      // Chronological ascending sort to isolate verified first attempt
+      const sortedAsc = [...g.attempts].sort((a, b) => {
+        return new Date(a.completedAt || a.createdAt).getTime() - new Date(b.completedAt || b.createdAt).getTime();
+      });
+      const firstAttempt = sortedAsc[0];
+
+      // Chronological descending sort (newest first) for preview and list
+      const sortedDesc = [...g.attempts].sort((a, b) => {
+        return new Date(b.completedAt || b.createdAt).getTime() - new Date(a.completedAt || a.createdAt).getTime();
+      });
+      const latestAttempt = sortedDesc[0];
+
+      return {
+        groupKey: g.groupKey,
+        testId: g.testId,
+        testTitle: g.testTitle,
+        testTopic: g.testTopic,
+        attempts: sortedDesc,
+        latestAttempt,
+        firstAttempt,
+        totalAttempts: g.attempts.length,
+      };
+    });
+
+    // Apply topic filter
+    let filtered = groups;
     if (selectedTopicFilter !== 'all') {
-      result = result.filter(att => {
-        const found = tests.find(t => t.id === att.testId);
-        return (found?.topic || 'General Mathematics') === selectedTopicFilter;
-      });
+      filtered = filtered.filter((g) => g.testTopic === selectedTopicFilter);
     }
 
+    // Apply mode filter (based on latest attempt)
     if (sortBy === 'online') {
-      result = result.filter(att => {
-        const isOmr = isAttemptOmrMode(att);
-        return !isOmr;
-      });
+      filtered = filtered.filter((g) => !isAttemptOmrMode(g.latestAttempt));
     } else if (sortBy === 'omr') {
-      result = result.filter(att => {
-        const isOmr = isAttemptOmrMode(att);
-        return isOmr;
-      });
+      filtered = filtered.filter((g) => isAttemptOmrMode(g.latestAttempt));
     }
 
-    result.sort((a, b) => {
+    // Sort groups
+    filtered.sort((a, b) => {
       if (sortBy === 'score') {
-        return (b.percentage || 0) - (a.percentage || 0);
+        return (b.latestAttempt.percentage || 0) - (a.latestAttempt.percentage || 0);
       }
       if (sortBy === 'accuracy') {
-        const aAns = Object.values(a.answers || {});
-        const bAns = Object.values(b.answers || {});
+        const aAns = Object.values(a.latestAttempt.answers || {});
+        const bAns = Object.values(b.latestAttempt.answers || {});
         const aCorr = aAns.filter((x: any) => x.isCorrect).length;
         const bCorr = bAns.filter((x: any) => x.isCorrect).length;
         return bCorr - aCorr;
       }
-      return new Date(b.completedAt || b.createdAt).getTime() - new Date(a.completedAt || a.createdAt).getTime();
+      return new Date(b.latestAttempt.completedAt || b.latestAttempt.createdAt).getTime() - new Date(a.latestAttempt.completedAt || a.latestAttempt.createdAt).getTime();
     });
 
-    return result;
+    return filtered;
   }, [attempts, tests, selectedTopicFilter, sortBy]);
+
+  // Helper to resolve verified leaderboard rank from first attempt
+  const getFirstAttemptRank = (group: { testId: string; testTitle: string; firstAttempt: TestAttempt }) => {
+    const key = `${group.testId || ''}:::${group.testTitle || ''}`;
+    if (testRanks[key]) {
+      return testRanks[key];
+    }
+    const entries = getLocalLeaderboardEntries(group.testId, group.testTitle);
+    const uid = group.firstAttempt.userId || currentUser?.uid;
+    const uname = group.firstAttempt.userName || currentUser?.displayName;
+    let list = [...entries];
+    const hasMatch = list.some(e => (uid && e.userId === uid) || (uname && e.userName === uname));
+    if (!hasMatch && group.firstAttempt.score !== undefined) {
+      list.push({
+        userId: uid || 'current',
+        userName: uname || 'Learner',
+        score: group.firstAttempt.score,
+        timeSpentSeconds: group.firstAttempt.timeSpentSeconds || 0,
+      } as any);
+    }
+    list.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return (a.timeSpentSeconds || 0) - (b.timeSpentSeconds || 0);
+    });
+    const matchIdx = list.findIndex(e => (uid && e.userId === uid) || (uname && e.userName === uname));
+    if (matchIdx >= 0) {
+      return { rank: matchIdx + 1, total: list.length };
+    }
+    return null;
+  };
 
   const availableTopics = useMemo(() => {
     return Object.keys(aggregatedStats.topicStats);
@@ -640,7 +796,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
           </div>
         </div>
 
-        {filteredAndSortedAttempts.length === 0 ? (
+        {groupedTestHistory.length === 0 ? (
           <div className="bg-white dark:bg-[#1e2024] border-0 ring-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] rounded-[24px] text-center py-12 px-4">
             <div className="w-12 h-12 rounded-full bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 text-[#0b57d0] dark:text-[#a8c7fa] mx-auto flex items-center justify-center mb-3">
               <Award className="w-6 h-6 stroke-[2.2]" />
@@ -653,9 +809,13 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-            {filteredAndSortedAttempts.map((attempt) => {
-              const answersList = Object.values(attempt.answers || {}) as { 
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 items-start">
+            {groupedTestHistory.map((group) => {
+              const latest = group.latestAttempt;
+              const isExpanded = expandedGroupKeys.has(group.groupKey);
+              const firstRank = getFirstAttemptRank(group);
+
+              const answersList = Object.values(latest.answers || {}) as { 
                 selectedOption?: string; 
                 isCorrect?: boolean; 
                 timeSpentSeconds?: number; 
@@ -663,130 +823,147 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
 
               const totalQuestions = answersList.length > 0 
                 ? answersList.length 
-                : (attempt.totalPoints || 10);
+                : (latest.totalPoints || 10);
 
-              const correctCount = answersList.filter((a) => a.isCorrect).length || Math.round((attempt.score / (attempt.totalPoints || 1)) * totalQuestions);
+              const correctCount = answersList.filter((a) => a.isCorrect).length || Math.round((latest.score / (latest.totalPoints || 1)) * totalQuestions);
               const attemptedCount = answersList.filter((a) => a.selectedOption && a.selectedOption.trim() !== '').length || correctCount;
               const wrongCount = Math.max(0, attemptedCount - correctCount);
               const unansweredCount = Math.max(0, totalQuestions - attemptedCount);
 
               const accuracy = attemptedCount > 0 ? Math.round((correctCount / attemptedCount) * 100) : 0;
-              const isOmrMode = isAttemptOmrMode(attempt);
-
-              const foundTest = tests.find(t => (t && t.id && t.id === attempt.testId) || (t && t.title && t.title === attempt.testTitle));
-              const questionsList: MathQuestion[] = Array.isArray(foundTest?.questions) && foundTest.questions.length > 0
-                ? foundTest.questions
-                : (Array.isArray((attempt as any).questions) ? (attempt as any).questions : []);
+              const isLatestOmr = isAttemptOmrMode(latest);
 
               return (
                 <div
-                  key={attempt.id}
-                  id={`history-attempt-card-${attempt.id}`}
-                  onClick={() => setSelectedReportAttempt(attempt)}
-                  className="bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] rounded-[24px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 flex flex-col justify-between gap-2.5 sm:gap-3 p-4 sm:p-5 cursor-pointer group h-full"
+                  key={group.groupKey}
+                  id={`history-test-card-${group.groupKey}`}
+                  onClick={() => setSelectedReportAttempt(latest)}
+                  className="bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] rounded-[24px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 flex flex-col justify-between gap-2.5 sm:gap-3 p-4 sm:p-5 cursor-pointer group"
                 >
-                  {/* Row 1: Test Title & Mode Tag */}
-                  <div className="flex items-center justify-between gap-2.5">
-                    <h3 className="font-semibold text-base sm:text-lg text-[#1f1f1f] dark:text-[#e3e3e3] transition-colors truncate tracking-tight flex-1 min-w-0 group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa]">
-                      {attempt.testTitle}
+                  {/* Row 1: Test Title & Mode Tag with Minimal Rank Badge */}
+                  <div className="flex items-start justify-between gap-2.5">
+                    <h3 className="font-semibold text-base sm:text-lg text-[#1f1f1f] dark:text-[#e3e3e3] transition-colors truncate tracking-tight flex-1 min-w-0 group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] pt-0.5">
+                      {group.testTitle}
                     </h3>
 
-                    {isOmrMode ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold bg-[#c4eed0] text-[#072711] dark:bg-[#0f5223] dark:text-[#c4eed0] shrink-0 border-0 outline-none">
-                        OMR
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      {/* Rank badge on top (strictly tied to verified first attempt) */}
+                      {firstRank && (
+                        <span 
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-[10.5px] font-bold bg-amber-500/15 text-amber-800 dark:text-amber-300 shrink-0 border-0 ring-0 shadow-none"
+                          title={`Verified Standing: Rank ${firstRank.rank}${firstRank.total ? ` of ${firstRank.total}` : ''}`}
+                        >
+                          <Trophy className="w-2.5 h-2.5 text-amber-500 stroke-[2.2] shrink-0" />
+                          <span>Rank {firstRank.rank}</span>
+                        </span>
+                      )}
+
+                      {/* Mode Tag at bottom of rank */}
+                      {isLatestOmr ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold bg-[#c4eed0] text-[#072711] dark:bg-[#0f5223] dark:text-[#c4eed0] shrink-0 border-0 outline-none">
+                          OMR
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] shrink-0 border-0 outline-none">
+                          Online
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Row 2: Date, Time Taken, Accuracy & Score in Single Unified Strip */}
+                  <div className="flex items-center gap-2 sm:gap-2.5 text-[#444746] dark:text-[#c4c7c5] text-[11px] font-bold flex-wrap">
+                    <div className="flex items-center gap-1.5" title="Completion Date">
+                      <Calendar className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                      <span>{formatSimpleDate(latest.completedAt || latest.createdAt)}</span>
+                    </div>
+
+                    {latest.timeSpentSeconds ? (
+                      <>
+                        <span className="text-[#444746] dark:text-[#c4c7c5] font-medium">•</span>
+                        <div className="flex items-center gap-1.5" title="Time Spent">
+                          <Clock className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400 stroke-[2.2] shrink-0" />
+                          <span>{formatDuration(latest.timeSpentSeconds)}</span>
+                        </div>
+                      </>
+                    ) : null}
+
+                    <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                    {/* Accuracy */}
+                    <div className="flex items-center gap-1 text-[#1f1f1f] dark:text-[#e3e3e3]" title="Accuracy">
+                      <Target className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                      <span>Acc</span>
+                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{accuracy}%</strong>
+                    </div>
+
+                    <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                    {/* Score */}
+                    <div className="flex items-center gap-1 text-[#1f1f1f] dark:text-[#e3e3e3]" title="Score">
+                      <Award className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                      <span>Score</span>
+                      <strong className="text-[#0b57d0] dark:text-[#a8c7fa] font-extrabold">{correctCount}/{totalQuestions}</strong>
+                    </div>
+                  </div>
+
+                  {/* Row 3: Correct, Wrong, Skipped Question Breakdown */}
+                  <div className="flex items-center gap-2 sm:gap-2.5 text-[#1f1f1f] dark:text-[#e3e3e3] text-[11px] font-medium pt-0.5 flex-wrap">
+                    {/* Correct */}
+                    <div className="flex items-center gap-1.5" title="Correct Questions">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                      <span>
+                        <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{correctCount}</strong> <span>correct</span>
                       </span>
+                    </div>
+
+                    <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                    {/* Wrong */}
+                    <div className="flex items-center gap-1.5" title="Incorrect Questions">
+                      <XCircle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400 stroke-[2.2] shrink-0" />
+                      <span>
+                        <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{wrongCount}</strong> <span>wrong</span>
+                      </span>
+                    </div>
+
+                    <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                    {/* Skipped */}
+                    <div className="flex items-center gap-1.5" title="Skipped / Unanswered Questions">
+                      <MinusCircle className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] stroke-[2.2] shrink-0" />
+                      <span>
+                        <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{unansweredCount}</strong> <span>skipped</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Row 4: Single Unified Row for 'View all attempts' (Left) & 'Analysis' + 'Solutions' (Right) on All Devices */}
+                  <div className="flex items-center justify-between gap-2 pt-1 mt-0.5">
+                    {group.totalAttempts > 1 ? (
+                      <button
+                        type="button"
+                        onClick={(e) => toggleExpandGroup(group.groupKey, e)}
+                        className="py-1 px-2.5 sm:px-3 rounded-full bg-[#f8fafd] hover:bg-[#f0f4f9] dark:bg-[#16181c] dark:hover:bg-[#1f2228] text-[#0b57d0] dark:text-[#a8c7fa] flex items-center gap-1.5 text-[10.5px] sm:text-xs font-bold border-0 transition-all cursor-pointer outline-none active:scale-95 shrink-0"
+                        title={isExpanded ? 'Collapse past attempts' : 'Show all attempts of this test'}
+                      >
+                        <Layers className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[2.2] shrink-0" />
+                        <span>{isExpanded ? 'Hide attempts' : `View all ${group.totalAttempts} attempts`}</span>
+                        <ChevronDown className={`w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-180' : ''}`} />
+                      </button>
                     ) : (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] shrink-0 border-0 outline-none">
-                        Online
-                      </span>
+                      <div />
                     )}
-                  </div>
-
-                  {/* Row 2: Date and Time in Single Strip */}
-                  <div className="flex items-center">
-                    <div className="inline-flex items-center gap-2 sm:gap-2.5 text-[#444746] dark:text-[#c4c7c5] text-[11px] font-bold shrink-0" title="Completion Date & Duration">
-                      <div className="flex items-center gap-1.5" title="Completion Date">
-                        <Calendar className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
-                        <span>{formatSimpleDate(attempt.completedAt || attempt.createdAt)}</span>
-                      </div>
-                      {attempt.timeSpentSeconds ? (
-                        <>
-                          <span className="text-[#444746] dark:text-[#c4c7c5] font-medium">•</span>
-                          <div className="flex items-center gap-1.5" title="Time Spent">
-                            <Clock className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400 stroke-[2.2] shrink-0" />
-                            <span>{formatDuration(attempt.timeSpentSeconds)}</span>
-                          </div>
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  {/* Row 3: Correct, Wrong, Skipped in Single Strip */}
-                  <div className="flex items-center">
-                    <div className="inline-flex items-center gap-2 sm:gap-2.5 text-[#1f1f1f] dark:text-[#e3e3e3] text-[11px] font-medium shrink-0">
-                      {/* Correct */}
-                      <div className="flex items-center gap-1.5" title="Correct Questions">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
-                        <span>
-                          <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{correctCount}</strong> <span>correct</span>
-                        </span>
-                      </div>
-
-                      <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
-
-                      {/* Wrong */}
-                      <div className="flex items-center gap-1.5" title="Incorrect Questions">
-                        <XCircle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400 stroke-[2.2] shrink-0" />
-                        <span>
-                          <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{wrongCount}</strong> <span>wrong</span>
-                        </span>
-                      </div>
-
-                      <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
-
-                      {/* Skipped */}
-                      <div className="flex items-center gap-1.5" title="Skipped / Unanswered Questions">
-                        <MinusCircle className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] stroke-[2.2] shrink-0" />
-                        <span>
-                          <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{unansweredCount}</strong> <span>skipped</span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Thin Subtle Divider Line matching Home Test Cards */}
-                  <div className="w-full border-t border-[#edf0f5] dark:border-[#2f3238] my-0.5 pointer-events-none mt-auto" />
-
-                  {/* Row 4: Accuracy & Score (Left) and Action Buttons (Right End) */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-                    {/* Accuracy & Score in Single Strip */}
-                    <div className="inline-flex items-center gap-1.5 sm:gap-2.5 text-[#1f1f1f] dark:text-[#e3e3e3] text-[11px] font-semibold shrink-0">
-                      {/* Accuracy */}
-                      <div className="flex items-center gap-1" title="Accuracy">
-                        <Target className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
-                        <span>Acc</span>
-                        <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{accuracy}%</strong>
-                      </div>
-
-                      <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
-
-                      {/* Score */}
-                      <div className="flex items-center gap-1" title="Score">
-                        <Award className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
-                        <span>Score</span>
-                        <strong className="text-[#0b57d0] dark:text-[#a8c7fa] font-extrabold">{correctCount}/{totalQuestions}</strong>
-                      </div>
-                    </div>
 
                     {/* Action Buttons: Report & Solutions */}
-                    <div className="flex items-center gap-1.5 shrink-0 ml-auto flex-wrap">
+                    <div className="flex items-center gap-1.5 shrink-0 ml-auto">
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedReportAttempt(attempt);
+                          setSelectedReportAttempt(latest);
                         }}
-                        className="inline-flex items-center justify-center gap-1 px-3.5 py-1.5 bg-[#d3e3fd] hover:bg-[#c2e7ff] dark:bg-[#004a77] dark:hover:bg-[#005a92] active:scale-95 text-[#041e49] dark:text-[#c2e7ff] text-[10.5px] sm:text-xs font-bold rounded-full border-0 transition-all cursor-pointer whitespace-nowrap"
+                        className="inline-flex items-center justify-center gap-1 px-3 py-1 bg-[#d3e3fd] hover:bg-[#c2e7ff] dark:bg-[#004a77] dark:hover:bg-[#005a92] active:scale-95 text-[#041e49] dark:text-[#c2e7ff] text-[10.5px] sm:text-xs font-bold rounded-full border-0 transition-all cursor-pointer whitespace-nowrap"
                         title="View detailed test report & analysis"
                       >
                         <BarChart2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[2.2]" />
@@ -794,13 +971,13 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                       </button>
 
                       <button
-                        id={`view-solution-btn-${attempt.id}`}
+                        id={`view-solution-btn-${latest.id}`}
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (onViewAttemptResult) onViewAttemptResult(attempt);
+                          if (onViewAttemptResult) onViewAttemptResult(latest);
                         }}
-                        className="inline-flex items-center justify-center gap-1 px-3.5 py-1.5 bg-[#0b57d0] hover:bg-[#0842a0] text-white active:scale-95 text-[10.5px] sm:text-xs font-bold rounded-full border-0 shadow-[0_2px_6px_rgba(11,87,208,0.25)] transition-all cursor-pointer whitespace-nowrap"
+                        className="inline-flex items-center justify-center gap-1 px-3 py-1 bg-[#0b57d0] hover:bg-[#0842a0] text-white active:scale-95 text-[10.5px] sm:text-xs font-bold rounded-full border-0 shadow-[0_2px_6px_rgba(11,87,208,0.25)] transition-all cursor-pointer whitespace-nowrap"
                         title="View detailed test solutions"
                       >
                         <Eye className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[2.2]" />
@@ -808,9 +985,110 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                       </button>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+
+                  {/* Nested Attempts List (Appears below the single unified row when expanded) */}
+                  {group.totalAttempts > 1 && isExpanded && (
+                        <div className="mt-2.5 space-y-2 pt-2 border-t border-[#edf0f5] dark:border-[#2f3238]">
+                          {group.attempts.map((att, idx) => {
+                            const isFirst = att.id === group.firstAttempt.id;
+                            const attemptNum = group.totalAttempts - idx;
+                            const attIsOmr = isAttemptOmrMode(att);
+                            const attAnswers = Object.values(att.answers || {}) as any[];
+                            const attTotalQs = attAnswers.length || att.totalPoints || 10;
+                            const attCorrect = attAnswers.filter((a: any) => a.isCorrect).length || Math.round((att.score / (att.totalPoints || 1)) * attTotalQs);
+                            const attAttempted = attAnswers.filter((a: any) => a.selectedOption && a.selectedOption.trim() !== '').length || attCorrect;
+                            const attAcc = attAttempted > 0 ? Math.round((attCorrect / attAttempted) * 100) : 0;
+                            const attTime = att.timeSpentSeconds ? formatDuration(att.timeSpentSeconds) : null;
+
+                            return (
+                              <div
+                                key={att.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedReportAttempt(att);
+                                }}
+                                className={`p-3 rounded-[18px] transition-all cursor-pointer ${
+                                  isFirst
+                                    ? 'bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20'
+                                    : 'bg-[#f8fafd] dark:bg-[#16181c] hover:bg-[#f0f4f9] dark:hover:bg-[#1f2228] border-0'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="text-xs font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
+                                      Attempt #{attemptNum} {idx === 0 ? '(Latest)' : isFirst ? '(First Attempt)' : ''}
+                                    </span>
+                                    <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-bold uppercase ${
+                                      attIsOmr
+                                        ? 'bg-[#c4eed0] text-[#072711] dark:bg-[#0f5223] dark:text-[#c4eed0]'
+                                        : 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff]'
+                                    }`}>
+                                      {attIsOmr ? 'OMR' : 'Online'}
+                                    </span>
+                                  </div>
+
+                                  {/* Rank badge shown strictly on verified first attempt */}
+                                  {isFirst && firstRank ? (
+                                    <span 
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-800 dark:text-amber-300 border-0 shrink-0"
+                                      title="Verified leaderboard rank from first attempt"
+                                    >
+                                      <Trophy className="w-2.5 h-2.5 text-amber-500 stroke-[2.2]" />
+                                      <span>Rank {firstRank.rank}</span>
+                                    </span>
+                                  ) : null}
+                                </div>
+
+                                <div className="flex items-center justify-between text-[10.5px] text-[#5e5e5e] dark:text-[#9aa0a6] mt-1.5 flex-wrap gap-1.5">
+                                  <div className="flex items-center gap-2 flex-wrap font-medium">
+                                    <span className="font-bold text-[#0b57d0] dark:text-[#a8c7fa]">
+                                      Score {attCorrect}/{attTotalQs} ({att.percentage}%)
+                                    </span>
+                                    <span>•</span>
+                                    <span>Acc {attAcc}%</span>
+                                    {attTime && (
+                                      <>
+                                        <span>•</span>
+                                        <span className="flex items-center gap-1">
+                                          <Clock className="w-3 h-3 text-purple-500" />
+                                          <span>{attTime}</span>
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5 ml-auto">
+                                    <span>{formatSimpleDate(att.completedAt || att.createdAt)}</span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedReportAttempt(att);
+                                      }}
+                                      className="px-2.5 py-0.5 rounded-full bg-[#d3e3fd] hover:bg-[#c2e7ff] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff] text-[10px] font-bold border-0 transition-all cursor-pointer"
+                                    >
+                                      Analysis
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (onViewAttemptResult) onViewAttemptResult(att);
+                                      }}
+                                      className="px-2.5 py-0.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-[10px] font-bold border-0 transition-all cursor-pointer"
+                                    >
+                                      Solutions
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
 
             {hasMoreAttempts && onLoadMoreAttempts && (
               <div className="pt-2 text-center">

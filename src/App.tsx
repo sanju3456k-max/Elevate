@@ -6,6 +6,7 @@ import {
   signOutUser, 
   saveTestToFirestore, 
   saveAttemptToFirestore,
+  syncLeaderboardEntry,
   deleteTestFromFirestore, 
   unmarkDeletedTestInFirestore,
   syncUserProfile,
@@ -496,6 +497,18 @@ export default function App() {
     }
     prevUserIdRef.current = currentUid;
   }, [currentUser?.uid, cachedUser?.uid]);
+
+  // Automatically sync existing attempts to the test leaderboard backend
+  useEffect(() => {
+    if (Array.isArray(attempts) && attempts.length > 0) {
+      const activeUid = currentUser?.uid || cachedUser?.uid;
+      attempts.forEach((att) => {
+        if (att && att.testId) {
+          syncLeaderboardEntry(att, activeUid).catch(() => {});
+        }
+      });
+    }
+  }, [attempts, currentUser?.uid, cachedUser?.uid]);
 
   // Reusable callback to process a newly authenticated user account
   const handleUserAuthenticated = useCallback((user: User) => {
@@ -1142,6 +1155,9 @@ export default function App() {
 
     // Save to scoped storage immediately (local device persistence)
     saveScopedAttempts(storageUid, pruned);
+
+    // Sync leaderboard ranking (local + cloud)
+    syncLeaderboardEntry(validatedAttempt, activeUid).catch(console.warn);
 
     // Direct real-time write to Firebase for authenticated users
     if (activeUid && activeUid !== 'anonymous' && activeUid !== 'guest-user') {

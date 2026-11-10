@@ -134,7 +134,7 @@ export interface ReconcileResult<T> {
   needsCloudWrite: boolean;
 }
 
-export function reconcileMutableEntity<T extends { id: string; updatedAt?: string; version?: number }>(
+export function reconcileMutableEntity<T extends { id: string; updatedAt?: string | number; version?: number }>(
   local: T,
   remote: T,
   localDeviceUuid: string = getOrCreateDeviceUUID(),

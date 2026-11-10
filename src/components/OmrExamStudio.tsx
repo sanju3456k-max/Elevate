@@ -209,6 +209,39 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
 
+  // High-precision tracking of exam timer elapsed duration
+  const timerStartTimeRef = useRef<number | null>(null);
+  const accumulatedTimerSecondsRef = useRef<number>(0);
+  const timerEverStartedRef = useRef<boolean>(false);
+  const studioOpenedAtRef = useRef<number>(Date.now());
+
+  // Keep timestamp accumulator synchronized with timer running state
+  useEffect(() => {
+    if (isTimerRunning) {
+      timerEverStartedRef.current = true;
+      if (!timerStartTimeRef.current) {
+        timerStartTimeRef.current = Date.now();
+      }
+    } else {
+      if (timerStartTimeRef.current) {
+        accumulatedTimerSecondsRef.current += Math.max(0, Math.round((Date.now() - timerStartTimeRef.current) / 1000));
+        timerStartTimeRef.current = null;
+      }
+    }
+  }, [isTimerRunning]);
+
+  const getActualExamTimeSpentSeconds = (): number => {
+    let elapsed = accumulatedTimerSecondsRef.current;
+    if (isTimerRunning && timerStartTimeRef.current) {
+      elapsed += Math.max(0, Math.round((Date.now() - timerStartTimeRef.current) / 1000));
+    }
+    const fromCountdown = Math.max(0, (totalMinutes * 60) - timerSeconds);
+    if (timerEverStartedRef.current || timerSeconds < totalMinutes * 60) {
+      return Math.max(elapsed, fromCountdown);
+    }
+    return Math.max(0, Math.round((Date.now() - studioOpenedAtRef.current) / 1000));
+  };
+
   // Screen Wake Lock: keeps display awake in the background during exam timer
   useWakeLock(isTimerRunning);
 
@@ -547,8 +580,8 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
 
     setIsScanning(false);
 
-    const totalTimeSpent = (totalMinutes * 60) - timerSeconds;
-    const timePerQ = Math.max(5, Math.floor(Math.max(1, totalTimeSpent) / Math.max(1, test.questions.length)));
+    const omrExamTime = getActualExamTimeSpentSeconds();
+    const timePerQ = Math.max(1, Math.floor(Math.max(1, omrExamTime) / Math.max(1, test.questions.length)));
 
     const answersRecord: Record<string, QuestionAnswer> = {};
 
@@ -587,12 +620,12 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
       totalPoints: liveStats.totalPoints,
       percentage: liveStats.percentage,
       passed: liveStats.passed,
-      timeSpentSeconds: Math.max(60, totalTimeSpent),
+      timeSpentSeconds: omrExamTime,
       answers: answersRecord,
       attemptMode: 'omr',
       omrScannedImageUrl: finalImageUrl,
       completedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
+      createdAt: new Date(Date.now() - (omrExamTime * 1000)).toISOString(),
       _syncStatus: 'pending',
     };
 
@@ -818,154 +851,159 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
             TAB 2: OFFLINE EXAM STOPWATCH / TIMER
             ======================================================== */}
         {activeTab === 'timer' && (
-          <div className="max-w-2xl mx-auto py-3 sm:py-6 animate-in fade-in duration-200 space-y-4">
-            {/* Top Timer Card */}
-            <div className="bg-white dark:bg-[#1e2024] p-6 sm:p-7 rounded-[28px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] text-center flex flex-col items-center justify-between space-y-5">
-              <div className="w-full space-y-3">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="text-left">
-                    <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-zinc-100 leading-snug">
-                      {test.title}
-                    </h3>
+          <div className="max-w-5xl mx-auto py-3 sm:py-6 animate-in fade-in duration-200">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-start">
+              {/* Left Column (Desktop): Timer Card */}
+              <div className="lg:col-span-7 xl:col-span-7 bg-white dark:bg-[#1e2024] p-6 sm:p-7 rounded-[28px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] text-center flex flex-col items-center justify-between space-y-5">
+                <div className="w-full space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="text-left">
+                      <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-zinc-100 leading-snug">
+                        {test.title}
+                      </h3>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs font-bold">
+                      <div className="px-3.5 py-1.5 rounded-[28px] bg-[#f0f4f9] dark:bg-[#141619] text-slate-700 dark:text-zinc-300 flex items-center gap-1.5 border-0">
+                        <BookOpen className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                        <span>{test.questions?.length ?? test.questionCount ?? 0} Qs</span>
+                      </div>
+                      <div className="px-3.5 py-1.5 rounded-[28px] bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 flex items-center gap-1.5 border-0">
+                        <Clock className="w-3.5 h-3.5 text-amber-500" />
+                        <span>{totalMinutes > 0 ? `${totalMinutes} Mins` : 'Untimed'}</span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2 text-xs font-bold">
-                    <div className="px-3.5 py-1.5 rounded-[28px] bg-[#f0f4f9] dark:bg-[#141619] text-slate-700 dark:text-zinc-300 flex items-center gap-1.5 border-0">
-                      <BookOpen className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                      <span>{test.questions?.length ?? test.questionCount ?? 0} Qs</span>
+                  {/* Rectangular Timer Clock Box */}
+                  <div className="w-full h-36 sm:h-44 rounded-[28px] bg-[#f0f4f9] dark:bg-[#141619] flex flex-col items-center justify-center p-4 border-0 shadow-none">
+                    <div className={`text-4xl sm:text-6xl font-black font-mono tracking-tight transition-colors ${timerSeconds === 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-zinc-100'}`}>
+                      {formatTime(timerSeconds)}
                     </div>
-                    <div className="px-3.5 py-1.5 rounded-[28px] bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 flex items-center gap-1.5 border-0">
-                      <Clock className="w-3.5 h-3.5 text-amber-500" />
-                      <span>{totalMinutes > 0 ? `${totalMinutes} Mins` : 'Untimed'}</span>
+                    <div className="text-xs text-slate-500 dark:text-zinc-400 mt-2 font-bold flex items-center justify-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                        isTimerRunning 
+                          ? 'bg-emerald-500 animate-pulse' 
+                          : timerSeconds === 0 
+                            ? 'bg-rose-500' 
+                            : 'bg-slate-400'
+                      }`} />
+                      <span className={timerSeconds === 0 ? 'text-rose-600 dark:text-rose-400 font-extrabold' : ''}>
+                        {isTimerRunning 
+                          ? 'Exam in progress' 
+                          : timerSeconds === 0 
+                            ? 'Exam is finished' 
+                            : 'Ready / Paused'}
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Rectangular Timer Clock Box */}
-                <div className="w-full h-36 sm:h-44 rounded-[28px] bg-[#f0f4f9] dark:bg-[#141619] flex flex-col items-center justify-center p-4 border-0 shadow-none">
-                  <div className={`text-4xl sm:text-6xl font-black font-mono tracking-tight transition-colors ${timerSeconds === 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-zinc-100'}`}>
-                    {formatTime(timerSeconds)}
-                  </div>
-                  <div className="text-xs text-slate-500 dark:text-zinc-400 mt-2 font-bold flex items-center justify-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                      isTimerRunning 
-                        ? 'bg-emerald-500 animate-pulse' 
-                        : timerSeconds === 0 
-                          ? 'bg-rose-500' 
-                          : 'bg-slate-400'
-                    }`} />
-                    <span className={timerSeconds === 0 ? 'text-rose-600 dark:text-rose-400 font-extrabold' : ''}>
-                      {isTimerRunning 
-                        ? 'Exam in progress' 
-                        : timerSeconds === 0 
-                          ? 'Exam is finished' 
-                          : 'Ready / Paused'}
-                    </span>
-                  </div>
+                {/* Controls */}
+                <div className="flex items-center justify-center gap-3 flex-wrap w-full">
+                  <button
+                    type="button"
+                    disabled={timerSeconds === 0}
+                    onClick={() => {
+                      if (timerSeconds === 0) return;
+                      setIsTimerRunning(!isTimerRunning);
+                    }}
+                    className={`flex items-center justify-center gap-2 px-6 py-3 rounded-[28px] text-xs sm:text-sm font-extrabold text-white transition-all shadow-sm border-0 ${
+                      timerSeconds === 0
+                        ? 'bg-slate-300 dark:bg-zinc-800 text-slate-500 dark:text-zinc-500 opacity-60 cursor-not-allowed shadow-none'
+                        : isTimerRunning
+                          ? 'bg-amber-500 hover:bg-amber-600 active:scale-95 cursor-pointer'
+                          : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95 cursor-pointer'
+                    }`}
+                    title={timerSeconds === 0 ? 'Exam is finished' : isTimerRunning ? 'Pause Timer' : 'Start Timer'}
+                  >
+                    {isTimerRunning ? (
+                      <>
+                        <Pause className="w-4 h-4" />
+                        <span>Pause</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4 fill-current" />
+                        <span>{timerSeconds === 0 ? 'Finished' : timerSeconds === totalMinutes * 60 ? 'Start Timer' : 'Resume'}</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTimerSeconds((prev) => prev + 300)}
+                    className="px-5 py-3 rounded-[28px] bg-[#f0f4f9] hover:bg-slate-200 dark:bg-[#141619] dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-200 text-xs font-extrabold transition-all border-0 outline-none active:scale-95 cursor-pointer"
+                    title="Add 5 Minutes"
+                  >
+                    +5 Min
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsTimerRunning(false);
+                      setTimerSeconds(totalMinutes * 60);
+                      timerStartTimeRef.current = null;
+                      accumulatedTimerSecondsRef.current = 0;
+                      timerEverStartedRef.current = false;
+                    }}
+                    className="w-11 h-11 rounded-[28px] bg-[#f0f4f9] hover:bg-slate-200 dark:bg-[#141619] dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-200 flex items-center justify-center transition-all border-0 outline-none active:scale-95 cursor-pointer"
+                    title="Reset Timer"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSoundEnabled(!soundEnabled)}
+                    className="w-11 h-11 rounded-[28px] bg-[#f0f4f9] hover:bg-slate-200 dark:bg-[#141619] dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-200 flex items-center justify-center transition-all border-0 outline-none active:scale-95 cursor-pointer"
+                    title={soundEnabled ? 'Mute Alert Sound' : 'Enable Alert Sound'}
+                  >
+                    {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
+                  </button>
                 </div>
-              </div>
 
-              {/* Controls */}
-              <div className="flex items-center justify-center gap-3 flex-wrap w-full">
-                <button
-                  type="button"
-                  disabled={timerSeconds === 0}
-                  onClick={() => {
-                    if (timerSeconds === 0) return;
-                    setIsTimerRunning(!isTimerRunning);
-                  }}
-                  className={`flex items-center justify-center gap-2 px-6 py-3 rounded-[28px] text-xs sm:text-sm font-extrabold text-white transition-all shadow-sm border-0 ${
-                    timerSeconds === 0
-                      ? 'bg-slate-300 dark:bg-zinc-800 text-slate-500 dark:text-zinc-500 opacity-60 cursor-not-allowed shadow-none'
-                      : isTimerRunning
-                        ? 'bg-amber-500 hover:bg-amber-600 active:scale-95 cursor-pointer'
-                        : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95 cursor-pointer'
-                  }`}
-                  title={timerSeconds === 0 ? 'Exam is finished' : isTimerRunning ? 'Pause Timer' : 'Start Timer'}
-                >
-                  {isTimerRunning ? (
-                    <>
-                      <Pause className="w-4 h-4" />
-                      <span>Pause</span>
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-4 h-4 fill-current" />
-                      <span>{timerSeconds === 0 ? 'Finished' : timerSeconds === totalMinutes * 60 ? 'Start Timer' : 'Resume'}</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setTimerSeconds((prev) => prev + 300)}
-                  className="px-5 py-3 rounded-[28px] bg-[#f0f4f9] hover:bg-slate-200 dark:bg-[#141619] dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-200 text-xs font-extrabold transition-all border-0 outline-none active:scale-95 cursor-pointer"
-                  title="Add 5 Minutes"
-                >
-                  +5 Min
-                </button>
-
+                {/* Primary Action Button */}
                 <button
                   type="button"
                   onClick={() => {
                     setIsTimerRunning(false);
-                    setTimerSeconds(totalMinutes * 60);
+                    setActiveTab('scan');
+                    cameraInputRef.current?.click();
                   }}
-                  className="w-11 h-11 rounded-[28px] bg-[#f0f4f9] hover:bg-slate-200 dark:bg-[#141619] dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-200 flex items-center justify-center transition-all border-0 outline-none active:scale-95 cursor-pointer"
-                  title="Reset Timer"
+                  className="w-full px-8 py-3.5 bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] rounded-[28px] text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 transition-all shadow-sm border-0 active:scale-95 cursor-pointer"
                 >
-                  <RotateCcw className="w-4 h-4" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSoundEnabled(!soundEnabled)}
-                  className="w-11 h-11 rounded-[28px] bg-[#f0f4f9] hover:bg-slate-200 dark:bg-[#141619] dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-200 flex items-center justify-center transition-all border-0 outline-none active:scale-95 cursor-pointer"
-                  title={soundEnabled ? 'Mute Alert Sound' : 'Enable Alert Sound'}
-                >
-                  {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
+                  <Camera className="w-4 h-4" />
+                  <span>Exam Completed &bull; Scan Sheet</span>
                 </button>
               </div>
 
-              {/* Primary Action Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsTimerRunning(false);
-                  setActiveTab('scan');
-                  cameraInputRef.current?.click();
-                }}
-                className="w-full px-8 py-3.5 bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] rounded-[28px] text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 transition-all shadow-sm border-0 active:scale-95 cursor-pointer"
-              >
-                <Camera className="w-4 h-4" />
-                <span>Exam Completed &bull; Scan Sheet</span>
-              </button>
-            </div>
-
-            {/* Instructions Card Under Timer Card */}
-            <div className="bg-white dark:bg-[#1e2024] p-5 sm:p-6 rounded-[28px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-3.5">
-              <h4 className="text-xs font-black uppercase tracking-wider text-[#0b57d0] dark:text-[#a8c7fa] flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Offline Exam Instructions</span>
-              </h4>
-              <div className="space-y-2.5 text-xs text-slate-700 dark:text-zinc-300 font-medium">
-                <div className="p-3.5 rounded-[28px] bg-[#f0f4f9] dark:bg-[#141619] flex items-start gap-3 border-0 shadow-none">
-                  <span className="w-5 h-5 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff] font-extrabold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-                    1
-                  </span>
-                  <span>Keep your printed OMR sheet and question paper ready before starting the countdown timer.</span>
-                </div>
-                <div className="p-3.5 rounded-[28px] bg-[#f0f4f9] dark:bg-[#141619] flex items-start gap-3 border-0 shadow-none">
-                  <span className="w-5 h-5 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff] font-extrabold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-                    2
-                  </span>
-                  <span>Darken your chosen response bubbles completely using a dark blue or black ballpoint pen.</span>
-                </div>
-                <div className="p-3.5 rounded-[28px] bg-[#f0f4f9] dark:bg-[#141619] flex items-start gap-3 border-0 shadow-none">
-                  <span className="w-5 h-5 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff] font-extrabold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-                    3
-                  </span>
-                  <span>Scan your sheet honestly as soon as timer countdown expires.</span>
+              {/* Right Column (Desktop): Offline Exam Instructions Card */}
+              <div className="lg:col-span-5 xl:col-span-5 bg-white dark:bg-[#1e2024] p-5 sm:p-6 rounded-[28px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-3.5">
+                <h4 className="text-xs font-black uppercase tracking-wider text-[#0b57d0] dark:text-[#a8c7fa] flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Offline Exam Instructions</span>
+                </h4>
+                <div className="space-y-2.5 text-xs text-slate-700 dark:text-zinc-300 font-medium">
+                  <div className="p-3.5 rounded-[28px] bg-[#f0f4f9] dark:bg-[#141619] flex items-start gap-3 border-0 shadow-none">
+                    <span className="w-5 h-5 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff] font-extrabold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+                      1
+                    </span>
+                    <span>Keep your printed OMR sheet and question paper ready before starting the countdown timer.</span>
+                  </div>
+                  <div className="p-3.5 rounded-[28px] bg-[#f0f4f9] dark:bg-[#141619] flex items-start gap-3 border-0 shadow-none">
+                    <span className="w-5 h-5 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff] font-extrabold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+                      2
+                    </span>
+                    <span>Darken your chosen response bubbles completely using a dark blue or black ballpoint pen.</span>
+                  </div>
+                  <div className="p-3.5 rounded-[28px] bg-[#f0f4f9] dark:bg-[#141619] flex items-start gap-3 border-0 shadow-none">
+                    <span className="w-5 h-5 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff] font-extrabold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+                      3
+                    </span>
+                    <span>Scan your sheet honestly as soon as timer countdown expires.</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1174,87 +1212,12 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
             {/* Results & Verification Section */}
             {scanResult && editableDetections.length > 0 && (
               <div className="space-y-4 sm:space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                  {/* Left Column (Desktop Sticky): Scanned OMR Sheet Image & Legend */}
-                  {scanResult.processedImageDataUrl && (
-                    <div className="lg:col-span-5 xl:col-span-5 lg:sticky lg:top-4 space-y-3 bg-white dark:bg-[#1e2024] p-5 sm:p-6 rounded-[28px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-all duration-200">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="text-sm font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
-                            <Camera className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                            <span>Scanned OMR Sheet</span>
-                          </h4>
-                        </div>
-
-                        {!isSaved && (
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => cameraInputRef.current?.click()}
-                              className="px-3 py-1 bg-[#d3e3fd] hover:bg-[#c2e7ff] text-[#041e49] dark:bg-[#004a77] dark:hover:bg-[#00385a] dark:text-[#c2e7ff] rounded-[28px] text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-xs border-0"
-                              title="Take new photo with camera"
-                            >
-                              <Camera className="w-3 h-3" />
-                              <span>Retake</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => fileInputRef.current?.click()}
-                              className="px-3 py-1 bg-[#f0f4f9] dark:bg-[#141619] hover:bg-slate-200 dark:hover:bg-[#282a30] text-slate-700 dark:text-zinc-300 rounded-[28px] text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-xs border-0"
-                              title="Upload a different sheet image"
-                            >
-                              <Upload className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                              <span>Upload</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => setIsCropModalOpen(true)}
-                              className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 dark:text-emerald-300 rounded-[28px] text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-xs border-0"
-                              title="Re-crop Sheet Image"
-                            >
-                              <Crop className="w-3.5 h-3.5" />
-                              <span>Re-crop</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Legend: Green (Correct), Red (Wrong), Yellow (Answer Key) */}
-                      <div className="flex flex-wrap items-center gap-1.5 text-[10.5px] sm:text-xs">
-                        <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-[28px] bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 font-medium border-0">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                          <span>Green: Correct</span>
-                        </div>
-                        <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-[28px] bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 font-medium border-0">
-                          <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
-                          <span>Red: Wrong</span>
-                        </div>
-                        <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-[28px] bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 font-medium border-0">
-                          <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-                          <span>Yellow: Answer Key</span>
-                        </div>
-                      </div>
-
-                      {/* Image Frame - Exact dimensions of frame as of image with straight sharp corners */}
-                      <div className="w-full overflow-hidden relative flex items-center justify-center rounded-none border border-slate-300 dark:border-zinc-700/80 bg-white dark:bg-[#141619] p-0 shadow-xs">
-                        {(scanResult.processedImageDataUrl || capturedImageUrl) ? (
-                          <img
-                            src={scanResult.processedImageDataUrl || capturedImageUrl || ''}
-                            alt="Scanned OMR Sheet with Detected Bubbles"
-                            className="w-full h-auto object-contain block rounded-none bg-white cursor-pointer hover:opacity-95 transition-opacity"
-                            onClick={() => setIsImageFullscreen(true)}
-                          />
-                        ) : null}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Right Column: Scorecard & Solutions Table */}
-                  <div className={`space-y-4 sm:space-y-6 ${(scanResult.processedImageDataUrl || capturedImageUrl) ? 'lg:col-span-7 xl:col-span-7' : 'lg:col-span-12'}`}>
-                    {/* Score Card */}
-                    <div className="p-5 sm:p-6 rounded-[28px] bg-white dark:bg-[#1e2024] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-all duration-200 space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-start">
+                  
+                  {/* Left Column (Desktop Sticky): Scorecard & Scanned OMR Sheet Page (Matching Size & Smooth Width) */}
+                  <div className="lg:col-span-5 xl:col-span-5 space-y-4 lg:sticky lg:top-4">
+                    {/* 1. Score Card */}
+                    <div className="w-full p-5 sm:p-6 rounded-[28px] bg-white dark:bg-[#1e2024] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-all duration-200 space-y-4">
                       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-zinc-800/80">
                         <div>
                           <span className="text-[10px] font-extrabold tracking-widest text-slate-400 dark:text-zinc-500 uppercase font-mono block">
@@ -1288,7 +1251,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                       </div>
 
                       {/* 4 Stat Boxes: Correct, Wrong, Left, Accuracy */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3">
                         <div className="p-3.5 sm:p-4 bg-emerald-100 dark:bg-emerald-950/80 rounded-[28px] text-center shadow-xs border-0">
                           <div className="text-xs font-black text-emerald-950 dark:text-emerald-100 uppercase tracking-wider">
                             Correct (✓)
@@ -1327,45 +1290,122 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                       </div>
                     </div>
 
-                {/* Evaluation Table in White Background Card */}
-                <div className="bg-white dark:bg-[#1e2024] p-5 sm:p-6 rounded-[28px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-all duration-200 space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-slate-100 dark:border-zinc-800/80">
-                    <div>
-                      <h4 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                        OMR Evaluation & Solutions
-                      </h4>
-                      <p className="text-xs text-slate-500 dark:text-zinc-400">
-                        Marked choices, correct keys, and dropdown step-by-step solutions
-                      </p>
-                    </div>
+                    {/* 2. Scanned OMR Sheet Card (Exact same width & styling for smooth alignment) */}
+                    {(scanResult.processedImageDataUrl || capturedImageUrl) && (
+                      <div className="w-full space-y-3 bg-white dark:bg-[#1e2024] p-5 sm:p-6 rounded-[28px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-all duration-200">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-sm font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
+                              <Camera className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                              <span>Scanned OMR Sheet</span>
+                            </h4>
+                          </div>
 
-                    <div className="flex items-center gap-2 self-start sm:self-auto">
-                      <span className="text-xs font-mono font-bold text-slate-500 dark:text-zinc-400 hidden xs:inline">
-                        {editableDetections.length} Questions
-                      </span>
+                          {!isSaved && (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => cameraInputRef.current?.click()}
+                                className="px-3 py-1 bg-[#d3e3fd] hover:bg-[#c2e7ff] text-[#041e49] dark:bg-[#004a77] dark:hover:bg-[#00385a] dark:text-[#c2e7ff] rounded-[28px] text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-xs border-0"
+                                title="Take new photo with camera"
+                              >
+                                <Camera className="w-3 h-3" />
+                                <span>Retake</span>
+                              </button>
 
-                      <button
-                        type="button"
-                        onClick={toggleAllDropdowns}
-                        className="flex items-center gap-1 px-3.5 py-1.5 rounded-[28px] bg-[#f0f4f9] dark:bg-[#141619] hover:bg-slate-200 dark:hover:bg-[#282a30] text-slate-700 dark:text-zinc-300 text-xs font-bold transition-all cursor-pointer shrink-0 shadow-xs border-0"
-                      >
-                        {expandedDropdownRows.size === editableDetections.length ? (
-                          <>
-                            <ChevronUp className="w-3.5 h-3.5" />
-                            <span>Collapse</span>
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown className="w-3.5 h-3.5" />
-                            <span>Expand All</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
+                              <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="px-3 py-1 bg-[#f0f4f9] dark:bg-[#141619] hover:bg-slate-200 dark:hover:bg-[#282a30] text-slate-700 dark:text-zinc-300 rounded-[28px] text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-xs border-0"
+                                title="Upload a different sheet image"
+                              >
+                                <Upload className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                                <span>Upload</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setIsCropModalOpen(true)}
+                                className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 dark:text-emerald-300 rounded-[28px] text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-xs border-0"
+                                title="Re-crop Sheet Image"
+                              >
+                                <Crop className="w-3.5 h-3.5" />
+                                <span>Re-crop</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Legend: Green (Correct), Red (Wrong), Yellow (Answer Key) */}
+                        <div className="flex flex-wrap items-center gap-1.5 text-[10.5px] sm:text-xs">
+                          <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-[28px] bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 font-medium border-0">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                            <span>Green: Correct</span>
+                          </div>
+                          <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-[28px] bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 font-medium border-0">
+                            <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                            <span>Red: Wrong</span>
+                          </div>
+                          <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-[28px] bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 font-medium border-0">
+                            <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                            <span>Yellow: Answer Key</span>
+                          </div>
+                        </div>
+
+                        {/* Image Frame - Exact dimensions of frame as of image with straight sharp corners */}
+                        <div className="w-full overflow-hidden relative flex items-center justify-center rounded-none border border-slate-300 dark:border-zinc-700/80 bg-white dark:bg-[#141619] p-0 shadow-xs">
+                          <img
+                            src={scanResult.processedImageDataUrl || capturedImageUrl || ''}
+                            alt="Scanned OMR Sheet with Detected Bubbles"
+                            className="w-full h-auto object-contain block rounded-none bg-white cursor-pointer hover:opacity-95 transition-opacity"
+                            onClick={() => setIsImageFullscreen(true)}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* 4-Column Table */}
-                  <div className="rounded-[28px] overflow-hidden bg-white dark:bg-[#1e2024] shadow-none border-0">
+                  {/* Right Column: OMR Evaluation & Solutions Table Card */}
+                  <div className="lg:col-span-7 xl:col-span-7 space-y-4">
+                    {/* Evaluation Table in White Background Card */}
+                    <div className="w-full bg-white dark:bg-[#1e2024] p-5 sm:p-6 rounded-[28px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-all duration-200 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-slate-100 dark:border-zinc-800/80">
+                        <div>
+                          <h4 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                            OMR Evaluation & Solutions
+                          </h4>
+                          <p className="text-xs text-slate-500 dark:text-zinc-400">
+                            Marked choices, correct keys, and dropdown step-by-step solutions
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 self-start sm:self-auto">
+                          <span className="text-xs font-mono font-bold text-slate-500 dark:text-zinc-400 hidden xs:inline">
+                            {editableDetections.length} Questions
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={toggleAllDropdowns}
+                            className="flex items-center gap-1 px-3.5 py-1.5 rounded-[28px] bg-[#f0f4f9] dark:bg-[#141619] hover:bg-slate-200 dark:hover:bg-[#282a30] text-slate-700 dark:text-zinc-300 text-xs font-bold transition-all cursor-pointer shrink-0 shadow-xs border-0"
+                          >
+                            {expandedDropdownRows.size === editableDetections.length ? (
+                              <>
+                                <ChevronUp className="w-3.5 h-3.5" />
+                                <span>Collapse</span>
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="w-3.5 h-3.5" />
+                                <span>Expand All</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 4-Column Table */}
+                      <div className="rounded-[28px] overflow-hidden bg-white dark:bg-[#1e2024] shadow-none border-0">
                     <table className="w-full text-left text-xs border-collapse table-fixed bg-white dark:bg-[#1e2024]">
                       <thead>
                         <tr className="bg-[#f0f4f9] dark:bg-[#141619] text-slate-800 dark:text-zinc-100 font-black border-b border-slate-100 dark:border-zinc-800/80">

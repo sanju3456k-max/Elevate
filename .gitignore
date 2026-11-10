@@ -16,3 +16,4 @@ test_canvas.mjs
 *.woff
 *.woff2
 *.ttf
+.leaderboards/

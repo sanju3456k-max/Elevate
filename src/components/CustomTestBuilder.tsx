@@ -475,12 +475,13 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
     setActiveCategoriesByTestId(new Map());
   };
 
-  // Toggle card expansion
+  // Toggle card expansion (accordion mode: single expanded test prevents multiple cards from expanding)
   const toggleExpandTest = (testId: string) => {
     setExpandedTestIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(testId)) next.delete(testId);
-      else next.add(testId);
+      const next = new Set<string>();
+      if (!prev.has(testId)) {
+        next.add(testId);
+      }
       return next;
     });
   };
@@ -809,11 +810,11 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
     </div>
   </div>
 
-      {/* Scrollable Test Card Area / Test Body (Only this area scrolls) */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-6 py-3 max-w-5xl w-full mx-auto overscroll-contain">
-        <div className="space-y-3 sm:space-y-4 pb-6">
+      {/* Scrollable Test Card Area / Test Body (Full Screen Width with Responsive Columns) */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-3.5 sm:px-6 lg:px-8 py-3.5 w-full overscroll-contain">
+        <div className="columns-1 md:columns-2 xl:columns-3 gap-4 sm:gap-5 pb-8 [column-fill:_balance]">
         {filteredTests.length === 0 ? (
-          <div className="bg-white dark:bg-[#1e2024] border-0 ring-0 rounded-[28px] text-center py-12 px-4 shadow-[0_2px_6px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
+          <div className="[column-span:all] w-full bg-white dark:bg-[#1e2024] border-0 ring-0 rounded-[28px] text-center py-12 px-4 shadow-[0_2px_6px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
             <BookOpen className="w-8 h-8 text-[#5e5e5e] dark:text-[#9aa0a6] mx-auto mb-2 opacity-50" />
             <p className="text-sm font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
               No matching tests found
@@ -858,17 +859,17 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
                 key={test.id}
                 variants={studioStaggerItem}
                 style={gpuAcceleratedStyle}
-                className={APP_STYLES.customBuilder.card}
+                className={`${APP_STYLES.customBuilder.card} break-inside-avoid mb-4 sm:mb-5 w-full inline-block align-top`}
               >
                 {/* Card Header */}
-                <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="p-4 sm:p-5 flex flex-col justify-between gap-3">
                   {/* Left: Test Info & Attempt Badge */}
-                  <div className="space-y-1.5 min-w-0 flex-1">
-                    <div className="flex flex-col items-start gap-1">
-                      <span className="text-[11px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] tracking-wide uppercase">
+                  <div className="space-y-1.5 min-w-0">
+                    <div className="flex flex-col items-start gap-0.5">
+                      <span className="text-[10.5px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] tracking-wide uppercase">
                         {test.topic}
                       </span>
-                      <h3 className="text-[17px] sm:text-[17px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] truncate w-full leading-snug">
+                      <h3 className="text-base sm:text-[17px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] truncate w-full leading-snug">
                         {test.title}
                       </h3>
                     </div>
@@ -892,7 +893,7 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
                   </div>
 
                   {/* Center / Right: Category Selector Chips */}
-                  <div className="flex flex-wrap items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100 dark:border-zinc-800/60 mt-auto">
                     {/* Category Chip: All */}
                     <button
                       type="button"
@@ -977,13 +978,13 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
                   </div>
                 </div>
 
-                {/* Expandable Individual Question Picker */}
+                {/* Expandable Individual Question Picker - Expanded view with high visibility */}
                 {isExpanded && (
                   <div className="px-4 pb-4 pt-3 space-y-2 bg-[#f0f4f9] dark:bg-[#141619] border-t border-slate-200/40 dark:border-zinc-800/60 rounded-b-[28px]">
                     <div className="text-[11px] font-bold text-[#5e5e5e] dark:text-[#9aa0a6] uppercase tracking-wider">
                       Select Individual Questions ({selectedInThisTest}/{all.length} chosen)
                     </div>
-                    <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                    <div className="space-y-1.5 max-h-[480px] sm:max-h-[540px] overflow-y-auto pr-1">
                       {all.map((q, qIndex) => {
                         const isSelected = selectedQuestionIds.has(getQuestionKey(test.id, q.id));
                         const isWrong = wrong.some((wq) => wq.id === q.id);
@@ -1020,7 +1021,7 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
                                   </span>
                                 )}
                               </div>
-                              <div className="line-clamp-2">
+                              <div className="line-clamp-3">
                                 <MathRenderer content={q.text} />
                               </div>
                             </div>
@@ -1037,9 +1038,9 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
         </div>
       </div>
 
-      {/* Fixed Bottom Custom Generator Bar with Optimized Layout and Mobile Safe Insets */}
+      {/* Fixed Bottom Custom Generator Bar with Full Screen Width & Responsive Layout */}
       <div className="shrink-0 bg-white dark:bg-[#1e2024] p-3 sm:p-4 pb-[calc(max(0.85rem,env(safe-area-inset-bottom,0px))+0.5rem)] sm:pb-4 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_16px_rgba(0,0,0,0.4)] border-0 ring-0 z-30">
-        <div className="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2.5 sm:gap-3.5">
+        <div className="w-full px-1 sm:px-2 flex flex-col md:flex-row md:items-center justify-between gap-2.5 sm:gap-3.5">
           {/* Title, Time limit & Count selection group - Forced single row on mobile */}
           <div className="flex flex-row items-center gap-1.5 sm:gap-2 w-full md:w-auto flex-1 min-w-0">
             {/* Test title input */}

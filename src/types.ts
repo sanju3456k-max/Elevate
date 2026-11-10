@@ -49,6 +49,8 @@ export interface MathQuestion {
   paperLayout?: QuestionPaperLayout;
 }
 
+export type Question = MathQuestion;
+
 export interface MathTest {
   id: string;
   title: string;
@@ -328,6 +330,40 @@ export interface OmrScanResult {
   sheetFormat?: 'a4' | 'compact';
   detectedDimensions?: string;
   a4RatioMatch?: boolean;
+}
+
+export interface LeaderboardEntry {
+  userId: string;
+  userName: string;
+  userEmail?: string;
+  score: number;
+  totalPoints: number;
+  percentage: number;
+  timeSpentSeconds: number;
+  attemptMode: 'online' | 'omr';
+  completedAt: string;
+  testTitle?: string;
+  rank?: number;
+  attemptNumber?: number;
+  firstAttemptId?: string;
+}
+
+export interface LeaderboardTopBucketDoc {
+  testId: string;
+  testTitle: string;
+  totalParticipants: number;
+  updatedAt: string;
+  version: number;
+  entries: LeaderboardEntry[];
+  packedTop?: string[];
+}
+
+export interface TestLeaderboardSummary {
+  entries: LeaderboardEntry[];
+  totalParticipants: number;
+  currentUserRank?: number;
+  currentUserEntry?: LeaderboardEntry;
+  fromBucket?: boolean;
 }
 
 export interface TopicStatRollup {

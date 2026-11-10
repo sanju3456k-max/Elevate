@@ -36,6 +36,8 @@ import {
   arrayRemove,
   setLogLevel,
   limit,
+  orderBy,
+  getCountFromServer,
   deleteField,
   type Unsubscribe
 } from 'firebase/firestore';
@@ -48,7 +50,9 @@ import {
   type AppSettings, 
   type TestHistoryEntry, 
   type ActiveTestSession,
-  type StatsRollup 
+  type StatsRollup,
+  type LeaderboardEntry,
+  type TestLeaderboardSummary 
 } from '../types';
 import { SAMPLE_MATH_TESTS } from '../data/sampleTests';
 import { firestoreTelemetry } from './firestoreTelemetry';
@@ -1991,10 +1995,547 @@ export async function saveAttemptToFirestore(attempt: TestAttempt, overrideUserI
     }
   }
 
-  // Single-Write Attempt Pattern:
-  // We write strictly to the /attempts/{validId} collection.
-  // Test histories and stats are maintained locally and in UI state to eliminate write duplication.
+  // Trigger lightweight leaderboard sync for the test ranking
+  syncLeaderboardEntry(attemptToSave, finalUserId).catch((err) => {
+    console.warn('Silent leaderboard sync notice:', err);
+  });
 }
+
+// -------------------------------------------------------------
+// Test Leaderboard & Ranking System
+// -------------------------------------------------------------
+
+const LOCAL_LEADERBOARD_KEY_PREFIX = 'math_mock_lb_';
+const LEADERBOARD_CACHE_TTL_MS = 15000; // 15s cache for fast live updates
+const inMemoryLeaderboardCache = new Map<string, { data: TestLeaderboardSummary; timestamp: number }>();
+
+export function getCanonicalLeaderboardId(testId: string, testTitle?: string): string {
+  if (testTitle && typeof testTitle === 'string' && testTitle.trim()) {
+    const slug = testTitle.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (slug.length >= 3) {
+      return `test_title_${slug}`;
+    }
+  }
+  return (testId || 'default').replace(/[./[\]*~#$]/g, '_');
+}
+
+function getLocalLeaderboardKey(testId: string, testTitle?: string): string {
+  const safeId = getCanonicalLeaderboardId(testId, testTitle);
+  return `${LOCAL_LEADERBOARD_KEY_PREFIX}${safeId}`;
+}
+
+export function getLocalLeaderboardEntries(testId: string, testTitle?: string): LeaderboardEntry[] {
+  try {
+    const key = getLocalLeaderboardKey(testId, testTitle);
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      // Fallback check with raw testId
+      const fallbackKey = `${LOCAL_LEADERBOARD_KEY_PREFIX}${(testId || '').replace(/[./[\]*~#$]/g, '_')}`;
+      const fallbackRaw = localStorage.getItem(fallbackKey);
+      if (fallbackRaw) return JSON.parse(fallbackRaw) as LeaderboardEntry[];
+      return [];
+    }
+    return JSON.parse(raw) as LeaderboardEntry[];
+  } catch {
+    return [];
+  }
+}
+
+export function saveLocalLeaderboardEntry(testId: string, entry: LeaderboardEntry, testTitle?: string): boolean {
+  try {
+    const canonicalKey = getLocalLeaderboardKey(testId, testTitle);
+    const rawKey = `${LOCAL_LEADERBOARD_KEY_PREFIX}${(testId || '').replace(/[./[\]*~#$]/g, '_')}`;
+
+    const updateInKey = (key: string): boolean => {
+      let existing: LeaderboardEntry[] = [];
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw) existing = JSON.parse(raw);
+      } catch {}
+      const index = existing.findIndex((e) => e.userId === entry.userId);
+      if (index >= 0) {
+        // Strict First-Attempt Only policy:
+        // Do not overwrite previous first attempt!
+        return false;
+      } else {
+        existing.push({
+          ...entry,
+          attemptNumber: 1,
+        });
+        localStorage.setItem(key, JSON.stringify(existing));
+        return true;
+      }
+    };
+
+    const isNewCanonical = updateInKey(canonicalKey);
+    if (rawKey !== canonicalKey) {
+      updateInKey(rawKey);
+    }
+    return isNewCanonical;
+  } catch (err) {
+    console.warn('Failed to save local leaderboard entry:', err);
+    return false;
+  }
+}
+
+function buildLeaderboardSummaryFromList(
+  entries: LeaderboardEntry[], 
+  currentUserId?: string
+): TestLeaderboardSummary {
+  const sorted = [...entries].sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return (a.timeSpentSeconds || 0) - (b.timeSpentSeconds || 0);
+  });
+
+  sorted.forEach((e, idx) => {
+    e.rank = idx + 1;
+  });
+
+  const currentUserEntry = currentUserId ? sorted.find((e) => e.userId === currentUserId) : undefined;
+
+  return {
+    entries: sorted.slice(0, 100),
+    totalParticipants: sorted.length,
+    currentUserRank: currentUserEntry?.rank,
+    currentUserEntry,
+  };
+}
+
+/**
+ * Synchronizes an attempt's score into the test's public leaderboard.
+ * Keeps the student's highest score / fastest time across attempts.
+ */
+/**
+ * Synchronizes an attempt's score into the test's public leaderboard.
+ * STRICT FIRST-ATTEMPT ONLY POLICY:
+ * Only the user's initial first attempt is recorded into the ranking system.
+ * Subsequent attempts by the same user do not alter rankings and execute 0 Firestore writes.
+ */
+export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?: string): Promise<void> {
+  if (!attempt || (!attempt.testId && !attempt.testTitle)) return;
+  const currentUid = overrideUserId || auth.currentUser?.uid || attempt.userId;
+  const canonicalId = getCanonicalLeaderboardId(attempt.testId, attempt.testTitle);
+  const rawSafeId = (attempt.testId || '').replace(/[./[\]*~#$]/g, '_');
+
+  // Fast client-side check: does user already have an initial attempt cached locally?
+  const existingLocal = getLocalLeaderboardEntries(attempt.testId, attempt.testTitle);
+  const alreadyHasInitialAttemptLocally = existingLocal.some((e) => e.userId === currentUid);
+
+  const newEntry: LeaderboardEntry = {
+    userId: currentUid || 'guest_user',
+    userName: attempt.userName || auth.currentUser?.displayName || (attempt.userEmail || '').split('@')[0] || 'Learner',
+    userEmail: attempt.userEmail || auth.currentUser?.email || '',
+    score: attempt.score,
+    totalPoints: attempt.totalPoints,
+    percentage: attempt.percentage,
+    timeSpentSeconds: attempt.timeSpentSeconds,
+    attemptMode: attempt.attemptMode || 'online',
+    completedAt: attempt.completedAt || new Date().toISOString(),
+    testTitle: attempt.testTitle || '',
+    attemptNumber: 1,
+    firstAttemptId: attempt.id,
+  };
+
+  // 1. Cache locally. If already exists, saveLocalLeaderboardEntry returns false.
+  const isFirstLocal = saveLocalLeaderboardEntry(attempt.testId, newEntry, attempt.testTitle);
+  inMemoryLeaderboardCache.delete(canonicalId);
+  inMemoryLeaderboardCache.delete(rawSafeId);
+
+  // If local already had an attempt and this is not a first attempt, skip all network writes!
+  if (alreadyHasInitialAttemptLocally && !isFirstLocal) {
+    return;
+  }
+
+  // 2. Sync with local backend server (Server strictly enforces first-attempt only)
+  try {
+    fetch(`/api/leaderboard/${encodeURIComponent(canonicalId)}?title=${encodeURIComponent(attempt.testTitle || '')}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newEntry),
+    }).catch(() => {});
+    if (rawSafeId && rawSafeId !== canonicalId) {
+      fetch(`/api/leaderboard/${encodeURIComponent(rawSafeId)}?title=${encodeURIComponent(attempt.testTitle || '')}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newEntry),
+      }).catch(() => {});
+    }
+  } catch {}
+
+  // If anonymous guest without an account, local sync is enough
+  if (!currentUid || currentUid === 'anonymous' || currentUid === 'guest-user') {
+    return;
+  }
+
+  // 3. Firestore Cloud Check & Write (Zero extra writes if first attempt already exists in cloud)
+  try {
+    const targetDocRefs = [doc(db, 'test_leaderboards', canonicalId, 'entries', currentUid)];
+    if (rawSafeId && rawSafeId !== canonicalId) {
+      targetDocRefs.push(doc(db, 'test_leaderboards', rawSafeId, 'entries', currentUid));
+    }
+
+    // Check if cloud document already exists
+    let docAlreadyExistsInCloud = false;
+    for (const ref of targetDocRefs) {
+      try {
+        const existingSnap = await getDoc(ref).catch(() => null);
+        if (existingSnap && existingSnap.exists()) {
+          // Strict First-Attempt rule: Document already exists in Firestore!
+          // Do NOT overwrite; exit immediately with 0 extra writes.
+          docAlreadyExistsInCloud = true;
+          break;
+        }
+      } catch (e) {
+        console.warn('Leaderboard entry check notice:', e);
+      }
+    }
+
+    if (docAlreadyExistsInCloud) {
+      // First attempt already safely registered in cloud!
+      return;
+    }
+
+    const sanitized = sanitizeForFirestore(newEntry);
+    for (const ref of targetDocRefs) {
+      try {
+        await setDoc(ref, sanitized, { merge: true });
+      } catch (e) {
+        console.warn('Leaderboard entry write notice:', e);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // Ultra-Optimized Top-Bucket Update (1-Read Architecture)
+    // Only updates if user's first attempt is being enrolled
+    // -------------------------------------------------------------
+    try {
+      const bucketDocRef = doc(db, 'test_leaderboards', canonicalId, 'summary', 'top_bucket');
+      const bucketSnap = await getDoc(bucketDocRef).catch(() => null);
+      let bucketEntries: LeaderboardEntry[] = [];
+      let totalCount = 1;
+
+      if (bucketSnap && bucketSnap.exists()) {
+        const bData = bucketSnap.data();
+        if (Array.isArray(bData.entries)) {
+          bucketEntries = bData.entries;
+        }
+        totalCount = typeof bData.totalParticipants === 'number' ? bData.totalParticipants : bucketEntries.length;
+      }
+
+      const existingIdx = bucketEntries.findIndex((e) => e.userId === newEntry.userId);
+      if (existingIdx < 0) {
+        // Enrolling new user's first attempt into bucket
+        bucketEntries.push(newEntry);
+        totalCount++;
+
+        // Sort descending by score, ascending by time
+        bucketEntries.sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score;
+          return (a.timeSpentSeconds || 0) - (b.timeSpentSeconds || 0);
+        });
+        const top100 = bucketEntries.slice(0, 100);
+        top100.forEach((e, idx) => { e.rank = idx + 1; });
+
+        const packedTop = top100.map(e => 
+          `${e.userId}|${e.userName}|${e.score}|${e.totalPoints}|${e.percentage}|${e.timeSpentSeconds}|${e.attemptMode}|${e.completedAt}`
+        );
+
+        await setDoc(bucketDocRef, {
+          testId: canonicalId,
+          testTitle: attempt.testTitle || '',
+          totalParticipants: Math.max(totalCount, top100.length),
+          updatedAt: new Date().toISOString(),
+          version: 1,
+          entries: top100,
+          packedTop,
+        }, { merge: true });
+      }
+    } catch (bucketErr) {
+      // Non-blocking background bucket sync
+    }
+
+    firestoreTelemetry.record({
+      type: 'WRITE',
+      collection: 'test_leaderboards',
+      path: `test_leaderboards/${canonicalId}/entries/${currentUid}`,
+      operation: 'setDoc',
+      data: sanitized,
+      caller: 'Sync Test Leaderboard Entry (First Attempt Only)',
+    });
+  } catch (err) {
+    console.warn('Could not sync leaderboard entry to cloud:', err);
+  }
+}
+
+/**
+ * Sync all local user attempts for a test or all tests to the leaderboard.
+ * Ensures that clicking the sync button pushes all pending local records.
+ */
+export async function syncAllUserAttemptsToLeaderboard(userId?: string, targetTestId?: string): Promise<void> {
+  const currentUid = userId || auth.currentUser?.uid;
+  if (!currentUid) return;
+
+  try {
+    const attempts = loadScopedAttempts(currentUid);
+    if (!Array.isArray(attempts) || attempts.length === 0) return;
+
+    // Group attempts by test title or testId, sort by completedAt ascending, and pick ONLY the first attempt!
+    const firstAttemptByTest = new Map<string, TestAttempt>();
+
+    // Sort chronologically ascending so index 0 is guaranteed to be the first ever attempt
+    const sortedAttempts = [...attempts].sort((a, b) => 
+      new Date(a.completedAt || a.createdAt || 0).getTime() - new Date(b.completedAt || b.createdAt || 0).getTime()
+    );
+
+    for (const att of sortedAttempts) {
+      if (!att || (!att.testId && !att.testTitle)) continue;
+      const key = getCanonicalLeaderboardId(att.testId, att.testTitle);
+      if (!firstAttemptByTest.has(key)) {
+        firstAttemptByTest.set(key, att);
+      }
+    }
+
+    const firstAttemptsList = Array.from(firstAttemptByTest.values());
+    const filtered = targetTestId 
+      ? firstAttemptsList.filter((a) => a && (a.testId === targetTestId || a.id === targetTestId || getCanonicalLeaderboardId(a.testId, a.testTitle) === targetTestId))
+      : firstAttemptsList;
+
+    const syncPromises = filtered.map((att) => syncLeaderboardEntry(att, currentUid).catch(() => {}));
+    await Promise.all(syncPromises);
+  } catch (err) {
+    console.warn('syncAllUserAttemptsToLeaderboard warning:', err);
+  }
+}
+
+/**
+ * Enterprise-grade optimized leaderboard fetcher.
+ * Merges entries by test title and testId, immune to missing composite index errors.
+ */
+export async function fetchTestLeaderboard(
+  testId: string, 
+  testTitle?: string,
+  forceRefresh = false
+): Promise<TestLeaderboardSummary> {
+  if (!testId && !testTitle) {
+    return { entries: [], totalParticipants: 0 };
+  }
+
+  const canonicalId = getCanonicalLeaderboardId(testId, testTitle);
+  const rawSafeId = (testId || '').replace(/[./[\]*~#$]/g, '_');
+  const now = Date.now();
+
+  if (forceRefresh) {
+    inMemoryLeaderboardCache.delete(canonicalId);
+    inMemoryLeaderboardCache.delete(rawSafeId);
+  } else {
+    const cached = inMemoryLeaderboardCache.get(canonicalId) || inMemoryLeaderboardCache.get(rawSafeId);
+    if (cached && (now - cached.timestamp < LEADERBOARD_CACHE_TTL_MS)) {
+      return cached.data;
+    }
+  }
+
+  const currentUid = auth.currentUser?.uid;
+  const localEntries = [
+    ...getLocalLeaderboardEntries(testId, testTitle),
+    ...getLocalLeaderboardEntries(canonicalId),
+  ];
+
+  // 1. Fetch from local backend server
+  let serverEntries: LeaderboardEntry[] = [];
+  try {
+    const fetchPromises = [
+      fetch(`/api/leaderboard/${encodeURIComponent(canonicalId)}?title=${encodeURIComponent(testTitle || '')}`)
+    ];
+    if (rawSafeId && rawSafeId !== canonicalId) {
+      fetchPromises.push(
+        fetch(`/api/leaderboard/${encodeURIComponent(rawSafeId)}?title=${encodeURIComponent(testTitle || '')}`)
+      );
+    }
+    const responses = await Promise.all(fetchPromises.map((p) => p.catch(() => null)));
+    for (const r of responses) {
+      if (r && r.ok) {
+        const sData = await r.json().catch(() => null);
+        if (Array.isArray(sData?.entries)) {
+          serverEntries.push(...sData.entries);
+        }
+      }
+    }
+  } catch {}
+
+  // 2. Fetch from Cloud Firestore with 1-Read Top-Bucket Optimization
+  let cloudEntries: LeaderboardEntry[] = [];
+  let totalParticipantsFromBucket = 0;
+  let loadedFromBucket = false;
+
+  try {
+    // A. 1-Read Bucket Fetch: read /test_leaderboards/{canonicalId}/summary/top_bucket
+    const bucketDocRef = doc(db, 'test_leaderboards', canonicalId, 'summary', 'top_bucket');
+    const bucketSnap = await getDoc(bucketDocRef).catch(() => null);
+
+    if (bucketSnap && bucketSnap.exists()) {
+      const bData = bucketSnap.data();
+      if (Array.isArray(bData.entries) && bData.entries.length > 0) {
+        cloudEntries.push(...bData.entries);
+        totalParticipantsFromBucket = bData.totalParticipants || bData.entries.length;
+        loadedFromBucket = true;
+      }
+    }
+
+    // B. If bucket not found or if forceRefresh requested, fallback to querying collections
+    if (!loadedFromBucket || forceRefresh) {
+      const collectionsToCheck = [canonicalId];
+      if (rawSafeId && rawSafeId !== canonicalId) {
+        collectionsToCheck.push(rawSafeId);
+      }
+
+      for (const colId of collectionsToCheck) {
+        try {
+          const colRef = collection(db, 'test_leaderboards', colId, 'entries');
+          const snap = await getDocs(query(colRef, limit(100)));
+          if (snap && !snap.empty) {
+            snap.docs.forEach((d) => {
+              cloudEntries.push(d.data() as LeaderboardEntry);
+            });
+          }
+        } catch (colErr) {
+          console.warn(`Could not read entries from ${colId}:`, colErr);
+        }
+      }
+    }
+
+    // C. If current user is logged in and not found in the top bucket, fetch ONLY current user's entry (Cost: 1 extra read)
+    if (currentUid && loadedFromBucket && !cloudEntries.some(e => e.userId === currentUid)) {
+      try {
+        const userEntryDocRef = doc(db, 'test_leaderboards', canonicalId, 'entries', currentUid);
+        const userEntrySnap = await getDoc(userEntryDocRef).catch(() => null);
+        if (userEntrySnap && userEntrySnap.exists()) {
+          cloudEntries.push(userEntrySnap.data() as LeaderboardEntry);
+        }
+      } catch {}
+    }
+  } catch (err) {
+    console.warn('Cloud leaderboard retrieval warning:', err);
+  }
+
+  // 3. Merge server, cloud & local entries seamlessly by userId
+  const mergedMap = new Map<string, LeaderboardEntry>();
+
+  serverEntries.forEach((e) => {
+    if (e && e.userId) mergedMap.set(e.userId, e);
+  });
+
+  cloudEntries.forEach((e) => {
+    if (!e || !e.userId) return;
+    const existing = mergedMap.get(e.userId);
+    if (!existing || e.score > existing.score || (e.score === existing.score && e.timeSpentSeconds < existing.timeSpentSeconds)) {
+      mergedMap.set(e.userId, e);
+    }
+  });
+
+  localEntries.forEach((e) => {
+    if (!e || !e.userId) return;
+    const existing = mergedMap.get(e.userId);
+    if (!existing || e.score > existing.score) {
+      mergedMap.set(e.userId, e);
+    }
+  });
+
+  const allEntries = Array.from(mergedMap.values());
+  allEntries.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return (a.timeSpentSeconds || 0) - (b.timeSpentSeconds || 0);
+  });
+
+  allEntries.forEach((e, idx) => {
+    e.rank = idx + 1;
+  });
+
+  let currentUserRank: number | undefined;
+  const currentUserEntry = currentUid ? allEntries.find((e) => e.userId === currentUid) : undefined;
+  if (currentUserEntry) {
+    currentUserRank = currentUserEntry.rank;
+  }
+
+  const summary: TestLeaderboardSummary = {
+    entries: allEntries.slice(0, 100),
+    totalParticipants: Math.max(allEntries.length, totalParticipantsFromBucket),
+    currentUserRank,
+    currentUserEntry,
+    fromBucket: loadedFromBucket,
+  };
+
+  inMemoryLeaderboardCache.set(canonicalId, { data: summary, timestamp: now });
+  inMemoryLeaderboardCache.set(rawSafeId, { data: summary, timestamp: now });
+  return summary;
+}
+
+/**
+ * Development & local testing utility:
+ * Generates realistic competitor data so leaderboards can be tested immediately on localhost.
+ */
+export function seedLocalMockLeaderboard(testId: string, totalPoints = 100): TestLeaderboardSummary {
+  const safeTestId = (testId || '').replace(/[./[\]*~#$]/g, '_');
+  const mockStudents = [
+    { name: 'Aarav Sharma', ratio: 0.96, timeRatio: 0.55, mode: 'online' as const },
+    { name: 'Priya Patel', ratio: 0.92, timeRatio: 0.62, mode: 'omr' as const },
+    { name: 'Rohan Gupta', ratio: 0.88, timeRatio: 0.70, mode: 'online' as const },
+    { name: 'Ananya Verma', ratio: 0.85, timeRatio: 0.58, mode: 'online' as const },
+    { name: 'Vikram Singh', ratio: 0.80, timeRatio: 0.75, mode: 'omr' as const },
+    { name: 'Sneha Rao', ratio: 0.76, timeRatio: 0.80, mode: 'online' as const },
+    { name: 'Aditya Mehta', ratio: 0.72, timeRatio: 0.65, mode: 'online' as const },
+    { name: 'Kavya Nair', ratio: 0.68, timeRatio: 0.85, mode: 'omr' as const },
+    { name: 'Ishaan Joshi', ratio: 0.64, timeRatio: 0.90, mode: 'online' as const },
+    { name: 'Diya Choudhary', ratio: 0.59, timeRatio: 0.72, mode: 'online' as const },
+    { name: 'Arjun Das', ratio: 0.55, timeRatio: 0.95, mode: 'omr' as const },
+    { name: 'Tanvi Kulkarni', ratio: 0.50, timeRatio: 0.88, mode: 'online' as const },
+  ];
+
+  const generated: LeaderboardEntry[] = mockStudents.map((s, idx) => {
+    const score = Math.round(s.ratio * totalPoints);
+    const percentage = Math.round(s.ratio * 100);
+    const timeSpentSeconds = Math.round(s.timeRatio * 3600);
+    const date = new Date(Date.now() - (idx + 1) * 3600000 * 4).toISOString();
+
+    return {
+      userId: `mock_student_${idx + 1}`,
+      userName: s.name,
+      userEmail: `${s.name.toLowerCase().replace(/\s+/g, '.')}@example.com`,
+      score,
+      totalPoints,
+      percentage,
+      timeSpentSeconds,
+      attemptMode: s.mode,
+      completedAt: date,
+      rank: idx + 1,
+    };
+  });
+
+  // Also include current user's local entry if present
+  const currentUid = auth.currentUser?.uid;
+  const existing = getLocalLeaderboardEntries(safeTestId);
+  const currentUserEntry = existing.find((e) => e.userId === currentUid);
+  if (currentUserEntry) {
+    generated.push(currentUserEntry);
+  }
+
+  // Re-sort with current user
+  generated.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.timeSpentSeconds - b.timeSpentSeconds;
+  });
+  generated.forEach((e, idx) => {
+    e.rank = idx + 1;
+  });
+
+  try {
+    localStorage.setItem(getLocalLeaderboardKey(safeTestId), JSON.stringify(generated));
+  } catch {}
+
+  const summary = buildLeaderboardSummaryFromList(generated, currentUid);
+  inMemoryLeaderboardCache.set(safeTestId, { data: summary, timestamp: Date.now() });
+  return summary;
+}
+
 
 export async function deleteAttemptFromFirestore(attemptId: string, userId?: string | null): Promise<void> {
   if (isOfflineLocalOnlyMode() || !attemptId) return;

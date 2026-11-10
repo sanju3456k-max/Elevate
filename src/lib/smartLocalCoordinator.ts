@@ -1866,7 +1866,7 @@ export class SmartLocalCoordinator {
               testsChanged = true;
             } else {
               const localTest = localMap.get(remoteTest.id)!;
-              const reconciled = reconcileMutableEntity(localTest, remoteTest);
+              const reconciled = reconcileMutableEntity<MathTest>(localTest, remoteTest);
               const qMerge = mergeQuestionArrays(reconciled.resolved.questions, remoteTest.questions);
               reconciled.resolved.questions = qMerge.mergedQuestions;
               localMap.set(remoteTest.id, reconciled.resolved);
@@ -2180,6 +2180,18 @@ export class SmartLocalCoordinator {
         } catch (e) {}
       });
     }
+  }
+
+  public notify(col: CollectionName, data: any): void {
+    this.notifySubscribers(col, 'all', data);
+    if (typeof window !== 'undefined') {
+      if (col === 'tests') window.dispatchEvent(new CustomEvent('tests-updated'));
+      if (col === 'attempts') window.dispatchEvent(new CustomEvent('attempts-updated'));
+    }
+  }
+
+  public enqueueWrite(col: CollectionName, id: string, data: any, _uid?: string): void {
+    this.mutateEntity(col, 'set', id, data);
   }
 
   // ============================================================================

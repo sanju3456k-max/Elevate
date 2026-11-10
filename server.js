@@ -1,12 +1,12 @@
 // server.ts
 import express from "express";
-import path2 from "path";
-import fs from "fs";
+import path3 from "path";
+import fs2 from "fs";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 
 // server/routes/index.ts
-import { Router as Router8 } from "express";
+import { Router as Router9 } from "express";
 
 // server/routes/drive.ts
 import { Router } from "express";
@@ -95,11 +95,197 @@ router2.get("/:shareId", (req, res) => {
 });
 var share_default = router2;
 
+// server/routes/leaderboard.ts
+import { Router as Router3 } from "express";
+import fs from "fs";
+import path from "path";
+var router3 = Router3();
+var STORAGE_DIR = path.join(process.cwd(), ".leaderboards");
+function ensureStorageDir() {
+  try {
+    if (!fs.existsSync(STORAGE_DIR)) {
+      fs.mkdirSync(STORAGE_DIR, { recursive: true });
+    }
+  } catch (err) {
+    console.warn("Could not create leaderboards directory:", err);
+  }
+}
+function computeCanonicalId(testId, testTitle) {
+  if (testTitle && typeof testTitle === "string" && testTitle.trim().length >= 3) {
+    const slug = testTitle.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    if (slug.length >= 3) {
+      return `test_title_${slug}`;
+    }
+  }
+  return (testId || "default").replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+function getTestFilePath(id) {
+  const safeId = (id || "default").replace(/[^a-zA-Z0-9_-]/g, "_");
+  return path.join(STORAGE_DIR, `${safeId}.json`);
+}
+function getBucketFilePath(id) {
+  const safeId = (id || "default").replace(/[^a-zA-Z0-9_-]/g, "_");
+  return path.join(STORAGE_DIR, `bucket_${safeId}.json`);
+}
+function loadEntriesFromFile(id) {
+  ensureStorageDir();
+  const filePath = getTestFilePath(id);
+  if (fs.existsSync(filePath)) {
+    try {
+      const data = fs.readFileSync(filePath, "utf-8");
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch {
+    }
+  }
+  return [];
+}
+function saveEntriesAndBucket(id, testTitle, entries) {
+  entries.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.timeSpentSeconds - b.timeSpentSeconds;
+  });
+  entries.forEach((e, idx) => {
+    e.rank = idx + 1;
+  });
+  ensureStorageDir();
+  try {
+    fs.writeFileSync(getTestFilePath(id), JSON.stringify(entries, null, 2), "utf-8");
+  } catch (err) {
+    console.warn(`Could not write leaderboard ${id} to disk:`, err);
+  }
+  const top100 = entries.slice(0, 100);
+  const packedTop = top100.map(
+    (e) => `${e.userId}|${e.userName}|${e.score}|${e.totalPoints}|${e.percentage}|${e.timeSpentSeconds}|${e.attemptMode}|${e.completedAt}`
+  );
+  const bucket = {
+    testId: id,
+    testTitle: testTitle || "",
+    totalParticipants: entries.length,
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    version: 1,
+    entries: top100,
+    packedTop
+  };
+  try {
+    fs.writeFileSync(getBucketFilePath(id), JSON.stringify(bucket, null, 2), "utf-8");
+  } catch (err) {
+    console.warn(`Could not write bucket ${id} to disk:`, err);
+  }
+  return bucket;
+}
+function mergeEntryIntoList(list, newEntry) {
+  const existingIndex = list.findIndex((e) => e.userId === newEntry.userId);
+  if (existingIndex >= 0) {
+    return { list, isNewOrUpdated: false };
+  } else {
+    list.push({
+      ...newEntry,
+      attemptNumber: 1
+    });
+    return { list, isNewOrUpdated: true };
+  }
+}
+router3.get("/:testId/bucket", (req, res) => {
+  try {
+    const { testId } = req.params;
+    const testTitle = req.query.title || "";
+    const canonicalId = computeCanonicalId(testId, testTitle);
+    const bucketPath = getBucketFilePath(canonicalId);
+    if (fs.existsSync(bucketPath)) {
+      try {
+        const raw = fs.readFileSync(bucketPath, "utf-8");
+        return res.json(JSON.parse(raw));
+      } catch {
+      }
+    }
+    const entries = loadEntriesFromFile(canonicalId);
+    const bucket = saveEntriesAndBucket(canonicalId, testTitle, entries);
+    return res.json(bucket);
+  } catch (err) {
+    return res.status(500).json({ error: err?.message || "Failed to get leaderboard bucket" });
+  }
+});
+router3.get("/:testId", (req, res) => {
+  try {
+    const { testId } = req.params;
+    const testTitle = req.query.title || "";
+    const canonicalId = computeCanonicalId(testId, testTitle);
+    const mergedMap = /* @__PURE__ */ new Map();
+    const rawEntries = loadEntriesFromFile(testId);
+    rawEntries.forEach((e) => {
+      if (e && e.userId) mergedMap.set(e.userId, e);
+    });
+    if (canonicalId && canonicalId !== testId) {
+      const canonicalEntries = loadEntriesFromFile(canonicalId);
+      canonicalEntries.forEach((e) => {
+        if (!e || !e.userId) return;
+        const existing = mergedMap.get(e.userId);
+        if (!existing || e.score > existing.score || e.score === existing.score && e.timeSpentSeconds < existing.timeSpentSeconds) {
+          mergedMap.set(e.userId, e);
+        }
+      });
+    }
+    const allEntries = Array.from(mergedMap.values());
+    allEntries.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return (a.timeSpentSeconds || 0) - (b.timeSpentSeconds || 0);
+    });
+    allEntries.forEach((e, idx) => {
+      e.rank = idx + 1;
+    });
+    return res.json({
+      entries: allEntries,
+      totalParticipants: allEntries.length
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err?.message || "Failed to get leaderboard" });
+  }
+});
+router3.post("/:testId", (req, res) => {
+  try {
+    const { testId } = req.params;
+    const newEntry = req.body;
+    if (!newEntry || !newEntry.userId) {
+      return res.status(400).json({ error: "Invalid leaderboard entry: userId is required" });
+    }
+    const testTitle = newEntry.testTitle || req.query.title || "";
+    const canonicalId = computeCanonicalId(testId, testTitle);
+    const rawEntries = loadEntriesFromFile(testId);
+    const canonicalEntries = canonicalId !== testId ? loadEntriesFromFile(canonicalId) : rawEntries;
+    const alreadyExists = canonicalEntries.some((e) => e.userId === newEntry.userId) || rawEntries.some((e) => e.userId === newEntry.userId);
+    if (alreadyExists) {
+      return res.json({
+        success: true,
+        ignored: true,
+        message: "First attempt already recorded. Subsequent attempts do not alter test rankings.",
+        canonicalId
+      });
+    }
+    const { list: updatedRaw } = mergeEntryIntoList(rawEntries, newEntry);
+    saveEntriesAndBucket(testId, testTitle, updatedRaw);
+    if (canonicalId && canonicalId !== testId) {
+      const { list: updatedCanonical } = mergeEntryIntoList(canonicalEntries, newEntry);
+      saveEntriesAndBucket(canonicalId, testTitle, updatedCanonical);
+    }
+    return res.json({
+      success: true,
+      entry: newEntry,
+      canonicalId
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err?.message || "Failed to update leaderboard" });
+  }
+});
+var leaderboard_default = router3;
+
 // server/routes/ai/index.ts
-import { Router as Router7 } from "express";
+import { Router as Router8 } from "express";
 
 // server/routes/ai/notes.ts
-import { Router as Router3 } from "express";
+import { Router as Router4 } from "express";
 
 // server/lib/ai.ts
 import { GoogleGenAI } from "@google/genai";
@@ -493,8 +679,8 @@ function isFullDocumentRequest(promptText) {
 }
 
 // server/routes/ai/notes.ts
-var router3 = Router3();
-router3.post(["/generate", "/notes-assistant"], async (req, res) => {
+var router4 = Router4();
+router4.post(["/generate", "/notes-assistant"], async (req, res) => {
   try {
     const { contents, systemInstruction, prompt, currentCode, currentTitle, selectedText } = req.body;
     const ai = getAiClient();
@@ -574,7 +760,7 @@ ${(currentCode || "").slice(-2e3)}
     return res.status(500).json({ error: "Failed to process AI request." });
   }
 });
-router3.post(["/chat-stream", "/notes-assistant-stream"], async (req, res) => {
+router4.post(["/chat-stream", "/notes-assistant-stream"], async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -844,7 +1030,7 @@ NOTE ACTIONS: If the user explicitly asks to create or update notes, format the 
     return res.end();
   }
 });
-router3.post("/summarize-note", async (req, res) => {
+router4.post("/summarize-note", async (req, res) => {
   let code = "";
   try {
     const body = req.body || {};
@@ -867,13 +1053,13 @@ ${code.slice(0, 5e3)}`;
     return res.json({ summary: fallbackSummary });
   }
 });
-var notes_default = router3;
+var notes_default = router4;
 
 // server/routes/ai/chatbot.ts
-import { Router as Router4 } from "express";
+import { Router as Router5 } from "express";
 import { ThinkingLevel } from "@google/genai";
-var router4 = Router4();
-router4.post(["/", "/chatbot"], async (req, res) => {
+var router5 = Router5();
+router5.post(["/", "/chatbot"], async (req, res) => {
   const {
     messages = [],
     model,
@@ -1914,12 +2100,12 @@ Let's analyze the mathematical formulation step-by-step:
     });
   }
 });
-var chatbot_default = router4;
+var chatbot_default = router5;
 
 // server/routes/ai/image.ts
-import { Router as Router5 } from "express";
-var router5 = Router5();
-router5.post("/generate-image", async (req, res) => {
+import { Router as Router6 } from "express";
+var router6 = Router6();
+router6.post("/generate-image", async (req, res) => {
   try {
     const { prompt, aspectRatio = "1:1", style = "", seed } = req.body;
     if (!prompt || typeof prompt !== "string") {
@@ -1939,10 +2125,10 @@ router5.post("/generate-image", async (req, res) => {
     return res.status(500).json({ error: err.message || "Failed to generate image" });
   }
 });
-var image_default = router5;
+var image_default = router6;
 
 // server/routes/ai/test.ts
-import { Router as Router6 } from "express";
+import { Router as Router7 } from "express";
 
 // src/server/testStudioAiServices.ts
 import { GoogleGenAI as GoogleGenAI2 } from "@google/genai";
@@ -2936,10 +3122,10 @@ Return ONLY raw JSON without markdown fences.`;
 }
 
 // server/routes/ai/test.ts
-var router6 = Router6();
-router6.post("/generate-diagram", handleGenerateDiagram);
-router6.post("/ai-edit-test", handleAiEditTest);
-router6.post("/explain-math-question", async (req, res) => {
+var router7 = Router7();
+router7.post("/generate-diagram", handleGenerateDiagram);
+router7.post("/ai-edit-test", handleAiEditTest);
+router7.post("/explain-math-question", async (req, res) => {
   try {
     const { questionText, options, userAnswer, correctAnswer, explanation } = req.body || {};
     if (!questionText) {
@@ -2986,15 +3172,15 @@ Apply foundational theorems and identities to verify this solution.`;
     return res.json({ explanation: fallback });
   }
 });
-var test_default = router6;
+var test_default = router7;
 
 // server/routes/ai/index.ts
-var router7 = Router7();
-router7.use("/notes", notes_default);
-router7.use("/chatbot", chatbot_default);
-router7.use("/image", image_default);
-router7.use("/test", test_default);
-var ai_default = router7;
+var router8 = Router8();
+router8.use("/notes", notes_default);
+router8.use("/chatbot", chatbot_default);
+router8.use("/image", image_default);
+router8.use("/test", test_default);
+var ai_default = router8;
 
 // server/middleware/rateLimiter.ts
 function createRateLimiter(options) {
@@ -3047,7 +3233,7 @@ function createRateLimiter(options) {
 }
 
 // server/routes/index.ts
-var router8 = Router8();
+var router9 = Router9();
 var aiRateLimiter = createRateLimiter({
   windowMs: 60 * 1e3,
   max: 60,
@@ -3058,25 +3244,26 @@ var generalRateLimiter = createRateLimiter({
   max: 180,
   message: "Too many requests. Please slow down and try again in a moment."
 });
-router8.use("/drive", generalRateLimiter, drive_default);
-router8.use("/share", generalRateLimiter, share_default);
-router8.use("/ai", aiRateLimiter, ai_default);
-router8.use("/", aiRateLimiter, image_default);
-router8.use("/ai", aiRateLimiter, notes_default);
-router8.use("/gemini/chatbot", aiRateLimiter, chatbot_default);
-router8.use("/gemini", aiRateLimiter, chatbot_default);
-router8.use("/gemini", aiRateLimiter, notes_default);
-router8.use("/chatbot", aiRateLimiter, chatbot_default);
-router8.use("/", aiRateLimiter, test_default);
-var routes_default = router8;
+router9.use("/drive", generalRateLimiter, drive_default);
+router9.use("/share", generalRateLimiter, share_default);
+router9.use("/leaderboard", generalRateLimiter, leaderboard_default);
+router9.use("/ai", aiRateLimiter, ai_default);
+router9.use("/", aiRateLimiter, image_default);
+router9.use("/ai", aiRateLimiter, notes_default);
+router9.use("/gemini/chatbot", aiRateLimiter, chatbot_default);
+router9.use("/gemini", aiRateLimiter, chatbot_default);
+router9.use("/gemini", aiRateLimiter, notes_default);
+router9.use("/chatbot", aiRateLimiter, chatbot_default);
+router9.use("/", aiRateLimiter, test_default);
+var routes_default = router9;
 
 // server/routes/pwa.ts
-import { Router as Router9 } from "express";
-import path from "path";
-var router9 = Router9();
-router9.get(["/manifest.webmanifest", "/manifest.json"], (_req, res) => {
+import { Router as Router10 } from "express";
+import path2 from "path";
+var router10 = Router10();
+router10.get(["/manifest.webmanifest", "/manifest.json"], (_req, res) => {
   const isWebManifest = _req.path.endsWith(".webmanifest");
-  const filePath = path.join(process.cwd(), isWebManifest ? "public/manifest.webmanifest" : "public/manifest.json");
+  const filePath = path2.join(process.cwd(), isWebManifest ? "public/manifest.webmanifest" : "public/manifest.json");
   res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.sendFile(filePath, (err) => {
@@ -3085,8 +3272,8 @@ router9.get(["/manifest.webmanifest", "/manifest.json"], (_req, res) => {
     }
   });
 });
-router9.get("/sw.js", (_req, res) => {
-  const filePath = path.join(process.cwd(), "public/sw.js");
+router10.get("/sw.js", (_req, res) => {
+  const filePath = path2.join(process.cwd(), "public/sw.js");
   res.setHeader("Content-Type", "application/javascript; charset=utf-8");
   res.setHeader("Service-Worker-Allowed", "/");
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -3096,12 +3283,12 @@ router9.get("/sw.js", (_req, res) => {
     }
   });
 });
-var pwa_default = router9;
+var pwa_default = router10;
 
 // server.ts
 dotenv.config();
 var __filename = fileURLToPath(import.meta.url);
-var __dirname = path2.dirname(__filename);
+var __dirname = path3.dirname(__filename);
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3e3;
@@ -3112,8 +3299,8 @@ async function startServer() {
   });
   app.use("/api", routes_default);
   app.use("/", pwa_default);
-  const katexDistPath = path2.join(process.cwd(), "node_modules", "katex", "dist");
-  if (fs.existsSync(katexDistPath)) {
+  const katexDistPath = path3.join(process.cwd(), "node_modules", "katex", "dist");
+  if (fs2.existsSync(katexDistPath)) {
     app.use("/katex", express.static(katexDistPath));
   }
   const isProduction = process.env.NODE_ENV === "production";
@@ -3130,13 +3317,13 @@ async function startServer() {
       app.use(vite.middlewares);
     } catch (viteErr) {
       console.warn("Vite middleware failed to initialize, falling back to static build:", viteErr);
-      const distPath = path2.join(process.cwd(), "dist");
-      if (fs.existsSync(distPath)) {
+      const distPath = path3.join(process.cwd(), "dist");
+      if (fs2.existsSync(distPath)) {
         app.use(express.static(distPath));
       }
       app.get("*", (_req, res) => {
-        const indexPath = path2.join(distPath, "index.html");
-        if (fs.existsSync(indexPath)) {
+        const indexPath = path3.join(distPath, "index.html");
+        if (fs2.existsSync(indexPath)) {
           res.sendFile(indexPath);
         } else {
           res.status(200).send("<!DOCTYPE html><html><head><title>Theta Notes Studio</title></head><body><div id='root'></div></body></html>");
@@ -3145,18 +3332,18 @@ async function startServer() {
     }
   } else {
     const candidatePaths = [
-      path2.join(process.cwd(), "dist"),
-      path2.join(process.cwd(), "build"),
-      path2.resolve(__dirname, "dist"),
-      path2.resolve(__dirname, "build")
+      path3.join(process.cwd(), "dist"),
+      path3.join(process.cwd(), "build"),
+      path3.resolve(__dirname, "dist"),
+      path3.resolve(__dirname, "build")
     ];
-    const distPath = candidatePaths.find((p) => fs.existsSync(path2.join(p, "index.html"))) || path2.join(process.cwd(), "dist");
-    if (fs.existsSync(distPath)) {
+    const distPath = candidatePaths.find((p) => fs2.existsSync(path3.join(p, "index.html"))) || path3.join(process.cwd(), "dist");
+    if (fs2.existsSync(distPath)) {
       app.use(express.static(distPath));
     }
     app.get("*", (_req, res) => {
-      const indexPath = path2.join(distPath, "index.html");
-      if (fs.existsSync(indexPath)) {
+      const indexPath = path3.join(distPath, "index.html");
+      if (fs2.existsSync(indexPath)) {
         res.sendFile(indexPath, (err) => {
           if (err && !res.headersSent) {
             res.status(500).send("Error loading app");

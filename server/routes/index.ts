@@ -1,6 +1,7 @@
 import { Router } from "express";
 import driveRouter from "./drive.js";
 import shareRouter from "./share.js";
+import leaderboardRouter from "./leaderboard.js";
 import aiRootRouter from "./ai/index.js";
 import notesRouter from "./ai/notes.js";
 import chatbotRouter from "./ai/chatbot.js";
@@ -26,6 +27,7 @@ const generalRateLimiter = createRateLimiter({
 // Modular Routes
 router.use("/drive", generalRateLimiter, driveRouter);
 router.use("/share", generalRateLimiter, shareRouter);
+router.use("/leaderboard", generalRateLimiter, leaderboardRouter);
 router.use("/ai", aiRateLimiter, aiRootRouter);
 
 // Flat Routes (Backward Compatibility with existing frontend API calls)
