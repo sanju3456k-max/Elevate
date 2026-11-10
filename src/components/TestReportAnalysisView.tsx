@@ -364,11 +364,8 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
     const syncStatusBar = () => {
       try {
         const isDark = document.documentElement.classList.contains('dark');
-        // When full-screen chapter or subtopic question view is active, match pure white (#ffffff) or dark body (#181a20).
-        // Otherwise match the analysis report page body (#e5e9f0 light / #0b0c10 dark).
-        const targetColor = (selectedSubtopicQuestionsModal || fullScreenChapterId)
-          ? (isDark ? '#181a20' : '#ffffff')
-          : (isDark ? '#0b0c10' : '#e5e9f0');
+        // Match question page body (#e5e9f0 light / #0b0c10 dark) across all views including subtopic question view and chapter view
+        const targetColor = isDark ? '#0b0c10' : '#e5e9f0';
 
         const metaThemeColors = document.querySelectorAll('meta[name="theme-color"]');
         if (metaThemeColors.length > 0) {
@@ -2117,10 +2114,10 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
         <div
           role="region"
           aria-label={`Full Page Analysis for ${fullScreenChapter.topic}`}
-          className="fixed inset-0 z-50 bg-white dark:bg-[#181a20] text-[#1f1f1f] dark:text-[#e3e3e3] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150"
         >
-          {/* Transparent Clean Header Banner - White surface with subtle divider */}
-          <header className="sticky top-0 z-30 bg-white/95 dark:bg-[#181a20]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-zinc-800/80 shrink-0">
+          {/* Transparent Clean Header Banner - Seamless with Page Body */}
+          <header className="sticky top-0 z-30 bg-[#e5e9f0]/95 dark:bg-[#0b0c10]/95 backdrop-blur-md border-b border-slate-300/60 dark:border-zinc-800/80 shrink-0">
             <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)]">
               <div className="flex items-center justify-between gap-3 px-0.5 py-1">
                 {/* Left: Adjusted Back Button for White Surface & Chapter Title */}
@@ -2380,10 +2377,10 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
         <div
           role="dialog"
           aria-label={`Questions & Solutions for ${selectedSubtopicQuestionsModal.subtopic}`}
-          className="fixed inset-0 z-[60] bg-white dark:bg-[#181a20] text-[#1f1f1f] dark:text-[#e3e3e3] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150"
+          className="fixed inset-0 z-[60] bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150"
         >
-          {/* Header Bar */}
-          <header className="sticky top-0 z-30 bg-white/95 dark:bg-[#181a20]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-zinc-800/80 shrink-0">
+          {/* Header Bar - Seamless with Page Body */}
+          <header className="sticky top-0 z-30 bg-[#e5e9f0]/95 dark:bg-[#0b0c10]/95 backdrop-blur-md border-b border-slate-300/60 dark:border-zinc-800/80 shrink-0">
             <div className="max-w-5xl w-full mx-auto px-3 sm:px-6 py-2.5 sm:py-3.5 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)]">
               <div className="flex items-center justify-between gap-3 px-0.5 py-1">
                 {/* Subtopic Title & Badges */}
@@ -2449,7 +2446,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
 
             {/* Quick Question Jump Pill Bar (if multiple questions in subtopic) */}
             {selectedSubtopicQuestionsModal.subtopicItem.questions.length > 1 && (
-              <div className="p-3 rounded-[24px] bg-[#f0f4f9] dark:bg-[#141619] flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              <div className="p-3 rounded-[24px] bg-white dark:bg-[#1e2024] shadow-[0_2px_6px_rgba(0,0,0,0.06)] border-0 flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 <span className="text-xs font-bold text-slate-500 dark:text-zinc-400 shrink-0 ml-1">
                   Questions ({selectedSubtopicQuestionsModal.subtopicItem.questions.length}):
                 </span>
@@ -2497,7 +2494,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                   <div
                     key={qNum}
                     id={`subtopic-q-${qNum}`}
-                    className="bg-[#f0f4f9] dark:bg-[#141619] p-4 sm:p-6 space-y-4 rounded-[28px] scroll-mt-24 border border-slate-200/60 dark:border-zinc-800/80 shadow-xs"
+                    className="bg-white dark:bg-[#1e2024] p-4 sm:p-6 space-y-4 rounded-[28px] scroll-mt-24 shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.25)] border-0"
                   >
                     {/* Question Statement Header */}
                     <div className="space-y-2">
@@ -2532,7 +2529,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                       </div>
 
                       {/* Question Text Box matching Test Result View font size [18px] sm:[19px] */}
-                      <div className="p-4 sm:p-5 rounded-[28px] bg-white dark:bg-[#1e2024] shadow-[0_2px_6px_rgba(0,0,0,0.08)] border-0 text-[18px] sm:text-[19px] text-[#1f1f1f] dark:text-[#e3e3e3] font-medium leading-relaxed overflow-x-auto">
+                      <div className="p-4 sm:p-5 rounded-[24px] bg-[#f0f4f9] dark:bg-[#141619] border-0 text-[18px] sm:text-[19px] text-[#1f1f1f] dark:text-[#e3e3e3] font-medium leading-relaxed overflow-x-auto">
                         {q ? (
                           <MathRenderer text={q.text || (q as any).question || ''} />
                         ) : (

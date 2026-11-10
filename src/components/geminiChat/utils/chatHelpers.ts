@@ -1,6 +1,7 @@
 import { SessionStagedQuestion } from '../types';
 import { ParsedTestAction } from '../../GeminiTestActionCard';
 import { ParsedAppAction, normalizeQuestions } from '../../../types';
+import { formatTestToText, parseTestFromText } from '../../../utils/testFormatConverter';
 
 export function extractTestAction(content: string): { cleanContent: string; testAction: ParsedTestAction | null } {
   if (!content) return { cleanContent: '', testAction: null };
@@ -139,38 +140,65 @@ export function extractTestAction(content: string): { cleanContent: string; test
 
   // Handle standard { action: 'CREATE_TEST' | 'UPDATE_TEST', test: { ... } }
   if (parsed.test && typeof parsed.test === 'object' && Array.isArray(parsed.test.questions)) {
+    const normTest = {
+      ...parsed.test,
+      questions: normalizeQuestions(parsed.test.questions)
+    };
+    normTest.testCode = formatTestToText(normTest);
     return { 
       cleanContent, 
       testAction: {
         action: parsed.action || 'CREATE_TEST',
         summary: parsed.summary,
-        test: {
-          ...parsed.test,
-          questions: normalizeQuestions(parsed.test.questions)
-        }
+        test: normTest
       } as ParsedTestAction 
     };
   }
   
   // Handle direct MathTest object { title, topic, questions: [...] }
   if (Array.isArray(parsed.questions) && parsed.questions.length > 0) {
+    const normTest = {
+      id: parsed.id || `test_${Date.now()}`,
+      title: parsed.title || 'Session Practice Test',
+      topic: parsed.topic || 'General Mathematics',
+      difficulty: parsed.difficulty || 'Medium',
+      timeLimitMinutes: parsed.timeLimitMinutes || 15,
+      passingScorePercentage: parsed.passingScorePercentage || 70,
+      description: parsed.description || 'Generated from session files and conversation context',
+      questions: normalizeQuestions(parsed.questions)
+    };
+    normTest.testCode = formatTestToText(normTest);
     return {
       cleanContent,
       testAction: {
         action: parsed.action || 'CREATE_TEST',
-        summary: parsed.summary || `Generated ${parsed.questions.length}-question practice test`,
-        test: {
-          id: parsed.id || `test_${Date.now()}`,
-          title: parsed.title || 'Session Practice Test',
-          topic: parsed.topic || 'General Mathematics',
-          difficulty: parsed.difficulty || 'Medium',
-          timeLimitMinutes: parsed.timeLimitMinutes || 15,
-          passingScorePercentage: parsed.passingScorePercentage || 70,
-          description: parsed.description || 'Generated from session files and conversation context',
-          questions: normalizeQuestions(parsed.questions)
-        }
+        summary: parsed.summary || `Generated ${normTest.questions.length}-question practice test`,
+        test: normTest
       } as ParsedTestAction
     };
+  }
+
+  // 4. Fallback: Check for sequential test code format (.txt)
+  if (!jsonStr) {
+    const txtMatch = content.match(/```(?:txt|text|test-txt|test-code|test_txt|test_code)\s*([\s\S]*?)\s*```/i);
+    const candidateTxt = txtMatch ? txtMatch[1].trim() : (content.includes('Q1') && (content.includes('Title:') || content.includes('Question:')) ? content.trim() : '');
+    if (candidateTxt) {
+      try {
+        const parsedFromTxt = parseTestFromText(candidateTxt);
+        if (parsedFromTxt && Array.isArray(parsedFromTxt.questions) && parsedFromTxt.questions.length > 0) {
+          const clean = txtMatch ? content.replace(txtMatch[0], '').trim() : '';
+          parsedFromTxt.testCode = formatTestToText(parsedFromTxt);
+          return {
+            cleanContent: clean || content,
+            testAction: {
+              action: 'CREATE_TEST',
+              summary: `Generated ${parsedFromTxt.questions.length}-question practice test`,
+              test: parsedFromTxt
+            } as ParsedTestAction
+          };
+        }
+      } catch {}
+    }
   }
 
   return { cleanContent: content, testAction: null };

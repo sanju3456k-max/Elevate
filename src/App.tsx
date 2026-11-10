@@ -1231,7 +1231,7 @@ export default function App() {
       createdAt: test.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       questions: normalizeQuestions(Array.isArray(test.questions) ? test.questions : []),
-      testCode: test.testCode || formatTestToText(test),
+      testCode: (!test.testCode || isJsonFormat(test.testCode)) ? formatTestToText(test) : test.testCode,
     };
 
     // Auto-compress heavy diagram payloads if document approaches Firestore 1MB limits
@@ -1332,6 +1332,7 @@ export default function App() {
         ...t,
         authorId: targetUid || 'anonymous',
         authorName: currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User',
+        testCode: (!t.testCode || isJsonFormat(t.testCode)) ? formatTestToText(t) : t.testCode,
       };
       syncHub.addOrUpdateTest(validated);
       if (targetUid && targetUid !== 'anonymous' && targetUid !== 'guest-user') {
@@ -1368,6 +1369,7 @@ export default function App() {
       ...extractedTest,
       authorId: targetUid || 'anonymous',
       authorName: currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Teacher',
+      testCode: (!extractedTest.testCode || isJsonFormat(extractedTest.testCode)) ? formatTestToText(extractedTest) : extractedTest.testCode,
     };
     syncHub.addOrUpdateTest(validated);
     if (targetUid && targetUid !== 'anonymous' && targetUid !== 'guest-user') {

@@ -27,6 +27,7 @@ import {
 import { MathTest, MathQuestion, normalizeQuestions, checkIsOptionCorrect } from '../types';
 import { MathRenderer } from './MathRenderer';
 import { useBackHandler } from '../hooks/useBackNavigation';
+import { formatTestToText } from '../utils/testFormatConverter';
 
 interface GeminiTestCanvasModalProps {
   test: MathTest;
@@ -129,7 +130,8 @@ export const GeminiTestCanvasModal: React.FC<GeminiTestCanvasModalProps> = ({
       setSavedSuccess(false);
     } else {
       if (onSaveTest) {
-        onSaveTest(test);
+        const testWithTxt = { ...test, testCode: formatTestToText(test) };
+        onSaveTest(testWithTxt);
       }
       setIsSavedLocally(true);
       setSavedSuccess(true);

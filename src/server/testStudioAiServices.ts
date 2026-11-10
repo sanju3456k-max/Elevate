@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import type { Request, Response } from "express";
+import { formatTestToText } from "../utils/testFormatConverter";
 
 export const CANDIDATE_MODELS = [
   "gemini-flash-lite-latest",
@@ -974,6 +975,9 @@ Return ONLY raw JSON without markdown fences.`;
       const changeSummary = parsed?.changeSummary || parsedTest?.changeSummary || `Updated assessment based on: "${prompt.slice(0, 60)}"`;
       delete parsedTest.changeSummary;
       if (parsed) delete parsed.changeSummary;
+      try {
+        parsedTest.testCode = formatTestToText(parsedTest);
+      } catch {}
       return res.json({ test: parsedTest, changeSummary });
     }
 
@@ -1130,6 +1134,9 @@ Return ONLY raw JSON without markdown fences.`;
       summary = `Updated test assessment based on prompt: "${rawPrompt.slice(0, 50)}"`;
     }
 
+    try {
+      modifiedTest.testCode = formatTestToText(modifiedTest);
+    } catch {}
     return res.json({ test: modifiedTest, changeSummary: summary });
   }
 }

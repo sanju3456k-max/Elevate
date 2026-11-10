@@ -2132,6 +2132,95 @@ import { Router as Router7 } from "express";
 
 // src/server/testStudioAiServices.ts
 import { GoogleGenAI as GoogleGenAI2 } from "@google/genai";
+
+// src/utils/testFormatConverter.ts
+var OPTION_LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H"];
+function formatQuestionToText(q, index) {
+  const lines = [];
+  const qNum = index !== void 0 ? index + 1 : 1;
+  lines.push(`Q${qNum}`);
+  const qTopic = (q.topic || "").trim();
+  lines.push(`Topic: ${qTopic.toLowerCase() === "general mathematics" ? "" : qTopic}`);
+  const qSubtopic = (q.subtopic || "").trim();
+  lines.push(`Subtopic: ${qSubtopic}`);
+  lines.push(`Question: ${q.text || ""}`);
+  if (q.imageUrl) {
+    lines.push(`Image: ${q.imageUrl}`);
+  }
+  if (Array.isArray(q.options) && q.options.length > 0) {
+    q.options.forEach((opt, idx) => {
+      const letter = OPTION_LETTERS[idx] || String(idx + 1);
+      lines.push(`${letter}: ${opt}`);
+    });
+  } else {
+    lines.push("A: ");
+    lines.push("B: ");
+    lines.push("C: ");
+    lines.push("D: ");
+  }
+  let correctLetter = "A";
+  if (typeof q.correctOptionIndex === "number" && q.correctOptionIndex >= 0 && q.correctOptionIndex < OPTION_LETTERS.length) {
+    correctLetter = OPTION_LETTERS[q.correctOptionIndex];
+  } else if (typeof q.correctAnswer === "number" && q.correctAnswer >= 0 && q.correctAnswer < OPTION_LETTERS.length) {
+    correctLetter = OPTION_LETTERS[q.correctAnswer];
+  } else if (typeof q.correctAnswer === "string") {
+    const trimmed = q.correctAnswer.trim().toUpperCase();
+    if (OPTION_LETTERS.includes(trimmed)) {
+      correctLetter = trimmed;
+    } else {
+      const parsedNum = parseInt(trimmed, 10);
+      if (!isNaN(parsedNum) && parsedNum >= 0 && parsedNum < OPTION_LETTERS.length) {
+        correctLetter = OPTION_LETTERS[parsedNum];
+      } else if (Array.isArray(q.options)) {
+        const foundIdx = q.options.findIndex((o) => String(o).trim().toLowerCase() === q.correctAnswer.toString().trim().toLowerCase());
+        if (foundIdx >= 0 && foundIdx < OPTION_LETTERS.length) {
+          correctLetter = OPTION_LETTERS[foundIdx];
+        } else {
+          correctLetter = q.correctAnswer || "A";
+        }
+      } else {
+        correctLetter = q.correctAnswer || "A";
+      }
+    }
+  }
+  lines.push(`Correct: ${correctLetter}`);
+  const explanation = q.explanation || q.solution;
+  if (explanation && explanation.trim()) {
+    lines.push(`Explanation: ${explanation.trim()}`);
+  } else {
+    lines.push("Explanation: ");
+  }
+  if (q.explanationImageUrl) {
+    lines.push(`ExplanationImage: ${q.explanationImageUrl}`);
+  }
+  if (q.hint && q.hint.trim()) {
+    lines.push(`Hint: ${q.hint.trim()}`);
+  }
+  return lines.join("\n");
+}
+function formatTestToText(test) {
+  const headerLines = [];
+  const rawTitle = (test.title || "").trim();
+  headerLines.push(`Title: ${rawTitle.toLowerCase() === "untitled assessment" ? "" : rawTitle}`);
+  const rawTopic = (test.topic || "").trim();
+  headerLines.push(`Topic: ${rawTopic.toLowerCase() === "general mathematics" ? "" : rawTopic}`);
+  const timeLimit = test.timeLimitMinutes ?? test.time ?? 15;
+  headerLines.push(`Time: ${timeLimit}`);
+  if (test.description && test.description.trim()) {
+    headerLines.push(`Description: ${test.description.trim()}`);
+  }
+  const questions = test.questions || [];
+  if (questions.length === 0) {
+    return headerLines.join("\n");
+  }
+  const formattedQuestions = questions.map((q, idx) => formatQuestionToText(q, idx));
+  return `${headerLines.join("\n")}
+
+${formattedQuestions.join("\n\n")}
+`;
+}
+
+// src/server/testStudioAiServices.ts
 var CANDIDATE_MODELS2 = [
   "gemini-flash-lite-latest",
   "gemini-3.1-flash-lite",
@@ -2985,6 +3074,10 @@ Return ONLY raw JSON without markdown fences.`;
       const changeSummary = parsed?.changeSummary || parsedTest?.changeSummary || `Updated assessment based on: "${prompt.slice(0, 60)}"`;
       delete parsedTest.changeSummary;
       if (parsed) delete parsed.changeSummary;
+      try {
+        parsedTest.testCode = formatTestToText(parsedTest);
+      } catch {
+      }
       return res.json({ test: parsedTest, changeSummary });
     }
     throw new Error("Invalid format or no Gemini API response received");
@@ -3116,6 +3209,10 @@ Return ONLY raw JSON without markdown fences.`;
         modifiedTest.questions[0].explanation = `Updated explanation: Detailed analysis for prompt "${rawPrompt.slice(0, 40)}...". Verified result: $${modifiedTest.questions[0].correctAnswer}$.`;
       }
       summary = `Updated test assessment based on prompt: "${rawPrompt.slice(0, 50)}"`;
+    }
+    try {
+      modifiedTest.testCode = formatTestToText(modifiedTest);
+    } catch {
     }
     return res.json({ test: modifiedTest, changeSummary: summary });
   }

@@ -21,6 +21,7 @@ import { MathTest, normalizeQuestions, checkIsOptionCorrect } from '../types';
 import { MathRenderer } from './MathRenderer';
 import { QuestionDiagramViewer } from './QuestionDiagramViewer';
 import { APP_STYLES } from './ui/AppStyles';
+import { formatTestToText } from '../utils/testFormatConverter';
 
 export interface ParsedTestAction {
   action: 'CREATE_TEST' | 'UPDATE_TEST' | 'DELETE_TEST';
@@ -114,13 +115,15 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
       }
     }
 
-    return {
+    const finalTest: MathTest = {
       ...existingTest,
       ...test,
       id: existingTest.id,
       questions: normalizeQuestions(mergedQuestions),
       updatedAt: new Date().toISOString()
     };
+    finalTest.testCode = formatTestToText(finalTest);
+    return finalTest;
   }, [existingTest, isUpdate, test]);
 
   const questionsCount = Array.isArray(effectiveTest.questions) ? effectiveTest.questions.length : 0;
