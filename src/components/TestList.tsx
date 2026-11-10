@@ -376,6 +376,56 @@ export const TestList: React.FC<TestListProps> = ({
     id: 'test_details_modal',
   });
 
+  // Synchronize status bar theme-color for Detailed Test overlay to match page body (#e5e9f0 light / #0b0c10 dark)
+  useEffect(() => {
+    if (!detailedTest) return;
+
+    const syncDetailStatusBar = () => {
+      try {
+        const isDark = document.documentElement.classList.contains('dark');
+        const targetColor = isDark ? '#0b0c10' : '#e5e9f0';
+
+        const metaThemeColors = document.querySelectorAll('meta[name="theme-color"]');
+        if (metaThemeColors.length > 0) {
+          metaThemeColors.forEach((el) => {
+            el.removeAttribute('media');
+            el.setAttribute('content', targetColor);
+          });
+        } else {
+          const newMeta = document.createElement('meta');
+          newMeta.name = 'theme-color';
+          newMeta.content = targetColor;
+          document.head.appendChild(newMeta);
+        }
+
+        const appleStatusBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+        if (appleStatusBar) {
+          appleStatusBar.setAttribute('content', isDark ? 'black-translucent' : 'default');
+        }
+      } catch (err) {
+        console.warn('Status bar theme color sync error in TestList detail:', err);
+      }
+    };
+
+    syncDetailStatusBar();
+
+    const observer = new MutationObserver(() => syncDetailStatusBar());
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+    return () => {
+      observer.disconnect();
+      try {
+        const isDark = document.documentElement.classList.contains('dark');
+        const defaultColor = isDark ? '#0b0c10' : '#e5e9f0';
+        const metaThemeColors = document.querySelectorAll('meta[name="theme-color"]');
+        metaThemeColors.forEach((el) => {
+          el.removeAttribute('media');
+          el.setAttribute('content', defaultColor);
+        });
+      } catch {}
+    };
+  }, [detailedTest]);
+
   // Group attempts by testId, normalized test identifier, and test title
   const attemptsByTestId = useMemo(() => {
     const map = new Map<string, TestAttempt[]>();
@@ -821,11 +871,11 @@ export const TestList: React.FC<TestListProps> = ({
                 animate="animate"
                 exit="exit"
                 style={gpuAcceleratedStyle}
-                className="bg-[#e5e9f0] dark:bg-[#111318] text-[#1f1f1f] dark:text-[#e3e3e3] w-full h-full max-w-none max-h-none rounded-none flex flex-col shadow-none overflow-hidden"
+                className="bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] w-full h-full max-w-none max-h-none rounded-none flex flex-col shadow-none overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Full-View Header */}
-                <div className="px-4 py-3.5 sm:px-6 sm:py-4 flex items-center justify-between gap-4 bg-transparent border-0 shadow-none shrink-0">
+                <div className="px-4 py-3.5 sm:px-6 sm:py-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] flex items-center justify-between gap-4 bg-transparent border-0 shadow-none shrink-0">
                   <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                     <div className="min-w-0">
                       <h2 className="font-bold text-base sm:text-xl text-[#1f1f1f] dark:text-[#e3e3e3] tracking-tight truncate">

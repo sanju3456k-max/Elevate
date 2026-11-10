@@ -406,7 +406,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
         });
       } catch {}
     };
-  }, [fullScreenChapterId]);
+  }, [fullScreenChapterId, selectedSubtopicQuestionsModal]);
 
   // Guarantee clean scroll reset on mount
   useEffect(() => {
@@ -1950,7 +1950,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                             </div>
 
                             {/* Embedded Sparkles Actionable Recommendation Box */}
-                            <div className="p-3 rounded-2xl bg-[#d3e3fd]/40 dark:bg-[#004a77]/30 border-0 ring-0 shadow-xs flex items-start gap-2 text-xs text-slate-800 dark:text-zinc-200 mt-1">
+                            <div className="p-3 rounded-2xl bg-[#d3e3fd]/70 dark:bg-[#004a77]/50 border border-[#0b57d0]/20 dark:border-[#a8c7fa]/25 shadow-xs flex items-start gap-2 text-xs text-[#1f1f1f] dark:text-[#e3e3e3] mt-1">
                               <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0 mt-0.5" />
                               <p className="leading-relaxed font-medium text-[11px] sm:text-xs">
                                 {item.recommendation}
@@ -2272,13 +2272,20 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
               </div>
             </div>
 
-            {/* 2. Actionable Revision / AI Recommendation */}
+            {/* 2. Actionable Revision / AI Recommendation with Solid High-Contrast Card */}
             {fullScreenChapter.recommendation && (
-              <div className="p-3.5 sm:p-4 rounded-[24px] bg-[#d3e3fd]/40 dark:bg-[#004a77]/30 border border-[#0b57d0]/20 dark:border-[#a8c7fa]/20 shadow-xs flex items-start gap-3 text-xs text-slate-800 dark:text-zinc-200">
-                <Sparkles className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0 mt-0.5" />
-                <p className="leading-relaxed font-medium text-xs sm:text-sm">
-                  {fullScreenChapter.recommendation}
-                </p>
+              <div className="p-3.5 sm:p-4 rounded-[24px] bg-white dark:bg-[#1e2024] border border-[#0b57d0]/25 dark:border-[#a8c7fa]/25 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-start gap-3">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0 mt-0.5 shadow-none">
+                  <Sparkles className="w-4 h-4 stroke-[2.2]" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] uppercase tracking-wider mb-0.5">
+                    Concept Recommendation
+                  </div>
+                  <p className="leading-relaxed font-medium text-xs sm:text-sm text-[#1f1f1f] dark:text-[#e3e3e3]">
+                    {fullScreenChapter.recommendation}
+                  </p>
+                </div>
               </div>
             )}
 
@@ -2409,14 +2416,18 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                       {selectedSubtopicQuestionsModal.subtopicItem.statusBadge}
                     </span>
                   </div>
-                  <p className="text-[11px] sm:text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5 mt-0.5">
+                  <p className="text-[11px] sm:text-xs text-slate-600 dark:text-zinc-300 font-medium truncate flex items-center gap-1.5 mt-0.5">
                     <span>
-                      {selectedSubtopicQuestionsModal.subtopicItem.correctCount}/{selectedSubtopicQuestionsModal.subtopicItem.totalQuestions} Correct
+                      <strong className="font-bold text-[#0b57d0] dark:text-[#a8c7fa]">{selectedSubtopicQuestionsModal.subtopicItem.correctCount}/{selectedSubtopicQuestionsModal.subtopicItem.totalQuestions}</strong> Correct
                     </span>
                     <span>•</span>
-                    <span>{selectedSubtopicQuestionsModal.subtopicItem.wrongCount} Wrong</span>
+                    <span>
+                      <strong className="font-bold text-rose-600 dark:text-rose-400">{selectedSubtopicQuestionsModal.subtopicItem.wrongCount}</strong> Wrong
+                    </span>
                     <span>•</span>
-                    <span>{selectedSubtopicQuestionsModal.subtopicItem.skippedCount} Skipped</span>
+                    <span>
+                      <strong className="font-bold text-slate-700 dark:text-zinc-200">{selectedSubtopicQuestionsModal.subtopicItem.skippedCount}</strong> Skipped
+                    </span>
                   </p>
                 </div>
 
@@ -2436,13 +2447,19 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
 
           {/* Main Content Area */}
           <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-6 py-4 pb-16 space-y-4">
-            {/* Quick Diagnostic / Recommendation Banner if available */}
+            {/* Quick Diagnostic / Recommendation Banner with Solid High-Contrast Card */}
             {selectedSubtopicQuestionsModal.subtopicItem.recommendation && (
-              <div className="p-3.5 rounded-[24px] bg-[#d3e3fd]/40 dark:bg-[#004a77]/30 border-0 ring-0 shadow-xs flex items-start gap-2.5 text-xs sm:text-sm text-slate-800 dark:text-zinc-200">
-                <Sparkles className="w-4 h-4 shrink-0 text-[#0b57d0] dark:text-[#a8c7fa] mt-0.5" />
-                <div>
-                  <span className="font-bold">Concept Recommendation: </span>
-                  <span>{selectedSubtopicQuestionsModal.subtopicItem.recommendation}</span>
+              <div className="p-3.5 sm:p-4 rounded-[24px] bg-white dark:bg-[#1e2024] border border-[#0b57d0]/25 dark:border-[#a8c7fa]/25 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-start gap-3">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0 mt-0.5 shadow-none">
+                  <Sparkles className="w-4 h-4 stroke-[2.2]" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] uppercase tracking-wider mb-0.5">
+                    Concept Recommendation
+                  </div>
+                  <p className="leading-relaxed font-medium text-xs sm:text-sm text-[#1f1f1f] dark:text-[#e3e3e3]">
+                    {selectedSubtopicQuestionsModal.subtopicItem.recommendation}
+                  </p>
                 </div>
               </div>
             )}
