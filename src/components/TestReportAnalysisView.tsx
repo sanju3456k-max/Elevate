@@ -1448,20 +1448,20 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
             <div className="flex items-center gap-2 flex-wrap shrink-0">
               {/* Multi-Chapter View Mode Switcher: By Chapters vs All Concepts Radar */}
               {!isSingleChapter && (
-                <div className="flex items-center bg-slate-200/70 dark:bg-[#1e2024] p-0.5 rounded-full text-[11px] font-bold border border-slate-300/80 dark:border-zinc-700">
+                <div className="flex items-center bg-slate-100/80 dark:bg-[#141619] p-1 rounded-full gap-0.5 sm:gap-1 border border-slate-300 dark:border-zinc-700 shadow-xs shrink-0">
                   <button
                     type="button"
                     onClick={() => {
                       setMultiChapterViewMode('chapters');
                       setPerformanceFilter('all');
                     }}
-                    className={`px-2.5 py-1 rounded-full transition-all cursor-pointer flex items-center gap-1 ${
+                    className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold transition-all cursor-pointer border-0 ring-0 whitespace-nowrap flex items-center gap-1.5 shrink-0 ${
                       multiChapterViewMode === 'chapters'
-                        ? 'bg-white dark:bg-[#2c3040] text-slate-900 dark:text-white shadow-xs'
-                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
+                        ? 'bg-white dark:bg-[#282a30] text-slate-900 dark:text-white shadow-xs'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
-                    <Layers className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                    <Layers className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
                     <span>By Chapters</span>
                   </button>
                   <button
@@ -1470,13 +1470,13 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                       setMultiChapterViewMode('concepts');
                       setPerformanceFilter('all');
                     }}
-                    className={`px-2.5 py-1 rounded-full transition-all cursor-pointer flex items-center gap-1 ${
+                    className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold transition-all cursor-pointer border-0 ring-0 whitespace-nowrap flex items-center gap-1.5 shrink-0 ${
                       multiChapterViewMode === 'concepts'
-                        ? 'bg-white dark:bg-[#2c3040] text-slate-900 dark:text-white shadow-xs'
-                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
+                        ? 'bg-white dark:bg-[#282a30] text-slate-900 dark:text-white shadow-xs'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
-                    <Compass className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                    <Compass className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
                     <span>All Concepts Radar</span>
                   </button>
                 </div>
@@ -1597,7 +1597,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
 
           {/* VIEW 1: ALL CONCEPTS RADAR (When in Multi-Chapter mode and radar selected) */}
           {!isSingleChapter && multiChapterViewMode === 'concepts' ? (
-            <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2">
+            <div className="grid gap-2.5 sm:gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {filteredRadarConcepts.length > 0 ? (
                 filteredRadarConcepts.map((sub, sIdx) => {
                   return (
@@ -1736,6 +1736,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                           className="p-3.5 sm:p-4 flex items-center justify-between gap-2 cursor-pointer hover:bg-slate-50/80 dark:hover:bg-white/5 transition-colors select-none"
                         >
                           <div className="min-w-0 flex-1">
+                            {/* Row 1: Chapter Name & Subtopics Count */}
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100 truncate" title={item.topic}>
                                 {item.topic}
@@ -1746,18 +1747,23 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                                 </span>
                               )}
                             </div>
-                            
-                            <div className="text-[11px] text-slate-600 dark:text-zinc-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                              <span>
-                                {item.correctCount}/{item.totalQuestions} Correct {item.attemptedCount > 0 ? `(${item.accuracy}%)` : '(0% attempted)'}
+
+                            {/* Row 2: Strong & Practice Strip */}
+                            <div className="inline-flex items-center gap-2 sm:gap-2.5 px-2.5 py-0.5 mt-1.5 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[10.5px] font-semibold shrink-0">
+                              <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 inline-block" />
+                                <strong className="font-extrabold text-emerald-800 dark:text-emerald-200">{item.strongSubtopicsCount}</strong> Strong
                               </span>
-                              <span>•</span>
-                              <span>{item.wrongCount} Wrong</span>
-                              <span>•</span>
-                              <span>{item.skippedCount} Skipped</span>
+
+                              <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                              <span className="inline-flex items-center gap-1 text-rose-700 dark:text-rose-300">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0 inline-block" />
+                                <strong className="font-extrabold text-rose-800 dark:text-rose-200">{item.practiceSubtopicsCount}</strong> Practice
+                              </span>
                             </div>
 
-                            {/* Multi-Segment Concept Progress Bar */}
+                            {/* Metric Concept Progress Bar */}
                             <div className="w-full h-1.5 bg-slate-200/80 dark:bg-zinc-800 rounded-full overflow-hidden flex mt-2 max-w-md">
                               {item.strongSubtopicsCount > 0 && (
                                 <div
@@ -1779,24 +1785,6 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                                   className="bg-slate-300 dark:bg-zinc-600 h-full"
                                   title={`${item.unattemptedSubtopicsCount} Unattempted`}
                                 />
-                              )}
-                            </div>
-
-                            {/* Concept Mastery Distribution Badges */}
-                            <div className="flex items-center gap-2 mt-1.5 text-[10px] font-semibold flex-wrap">
-                              <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 inline-block" />
-                                {item.strongSubtopicsCount} Strong
-                              </span>
-                              <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0 inline-block" />
-                                {item.practiceSubtopicsCount} Practice
-                              </span>
-                              {item.unattemptedSubtopicsCount > 0 && (
-                                <span className="inline-flex items-center gap-1 text-slate-500 dark:text-zinc-400">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0 inline-block" />
-                                  {item.unattemptedSubtopicsCount} Skipped
-                                </span>
                               )}
                             </div>
                           </div>
@@ -1976,13 +1964,49 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                       </div>
 
                       {/* Stats Bar Footer */}
-                      <div className="p-3 sm:px-4 py-2.5 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between text-xs text-slate-600 dark:text-zinc-400 bg-slate-50/50 dark:bg-white/[0.02]">
-                        <span className="font-semibold text-[11px]">
-                          Score: <strong className="text-slate-900 dark:text-zinc-100">{item.correctCount}/{item.totalQuestions}</strong> ({item.accuracy}%)
-                        </span>
-                        <span className="text-[10.5px]">
-                          {item.correctCount} Correct • {item.wrongCount} Wrong • {item.skippedCount} Skipped
-                        </span>
+                      <div className="p-2.5 sm:px-4 py-2 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-2 text-xs text-slate-600 dark:text-zinc-400 bg-slate-50/50 dark:bg-white/[0.02] flex-wrap">
+                        {/* Enlarged Score on the Left */}
+                        <div className="flex items-center gap-1.5" title="Chapter Score">
+                          <Award className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                          <span className="font-semibold text-slate-600 dark:text-zinc-400 text-[11px]">Score:</span>
+                          <span className="text-sm sm:text-base font-black font-mono tracking-tight text-[#0b57d0] dark:text-[#a8c7fa]">
+                            {item.correctCount}/{item.totalQuestions}
+                          </span>
+                          <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">
+                            ({item.accuracy}%)
+                          </span>
+                        </div>
+
+                        {/* Combined Correct, Wrong, Skipped Pill at Bottom Right Corner */}
+                        <div className="inline-flex items-center gap-2 sm:gap-2.5 px-3 py-1 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[11px] font-medium text-[#1f1f1f] dark:text-[#e3e3e3] flex-wrap shrink-0 ml-auto">
+                          {/* Correct */}
+                          <div className="flex items-center gap-1.5" title="Correct Questions">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                            <span>
+                              <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{item.correctCount}</strong> Correct
+                            </span>
+                          </div>
+
+                          <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                          {/* Wrong */}
+                          <div className="flex items-center gap-1.5" title="Wrong Questions">
+                            <XCircle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400 stroke-[2.2] shrink-0" />
+                            <span>
+                              <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{item.wrongCount}</strong> Wrong
+                            </span>
+                          </div>
+
+                          <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                          {/* Skipped */}
+                          <div className="flex items-center gap-1.5" title="Skipped Questions">
+                            <MinusCircle className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] stroke-[2.2] shrink-0" />
+                            <span>
+                              <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{item.skippedCount}</strong> Skipped
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   );
@@ -2180,21 +2204,19 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3 mt-2 text-[11px] font-semibold flex-wrap">
-                    <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  {/* Strong & Practice Strip Under Metric Bar */}
+                  <div className="inline-flex items-center gap-2.5 sm:gap-3 px-3 py-1 mt-2 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[11px] font-semibold shrink-0">
+                    <span className="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300">
                       <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      {fullScreenChapter.strongSubtopicsCount} Strong
+                      <strong className="font-extrabold text-emerald-800 dark:text-emerald-200">{fullScreenChapter.strongSubtopicsCount}</strong> Strong
                     </span>
-                    <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400">
+
+                    <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                    <span className="inline-flex items-center gap-1.5 text-rose-700 dark:text-rose-300">
                       <span className="w-2 h-2 rounded-full bg-rose-500" />
-                      {fullScreenChapter.practiceSubtopicsCount} Needs Practice
+                      <strong className="font-extrabold text-rose-800 dark:text-rose-200">{fullScreenChapter.practiceSubtopicsCount}</strong> Practice
                     </span>
-                    {fullScreenChapter.unattemptedSubtopicsCount > 0 && (
-                      <span className="inline-flex items-center gap-1 text-slate-500 dark:text-zinc-400">
-                        <span className="w-2 h-2 rounded-full bg-slate-400" />
-                        {fullScreenChapter.unattemptedSubtopicsCount} Unattempted
-                      </span>
-                    )}
                   </div>
                 </div>
 

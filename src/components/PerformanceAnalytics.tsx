@@ -323,6 +323,21 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
     return `${s}s`;
   };
 
+  const formatDateTime = (dateStr?: string) => {
+    if (!dateStr) return 'Recent';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return 'Recent';
+      const month = d.toLocaleDateString('en-US', { month: 'short' });
+      const day = d.getDate();
+      const yr = d.getFullYear();
+      const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+      return `${month} ${day}, ${yr} • ${time}`;
+    } catch {
+      return 'Recent';
+    }
+  };
+
   const formatSimpleDate = (dateStr: string) => {
     try {
       const d = new Date(dateStr);
@@ -831,18 +846,20 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
               const unansweredCount = Math.max(0, totalQuestions - attemptedCount);
 
               const accuracy = attemptedCount > 0 ? Math.round((correctCount / attemptedCount) * 100) : 0;
+              const precision = latest.percentage !== undefined 
+                ? latest.percentage 
+                : (totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0);
               const isLatestOmr = isAttemptOmrMode(latest);
 
               return (
                 <div
                   key={group.groupKey}
                   id={`history-test-card-${group.groupKey}`}
-                  onClick={() => setSelectedReportAttempt(latest)}
-                  className="bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] rounded-[24px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 flex flex-col justify-between gap-2.5 sm:gap-3 p-4 sm:p-5 cursor-pointer group"
+                  className="bg-white dark:bg-[#1e2024] rounded-[24px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-all duration-200 flex flex-col justify-between gap-2.5 sm:gap-3 p-4 sm:p-5"
                 >
                   {/* Row 1: Test Title & Mode Tag with Minimal Rank Badge */}
                   <div className="flex items-start justify-between gap-2.5">
-                    <h3 className="font-semibold text-base sm:text-lg text-[#1f1f1f] dark:text-[#e3e3e3] transition-colors truncate tracking-tight flex-1 min-w-0 group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] pt-0.5">
+                    <h3 className="font-semibold text-base sm:text-lg text-[#1f1f1f] dark:text-[#e3e3e3] transition-colors truncate tracking-tight flex-1 min-w-0 pt-0.5">
                       {group.testTitle}
                     </h3>
 
@@ -871,75 +888,84 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                     </div>
                   </div>
 
-                  {/* Row 2: Date, Time Taken, Accuracy & Score in Single Unified Strip */}
-                  <div className="flex items-center gap-2 sm:gap-2.5 text-[#444746] dark:text-[#c4c7c5] text-[11px] font-bold flex-wrap">
-                    <div className="flex items-center gap-1.5" title="Completion Date">
-                      <Calendar className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
-                      <span>{formatSimpleDate(latest.completedAt || latest.createdAt)}</span>
-                    </div>
+                  {/* Row 2: Date Strip + Combined Accuracy/Precision Strip (Left) + Time Spent Strip (Rightwards) */}
+                  <div className="flex items-center justify-between gap-2 text-[#444746] dark:text-[#c4c7c5] text-[11px] font-bold flex-wrap">
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                      {/* Date Strip */}
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[#444746] dark:text-[#c4c7c5] text-[11px] font-semibold shrink-0" title="Completion Date">
+                        <Calendar className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                        <span className="font-semibold text-[#1f1f1f] dark:text-[#e3e3e3]">{formatSimpleDate(latest.completedAt || latest.createdAt) || 'Recent'}</span>
+                      </div>
 
-                    {latest.timeSpentSeconds ? (
-                      <>
-                        <span className="text-[#444746] dark:text-[#c4c7c5] font-medium">•</span>
-                        <div className="flex items-center gap-1.5" title="Time Spent">
-                          <Clock className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400 stroke-[2.2] shrink-0" />
-                          <span>{formatDuration(latest.timeSpentSeconds)}</span>
+                      {/* Combined Accuracy & Precision Strip */}
+                      <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[#444746] dark:text-[#c4c7c5] text-[11px] font-semibold shrink-0" title="Accuracy & Precision">
+                        <div className="flex items-center gap-1" title="Accuracy">
+                          <Target className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                          <span>Acc</span>
+                          <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{accuracy}%</strong>
                         </div>
-                      </>
+
+                        <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                        <div className="flex items-center gap-1" title="Precision / Overall Percentage">
+                          <Percent className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 stroke-[2.2] shrink-0" />
+                          <span>Precision</span>
+                          <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{precision}%</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Time Spent Strip (Rightwards in first row) */}
+                    {latest.timeSpentSeconds ? (
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[#444746] dark:text-[#c4c7c5] text-[11px] font-bold shrink-0 ml-auto sm:ml-0" title="Time Spent">
+                        <Clock className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400 stroke-[2.2] shrink-0" />
+                        <span>{formatDuration(latest.timeSpentSeconds)}</span>
+                      </div>
                     ) : null}
-
-                    <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
-
-                    {/* Accuracy */}
-                    <div className="flex items-center gap-1 text-[#1f1f1f] dark:text-[#e3e3e3]" title="Accuracy">
-                      <Target className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
-                      <span>Acc</span>
-                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{accuracy}%</strong>
-                    </div>
-
-                    <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
-
-                    {/* Score */}
-                    <div className="flex items-center gap-1 text-[#1f1f1f] dark:text-[#e3e3e3]" title="Score">
-                      <Award className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
-                      <span>Score</span>
-                      <strong className="text-[#0b57d0] dark:text-[#a8c7fa] font-extrabold">{correctCount}/{totalQuestions}</strong>
-                    </div>
                   </div>
 
-                  {/* Row 3: Correct, Wrong, Skipped Question Breakdown */}
-                  <div className="flex items-center gap-2 sm:gap-2.5 text-[#1f1f1f] dark:text-[#e3e3e3] text-[11px] font-medium pt-0.5 flex-wrap">
-                    {/* Correct */}
-                    <div className="flex items-center gap-1.5" title="Correct Questions">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
-                      <span>
-                        <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{correctCount}</strong> <span>correct</span>
-                      </span>
+                  {/* Row 3: Combined Correct, Wrong, Skipped Strip (Left) + Score Strip (Rightwards) */}
+                  <div className="flex items-center justify-between gap-2 pt-0.5 flex-wrap">
+                    <div className="inline-flex items-center gap-2 sm:gap-2.5 px-3 py-1 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-[11px] font-medium flex-wrap shrink-0">
+                      {/* Correct */}
+                      <div className="flex items-center gap-1.5" title="Correct Questions">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                        <span>
+                          <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{correctCount}</strong> correct
+                        </span>
+                      </div>
+
+                      <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                      {/* Wrong */}
+                      <div className="flex items-center gap-1.5" title="Incorrect Questions">
+                        <XCircle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400 stroke-[2.2] shrink-0" />
+                        <span>
+                          <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{wrongCount}</strong> wrong
+                        </span>
+                      </div>
+
+                      <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                      {/* Skipped */}
+                      <div className="flex items-center gap-1.5" title="Skipped / Unanswered Questions">
+                        <MinusCircle className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] stroke-[2.2] shrink-0" />
+                        <span>
+                          <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{unansweredCount}</strong> skipped
+                        </span>
+                      </div>
                     </div>
 
-                    <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
-
-                    {/* Wrong */}
-                    <div className="flex items-center gap-1.5" title="Incorrect Questions">
-                      <XCircle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400 stroke-[2.2] shrink-0" />
-                      <span>
-                        <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{wrongCount}</strong> <span>wrong</span>
-                      </span>
-                    </div>
-
-                    <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
-
-                    {/* Skipped */}
-                    <div className="flex items-center gap-1.5" title="Skipped / Unanswered Questions">
-                      <MinusCircle className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] stroke-[2.2] shrink-0" />
-                      <span>
-                        <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{unansweredCount}</strong> <span>skipped</span>
-                      </span>
+                    {/* Score Pill rightwards at consecutive row, with enlarged font - wraps gracefully on narrow screens */}
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#d3e3fd]/40 dark:bg-[#004a77]/30 text-[#0b57d0] dark:text-[#a8c7fa] text-xs sm:text-[13px] font-extrabold shrink-0 ml-auto" title="Score">
+                      <Award className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                      <span className="text-slate-600 dark:text-zinc-400 font-semibold text-[11px]">Score:</span>
+                      <span className="text-sm sm:text-base font-black font-mono tracking-tight text-[#0b57d0] dark:text-[#a8c7fa]">{correctCount}/{totalQuestions}</span>
                     </div>
                   </div>
 
                   {/* Row 4: Single Unified Row for 'View all attempts' (Left) & 'Analysis' + 'Solutions' (Right) on All Devices */}
-                  <div className="flex items-center justify-between gap-2 pt-1 mt-0.5">
+                  <div className="flex items-center justify-between gap-2 pt-1 mt-0.5 flex-wrap">
                     {group.totalAttempts > 1 ? (
                       <button
                         type="button"
@@ -956,7 +982,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                     )}
 
                     {/* Action Buttons: Report & Solutions */}
-                    <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                    <div className="flex items-center gap-1.5 shrink-0 ml-auto flex-wrap">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -998,27 +1024,39 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                             const attCorrect = attAnswers.filter((a: any) => a.isCorrect).length || Math.round((att.score / (att.totalPoints || 1)) * attTotalQs);
                             const attAttempted = attAnswers.filter((a: any) => a.selectedOption && a.selectedOption.trim() !== '').length || attCorrect;
                             const attAcc = attAttempted > 0 ? Math.round((attCorrect / attAttempted) * 100) : 0;
+                            const attPrecision = att.percentage !== undefined ? att.percentage : (attTotalQs > 0 ? Math.round((attCorrect / attTotalQs) * 100) : 0);
                             const attTime = att.timeSpentSeconds ? formatDuration(att.timeSpentSeconds) : null;
 
                             return (
                               <div
                                 key={att.id}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedReportAttempt(att);
-                                }}
-                                className={`p-3 rounded-[18px] transition-all cursor-pointer ${
+                                className={`p-3 rounded-[18px] transition-all ${
                                   isFirst
                                     ? 'bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20'
-                                    : 'bg-[#f8fafd] dark:bg-[#16181c] hover:bg-[#f0f4f9] dark:hover:bg-[#1f2228] border-0'
+                                    : 'bg-[#f8fafd] dark:bg-[#16181c] border-0'
                                 }`}
                               >
-                                <div className="flex items-center justify-between gap-2">
-                                  <div className="flex items-center gap-1.5 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0 pt-0.5">
                                     <span className="text-xs font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
                                       Attempt #{attemptNum} {idx === 0 ? '(Latest)' : isFirst ? '(First Attempt)' : ''}
                                     </span>
-                                    <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-bold uppercase ${
+                                  </div>
+
+                                  <div className="flex flex-col items-end gap-1 shrink-0">
+                                    {/* Rank badge shown strictly on verified first attempt */}
+                                    {isFirst && firstRank ? (
+                                      <span 
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold bg-amber-500/15 text-amber-800 dark:text-amber-300 border-0 shrink-0"
+                                        title="Verified leaderboard rank from first attempt"
+                                      >
+                                        <Trophy className="w-2.5 h-2.5 text-amber-500 stroke-[2.2]" />
+                                        <span>Rank {firstRank.rank}</span>
+                                      </span>
+                                    ) : null}
+
+                                    {/* Mode Tag under rank */}
+                                    <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-bold uppercase shrink-0 ${
                                       attIsOmr
                                         ? 'bg-[#c4eed0] text-[#072711] dark:bg-[#0f5223] dark:text-[#c4eed0]'
                                         : 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff]'
@@ -1026,17 +1064,6 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                                       {attIsOmr ? 'OMR' : 'Online'}
                                     </span>
                                   </div>
-
-                                  {/* Rank badge shown strictly on verified first attempt */}
-                                  {isFirst && firstRank ? (
-                                    <span 
-                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-800 dark:text-amber-300 border-0 shrink-0"
-                                      title="Verified leaderboard rank from first attempt"
-                                    >
-                                      <Trophy className="w-2.5 h-2.5 text-amber-500 stroke-[2.2]" />
-                                      <span>Rank {firstRank.rank}</span>
-                                    </span>
-                                  ) : null}
                                 </div>
 
                                 <div className="flex items-center justify-between text-[10.5px] text-[#5e5e5e] dark:text-[#9aa0a6] mt-1.5 flex-wrap gap-1.5">
@@ -1046,6 +1073,8 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                                     </span>
                                     <span>•</span>
                                     <span>Acc {attAcc}%</span>
+                                    <span>•</span>
+                                    <span>Precision {attPrecision}%</span>
                                     {attTime && (
                                       <>
                                         <span>•</span>
@@ -1057,7 +1086,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                                     )}
                                   </div>
 
-                                  <div className="flex items-center gap-1.5 ml-auto">
+                                  <div className="flex items-center gap-1.5 ml-auto flex-wrap">
                                     <span>{formatSimpleDate(att.completedAt || att.createdAt)}</span>
                                     <button
                                       type="button"

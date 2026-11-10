@@ -34,7 +34,7 @@ import {
 import type { MathTest, TestAttempt, ActiveTestSession, UserProfile, TestHistoryEntry } from '../types';
 import { getAllAvailableTopics } from '../utils/topics';
 import { isAttemptOmrMode, pruneAttemptsToFirstAndLast } from '../lib/storage';
-import { searchCloudTests } from '../lib/firebase';
+import { searchCloudTests, fetchTestLeaderboard, getLocalLeaderboardEntries } from '../lib/firebase';
 import { createShareUrlAsync, formatTestShareMessage } from '../utils/shareUtils';
 import type { User } from 'firebase/auth';
 import { useScrollLock } from '../hooks/useScrollLock';
@@ -265,6 +265,76 @@ export const TestList: React.FC<TestListProps> = ({
   const [detailedTest, setDetailedTest] = useState<MathTest | null>(null);
   const [isCopiedDetailedTest, setIsCopiedDetailedTest] = useState<boolean>(false);
   const [leaderboardTest, setLeaderboardTest] = useState<MathTest | null>(null);
+  const [testRanks, setTestRanks] = useState<Record<string, { rank: number; total?: number }>>({});
+
+  // Asynchronously resolve leaderboard rank for detailed test
+  useEffect(() => {
+    let isMounted = true;
+    if (!detailedTest) return;
+    const key = `${detailedTest.id || ''}:::${detailedTest.title || ''}`;
+
+    (async () => {
+      try {
+        const summary = await fetchTestLeaderboard(detailedTest.id, detailedTest.title);
+        if (!isMounted || !summary) return;
+
+        let rank = summary.currentUserRank || summary.currentUserEntry?.rank;
+        if (!rank && summary.entries?.length) {
+          const currentUid = currentUser?.uid;
+          const currentName = currentUser?.displayName;
+          const match = summary.entries.find(e => 
+            (currentUid && e.userId === currentUid) || 
+            (currentName && e.userName && e.userName.toLowerCase() === currentName.toLowerCase())
+          );
+          if (match?.rank) {
+            rank = match.rank;
+          }
+        }
+
+        if (rank) {
+          setTestRanks(prev => ({
+            ...prev,
+            [key]: {
+              rank,
+              total: summary.totalParticipants || summary.entries.length
+            }
+          }));
+        }
+      } catch {}
+    })();
+
+    return () => { isMounted = false; };
+  }, [detailedTest, currentUser?.uid, currentUser?.displayName]);
+
+  // Helper to resolve verified leaderboard rank for an attempt card
+  const getAttemptRank = (testItem: MathTest, attemptItem: TestAttempt) => {
+    const key = `${testItem.id || ''}:::${testItem.title || ''}`;
+    if (testRanks[key]) {
+      return testRanks[key];
+    }
+    const entries = getLocalLeaderboardEntries(testItem.id, testItem.title);
+    const uid = attemptItem.userId || currentUser?.uid;
+    const uname = attemptItem.userName || currentUser?.displayName;
+    let list = [...entries];
+    const hasMatch = list.some(e => (uid && e.userId === uid) || (uname && e.userName === uname));
+    if (!hasMatch && attemptItem.score !== undefined) {
+      list.push({
+        userId: uid || 'current',
+        userName: uname || 'Learner',
+        score: attemptItem.score,
+        timeSpentSeconds: attemptItem.timeSpentSeconds || 0,
+      } as any);
+    }
+    list.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return (a.timeSpentSeconds || 0) - (b.timeSpentSeconds || 0);
+    });
+    const matchIdx = list.findIndex(e => (uid && e.userId === uid) || (uname && e.userName === uname));
+    if (matchIdx >= 0) {
+      return { rank: matchIdx + 1, total: list.length };
+    }
+    return null;
+  };
 
   const handleShareDetailedTest = async (e: React.MouseEvent, testToShare: MathTest) => {
     e.stopPropagation();
@@ -873,6 +943,7 @@ export const TestList: React.FC<TestListProps> = ({
                           return `${m}m ${s}s`;
                         };
                         const timeTakenStr = formatAttemptDuration(attempt);
+                        const testRank = getAttemptRank(detailedTest, attempt);
 
                         return (
                           <div 
@@ -880,45 +951,81 @@ export const TestList: React.FC<TestListProps> = ({
                             className="p-4 sm:p-5 rounded-[28px] bg-white dark:bg-[#1e2024] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-3 transition-all flex flex-col justify-between"
                           >
                             <div className="space-y-2.5">
-                              {/* Row 1: Attempt Label & Mode Tag */}
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-[11px] font-bold tracking-widest text-[#5e5e5e] dark:text-[#9aa0a6] uppercase truncate flex-1 min-w-0">
+                              {/* Row 1: Attempt Label & Mode Tag with Minimal Rank Badge */}
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="text-[11px] font-bold tracking-widest text-[#5e5e5e] dark:text-[#9aa0a6] uppercase truncate flex-1 min-w-0 pt-0.5">
                                   {label}
                                 </span>
-                                <span className={`px-2.5 py-0.5 rounded-[28px] text-[10.5px] font-bold tracking-wider uppercase border-0 outline-none shadow-none shrink-0 ${
-                                  isOmr
-                                    ? 'bg-[#c4eed0] dark:bg-[#0f5223] text-[#072711] dark:text-[#c4eed0]'
-                                    : 'bg-[#d3e3fd] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff]'
-                                }`}>
-                                  {modeLabel}
-                                </span>
-                              </div>
 
-                              {/* Row 2: Date and Time in Single Strip with Month Name & Duration */}
-                              <div className="flex items-center justify-between gap-2 text-[11px] font-medium text-[#444746] dark:text-[#c4c7c5] flex-wrap">
-                                <div className="flex items-center gap-1.5" title="Completion Date">
-                                  <Calendar className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
-                                  <span className="font-semibold text-[#1f1f1f] dark:text-[#e3e3e3]">
-                                    {formatDateTime(attempt.completedAt || attempt.createdAt)}
+                                <div className="flex flex-col items-end gap-1 shrink-0">
+                                  {/* Rank badge on top */}
+                                  {testRank && (
+                                    <span 
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-[10.5px] font-bold bg-amber-500/15 text-amber-800 dark:text-amber-300 shrink-0 border-0 ring-0 shadow-none"
+                                      title={`Verified Standing: Rank ${testRank.rank}${testRank.total ? ` of ${testRank.total}` : ''}`}
+                                    >
+                                      <Trophy className="w-2.5 h-2.5 text-amber-500 stroke-[2.2] shrink-0" />
+                                      <span>Rank {testRank.rank}</span>
+                                    </span>
+                                  )}
+
+                                  {/* Mode Tag under rank */}
+                                  <span className={`px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold uppercase shrink-0 border-0 outline-none ${
+                                    isOmr
+                                      ? 'bg-[#c4eed0] text-[#072711] dark:bg-[#0f5223] dark:text-[#c4eed0]'
+                                      : 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff]'
+                                  }`}>
+                                    {modeLabel}
                                   </span>
                                 </div>
+                              </div>
 
+                              {/* Row 2: Date & Time Strip + Combined Accuracy/Precision Strip (Left) + Time Taken Strip (Right End) */}
+                              <div className="flex items-center justify-between gap-2 text-[11px] font-medium text-[#444746] dark:text-[#c4c7c5] flex-wrap">
+                                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                                  {/* Date and Time Strip */}
+                                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[#444746] dark:text-[#c4c7c5] text-[11px] font-semibold shrink-0" title="Completion Date & Time">
+                                    <Calendar className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                                    <span className="font-semibold text-[#1f1f1f] dark:text-[#e3e3e3]">
+                                      {formatDateTime(attempt.completedAt || attempt.createdAt)}
+                                    </span>
+                                  </div>
+
+                                  {/* Combined Accuracy & Precision Strip */}
+                                  <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[#444746] dark:text-[#c4c7c5] text-[11px] font-semibold shrink-0" title="Accuracy & Precision">
+                                    <div className="flex items-center gap-1" title="Accuracy">
+                                      <Target className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                                      <span>Acc</span>
+                                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{accuracy}%</strong>
+                                    </div>
+
+                                    <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                                    <div className="flex items-center gap-1" title="Precision / Overall Percentage">
+                                      <Percent className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 stroke-[2.2] shrink-0" />
+                                      <span>Precision</span>
+                                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{precision}%</strong>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Time Taken tag placed in the same row at the right end */}
                                 {timeTakenStr && (
-                                  <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[#444746] dark:text-[#c4c7c5] text-[11px] font-bold" title="Time Taken">
+                                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[#444746] dark:text-[#c4c7c5] text-[11px] font-bold shrink-0 ml-auto sm:ml-0" title="Time Taken">
                                     <Clock className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400 stroke-[2.2] shrink-0" />
                                     <span>{timeTakenStr}</span>
                                   </div>
                                 )}
                               </div>
 
-                              {/* Row 3: Correct, Wrong, Skipped in Single Strip (matching Performance Analytics) */}
-                              <div className="flex items-center">
-                                <div className="inline-flex items-center gap-2 sm:gap-2.5 text-[#1f1f1f] dark:text-[#e3e3e3] text-[11px] font-medium shrink-0 flex-wrap">
+                              {/* Row 3: Combined Correct, Wrong, Skipped Strip (Left) + Score Strip (Immediately Right) */}
+                              <div className="flex items-center justify-between gap-2 text-[11px] pt-0.5 flex-wrap">
+                                <div className="inline-flex items-center gap-2 sm:gap-2.5 px-3 py-1 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-[11px] font-medium flex-wrap shrink-0">
                                   {/* Correct */}
                                   <div className="flex items-center gap-1.5" title="Correct Questions">
                                     <CheckCircle2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
                                     <span>
-                                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{correctCount}</strong> <span>correct</span>
+                                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{correctCount}</strong> correct
                                     </span>
                                   </div>
 
@@ -928,7 +1035,7 @@ export const TestList: React.FC<TestListProps> = ({
                                   <div className="flex items-center gap-1.5" title="Incorrect Questions">
                                     <XCircle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400 stroke-[2.2] shrink-0" />
                                     <span>
-                                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{wrongCount}</strong> <span>wrong</span>
+                                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{wrongCount}</strong> wrong
                                     </span>
                                   </div>
 
@@ -938,39 +1045,16 @@ export const TestList: React.FC<TestListProps> = ({
                                   <div className="flex items-center gap-1.5" title="Skipped / Unattempted Questions">
                                     <MinusCircle className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] stroke-[2.2] shrink-0" />
                                     <span>
-                                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{unansweredCount}</strong> <span>skipped</span>
+                                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{unansweredCount}</strong> skipped
                                     </span>
                                   </div>
                                 </div>
-                              </div>
 
-                              {/* Row 4: Accuracy, Precision, and Score in Single Strip (matching Performance Analytics) */}
-                              <div className="flex items-center">
-                                <div className="inline-flex items-center gap-2 sm:gap-2.5 text-[#1f1f1f] dark:text-[#e3e3e3] text-[11px] font-semibold shrink-0 flex-wrap">
-                                  {/* Accuracy */}
-                                  <div className="flex items-center gap-1" title="Accuracy">
-                                    <Target className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
-                                    <span>Acc</span>
-                                    <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{accuracy}%</strong>
-                                  </div>
-
-                                  <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
-
-                                  {/* Precision */}
-                                  <div className="flex items-center gap-1" title="Precision">
-                                    <Percent className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 stroke-[2.2] shrink-0" />
-                                    <span>Precision</span>
-                                    <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{precision}%</strong>
-                                  </div>
-
-                                  <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
-
-                                  {/* Score */}
-                                  <div className="flex items-center gap-1" title="Score">
-                                    <Award className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
-                                    <span>Score</span>
-                                    <strong className="text-[#0b57d0] dark:text-[#a8c7fa] font-extrabold">{correctCount}/{totalQs}</strong>
-                                  </div>
+                                {/* Score Pill immediately at the right of the card with enlarged font */}
+                                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#d3e3fd]/40 dark:bg-[#004a77]/30 text-[#0b57d0] dark:text-[#a8c7fa] text-xs sm:text-[13px] font-extrabold shrink-0 ml-auto" title="Score">
+                                  <Award className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                                  <span className="text-slate-600 dark:text-zinc-400 font-semibold text-[11px]">Score:</span>
+                                  <span className="text-sm sm:text-base font-black font-mono tracking-tight text-[#0b57d0] dark:text-[#a8c7fa]">{correctCount}/{totalQs}</span>
                                 </div>
                               </div>
                             </div>
