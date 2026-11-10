@@ -2173,7 +2173,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
           {/* Main Full-Page Body Container with Pure White Background */}
           <main className="flex-1 max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 pb-12 space-y-4">
             {/* 1. Mastery Breakdown & Filter Controls Card */}
-            <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#181a20] ring-1 ring-black dark:ring-black border-0 space-y-3 shadow-none">
+            <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#1e2024] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 {/* Multi-Segment Concept Progress Bar & Mastery Counters */}
                 <div className="flex-1 max-w-lg">
@@ -2556,29 +2556,26 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                             const letter = String.fromCharCode(65 + optIdx);
                             const isActualCorrect = letter === correctOpt;
                             const isUserMarked = letter === userOpt;
-                            const ringStyle = isUserMarked
-                              ? 'ring-2 ring-black dark:ring-black'
-                              : 'ring-1 ring-black dark:ring-black';
+
+                            let optionClasses = 'bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] font-medium border border-slate-300 dark:border-zinc-700 shadow-none';
+                            let badgeClasses = 'bg-white dark:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border border-slate-300 dark:border-zinc-700';
+
+                            if (isActualCorrect) {
+                              optionClasses = 'bg-[#d3e3fd]/80 dark:bg-[#004a77]/60 text-[#041e49] dark:text-[#c2e7ff] font-bold border border-[#0b57d0] dark:border-[#a8c7fa] shadow-none';
+                              badgeClasses = 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49] font-black border-0 ring-0';
+                            } else if (isUserMarked && !isActualCorrect) {
+                              optionClasses = 'bg-rose-100/90 dark:bg-rose-950/60 text-rose-900 dark:text-rose-200 font-bold border border-rose-600 dark:border-rose-400 shadow-none';
+                              badgeClasses = 'bg-rose-600 dark:bg-rose-500 text-white font-black border-0 ring-0';
+                            }
 
                             return (
                               <div
                                 key={optIdx}
-                                className={`p-3 sm:p-3.5 rounded-[28px] flex items-start gap-3 transition-all text-left border-0 ${ringStyle} ${
-                                  isActualCorrect
-                                    ? 'bg-blue-100/90 dark:bg-blue-950/80 text-slate-900 dark:text-blue-100 font-bold shadow-xs'
-                                    : isUserMarked && !isActualCorrect
-                                    ? 'bg-rose-100/90 dark:bg-rose-950/60 text-rose-950 dark:text-rose-100 font-semibold shadow-xs'
-                                    : 'bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] shadow-xs'
-                                }`}
+                                style={{ borderWidth: '1px' }}
+                                className={`p-3 sm:p-3.5 rounded-[20px] sm:rounded-[24px] flex items-start gap-3 transition-all text-left ${optionClasses}`}
                               >
                                 <div
-                                  className={`w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full font-mono font-extrabold flex items-center justify-center shrink-0 text-xs sm:text-xs shadow-none border-0 mt-0.5 ${
-                                    isActualCorrect
-                                      ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49] font-black'
-                                      : isUserMarked && !isActualCorrect
-                                      ? 'bg-rose-600 text-white font-black'
-                                      : 'bg-[#f0f4f9] dark:bg-[#141619] text-slate-700 dark:text-zinc-300'
-                                  }`}
+                                  className={`w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full font-mono font-bold flex items-center justify-center shrink-0 text-xs mt-0.5 ${badgeClasses}`}
                                 >
                                   {letter}
                                 </div>
@@ -2591,8 +2588,8 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                                   <span
                                     className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full shrink-0 mt-0.5 ${
                                       isActualCorrect
-                                        ? 'bg-blue-200 text-blue-900 dark:bg-blue-900 dark:text-blue-100'
-                                        : 'bg-rose-200 text-rose-900 dark:bg-rose-900 dark:text-rose-100'
+                                        ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49]'
+                                        : 'bg-rose-600 text-white dark:bg-rose-500'
                                     }`}
                                   >
                                     Your Answer
