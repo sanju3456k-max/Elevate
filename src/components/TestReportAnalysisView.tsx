@@ -2157,13 +2157,6 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                         {fullScreenChapter.statusBadge}
                       </span>
                     </div>
-                    <p className="text-[11px] sm:text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5 mt-0.5">
-                      <span>{fullScreenChapter.correctCount}/{fullScreenChapter.totalQuestions} Correct ({fullScreenChapter.accuracy}%)</span>
-                      <span>•</span>
-                      <span>{fullScreenChapter.wrongCount} Wrong</span>
-                      <span>•</span>
-                      <span>{fullScreenChapter.skippedCount} Skipped</span>
-                    </p>
                   </div>
                 </div>
               </div>
@@ -2177,6 +2170,22 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 {/* Multi-Segment Concept Progress Bar & Mastery Counters */}
                 <div className="flex-1 max-w-lg">
+                  {/* Strong & Practice Pill Tag Shifted Above Metric Pill */}
+                  <div className="inline-flex items-center gap-2.5 sm:gap-3 px-3 py-1 mb-2 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[11px] font-semibold shrink-0">
+                    <span className="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <strong className="font-extrabold text-emerald-800 dark:text-emerald-200">{fullScreenChapter.strongSubtopicsCount}</strong> Strong
+                    </span>
+
+                    <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                    <span className="inline-flex items-center gap-1.5 text-rose-700 dark:text-rose-300">
+                      <span className="w-2 h-2 rounded-full bg-rose-500" />
+                      <strong className="font-extrabold text-rose-800 dark:text-rose-200">{fullScreenChapter.practiceSubtopicsCount}</strong> Practice
+                    </span>
+                  </div>
+
+                  {/* Multi-Segment Concept Progress Bar (Metric Pill) */}
                   <div className="w-full h-2 bg-slate-200/80 dark:bg-zinc-800 rounded-full overflow-hidden flex">
                     {fullScreenChapter.strongSubtopicsCount > 0 && (
                       <div
@@ -2201,20 +2210,14 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                     )}
                   </div>
 
-                  {/* Strong & Practice Strip Under Metric Bar */}
-                  <div className="inline-flex items-center gap-2.5 sm:gap-3 px-3 py-1 mt-2 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[11px] font-semibold shrink-0">
-                    <span className="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <strong className="font-extrabold text-emerald-800 dark:text-emerald-200">{fullScreenChapter.strongSubtopicsCount}</strong> Strong
-                    </span>
-
-                    <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
-
-                    <span className="inline-flex items-center gap-1.5 text-rose-700 dark:text-rose-300">
-                      <span className="w-2 h-2 rounded-full bg-rose-500" />
-                      <strong className="font-extrabold text-rose-800 dark:text-rose-200">{fullScreenChapter.practiceSubtopicsCount}</strong> Practice
-                    </span>
-                  </div>
+                  {/* Correct, Wrong, Skipped Tags Under Metric Pill */}
+                  <p className="text-[11px] sm:text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5 mt-2">
+                    <span>{fullScreenChapter.correctCount}/{fullScreenChapter.totalQuestions} Correct ({fullScreenChapter.accuracy}%)</span>
+                    <span>•</span>
+                    <span>{fullScreenChapter.wrongCount} Wrong</span>
+                    <span>•</span>
+                    <span>{fullScreenChapter.skippedCount} Skipped</span>
+                  </p>
                 </div>
 
                 {/* Concept Filter Pills - Restored to Previous Colored Capsule Style */}
