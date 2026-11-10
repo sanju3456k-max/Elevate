@@ -28,6 +28,7 @@ import { normalizeQuestions, type ActiveTab, type MathTest, type TestAttempt, ty
 import { triggerBlobDownload } from './lib/omrPrintDownload';
 import { Bot, Sparkles, Share2, Play, X } from 'lucide-react';
 import { decodeTestFromShareUrl } from './utils/shareUtils';
+import { parseTestFromText, formatTestToText, isJsonFormat } from './utils/testFormatConverter';
 import { 
   studioBackdropVariants, 
   studioModalVariants, 
@@ -428,7 +429,12 @@ export default function App() {
     if (importParam) {
       try {
         const decoded = decodeURIComponent(importParam);
-        const parsed = JSON.parse(decoded);
+        let parsed: any;
+        if (!isJsonFormat(decoded)) {
+          parsed = parseTestFromText(decoded, 'General Math');
+        } else {
+          parsed = JSON.parse(decoded);
+        }
         if (parsed && Array.isArray(parsed.questions) && parsed.questions.length > 0) {
           const deepTest: MathTest = {
             ...parsed,
@@ -1225,6 +1231,7 @@ export default function App() {
       createdAt: test.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       questions: normalizeQuestions(Array.isArray(test.questions) ? test.questions : []),
+      testCode: test.testCode || formatTestToText(test),
     };
 
     // Auto-compress heavy diagram payloads if document approaches Firestore 1MB limits
@@ -1372,12 +1379,19 @@ export default function App() {
     showToast(`Extracted ${validated.questions.length} math questions from photo scan!`, 'success');
   };
 
-  const handleExportJson = (test: MathTest) => {
-    const jsonStr = JSON.stringify(test, null, 2);
-    const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
+  const handleExportJson = (test: MathTest, format: 'txt' | 'json' = 'txt') => {
     const safeTitle = test.title.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
-    triggerBlobDownload(blob, `${safeTitle || 'math-test'}.json`);
-    showToast(`Exported "${test.title}" as JSON file`, 'info');
+    if (format === 'json') {
+      const jsonStr = JSON.stringify(test, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
+      triggerBlobDownload(blob, `${safeTitle || 'math-test'}.json`);
+      showToast(`Exported "${test.title}" as JSON file`, 'info');
+    } else {
+      const textContent = formatTestToText(test);
+      const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+      triggerBlobDownload(blob, `${safeTitle || 'math-test'}.txt`);
+      showToast(`Exported "${test.title}" as .txt file`, 'info');
+    }
   };
 
   // Analytics View Action

@@ -1229,7 +1229,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                   {attempt.testTitle || 'Test Report & Analysis'}
                 </h1>
                 {isOmr ? (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold bg-[#c4eed0] text-[#072711] dark:bg-[#0f5223] dark:text-[#c4eed0] shrink-0 border-0 outline-none">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold bg-[#ffe8d9] dark:bg-[#432313] text-[#ea580c] dark:text-[#ff9d5c] shrink-0 border-0 outline-none">
                     OMR
                   </span>
                 ) : (

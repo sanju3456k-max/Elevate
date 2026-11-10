@@ -72,6 +72,7 @@ export interface MathTest {
   createdAt?: string | number;
   updatedAt?: string | number;
   isLocalDraft?: boolean;
+  testCode?: string;
   _syncStatus?: 'synced' | 'pending' | 'failed';
 }
 

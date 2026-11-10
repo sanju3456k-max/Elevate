@@ -29,7 +29,11 @@ import {
   XCircle,
   MinusCircle,
   Target,
-  Percent
+  Percent,
+  BarChart2,
+  Eye,
+  RotateCcw,
+  Bookmark
 } from 'lucide-react';
 import type { MathTest, TestAttempt, ActiveTestSession, UserProfile, TestHistoryEntry } from '../types';
 import { getAllAvailableTopics } from '../utils/topics';
@@ -39,6 +43,7 @@ import { createShareUrlAsync, formatTestShareMessage } from '../utils/shareUtils
 import type { User } from 'firebase/auth';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useBackHandler } from '../hooks/useBackNavigation';
+import { TestReportAnalysisView } from './TestReportAnalysisView';
 import { 
   studioStaggerContainer, 
   studioStaggerItem, 
@@ -63,7 +68,7 @@ interface TestListProps {
   onEditTest: (test: MathTest) => void;
   onDeleteTest: (testId: string) => void;
   onViewAttemptResult?: (attempt: TestAttempt) => void;
-  onExportJson?: (test: MathTest) => void;
+  onExportJson?: (test: MathTest, format?: 'txt' | 'json') => void;
   onCreateNew?: () => void;
   onSignIn: () => void;
   searchQuery?: string;
@@ -185,6 +190,7 @@ export const TestList: React.FC<TestListProps> = ({
   const setSearchQuery = propSetSearchQuery || setLocalSearchQuery;
 
   const [selectedTopic, setSelectedTopic] = useState('All Topics');
+  const [selectedReportAttempt, setSelectedReportAttempt] = useState<TestAttempt | null>(null);
   const [isSearchExpanded, setIsSearchExpanded] = useState<boolean>(false);
   const [isTopicPopupOpen, setIsTopicPopupOpen] = useState(false);
   const [savedTopicsVersion, setSavedTopicsVersion] = useState(0);
@@ -461,6 +467,27 @@ export const TestList: React.FC<TestListProps> = ({
     return pruned;
   };
 
+  // Check if test was created within the last 24 hours and has not been attempted yet
+  const isTestNew = (test: MathTest): boolean => {
+    if (!test) return false;
+    const rawDate = test.createdAt || (test as any).timestamp;
+    if (!rawDate) return false;
+    const createdTime = new Date(rawDate).getTime();
+    if (isNaN(createdTime) || createdTime <= 0) return false;
+    const now = Date.now();
+    const diffMs = now - createdTime;
+    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+    // Must be created within the past 24 hours
+    if (diffMs < 0 || diffMs > TWENTY_FOUR_HOURS) return false;
+
+    // If user has already attempted this test, do not show 'New' banner
+    const testAttempts = getTestAttempts(test);
+    if (testAttempts.length > 0) return false;
+    if (((test as any).attemptCount || 0) > 0) return false;
+
+    return true;
+  };
+
   const filteredTests = useMemo(() => {
     const seenIds = new Set<string>();
     const allCandidates = [...tests, ...cloudSearchResults];
@@ -491,6 +518,22 @@ export const TestList: React.FC<TestListProps> = ({
       return timeB - timeA;
     });
   }, [tests, cloudSearchResults, searchQuery, selectedTopic]);
+
+  if (selectedReportAttempt) {
+    return (
+      <TestReportAnalysisView
+        attempt={selectedReportAttempt}
+        test={tests.find((t) => (t && t.id && t.id === selectedReportAttempt.testId) || (t && t.title && t.title === selectedReportAttempt.testTitle)) || detailedTest || undefined}
+        allTests={tests}
+        onClose={() => setSelectedReportAttempt(null)}
+        onRetakeTest={(testId) => {
+          const t = tests.find((item) => item.id === testId);
+          if (t && onStartTest) onStartTest(t, 'timed');
+        }}
+        onViewRawSolutions={onViewAttemptResult}
+      />
+    );
+  }
 
   return (
     <div className="w-full max-w-[1750px] mx-auto px-3 sm:px-6 lg:px-8 pt-1 sm:pt-2 pb-10 sm:pb-12 space-y-2.5 sm:space-y-3">
@@ -677,6 +720,7 @@ export const TestList: React.FC<TestListProps> = ({
           {filteredTests.map((test, index) => {
             const questionCount = test.questions?.length ?? test.questionCount ?? 0;
             const timeDisplay = test.timeLimitMinutes > 0 ? `${test.timeLimitMinutes}m` : 'Untimed';
+            const isNew = isTestNew(test);
 
             return (
               <motion.div
@@ -701,7 +745,7 @@ export const TestList: React.FC<TestListProps> = ({
                   </h3>
                 </div>
 
-                {/* Row 2: Question count and time always in the next bottom row */}
+                {/* Row 2: Question count & time (Left), Minimal 'New' badge & Chevron (Bottom Right) */}
                 <div className="flex items-center justify-between w-full pt-0.5 pointer-events-none">
                   <div className="flex items-center gap-1.5 text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-medium leading-none">
                     <span className="inline-flex items-center gap-1 text-[11px] text-[#444746] dark:text-[#c4c7c5] px-1 py-0.5 leading-none">
@@ -714,7 +758,18 @@ export const TestList: React.FC<TestListProps> = ({
                     </span>
                   </div>
 
-                  <ChevronRight className="w-3.5 h-3.5 text-[#747775] dark:text-[#8e918f] group-hover:translate-x-0.5 transition-transform shrink-0" />
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {isNew && (
+                      <span
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold tracking-wide uppercase bg-orange-500/15 dark:bg-orange-500/25 text-orange-600 dark:text-orange-400 border-0 shadow-none shrink-0"
+                        title="New test created within the last 24 hours"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500 dark:bg-orange-400 shrink-0 inline-block" />
+                        <span>New</span>
+                      </span>
+                    )}
+                    <ChevronRight className="w-3.5 h-3.5 text-[#747775] dark:text-[#8e918f] group-hover:translate-x-0.5 transition-transform shrink-0" />
+                  </div>
                 </div>
               </motion.div>
             );
@@ -809,44 +864,49 @@ export const TestList: React.FC<TestListProps> = ({
 
                 {/* Full-View Scrollable Content */}
                 <div className="p-3.5 sm:p-6 space-y-4 overflow-y-auto flex-1 max-w-7xl mx-auto w-full">
-                  {/* Test Overview Banner / Metadata Cards (Grid of 3 cards) */}
-                  <div className="grid grid-cols-3 gap-2.5 sm:gap-3.5">
-                    <div className="p-4 sm:p-5 rounded-[28px] bg-white dark:bg-[#1e2024] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex flex-col items-center justify-center text-center">
-                      <div className="text-[10px] sm:text-xs font-bold tracking-widest text-[#5e5e5e] dark:text-[#9aa0a6] uppercase mb-0.5 flex items-center justify-center gap-1">
-                        <FileCode className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                        <span>Questions</span>
+                  {/* Test Overview in a Combined Card */}
+                  <div className="p-3.5 sm:p-4 rounded-[24px] bg-white dark:bg-[#1e2024] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-all duration-200">
+                    <div className="grid grid-cols-3 gap-2.5 sm:gap-3.5">
+                      {/* Tile 1: Questions */}
+                      <div className="p-3 sm:p-4 rounded-[20px] sm:rounded-[22px] bg-transparent flex flex-col items-center justify-center text-center transition-all hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
+                        <div className="text-[9.5px] sm:text-xs font-bold tracking-widest text-slate-500 dark:text-zinc-400 uppercase mb-0.5 flex items-center justify-center gap-1">
+                          <FileCode className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                          <span>Questions</span>
+                        </div>
+                        <div className="text-lg sm:text-2xl font-black text-[#1f1f1f] dark:text-[#e3e3e3] font-mono mt-0.5">
+                          {detailedTest.questions?.length ?? detailedTest.questionCount ?? 0}
+                        </div>
                       </div>
-                      <div className="text-xl sm:text-2xl font-black text-[#1f1f1f] dark:text-[#e3e3e3] font-mono mt-0.5">
-                        {detailedTest.questions?.length ?? detailedTest.questionCount ?? 0}
-                      </div>
-                    </div>
 
-                    <div className="p-4 sm:p-5 rounded-[28px] bg-white dark:bg-[#1e2024] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex flex-col items-center justify-center text-center">
-                      <div className="text-[10px] sm:text-xs font-bold tracking-widest text-[#5e5e5e] dark:text-[#9aa0a6] uppercase mb-0.5 flex items-center justify-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-amber-500" />
-                        <span>Time</span>
+                      {/* Tile 2: Time */}
+                      <div className="p-3 sm:p-4 rounded-[20px] sm:rounded-[22px] bg-transparent flex flex-col items-center justify-center text-center transition-all hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
+                        <div className="text-[9.5px] sm:text-xs font-bold tracking-widest text-slate-500 dark:text-zinc-400 uppercase mb-0.5 flex items-center justify-center gap-1">
+                          <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-500" />
+                          <span>Time</span>
+                        </div>
+                        <div className="text-lg sm:text-2xl font-black text-[#1f1f1f] dark:text-[#e3e3e3] font-mono mt-0.5">
+                          {detailedTest.timeLimitMinutes > 0 ? `${detailedTest.timeLimitMinutes}:00` : 'Untimed'}
+                        </div>
                       </div>
-                      <div className="text-xl sm:text-2xl font-black text-[#1f1f1f] dark:text-[#e3e3e3] font-mono mt-0.5">
-                        {detailedTest.timeLimitMinutes > 0 ? `${detailedTest.timeLimitMinutes}:00` : 'Untimed'}
-                      </div>
-                    </div>
 
-                    <div className="p-4 sm:p-5 rounded-[28px] bg-white dark:bg-[#1e2024] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex flex-col items-center justify-center text-center">
-                      <div className="text-[10px] sm:text-xs font-bold tracking-widest text-[#5e5e5e] dark:text-[#9aa0a6] uppercase mb-0.5 flex items-center justify-center gap-1">
-                        <Award className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                        <span>Total Attempts</span>
-                      </div>
-                      <div className="text-xl sm:text-2xl font-black text-[#1f1f1f] dark:text-[#e3e3e3] font-mono mt-0.5">
-                        {(() => {
-                          const safeKey = (detailedTest.id || '').replace(/[./[\]*~#$]/g, '_');
-                          const allHistories = (Object.values(userProfile?.testHistories || {}) as (TestHistoryEntry | undefined)[]) || [];
-                          const cloudHist = userProfile?.testHistories?.[safeKey] ||
-                            allHistories.find((e): e is TestHistoryEntry => {
-                              if (!e) return false;
-                              return e.testId === detailedTest.id || Boolean(e.testTitle && detailedTest.title && e.testTitle.trim().toLowerCase() === detailedTest.title.trim().toLowerCase());
-                            }) || null;
-                          return Math.max(cloudHist?.attemptCount || 0, getTestAttempts(detailedTest).length);
-                        })()}
+                      {/* Tile 3: Total Attempts */}
+                      <div className="p-3 sm:p-4 rounded-[20px] sm:rounded-[22px] bg-transparent flex flex-col items-center justify-center text-center transition-all hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
+                        <div className="text-[9.5px] sm:text-xs font-bold tracking-widest text-slate-500 dark:text-zinc-400 uppercase mb-0.5 flex items-center justify-center gap-1">
+                          <Award className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                          <span className="truncate">Total Attempts</span>
+                        </div>
+                        <div className="text-lg sm:text-2xl font-black text-[#1f1f1f] dark:text-[#e3e3e3] font-mono mt-0.5">
+                          {(() => {
+                            const safeKey = (detailedTest.id || '').replace(/[./[\]*~#$]/g, '_');
+                            const allHistories = (Object.values(userProfile?.testHistories || {}) as (TestHistoryEntry | undefined)[]) || [];
+                            const cloudHist = userProfile?.testHistories?.[safeKey] ||
+                              allHistories.find((e): e is TestHistoryEntry => {
+                                if (!e) return false;
+                                return e.testId === detailedTest.id || Boolean(e.testTitle && detailedTest.title && e.testTitle.trim().toLowerCase() === detailedTest.title.trim().toLowerCase());
+                              }) || null;
+                            return Math.max(cloudHist?.attemptCount || 0, getTestAttempts(detailedTest).length);
+                          })()}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -951,127 +1011,157 @@ export const TestList: React.FC<TestListProps> = ({
                             className="p-4 sm:p-5 rounded-[28px] bg-white dark:bg-[#1e2024] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-3 transition-all flex flex-col justify-between"
                           >
                             <div className="space-y-2.5">
-                              {/* Row 1: Attempt Label & Mode Tag with Minimal Rank Badge */}
-                              <div className="flex items-start justify-between gap-2">
-                                <span className="text-[11px] font-bold tracking-widest text-[#5e5e5e] dark:text-[#9aa0a6] uppercase truncate flex-1 min-w-0 pt-0.5">
+                              {/* Row 1: Attempt Label & Mode Tag exclusively at top right */}
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[11px] font-bold tracking-widest text-[#5e5e5e] dark:text-[#9aa0a6] uppercase truncate flex-1 min-w-0">
                                   {label}
                                 </span>
 
-                                <div className="flex flex-col items-end gap-1 shrink-0">
-                                  {/* Rank badge on top */}
-                                  {testRank && (
-                                    <span 
-                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-[10.5px] font-bold bg-amber-500/15 text-amber-800 dark:text-amber-300 shrink-0 border-0 ring-0 shadow-none"
-                                      title={`Verified Standing: Rank ${testRank.rank}${testRank.total ? ` of ${testRank.total}` : ''}`}
-                                    >
-                                      <Trophy className="w-2.5 h-2.5 text-amber-500 stroke-[2.2] shrink-0" />
-                                      <span>Rank {testRank.rank}</span>
-                                    </span>
-                                  )}
+                                {/* Mode Tag exclusively at top right corner */}
+                                <span className={`px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold uppercase shrink-0 border-0 outline-none ${
+                                  isOmr
+                                    ? 'bg-[#ffe8d9] dark:bg-[#432313] text-[#ea580c] dark:text-[#ff9d5c]'
+                                    : 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff]'
+                                }`}>
+                                  {modeLabel}
+                                </span>
+                              </div>
 
-                                  {/* Mode Tag under rank */}
-                                  <span className={`px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold uppercase shrink-0 border-0 outline-none ${
-                                    isOmr
-                                      ? 'bg-[#c4eed0] text-[#072711] dark:bg-[#0f5223] dark:text-[#c4eed0]'
-                                      : 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff]'
-                                  }`}>
-                                    {modeLabel}
+                              {/* Row 2: Date, Accuracy, Precision in Colored Text (without strips) */}
+                              <div className="flex items-center gap-2 sm:gap-2.5 text-[#444746] dark:text-[#c4c7c5] text-[11px] font-bold flex-wrap">
+                                <div className="flex items-center gap-1.5" title="Attempt Date & Time">
+                                  <Calendar className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                                  <span className="font-semibold text-[#1f1f1f] dark:text-[#e3e3e3]">{formatDateTime(attempt.completedAt || attempt.createdAt)}</span>
+                                </div>
+
+                                <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                                <div className="flex items-center gap-1 text-[#1f1f1f] dark:text-[#e3e3e3]" title="Accuracy">
+                                  <Target className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                                  <span>Acc</span>
+                                  <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{accuracy}%</strong>
+                                </div>
+
+                                <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                                <div className="flex items-center gap-1 text-[#1f1f1f] dark:text-[#e3e3e3]" title="Precision / Overall Percentage">
+                                  <Percent className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 stroke-[2.2] shrink-0" />
+                                  <span>Precision</span>
+                                  <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{precision}%</strong>
+                                </div>
+                              </div>
+
+                              {/* Row 3: Correct, Wrong, Skipped in Colored Text (without strips) */}
+                              <div className="flex items-center gap-2 sm:gap-2.5 text-[#1f1f1f] dark:text-[#e3e3e3] text-[11px] font-medium pt-0.5 flex-wrap">
+                                {/* Correct */}
+                                <div className="flex items-center gap-1.5" title="Correct Questions">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                                  <span>
+                                    <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{correctCount}</strong> <span>correct</span>
+                                  </span>
+                                </div>
+
+                                <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                                {/* Wrong */}
+                                <div className="flex items-center gap-1.5" title="Incorrect Questions">
+                                  <XCircle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400 stroke-[2.2] shrink-0" />
+                                  <span>
+                                    <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{wrongCount}</strong> <span>wrong</span>
+                                  </span>
+                                </div>
+
+                                <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                                {/* Skipped */}
+                                <div className="flex items-center gap-1.5" title="Skipped / Unattempted Questions">
+                                  <MinusCircle className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] stroke-[2.2] shrink-0" />
+                                  <span>
+                                    <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{unansweredCount}</strong> <span>skipped</span>
                                   </span>
                                 </div>
                               </div>
 
-                              {/* Row 2: Date & Time Strip + Combined Accuracy/Precision Strip (Left) + Time Taken Strip (Right End) */}
-                              <div className="flex items-center justify-between gap-2 text-[11px] font-medium text-[#444746] dark:text-[#c4c7c5] flex-wrap">
-                                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                                  {/* Date and Time Strip */}
-                                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[#444746] dark:text-[#c4c7c5] text-[11px] font-semibold shrink-0" title="Completion Date & Time">
-                                    <Calendar className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
-                                    <span className="font-semibold text-[#1f1f1f] dark:text-[#e3e3e3]">
-                                      {formatDateTime(attempt.completedAt || attempt.createdAt)}
-                                    </span>
-                                  </div>
+                              {/* Horizontal Light Partition Line */}
+                              <div className="w-full h-px bg-slate-100 dark:bg-zinc-800/80 my-1.5" />
 
-                                  {/* Combined Accuracy & Precision Strip */}
-                                  <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[#444746] dark:text-[#c4c7c5] text-[11px] font-semibold shrink-0" title="Accuracy & Precision">
-                                    <div className="flex items-center gap-1" title="Accuracy">
-                                      <Target className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
-                                      <span>Acc</span>
-                                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{accuracy}%</strong>
-                                    </div>
+                              {/* Row 4: Single combined strip of Rank, Time, and Score + Action Buttons on the Same Row */}
+                              <div className="flex items-center justify-between gap-1.5 sm:gap-2 pt-0.5 flex-wrap sm:flex-nowrap">
+                                {/* Single combined strip for Rank, Time, and Score matching App UI */}
+                                <div className="inline-flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#edf2f9] dark:bg-[#26282e] border-0 ring-0 shadow-none shrink-0 text-[10px] sm:text-xs">
+                                  {/* Rank Section */}
+                                  {testRank && (
+                                    <>
+                                      <div 
+                                        className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 font-bold shrink-0"
+                                        title={`Verified Standing: Rank ${testRank.rank}${testRank.total ? ` of ${testRank.total}` : ''}`}
+                                      >
+                                        <Trophy className="w-3 h-3 text-amber-500 stroke-[2.2] shrink-0" />
+                                        <span>Rank {testRank.rank}</span>
+                                      </div>
+                                      <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-zinc-600 shrink-0" />
+                                    </>
+                                  )}
 
-                                    <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+                                  {/* Time Taken Section */}
+                                  {timeTakenStr && (
+                                    <>
+                                      <div 
+                                        className="inline-flex items-center gap-1 text-purple-700 dark:text-purple-300 font-bold font-mono shrink-0" 
+                                        title="Time Taken"
+                                      >
+                                        <Clock className="w-3 h-3 text-purple-600 dark:text-purple-400 stroke-[2.2] shrink-0" />
+                                        <span>{timeTakenStr}</span>
+                                      </div>
+                                      <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-zinc-600 shrink-0" />
+                                    </>
+                                  )}
 
-                                    <div className="flex items-center gap-1" title="Precision / Overall Percentage">
-                                      <Percent className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 stroke-[2.2] shrink-0" />
-                                      <span>Precision</span>
-                                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{precision}%</strong>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Time Taken tag placed in the same row at the right end */}
-                                {timeTakenStr && (
-                                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[#444746] dark:text-[#c4c7c5] text-[11px] font-bold shrink-0 ml-auto sm:ml-0" title="Time Taken">
-                                    <Clock className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400 stroke-[2.2] shrink-0" />
-                                    <span>{timeTakenStr}</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Row 3: Combined Correct, Wrong, Skipped Strip (Left) + Score Strip (Immediately Right) */}
-                              <div className="flex items-center justify-between gap-2 text-[11px] pt-0.5 flex-wrap">
-                                <div className="inline-flex items-center gap-2 sm:gap-2.5 px-3 py-1 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-[11px] font-medium flex-wrap shrink-0">
-                                  {/* Correct */}
-                                  <div className="flex items-center gap-1.5" title="Correct Questions">
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
-                                    <span>
-                                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{correctCount}</strong> correct
-                                    </span>
-                                  </div>
-
-                                  <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
-
-                                  {/* Wrong */}
-                                  <div className="flex items-center gap-1.5" title="Incorrect Questions">
-                                    <XCircle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400 stroke-[2.2] shrink-0" />
-                                    <span>
-                                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{wrongCount}</strong> wrong
-                                    </span>
-                                  </div>
-
-                                  <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
-
-                                  {/* Skipped */}
-                                  <div className="flex items-center gap-1.5" title="Skipped / Unattempted Questions">
-                                    <MinusCircle className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] stroke-[2.2] shrink-0" />
-                                    <span>
-                                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{unansweredCount}</strong> skipped
-                                    </span>
+                                  {/* Score Section */}
+                                  <div 
+                                    className="inline-flex items-center gap-1 sm:gap-1.5 font-extrabold shrink-0" 
+                                    title="Score"
+                                  >
+                                    <Bookmark className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                                    <span className="text-[#1f1f1f] dark:text-[#e3e3e3] font-semibold text-[9.5px] sm:text-[10.5px]">Score:</span>
+                                    <span className="text-[11px] sm:text-sm font-black font-mono tracking-tight text-[#0b57d0] dark:text-[#a8c7fa]">{correctCount}/{totalQs}</span>
                                   </div>
                                 </div>
 
-                                {/* Score Pill immediately at the right of the card with enlarged font */}
-                                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#d3e3fd]/40 dark:bg-[#004a77]/30 text-[#0b57d0] dark:text-[#a8c7fa] text-xs sm:text-[13px] font-extrabold shrink-0 ml-auto" title="Score">
-                                  <Award className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
-                                  <span className="text-slate-600 dark:text-zinc-400 font-semibold text-[11px]">Score:</span>
-                                  <span className="text-sm sm:text-base font-black font-mono tracking-tight text-[#0b57d0] dark:text-[#a8c7fa]">{correctCount}/{totalQs}</span>
+                                {/* Action Buttons: Analysis and Solutions in the same row, compact for mobile */}
+                                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-auto">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedReportAttempt(attempt);
+                                    }}
+                                    className="inline-flex items-center justify-center gap-1 px-2.5 sm:px-3 py-1 bg-[#d3e3fd] hover:bg-[#c2e7ff] dark:bg-[#004a77] dark:hover:bg-[#005a92] active:scale-95 text-[#041e49] dark:text-[#c2e7ff] text-[10px] sm:text-xs font-bold rounded-full border-0 transition-all cursor-pointer whitespace-nowrap shrink-0"
+                                    title="View detailed test report & analysis"
+                                  >
+                                    <BarChart2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[2.2] shrink-0" />
+                                    <span>Analysis</span>
+                                  </button>
+
+                                  {onViewAttemptResult && (
+                                    <button
+                                      id={`view-attempt-btn-${label.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDetailedTest(null);
+                                        onViewAttemptResult(attempt);
+                                      }}
+                                      className="inline-flex items-center justify-center gap-1 px-2.5 sm:px-3 py-1 bg-[#0b57d0] hover:bg-[#0842a0] text-white active:scale-95 text-[10px] sm:text-xs font-bold rounded-full border-0 shadow-[0_2px_6px_rgba(11,87,208,0.25)] transition-all cursor-pointer whitespace-nowrap shrink-0"
+                                      title="View detailed test solutions"
+                                    >
+                                      <Eye className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[2.2] shrink-0" />
+                                      <span>Solutions</span>
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             </div>
-
-                            {onViewAttemptResult && (
-                              <button
-                                id={`view-attempt-btn-${label.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
-                                onClick={() => {
-                                  setDetailedTest(null);
-                                  onViewAttemptResult(attempt);
-                                }}
-                                className="w-full mt-2 py-2.5 px-4 rounded-[28px] bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#0b57d0] dark:text-[#a8c7fa] border border-[#0b57d0]/30 dark:border-[#a8c7fa]/30 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-[0_2px_6px_rgba(0,0,0,0.05)] cursor-pointer active:scale-98"
-                              >
-                                <Search className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                                <span>View Solutions & Attempt Details</span>
-                              </button>
-                            )}
                           </div>
                         );
                       };
@@ -1095,39 +1185,70 @@ export const TestList: React.FC<TestListProps> = ({
                 </div>
 
                 {/* Full-View Footer Bar - Seamless in Body Color */}
-                <div className="p-4 sm:p-5 bg-transparent dark:bg-transparent border-0 flex items-center justify-end px-4 sm:px-6 shrink-0">
-                  <div className="flex flex-row items-center gap-2.5 sm:gap-3 w-full sm:w-auto justify-end">
-                    {onStartOmrTest && (
-                      <button
-                        type="button"
-                        id="fullview-footer-omr-test-btn"
-                        onClick={() => {
-                          const t = detailedTest;
-                          setDetailedTest(null);
-                          onStartOmrTest(t);
-                        }}
-                        className={`${APP_STYLES.button.secondary} flex-1 sm:flex-initial justify-center whitespace-nowrap`}
-                      >
-                        <FileCheck2 className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-                        <span className="truncate">Attempt OMR Mode</span>
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      id="fullview-footer-start-test-btn"
-                      onClick={() => {
-                        const t = detailedTest;
-                        setDetailedTest(null);
-                        onStartTest(t, 'timed');
-                      }}
-                      style={{ backgroundColor: '#0b57d0' }}
-                      className={`${APP_STYLES.button.primary} !bg-[#0b57d0] hover:!bg-[#0842a0] active:!bg-[#063380] dark:!bg-[#0b57d0] dark:hover:!bg-[#0842a0] flex-1 sm:flex-initial justify-center whitespace-nowrap`}
-                    >
-                      <Play className="w-4 h-4 fill-current shrink-0" />
-                      <span className="truncate">Start Online Test</span>
-                    </button>
-                  </div>
-                </div>
+                {(() => {
+                  const safeKey = (detailedTest.id || '').replace(/[./[\]*~#$]/g, '_');
+                  const allHistories = (Object.values(userProfile?.testHistories || {}) as (TestHistoryEntry | undefined)[]) || [];
+                  const cloudHist = userProfile?.testHistories?.[safeKey] ||
+                    allHistories.find((e): e is TestHistoryEntry => {
+                      if (!e) return false;
+                      return e.testId === detailedTest.id || Boolean(e.testTitle && detailedTest.title && e.testTitle.trim().toLowerCase() === detailedTest.title.trim().toLowerCase());
+                    }) || null;
+                  const isAttempted = Math.max(cloudHist?.attemptCount || 0, getTestAttempts(detailedTest).length) > 0;
+
+                  return (
+                    <div className="p-4 sm:p-5 bg-transparent dark:bg-transparent border-0 flex items-center justify-end px-4 sm:px-6 shrink-0">
+                      <div className="flex flex-row items-center gap-2.5 sm:gap-3 w-full sm:w-auto justify-end">
+                        {onStartOmrTest && (
+                          <button
+                            type="button"
+                            id="fullview-footer-omr-test-btn"
+                            onClick={() => {
+                              const t = detailedTest;
+                              setDetailedTest(null);
+                              onStartOmrTest(t);
+                            }}
+                            className={`${APP_STYLES.button.secondary} flex-1 sm:flex-initial justify-center whitespace-nowrap`}
+                          >
+                            {isAttempted ? (
+                              <>
+                                <RotateCcw className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+                                <span className="truncate">Retry OMR Mode</span>
+                              </>
+                            ) : (
+                              <>
+                                <FileCheck2 className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+                                <span className="truncate">Attempt OMR Mode</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          id="fullview-footer-start-test-btn"
+                          onClick={() => {
+                            const t = detailedTest;
+                            setDetailedTest(null);
+                            onStartTest(t, 'timed');
+                          }}
+                          style={{ backgroundColor: '#0b57d0' }}
+                          className={`${APP_STYLES.button.primary} !bg-[#0b57d0] hover:!bg-[#0842a0] active:!bg-[#063380] dark:!bg-[#0b57d0] dark:hover:!bg-[#0842a0] flex-1 sm:flex-initial justify-center whitespace-nowrap`}
+                        >
+                          {isAttempted ? (
+                            <>
+                              <RotateCcw className="w-4 h-4 fill-none shrink-0" />
+                              <span className="truncate">Retry Online Test</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-4 h-4 fill-current shrink-0" />
+                              <span className="truncate">Start Online Test</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </motion.div>
             </motion.div>
           )}

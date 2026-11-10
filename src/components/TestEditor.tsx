@@ -18,6 +18,7 @@ import {
   Redo2, 
   Columns, 
   FileCode, 
+  FileText, 
   Copy, 
   Check, 
   ChevronLeft, 
@@ -62,6 +63,13 @@ import {
   Lock,
 } from 'lucide-react';
 import { parseAssessmentJsonFaultTolerant, repairJsonBackslashes } from '../utils/jsonFaultTolerantParser';
+import { 
+  parseTestFromText, 
+  formatTestToText, 
+  parseQuestionFromText, 
+  formatQuestionToText, 
+  isJsonFormat 
+} from '../utils/testFormatConverter';
 import { encodeTestToShareUrl, createShareUrlAsync } from '../utils/shareUtils';
 import { MathRenderer } from './MathRenderer';
 import { OmrQuestionPaper } from './OmrQuestionPaper';
@@ -87,7 +95,7 @@ interface TestEditorProps {
   onSaveTest: (test: MathTest) => void;
   onDeleteTest?: (testId: string) => void;
   onCancel: () => void;
-  onExportJson?: (test: MathTest) => void;
+  onExportJson?: (test: MathTest, format?: 'txt' | 'json') => void;
   onImportTests?: (imported: MathTest[]) => void;
   onOpenCustomPanel?: () => void;
   onUnloadTest?: () => void;
@@ -396,127 +404,46 @@ export function normalizeQuestion(raw: any, index: number): MathQuestion {
   return qObj;
 }
 
-const DEFAULT_QUESTIONS: MathQuestion[] = [
-  {
-    id: 'q1',
-    text: 'If matrix $A = \\begin{bmatrix} 2 & 3 \\\\ 1 & 4 \\end{bmatrix}$, calculate the determinant $|A|$.',
-    topic: 'Matrices and Determinants',
-    subtopic: 'Determinant of a 2x2 Matrix',
-    type: 'mcq',
-    options: ['5', '8', '-5', '11'],
-    correctAnswer: '0',
-    explanation: 'The determinant of a $2\\times2$ matrix $\\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}$ is $ad - bc$. Here $|A| = (2)(4) - (3)(1) = 8 - 3 = 5$.',
-    points: 1,
-    hint: 'Use the standard formula $|A| = ad - bc$.'
-  },
-  {
-    id: 'q2',
-    text: 'Evaluate the limit: $\\lim_{x \\to 0} \\frac{\\sin(5x)}{2x}$.',
-    topic: 'Calculus',
-    subtopic: 'Trigonometric Limits',
-    type: 'mcq',
-    options: ['$\\frac{5}{2}$', '$\\frac{2}{5}$', '$1$', '$5$'],
-    correctAnswer: '0',
-    explanation: 'Using the fundamental trigonometric limit $\\lim_{u \\to 0} \\frac{\\sin u}{u} = 1$: $\\lim_{x \\to 0} \\frac{\\sin(5x)}{2x} = \\frac{5}{2} \\cdot \\lim_{x \\to 0} \\frac{\\sin(5x)}{5x} = \\frac{5}{2} \\cdot 1 = \\frac{5}{2}$.',
-    points: 1,
-    hint: 'Rewrite the expression so the argument inside sine matches the denominator.'
-  },
-  {
-    id: 'q3',
-    text: 'Compute the definite integral: $\\int_{0}^{2} (3x^2 - 4x + 1)\\,dx$.',
-    topic: 'Calculus',
-    subtopic: 'Definite Integrals',
-    type: 'mcq',
-    options: ['$2$', '$4$', '$6$', '$0$'],
-    correctAnswer: '0',
-    explanation: 'The antiderivative is $F(x) = x^3 - 2x^2 + x$. Evaluating from $0$ to $2$: $F(2) = (2)^3 - 2(2)^2 + 2 = 8 - 8 + 2 = 2$. Since $F(0) = 0$, the value is $2 - 0 = 2$.',
-    points: 1,
-    hint: 'Integrate term by term: $\\int x^n dx = \\frac{x^{n+1}}{n+1}$.'
-  },
-  {
-    id: 'q4',
-    text: 'Find the trace of matrix $M = \\begin{bmatrix} 5 & 2 & 1 \\\\ 0 & -3 & 4 \\\\ 7 & 8 & 6 \\end{bmatrix}$.',
-    topic: 'Matrices and Determinants',
-    subtopic: 'Trace of a Matrix',
-    type: 'mcq',
-    options: ['8', '11', '6', '14'],
-    correctAnswer: '0',
-    explanation: 'The trace $\\text{tr}(M)$ is the sum of main diagonal elements: $5 + (-3) + 6 = 8$.',
-    points: 1,
-    hint: 'Sum the entries along the main diagonal from top-left to bottom-right.'
-  },
-  {
-    id: 'q5',
-    text: 'If the roots of the quadratic equation $x^2 - 7x + 12 = 0$ are $\\alpha$ and $\\beta$, find the value of $\\alpha^2 + \\beta^2$.',
-    topic: 'Algebra',
-    subtopic: 'Roots of Quadratic Equations',
-    type: 'mcq',
-    options: ['$25$', '$49$', '$37$', '$13$'],
-    correctAnswer: '0',
-    explanation: 'By Vieta\'s formulas, $\\alpha + \\beta = 7$ and $\\alpha\\beta = 12$. Using the algebraic identity: $\\alpha^2 + \\beta^2 = (\\alpha + \\beta)^2 - 2\\alpha\\beta = 7^2 - 2(12) = 49 - 24 = 25$.',
-    points: 1,
-    hint: 'Express $\\alpha^2 + \\beta^2$ in terms of $(\\alpha + \\beta)$ and $(\\alpha\\beta)$.'
-  }
-];
+const DEFAULT_BLANK_QUESTION: MathQuestion = {
+  id: 'q1',
+  text: '',
+  topic: '',
+  subtopic: '',
+  type: 'mcq',
+  options: ['', '', '', ''],
+  correctAnswer: '0',
+  correctOptionIndex: 0,
+  explanation: '',
+  points: 1,
+};
+
+const DEFAULT_QUESTIONS: MathQuestion[] = [DEFAULT_BLANK_QUESTION];
 
 const SAMPLE_TEST_JSON = {
-  title: 'Mathematics Mastery Benchmark',
-  topic: 'Matrices and Determinants',
+  title: '',
+  topic: '',
   time: 15,
-  questions: [
-    {
-      text: 'If matrix $A = \\begin{bmatrix} 2 & 3 \\\\ 1 & 4 \\end{bmatrix}$, calculate the determinant $|A|$.',
-      topic: 'Matrices and Determinants',
-      subtopic: 'Determinant of a 2x2 Matrix',
-      options: ['5', '8', '-5', '11'],
-      correctAnswer: 0,
-      explanation: 'The determinant of a $2\\times2$ matrix $\\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}$ is $ad - bc$. Here $|A| = (2)(4) - (3)(1) = 8 - 3 = 5$.',
-      hint: 'Use the standard formula $|A| = ad - bc$.'
-    },
-    {
-      text: 'Evaluate the limit: $\\lim_{x \\to 0} \\frac{\\sin(5x)}{2x}$.',
-      topic: 'Calculus',
-      subtopic: 'Trigonometric Limits',
-      options: ['$\\frac{5}{2}$', '$\\frac{2}{5}$', '$1$', '$5$'],
-      correctAnswer: 0,
-      explanation: 'Using the fundamental trigonometric limit $\\lim_{u \\to 0} \\frac{\\sin u}{u} = 1$: $\\lim_{x \\to 0} \\frac{\\sin(5x)}{2x} = \\frac{5}{2} \\cdot 1 = \\frac{5}{2}$.',
-      hint: 'Rewrite the expression so the argument inside sine matches the denominator.'
-    },
-    {
-      text: 'Compute the definite integral: $\\int_{0}^{2} (3x^2 - 4x + 1)\\,dx$.',
-      topic: 'Calculus',
-      subtopic: 'Definite Integrals',
-      options: ['$2$', '$4$', '$6$', '$0$'],
-      correctAnswer: 0,
-      explanation: 'The antiderivative is $F(x) = x^3 - 2x^2 + x$. Evaluating from $0$ to $2$: $F(2) = 8 - 8 + 2 = 2$.',
-      hint: 'Integrate term by term: $\\int x^n dx = \\frac{x^{n+1}}{n+1}$.'
-    },
-    {
-      text: 'Find the trace of matrix $M = \\begin{bmatrix} 5 & 2 & 1 \\\\ 0 & -3 & 4 \\\\ 7 & 8 & 6 \\end{bmatrix}$.',
-      topic: 'Matrices and Determinants',
-      subtopic: 'Trace of a Matrix',
-      options: ['8', '11', '6', '14'],
-      correctAnswer: 0,
-      explanation: 'The trace $\\text{tr}(M)$ is the sum of main diagonal elements: $5 + (-3) + 6 = 8$.',
-      hint: 'Sum the entries along the main diagonal.'
-    },
-    {
-      text: 'If the roots of the quadratic equation $x^2 - 7x + 12 = 0$ are $\\alpha$ and $\\beta$, find the value of $\\alpha^2 + \\beta^2$.',
-      topic: 'Algebra',
-      subtopic: 'Roots of Quadratic Equations',
-      options: ['$25$', '$49$', '$37$', '$13$'],
-      correctAnswer: 0,
-      explanation: 'By Vieta\'s formulas, $\\alpha + \\beta = 7$ and $\\alpha\\beta = 12$. Thus $\\alpha^2 + \\beta^2 = (\\alpha + \\beta)^2 - 2\\alpha\\beta = 49 - 24 = 25$.',
-      hint: 'Express $\\alpha^2 + \\beta^2$ as $(\\alpha+\\beta)^2 - 2\\alpha\\beta$.'
-    }
-  ],
+  questions: [DEFAULT_BLANK_QUESTION],
 };
 
 const DEFAULT_TEST_TEMPLATE = {
-  title: 'New Mathematics Assessment',
-  topic: 'Matrices and Determinants' as MathTopic,
+  title: '',
+  topic: '' as MathTopic,
   time: 15,
-  questions: DEFAULT_QUESTIONS.map(formatQuestionCompact),
+  questions: [
+    {
+      id: 'q1',
+      text: '',
+      topic: '',
+      subtopic: '',
+      type: 'mcq',
+      options: ['', '', '', ''],
+      correctAnswer: '0',
+      correctOptionIndex: 0,
+      explanation: '',
+      points: 1,
+    }
+  ],
 };
 
 export const TestEditor: React.FC<TestEditorProps> = ({
@@ -534,12 +461,12 @@ export const TestEditor: React.FC<TestEditorProps> = ({
 }) => {
   // Test Metadata
   const [editingTestId, setEditingTestId] = useState<string | null>(initialTest?.id || null);
-  const [title, setTitle] = useState<string>(initialTest?.title || 'New Mathematics Assessment');
+  const [title, setTitle] = useState<string>(initialTest?.title || 'Untitled Assessment');
   const [description, setDescription] = useState<string>(
-    initialTest?.description || 'Curated mock assessment with step-by-step LaTeX derivations.'
+    initialTest?.description || ''
   );
 
-  const initialTopicStr = (initialTest?.topic as string) || 'Matrices and Determinants';
+  const initialTopicStr = (initialTest?.topic as string) || 'General Mathematics';
   const isInitialCustom = !DEFAULT_TOPICS.some((dt) => dt.toLowerCase() === initialTopicStr.toLowerCase());
 
   const [topic, setTopic] = useState<string>(initialTopicStr);
@@ -643,20 +570,24 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     targetType: 'question',
   });
 
-  // JSON Schema Text State
+  // Test Code Text State (.txt sequential format)
   const [jsonText, setJsonText] = useState<string>(() => {
     const rawQuestions = initialTest?.questions && initialTest.questions.length > 0 ? initialTest.questions : DEFAULT_QUESTIONS;
     const initialTime = initialTest?.time ?? initialTest?.timeLimitMinutes ?? 15;
-    const initialTitle = initialTest?.title || 'New Mathematics Assessment';
-    const initialTopic = (initialTest?.topic as MathTopic) || 'Matrices and Determinants';
-    const compactObj = formatTestCompact(initialTitle, initialTopic, initialTime, rawQuestions);
-    return JSON.stringify(compactObj, null, 2);
+    const initialTitle = initialTest?.title || 'Untitled Assessment';
+    const initialTopic = (initialTest?.topic as MathTopic) || 'General Mathematics';
+    return formatTestToText({
+      title: initialTitle,
+      topic: initialTopic,
+      timeLimitMinutes: initialTime,
+      questions: rawQuestions,
+    });
   });
 
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [copiedQuestionCode, setCopiedQuestionCode] = useState<boolean>(false);
 
-  // Undo & Redo History State (stores full JSON and Code Draft snapshots)
+  // Undo & Redo History State (stores full Text Code and Code Draft snapshots)
   interface HistorySnapshot {
     jsonText: string;
     questionCodeDraft: string;
@@ -667,14 +598,18 @@ export const TestEditor: React.FC<TestEditorProps> = ({
   const initialSnapshot: HistorySnapshot = useMemo(() => {
     const rawQuestions = initialTest?.questions && initialTest.questions.length > 0 ? initialTest.questions : DEFAULT_QUESTIONS;
     const initialTime = initialTest?.time ?? initialTest?.timeLimitMinutes ?? 15;
-    const initialTitle = initialTest?.title || 'New Mathematics Assessment';
-    const initialTopic = (initialTest?.topic as MathTopic) || 'Matrices and Determinants';
-    const compactObj = formatTestCompact(initialTitle, initialTopic, initialTime, rawQuestions);
-    const initialJson = JSON.stringify(compactObj, null, 2);
+    const initialTitle = initialTest?.title || 'Untitled Assessment';
+    const initialTopic = (initialTest?.topic as MathTopic) || 'General Mathematics';
+    const initialText = formatTestToText({
+      title: initialTitle,
+      topic: initialTopic,
+      timeLimitMinutes: initialTime,
+      questions: rawQuestions,
+    });
     const firstQ = rawQuestions[0];
     return {
-      jsonText: initialJson,
-      questionCodeDraft: firstQ ? JSON.stringify(formatQuestionCompact(firstQ), null, 2) : '',
+      jsonText: initialText,
+      questionCodeDraft: firstQ ? formatQuestionToText(firstQ, 0) : '',
       currentQIndex: 0,
     };
   }, [initialTest]);
@@ -759,7 +694,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
   const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
   const [questionCodeDraft, setQuestionCodeDraft] = useState<string>(() => {
     const firstQ = initialTest?.questions?.[0] || DEFAULT_QUESTIONS[0];
-    return firstQ ? JSON.stringify(formatQuestionCompact(firstQ), null, 2) : '';
+    return firstQ ? formatQuestionToText(firstQ, 0) : '';
   });
   const [importJsonText, setImportJsonText] = useState<string>('');
   const [importError, setImportError] = useState<string | null>(null);
@@ -791,8 +726,11 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     setIsDraggingImport(false);
     const file = e.dataTransfer.files?.[0];
     if (file) {
-      if (!file.name.toLowerCase().endsWith('.json') && file.type !== 'application/json') {
-        setErrorMessage('Please drop a valid .json test file.');
+      const fileName = file.name.toLowerCase();
+      const isValidExt = fileName.endsWith('.txt') || fileName.endsWith('.json');
+      const isValidType = file.type === 'application/json' || file.type.startsWith('text/') || file.type === '';
+      if (!isValidExt && !isValidType) {
+        setErrorMessage('Please drop a valid .txt or .json test file.');
         setTimeout(() => setErrorMessage(''), 3000);
         return;
       }
@@ -1027,13 +965,17 @@ export const TestEditor: React.FC<TestEditorProps> = ({
           imageUrl: newLayout.imageUrl || nextQs[qIndex].imageUrl,
         };
       }
-      const compactObj = formatTestCompact(title, topic, timeLimitMinutes, nextQs);
-      const newJson = JSON.stringify(compactObj, null, 2);
-      setJsonText(newJson);
+      const newTxt = formatTestToText({
+        title,
+        topic,
+        timeLimitMinutes,
+        questions: nextQs,
+      });
+      setJsonText(newTxt);
       if (qIndex === currentQIndex && nextQs[qIndex]) {
-        setQuestionCodeDraft(JSON.stringify(formatQuestionCompact(nextQs[qIndex]), null, 2));
+        setQuestionCodeDraft(formatQuestionToText(nextQs[qIndex], qIndex));
       }
-      pushHistory(newJson, undefined, qIndex);
+      pushHistory(newTxt, undefined, qIndex);
       return nextQs;
     });
   }, [title, topic, timeLimitMinutes, pushHistory, currentQIndex]);
@@ -1044,10 +986,14 @@ export const TestEditor: React.FC<TestEditorProps> = ({
         const { paperLayout, ...rest } = q;
         return rest;
       });
-      const compactObj = formatTestCompact(title, topic, timeLimitMinutes, nextQs);
-      const newJson = JSON.stringify(compactObj, null, 2);
-      setJsonText(newJson);
-      pushHistory(newJson, undefined, currentQIndex);
+      const newTxt = formatTestToText({
+        title,
+        topic,
+        timeLimitMinutes,
+        questions: nextQs,
+      });
+      setJsonText(newTxt);
+      pushHistory(newTxt, undefined, currentQIndex);
       return nextQs;
     });
   }, [title, topic, timeLimitMinutes, currentQIndex, pushHistory]);
@@ -1107,13 +1053,23 @@ export const TestEditor: React.FC<TestEditorProps> = ({
 
   const parseAndSyncState = useCallback((text: string, recordHistory = true): boolean => {
     try {
-      const parseResult = parseAssessmentJsonFaultTolerant(text);
-      const parsed = parseResult.test;
-      if (!parsed || typeof parsed !== 'object') {
-        throw new Error('JSON root must be an object.');
+      if (!text || !text.trim()) {
+        throw new Error('Input is empty.');
       }
-      if (!Array.isArray(parsed.questions)) {
-        throw new Error('Property "questions" must be an array of questions.');
+      let parsed: any;
+      let parseResultErrors: any[] = [];
+      if (isJsonFormat(text)) {
+        const parseResult = parseAssessmentJsonFaultTolerant(text);
+        parsed = parseResult.test;
+        parseResultErrors = parseResult.errors;
+        if (!parsed || typeof parsed !== 'object') {
+          throw new Error('JSON root must be an object.');
+        }
+      } else {
+        parsed = parseTestFromText(text, (topic || 'General Mathematics').trim());
+      }
+      if (!Array.isArray(parsed.questions) || parsed.questions.length === 0) {
+        throw new Error('No questions found in test code.');
       }
 
       if (parsed.title) setTitle(parsed.title);
@@ -1136,15 +1092,15 @@ export const TestEditor: React.FC<TestEditorProps> = ({
       
       const normalizedQs = parsed.questions.map((q: any, idx: number) => normalizeQuestion(q, idx));
       setQuestions(normalizedQs);
-      if (parseResult.errors.length > 0) {
-        setJsonError(parseResult.errors.map(e => e.message).join(' | '));
+      if (parseResultErrors.length > 0) {
+        setJsonError(parseResultErrors.map(e => e.message).join(' | '));
       } else {
         setJsonError(null);
       }
 
       let targetIdx = currentQIndex >= normalizedQs.length ? Math.max(0, normalizedQs.length - 1) : currentQIndex;
-      if (parseResult.errors.length > 0) {
-        const firstErrIdx = parseResult.errors[0].questionNumber - 1;
+      if (parseResultErrors.length > 0) {
+        const firstErrIdx = parseResultErrors[0].questionNumber - 1;
         if (firstErrIdx >= 0 && firstErrIdx < normalizedQs.length) {
           targetIdx = firstErrIdx;
         }
@@ -1153,7 +1109,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
 
       let nextDraft = questionCodeDraft;
       if (normalizedQs[targetIdx]) {
-        nextDraft = JSON.stringify(formatQuestionCompact(normalizedQs[targetIdx]), null, 2);
+        nextDraft = formatQuestionToText(normalizedQs[targetIdx], targetIdx);
         setQuestionCodeDraft(nextDraft);
       }
 
@@ -1279,9 +1235,9 @@ export const TestEditor: React.FC<TestEditorProps> = ({
       }
 
       if (data && data.test) {
-        const newJsonStr = JSON.stringify(data.test, null, 2);
-        setJsonText(newJsonStr);
-        parseAndSyncState(newJsonStr, true);
+        const newTxtStr = formatTestToText(data.test);
+        setJsonText(newTxtStr);
+        parseAndSyncState(newTxtStr, true);
         setAiPromptText('');
         const summary = data.changeSummary || 'Assessment updated successfully with Gemini AI.';
         setAiNotice(summary);
@@ -1411,9 +1367,9 @@ export const TestEditor: React.FC<TestEditorProps> = ({
           summary = `Updated assessment based on: "${rawPrompt.slice(0, 40)}..."`;
         }
 
-        const newJsonStr = JSON.stringify(modifiedTest, null, 2);
-        setJsonText(newJsonStr);
-        parseAndSyncState(newJsonStr, true);
+        const newTxtStr = formatTestToText(modifiedTest);
+        setJsonText(newTxtStr);
+        parseAndSyncState(newTxtStr, true);
         setAiPromptText('');
         setAiNotice(summary);
         setSaveSuccessNotice(summary);
@@ -1432,7 +1388,16 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     setJsonText(newText);
     let currentDraft = questionCodeDraft;
     try {
-      const parsed = JSON.parse(newText);
+      if (!newText.trim()) {
+        setJsonError('Input is empty.');
+        return;
+      }
+      let parsed: any;
+      if (isJsonFormat(newText)) {
+        parsed = JSON.parse(newText);
+      } else {
+        parsed = parseTestFromText(newText, (topic || 'General Mathematics').trim());
+      }
       if (Array.isArray(parsed.questions)) {
         const normalizedQs = parsed.questions.map((q: any, idx: number) => normalizeQuestion(q, idx));
         setQuestions(normalizedQs);
@@ -1451,8 +1416,9 @@ export const TestEditor: React.FC<TestEditorProps> = ({
         }
         const parsedTime = typeof parsed.time === 'number' ? parsed.time : (typeof parsed.timeLimitMinutes === 'number' ? parsed.timeLimitMinutes : undefined);
         if (typeof parsedTime === 'number') setTimeLimitMinutes(parsedTime);
-        if (normalizedQs[currentQIndex]) {
-          currentDraft = JSON.stringify(formatQuestionCompact(normalizedQs[currentQIndex]), null, 2);
+        const safeIdx = Math.min(currentQIndex, Math.max(0, normalizedQs.length - 1));
+        if (normalizedQs[safeIdx]) {
+          currentDraft = formatQuestionToText(normalizedQs[safeIdx], safeIdx);
           setQuestionCodeDraft(currentDraft);
         }
       }
@@ -1487,7 +1453,9 @@ export const TestEditor: React.FC<TestEditorProps> = ({
           const normalized = normalizeQuestion(parsedQ, currentQIndex);
           let fullTestParsed: any;
           try {
-            fullTestParsed = JSON.parse(jsonText);
+            fullTestParsed = isJsonFormat(jsonText)
+              ? JSON.parse(jsonText)
+              : parseTestFromText(jsonText, topic);
           } catch {
             fullTestParsed = formatTestCompact(title, topic, timeLimitMinutes, questions);
           }
@@ -1499,7 +1467,9 @@ export const TestEditor: React.FC<TestEditorProps> = ({
             updatedQuestions.push(compactQ);
           }
           fullTestParsed.questions = updatedQuestions;
-          const formatted = JSON.stringify(fullTestParsed, null, 2);
+          const formatted = isJsonFormat(jsonText)
+            ? JSON.stringify(fullTestParsed, null, 2)
+            : formatTestToText(fullTestParsed);
           setJsonText(formatted);
           setQuestions(updatedQuestions.map((q, idx) => normalizeQuestion(q, idx)));
           setJsonError(null);
@@ -1507,7 +1477,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
           return;
         }
       } catch {
-        // Typing JSON in progress
+        // Typing code in progress
       }
       pushHistory(jsonText, newDraft, currentQIndex);
     }, 400);
@@ -1519,13 +1489,12 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     overrideTime = timeLimitMinutes,
     overrideQuestions = questions
   ) => {
-    const compactObj = formatTestCompact(
-      overrideTitle,
-      overrideTopic,
-      overrideTime,
-      overrideQuestions
-    );
-    const str = JSON.stringify(compactObj, null, 2);
+    const str = formatTestToText({
+      title: overrideTitle,
+      topic: overrideTopic,
+      timeLimitMinutes: overrideTime,
+      questions: overrideQuestions,
+    });
     setJsonText(str);
     setJsonError(null);
     pushHistory(str);
@@ -1534,7 +1503,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
   const copyQuestionCodeToClipboard = () => {
     const code = cardMode === 'code' 
       ? questionCodeDraft 
-      : JSON.stringify(formatQuestionCompact(currentQuestion), null, 2);
+      : (currentQuestion ? formatQuestionToText(currentQuestion, currentQIndex) : '');
     navigator.clipboard.writeText(code);
     setCopiedQuestionCode(true);
     setTimeout(() => setCopiedQuestionCode(false), 2000);
@@ -1584,7 +1553,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     setQuestions(newQuestions);
     const newIdx = newQuestions.length - 1;
     setCurrentQIndex(newIdx);
-    setQuestionCodeDraft(JSON.stringify(formatQuestionCompact(newQ), null, 2));
+    setQuestionCodeDraft(formatQuestionToText(newQ, newIdx));
     syncStateToJson(title, topic, timeLimitMinutes, newQuestions);
     setSaveSuccessNotice(`Added Question ${newQuestions.length}`);
     setTimeout(() => setSaveSuccessNotice(''), 2500);
@@ -1606,7 +1575,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     setQuestions(newQuestions);
     const newIdx = currentQIndex + 1;
     setCurrentQIndex(newIdx);
-    setQuestionCodeDraft(JSON.stringify(formatQuestionCompact(dupQ), null, 2));
+    setQuestionCodeDraft(formatQuestionToText(dupQ, newIdx));
     syncStateToJson(title, topic, timeLimitMinutes, newQuestions);
     setSaveSuccessNotice(`Duplicated Question ${currentQIndex + 1}`);
     setTimeout(() => setSaveSuccessNotice(''), 2500);
@@ -1623,7 +1592,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     setQuestions(newQuestions);
     setCurrentQIndex(newIdx);
     if (newQuestions[newIdx]) {
-      setQuestionCodeDraft(JSON.stringify(formatQuestionCompact(newQuestions[newIdx]), null, 2));
+      setQuestionCodeDraft(formatQuestionToText(newQuestions[newIdx], newIdx));
     }
     syncStateToJson(title, topic, timeLimitMinutes, newQuestions);
     setSaveSuccessNotice('Question deleted');
@@ -1637,21 +1606,8 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     updatedQuestions[currentQIndex] = targetQ;
     setQuestions(updatedQuestions);
 
-    const newDraft = JSON.stringify(formatQuestionCompact(targetQ), null, 2);
+    const newDraft = formatQuestionToText(targetQ, currentQIndex);
     setQuestionCodeDraft(newDraft);
-
-    try {
-      const fullTestParsed = JSON.parse(jsonText);
-      if (Array.isArray(fullTestParsed.questions)) {
-        fullTestParsed.questions[currentQIndex] = formatQuestionCompact(targetQ);
-        const formatted = JSON.stringify(fullTestParsed, null, 2);
-        setJsonText(formatted);
-        pushHistory(formatted, newDraft, currentQIndex);
-        return;
-      }
-    } catch {
-      // Ignore JSON parse error
-    }
     syncStateToJson(title, topic, timeLimitMinutes, updatedQuestions);
   };
 
@@ -1763,21 +1719,8 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     updatedQuestions[currentQIndex] = targetQ;
     setQuestions(updatedQuestions);
 
-    const newDraft = JSON.stringify(formatQuestionCompact(targetQ), null, 2);
+    const newDraft = formatQuestionToText(targetQ, currentQIndex);
     setQuestionCodeDraft(newDraft);
-
-    try {
-      const fullTestParsed = JSON.parse(jsonText);
-      if (Array.isArray(fullTestParsed.questions)) {
-        fullTestParsed.questions[currentQIndex] = formatQuestionCompact(targetQ);
-        const formatted = JSON.stringify(fullTestParsed, null, 2);
-        setJsonText(formatted);
-        pushHistory(formatted, newDraft, currentQIndex);
-        return;
-      }
-    } catch {
-      // Ignore
-    }
     syncStateToJson(title, topic, timeLimitMinutes, updatedQuestions);
   };
 
@@ -1800,21 +1743,8 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     updatedQuestions[currentQIndex] = targetQ;
     setQuestions(updatedQuestions);
 
-    const newDraft = JSON.stringify(formatQuestionCompact(targetQ), null, 2);
+    const newDraft = formatQuestionToText(targetQ, currentQIndex);
     setQuestionCodeDraft(newDraft);
-
-    try {
-      const fullTestParsed = JSON.parse(jsonText);
-      if (Array.isArray(fullTestParsed.questions)) {
-        fullTestParsed.questions[currentQIndex] = formatQuestionCompact(targetQ);
-        const formatted = JSON.stringify(fullTestParsed, null, 2);
-        setJsonText(formatted);
-        pushHistory(formatted, newDraft, currentQIndex);
-        return;
-      }
-    } catch {
-      // Ignore
-    }
     syncStateToJson(title, topic, timeLimitMinutes, updatedQuestions);
   };
 
@@ -1881,21 +1811,9 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     updatedQuestions[currentQIndex] = targetQ;
     setQuestions(updatedQuestions);
 
-    const newDraft = JSON.stringify(formatQuestionCompact(targetQ), null, 2);
+    const newDraft = formatQuestionToText(targetQ, currentQIndex);
     setQuestionCodeDraft(newDraft);
 
-    try {
-      const fullTestParsed = JSON.parse(jsonText);
-      if (Array.isArray(fullTestParsed.questions)) {
-        fullTestParsed.questions[currentQIndex] = formatQuestionCompact(targetQ);
-        const formatted = JSON.stringify(fullTestParsed, null, 2);
-        setJsonText(formatted);
-        pushHistory(formatted, newDraft, currentQIndex);
-        return;
-      }
-    } catch {
-      // Ignore
-    }
     syncStateToJson(title, topic, timeLimitMinutes, updatedQuestions);
   };
 
@@ -1942,21 +1860,9 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     updatedQuestions[currentQIndex] = targetQ;
     setQuestions(updatedQuestions);
 
-    const newDraft = JSON.stringify(formatQuestionCompact(targetQ), null, 2);
+    const newDraft = formatQuestionToText(targetQ, currentQIndex);
     setQuestionCodeDraft(newDraft);
 
-    try {
-      const fullTestParsed = JSON.parse(jsonText);
-      if (Array.isArray(fullTestParsed.questions)) {
-        fullTestParsed.questions[currentQIndex] = formatQuestionCompact(targetQ);
-        const formatted = JSON.stringify(fullTestParsed, null, 2);
-        setJsonText(formatted);
-        pushHistory(formatted, newDraft, currentQIndex);
-        return;
-      }
-    } catch {
-      // Ignore
-    }
     syncStateToJson(title, topic, timeLimitMinutes, updatedQuestions);
   };
 
@@ -1977,21 +1883,9 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     updatedQuestions[currentQIndex] = targetQ;
     setQuestions(updatedQuestions);
 
-    const newDraft = JSON.stringify(formatQuestionCompact(targetQ), null, 2);
+    const newDraft = formatQuestionToText(targetQ, currentQIndex);
     setQuestionCodeDraft(newDraft);
 
-    try {
-      const fullTestParsed = JSON.parse(jsonText);
-      if (Array.isArray(fullTestParsed.questions)) {
-        fullTestParsed.questions[currentQIndex] = formatQuestionCompact(targetQ);
-        const formatted = JSON.stringify(fullTestParsed, null, 2);
-        setJsonText(formatted);
-        pushHistory(formatted, newDraft, currentQIndex);
-        return;
-      }
-    } catch {
-      // Ignore
-    }
     syncStateToJson(title, topic, timeLimitMinutes, updatedQuestions);
   };
 
@@ -2018,74 +1912,60 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     updatedQuestions[currentQIndex] = targetQ;
     setQuestions(updatedQuestions);
 
-    const newDraft = JSON.stringify(formatQuestionCompact(targetQ), null, 2);
+    const newDraft = formatQuestionToText(targetQ, currentQIndex);
     setQuestionCodeDraft(newDraft);
 
-    try {
-      const fullTestParsed = JSON.parse(jsonText);
-      if (Array.isArray(fullTestParsed.questions)) {
-        fullTestParsed.questions[currentQIndex] = formatQuestionCompact(targetQ);
-        const formatted = JSON.stringify(fullTestParsed, null, 2);
-        setJsonText(formatted);
-        pushHistory(formatted, newDraft, currentQIndex);
-        return;
-      }
-    } catch {
-      // Ignore
-    }
     syncStateToJson(title, topic, timeLimitMinutes, updatedQuestions);
   };
 
   const handleFormatJson = () => {
     try {
-      const parsed = JSON.parse(jsonText);
-      const formatted = JSON.stringify(parsed, null, 2);
+      const parsed = parseTestFromText(jsonText, (topic || 'General Mathematics').trim());
+      const formatted = formatTestToText(parsed);
       setJsonText(formatted);
       setJsonError(null);
       pushHistory(formatted);
-      setSaveSuccessNotice('JSON Schema Formatted');
+      setSaveSuccessNotice('Text Format Aligned');
       setTimeout(() => setSaveSuccessNotice(''), 2000);
     } catch (err: any) {
-      setJsonError('Cannot format invalid JSON: ' + err.message);
+      setJsonError('Cannot format invalid code: ' + err.message);
     }
   };
 
   const handleUpdateQuestionCode = (): boolean => {
     try {
-      const parsedQ = JSON.parse(repairJsonBackslashes(questionCodeDraft));
-      if (!parsedQ || typeof parsedQ !== 'object') {
-        throw new Error('Question must be a valid JSON object.');
+      let parsedQ: any;
+      if (isJsonFormat(questionCodeDraft)) {
+        parsedQ = JSON.parse(repairJsonBackslashes(questionCodeDraft));
+      } else {
+        parsedQ = parseQuestionFromText(questionCodeDraft, topic, currentQuestion?.id || `q-${currentQIndex + 1}`);
       }
-      if (!parsedQ.text || typeof parsedQ.text !== 'string' || !parsedQ.text.trim()) {
-        throw new Error('Question must have a valid non-empty "text" prompt.');
+      if (!parsedQ || typeof parsedQ !== 'object') {
+        throw new Error('Question must be a valid plain text block.');
       }
       const normalizedQ = normalizeQuestion(parsedQ, currentQIndex);
 
-      let fullTestParsed: any;
-      try {
-        fullTestParsed = JSON.parse(jsonText);
-      } catch {
-        fullTestParsed = formatTestCompact(title, topic, timeLimitMinutes, questions);
-      }
-
-      const updatedRawQuestions = [...(fullTestParsed.questions || questions.map(formatQuestionCompact))];
-      const compactQ = formatQuestionCompact(normalizedQ);
-      
-      if (currentQIndex >= 0 && currentQIndex < updatedRawQuestions.length) {
-        updatedRawQuestions[currentQIndex] = compactQ;
+      const nextQuestions = [...questions];
+      if (currentQIndex >= 0 && currentQIndex < nextQuestions.length) {
+        nextQuestions[currentQIndex] = normalizedQ;
       } else {
-        updatedRawQuestions.push(compactQ);
+        nextQuestions.push(normalizedQ);
       }
+      setQuestions(nextQuestions);
 
-      fullTestParsed.questions = updatedRawQuestions;
-      const formattedFull = JSON.stringify(fullTestParsed, null, 2);
+      const formattedFull = formatTestToText({
+        title,
+        topic,
+        timeLimitMinutes,
+        questions: nextQuestions,
+      });
       setJsonText(formattedFull);
       parseAndSyncState(formattedFull, true);
 
-      setQuestionCodeDraft(JSON.stringify(compactQ, null, 2));
+      setQuestionCodeDraft(formatQuestionToText(normalizedQ, currentQIndex));
       return true;
     } catch (err: any) {
-      setErrorMessage(err.message || 'Invalid question JSON syntax');
+      setErrorMessage(err.message || 'Invalid question format');
       return false;
     }
   };
@@ -2221,13 +2101,15 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     }
   };
 
-  const handleExportCurrentTest = () => {
+  const handleExportCurrentTest = (format: 'txt' | 'json' = 'txt') => {
     try {
       let exportObj: MathTest;
       let usedStateFallback = false;
 
       try {
-        const parsed = JSON.parse(jsonText);
+        const parsed = isJsonFormat(jsonText)
+          ? JSON.parse(jsonText)
+          : parseTestFromText(jsonText, topic);
         exportObj = {
           id: editingTestId || `custom-test-${Date.now()}`,
           title: parsed.title || title || 'Untitled Math Test',
@@ -2263,23 +2145,42 @@ export const TestEditor: React.FC<TestEditorProps> = ({
         };
       }
 
-      // Always trigger direct file download of the JSON test file
-      const jsonString = JSON.stringify(exportObj, null, 2);
-      const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
       const safeTitle = (exportObj.title || 'math_test').replace(/\s+/g, '_').replace(/[^\w-]/g, '').toLowerCase() || 'math_test';
-      const fileName = `${safeTitle}.json`;
-      triggerBlobDownload(blob, fileName);
 
-      if (onExportJson) {
-        onExportJson(exportObj);
+      if (format === 'txt') {
+        const textContent = formatTestToText(exportObj);
+        const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+        const fileName = `${safeTitle}.txt`;
+        triggerBlobDownload(blob, fileName);
+
+        if (onExportJson) {
+          onExportJson(exportObj, 'txt');
+        }
+
+        setIsActionsMenuOpen(false);
+        setSaveSuccessNotice(
+          usedStateFallback
+            ? `Exported "${exportObj.title}" to ${fileName} (plain text, recovered from state)`
+            : `Exported "${exportObj.title}" to ${fileName}`
+        );
+      } else {
+        const jsonString = JSON.stringify(exportObj, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
+        const fileName = `${safeTitle}.json`;
+        triggerBlobDownload(blob, fileName);
+
+        if (onExportJson) {
+          onExportJson(exportObj, 'json');
+        }
+
+        setIsActionsMenuOpen(false);
+        setSaveSuccessNotice(
+          usedStateFallback
+            ? `Exported "${exportObj.title}" to ${fileName} (recovered from active test state)`
+            : `Exported "${exportObj.title}" to ${fileName}`
+        );
       }
 
-      setIsActionsMenuOpen(false);
-      setSaveSuccessNotice(
-        usedStateFallback
-          ? `Exported "${exportObj.title}" to ${fileName} (recovered from active test state)`
-          : `Exported "${exportObj.title}" to ${fileName}`
-      );
       setTimeout(() => setSaveSuccessNotice(''), 3500);
     } catch (err: any) {
       setErrorMessage(`Export failed: ${err.message || 'Unknown error'}`);
@@ -2287,14 +2188,25 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     }
   };
 
-  const handleDownloadSampleJson = () => {
-    const jsonString = JSON.stringify(SAMPLE_TEST_JSON, null, 2);
-    const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
-    triggerBlobDownload(blob, 'sample_math_test.json');
+  const handleDownloadSampleText = () => {
+    const blankQuestion: MathQuestion = {
+      id: 'q1',
+      text: '',
+      type: 'mcq',
+      options: ['', '', '', ''],
+      correctAnswer: '0',
+      correctOptionIndex: 0,
+      explanation: '',
+      points: 1,
+    };
+    const textContent = formatTestToText({
+      timeLimitMinutes: 15,
+      questions: [blankQuestion],
+    });
+    const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+    triggerBlobDownload(blob, 'blank_math_test_template.txt');
 
-    setJsonText(jsonString);
-    parseAndSyncState(jsonString, true);
-    setSaveSuccessNotice('Downloaded & loaded clean Sample JSON structure');
+    setSaveSuccessNotice('Downloaded Blank .txt Template');
     setTimeout(() => setSaveSuccessNotice(''), 3000);
     setIsActionsMenuOpen(false);
   };
@@ -2305,46 +2217,72 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     }
     setEditingTestId(null);
 
-    const blankTemplate = {
-      title: "New Mathematics Assessment",
-      topic: "Matrices and Determinants",
-      time: 15,
-      questions: [
-        {
-          text: "",
-          topic: "Matrices and Determinants",
-          subtopic: "",
-          options: ["", "", "", ""],
-          correctAnswer: 0,
-          explanation: ""
-        }
-      ]
+    const blankQuestion: MathQuestion = {
+      id: 'q1',
+      text: '',
+      type: 'mcq',
+      options: ['', '', '', ''],
+      correctAnswer: '0',
+      correctOptionIndex: 0,
+      explanation: '',
+      points: 1,
     };
 
-    const jsonString = JSON.stringify(blankTemplate, null, 2);
-    setJsonText(jsonString);
-    parseAndSyncState(jsonString, true);
+    const blankTemplate: Partial<MathTest> = {
+      timeLimitMinutes: 15,
+      questions: [blankQuestion],
+    };
 
-    // Switch view to JSON schema editor
+    setTitle('Untitled Assessment');
+    setDescription('');
+    setTopic('General Mathematics');
+    setTimeLimitMinutes(15);
+    setPassingScorePercentage(70);
+    setQuestions([blankQuestion]);
+    setCurrentQIndex(0);
+
+    const textString = formatTestToText(blankTemplate);
+    setJsonText(textString);
+    const firstDraft = formatQuestionToText(blankQuestion, 0);
+    setQuestionCodeDraft(firstDraft);
+
+    historyRef.current = {
+      stack: [{ jsonText: textString, questionCodeDraft: firstDraft, currentQIndex: 0 }],
+      index: 0,
+    };
+    setHistoryVersion((v) => v + 1);
+    setJsonError(null);
+
+    // Switch view to txt Editor
     setMobileTab('editor');
     if (layoutMode === 'canvas') {
       setLayoutMode('split');
     }
 
-    setSaveSuccessNotice('Created a new blank template in the editor.');
+    setSaveSuccessNotice('Loaded New Blank Template in TestCodeEditor<TXT>.');
     setTimeout(() => setSaveSuccessNotice(''), 3500);
   };
 
   const handleProcessImportJson = (text: string) => {
     try {
       setImportError(null);
-      const parseResult = parseAssessmentJsonFaultTolerant(text);
-      const parsed = parseResult.test;
+      let parsed: any;
+      let parseResultErrors: any[] = [];
+      let hasRepairs = false;
+
+      if (!isJsonFormat(text)) {
+        parsed = parseTestFromText(text, (topic || 'General Mathematics').trim());
+      } else {
+        const parseResult = parseAssessmentJsonFaultTolerant(text);
+        parsed = parseResult.test;
+        parseResultErrors = parseResult.errors;
+        hasRepairs = parseResult.hasRepairs;
+      }
 
       let importedQuestions: MathQuestion[] = [];
       let importedTitle = 'Imported Assessment';
       let importedTopic: MathTopic = 'Matrices and Determinants';
-      let importedDesc = 'Imported from JSON';
+      let importedDesc = 'Imported assessment';
       let importedTime = 15;
       let importedPassing = 60;
 
@@ -2360,7 +2298,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
       }
 
       if (!importedQuestions || importedQuestions.length === 0) {
-        throw new Error('No valid questions array found in JSON.');
+        throw new Error('No valid questions found in imported file.');
       }
 
       // Check if the current test in the editor is a default untouched template OR a real/previous test
@@ -2433,22 +2371,16 @@ export const TestEditor: React.FC<TestEditorProps> = ({
         updatedAt: new Date().toISOString(),
       };
 
-      const compactObj = formatTestCompact(
-        importedTitle,
-        importedTopicFinal,
-        importedTime,
-        normalizedImportedQs
-      );
-      const formatted = JSON.stringify(compactObj, null, 2);
+      const formatted = formatTestToText(importedTestPayload);
       setJsonText(formatted);
       parseAndSyncState(formatted, true);
 
       // Save the imported test as well so both tests exist independently in library & database
       onSaveTest(importedTestPayload);
       
-      if (parseResult.errors.length > 0) {
-        const errorSummary = parseResult.errors.map(e => e.message).join(' | ');
-        const firstErrQNum = parseResult.errors[0].questionNumber;
+      if (parseResultErrors.length > 0) {
+        const errorSummary = parseResultErrors.map(e => e.message).join(' | ');
+        const firstErrQNum = parseResultErrors[0].questionNumber;
         const validCount = importedQuestions.filter(q => !(q as any)._hasSyntaxError).length;
         const alertMsg = `${errorSummary}. Accepted ${validCount} valid question${validCount === 1 ? '' : 's'} as is. Navigated to Question ${firstErrQNum} for correction.`;
         setErrorMessage(alertMsg);
@@ -2457,14 +2389,14 @@ export const TestEditor: React.FC<TestEditorProps> = ({
         if (errIndex >= 0 && errIndex < normalizedImportedQs.length) {
           setCurrentQIndex(errIndex);
         }
-        setImportSuccess(`Imported with ${parseResult.errors.length} issue(s) flagged: ${parseResult.errors.map(e => `Question ${e.questionNumber}`).join(', ')}`);
+        setImportSuccess(`Imported with ${parseResultErrors.length} issue(s) flagged: ${parseResultErrors.map(e => `Question ${e.questionNumber}`).join(', ')}`);
         setTimeout(() => setSaveSuccessNotice(''), 8000);
         setTimeout(() => {
           setIsImportModalOpen(false);
           setImportSuccess(null);
         }, 1800);
       } else {
-        const successMsg = parseResult.hasRepairs
+        const successMsg = hasRepairs
           ? `Imported and saved "${importedTitle}" (${importedQuestions.length} questions, auto-repaired LaTeX backslashes).`
           : `Imported and saved "${importedTitle}" (${importedQuestions.length} questions).`;
         setImportSuccess(`Successfully loaded and saved ${importedQuestions.length} questions!`);
@@ -2479,7 +2411,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
         }, 800);
       }
     } catch (err: any) {
-      setImportError(err.message || 'Invalid JSON format');
+      setImportError(err.message || 'Invalid format');
     }
   };
 
@@ -2514,16 +2446,16 @@ export const TestEditor: React.FC<TestEditorProps> = ({
       }
       const clipboardText = await navigator.clipboard.readText();
       if (!clipboardText || !clipboardText.trim()) {
-        setErrorMessage('Clipboard is empty. Copy JSON data first.');
+        setErrorMessage('Clipboard is empty. Copy test code or JSON first.');
         return;
       }
       const trimmed = clipboardText.trim();
-      // Validate or parse into the JSON schema editor
+      // Validate or parse into the editor
       const success = parseAndSyncState(trimmed, true);
       setJsonText(trimmed);
       if (success) {
         setIsJsonPastedNotice(true);
-        setSaveSuccessNotice('JSON pasted and synchronized successfully!');
+        setSaveSuccessNotice(isJsonFormat(trimmed) ? 'JSON pasted and synchronized successfully!' : 'Test code pasted and synchronized successfully!');
         setTimeout(() => {
           setIsJsonPastedNotice(false);
           setSaveSuccessNotice('');
@@ -2540,7 +2472,9 @@ export const TestEditor: React.FC<TestEditorProps> = ({
 
   const handleRequestSave = () => {
     try {
-      const parsed = JSON.parse(jsonText);
+      const parsed = isJsonFormat(jsonText)
+        ? JSON.parse(jsonText)
+        : parseTestFromText(jsonText, topic);
       if (!parsed.title || !parsed.title.trim()) {
         setErrorMessage('Test title is required.');
         return;
@@ -2551,13 +2485,15 @@ export const TestEditor: React.FC<TestEditorProps> = ({
       }
       setIsSaveConfirmModalOpen(true);
     } catch {
-      setErrorMessage('Cannot save: JSON syntax is invalid. Please fix errors before saving.');
+      setErrorMessage('Cannot save: test code syntax is invalid. Please fix errors before saving.');
     }
   };
 
   const handleConfirmSave = () => {
     try {
-      const parsed = JSON.parse(jsonText);
+      const parsed = isJsonFormat(jsonText)
+        ? JSON.parse(jsonText)
+        : parseTestFromText(jsonText, topic);
       const finalTopic = (parsed.topic || topic || 'General Mathematics').trim();
       const mins = typeof parsed.time === 'number' ? parsed.time : (typeof parsed.timeLimitMinutes === 'number' ? parsed.timeLimitMinutes : timeLimitMinutes);
       const normalizedQs = Array.isArray(parsed.questions)
@@ -2614,18 +2550,17 @@ export const TestEditor: React.FC<TestEditorProps> = ({
       setQuestions(normalizedQs);
       setCurrentQIndex(0);
 
-      const compactObj = formatTestCompact(
-        t.title || 'Untitled Assessment',
-        testTopic,
-        mins,
-        normalizedQs
-      );
-      const formatted = JSON.stringify(compactObj, null, 2);
+      const formatted = formatTestToText({
+        title: t.title || 'Untitled Assessment',
+        topic: testTopic,
+        timeLimitMinutes: mins,
+        questions: normalizedQs,
+      });
       setJsonText(formatted);
 
       // Synchronize question code draft for first question so Canvas and Code Review immediately update
       const firstQ = normalizedQs[0];
-      const firstDraft = firstQ ? JSON.stringify(formatQuestionCompact(firstQ), null, 2) : '';
+      const firstDraft = firstQ ? formatQuestionToText(firstQ, 0) : '';
       setQuestionCodeDraft(firstDraft);
 
       pushHistory(formatted, firstDraft, 0);
@@ -2655,7 +2590,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
         setPassingScorePercentage(70);
         setQuestions(defaultTest.questions.map((q, idx) => normalizeQuestion(q, idx)));
         setCurrentQIndex(0);
-        const formatted = JSON.stringify(defaultTest, null, 2);
+        const formatted = formatTestToText(defaultTest as any);
         setJsonText(formatted);
         pushHistory(formatted);
       }
@@ -2692,11 +2627,13 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     setEditingTestId(null);
     const newBlankQ: MathQuestion = {
       id: 'q1',
-      text: 'Enter mathematical question statement with $\\LaTeX$ formula.',
+      text: '',
       type: 'mcq',
-      options: ['Option A', 'Option B', 'Option C', 'Option D'],
-      correctAnswer: 'Option A',
-      explanation: 'Step-by-step mathematical explanation or solution.',
+      options: ['', '', '', ''],
+      correctAnswer: '0',
+      correctOptionIndex: 0,
+      explanation: '',
+      hint: '',
       points: 1,
     };
     const newQs = [newBlankQ];
@@ -2707,15 +2644,12 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     setPassingScorePercentage(70);
     setQuestions(newQs);
     setCurrentQIndex(0);
-    const compactObj = formatTestCompact(
-      'Untitled Assessment',
-      'General Mathematics',
-      15,
-      newQs
-    );
-    const formatted = JSON.stringify(compactObj, null, 2);
+    const formatted = formatTestToText({
+      timeLimitMinutes: 15,
+      questions: newQs,
+    });
     setJsonText(formatted);
-    const firstDraft = JSON.stringify(formatQuestionCompact(newBlankQ), null, 2);
+    const firstDraft = formatQuestionToText(newBlankQ, 0);
     setQuestionCodeDraft(firstDraft);
     historyRef.current = {
       stack: [{ jsonText: formatted, questionCodeDraft: firstDraft, currentQIndex: 0 }],
@@ -2725,7 +2659,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     setJsonError(null);
     setIsHistoryDrawerOpen(false);
     setIsActionsMenuOpen(false);
-    setSaveSuccessNotice('Unloaded previous test. Created a new blank assessment.');
+    setSaveSuccessNotice('Created a new blank assessment.');
     setTimeout(() => setSaveSuccessNotice(''), 3500);
   };
 
@@ -2786,7 +2720,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
           const prevIdx = currentQIndex - 1;
           setCurrentQIndex(prevIdx);
           if (cardMode === 'code' && questions[prevIdx]) {
-            setQuestionCodeDraft(JSON.stringify(formatQuestionCompact(questions[prevIdx]), null, 2));
+            setQuestionCodeDraft(formatQuestionToText(questions[prevIdx], prevIdx));
           }
         }
       } else if (e.key === 'ArrowRight' || e.key === 'n' || e.key === 'N') {
@@ -2795,7 +2729,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
           const nextIdx = currentQIndex + 1;
           setCurrentQIndex(nextIdx);
           if (cardMode === 'code' && questions[nextIdx]) {
-            setQuestionCodeDraft(JSON.stringify(formatQuestionCompact(questions[nextIdx]), null, 2));
+            setQuestionCodeDraft(formatQuestionToText(questions[nextIdx], nextIdx));
           }
         }
       }
@@ -2820,18 +2754,18 @@ export const TestEditor: React.FC<TestEditorProps> = ({
           <div className="px-6 py-4 rounded-2xl bg-white dark:bg-[#1e2024] shadow-2xl border-2 border-dashed border-[#0b57d0] flex items-center gap-3 animate-bounce">
             <Upload className="w-8 h-8 text-[#0b57d0] dark:text-[#a8c7fa] rotate-180" />
             <div>
-              <p className="text-sm font-bold text-slate-900 dark:text-white m-0">Drop JSON test file to Import</p>
+              <p className="text-sm font-bold text-slate-900 dark:text-white m-0">Drop .txt or .json test file to Import</p>
               <p className="text-xs text-slate-500 dark:text-zinc-400 m-0">Loads directly into editor & library</p>
             </div>
           </div>
         </div>
       )}
       
-      {/* Hidden File Input for Direct Storage Import strictly restricted to JSON files only */}
+      {/* Hidden File Input for Direct Storage Import accepting .txt and .json files */}
       <input
         type="file"
         ref={fileInputRef}
-        accept=".json,application/json"
+        accept=".txt,.json,text/plain,application/json"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
@@ -2978,25 +2912,25 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    handleExportCurrentTest();
+                    handleExportCurrentTest('txt');
                     setIsActionsMenuOpen(false);
                   }}
                   className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-[#282a39] text-slate-700 dark:text-zinc-200 transition-colors cursor-pointer font-bold"
                 >
                   <Download className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-                  <span>Export JSON File</span>
+                  <span>Export Test (.txt)</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
                     setIsActionsMenuOpen(false);
-                    handleDownloadSampleJson();
+                    handleDownloadSampleText();
                   }}
                   className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-[#282a39] text-slate-700 dark:text-zinc-200 transition-colors cursor-pointer font-bold"
                 >
-                  <Code2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-                  <span>Sample JSON Template</span>
+                  <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>Sample .txt Template</span>
                 </button>
               </div>
             )}
@@ -3024,16 +2958,16 @@ export const TestEditor: React.FC<TestEditorProps> = ({
             <span>Edit with AI</span>
           </button>
 
-          {/* Export JSON Button */}
+          {/* Export (.txt) Button */}
           <button
             type="button"
             id="test-editor-action-export-json-btn"
-            onClick={handleExportCurrentTest}
+            onClick={() => handleExportCurrentTest('txt')}
             className="w-full sm:w-auto flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
-            title="Export current test as JSON file"
+            title="Export current test as plain text (.txt) file"
           >
             <Download className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-            <span>Export JSON</span>
+            <span>Export (.txt)</span>
           </button>
 
           {/* Import Button with Drag & Drop */}
@@ -3332,7 +3266,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                               setCurrentQIndex(idx);
                               setIsJumpMenuOpen(false);
                               if (cardMode === 'code' && questions[idx]) {
-                                setQuestionCodeDraft(JSON.stringify(formatQuestionCompact(questions[idx]), null, 2));
+                                setQuestionCodeDraft(formatQuestionToText(questions[idx], idx));
                               }
                             }}
                             className={`h-8 rounded-xl font-bold text-xs flex items-center justify-center transition-all cursor-pointer relative ${
@@ -3400,7 +3334,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                     type="button"
                     onClick={() => {
                       if (currentQuestion) {
-                        setQuestionCodeDraft(JSON.stringify(formatQuestionCompact(currentQuestion), null, 2));
+                        setQuestionCodeDraft(formatQuestionToText(currentQuestion, currentQIndex));
                       }
                       setCardMode('code');
                     }}
@@ -3409,7 +3343,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                         ? 'bg-[#0b57d0] text-white shadow-2xs'
                         : 'text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white'
                     }`}
-                    title="Edit raw JSON code for active question"
+                    title="Edit clean question text code for active question"
                   >
                     <Code2 className="w-3 h-3" />
                     <span className="hidden sm:inline">Code</span>
@@ -3724,9 +3658,14 @@ export const TestEditor: React.FC<TestEditorProps> = ({
             ) : (
               <div className="flex-1 min-h-[420px] sm:min-h-[520px] h-full flex flex-col bg-[#131316] text-emerald-400 dark:bg-[#131316] p-2 sm:p-3 rounded-2xl shadow-inner overflow-hidden max-w-5xl mx-auto w-full">
                   <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-[#2a2a32] text-xs shrink-0 gap-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      Question Code — #{currentQIndex + 1}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        Question Code — #{currentQIndex + 1}
+                      </span>
+                      <span className="text-[9.5px] px-2 py-0.5 rounded-full font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-600/40">
+                        Sequential Text (.txt)
+                      </span>
+                    </div>
 
                     <div className="flex items-center gap-1 sm:gap-1.5">
                       {/* Copy code button inside review header */}
@@ -3847,7 +3786,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                           {(currentQuestion as any)._errorMessage || `Syntax error in Question ${currentQIndex + 1}`}
                         </span>
                         <p className="mt-0.5 text-[11px] text-amber-200/90 leading-relaxed">
-                          Fix the JSON syntax / backslashes below. Other questions were loaded cleanly.
+                          Fix the syntax below. Sequential plain text (Question:, A:, B:, Correct: A) or JSON are both supported.
                         </p>
                       </div>
                     </div>
@@ -3925,7 +3864,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                   const newIdx = Math.max(0, currentQIndex - 1);
                   setCurrentQIndex(newIdx);
                   if (cardMode === 'code' && questions[newIdx]) {
-                    setQuestionCodeDraft(JSON.stringify(formatQuestionCompact(questions[newIdx]), null, 2));
+                    setQuestionCodeDraft(formatQuestionToText(questions[newIdx], newIdx));
                   }
                 }}
                 disabled={currentQIndex === 0}
@@ -3962,7 +3901,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                   const newIdx = Math.min(questions.length - 1, currentQIndex + 1);
                   setCurrentQIndex(newIdx);
                   if (cardMode === 'code' && questions[newIdx]) {
-                    setQuestionCodeDraft(JSON.stringify(formatQuestionCompact(questions[newIdx]), null, 2));
+                    setQuestionCodeDraft(formatQuestionToText(questions[newIdx], newIdx));
                   }
                 }}
                 disabled={currentQIndex >= questions.length - 1}
@@ -4002,21 +3941,21 @@ export const TestEditor: React.FC<TestEditorProps> = ({
             {/* JSON Schema Editor Header: Add/Import JSON (+) button, Copy button, Paste button, and Find button */}
             <div className="flex items-center justify-between pb-2 sm:pb-2.5 border-b border-[#e5e2db] dark:border-zinc-800/60 shrink-0 gap-1.5">
               <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                <FileCode className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <h3 className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-zinc-100 truncate">
-                  JSON Schema Editor
+                  TestCodeEditor&lt;TXT&gt;
                 </h3>
               </div>
 
               {/* Action Buttons: Copy, Paste, and Search */}
               <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-                {/* 1. Copy Data from JSON Schema Editor button */}
+                {/* 1. Copy Data button */}
                 <button
                   type="button"
-                  id="json-editor-copy-btn"
+                  id="test-code-editor-copy-btn"
                   onClick={handleCopyJsonSchema}
-                  title="Copy full JSON schema to clipboard"
-                  aria-label="Copy JSON schema"
+                  title="Copy full test code to clipboard"
+                  aria-label="Copy test code"
                   className={`w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transition-colors ${
                     copiedJsonSchema
                       ? 'bg-[#0b57d0] text-white shadow-2xs'
@@ -4030,13 +3969,13 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                   )}
                 </button>
 
-                {/* 3. Paste Data into JSON Schema Editor button */}
+                {/* 3. Paste Data button */}
                 <button
                   type="button"
-                  id="json-editor-paste-btn"
+                  id="test-code-editor-paste-btn"
                   onClick={handlePasteJsonData}
-                  title="Paste copied JSON into editor"
-                  aria-label="Paste clipboard JSON"
+                  title="Paste test code into editor"
+                  aria-label="Paste test code"
                   className={`w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transition-colors ${
                     isJsonPastedNotice
                       ? 'bg-emerald-600 text-white shadow-2xs'
@@ -4050,10 +3989,10 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                   )}
                 </button>
 
-                {/* 4. Icon-Only Find Button in JSON Schema Editor */}
+                {/* 4. Icon-Only Find Button */}
                 <button
                   type="button"
-                  id="json-editor-find-btn"
+                  id="test-code-editor-find-btn"
                   onClick={() => {
                     const nextState = !isJsonFindOpen;
                     setIsJsonFindOpen(nextState);
@@ -4061,8 +4000,8 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                       handlePerformJsonFind(jsonFindQuery);
                     }
                   }}
-                  title="Find in JSON schema"
-                  aria-label="Find in JSON schema"
+                  title="Find in test code"
+                  aria-label="Find in test code"
                   className={`w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transition-colors ${
                     isJsonFindOpen 
                       ? 'bg-[#0b57d0] text-white' 
@@ -4183,13 +4122,13 @@ export const TestEditor: React.FC<TestEditorProps> = ({
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  id="json-editor-format-btn"
+                  id="test-code-editor-format-btn"
                   onClick={handleFormatJson}
                   className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-[#222634] hover:bg-[#dedcd6] dark:hover:bg-[#282a39] text-[#1d283a] dark:text-zinc-200 text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs"
-                  title="Auto-format and align JSON structure"
+                  title="Auto-format and clean test .txt code"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                  <span>Format JSON</span>
+                  <span>Format Text</span>
                 </button>
               </div>
             </div>
@@ -4600,10 +4539,10 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onExportJson(t);
+                                  onExportJson(t, 'txt');
                                 }}
                                 className="w-7 h-7 rounded-full bg-[#f0f4f9] hover:bg-[#e2e7f0] dark:bg-[#282a30] dark:hover:bg-[#34374a] text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center transition-all cursor-pointer border-0 active:scale-95"
-                                title="Export this test to JSON"
+                                title="Export this test (.txt)"
                               >
                                 <Download className="w-3.5 h-3.5" />
                               </button>
@@ -4755,7 +4694,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
               className="bg-white dark:bg-[#1e2024] w-full max-w-xl rounded-[28px] border-0 shadow-[0_8px_28px_rgba(0,0,0,0.18)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.6)] p-5 space-y-4"
             >
               <div className="flex items-center justify-between border-b border-[#dedcd6] dark:border-zinc-800/60 pb-2">
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">Import Test via JSON</h3>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">Import Test Assessment (.txt)</h3>
                 <button type="button" onClick={() => setIsImportModalOpen(false)} className="text-slate-400 hover:text-slate-700 dark:hover:text-[#c4c4cc] cursor-pointer"><X className="w-4 h-4" /></button>
               </div>
 
@@ -4780,22 +4719,33 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                   className="w-full py-3 rounded-full border-2 border-dashed border-[#0b57d0] text-xs font-bold text-[#0b57d0] dark:border-[#a8c7fa] dark:text-[#a8c7fa] hover:bg-blue-50/50 dark:hover:bg-blue-950/30 flex items-center justify-center gap-2 cursor-pointer transition-colors"
                 >
                   <FileUp className="w-4 h-4" />
-                  <span>Upload or Drag & Drop JSON file from device storage</span>
+                  <span>Upload or Drag & Drop .txt file from device</span>
                 </button>
+
+                <div className="flex items-center justify-center gap-2 py-1 text-[11px] text-slate-500 dark:text-zinc-400">
+                  <span>Template:</span>
+                  <button
+                    type="button"
+                    onClick={handleDownloadSampleText}
+                    className="font-bold text-[#0b57d0] dark:text-[#a8c7fa] hover:underline cursor-pointer"
+                  >
+                    Download Sample .txt Template
+                  </button>
+                </div>
                 
-                <div className="text-center text-[11px] text-slate-400 dark:text-zinc-500 font-semibold uppercase">or paste raw JSON text</div>
+                <div className="text-center text-[11px] text-slate-400 dark:text-zinc-500 font-semibold uppercase">or paste plain text</div>
 
                 <textarea
                   value={importJsonText}
                   onChange={(e) => setImportJsonText(e.target.value)}
-                  placeholder="Paste JSON test schema here..."
+                  placeholder={"Paste sequential plain text (e.g. Title:, Topic:, Time:, Q1, Question:, A:, B:, Correct:, Explanation:)..."}
                   className="w-full h-36 p-3 text-xs font-mono bg-slate-100 dark:bg-[#12141a] text-slate-900 dark:text-zinc-100 rounded-2xl border border-[#dedcd6] dark:border-zinc-800/60 outline-none"
                 />
               </div>
 
               <div className="flex items-center justify-end gap-2">
                 <button type="button" onClick={() => setIsImportModalOpen(false)} className="px-4 py-1.5 text-xs font-semibold bg-slate-100 dark:bg-[#222634] text-[#1d283a] dark:text-zinc-300 hover:bg-[#dedcd6] dark:hover:bg-[#282a39] rounded-full cursor-pointer transition-colors">Cancel</button>
-                <button type="button" onClick={() => handleProcessImportJson(importJsonText)} className="px-4 py-1.5 text-xs font-bold bg-[#0b57d0] hover:bg-[#0842a0] text-white dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] dark:text-[#041e49] rounded-full cursor-pointer transition-colors">Import Text</button>
+                <button type="button" onClick={() => handleProcessImportJson(importJsonText)} className="px-4 py-1.5 text-xs font-bold bg-[#0b57d0] hover:bg-[#0842a0] text-white dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] dark:text-[#041e49] rounded-full cursor-pointer transition-colors">Import Assessment</button>
               </div>
             </motion.div>
           </motion.div>

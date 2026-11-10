@@ -38,6 +38,7 @@ import type { MathTest, MathQuestion, TestAttempt } from '../types';
 import type { User } from 'firebase/auth';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { APP_STYLES } from './ui/AppStyles';
+import { formatTestToText } from '../utils/testFormatConverter';
 
 interface CustomTestBuilderProps {
   tests: MathTest[];
@@ -512,7 +513,7 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
 
     if (chosenQuestions.length === 0) return null;
 
-    return {
+    const customTest: MathTest = {
       id: `custom-${Date.now()}`,
       title: customTitle.trim() || 'Custom Revision Test',
       description: `Custom curated practice test comprising ${chosenQuestions.length} selected questions from multiple assessments.`,
@@ -527,6 +528,8 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+    customTest.testCode = formatTestToText(customTest);
+    return customTest;
   };
 
   const handleLaunchTest = (mode: 'timed' | 'practice') => {

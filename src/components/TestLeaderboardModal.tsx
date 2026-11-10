@@ -100,6 +100,56 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
     }
   }, [isOpen, test?.id, test?.title, loadLeaderboardData]);
 
+  // Synchronize status bar theme-color to match leaderboard page body (#ffffff light / #0c0e12 dark)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const syncStatusBar = () => {
+      try {
+        const isDark = document.documentElement.classList.contains('dark');
+        const targetColor = isDark ? '#0c0e12' : '#ffffff';
+
+        const metaThemeColors = document.querySelectorAll('meta[name="theme-color"]');
+        if (metaThemeColors.length > 0) {
+          metaThemeColors.forEach((el) => {
+            el.removeAttribute('media');
+            el.setAttribute('content', targetColor);
+          });
+        } else {
+          const newMeta = document.createElement('meta');
+          newMeta.name = 'theme-color';
+          newMeta.content = targetColor;
+          document.head.appendChild(newMeta);
+        }
+
+        const appleStatusBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+        if (appleStatusBar) {
+          appleStatusBar.setAttribute('content', isDark ? 'black-translucent' : 'default');
+        }
+      } catch (err) {
+        console.warn('Status bar theme color sync error in Leaderboard:', err);
+      }
+    };
+
+    syncStatusBar();
+
+    const observer = new MutationObserver(() => syncStatusBar());
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+    return () => {
+      observer.disconnect();
+      try {
+        const isDark = document.documentElement.classList.contains('dark');
+        const defaultColor = isDark ? '#0b0c10' : '#e5e9f0';
+        const metaThemeColors = document.querySelectorAll('meta[name="theme-color"]');
+        metaThemeColors.forEach((el) => {
+          el.removeAttribute('media');
+          el.setAttribute('content', defaultColor);
+        });
+      } catch {}
+    };
+  }, [isOpen]);
+
   const filteredEntries = useMemo(() => {
     if (!summary?.entries) return [];
     return summary.entries.filter((entry) => {
@@ -391,41 +441,43 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
               {/* 2. YOUR VERIFIED STANDING (Minimal Royal Blue Card)       */}
               {/* ========================================================= */}
               {summary?.currentUserEntry && (
-                <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white rounded-[22px] sm:rounded-[26px] p-3.5 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 shadow-xl relative overflow-hidden">
-                  <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto min-w-0">
-                    <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-md flex flex-col items-center justify-center shrink-0 border border-white/25 shadow-inner">
-                      <span className="text-[8px] sm:text-[9px] font-extrabold tracking-widest uppercase text-blue-200/90 leading-none">
+                <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white rounded-[20px] sm:rounded-[24px] p-3 sm:p-4 flex items-center justify-between gap-2.5 sm:gap-4 shadow-xl relative overflow-hidden">
+                  <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-md flex flex-col items-center justify-center shrink-0 border border-white/25 shadow-inner">
+                      <span className="text-[7.5px] sm:text-[8.5px] font-extrabold tracking-widest uppercase text-blue-200/90 leading-none">
                         RANK
                       </span>
-                      <span className="text-lg sm:text-2xl font-black text-white leading-none mt-1">
+                      <span className="text-base sm:text-xl font-black text-white leading-none mt-0.5">
                         {summary.currentUserRank || summary.currentUserEntry.rank || '-'}
                       </span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[9px] sm:text-[10px] font-extrabold tracking-widest text-blue-200 uppercase">
+                      <div className="text-[8.5px] sm:text-[9.5px] font-extrabold tracking-widest text-blue-200 uppercase leading-none mb-0.5">
                         YOUR VERIFIED STANDING
                       </div>
-                      <div className="text-sm sm:text-lg md:text-xl font-black text-white flex items-baseline gap-1.5 flex-wrap">
+                      <div className="text-xs sm:text-base font-black text-white flex items-baseline gap-1.5 flex-wrap leading-tight">
                         <span>Rank</span>
                         <span className="text-amber-300 font-black">
                           {summary.currentUserRank || summary.currentUserEntry.rank || '-'}
                         </span>
-                        <span className="text-blue-100/90 font-bold text-xs sm:text-sm md:text-base">
+                        <span className="text-blue-100/90 font-bold text-[11px] sm:text-xs">
                           of {summary.totalParticipants} Students
                         </span>
                       </div>
-                      <div className="text-[11px] sm:text-xs text-blue-100 font-medium mt-0.5 leading-snug">
-                        Top {Math.max(1, Math.round(((summary.currentUserRank || 1) / Math.max(1, summary.totalParticipants)) * 100))}% Percentile • Score: {summary.currentUserEntry.score}/{summary.currentUserEntry.totalPoints || ((test.questions?.length || 10) * 4)} ({summary.currentUserEntry.percentage}%)
+                      <div className="text-[10px] sm:text-xs text-blue-100/90 font-medium truncate mt-0.5">
+                        Top {Math.max(1, Math.round(((summary.currentUserRank || 1) / Math.max(1, summary.totalParticipants)) * 100))}% • Score: {summary.currentUserEntry.score}/{summary.currentUserEntry.totalPoints || ((test.questions?.length || 10) * 4)} ({summary.currentUserEntry.percentage}%)
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 self-end sm:self-auto shrink-0 w-full sm:w-auto justify-end sm:justify-start pt-1 sm:pt-0">
-                    <span className="bg-white/15 backdrop-blur-sm px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold font-mono text-white flex items-center gap-1.5 border border-white/10">
-                      <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-200" />
-                      <span>{formatDuration(summary.currentUserEntry.timeSpentSeconds)} taken</span>
-                    </span>
-                  </div>
+                  {summary.currentUserEntry.timeSpentSeconds ? (
+                    <div className="shrink-0 self-center">
+                      <span className="bg-white/15 backdrop-blur-sm px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full text-[10.5px] sm:text-xs font-bold font-mono text-white flex items-center gap-1 border border-white/15 whitespace-nowrap shadow-xs">
+                        <Clock className="w-3 h-3 text-blue-200" />
+                        <span>{formatDuration(summary.currentUserEntry.timeSpentSeconds)} taken</span>
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>
@@ -441,14 +493,14 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                 </h2>
 
                 {/* Mode Filter Pills */}
-                <div className="flex items-center gap-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-1 rounded-xl">
+                <div className="flex items-center gap-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 p-1 rounded-full shadow-xs">
                   <button
                     type="button"
                     onClick={() => setModeFilter('all')}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                       modeFilter === 'all'
                         ? 'bg-[#0b57d0] text-white shadow-xs'
-                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
                     }`}
                   >
                     All
@@ -456,10 +508,10 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setModeFilter('online')}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                       modeFilter === 'online'
                         ? 'bg-[#0b57d0] text-white shadow-xs'
-                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
                     }`}
                   >
                     Online
@@ -467,10 +519,10 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setModeFilter('omr')}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                       modeFilter === 'omr'
                         ? 'bg-[#0b57d0] text-white shadow-xs'
-                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
                     }`}
                   >
                     OMR
@@ -533,7 +585,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                           </div>
                           <div className="flex items-center gap-1.5 pt-0.5">
                             {entry.attemptMode === 'omr' ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold bg-[#c4eed0] text-[#072711] dark:bg-[#0f5223] dark:text-[#c4eed0] shrink-0 border-0 outline-none">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold bg-[#ffe8d9] dark:bg-[#432313] text-[#ea580c] dark:text-[#ff9d5c] shrink-0 border-0 outline-none">
                                 OMR
                               </span>
                             ) : (
@@ -591,7 +643,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                           </div>
                           <div className="flex items-center gap-1.5 pt-0.5">
                             {summary.currentUserEntry.attemptMode === 'omr' ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold bg-[#c4eed0] text-[#072711] dark:bg-[#0f5223] dark:text-[#c4eed0] shrink-0 border-0 outline-none">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold bg-[#ffe8d9] dark:bg-[#432313] text-[#ea580c] dark:text-[#ff9d5c] shrink-0 border-0 outline-none">
                                 OMR
                               </span>
                             ) : (

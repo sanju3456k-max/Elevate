@@ -34,7 +34,8 @@ import {
   Loader2,
   Scan,
   Globe,
-  Trophy
+  Trophy,
+  Bookmark
 } from 'lucide-react';
 import type { TestAttempt, MathTest, MathQuestion, UserProfile, TopicStatRollup } from '../types';
 import type { User } from 'firebase/auth';
@@ -553,57 +554,63 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
         </div>
       </div>
 
-      {/* Primary KPI Overview Cards - Static Pure Home Screen Cards (No Subpixel Diffusion / No Stagger Layer) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
-        <div className="p-4 sm:p-5 bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] rounded-[24px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-all duration-200 flex flex-col items-center justify-center text-center">
-          <div className="text-[10px] sm:text-xs font-bold tracking-widest text-slate-500 dark:text-zinc-400 uppercase mb-1 flex items-center justify-center gap-1 sm:gap-1.5">
-            <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
-            <span>Tests Taken</span>
+      {/* Primary KPI Overview in a Combined Card */}
+      <div className="p-3.5 sm:p-4 bg-white dark:bg-[#1e2024] rounded-[24px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-all duration-200">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
+          {/* Tile 1: Tests Taken */}
+          <div className="p-3.5 sm:p-4 rounded-[20px] sm:rounded-[22px] bg-transparent flex flex-col items-center justify-center text-center transition-all hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
+            <div className="text-[10px] sm:text-xs font-bold tracking-widest text-slate-500 dark:text-zinc-400 uppercase mb-0.5 sm:mb-1 flex items-center justify-center gap-1 sm:gap-1.5">
+              <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
+              <span>Tests Taken</span>
+            </div>
+            <div className="text-lg sm:text-2xl font-extrabold text-slate-900 dark:text-zinc-100 font-mono">
+              {totalAttempts}
+            </div>
+            <div className="text-[9.5px] sm:text-xs text-slate-600 dark:text-zinc-400 mt-0.5 font-medium flex items-center justify-center gap-1">
+              <span className="text-[#0b57d0] dark:text-[#a8c7fa] font-bold">{passedAttempts} Passed</span> ({passRate}%)
+            </div>
           </div>
-          <div className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-zinc-100 font-mono">
-            {totalAttempts}
-          </div>
-          <div className="text-[10px] sm:text-xs text-slate-600 dark:text-zinc-400 mt-0.5 font-medium flex items-center justify-center gap-1">
-            <span className="text-[#0b57d0] dark:text-[#a8c7fa] font-bold">{passedAttempts} Passed</span> ({passRate}%)
-          </div>
-        </div>
 
-        <div className="p-4 sm:p-5 bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] rounded-[24px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-all duration-200 flex flex-col items-center justify-center text-center">
-          <div className="text-[10px] sm:text-xs font-bold tracking-widest text-slate-500 dark:text-zinc-400 uppercase mb-1 flex items-center justify-center gap-1 sm:gap-1.5">
-            <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
-            <span>Accuracy</span>
+          {/* Tile 2: Accuracy */}
+          <div className="p-3.5 sm:p-4 rounded-[20px] sm:rounded-[22px] bg-transparent flex flex-col items-center justify-center text-center transition-all hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
+            <div className="text-[10px] sm:text-xs font-bold tracking-widest text-slate-500 dark:text-zinc-400 uppercase mb-0.5 sm:mb-1 flex items-center justify-center gap-1 sm:gap-1.5">
+              <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
+              <span>Accuracy</span>
+            </div>
+            <div className="text-lg sm:text-2xl font-extrabold text-slate-900 dark:text-zinc-100 font-mono">
+              {aggregatedStats.overallAccuracy}%
+            </div>
+            <div className="text-[9.5px] sm:text-xs text-slate-600 dark:text-zinc-400 mt-0.5 font-medium flex items-center justify-center">
+              On {aggregatedStats.totalAttempted} answered Qs
+            </div>
           </div>
-          <div className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-zinc-100 font-mono">
-            {aggregatedStats.overallAccuracy}%
-          </div>
-          <div className="text-[10px] sm:text-xs text-slate-600 dark:text-zinc-400 mt-0.5 font-medium">
-            On {aggregatedStats.totalAttempted} answered Qs
-          </div>
-        </div>
 
-        <div className="p-4 sm:p-5 bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] rounded-[24px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-all duration-200 flex flex-col items-center justify-center text-center">
-          <div className="text-[10px] sm:text-xs font-bold tracking-widest text-slate-500 dark:text-zinc-400 uppercase mb-1 flex items-center justify-center gap-1 sm:gap-1.5">
-            <Percent className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
-            <span>Precision</span>
+          {/* Tile 3: Precision */}
+          <div className="p-3.5 sm:p-4 rounded-[20px] sm:rounded-[22px] bg-transparent flex flex-col items-center justify-center text-center transition-all hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
+            <div className="text-[10px] sm:text-xs font-bold tracking-widest text-slate-500 dark:text-zinc-400 uppercase mb-0.5 sm:mb-1 flex items-center justify-center gap-1 sm:gap-1.5">
+              <Percent className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
+              <span>Precision</span>
+            </div>
+            <div className="text-lg sm:text-2xl font-extrabold text-slate-900 dark:text-zinc-100 font-mono">
+              {aggregatedStats.overallPrecision}%
+            </div>
+            <div className="text-[9.5px] sm:text-xs text-slate-600 dark:text-zinc-400 mt-0.5 font-medium flex items-center justify-center">
+              Across {aggregatedStats.totalQuestionsCount} items
+            </div>
           </div>
-          <div className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-zinc-100 font-mono">
-            {aggregatedStats.overallPrecision}%
-          </div>
-          <div className="text-[10px] sm:text-xs text-slate-600 dark:text-zinc-400 mt-0.5 font-medium">
-            Across {aggregatedStats.totalQuestionsCount} items
-          </div>
-        </div>
 
-        <div className="p-4 sm:p-5 bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] rounded-[24px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-all duration-200 flex flex-col items-center justify-center text-center">
-          <div className="text-[10px] sm:text-xs font-bold tracking-widest text-slate-500 dark:text-zinc-400 uppercase mb-1 flex items-center justify-center gap-1 sm:gap-1.5">
-            <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
-            <span>Active Time</span>
-          </div>
-          <div className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-zinc-100 font-mono truncate max-w-full">
-            {formatDuration(aggregatedStats.totalTimeSpentSec)}
-          </div>
-          <div className="text-[10px] sm:text-xs text-slate-600 dark:text-zinc-400 mt-0.5 font-medium">
-            ~{aggregatedStats.avgSecondsPerQ}s per question
+          {/* Tile 4: Active Time */}
+          <div className="p-3.5 sm:p-4 rounded-[20px] sm:rounded-[22px] bg-transparent flex flex-col items-center justify-center text-center transition-all hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
+            <div className="text-[10px] sm:text-xs font-bold tracking-widest text-slate-500 dark:text-zinc-400 uppercase mb-0.5 sm:mb-1 flex items-center justify-center gap-1 sm:gap-1.5">
+              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
+              <span>Active Time</span>
+            </div>
+            <div className="text-lg sm:text-2xl font-extrabold text-slate-900 dark:text-zinc-100 font-mono truncate max-w-full">
+              {formatDuration(aggregatedStats.totalTimeSpentSec)}
+            </div>
+            <div className="text-[9.5px] sm:text-xs text-slate-600 dark:text-zinc-400 mt-0.5 font-medium flex items-center justify-center">
+              ~{aggregatedStats.avgSecondsPerQ}s per question
+            </div>
           </div>
         </div>
       </div>
@@ -855,117 +862,131 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                 <div
                   key={group.groupKey}
                   id={`history-test-card-${group.groupKey}`}
-                  className="bg-white dark:bg-[#1e2024] rounded-[24px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-all duration-200 flex flex-col justify-between gap-2.5 sm:gap-3 p-4 sm:p-5"
+                  className="bg-white dark:bg-[#1e2024] rounded-[24px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-all duration-200 flex flex-col justify-between p-4 sm:p-5"
                 >
-                  {/* Row 1: Test Title & Mode Tag with Minimal Rank Badge */}
-                  <div className="flex items-start justify-between gap-2.5">
-                    <h3 className="font-semibold text-base sm:text-lg text-[#1f1f1f] dark:text-[#e3e3e3] transition-colors truncate tracking-tight flex-1 min-w-0 pt-0.5">
+                  <div className="space-y-2.5">
+                    {/* Row 1: Test Title & Mode Tag at Top Right Corner */}
+                  <div className="flex items-center justify-between gap-2.5">
+                    <h3 className="font-semibold text-base sm:text-lg text-[#1f1f1f] dark:text-[#e3e3e3] transition-colors truncate tracking-tight flex-1 min-w-0">
                       {group.testTitle}
                     </h3>
 
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      {/* Rank badge on top (strictly tied to verified first attempt) */}
+                    {/* Mode Tag exclusively at top right corner */}
+                    {isLatestOmr ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold bg-[#ffe8d9] dark:bg-[#432313] text-[#ea580c] dark:text-[#ff9d5c] shrink-0 border-0 outline-none">
+                        OMR
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] shrink-0 border-0 outline-none">
+                        Online
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Row 2: Date, Accuracy, Precision in Colored Text (without strips) */}
+                  <div className="flex items-center gap-2 sm:gap-2.5 text-[#444746] dark:text-[#c4c7c5] text-[11px] font-bold flex-wrap">
+                    <div className="flex items-center gap-1.5" title="Completion Date">
+                      <Calendar className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                      <span className="font-semibold text-[#1f1f1f] dark:text-[#e3e3e3]">{formatSimpleDate(latest.completedAt || latest.createdAt) || 'Recent'}</span>
+                    </div>
+
+                    <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                    <div className="flex items-center gap-1 text-[#1f1f1f] dark:text-[#e3e3e3]" title="Accuracy">
+                      <Target className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                      <span>Acc</span>
+                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{accuracy}%</strong>
+                    </div>
+
+                    <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                    <div className="flex items-center gap-1 text-[#1f1f1f] dark:text-[#e3e3e3]" title="Precision / Overall Percentage">
+                      <Percent className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 stroke-[2.2] shrink-0" />
+                      <span>Precision</span>
+                      <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{precision}%</strong>
+                    </div>
+                  </div>
+
+                  {/* Row 3: Correct, Wrong, Skipped in Colored Text (without strips) */}
+                  <div className="flex items-center gap-2 sm:gap-2.5 text-[#1f1f1f] dark:text-[#e3e3e3] text-[11px] font-medium pt-0.5 flex-wrap">
+                    {/* Correct */}
+                    <div className="flex items-center gap-1.5" title="Correct Questions">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                      <span>
+                        <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{correctCount}</strong> <span>correct</span>
+                      </span>
+                    </div>
+
+                    <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                    {/* Wrong */}
+                    <div className="flex items-center gap-1.5" title="Incorrect Questions">
+                      <XCircle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400 stroke-[2.2] shrink-0" />
+                      <span>
+                        <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{wrongCount}</strong> <span>wrong</span>
+                      </span>
+                    </div>
+
+                    <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+
+                    {/* Skipped */}
+                    <div className="flex items-center gap-1.5" title="Skipped / Unanswered Questions">
+                      <MinusCircle className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] stroke-[2.2] shrink-0" />
+                      <span>
+                        <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{unansweredCount}</strong> <span>skipped</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Horizontal Light Partition Line */}
+                  <div className="w-full h-px bg-slate-100 dark:bg-zinc-800/80 my-1.5" />
+
+                  {/* Row 4: Single combined strip for Rank, Time, and Score matching App UI */}
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <div className="inline-flex items-center gap-2 sm:gap-2.5 px-3 py-1 rounded-full bg-[#edf2f9] dark:bg-[#26282e] border-0 ring-0 shadow-none shrink-0 text-[10.5px] sm:text-xs">
+                      {/* Rank Section */}
                       {firstRank && (
-                        <span 
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-[10.5px] font-bold bg-amber-500/15 text-amber-800 dark:text-amber-300 shrink-0 border-0 ring-0 shadow-none"
-                          title={`Verified Standing: Rank ${firstRank.rank}${firstRank.total ? ` of ${firstRank.total}` : ''}`}
-                        >
-                          <Trophy className="w-2.5 h-2.5 text-amber-500 stroke-[2.2] shrink-0" />
-                          <span>Rank {firstRank.rank}</span>
-                        </span>
+                        <>
+                          <div 
+                            className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 font-bold shrink-0"
+                            title={`Verified Standing: Rank ${firstRank.rank}${firstRank.total ? ` of ${firstRank.total}` : ''}`}
+                          >
+                            <Trophy className="w-3 h-3 text-amber-500 stroke-[2.2] shrink-0" />
+                            <span>Rank {firstRank.rank}</span>
+                          </div>
+                          <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-zinc-600 shrink-0" />
+                        </>
                       )}
 
-                      {/* Mode Tag at bottom of rank */}
-                      {isLatestOmr ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold bg-[#c4eed0] text-[#072711] dark:bg-[#0f5223] dark:text-[#c4eed0] shrink-0 border-0 outline-none">
-                          OMR
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] shrink-0 border-0 outline-none">
-                          Online
-                        </span>
-                      )}
+                      {/* Time Spent Section */}
+                      {latest.timeSpentSeconds ? (
+                        <>
+                          <div 
+                            className="inline-flex items-center gap-1 text-purple-700 dark:text-purple-300 font-bold font-mono shrink-0" 
+                            title="Time Spent"
+                          >
+                            <Clock className="w-3 h-3 text-purple-600 dark:text-purple-400 stroke-[2.2] shrink-0" />
+                            <span>{formatDuration(latest.timeSpentSeconds)}</span>
+                          </div>
+                          <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-zinc-600 shrink-0" />
+                        </>
+                      ) : null}
+
+                      {/* Score Section */}
+                      <div 
+                        className="inline-flex items-center gap-1.5 font-extrabold shrink-0" 
+                        title="Score"
+                      >
+                        <Bookmark className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+                        <span className="text-[#1f1f1f] dark:text-[#e3e3e3] font-semibold text-[10px] sm:text-[10.5px]">Score:</span>
+                        <span className="text-xs sm:text-sm font-black font-mono tracking-tight text-[#0b57d0] dark:text-[#a8c7fa]">{correctCount}/{totalQuestions}</span>
+                      </div>
                     </div>
                   </div>
+                </div>
 
-                  {/* Row 2: Date Strip + Combined Accuracy/Precision Strip (Left) + Time Spent Strip (Rightwards) */}
-                  <div className="flex items-center justify-between gap-2 text-[#444746] dark:text-[#c4c7c5] text-[11px] font-bold flex-wrap">
-                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                      {/* Date Strip */}
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[#444746] dark:text-[#c4c7c5] text-[11px] font-semibold shrink-0" title="Completion Date">
-                        <Calendar className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
-                        <span className="font-semibold text-[#1f1f1f] dark:text-[#e3e3e3]">{formatSimpleDate(latest.completedAt || latest.createdAt) || 'Recent'}</span>
-                      </div>
-
-                      {/* Combined Accuracy & Precision Strip */}
-                      <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[#444746] dark:text-[#c4c7c5] text-[11px] font-semibold shrink-0" title="Accuracy & Precision">
-                        <div className="flex items-center gap-1" title="Accuracy">
-                          <Target className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
-                          <span>Acc</span>
-                          <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{accuracy}%</strong>
-                        </div>
-
-                        <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
-
-                        <div className="flex items-center gap-1" title="Precision / Overall Percentage">
-                          <Percent className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 stroke-[2.2] shrink-0" />
-                          <span>Precision</span>
-                          <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{precision}%</strong>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Time Spent Strip (Rightwards in first row) */}
-                    {latest.timeSpentSeconds ? (
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[#444746] dark:text-[#c4c7c5] text-[11px] font-bold shrink-0 ml-auto sm:ml-0" title="Time Spent">
-                        <Clock className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400 stroke-[2.2] shrink-0" />
-                        <span>{formatDuration(latest.timeSpentSeconds)}</span>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {/* Row 3: Combined Correct, Wrong, Skipped Strip (Left) + Score Strip (Rightwards) */}
-                  <div className="flex items-center justify-between gap-2 pt-0.5 flex-wrap">
-                    <div className="inline-flex items-center gap-2 sm:gap-2.5 px-3 py-1 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-[11px] font-medium flex-wrap shrink-0">
-                      {/* Correct */}
-                      <div className="flex items-center gap-1.5" title="Correct Questions">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
-                        <span>
-                          <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{correctCount}</strong> correct
-                        </span>
-                      </div>
-
-                      <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
-
-                      {/* Wrong */}
-                      <div className="flex items-center gap-1.5" title="Incorrect Questions">
-                        <XCircle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400 stroke-[2.2] shrink-0" />
-                        <span>
-                          <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{wrongCount}</strong> wrong
-                        </span>
-                      </div>
-
-                      <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
-
-                      {/* Skipped */}
-                      <div className="flex items-center gap-1.5" title="Skipped / Unanswered Questions">
-                        <MinusCircle className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] stroke-[2.2] shrink-0" />
-                        <span>
-                          <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{unansweredCount}</strong> skipped
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Score Pill rightwards at consecutive row, with enlarged font - wraps gracefully on narrow screens */}
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#d3e3fd]/40 dark:bg-[#004a77]/30 text-[#0b57d0] dark:text-[#a8c7fa] text-xs sm:text-[13px] font-extrabold shrink-0 ml-auto" title="Score">
-                      <Award className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
-                      <span className="text-slate-600 dark:text-zinc-400 font-semibold text-[11px]">Score:</span>
-                      <span className="text-sm sm:text-base font-black font-mono tracking-tight text-[#0b57d0] dark:text-[#a8c7fa]">{correctCount}/{totalQuestions}</span>
-                    </div>
-                  </div>
-
-                  {/* Row 4: Single Unified Row for 'View all attempts' (Left) & 'Analysis' + 'Solutions' (Right) on All Devices */}
-                  <div className="flex items-center justify-between gap-2 pt-1 mt-0.5 flex-wrap">
+                  {/* Row 5: View All Attempts button and Analysis & Solutions buttons strictly at the very bottom */}
+                  <div className="flex items-center justify-between gap-2 pt-2 mt-auto">
                     {group.totalAttempts > 1 ? (
                       <button
                         type="button"
@@ -977,12 +998,10 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                         <span>{isExpanded ? 'Hide attempts' : `View all ${group.totalAttempts} attempts`}</span>
                         <ChevronDown className={`w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-180' : ''}`} />
                       </button>
-                    ) : (
-                      <div />
-                    )}
+                    ) : <div />}
 
                     {/* Action Buttons: Report & Solutions */}
-                    <div className="flex items-center gap-1.5 shrink-0 ml-auto flex-wrap">
+                    <div className="flex items-center gap-1.5 shrink-0 ml-auto">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1023,6 +1042,8 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                             const attTotalQs = attAnswers.length || att.totalPoints || 10;
                             const attCorrect = attAnswers.filter((a: any) => a.isCorrect).length || Math.round((att.score / (att.totalPoints || 1)) * attTotalQs);
                             const attAttempted = attAnswers.filter((a: any) => a.selectedOption && a.selectedOption.trim() !== '').length || attCorrect;
+                            const attWrong = Math.max(0, attAttempted - attCorrect);
+                            const attSkipped = Math.max(0, attTotalQs - attAttempted);
                             const attAcc = attAttempted > 0 ? Math.round((attCorrect / attAttempted) * 100) : 0;
                             const attPrecision = att.percentage !== undefined ? att.percentage : (attTotalQs > 0 ? Math.round((attCorrect / attTotalQs) * 100) : 0);
                             const attTime = att.timeSpentSeconds ? formatDuration(att.timeSpentSeconds) : null;
@@ -1030,71 +1051,120 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                             return (
                               <div
                                 key={att.id}
-                                className={`p-3 rounded-[18px] transition-all ${
+                                className={`p-3 rounded-[18px] transition-all space-y-2 ${
                                   isFirst
                                     ? 'bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20'
                                     : 'bg-[#f8fafd] dark:bg-[#16181c] border-0'
                                 }`}
                               >
-                                <div className="flex items-start justify-between gap-2">
+                                {/* Row 1: Attempt Num & Mode Tag */}
+                                <div className="flex items-center justify-between gap-2">
                                   <div className="flex items-center gap-1.5 min-w-0 pt-0.5">
                                     <span className="text-xs font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
                                       Attempt #{attemptNum} {idx === 0 ? '(Latest)' : isFirst ? '(First Attempt)' : ''}
                                     </span>
                                   </div>
 
-                                  <div className="flex flex-col items-end gap-1 shrink-0">
-                                    {/* Rank badge shown strictly on verified first attempt */}
-                                    {isFirst && firstRank ? (
-                                      <span 
-                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold bg-amber-500/15 text-amber-800 dark:text-amber-300 border-0 shrink-0"
-                                        title="Verified leaderboard rank from first attempt"
-                                      >
-                                        <Trophy className="w-2.5 h-2.5 text-amber-500 stroke-[2.2]" />
-                                        <span>Rank {firstRank.rank}</span>
-                                      </span>
-                                    ) : null}
+                                  {/* Mode Tag exclusively at top right corner */}
+                                  <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-bold uppercase shrink-0 ${
+                                    attIsOmr
+                                      ? 'bg-[#ffe8d9] dark:bg-[#432313] text-[#ea580c] dark:text-[#ff9d5c]'
+                                      : 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff]'
+                                  }`}>
+                                    {attIsOmr ? 'OMR' : 'Online'}
+                                  </span>
+                                </div>
 
-                                    {/* Mode Tag under rank */}
-                                    <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-bold uppercase shrink-0 ${
-                                      attIsOmr
-                                        ? 'bg-[#c4eed0] text-[#072711] dark:bg-[#0f5223] dark:text-[#c4eed0]'
-                                        : 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff]'
-                                    }`}>
-                                      {attIsOmr ? 'OMR' : 'Online'}
-                                    </span>
+                                {/* Row 2: Date, Accuracy, Precision in Colored Text (without strips) */}
+                                <div className="flex items-center gap-2 sm:gap-2.5 text-[#444746] dark:text-[#c4c7c5] text-[10.5px] font-semibold flex-wrap">
+                                  <div className="flex items-center gap-1" title="Completion Date">
+                                    <Calendar className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2] shrink-0" />
+                                    <span>{formatSimpleDate(att.completedAt || att.createdAt) || 'Recent'}</span>
+                                  </div>
+
+                                  <span className="text-[#5e5e5e] dark:text-[#9aa0a6]">•</span>
+
+                                  <div className="flex items-center gap-1 text-[#1f1f1f] dark:text-[#e3e3e3]" title="Accuracy">
+                                    <Target className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2] shrink-0" />
+                                    <span>Acc</span>
+                                    <strong className="font-extrabold">{attAcc}%</strong>
+                                  </div>
+
+                                  <span className="text-[#5e5e5e] dark:text-[#9aa0a6]">•</span>
+
+                                  <div className="flex items-center gap-1 text-[#1f1f1f] dark:text-[#e3e3e3]" title="Precision">
+                                    <Percent className="w-3 h-3 text-indigo-500 dark:text-indigo-400 stroke-[2] shrink-0" />
+                                    <span>Precision</span>
+                                    <strong className="font-extrabold">{attPrecision}%</strong>
                                   </div>
                                 </div>
 
-                                <div className="flex items-center justify-between text-[10.5px] text-[#5e5e5e] dark:text-[#9aa0a6] mt-1.5 flex-wrap gap-1.5">
-                                  <div className="flex items-center gap-2 flex-wrap font-medium">
-                                    <span className="font-bold text-[#0b57d0] dark:text-[#a8c7fa]">
-                                      Score {attCorrect}/{attTotalQs} ({att.percentage}%)
-                                    </span>
-                                    <span>•</span>
-                                    <span>Acc {attAcc}%</span>
-                                    <span>•</span>
-                                    <span>Precision {attPrecision}%</span>
+                                {/* Row 3: Correct, Wrong, Skipped in Colored Text (without strips) */}
+                                <div className="flex items-center gap-2 sm:gap-2.5 text-[#1f1f1f] dark:text-[#e3e3e3] text-[10.5px] font-medium flex-wrap">
+                                  <div className="flex items-center gap-1" title="Correct Questions">
+                                    <CheckCircle2 className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2] shrink-0" />
+                                    <span><strong className="font-extrabold">{attCorrect}</strong> correct</span>
+                                  </div>
+
+                                  <span className="text-[#5e5e5e] dark:text-[#9aa0a6]">•</span>
+
+                                  <div className="flex items-center gap-1" title="Wrong Questions">
+                                    <XCircle className="w-3 h-3 text-rose-500 dark:text-rose-400 stroke-[2] shrink-0" />
+                                    <span><strong className="font-extrabold">{attWrong}</strong> wrong</span>
+                                  </div>
+
+                                  <span className="text-[#5e5e5e] dark:text-[#9aa0a6]">•</span>
+
+                                  <div className="flex items-center gap-1" title="Skipped Questions">
+                                    <MinusCircle className="w-3 h-3 text-[#5e5e5e] dark:text-[#9aa0a6] stroke-[2] shrink-0" />
+                                    <span><strong className="font-extrabold">{attSkipped}</strong> skipped</span>
+                                  </div>
+                                </div>
+
+                                {/* Horizontal Light Partition Line */}
+                                <div className="w-full h-px bg-slate-100 dark:bg-zinc-800/80 my-1.5" />
+
+                                {/* Row 4: Single combined strip for Rank, Time, and Score matching App UI + Actions */}
+                                <div className="flex items-center justify-between text-[10.5px] pt-0.5 flex-wrap gap-2">
+                                  <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#edf2f9] dark:bg-[#26282e] border-0 ring-0 shadow-none shrink-0 text-[10px] sm:text-[10.5px]">
+                                    {isFirst && firstRank ? (
+                                      <>
+                                        <div 
+                                          className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 font-bold shrink-0"
+                                          title="Verified leaderboard rank from first attempt"
+                                        >
+                                          <Trophy className="w-2.5 h-2.5 text-amber-500 stroke-[2.2]" />
+                                          <span>Rank {firstRank.rank}</span>
+                                        </div>
+                                        <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-zinc-600 shrink-0" />
+                                      </>
+                                    ) : null}
+
                                     {attTime && (
                                       <>
-                                        <span>•</span>
-                                        <span className="flex items-center gap-1">
-                                          <Clock className="w-3 h-3 text-purple-500" />
+                                        <div className="inline-flex items-center gap-1 text-purple-700 dark:text-purple-300 font-bold font-mono shrink-0">
+                                          <Clock className="w-3 h-3 text-purple-600 dark:text-purple-400" />
                                           <span>{attTime}</span>
-                                        </span>
+                                        </div>
+                                        <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-zinc-600 shrink-0" />
                                       </>
                                     )}
+
+                                    <div className="inline-flex items-center gap-1 font-bold shrink-0">
+                                      <Bookmark className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                                      <span className="text-[#1f1f1f] dark:text-[#e3e3e3] font-semibold text-[9.5px]">Score:</span>
+                                      <span className="font-extrabold font-mono text-[#0b57d0] dark:text-[#a8c7fa]">{attCorrect}/{attTotalQs}</span>
+                                    </div>
                                   </div>
 
                                   <div className="flex items-center gap-1.5 ml-auto flex-wrap">
-                                    <span>{formatSimpleDate(att.completedAt || att.createdAt)}</span>
                                     <button
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setSelectedReportAttempt(att);
                                       }}
-                                      className="px-2.5 py-0.5 rounded-full bg-[#d3e3fd] hover:bg-[#c2e7ff] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff] text-[10px] font-bold border-0 transition-all cursor-pointer"
+                                      className="px-2.5 py-1 rounded-full bg-[#d3e3fd] hover:bg-[#c2e7ff] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff] text-[10px] font-bold border-0 transition-all cursor-pointer"
                                     >
                                       Analysis
                                     </button>
@@ -1104,7 +1174,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                                         e.stopPropagation();
                                         if (onViewAttemptResult) onViewAttemptResult(att);
                                       }}
-                                      className="px-2.5 py-0.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-[10px] font-bold border-0 transition-all cursor-pointer"
+                                      className="px-2.5 py-1 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-[10px] font-bold border-0 transition-all cursor-pointer"
                                     >
                                       Solutions
                                     </button>
