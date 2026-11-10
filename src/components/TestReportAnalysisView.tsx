@@ -2117,7 +2117,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
           className="fixed inset-0 z-50 bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150"
         >
           {/* Transparent Clean Header Banner - Seamless with Page Body */}
-          <header className="sticky top-0 z-30 bg-[#e5e9f0]/95 dark:bg-[#0b0c10]/95 backdrop-blur-md border-b border-slate-300/60 dark:border-zinc-800/80 shrink-0">
+          <header className="sticky top-0 z-30 bg-[#e5e9f0]/95 dark:bg-[#0b0c10]/95 backdrop-blur-md border-b-0 shrink-0">
             <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)]">
               <div className="flex items-center justify-between gap-3 px-0.5 py-1">
                 {/* Left: Adjusted Back Button for White Surface & Chapter Title */}
@@ -2126,11 +2126,11 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                     id="fullscreen-chapter-back-btn"
                     type="button"
                     onClick={() => setFullScreenChapterId(null)}
-                    className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200/90 dark:bg-[#252830] dark:hover:bg-[#34374a] text-slate-700 dark:text-zinc-200 border border-slate-200/80 dark:border-zinc-700/80 flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 outline-none shadow-xs"
+                    className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-slate-50 dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-100 border-0 ring-0 shadow-none flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 outline-none"
                     title="Back to Performance Analysis (Device Gesture / Esc)"
                     aria-label="Back to Performance Analysis"
                   >
-                    <ArrowLeft className="w-4 h-4 text-slate-700 dark:text-zinc-200 stroke-[2.2]" />
+                    <ArrowLeft className="w-4 h-4 text-slate-800 dark:text-zinc-100 stroke-[2.2]" />
                   </button>
 
                   <div className="min-w-0">
@@ -2173,7 +2173,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
           {/* Main Full-Page Body Container with Pure White Background */}
           <main className="flex-1 max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 pb-12 space-y-4">
             {/* 1. Mastery Breakdown & Filter Controls Card */}
-            <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#181a20] ring-1 ring-slate-300 dark:ring-zinc-700 border-0 space-y-3 shadow-none">
+            <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#181a20] ring-1 ring-black dark:ring-black border-0 space-y-3 shadow-none">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 {/* Multi-Segment Concept Progress Bar & Mastery Counters */}
                 <div className="flex-1 max-w-lg">
@@ -2380,7 +2380,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
           className="fixed inset-0 z-[60] bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150"
         >
           {/* Header Bar - Seamless with Page Body */}
-          <header className="sticky top-0 z-30 bg-[#e5e9f0]/95 dark:bg-[#0b0c10]/95 backdrop-blur-md border-b border-slate-300/60 dark:border-zinc-800/80 shrink-0">
+          <header className="sticky top-0 z-30 bg-[#e5e9f0]/95 dark:bg-[#0b0c10]/95 backdrop-blur-md border-b-0 shrink-0">
             <div className="max-w-5xl w-full mx-auto px-3 sm:px-6 py-2.5 sm:py-3.5 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)]">
               <div className="flex items-center justify-between gap-3 px-0.5 py-1">
                 {/* Subtopic Title & Badges */}
@@ -2421,11 +2421,11 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedSubtopicQuestionsModal(null)}
-                  className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200/90 dark:bg-[#252830] dark:hover:bg-[#34374a] text-slate-700 dark:text-zinc-200 border border-slate-200/80 dark:border-zinc-700/80 flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 outline-none shadow-xs"
+                  className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-slate-50 dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-100 border-0 ring-0 shadow-none flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 outline-none"
                   title="Close (Device Gesture / Esc)"
                   aria-label="Close"
                 >
-                  <X className="w-4 h-4 text-slate-700 dark:text-zinc-200 stroke-[2.2]" />
+                  <X className="w-4 h-4 text-slate-800 dark:text-zinc-100 stroke-[2.2]" />
                 </button>
               </div>
             </div>
@@ -2556,11 +2556,14 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                             const letter = String.fromCharCode(65 + optIdx);
                             const isActualCorrect = letter === correctOpt;
                             const isUserMarked = letter === userOpt;
+                            const ringStyle = isUserMarked
+                              ? 'ring-2 ring-black dark:ring-black'
+                              : 'ring-1 ring-black dark:ring-black';
 
                             return (
                               <div
                                 key={optIdx}
-                                className={`p-3 sm:p-3.5 rounded-[28px] flex items-start gap-3 transition-all text-left border-0 ${
+                                className={`p-3 sm:p-3.5 rounded-[28px] flex items-start gap-3 transition-all text-left border-0 ${ringStyle} ${
                                   isActualCorrect
                                     ? 'bg-blue-100/90 dark:bg-blue-950/80 text-slate-900 dark:text-blue-100 font-bold shadow-xs'
                                     : isUserMarked && !isActualCorrect
