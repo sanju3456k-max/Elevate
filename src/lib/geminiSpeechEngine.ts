@@ -668,24 +668,6 @@ class CleanSpeechEngine {
     this.onTranscriptCallback = onTranscript;
     this.onDictationEndCallback = onEnded;
 
-    // MUTE CHIMES ON MOBILE:
-    // Acquire a continuous VoIP MediaStream with hardware echo cancellation.
-    // This locks the Android audio subsystem into MODE_IN_COMMUNICATION,
-    // which prevents the operating system from playing mic-on/mic-off chime tones on each speech chunk.
-    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
-      try {
-        this.activeMediaStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
-      } catch (streamErr) {
-        console.warn('Dictation VoIP communication stream note:', streamErr);
-      }
-    }
-
     this.initDictationMic();
   }
 
@@ -732,33 +714,11 @@ class CleanSpeechEngine {
     this.isAssistantSpeaking = false;
     this.lastAssistantSpokenText = '';
 
-    // MUTE CHIMES & ENGAGE HARDWARE AEC:
-    // Acquire continuous audio stream with hardware echo cancellation and noise suppression.
-    // This switches Android/OS audio routing to MODE_IN_COMMUNICATION (VoIP mode),
-    // which automatically mutes OS mic-on/mic-off chimes and activates hardware echo cancellation.
-    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
-      try {
-        this.activeMediaStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
-      } catch (streamErr) {
-        console.warn('VoIP communication stream note:', streamErr);
-      }
-    }
-
     this.onStatusCallback('listening');
     this.onTranscriptCallback?.('');
 
-    // Safety delay to allow device audio HAL to initialize smoothly
-    setTimeout(() => {
-      if (this.currentMode === 'live-talk' && !this.isMuted) {
-        this.initLiveTalkMic(SpeechRec);
-      }
-    }, 100);
+    // Start recognition immediately
+    this.initLiveTalkMic(SpeechRec);
 
     // Proactive refresh cycle to prevent Android / Mobile Chrome 60-second silent audio drops
     if (this.proactiveRefreshTimer) clearInterval(this.proactiveRefreshTimer);
