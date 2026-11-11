@@ -3659,11 +3659,8 @@ export const TestEditor: React.FC<TestEditorProps> = ({
               <div className="flex-1 min-h-[420px] sm:min-h-[520px] h-full flex flex-col bg-[#131316] text-emerald-400 dark:bg-[#131316] p-2 sm:p-3 rounded-2xl shadow-inner overflow-hidden max-w-5xl mx-auto w-full">
                   <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-[#2a2a32] text-xs shrink-0 gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        Question Code — #{currentQIndex + 1}
-                      </span>
-                      <span className="text-[9.5px] px-2 py-0.5 rounded-full font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-600/40">
-                        Sequential Text (.txt)
+                      <span className="text-xs font-bold text-slate-300">
+                        Question code {currentQIndex + 1}
                       </span>
                     </div>
 
