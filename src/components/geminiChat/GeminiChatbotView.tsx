@@ -1921,7 +1921,7 @@ Formatting & Quality Requirements:
     };
   }, []);
 
-  // Send spoken prompt to Gemini with anti-duplicate locks and audio orchestration
+  // Send spoken prompt to Gemini with anti-duplicate locks, audio orchestration & token optimization
   const sendLiveTalkPrompt = useCallback(async (promptText: string) => {
     const textToSend = promptText.trim();
     if (!textToSend) return;
@@ -1930,7 +1930,9 @@ Formatting & Quality Requirements:
     setLiveTalkTranscript('');
 
     try {
-      const reply = await handleSendMessageRef.current?.(textToSend);
+      // Live Voice Mode token optimization: Instruct Gemini to respond conversationally in 2-3 concise sentences
+      const tokenOptimizedPrompt = `[Live Voice Mode - Spoken Conversation]: Please answer concisely and conversationally in 2-3 direct spoken sentences. Avoid markdown headers, asterisks, bullet points, or tables unless explicitly asked.\n\n${textToSend}`;
+      const reply = await handleSendMessageRef.current?.(tokenOptimizedPrompt);
       if (isLiveTalkActiveRef.current) {
         if (typeof reply === 'string' && reply.trim()) {
           speechEngine.handleAssistantReply(reply, isVoiceResponseEnabledRef.current);
@@ -1995,7 +1997,16 @@ Formatting & Quality Requirements:
       speechEngine.startLiveTalk(
         (text) => setLiveTalkTranscript(text),
         (text) => sendLiveTalkPrompt(text),
-        (status) => setLiveTalkStatus(status)
+        (status) => setLiveTalkStatus(status),
+        () => {
+          // Real-time Interruption: User spoke while assistant was generating or speaking
+          if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+          }
+          setIsLoading(false);
+          isSendingRef.current = false;
+        }
       );
     }
   };
@@ -2958,7 +2969,9 @@ Formatting & Quality Requirements:
     try {
       // Support stateful context with clean history across the session (excluding error cards)
       const validMessages = updatedMessages.filter((m) => !m.isError && m.roleUsed !== 'System Status');
-      const recentMessages = validMessages.slice(-30);
+      // Token Optimization: In Live Voice mode, keep rolling context of last 6 messages to save up to 80% input tokens
+      const historyLimit = isLiveTalkActiveRef.current ? 6 : 30;
+      const recentMessages = validMessages.slice(-historyLimit);
       const historyPayload = recentMessages.map((m) => {
         return {
           role: m.role,

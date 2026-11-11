@@ -8,6 +8,84 @@
 
 export type LiveTalkStatus = 'listening' | 'speaking' | 'paused' | 'sending';
 
+export type GeminiVoicePersona = 'vega' | 'kore' | 'puck' | 'charon' | 'fenrir';
+
+export interface VoicePersonaInfo {
+  id: GeminiVoicePersona;
+  name: string;
+  gender: 'female' | 'male';
+  tone: string;
+  description: string;
+  pitch: number;
+  rate: number;
+}
+
+export const GEMINI_VOICE_PERSONAS: Record<GeminiVoicePersona, VoicePersonaInfo> = {
+  vega: {
+    id: 'vega',
+    name: 'Vega',
+    gender: 'female',
+    tone: 'Warm & Melodic',
+    description: 'Natural, friendly, and expressive conversational tone (Default)',
+    pitch: 1.12,
+    rate: 1.02,
+  },
+  kore: {
+    id: 'kore',
+    name: 'Kore',
+    gender: 'female',
+    tone: 'Bright & Calm',
+    description: 'Crisp, articulate, and soothing academic tone',
+    pitch: 1.06,
+    rate: 0.98,
+  },
+  puck: {
+    id: 'puck',
+    name: 'Puck',
+    gender: 'male',
+    tone: 'Upbeat & Energetic',
+    description: 'Enthusiastic, clear, and engaging study partner',
+    pitch: 1.05,
+    rate: 1.04,
+  },
+  charon: {
+    id: 'charon',
+    name: 'Charon',
+    gender: 'male',
+    tone: 'Deep & Measured',
+    description: 'Authoritative, steady, and thoughtful professor cadence',
+    pitch: 0.88,
+    rate: 0.96,
+  },
+  fenrir: {
+    id: 'fenrir',
+    name: 'Fenrir',
+    gender: 'male',
+    tone: 'Direct & Crisp',
+    description: 'Fast-paced, concise, and focused coaching tone',
+    pitch: 0.95,
+    rate: 1.06,
+  },
+};
+
+const VOICE_PERSONA_STORAGE_KEY = 'gemini_live_voice_persona';
+
+export function getActiveVoicePersona(): GeminiVoicePersona {
+  if (typeof window === 'undefined') return 'vega';
+  try {
+    const saved = localStorage.getItem(VOICE_PERSONA_STORAGE_KEY) as GeminiVoicePersona;
+    if (saved && GEMINI_VOICE_PERSONAS[saved]) return saved;
+  } catch {}
+  return 'vega';
+}
+
+export function setActiveVoicePersona(persona: GeminiVoicePersona) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(VOICE_PERSONA_STORAGE_KEY, persona);
+  } catch {}
+}
+
 export function getSpeechRecognition(): any | null {
   if (typeof window === 'undefined') return null;
   return (
@@ -27,21 +105,48 @@ export function isSpeechSynthesisSupported(): boolean {
 
 /**
  * Request hardware microphone access directly to prime browser permissions
+ * safely without locking the microphone device on mobile Android / Chrome.
  */
 export async function ensureMicrophonePermission(): Promise<boolean> {
-  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-    return true; // Fallback to SpeechRecognition native prompt
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return true;
   }
+
+  // 1. Query permissions without locking the hardware microphone device
+  try {
+    if (navigator.permissions && navigator.permissions.query) {
+      const perm = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+      if (perm.state === 'granted') {
+        return true;
+      }
+      if (perm.state === 'denied') {
+        return false;
+      }
+    }
+  } catch {
+    // navigator.permissions.query({ name: 'microphone' }) not supported in all browsers
+  }
+
+  // 2. If getUserMedia is not supported, let SpeechRecognition prompt directly
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return true;
+  }
+
+  // 3. Prompt or prime once if needed, but immediately release tracks cleanly
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    stream.getTracks().forEach((track) => track.stop());
+    stream.getTracks().forEach((track) => {
+      try {
+        track.stop();
+      } catch {}
+    });
     return true;
   } catch (err: any) {
     console.warn('Microphone permission check note:', err);
-    // If permission was explicitly denied, return false; otherwise let SpeechRecognition attempt native request
     if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
       return false;
     }
+    // For other errors (e.g. NotFoundError, AbortError, or device busy), still allow SpeechRecognition to try
     return true;
   }
 }
@@ -263,86 +368,133 @@ export function formatTextForSpeech(rawText: string, maxLen?: number): string {
 }
 
 /**
- * Resolves the best available natural/neural female voice (Gemini-style Vega: warm, expressive, clear)
+ * Resolves the best available natural/neural voice mapped to a Gemini Voice Persona
+ * (Vega, Kore, Puck, Charon, Fenrir)
  */
-export function getGeminiNaturalFemaleVoice(): SpeechSynthesisVoice | null {
+export function getGeminiVoiceForPersona(personaId?: GeminiVoicePersona): {
+  voice: SpeechSynthesisVoice | null;
+  pitch: number;
+  rate: number;
+} {
+  const activeId = personaId || getActiveVoicePersona();
+  const persona = GEMINI_VOICE_PERSONAS[activeId] || GEMINI_VOICE_PERSONAS.vega;
+
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-    return null;
-  }
-  const voices = window.speechSynthesis.getVoices();
-  if (!voices || voices.length === 0) return null;
-
-  // 1. High-priority Google & Microsoft Natural/Neural Female Voices
-  const topFemaleVoiceNames = [
-    'Google US English',
-    'Google UK English Female',
-    'Google English',
-    'Microsoft Jenny',
-    'Microsoft Aria',
-    'Microsoft Michelle',
-    'Microsoft Zira',
-    'Microsoft Libby',
-    'Microsoft Sonia',
-    'Microsoft Natasha',
-    'Samantha',
-    'Ava',
-    'Victoria',
-    'Karen',
-    'Serena',
-    'Moira',
-    'Tessa',
-    'Fiona',
-    'Nora',
-  ];
-
-  for (const name of topFemaleVoiceNames) {
-    const found = voices.find(
-      (v) => v.name.toLowerCase().includes(name.toLowerCase()) && v.lang.startsWith('en')
-    );
-    if (found) return found;
+    return { voice: null, pitch: persona.pitch, rate: persona.rate };
   }
 
-  // 2. Look for any voice with 'female' in name or ID
-  const femaleTagged = voices.find(
-    (v) =>
-      (v.name.toLowerCase().includes('female') ||
-        v.name.toLowerCase().includes('woman') ||
-        v.name.toLowerCase().includes('girl') ||
-        v.voiceURI.toLowerCase().includes('female')) &&
-      v.lang.startsWith('en')
-  );
-  if (femaleTagged) return femaleTagged;
+  const voices = window.speechSynthesis.getVoices() || [];
+  if (voices.length === 0) {
+    return { voice: null, pitch: persona.pitch, rate: persona.rate };
+  }
 
-  // 3. Look for any English voice with 'natural' or 'neural' or 'premium'
-  const naturalEnglish = voices.find(
-    (v) =>
-      (v.name.toLowerCase().includes('natural') ||
-        v.name.toLowerCase().includes('neural') ||
-        v.name.toLowerCase().includes('online') ||
-        v.name.toLowerCase().includes('premium')) &&
-      v.lang.startsWith('en')
-  );
-  if (naturalEnglish) return naturalEnglish;
+  let selectedVoice: SpeechSynthesisVoice | null = null;
 
-  // 4. Fallback to English voice
-  const englishFallback =
-    voices.find((v) => v.lang === 'en-US' || v.lang === 'en-GB') ||
-    voices.find((v) => v.lang.startsWith('en'));
-  return englishFallback || voices[0] || null;
+  if (persona.gender === 'female') {
+    const topFemaleNames = [
+      'Google US English',
+      'Google UK English Female',
+      'Microsoft Jenny',
+      'Microsoft Aria',
+      'Microsoft Michelle',
+      'Microsoft Zira',
+      'Samantha',
+      'Ava',
+      'Victoria',
+      'Karen',
+      'Serena',
+    ];
+    for (const name of topFemaleNames) {
+      selectedVoice = voices.find(
+        (v) => v.name.toLowerCase().includes(name.toLowerCase()) && v.lang.startsWith('en')
+      ) || null;
+      if (selectedVoice) break;
+    }
+
+    if (!selectedVoice) {
+      selectedVoice = voices.find(
+        (v) =>
+          (v.name.toLowerCase().includes('female') ||
+            v.name.toLowerCase().includes('woman') ||
+            v.voiceURI.toLowerCase().includes('female')) &&
+          v.lang.startsWith('en')
+      ) || null;
+    }
+  } else {
+    // Male personas: Puck, Charon, Fenrir
+    const topMaleNames = [
+      'Google UK English Male',
+      'Microsoft Guy',
+      'Microsoft Ryan',
+      'Microsoft Steffan',
+      'Microsoft David',
+      'Daniel',
+      'Alex',
+      'Fred',
+      'Oliver',
+    ];
+    for (const name of topMaleNames) {
+      selectedVoice = voices.find(
+        (v) => v.name.toLowerCase().includes(name.toLowerCase()) && v.lang.startsWith('en')
+      ) || null;
+      if (selectedVoice) break;
+    }
+
+    if (!selectedVoice) {
+      selectedVoice = voices.find(
+        (v) =>
+          (v.name.toLowerCase().includes('male') ||
+            v.name.toLowerCase().includes('man') ||
+            v.voiceURI.toLowerCase().includes('male')) &&
+          v.lang.startsWith('en')
+      ) || null;
+    }
+  }
+
+  // Fallback to natural/neural English voice
+  if (!selectedVoice) {
+    selectedVoice = voices.find(
+      (v) =>
+        (v.name.toLowerCase().includes('natural') ||
+          v.name.toLowerCase().includes('neural') ||
+          v.name.toLowerCase().includes('online')) &&
+        v.lang.startsWith('en')
+    ) || null;
+  }
+
+  // Fallback to standard English voice
+  if (!selectedVoice) {
+    selectedVoice =
+      voices.find((v) => v.lang === 'en-US' || v.lang === 'en-GB') ||
+      voices.find((v) => v.lang.startsWith('en')) ||
+      voices[0] ||
+      null;
+  }
+
+  return {
+    voice: selectedVoice,
+    pitch: persona.pitch,
+    rate: persona.rate,
+  };
 }
 
 /**
- * Tunes speech utterance with specific Gemini voice characteristics (Vega profile)
+ * Resolves the best available natural/neural female voice (Gemini-style Vega: warm, expressive, clear)
  */
-export function applyGeminiVoice(utterance: SpeechSynthesisUtterance) {
-  const selectedVoice = getGeminiNaturalFemaleVoice(); // Vega is the default global model of listening
-  if (selectedVoice) {
-    utterance.voice = selectedVoice;
-  }
+export function getGeminiNaturalFemaleVoice(): SpeechSynthesisVoice | null {
+  return getGeminiVoiceForPersona('vega').voice;
+}
 
-  // Vega profile: Warm, energetic, clear and melodic female voice characteristics (pitch: 1.12, rate: 1.02)
-  utterance.pitch = 1.12;
-  utterance.rate = 1.02;
+/**
+ * Tunes speech utterance with selected Gemini voice characteristics (Vega, Kore, Puck, Charon, Fenrir)
+ */
+export function applyGeminiVoice(utterance: SpeechSynthesisUtterance, personaId?: GeminiVoicePersona) {
+  const { voice, pitch, rate } = getGeminiVoiceForPersona(personaId);
+  if (voice) {
+    utterance.voice = voice;
+  }
+  utterance.pitch = pitch;
+  utterance.rate = rate;
 }
 
 /**
@@ -368,6 +520,7 @@ class CleanSpeechEngine {
   private onAutoSendCallback: ((text: string) => void) | null = null;
   private onStatusCallback: ((status: LiveTalkStatus) => void) | null = null;
   private onDictationEndCallback: (() => void) | null = null;
+  private onInterruptionCallback: (() => void) | null = null;
 
   /**
    * Start clean 1-click dictation into the prompt box
@@ -445,12 +598,13 @@ class CleanSpeechEngine {
   }
 
   /**
-   * Start Live Talk conversational voice assistant
+   * Start Live Talk conversational voice assistant with full barge-in / interruption support
    */
   public async startLiveTalk(
     onTranscript: (text: string) => void,
     onAutoSend: (text: string) => void,
-    onStatus: (status: LiveTalkStatus) => void
+    onStatus: (status: LiveTalkStatus) => void,
+    onInterruption?: () => void
   ) {
     const SpeechRec = getSpeechRecognition();
     if (!SpeechRec) {
@@ -471,6 +625,7 @@ class CleanSpeechEngine {
     this.onTranscriptCallback = onTranscript;
     this.onAutoSendCallback = onAutoSend;
     this.onStatusCallback = onStatus;
+    this.onInterruptionCallback = onInterruption || null;
     this.isProcessingPrompt = false;
     this.isMuted = false;
 
@@ -480,11 +635,11 @@ class CleanSpeechEngine {
   }
 
   private initLiveTalkMic(SpeechRec: any) {
-    if (this.currentMode !== 'live-talk' || this.isProcessingPrompt || this.isMuted) {
+    if (this.currentMode !== 'live-talk' || this.isMuted) {
       return;
     }
 
-    // Safely stop and discard any running recognition session before launching a fresh one
+    // Safely stop any running recognition instance before opening fresh
     if (this.activeRecognition) {
       try {
         const r = this.activeRecognition;
@@ -504,46 +659,75 @@ class CleanSpeechEngine {
       rec.lang = 'en-US';
 
       rec.onstart = () => {
-        if (!this.isProcessingPrompt && !this.isMuted) {
-          this.onStatusCallback?.('listening');
-        }
+        // Recognition started
       };
 
       rec.onresult = (event: any) => {
-        if (this.isProcessingPrompt || this.isMuted) return;
+        if (this.isMuted) return;
 
         const cleaned = extractCleanSpeechFromEvent(event);
+        if (!cleaned || cleaned.trim().length < 2) return;
 
-        if (cleaned) {
-          this.onTranscriptCallback?.(cleaned);
-
-          if (this.silenceTimer) clearTimeout(this.silenceTimer);
-          this.silenceTimer = setTimeout(() => {
-            if (this.currentMode === 'live-talk' && !this.isProcessingPrompt && !this.isMuted && cleaned.length >= 2) {
-              this.handleAutoSendPrompt(cleaned);
-            }
-          }, 1500);
+        // 1. Barge-In Interruption: If assistant is currently speaking, user speech interrupts immediately
+        if (this.activeUtterance) {
+          if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+            try {
+              window.speechSynthesis.cancel();
+            } catch {}
+          }
+          this.activeUtterance = null;
+          this.isProcessingPrompt = false;
+          this.onStatusCallback?.('listening');
+          this.onInterruptionCallback?.();
         }
+
+        // 2. Mid-Generation Interruption: If AI was formulating response (sending/thinking), user speech cancels it
+        if (this.isProcessingPrompt) {
+          this.isProcessingPrompt = false;
+          this.onStatusCallback?.('listening');
+          this.onInterruptionCallback?.();
+        }
+
+        this.onTranscriptCallback?.(cleaned);
+
+        // Reset silence timer to wait for user to finish thought before auto-sending
+        if (this.silenceTimer) clearTimeout(this.silenceTimer);
+        this.silenceTimer = setTimeout(() => {
+          if (this.currentMode === 'live-talk' && !this.isMuted && cleaned.trim().length >= 2) {
+            this.handleAutoSendPrompt(cleaned.trim());
+          }
+        }, 1300);
       };
 
       rec.onerror = (e: any) => {
         const err = e?.error;
-        if (err === 'no-speech' || err === 'aborted') return;
+        if (err === 'no-speech' || err === 'aborted') {
+          // Normal pauses or speech completion; ignore
+          return;
+        }
 
         console.warn('Live talk mic error:', err);
         if (err === 'not-allowed' || err === 'service-not-allowed') {
           this.onStatusCallback?.('paused');
           this.stopAll();
+          notifySpeechMessage('Microphone access is blocked. Please allow microphone permission in your browser address bar.', 'error');
+          return;
+        }
+
+        if (err === 'network') {
+          // Transient network hiccup on mobile Chrome; auto-reconnect will recover
+          return;
         }
       };
 
       rec.onend = () => {
-        if (this.currentMode === 'live-talk' && !this.isProcessingPrompt && !this.isMuted) {
+        // SpeechRecognition automatically times out or drops on mobile Chrome; auto-reconnect smoothly
+        if (this.currentMode === 'live-talk' && !this.isMuted) {
           setTimeout(() => {
-            if (this.currentMode === 'live-talk' && !this.isProcessingPrompt && !this.isMuted) {
+            if (this.currentMode === 'live-talk' && !this.isMuted) {
               this.initLiveTalkMic(SpeechRec);
             }
-          }, 400);
+          }, 250);
         }
       };
 
@@ -564,23 +748,11 @@ class CleanSpeechEngine {
       this.silenceTimer = null;
     }
 
-    if (this.activeRecognition) {
-      try {
-        const r = this.activeRecognition;
-        r.onend = null;
-        r.onerror = null;
-        r.onresult = null;
-        r.onstart = null;
-        r.abort();
-      } catch {}
-      this.activeRecognition = null;
-    }
-
     this.onAutoSendCallback?.(text);
   }
 
   /**
-   * Handle assistant response speaking and transition to fresh listening
+   * Handle assistant response speaking with background barge-in listening
    */
   public handleAssistantReply(responseText: string, voiceEnabled: boolean) {
     if (this.currentMode !== 'live-talk') {
@@ -593,13 +765,15 @@ class CleanSpeechEngine {
     const resumeListeningFresh = () => {
       this.activeUtterance = null;
       this.isProcessingPrompt = false;
-      this.onTranscriptCallback?.(''); // Clear transcript to start listening from a fresh state
+      this.onTranscriptCallback?.(''); // Clear transcript for user's next question
       setTimeout(() => {
         if (this.currentMode === 'live-talk' && !this.isMuted) {
           this.onStatusCallback?.('listening');
-          if (SpeechRec) this.initLiveTalkMic(SpeechRec);
+          if (SpeechRec && !this.activeRecognition) {
+            this.initLiveTalkMic(SpeechRec);
+          }
         }
-      }, 300);
+      }, 200);
     };
 
     if (!voiceEnabled || !isSpeechSynthesisSupported()) {
@@ -616,6 +790,7 @@ class CleanSpeechEngine {
     try {
       window.speechSynthesis.cancel();
       this.onStatusCallback?.('speaking');
+      this.isProcessingPrompt = false; // Allow microphone to accept user interruptions while speaking
 
       const utter = new SpeechSynthesisUtterance(clean);
       applyGeminiVoice(utter);
@@ -623,6 +798,11 @@ class CleanSpeechEngine {
       this.activeUtterance = utter;
       utter.onend = () => resumeListeningFresh();
       utter.onerror = () => resumeListeningFresh();
+
+      // Ensure microphone recognition is actively listening in background for barge-in
+      if (SpeechRec && !this.activeRecognition && !this.isMuted) {
+        this.initLiveTalkMic(SpeechRec);
+      }
 
       window.speechSynthesis.speak(utter);
     } catch {
@@ -640,26 +820,12 @@ class CleanSpeechEngine {
       this.silenceTimer = null;
     }
 
-    // Unbind event handlers on active utterance before canceling to avoid triggering resumeListeningFresh twice
     if (this.activeUtterance) {
       try {
         this.activeUtterance.onend = null;
         this.activeUtterance.onerror = null;
       } catch {}
       this.activeUtterance = null;
-    }
-
-    // Safely abort any lingering recognition instance
-    if (this.activeRecognition) {
-      try {
-        const r = this.activeRecognition;
-        r.onend = null;
-        r.onerror = null;
-        r.onresult = null;
-        r.onstart = null;
-        r.abort();
-      } catch {}
-      this.activeRecognition = null;
     }
 
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -673,7 +839,7 @@ class CleanSpeechEngine {
     if (this.currentMode === 'live-talk' && !this.isMuted) {
       this.onStatusCallback?.('listening');
       const SpeechRec = getSpeechRecognition();
-      if (SpeechRec) {
+      if (SpeechRec && !this.activeRecognition) {
         this.initLiveTalkMic(SpeechRec);
       }
     }
