@@ -2202,7 +2202,7 @@ Formatting & Quality Requirements:
     setIsLoading(false);
     isSendingRef.current = false;
     if (isLiveTalkActiveRef.current) {
-      speechEngine.cancelCurrentTurn();
+      speechEngine.interruptAndListen();
       setLiveTalkStatus('listening');
       setLiveTalkTranscript('');
     }
@@ -2575,6 +2575,11 @@ Formatting & Quality Requirements:
 
   // Navigate to Gemini-style New Chat Home Screen
   const handleNewChat = () => {
+    // Clean up live talk audio pipeline if active before transitioning
+    if (isLiveTalkActiveRef.current) {
+      stopLiveTalk();
+    }
+
     // Commit dirty active chat session before leaving current session (modeled after HTML Notes)
     const effectiveUid = currentUserUid || auth.currentUser?.uid || getCachedAuthUser()?.uid || null;
     if (effectiveUid && effectiveUid !== 'guest-user' && effectiveUid !== 'anonymous') {

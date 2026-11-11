@@ -466,9 +466,12 @@ class CleanSpeechEngine {
   private activeUtterance: SpeechSynthesisUtterance | null = null;
   private currentMode: 'idle' | 'dictation' | 'live-talk' = 'idle';
   private silenceTimer: any = null;
+  private restartTimer: any = null;
   private isProcessingPrompt: boolean = false;
   private isMuted: boolean = false;
   private isAssistantSpeaking: boolean = false;
+  private isStartingRecognition: boolean = false;
+  private isRecognitionActive: boolean = false;
   private lastAssistantSpokenText: string = '';
 
   // Listeners
@@ -477,6 +480,29 @@ class CleanSpeechEngine {
   private onStatusCallback: ((status: LiveTalkStatus) => void) | null = null;
   private onDictationEndCallback: (() => void) | null = null;
   private onInterruptionCallback: (() => void) | null = null;
+
+  /**
+   * Safe recognition terminator with total cleanup of listeners and locks
+   */
+  private safeStopRecognition() {
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = null;
+    }
+    if (this.activeRecognition) {
+      try {
+        const r = this.activeRecognition;
+        r.onend = null;
+        r.onerror = null;
+        r.onresult = null;
+        r.onstart = null;
+        r.abort();
+      } catch {}
+      this.activeRecognition = null;
+    }
+    this.isStartingRecognition = false;
+    this.isRecognitionActive = false;
+  }
 
   /**
    * Start clean 1-click dictation into the prompt box
@@ -589,27 +615,32 @@ class CleanSpeechEngine {
 
     this.onStatusCallback('listening');
     this.onTranscriptCallback?.('');
-    this.initLiveTalkMic(SpeechRec);
+
+    // Safety delay to allow device audio HAL to initialize smoothly
+    setTimeout(() => {
+      if (this.currentMode === 'live-talk' && !this.isMuted) {
+        this.initLiveTalkMic(SpeechRec);
+      }
+    }, 100);
   }
 
   private initLiveTalkMic(SpeechRec: any) {
-    // Under no condition should mic be active if muted
-    if (this.currentMode !== 'live-talk' || this.isMuted) {
+    // Under no condition should mic be active if muted, if mode is not live-talk, or if assistant is speaking or processing
+    if (
+      this.currentMode !== 'live-talk' ||
+      this.isMuted ||
+      this.isAssistantSpeaking ||
+      this.isProcessingPrompt
+    ) {
       return;
     }
 
-    // Safely stop any running recognition instance before opening fresh
-    if (this.activeRecognition) {
-      try {
-        const r = this.activeRecognition;
-        r.onend = null;
-        r.onerror = null;
-        r.onresult = null;
-        r.onstart = null;
-        r.abort();
-      } catch {}
-      this.activeRecognition = null;
+    if (this.isStartingRecognition || (this.isRecognitionActive && this.activeRecognition)) {
+      return;
     }
+
+    this.safeStopRecognition();
+    this.isStartingRecognition = true;
 
     try {
       const rec = new SpeechRec();
@@ -618,62 +649,27 @@ class CleanSpeechEngine {
       rec.lang = 'en-US';
 
       rec.onstart = () => {
-        // Recognition started
+        this.isStartingRecognition = false;
+        this.isRecognitionActive = true;
+        this.activeRecognition = rec;
       };
 
       rec.onresult = (event: any) => {
-        if (this.isMuted) return;
+        // Absolute hardware isolation: if muted, speaking, or processing prompt, discard completely
+        if (
+          this.isMuted ||
+          this.isAssistantSpeaking ||
+          this.isProcessingPrompt ||
+          this.currentMode !== 'live-talk'
+        ) {
+          return;
+        }
 
         const cleaned = extractCleanSpeechFromEvent(event);
         if (!cleaned || cleaned.trim().length < 2) return;
 
-        // 1. Auto-Listening Barge-In while Assistant is Speaking:
-        // Distinguish human user's new words from assistant's own voice coming through speakers
-        if (this.isAssistantSpeaking) {
-          const assistantWords = new Set(
-            (this.lastAssistantSpokenText || '')
-              .toLowerCase()
-              .replace(/[^\w\s]/g, '')
-              .split(/\s+/)
-              .filter((w) => w.length >= 3)
-          );
-
-          const userWords = cleaned
-            .toLowerCase()
-            .replace(/[^\w\s]/g, '')
-            .split(/\s+/)
-            .filter((w) => w.length >= 3);
-
-          // Find words spoken by user that are NOT in Theta's currently playing sentence
-          const novelWords = userWords.filter((w) => !assistantWords.has(w));
-
-          // If all words heard are identical to Theta's current speech, it's just speaker audio -> ignore
-          if (userWords.length > 0 && novelWords.length === 0) {
-            return;
-          }
-
-          // Human user spoke a new command/word! Auto-interrupt immediately:
-          if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-            try {
-              window.speechSynthesis.cancel();
-            } catch {}
-          }
-          this.activeUtterance = null;
-          this.isAssistantSpeaking = false;
-          this.isProcessingPrompt = false;
-          this.onStatusCallback?.('listening');
-          this.onInterruptionCallback?.();
-        }
-
-        // 2. Auto-Listening Interruption while AI is generating (thinking / sending):
-        if (this.isProcessingPrompt) {
-          this.isProcessingPrompt = false;
-          this.onStatusCallback?.('listening');
-          this.onInterruptionCallback?.();
-        }
-
         // Post-speaking Echo Guard: If speech matches what assistant just said, discard it
-        if (this.lastAssistantSpokenText && !this.isAssistantSpeaking) {
+        if (this.lastAssistantSpokenText) {
           const userLower = cleaned.toLowerCase().trim();
           if (
             this.lastAssistantSpokenText.includes(userLower) ||
@@ -692,11 +688,12 @@ class CleanSpeechEngine {
             this.currentMode === 'live-talk' &&
             !this.isMuted &&
             !this.isAssistantSpeaking &&
+            !this.isProcessingPrompt &&
             cleaned.trim().length >= 2
           ) {
             this.handleAutoSendPrompt(cleaned.trim());
           }
-        }, 1300);
+        }, 1250);
       };
 
       rec.onerror = (e: any) => {
@@ -713,31 +710,77 @@ class CleanSpeechEngine {
           return;
         }
 
-        if (err === 'network') {
-          return;
+        // Automatic fault recovery for temporary audio-capture / network drops
+        this.safeStopRecognition();
+        if (
+          this.currentMode === 'live-talk' &&
+          !this.isMuted &&
+          !this.isAssistantSpeaking &&
+          !this.isProcessingPrompt
+        ) {
+          if (this.restartTimer) clearTimeout(this.restartTimer);
+          this.restartTimer = setTimeout(() => {
+            if (
+              this.currentMode === 'live-talk' &&
+              !this.isMuted &&
+              !this.isAssistantSpeaking &&
+              !this.isProcessingPrompt
+            ) {
+              this.initLiveTalkMic(SpeechRec);
+            }
+          }, 350);
         }
       };
 
       rec.onend = () => {
-        // Auto-reconnect if live talk is still active
-        if (this.currentMode === 'live-talk' && !this.isMuted) {
-          setTimeout(() => {
-            if (this.currentMode === 'live-talk' && !this.isMuted) {
+        this.isRecognitionActive = false;
+        this.isStartingRecognition = false;
+        this.activeRecognition = null;
+
+        // Auto-reconnect watchdog if live talk is still active and waiting for user speech
+        if (
+          this.currentMode === 'live-talk' &&
+          !this.isMuted &&
+          !this.isAssistantSpeaking &&
+          !this.isProcessingPrompt
+        ) {
+          if (this.restartTimer) clearTimeout(this.restartTimer);
+          this.restartTimer = setTimeout(() => {
+            if (
+              this.currentMode === 'live-talk' &&
+              !this.isMuted &&
+              !this.isAssistantSpeaking &&
+              !this.isProcessingPrompt
+            ) {
               this.initLiveTalkMic(SpeechRec);
             }
-          }, 250);
+          }, 200);
         }
       };
 
       rec.start();
       this.activeRecognition = rec;
     } catch (err) {
-      console.warn('Live talk mic init error:', err);
+      this.isStartingRecognition = false;
+      this.isRecognitionActive = false;
+      this.activeRecognition = null;
+      console.warn('Live talk mic init error, scheduling retry:', err);
+      if (
+        this.currentMode === 'live-talk' &&
+        !this.isMuted &&
+        !this.isAssistantSpeaking &&
+        !this.isProcessingPrompt
+      ) {
+        if (this.restartTimer) clearTimeout(this.restartTimer);
+        this.restartTimer = setTimeout(() => {
+          this.initLiveTalkMic(SpeechRec);
+        }, 400);
+      }
     }
   }
 
   public handleAutoSendPrompt(text: string) {
-    if (this.isProcessingPrompt) return;
+    if (this.isProcessingPrompt || this.isAssistantSpeaking || this.currentMode !== 'live-talk' || this.isMuted) return;
     this.isProcessingPrompt = true;
     this.onStatusCallback?.('sending');
 
@@ -746,11 +789,14 @@ class CleanSpeechEngine {
       this.silenceTimer = null;
     }
 
+    // Stop recognition while prompt is sent to Gemini (prevents room noise from triggering false aborts)
+    this.safeStopRecognition();
+
     this.onAutoSendCallback?.(text);
   }
 
   /**
-   * Handle assistant response speaking with clean speaker isolation and auto-listen barge-in
+   * Handle assistant response speaking with clean speaker isolation (zero self-echo)
    */
   public handleAssistantReply(responseText: string, voiceEnabled: boolean) {
     if (this.currentMode !== 'live-talk') {
@@ -766,15 +812,15 @@ class CleanSpeechEngine {
       this.isProcessingPrompt = false;
       this.onTranscriptCallback?.(''); // Clear transcript for user's next question
 
-      // Wait 150ms for speaker echo in the room to finish fading out before opening mic
+      // Wait 200ms acoustic guard delay for speaker reverb to clear before opening mic
       setTimeout(() => {
         if (this.currentMode === 'live-talk' && !this.isMuted) {
           this.onStatusCallback?.('listening');
-          if (SpeechRec && !this.activeRecognition) {
+          if (SpeechRec) {
             this.initLiveTalkMic(SpeechRec);
           }
         }
-      }, 150);
+      }, 200);
     };
 
     if (!voiceEnabled || !isSpeechSynthesisSupported()) {
@@ -789,16 +835,14 @@ class CleanSpeechEngine {
     }
 
     try {
+      // 1. HARDWARE ISOLATION: Stop recognition so microphone cannot hear speaker output!
+      this.safeStopRecognition();
+
       window.speechSynthesis.cancel();
       this.onStatusCallback?.('speaking');
       this.isAssistantSpeaking = true;
       this.lastAssistantSpokenText = clean.toLowerCase();
       this.isProcessingPrompt = false;
-
-      // Keep speech recognition actively listening in background for hands-free auto-barge-in
-      if (SpeechRec && !this.activeRecognition && !this.isMuted) {
-        this.initLiveTalkMic(SpeechRec);
-      }
 
       const utter = new SpeechSynthesisUtterance(clean);
       applyGeminiVoice(utter, 'vega');
@@ -814,14 +858,55 @@ class CleanSpeechEngine {
   }
 
   /**
+   * User tapped card to interrupt assistant speech or sending, immediately listening to user
+   */
+  public interruptAndListen() {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
+    }
+    this.activeUtterance = null;
+    this.isAssistantSpeaking = false;
+    this.isProcessingPrompt = false;
+
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
+    }
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = null;
+    }
+
+    this.onTranscriptCallback?.('');
+    this.onInterruptionCallback?.();
+    this.onStatusCallback?.('listening');
+
+    const SpeechRec = getSpeechRecognition();
+    if (SpeechRec && this.currentMode === 'live-talk' && !this.isMuted) {
+      setTimeout(() => {
+        if (this.currentMode === 'live-talk' && !this.isMuted) {
+          this.initLiveTalkMic(SpeechRec);
+        }
+      }, 100);
+    }
+  }
+
+  /**
    * Cancel in-flight generation / speech and safely resume listening from fresh state
    */
   public cancelCurrentTurn() {
     this.isProcessingPrompt = false;
     this.isAssistantSpeaking = false;
+
     if (this.silenceTimer) {
       clearTimeout(this.silenceTimer);
       this.silenceTimer = null;
+    }
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = null;
     }
 
     if (this.activeUtterance) {
@@ -838,13 +923,18 @@ class CleanSpeechEngine {
       } catch {}
     }
 
+    this.safeStopRecognition();
     this.onTranscriptCallback?.('');
 
     if (this.currentMode === 'live-talk' && !this.isMuted) {
       this.onStatusCallback?.('listening');
       const SpeechRec = getSpeechRecognition();
-      if (SpeechRec && !this.activeRecognition) {
-        this.initLiveTalkMic(SpeechRec);
+      if (SpeechRec) {
+        setTimeout(() => {
+          if (this.currentMode === 'live-talk' && !this.isMuted) {
+            this.initLiveTalkMic(SpeechRec);
+          }
+        }, 150);
       }
     }
   }
@@ -853,20 +943,10 @@ class CleanSpeechEngine {
     this.isMuted = muted;
     if (muted) {
       if (this.silenceTimer) clearTimeout(this.silenceTimer);
-      if (this.activeRecognition) {
-        try {
-          const r = this.activeRecognition;
-          r.onend = null;
-          r.onerror = null;
-          r.onresult = null;
-          r.onstart = null;
-          r.abort();
-        } catch {}
-        this.activeRecognition = null;
-      }
+      this.safeStopRecognition();
       this.onStatusCallback?.('paused');
     } else {
-      if (!this.isProcessingPrompt) {
+      if (!this.isProcessingPrompt && !this.isAssistantSpeaking && this.currentMode === 'live-talk') {
         this.onStatusCallback?.('listening');
         const SpeechRec = getSpeechRecognition();
         if (SpeechRec) this.initLiveTalkMic(SpeechRec);
@@ -877,10 +957,19 @@ class CleanSpeechEngine {
   public stopAll() {
     this.currentMode = 'idle';
     this.isProcessingPrompt = false;
+    this.isAssistantSpeaking = false;
+    this.isMuted = false;
+    this.lastAssistantSpokenText = '';
+    this.isStartingRecognition = false;
+    this.isRecognitionActive = false;
 
     if (this.silenceTimer) {
       clearTimeout(this.silenceTimer);
       this.silenceTimer = null;
+    }
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = null;
     }
 
     if (this.activeUtterance) {
@@ -891,17 +980,7 @@ class CleanSpeechEngine {
       this.activeUtterance = null;
     }
 
-    if (this.activeRecognition) {
-      try {
-        const r = this.activeRecognition;
-        r.onend = null;
-        r.onerror = null;
-        r.onresult = null;
-        r.onstart = null;
-        r.abort();
-      } catch {}
-      this.activeRecognition = null;
-    }
+    this.safeStopRecognition();
 
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
