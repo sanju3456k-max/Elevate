@@ -1984,6 +1984,9 @@ Formatting & Quality Requirements:
     if (isLiveTalkActive) {
       stopLiveTalk();
     } else {
+      // Synchronously unlock and prepare Web Audio in the user gesture!
+      geminiLiveClient.prepareAudioContext();
+
       if (isDictating) {
         speechEngine.stopAll();
         setIsDictating(false);

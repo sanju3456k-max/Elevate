@@ -1,14 +1,14 @@
 /**
- * Gemini Multimodal Live Client - Real-Time Low Latency Engine
+ * Gemini Multimodal Live Client - Enterprise Real-Time Audio Engine
  * 
- * Optimizations for instantaneous spoken conversation:
- * 1. thinkingBudget: 0 - completely eliminates the 3-5 second thinking delay, returning audio immediately
- * 2. Hardware Sample-Rate Downsampler - downsamples native mic rates (48kHz Android, 44.1kHz iOS/Mac)
- *    to exact 16,000 Hz 16-bit linear PCM with anti-aliasing box filter (prevents 3x slowed-down rumble)
- * 3. 100ms Packet Aggregation (~1600 samples) - optimal VoIP transmission cadence without network flooding
- * 4. Client-side VAD Gate - cleanly detects speech and stops streaming continuous noise in silence
- * 5. Direct Ephemeral Token Connection to Google CDN - zero server proxy latency
- * 6. Instant Server-side Barge-In & Web Audio playback queue cancellation
+ * Key Architecture:
+ * 1. Persistent Web Audio Context - Never closed on disconnect to prevent mobile browser gesture expiration
+ * 2. Synchronous Gesture Unlock - prepareAudioContext() unfreezes audio before async token fetches
+ * 3. 16kHz Hardware Downsampler - Maps native mic rates (48kHz Android, 44.1kHz iOS) to exact 16,000 Hz PCM16
+ * 4. Continuous VoIP Packet Streaming - 100ms chunks (~1600 samples) sent directly without dropping quiet speech
+ * 5. thinkingBudget: 0 - Eliminates 3-5s thinking pause, returning instant neural speech
+ * 6. Dual Transcriptions - Real-time inputAudioTranscription and outputAudioTranscription for live on-screen text
+ * 7. Server Barge-In - Instant cutoff of audio buffer queue when user speaks during playback
  */
 
 import { GoogleGenAI } from '@google/genai';
@@ -26,7 +26,7 @@ export interface GeminiLiveCallbacks {
 }
 
 /**
- * High-fidelity linear downsampler from arbitrary hardware rate (48000 / 44100 Hz) to 16,000 Hz PCM16
+ * Box-filtered linear downsampler from arbitrary hardware rate (48000 / 44100 Hz) to 16,000 Hz PCM16
  */
 function downsampleTo16k(input: Float32Array, inputSampleRate: number): Int16Array {
   if (inputSampleRate === 16000) {
@@ -75,10 +75,13 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 export class GeminiLiveClient {
   private ws: WebSocket | null = null;
   private session: any = null;
-  private inputAudioContext: AudioContext | null = null;
-  private outputAudioContext: AudioContext | null = null;
+  // Persistent full-duplex AudioContext (kept alive across sessions for instant restarts on mobile)
+  private audioContext: AudioContext | null = null;
   private mediaStream: MediaStream | null = null;
+  private mediaStreamSource: MediaStreamAudioSourceNode | null = null;
   private scriptProcessor: ScriptProcessorNode | null = null;
+  private silenceGain: GainNode | null = null;
+  private isCapturingMic: boolean = false;
   private isMuted: boolean = false;
   private isConnected: boolean = false;
   private status: GeminiLiveStatus = 'idle';
@@ -87,12 +90,10 @@ export class GeminiLiveClient {
   private nextPlaybackTime: number = 0;
   private activeAudioSources: AudioBufferSourceNode[] = [];
   private accumulatedAssistantText: string = '';
+  private accumulatedUserText: string = '';
 
   // 100ms packet aggregation buffer for 16kHz audio (~1600 samples per packet)
   private pcmAccumulator: number[] = [];
-  private hasSpokenInTurn: boolean = false;
-  private lastSpeechTimestamp: number = 0;
-  private trailingSilenceSent: boolean = false;
 
   // Callbacks
   private callbacks: GeminiLiveCallbacks = {};
@@ -133,20 +134,42 @@ export class GeminiLiveClient {
   }
 
   /**
+   * Synchronously prepare & resume AudioContext inside the user touch/click gesture.
+   * MUST be called synchronously on user action to satisfy mobile browser autoplay policies.
+   */
+  public prepareAudioContext() {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!this.audioContext || this.audioContext.state === 'closed') {
+        this.audioContext = new AudioCtx();
+      }
+      if (this.audioContext.state === 'suspended') {
+        this.audioContext.resume();
+      }
+    } catch (e) {
+      console.warn('prepareAudioContext note:', e);
+    }
+  }
+
+  /**
    * Connect to Gemini Live session.
-   * Acquires ephemeral token from server and opens direct WebSocket to Google edge CDN.
+   * Acquires ephemeral token and connects directly to Google edge CDN via WebSockets.
    */
   public async connect(options?: {
     voice?: GeminiLiveVoice;
     systemInstruction?: string;
   }): Promise<boolean> {
+    // If already connected, do a clean disconnect of the active stream/session first
     if (this.isConnected || this.session || this.ws) {
       this.disconnect();
     }
 
     this.setStatus('connecting');
 
-    // 1. Acquire microphone stream with Hardware Acoustic Echo Cancellation & Noise Suppression
+    // 1. Ensure AudioContext is ready and resumed
+    this.prepareAudioContext();
+
+    // 2. Acquire microphone stream with Hardware Acoustic Echo Cancellation
     try {
       if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
         throw new Error('Microphone access is not supported in this browser.');
@@ -167,25 +190,18 @@ export class GeminiLiveClient {
       return false;
     }
 
-    // 2. Initialize Web Audio Contexts
-    try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      this.inputAudioContext = new AudioCtx();
-      this.outputAudioContext = new AudioCtx({ sampleRate: 24000 });
-
-      if (this.inputAudioContext.state === 'suspended') {
-        await this.inputAudioContext.resume();
-      }
-      if (this.outputAudioContext.state === 'suspended') {
-        await this.outputAudioContext.resume();
-      }
-    } catch (err) {
-      console.warn('AudioContext initialization note:', err);
+    if (this.audioContext && this.audioContext.state === 'suspended') {
+      try {
+        await this.audioContext.resume();
+      } catch {}
     }
 
     const voice = options?.voice || 'Aoede';
     const systemInstruction = options?.systemInstruction ||
       'You are Theta, a fast, intelligent, conversational, and highly encouraging AI math tutor. Keep your spoken responses concise, direct, and conversational (typically 1 to 3 sentences). Avoid markdown formatting, asterisks, bullet points, and tables in spoken conversation unless explicitly asked.';
+
+    this.accumulatedAssistantText = '';
+    this.accumulatedUserText = '';
 
     // 3. Attempt Ephemeral Token flow (Works directly on Vercel, mobile, cellular networks)
     let token: string | null = null;
@@ -203,7 +219,7 @@ export class GeminiLiveClient {
 
     if (token) {
       try {
-        console.log('Connecting to Google Gemini Live using ephemeral token (Zero-Thinking Realtime Mode)...');
+        console.log('Connecting to Google Gemini Live with Ephemeral Token (Real-Time Voice Mode)...');
         const clientAi = new GoogleGenAI({
           apiKey: token,
           httpOptions: { apiVersion: 'v1alpha' }
@@ -223,13 +239,15 @@ export class GeminiLiveClient {
             thinkingConfig: {
               thinkingBudget: 0 // Eliminate thinking latency for instant speech response
             },
+            inputAudioTranscription: {},
+            outputAudioTranscription: {},
             systemInstruction: {
               parts: [{ text: systemInstruction }]
             }
           },
           callbacks: {
             onopen: () => {
-              console.log('Connected directly to Google Gemini Multimodal Live API in Real-Time Mode!');
+              console.log('Connected directly to Google Gemini Multimodal Live API!');
               this.isConnected = true;
               this.setStatus('listening');
               this.startMicrophoneCapture();
@@ -242,12 +260,25 @@ export class GeminiLiveClient {
                 if (content.interrupted) {
                   console.log('Gemini Live server detected user voice barge-in (interrupted).');
                   this.stopAllAudioPlayback();
+                  this.accumulatedAssistantText = '';
                   this.setStatus('listening');
                   this.callbacks.onInterrupted?.();
                   return;
                 }
 
-                // Incoming Audio and Text chunks
+                // Real-time transcript of user's spoken words
+                if (content.inputTranscription?.text) {
+                  this.accumulatedUserText += content.inputTranscription.text;
+                  this.callbacks.onTranscript?.(this.accumulatedUserText, false);
+                }
+
+                // Real-time transcript of assistant's spoken words
+                if (content.outputTranscription?.text) {
+                  this.accumulatedAssistantText += content.outputTranscription.text;
+                  this.callbacks.onTranscript?.(this.accumulatedAssistantText, true);
+                }
+
+                // Incoming Audio chunks
                 if (content.modelTurn?.parts) {
                   for (const part of content.modelTurn.parts) {
                     if (part.inlineData) {
@@ -263,6 +294,7 @@ export class GeminiLiveClient {
                 // Turn Complete
                 if (content.turnComplete) {
                   this.accumulatedAssistantText = '';
+                  this.accumulatedUserText = '';
                   this.callbacks.onTurnComplete?.();
                   if (this.activeAudioSources.length === 0) {
                     this.setStatus('listening');
@@ -272,19 +304,27 @@ export class GeminiLiveClient {
             },
             onerror: (err: any) => {
               console.error('Gemini Live session error:', err);
-              this.setStatus('error');
-              this.callbacks.onError?.('Network connection issue with Gemini Live server.');
+              if (this.isConnected) {
+                this.setStatus('error');
+                this.callbacks.onError?.('Network connection issue with Gemini Live server.');
+              }
             },
-            onclose: () => {
-              console.log('Gemini Live session closed.');
+            onclose: (e: any) => {
+              console.log('Gemini Live session closed:', e);
+              const wasConnected = this.isConnected;
               this.disconnect();
+              if (wasConnected && e?.code && e.code === 1008) {
+                this.callbacks.onError?.('Live talk paused due to inactivity. Tap the live icon to resume.');
+              }
             }
           }
         });
 
         this.isConnected = true;
         this.setStatus('listening');
-        this.startMicrophoneCapture();
+        if (!this.isCapturingMic) {
+          this.startMicrophoneCapture();
+        }
         return true;
       } catch (directErr: any) {
         console.warn('Direct connection failed, attempting local proxy fallback:', directErr);
@@ -320,6 +360,7 @@ export class GeminiLiveClient {
               resolve(true);
             } else if (msg.type === 'interrupted') {
               this.stopAllAudioPlayback();
+              this.accumulatedAssistantText = '';
               this.setStatus('listening');
               this.callbacks.onInterrupted?.();
             } else if (msg.type === 'audio_chunk') {
@@ -329,6 +370,7 @@ export class GeminiLiveClient {
               this.callbacks.onTranscript?.(this.accumulatedAssistantText, true);
             } else if (msg.type === 'turn_complete') {
               this.accumulatedAssistantText = '';
+              this.accumulatedUserText = '';
               this.callbacks.onTurnComplete?.();
               if (this.activeAudioSources.length === 0) {
                 this.setStatus('listening');
@@ -362,76 +404,80 @@ export class GeminiLiveClient {
   }
 
   /**
-   * Start 16kHz linear PCM microphone streaming with real-time downsampling & 100ms packet aggregation
+   * Start 16kHz linear PCM microphone streaming with real-time downsampling & continuous 100ms packet delivery
    */
   private startMicrophoneCapture() {
-    if (!this.inputAudioContext || !this.mediaStream) return;
+    if (!this.audioContext || !this.mediaStream) return;
+    if (this.isCapturingMic) return;
 
     try {
-      const source = this.inputAudioContext.createMediaStreamSource(this.mediaStream);
-      const inputSampleRate = this.inputAudioContext.sampleRate || 48000;
+      if (this.audioContext.state === 'suspended') {
+        this.audioContext.resume().catch(() => {});
+      }
+
+      // Clean up previous capture nodes if any
+      if (this.scriptProcessor) {
+        try { this.scriptProcessor.disconnect(); } catch {}
+        this.scriptProcessor = null;
+      }
+      if (this.silenceGain) {
+        try { this.silenceGain.disconnect(); } catch {}
+        this.silenceGain = null;
+      }
+      if (this.mediaStreamSource) {
+        try { this.mediaStreamSource.disconnect(); } catch {}
+        this.mediaStreamSource = null;
+      }
+
+      this.mediaStreamSource = this.audioContext.createMediaStreamSource(this.mediaStream);
+      const inputSampleRate = this.audioContext.sampleRate || 48000;
       // Buffer size: 2048 samples at input rate (~42ms at 48kHz, ~128ms at 16kHz)
-      const processor = this.inputAudioContext.createScriptProcessor(2048, 1, 1);
+      const processor = this.audioContext.createScriptProcessor(2048, 1, 1);
       this.scriptProcessor = processor;
+      this.isCapturingMic = true;
 
       this.pcmAccumulator = [];
-      this.hasSpokenInTurn = false;
-      this.lastSpeechTimestamp = 0;
-      this.trailingSilenceSent = false;
 
       processor.onaudioprocess = (e) => {
         if (!this.isConnected || this.isMuted) return;
 
         const inputChannel = e.inputBuffer.getChannelData(0);
 
-        // 1. Calculate RMS volume for visualizer waves and VAD gating
+        // 1. Calculate RMS volume for visualizer waves
         let sumSquares = 0;
         for (let i = 0; i < inputChannel.length; i++) {
           sumSquares += inputChannel[i] * inputChannel[i];
         }
         const rms = Math.sqrt(sumSquares / inputChannel.length);
-        this.callbacks.onVolumeChange?.(Math.min(1, rms * 5), false);
+        this.callbacks.onVolumeChange?.(Math.min(1, rms * 6), false);
 
-        // 2. Downsample from hardware rate (e.g. 48kHz / 44.1kHz) to exact 16,000 Hz PCM16
+        // 2. Downsample from hardware rate (48kHz/44.1kHz) to exact 16,000 Hz PCM16
         const downsampled16k = downsampleTo16k(inputChannel, inputSampleRate);
 
-        // 3. VAD Activity Detection
-        const isVoiceActive = rms > 0.012;
-        const now = Date.now();
-
-        if (isVoiceActive) {
-          this.hasSpokenInTurn = true;
-          this.lastSpeechTimestamp = now;
-          this.trailingSilenceSent = false;
+        for (let i = 0; i < downsampled16k.length; i++) {
+          this.pcmAccumulator.push(downsampled16k[i]);
         }
 
-        // Only stream when user is speaking or within 600ms grace period after speaking
-        const isWithinSpeechWindow = this.hasSpokenInTurn && (now - this.lastSpeechTimestamp < 600);
-
-        if (isVoiceActive || isWithinSpeechWindow) {
-          for (let i = 0; i < downsampled16k.length; i++) {
-            this.pcmAccumulator.push(downsampled16k[i]);
-          }
-
-          // When accumulated ~1600 samples (100ms of 16kHz audio), transmit packet
-          if (this.pcmAccumulator.length >= 1600) {
-            const packetSamples = new Int16Array(this.pcmAccumulator);
-            this.pcmAccumulator = [];
-            this.sendPcmPacket(packetSamples);
-          }
-        } else if (this.hasSpokenInTurn && !this.trailingSilenceSent && (now - this.lastSpeechTimestamp >= 600)) {
-          // Send 200ms of trailing comfort silence to ensure clean word endpointing
-          this.trailingSilenceSent = true;
-          const silenceSamples = new Int16Array(3200); // 200ms of 16kHz silence
-          this.sendPcmPacket(silenceSamples);
-          this.hasSpokenInTurn = false;
+        // When accumulated ~1600 samples (100ms of 16kHz audio), send packet
+        if (this.pcmAccumulator.length >= 1600) {
+          const packetSamples = new Int16Array(this.pcmAccumulator);
+          this.pcmAccumulator = [];
+          this.sendPcmPacket(packetSamples);
         }
       };
 
-      source.connect(processor);
-      processor.connect(this.inputAudioContext.destination);
+      this.mediaStreamSource.connect(processor);
+
+      // Route through a zero-gain node before destination to prevent microphone audio 
+      // from feeding back into the speaker while keeping the ScriptProcessor alive
+      const silenceGain = this.audioContext.createGain();
+      silenceGain.gain.value = 0;
+      this.silenceGain = silenceGain;
+      processor.connect(silenceGain);
+      silenceGain.connect(this.audioContext.destination);
     } catch (err) {
       console.error('Error starting microphone capture:', err);
+      this.isCapturingMic = false;
     }
   }
 
@@ -458,9 +504,13 @@ export class GeminiLiveClient {
    * Play incoming base64 24kHz 16-bit mono PCM audio from Gemini Live
    */
   private playPcm24kChunk(base64Data: string) {
-    if (!this.outputAudioContext) return;
+    if (!this.audioContext) return;
 
     try {
+      if (this.audioContext.state === 'suspended') {
+        this.audioContext.resume();
+      }
+
       const binaryString = atob(base64Data);
       const len = binaryString.length;
       const bytes = new Uint8Array(len);
@@ -479,20 +529,21 @@ export class GeminiLiveClient {
         sumSquares += float32Array[i] * float32Array[i];
       }
       const rms = Math.sqrt(sumSquares / float32Array.length);
-      this.callbacks.onVolumeChange?.(Math.min(1, rms * 5), true);
+      this.callbacks.onVolumeChange?.(Math.min(1, rms * 6), true);
 
-      const audioBuffer = this.outputAudioContext.createBuffer(1, float32Array.length, 24000);
+      // Create AudioBuffer at Gemini's native 24kHz rate
+      const audioBuffer = this.audioContext.createBuffer(1, float32Array.length, 24000);
       audioBuffer.copyToChannel(float32Array, 0);
 
-      const currentTime = this.outputAudioContext.currentTime;
+      const currentTime = this.audioContext.currentTime;
       // Start immediately on first chunk or maintain gapless queue
       if (this.nextPlaybackTime < currentTime) {
         this.nextPlaybackTime = currentTime;
       }
 
-      const sourceNode = this.outputAudioContext.createBufferSource();
+      const sourceNode = this.audioContext.createBufferSource();
       sourceNode.buffer = audioBuffer;
-      sourceNode.connect(this.outputAudioContext.destination);
+      sourceNode.connect(this.audioContext.destination);
 
       sourceNode.start(this.nextPlaybackTime);
       this.nextPlaybackTime += audioBuffer.duration;
@@ -522,8 +573,8 @@ export class GeminiLiveClient {
       } catch {}
     }
     this.activeAudioSources = [];
-    if (this.outputAudioContext) {
-      this.nextPlaybackTime = this.outputAudioContext.currentTime;
+    if (this.audioContext) {
+      this.nextPlaybackTime = this.audioContext.currentTime;
     }
   }
 
@@ -570,15 +621,17 @@ export class GeminiLiveClient {
   }
 
   /**
-   * Disconnect completely and clean up all media tracks & AudioContexts
+   * Disconnect the active streaming session and microphone tracks,
+   * while keeping the AudioContext alive for instant subsequent restarts on mobile.
    */
   public disconnect() {
     this.isConnected = false;
+    this.isCapturingMic = false;
     this.stopAllAudioPlayback();
 
     this.pcmAccumulator = [];
-    this.hasSpokenInTurn = false;
-    this.lastSpeechTimestamp = 0;
+    this.accumulatedAssistantText = '';
+    this.accumulatedUserText = '';
 
     if (this.scriptProcessor) {
       try {
@@ -587,25 +640,25 @@ export class GeminiLiveClient {
       this.scriptProcessor = null;
     }
 
+    if (this.silenceGain) {
+      try {
+        this.silenceGain.disconnect();
+      } catch {}
+      this.silenceGain = null;
+    }
+
+    if (this.mediaStreamSource) {
+      try {
+        this.mediaStreamSource.disconnect();
+      } catch {}
+      this.mediaStreamSource = null;
+    }
+
     if (this.mediaStream) {
       try {
         this.mediaStream.getTracks().forEach((track) => track.stop());
       } catch {}
       this.mediaStream = null;
-    }
-
-    if (this.inputAudioContext) {
-      try {
-        this.inputAudioContext.close();
-      } catch {}
-      this.inputAudioContext = null;
-    }
-
-    if (this.outputAudioContext) {
-      try {
-        this.outputAudioContext.close();
-      } catch {}
-      this.outputAudioContext = null;
     }
 
     if (this.session) {
