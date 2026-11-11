@@ -46,6 +46,8 @@ export interface GeminiStudioPromptBarProps {
   isLiveTalkActive: boolean;
   liveTalkStatus: 'listening' | 'speaking' | 'paused' | 'sending' | 'connecting' | 'idle' | 'error';
   liveTalkTranscript: string;
+  liveTalkUserTranscript?: string;
+  liveTalkAssistantTranscript?: string;
   liveVolume?: number;
   isMicMuted: boolean;
   isVoiceResponseEnabled: boolean;
@@ -90,6 +92,8 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
   isLiveTalkActive,
   liveTalkStatus,
   liveTalkTranscript,
+  liveTalkUserTranscript = '',
+  liveTalkAssistantTranscript = '',
   liveVolume = 0,
   isMicMuted,
   isVoiceResponseEnabled,
@@ -283,15 +287,49 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
             </div>
           </div>
 
-          {/* Real-Time Transcript & Conversational Prompt Guidance */}
-          <div className="mt-3 min-w-0">
-            {liveTalkTranscript ? (
-              <div className="p-3 rounded-[20px] bg-blue-50/70 dark:bg-blue-950/40 text-xs sm:text-sm text-slate-800 dark:text-zinc-100 font-medium flex items-center gap-2 animate-in fade-in duration-150">
-                <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping shrink-0" />
-                <span className="italic truncate">&ldquo;{liveTalkTranscript}&rdquo;</span>
+          {/* Real-Time Dual Transcript & Conversational Prompt Guidance */}
+          <div className="mt-2.5 min-w-0 space-y-2">
+            {/* User Spoken Prompt (Real-Time Speech Matching) */}
+            {liveTalkUserTranscript ? (
+              <div className="p-3 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-100/80 dark:border-blue-900/40 text-xs sm:text-sm text-slate-800 dark:text-zinc-100 font-medium flex items-start gap-2.5 animate-in fade-in duration-150 max-h-28 overflow-y-auto">
+                <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center shrink-0 text-[10px] font-bold mt-0.5 shadow-sm">
+                  You
+                </div>
+                <div className="flex-1 break-words leading-relaxed">
+                  <span>{liveTalkUserTranscript}</span>
+                  {liveTalkStatus === 'listening' && (
+                    <span className="inline-block w-1.5 h-3.5 bg-blue-500 ml-1.5 animate-pulse align-middle rounded-full" />
+                  )}
+                </div>
               </div>
-            ) : (
-              <div className="px-1 text-xs text-slate-500 dark:text-zinc-400 font-medium flex items-center gap-2">
+            ) : null}
+
+            {/* Theta Assistant Spoken Response (Real-Time Speech Matching) */}
+            {liveTalkAssistantTranscript ? (
+              <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-50/90 to-teal-50/70 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-100/80 dark:border-emerald-900/40 text-xs sm:text-sm text-slate-800 dark:text-zinc-100 font-medium flex items-start gap-2.5 animate-in fade-in duration-150 max-h-36 overflow-y-auto">
+                <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 text-[10px] font-bold mt-0.5 shadow-sm">
+                  θ
+                </div>
+                <div className="flex-1 break-words leading-relaxed">
+                  <span>{liveTalkAssistantTranscript}</span>
+                  {liveTalkStatus === 'speaking' && (
+                    <span className="inline-block w-1.5 h-3.5 bg-emerald-500 ml-1.5 animate-pulse align-middle rounded-full" />
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Fallback to single liveTalkTranscript if dual not populated */}
+            {!liveTalkUserTranscript && !liveTalkAssistantTranscript && liveTalkTranscript ? (
+              <div className="p-3 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 text-xs sm:text-sm text-slate-800 dark:text-zinc-100 font-medium flex items-center gap-2 animate-in fade-in duration-150 max-h-24 overflow-y-auto">
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping shrink-0" />
+                <span className="italic break-words">&ldquo;{liveTalkTranscript}&rdquo;</span>
+              </div>
+            ) : null}
+
+            {/* Status Guidance when speaking has not started yet */}
+            {!liveTalkUserTranscript && !liveTalkAssistantTranscript && !liveTalkTranscript && (
+              <div className="px-2 py-1 text-xs text-slate-500 dark:text-zinc-400 font-medium flex items-center gap-2">
                 {liveTalkStatus === 'speaking' ? (
                   <button
                     type="button"
@@ -300,25 +338,25 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
                     title="Speak naturally anytime to interrupt, or tap here"
                   >
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                    Theta is speaking... (Speak anytime to interrupt)
+                    Theta is speaking... (Speak naturally anytime to interrupt)
                   </button>
                 ) : liveTalkStatus === 'connecting' ? (
                   <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                    <Loader2 className="w-3 h-3 animate-spin shrink-0" />
-                    Connecting to Gemini Live...
+                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                    Connecting directly to Gemini Live...
                   </span>
                 ) : liveTalkStatus === 'sending' || isLoading ? (
                   <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                    <Loader2 className="w-3 h-3 animate-spin shrink-0" />
-                    Formulating conversational answer...
+                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                    Theta is formulating thoughts...
                   </span>
                 ) : liveTalkStatus === 'listening' ? (
                   <span className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shrink-0" />
-                    Listening... Speak naturally or ask any question.
+                    Listening... Speak naturally anytime or ask a math question.
                   </span>
                 ) : (
-                  <span>Microphone paused. Tap mic to resume.</span>
+                  <span>Microphone paused. Tap mic below to resume.</span>
                 )}
               </div>
             )}
@@ -383,11 +421,12 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    if (liveTalkTranscript.trim()) {
-                      onSendLiveTalkPrompt(liveTalkTranscript.trim());
+                    const prompt = (liveTalkUserTranscript || liveTalkTranscript).trim();
+                    if (prompt) {
+                      onSendLiveTalkPrompt(prompt);
                     }
                   }}
-                  disabled={!liveTalkTranscript.trim()}
+                  disabled={!(liveTalkUserTranscript || liveTalkTranscript).trim()}
                   className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-600 hover:bg-blue-700 disabled:opacity-30 disabled:hover:bg-blue-600 text-white flex items-center justify-center transition-all cursor-pointer disabled:cursor-not-allowed border-0 shadow-none"
                   title="Send spoken words immediately"
                 >

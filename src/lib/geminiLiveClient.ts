@@ -19,8 +19,8 @@ export type GeminiLiveStatus = 'idle' | 'connecting' | 'listening' | 'speaking' 
 export interface GeminiLiveCallbacks {
   onStatusChange?: (status: GeminiLiveStatus) => void;
   onTranscript?: (text: string, isAssistant: boolean) => void;
-  onInterrupted?: () => void;
-  onTurnComplete?: () => void;
+  onInterrupted?: (detail?: { userText: string; assistantText: string }) => void;
+  onTurnComplete?: (detail?: { userText: string; assistantText: string }) => void;
   onVolumeChange?: (volume: number, isAssistant: boolean) => void;
   onError?: (errMessage: string) => void;
 }
@@ -198,7 +198,7 @@ export class GeminiLiveClient {
 
     const voice = options?.voice || 'Aoede';
     const systemInstruction = options?.systemInstruction ||
-      'You are Theta, a fast, intelligent, conversational, and highly encouraging AI math tutor. Keep your spoken responses concise, direct, and conversational (typically 1 to 3 sentences). Avoid markdown formatting, asterisks, bullet points, and tables in spoken conversation unless explicitly asked.';
+      "You are Theta, an ultra-responsive, friendly, and encouraging AI math tutor in a direct live voice conversation. Answer promptly and concisely in 1 to 3 clear spoken sentences. Do not use markdown, code blocks, bullet points, asterisks, or formulas formatted as code; speak math naturally and conversationally (e.g. say 'x squared plus five' instead of latex). Respond immediately to the user's questions without filler introductory phrases.";
 
     this.accumulatedAssistantText = '';
     this.accumulatedUserText = '';
@@ -259,10 +259,13 @@ export class GeminiLiveClient {
                 // Native Server Barge-In (Interrupted by user speech)
                 if (content.interrupted) {
                   console.log('Gemini Live server detected user voice barge-in (interrupted).');
+                  const interruptedUser = this.accumulatedUserText;
+                  const interruptedAssistant = this.accumulatedAssistantText;
                   this.stopAllAudioPlayback();
                   this.accumulatedAssistantText = '';
+                  this.accumulatedUserText = '';
                   this.setStatus('listening');
-                  this.callbacks.onInterrupted?.();
+                  this.callbacks.onInterrupted?.({ userText: interruptedUser, assistantText: interruptedAssistant });
                   return;
                 }
 
@@ -284,7 +287,7 @@ export class GeminiLiveClient {
                     if (part.inlineData) {
                       this.playPcm24kChunk(part.inlineData.data);
                     }
-                    if (part.text && !part.thought) {
+                    if (part.text && !part.thought && !content.outputTranscription) {
                       this.accumulatedAssistantText += part.text;
                       this.callbacks.onTranscript?.(this.accumulatedAssistantText, true);
                     }
@@ -293,9 +296,11 @@ export class GeminiLiveClient {
 
                 // Turn Complete
                 if (content.turnComplete) {
+                  const finalUser = this.accumulatedUserText;
+                  const finalAssistant = this.accumulatedAssistantText;
                   this.accumulatedAssistantText = '';
                   this.accumulatedUserText = '';
-                  this.callbacks.onTurnComplete?.();
+                  this.callbacks.onTurnComplete?.({ userText: finalUser, assistantText: finalAssistant });
                   if (this.activeAudioSources.length === 0) {
                     this.setStatus('listening');
                   }
@@ -458,8 +463,8 @@ export class GeminiLiveClient {
           this.pcmAccumulator.push(downsampled16k[i]);
         }
 
-        // When accumulated ~1600 samples (100ms of 16kHz audio), send packet
-        if (this.pcmAccumulator.length >= 1600) {
+        // When accumulated ~1280 samples (80ms of 16kHz audio), send packet for lower turnaround latency
+        if (this.pcmAccumulator.length >= 1280) {
           const packetSamples = new Int16Array(this.pcmAccumulator);
           this.pcmAccumulator = [];
           this.sendPcmPacket(packetSamples);
@@ -537,7 +542,7 @@ export class GeminiLiveClient {
 
       const currentTime = this.audioContext.currentTime;
       // Start immediately on first chunk or maintain gapless queue
-      if (this.nextPlaybackTime < currentTime) {
+      if (this.nextPlaybackTime < currentTime || this.activeAudioSources.length === 0) {
         this.nextPlaybackTime = currentTime;
       }
 
@@ -584,6 +589,9 @@ export class GeminiLiveClient {
   public sendTextPrompt(text: string) {
     const trimmed = text.trim();
     if (!trimmed) return;
+
+    this.accumulatedUserText = trimmed;
+    this.callbacks.onTranscript?.(trimmed, false);
 
     if (this.session) {
       this.session.sendClientContent({
