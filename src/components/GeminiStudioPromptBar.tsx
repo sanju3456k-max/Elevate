@@ -44,8 +44,9 @@ export interface GeminiStudioPromptBarProps {
   onToggleDictation: () => void;
   // Live Talk
   isLiveTalkActive: boolean;
-  liveTalkStatus: 'listening' | 'speaking' | 'paused' | 'sending';
+  liveTalkStatus: 'listening' | 'speaking' | 'paused' | 'sending' | 'connecting' | 'idle' | 'error';
   liveTalkTranscript: string;
+  liveVolume?: number;
   isMicMuted: boolean;
   isVoiceResponseEnabled: boolean;
   onToggleLiveTalk: () => void;
@@ -89,6 +90,7 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
   isLiveTalkActive,
   liveTalkStatus,
   liveTalkTranscript,
+  liveVolume = 0,
   isMicMuted,
   isVoiceResponseEnabled,
   onToggleLiveTalk,
@@ -207,11 +209,12 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
                 {[1, 2, 3, 4].map((bar) => {
                   const isSpeaking = liveTalkStatus === 'speaking';
                   const isListening = liveTalkStatus === 'listening';
-                  const isThinking = liveTalkStatus === 'sending' || isLoading;
+                  const isThinking = liveTalkStatus === 'sending' || liveTalkStatus === 'connecting' || isLoading;
+                  const volMultiplier = liveVolume ? Math.max(0.6, Math.min(2.0, liveVolume * 3)) : 1;
                   return (
                     <div
                       key={bar}
-                      className={`w-1 rounded-full transition-all duration-200 ${
+                      className={`w-1 rounded-full transition-all duration-150 ${
                         isSpeaking
                           ? 'bg-gradient-to-t from-emerald-500 to-teal-400 animate-pulse'
                           : isListening
@@ -222,9 +225,9 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
                       }`}
                       style={{
                         height: isSpeaking
-                          ? `${[18, 24, 14, 20][bar - 1]}px`
+                          ? `${Math.round([18, 24, 14, 20][bar - 1] * volMultiplier)}px`
                           : isListening
-                          ? `${[12, 18, 14, 10][bar - 1]}px`
+                          ? `${Math.round([12, 18, 14, 10][bar - 1] * volMultiplier)}px`
                           : isThinking
                           ? `${[10, 16, 12, 8][bar - 1]}px`
                           : '6px',
@@ -246,12 +249,16 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
                       ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
                       : liveTalkStatus === 'listening'
                       ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300'
-                      : liveTalkStatus === 'sending' || isLoading
+                      : liveTalkStatus === 'connecting' || liveTalkStatus === 'sending' || isLoading
                       ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300'
                       : 'bg-slate-100 text-slate-700 dark:bg-[#282a2d] dark:text-zinc-300'
                   }`}
                 >
-                  {liveTalkStatus === 'sending' || isLoading ? 'Thinking...' : liveTalkStatus}
+                  {liveTalkStatus === 'connecting'
+                    ? 'Connecting...'
+                    : liveTalkStatus === 'sending' || isLoading
+                    ? 'Thinking...'
+                    : liveTalkStatus}
                 </span>
               </div>
             </div>
@@ -295,6 +302,11 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                     Theta is speaking... (Speak anytime to interrupt)
                   </button>
+                ) : liveTalkStatus === 'connecting' ? (
+                  <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                    Connecting to Gemini Live...
+                  </span>
                 ) : liveTalkStatus === 'sending' || isLoading ? (
                   <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
                     <Loader2 className="w-3 h-3 animate-spin shrink-0" />
