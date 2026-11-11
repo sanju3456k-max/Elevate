@@ -8,19 +8,19 @@
 
 export type LiveTalkStatus = 'listening' | 'speaking' | 'paused' | 'sending';
 
-export type GeminiVoicePersona = 'vega' | 'kore' | 'puck' | 'charon' | 'fenrir';
+export type GeminiVoicePersona = 'vega';
 
 export interface VoicePersonaInfo {
-  id: GeminiVoicePersona;
+  id: 'vega';
   name: string;
-  gender: 'female' | 'male';
+  gender: 'female';
   tone: string;
   description: string;
   pitch: number;
   rate: number;
 }
 
-export const GEMINI_VOICE_PERSONAS: Record<GeminiVoicePersona, VoicePersonaInfo> = {
+export const GEMINI_VOICE_PERSONAS: Record<'vega', VoicePersonaInfo> = {
   vega: {
     id: 'vega',
     name: 'Vega',
@@ -30,60 +30,14 @@ export const GEMINI_VOICE_PERSONAS: Record<GeminiVoicePersona, VoicePersonaInfo>
     pitch: 1.12,
     rate: 1.02,
   },
-  kore: {
-    id: 'kore',
-    name: 'Kore',
-    gender: 'female',
-    tone: 'Bright & Calm',
-    description: 'Crisp, articulate, and soothing academic tone',
-    pitch: 1.06,
-    rate: 0.98,
-  },
-  puck: {
-    id: 'puck',
-    name: 'Puck',
-    gender: 'male',
-    tone: 'Upbeat & Energetic',
-    description: 'Enthusiastic, clear, and engaging study partner',
-    pitch: 1.05,
-    rate: 1.04,
-  },
-  charon: {
-    id: 'charon',
-    name: 'Charon',
-    gender: 'male',
-    tone: 'Deep & Measured',
-    description: 'Authoritative, steady, and thoughtful professor cadence',
-    pitch: 0.88,
-    rate: 0.96,
-  },
-  fenrir: {
-    id: 'fenrir',
-    name: 'Fenrir',
-    gender: 'male',
-    tone: 'Direct & Crisp',
-    description: 'Fast-paced, concise, and focused coaching tone',
-    pitch: 0.95,
-    rate: 1.06,
-  },
 };
 
-const VOICE_PERSONA_STORAGE_KEY = 'gemini_live_voice_persona';
-
 export function getActiveVoicePersona(): GeminiVoicePersona {
-  if (typeof window === 'undefined') return 'vega';
-  try {
-    const saved = localStorage.getItem(VOICE_PERSONA_STORAGE_KEY) as GeminiVoicePersona;
-    if (saved && GEMINI_VOICE_PERSONAS[saved]) return saved;
-  } catch {}
   return 'vega';
 }
 
-export function setActiveVoicePersona(persona: GeminiVoicePersona) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(VOICE_PERSONA_STORAGE_KEY, persona);
-  } catch {}
+export function setActiveVoicePersona(_persona: GeminiVoicePersona) {
+  // Vega is the dedicated voice
 }
 
 export function getSpeechRecognition(): any | null {
@@ -514,6 +468,8 @@ class CleanSpeechEngine {
   private silenceTimer: any = null;
   private isProcessingPrompt: boolean = false;
   private isMuted: boolean = false;
+  private isAssistantSpeaking: boolean = false;
+  private lastAssistantSpokenText: string = '';
 
   // Listeners
   private onTranscriptCallback: ((text: string) => void) | null = null;
@@ -598,7 +554,7 @@ class CleanSpeechEngine {
   }
 
   /**
-   * Start Live Talk conversational voice assistant with full barge-in / interruption support
+   * Start Live Talk conversational voice assistant with anti-echo and clean listening
    */
   public async startLiveTalk(
     onTranscript: (text: string) => void,
@@ -628,6 +584,8 @@ class CleanSpeechEngine {
     this.onInterruptionCallback = onInterruption || null;
     this.isProcessingPrompt = false;
     this.isMuted = false;
+    this.isAssistantSpeaking = false;
+    this.lastAssistantSpokenText = '';
 
     this.onStatusCallback('listening');
     this.onTranscriptCallback?.('');
@@ -635,7 +593,8 @@ class CleanSpeechEngine {
   }
 
   private initLiveTalkMic(SpeechRec: any) {
-    if (this.currentMode !== 'live-talk' || this.isMuted) {
+    // Under no condition should mic be active if muted or if assistant is speaking through speakers
+    if (this.currentMode !== 'live-talk' || this.isMuted || this.isAssistantSpeaking) {
       return;
     }
 
@@ -663,25 +622,25 @@ class CleanSpeechEngine {
       };
 
       rec.onresult = (event: any) => {
-        if (this.isMuted) return;
+        // Echo filter: ignore if muted or assistant is speaking
+        if (this.isMuted || this.isAssistantSpeaking) return;
 
         const cleaned = extractCleanSpeechFromEvent(event);
         if (!cleaned || cleaned.trim().length < 2) return;
 
-        // 1. Barge-In Interruption: If assistant is currently speaking, user speech interrupts immediately
-        if (this.activeUtterance) {
-          if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-            try {
-              window.speechSynthesis.cancel();
-            } catch {}
+        // Anti-Self-Echo Guard: If speech matches what assistant just said, discard it completely
+        if (this.lastAssistantSpokenText) {
+          const userLower = cleaned.toLowerCase().trim();
+          if (
+            this.lastAssistantSpokenText.includes(userLower) ||
+            userLower.includes(this.lastAssistantSpokenText)
+          ) {
+            console.log('Echo-guard filtered self-talk audio loop:', cleaned);
+            return;
           }
-          this.activeUtterance = null;
-          this.isProcessingPrompt = false;
-          this.onStatusCallback?.('listening');
-          this.onInterruptionCallback?.();
         }
 
-        // 2. Mid-Generation Interruption: If AI was formulating response (sending/thinking), user speech cancels it
+        // Mid-Generation Interruption: If AI was formulating response (sending/thinking), user speech cancels it
         if (this.isProcessingPrompt) {
           this.isProcessingPrompt = false;
           this.onStatusCallback?.('listening');
@@ -693,7 +652,12 @@ class CleanSpeechEngine {
         // Reset silence timer to wait for user to finish thought before auto-sending
         if (this.silenceTimer) clearTimeout(this.silenceTimer);
         this.silenceTimer = setTimeout(() => {
-          if (this.currentMode === 'live-talk' && !this.isMuted && cleaned.trim().length >= 2) {
+          if (
+            this.currentMode === 'live-talk' &&
+            !this.isMuted &&
+            !this.isAssistantSpeaking &&
+            cleaned.trim().length >= 2
+          ) {
             this.handleAutoSendPrompt(cleaned.trim());
           }
         }, 1300);
@@ -702,7 +666,6 @@ class CleanSpeechEngine {
       rec.onerror = (e: any) => {
         const err = e?.error;
         if (err === 'no-speech' || err === 'aborted') {
-          // Normal pauses or speech completion; ignore
           return;
         }
 
@@ -715,16 +678,15 @@ class CleanSpeechEngine {
         }
 
         if (err === 'network') {
-          // Transient network hiccup on mobile Chrome; auto-reconnect will recover
           return;
         }
       };
 
       rec.onend = () => {
-        // SpeechRecognition automatically times out or drops on mobile Chrome; auto-reconnect smoothly
-        if (this.currentMode === 'live-talk' && !this.isMuted) {
+        // Auto-reconnect if live talk is still active and assistant is not speaking
+        if (this.currentMode === 'live-talk' && !this.isMuted && !this.isAssistantSpeaking) {
           setTimeout(() => {
-            if (this.currentMode === 'live-talk' && !this.isMuted) {
+            if (this.currentMode === 'live-talk' && !this.isMuted && !this.isAssistantSpeaking) {
               this.initLiveTalkMic(SpeechRec);
             }
           }, 250);
@@ -752,7 +714,7 @@ class CleanSpeechEngine {
   }
 
   /**
-   * Handle assistant response speaking with background barge-in listening
+   * Handle assistant response speaking with clean speaker isolation (anti-self-echo)
    */
   public handleAssistantReply(responseText: string, voiceEnabled: boolean) {
     if (this.currentMode !== 'live-talk') {
@@ -764,8 +726,11 @@ class CleanSpeechEngine {
 
     const resumeListeningFresh = () => {
       this.activeUtterance = null;
+      this.isAssistantSpeaking = false;
       this.isProcessingPrompt = false;
       this.onTranscriptCallback?.(''); // Clear transcript for user's next question
+
+      // Wait 250ms for speaker echo in the room to finish fading out before opening mic
       setTimeout(() => {
         if (this.currentMode === 'live-talk' && !this.isMuted) {
           this.onStatusCallback?.('listening');
@@ -773,7 +738,7 @@ class CleanSpeechEngine {
             this.initLiveTalkMic(SpeechRec);
           }
         }
-      }, 200);
+      }, 250);
     };
 
     if (!voiceEnabled || !isSpeechSynthesisSupported()) {
@@ -790,19 +755,31 @@ class CleanSpeechEngine {
     try {
       window.speechSynthesis.cancel();
       this.onStatusCallback?.('speaking');
-      this.isProcessingPrompt = false; // Allow microphone to accept user interruptions while speaking
+      this.isAssistantSpeaking = true;
+      this.lastAssistantSpokenText = clean.toLowerCase();
+      this.isProcessingPrompt = false;
+
+      // CRITICAL FIX FOR SELF-ECHO LOOP:
+      // Stop microphone recognition while device speakers output assistant's voice
+      // so Theta never hears or loops its own spoken response!
+      if (this.activeRecognition) {
+        try {
+          const r = this.activeRecognition;
+          r.onend = null;
+          r.onerror = null;
+          r.onresult = null;
+          r.onstart = null;
+          r.abort();
+        } catch {}
+        this.activeRecognition = null;
+      }
 
       const utter = new SpeechSynthesisUtterance(clean);
-      applyGeminiVoice(utter);
+      applyGeminiVoice(utter, 'vega');
 
       this.activeUtterance = utter;
       utter.onend = () => resumeListeningFresh();
       utter.onerror = () => resumeListeningFresh();
-
-      // Ensure microphone recognition is actively listening in background for barge-in
-      if (SpeechRec && !this.activeRecognition && !this.isMuted) {
-        this.initLiveTalkMic(SpeechRec);
-      }
 
       window.speechSynthesis.speak(utter);
     } catch {
@@ -815,6 +792,7 @@ class CleanSpeechEngine {
    */
   public cancelCurrentTurn() {
     this.isProcessingPrompt = false;
+    this.isAssistantSpeaking = false;
     if (this.silenceTimer) {
       clearTimeout(this.silenceTimer);
       this.silenceTimer = null;

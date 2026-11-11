@@ -18,18 +18,10 @@ import {
   FileArchive,
   Loader2,
   FileCheck,
-  GraduationCap,
-  Check,
-  ChevronDown
+  GraduationCap
 } from 'lucide-react';
 import { ChatAttachment, GeminiModelTier } from './GeminiChatbotView';
-import {
-  speechEngine,
-  GEMINI_VOICE_PERSONAS,
-  GeminiVoicePersona,
-  getActiveVoicePersona,
-  setActiveVoicePersona,
-} from '../lib/geminiSpeechEngine';
+import { speechEngine } from '../lib/geminiSpeechEngine';
 import { useBackHandler } from '../hooks/useBackNavigation';
 
 export interface GeminiStudioPromptBarProps {
@@ -115,30 +107,8 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addMenuRef = useRef<HTMLDivElement>(null);
-  const voicePickerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
-  const [activeVoice, setActiveVoice] = useState<GeminiVoicePersona>(() => getActiveVoicePersona());
-  const [isVoicePickerOpen, setIsVoicePickerOpen] = useState(false);
-
-  // Close voice picker when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (voicePickerRef.current && !voicePickerRef.current.contains(e.target as Node)) {
-        setIsVoicePickerOpen(false);
-      }
-    };
-    if (isVoicePickerOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isVoicePickerOpen]);
-
-  useBackHandler(isVoicePickerOpen, () => {
-    setIsVoicePickerOpen(false);
-  });
 
   // Back Navigation Handlers
   useBackHandler({
@@ -226,10 +196,10 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
         className="hidden"
       />
 
-      {/* Live Talk Voice Assistant Floating Card (Material 3 Signature Design) */}
-      {isLiveTalkActive && (
-        <div className="mb-3 p-4 sm:p-5 rounded-[28px] sm:rounded-[30px] bg-white dark:bg-[#1e2024] shadow-[0_10px_35px_rgba(0,0,0,0.08),0_2px_10px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.55)] border-0 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 duration-200 relative">
-          {/* Top Bar: Visualizer, Status, Voice Picker, Close */}
+      {/* Live Talk Voice Assistant Card - Fully replaces prompt bar when active */}
+      {isLiveTalkActive ? (
+        <div className="w-full p-4 sm:p-5 rounded-[28px] sm:rounded-[32px] bg-white dark:bg-[#1e2024] shadow-[0_10px_35px_rgba(0,0,0,0.08),0_2px_10px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.55)] border-0 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 duration-200 relative">
+          {/* Top Bar: Visualizer, Status, Vega Voice Badge, Close */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               {/* Dynamic Animated Soundwave Equalizer */}
@@ -286,61 +256,12 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
               </div>
             </div>
 
-            {/* Right Header Controls: Voice Selector & Close Button */}
-            <div className="flex items-center gap-2 shrink-0 relative" ref={voicePickerRef}>
-              {/* Voice Persona Selector Pill */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setIsVoicePickerOpen((prev) => !prev)}
-                  className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-[#282a2d] dark:hover:bg-[#35373b] text-slate-700 dark:text-zinc-200 flex items-center gap-1.5 transition-colors cursor-pointer border-0 shadow-none"
-                  title="Choose Gemini Voice Persona"
-                >
-                  <span className="text-blue-500">✨</span>
-                  <span>{GEMINI_VOICE_PERSONAS[activeVoice]?.name || 'Vega'}</span>
-                  <ChevronDown className="w-3 h-3 text-slate-400" />
-                </button>
-
-                {/* Voice Persona Dropdown */}
-                {isVoicePickerOpen && (
-                  <div className="absolute top-full mt-2 right-0 z-50 min-w-[230px] rounded-[22px] bg-white dark:bg-[#25272c] p-2 border-0 shadow-[0_12px_40px_rgba(0,0,0,0.18)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.7)] animate-in fade-in zoom-in-95 duration-150">
-                    <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-400">
-                      Gemini Voice Personas
-                    </div>
-                    {Object.values(GEMINI_VOICE_PERSONAS).map((persona) => {
-                      const isSelected = activeVoice === persona.id;
-                      return (
-                        <button
-                          key={persona.id}
-                          type="button"
-                          onClick={() => {
-                            setActiveVoicePersona(persona.id);
-                            setActiveVoice(persona.id);
-                            setIsVoicePickerOpen(false);
-                          }}
-                          className={`w-full px-3 py-2 rounded-[16px] text-left text-xs transition-colors flex items-center justify-between cursor-pointer border-0 ${
-                            isSelected
-                              ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 font-semibold'
-                              : 'hover:bg-slate-100 dark:hover:bg-[#2f3137] text-slate-700 dark:text-zinc-200'
-                          }`}
-                        >
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <span>{persona.name}</span>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-[#34373d] text-slate-500 dark:text-zinc-400 font-normal">
-                                {persona.gender}
-                              </span>
-                            </div>
-                            <div className="text-[10px] text-slate-400 dark:text-zinc-400 font-normal mt-0.5">
-                              {persona.tone}
-                            </div>
-                          </div>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+            {/* Right Header Controls: Vega Voice Badge & Close Live Talk Button */}
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Dedicated Vega Voice Badge */}
+              <div className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-[#282a2d] text-slate-700 dark:text-zinc-200 flex items-center gap-1.5 border-0 shadow-none">
+                <span className="text-blue-500">✨</span>
+                <span>Vega Voice</span>
               </div>
 
               {/* Close Live Talk Button */}
@@ -348,7 +269,7 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
                 type="button"
                 onClick={onStopLiveTalk}
                 className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-[#282a2d] transition-colors cursor-pointer border-0 shadow-none"
-                title="Close Live Assistant"
+                title="Exit Live Mode (Return to typing)"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -365,10 +286,15 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
             ) : (
               <div className="px-1 text-xs text-slate-500 dark:text-zinc-400 font-medium flex items-center gap-2">
                 {liveTalkStatus === 'speaking' ? (
-                  <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={onCancelRequest}
+                    className="text-emerald-700 dark:text-emerald-300 hover:underline flex items-center gap-1.5 cursor-pointer font-medium"
+                    title="Tap to interrupt and speak"
+                  >
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                    Theta is speaking... Speak anytime to interrupt.
-                  </span>
+                    Theta is speaking... Tap here to speak / interrupt.
+                  </button>
                 ) : liveTalkStatus === 'sending' || isLoading ? (
                   <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
                     <Loader2 className="w-3 h-3 animate-spin shrink-0" />
@@ -459,7 +385,8 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
             </div>
           </div>
         </div>
-      )}
+      ) : (
+        <>
 
       {/* Targeted Edit Mode Active Banner */}
       {editingContext && (
@@ -848,6 +775,8 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };
