@@ -157,29 +157,29 @@ export const SessionTableGeneratorModal: React.FC<SessionTableGeneratorModalProp
             animate="animate"
             exit="exit"
             style={gpuTransformStyle}
-            className={`${APP_STYLES.customBuilder.card} max-w-lg w-full overflow-hidden flex flex-col modal-content-smooth`}
+            className="w-full max-w-lg rounded-[28px] sm:rounded-[32px] bg-white dark:bg-[#1e2024] border-0 shadow-[0_8px_32px_rgba(0,0,0,0.12),0_1px_4px_rgba(0,0,0,0.06)] dark:shadow-[0_12px_44px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col modal-content-smooth"
             onClick={(e) => e.stopPropagation()}
           >
-        {/* Modern Header - Round Out Icon without shadow */}
+        {/* Modern Header */}
         <div className="px-5 py-4 border-b border-slate-100 dark:border-zinc-800/80 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer -ml-1 mr-0.5 shadow-none border border-slate-200/80 dark:border-zinc-800/80"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-[#5e5e5e] hover:text-[#1f1f1f] dark:text-[#c4c7c5] dark:hover:text-[#e3e3e3] bg-[#edf2f9] hover:bg-[#e1e9f5] dark:bg-[#26282e] dark:hover:bg-[#30333b] transition-all cursor-pointer -ml-1 mr-0.5 border-0 shadow-none active:scale-95"
               title="Back to Chat (Esc)"
               aria-label="Back to Chat"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-4.5 h-4.5 stroke-[2.2]" />
             </button>
-            <div className="w-9 h-9 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-200/60 dark:border-emerald-900/40">
-              <FileSpreadsheet className="w-4.5 h-4.5" />
+            <div className="w-10 h-10 rounded-full bg-[#e6f4ea] text-[#137333] dark:bg-[#0f5223]/50 dark:text-[#81c995] flex items-center justify-center shrink-0 border-0 shadow-none">
+              <FileSpreadsheet className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+              <h3 className="text-[15px] sm:text-base font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
                 Generate Data Table
               </h3>
-              <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+              <p className="text-[11px] sm:text-xs text-[#5e5e5e] dark:text-[#9aa0a6]">
                 Formula sheets, comparison matrices & custom structured datasets
               </p>
             </div>
@@ -187,9 +187,9 @@ export const SessionTableGeneratorModal: React.FC<SessionTableGeneratorModalProp
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer shadow-none border border-slate-200/80 dark:border-zinc-800/80"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-[#5e5e5e] hover:text-[#1f1f1f] dark:text-[#c4c7c5] dark:hover:text-[#e3e3e3] bg-[#edf2f9] hover:bg-[#e1e9f5] dark:bg-[#26282e] dark:hover:bg-[#30333b] transition-all cursor-pointer border-0 shadow-none active:scale-95"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4.5 h-4.5 stroke-[2.2]" />
           </button>
         </div>
 
@@ -197,7 +197,7 @@ export const SessionTableGeneratorModal: React.FC<SessionTableGeneratorModalProp
         <form onSubmit={handleGenerate} className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
           {/* Table Topic */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+            <label className="text-xs sm:text-[12.5px] font-bold text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center gap-1.5">
               <span>Topic / Subject</span>
             </label>
             <input
@@ -210,28 +210,28 @@ export const SessionTableGeneratorModal: React.FC<SessionTableGeneratorModalProp
               placeholder="e.g. Calculus Standard Derivatives & Integrals, Sorting Algorithms..."
               required
               autoFocus
-              className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-full bg-slate-50 dark:bg-[#1f2024] border border-slate-200/80 dark:border-zinc-800/80 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 shadow-none focus:outline-none transition-all"
+              className="w-full px-4 py-2.5 text-xs sm:text-[13px] rounded-full bg-[#f0f4f9] dark:bg-[#26282e] border-0 text-[#1f1f1f] dark:text-[#e3e3e3] placeholder-[#747775] dark:placeholder-[#8e918f] shadow-none focus:outline-none focus:ring-2 focus:ring-[#137333]/40 transition-all"
             />
           </div>
 
           {/* Preset Structure Options */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
-              <div className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-200/60 dark:border-emerald-900/40">
+            <label className="text-xs sm:text-[12.5px] font-bold text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center gap-1.5">
+              <div className="w-5 h-5 rounded-full bg-[#e6f4ea] text-[#137333] dark:bg-[#0f5223]/50 dark:text-[#81c995] flex items-center justify-center shrink-0 border-0 shadow-none">
                 <TableIcon className="w-3 h-3" />
               </div>
               <span>Column Structure Presets</span>
             </label>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
               {TABLE_PRESETS.map((preset) => (
                 <button
                   key={preset.id}
                   type="button"
                   onClick={() => handleSelectPreset(preset.id)}
-                  className={`p-2.5 rounded-full text-xs font-medium text-center transition-all cursor-pointer truncate shadow-none ${
+                  className={`p-2.5 rounded-full text-xs text-center transition-all cursor-pointer truncate border-0 shadow-none ${
                     selectedPreset === preset.id
-                      ? 'bg-emerald-600 text-white font-semibold border border-emerald-600'
-                      : 'bg-slate-50 dark:bg-[#1f2024] text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200/80 dark:border-zinc-800/80'
+                      ? 'bg-[#137333] hover:bg-[#0f5223] text-white font-bold shadow-[0_2px_6px_rgba(19,115,51,0.25)]'
+                      : 'bg-[#edf2f9] dark:bg-[#26282e] text-[#444746] dark:text-[#c4c7c5] hover:bg-[#e1e9f5] dark:hover:bg-[#30333b] font-semibold'
                   }`}
                 >
                   {preset.label}
@@ -243,13 +243,13 @@ export const SessionTableGeneratorModal: React.FC<SessionTableGeneratorModalProp
           {/* Blank / Optional Column Text Prompt Bar */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
-                <div className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-200/60 dark:border-emerald-900/40">
+              <label className="text-xs sm:text-[12.5px] font-bold text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center gap-1.5">
+                <div className="w-5 h-5 rounded-full bg-[#e6f4ea] text-[#137333] dark:bg-[#0f5223]/50 dark:text-[#81c995] flex items-center justify-center shrink-0 border-0 shadow-none">
                   <Columns className="w-3 h-3" />
                 </div>
                 <span>Custom Columns Text Prompt Bar</span>
               </label>
-              <span className="text-[10px] font-semibold text-slate-400 dark:text-zinc-500 uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 shadow-none border border-slate-200/80 dark:border-zinc-800/80">
+              <span className="text-[10px] font-bold text-[#5e5e5e] dark:text-[#9aa0a6] uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#edf2f9] dark:bg-[#26282e] border-0 shadow-none">
                 Optional
               </span>
             </div>
@@ -258,10 +258,10 @@ export const SessionTableGeneratorModal: React.FC<SessionTableGeneratorModalProp
               value={customColumns}
               onChange={(e) => setCustomColumns(e.target.value)}
               placeholder="Leave blank or enter custom columns (e.g. Concept | Formula | Example)"
-              className="w-full px-3.5 py-2.5 text-xs rounded-full bg-slate-50 dark:bg-[#1f2024] border border-slate-200/80 dark:border-zinc-800/80 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 shadow-none focus:outline-none transition-all"
+              className="w-full px-4 py-2.5 text-xs sm:text-[13px] rounded-full bg-[#f0f4f9] dark:bg-[#26282e] border-0 text-[#1f1f1f] dark:text-[#e3e3e3] placeholder-[#747775] dark:placeholder-[#8e918f] shadow-none focus:outline-none focus:ring-2 focus:ring-[#137333]/40 transition-all"
             />
             {customColumns.trim() && (
-              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 pl-2 font-medium">
+              <p className="text-[11px] text-[#137333] dark:text-[#81c995] flex items-center gap-1 pl-2 font-medium">
                 <Sparkles className="w-3 h-3" />
                 <span>Custom column prompt specified</span>
               </p>
@@ -270,8 +270,8 @@ export const SessionTableGeneratorModal: React.FC<SessionTableGeneratorModalProp
 
           {/* Target Rows with Custom Rows & Columns Button */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
-              <div className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-200/60 dark:border-emerald-900/40">
+            <label className="text-xs sm:text-[12.5px] font-bold text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center gap-1.5">
+              <div className="w-5 h-5 rounded-full bg-[#e6f4ea] text-[#137333] dark:bg-[#0f5223]/50 dark:text-[#81c995] flex items-center justify-center shrink-0 border-0 shadow-none">
                 <ListOrdered className="w-3 h-3" />
               </div>
               <span>Target Rows & Layout</span>
@@ -286,10 +286,10 @@ export const SessionTableGeneratorModal: React.FC<SessionTableGeneratorModalProp
                     setRowCount(count);
                     setIsCustomRowsCols(false);
                   }}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer shadow-none ${
+                  className={`px-3.5 py-2 rounded-full text-xs transition-all cursor-pointer border-0 shadow-none ${
                     !isCustomRowsCols && rowCount === count
-                      ? 'bg-emerald-600 text-white border border-emerald-600'
-                      : 'bg-slate-50 dark:bg-[#1f2024] text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200/80 dark:border-zinc-800/80'
+                      ? 'bg-[#137333] hover:bg-[#0f5223] text-white font-bold shadow-[0_2px_6px_rgba(19,115,51,0.25)]'
+                      : 'bg-[#edf2f9] dark:bg-[#26282e] text-[#444746] dark:text-[#c4c7c5] hover:bg-[#e1e9f5] dark:hover:bg-[#30333b] font-semibold'
                   }`}
                 >
                   {count} Rows
@@ -300,10 +300,10 @@ export const SessionTableGeneratorModal: React.FC<SessionTableGeneratorModalProp
               <button
                 type="button"
                 onClick={() => setIsCustomRowsCols(true)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shadow-none ${
+                className={`px-3.5 py-2 rounded-full text-xs transition-all cursor-pointer flex items-center gap-1.5 border-0 shadow-none ${
                   isCustomRowsCols
-                    ? 'bg-emerald-600 text-white border border-emerald-600'
-                    : 'bg-slate-50 dark:bg-[#1f2024] text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200/80 dark:border-zinc-800/80'
+                    ? 'bg-[#137333] hover:bg-[#0f5223] text-white font-bold shadow-[0_2px_6px_rgba(19,115,51,0.25)]'
+                    : 'bg-[#edf2f9] dark:bg-[#26282e] text-[#444746] dark:text-[#c4c7c5] hover:bg-[#e1e9f5] dark:hover:bg-[#30333b] font-semibold'
                 }`}
               >
                 <Sliders className="w-3 h-3" />
@@ -315,7 +315,7 @@ export const SessionTableGeneratorModal: React.FC<SessionTableGeneratorModalProp
             {isCustomRowsCols && (
               <div className="pt-2 animate-in fade-in duration-100 grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium pl-1">Row Count</span>
+                  <span className="text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-medium pl-1">Row Count</span>
                   <input
                     type="number"
                     min={1}
@@ -324,11 +324,11 @@ export const SessionTableGeneratorModal: React.FC<SessionTableGeneratorModalProp
                     onChange={(e) => setCustomRowsInput(e.target.value)}
                     placeholder="Custom rows (e.g. 15)"
                     autoFocus
-                    className="w-full px-3.5 py-2 text-xs rounded-full bg-slate-50 dark:bg-[#1f2024] border border-slate-200/80 dark:border-zinc-800/80 text-slate-900 dark:text-zinc-100 shadow-none focus:outline-none"
+                    className="w-full px-4 py-2 text-xs rounded-full bg-[#f0f4f9] dark:bg-[#26282e] border-0 text-[#1f1f1f] dark:text-[#e3e3e3] shadow-none focus:outline-none focus:ring-2 focus:ring-[#137333]/40"
                   />
                 </div>
                 <div className="space-y-1">
-                  <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium pl-1">Column Count</span>
+                  <span className="text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-medium pl-1">Column Count</span>
                   <input
                     type="number"
                     min={1}
@@ -336,7 +336,7 @@ export const SessionTableGeneratorModal: React.FC<SessionTableGeneratorModalProp
                     value={customColumnCountInput}
                     onChange={(e) => setCustomColumnCountInput(e.target.value)}
                     placeholder="Custom columns (e.g. 5)"
-                    className="w-full px-3.5 py-2 text-xs rounded-full bg-slate-50 dark:bg-[#1f2024] border border-slate-200/80 dark:border-zinc-800/80 text-slate-900 dark:text-zinc-100 shadow-none focus:outline-none"
+                    className="w-full px-4 py-2 text-xs rounded-full bg-[#f0f4f9] dark:bg-[#26282e] border-0 text-[#1f1f1f] dark:text-[#e3e3e3] shadow-none focus:outline-none focus:ring-2 focus:ring-[#137333]/40"
                   />
                 </div>
               </div>
@@ -345,7 +345,7 @@ export const SessionTableGeneratorModal: React.FC<SessionTableGeneratorModalProp
 
           {/* Optional Additional Directives */}
           <div className="space-y-1.5 pt-0.5">
-            <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+            <label className="text-xs sm:text-[12.5px] font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
               Additional Directives (Optional)
             </label>
             <input
@@ -353,18 +353,18 @@ export const SessionTableGeneratorModal: React.FC<SessionTableGeneratorModalProp
               value={additionalNotes}
               onChange={(e) => setAdditionalNotes(e.target.value)}
               placeholder="e.g. Include 3D plot formulas, add time complexity comparison column..."
-              className="w-full px-3.5 py-2.5 text-xs rounded-full bg-slate-50 dark:bg-[#1f2024] border border-slate-200/80 dark:border-zinc-800/80 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 shadow-none focus:outline-none transition-all"
+              className="w-full px-4 py-2.5 text-xs sm:text-[13px] rounded-full bg-[#f0f4f9] dark:bg-[#26282e] border-0 text-[#1f1f1f] dark:text-[#e3e3e3] placeholder-[#747775] dark:placeholder-[#8e918f] shadow-none focus:outline-none focus:ring-2 focus:ring-[#137333]/40 transition-all"
             />
           </div>
 
           {/* Context Grounding */}
           {sessionFiles.length > 0 && (
-            <label className="flex items-center justify-between p-2.5 rounded-full bg-slate-50 dark:bg-[#1f2024] border border-slate-200/80 dark:border-zinc-800/80 shadow-none cursor-pointer hover:bg-slate-100/80 dark:hover:bg-zinc-800/60 transition-colors">
+            <label className="flex items-center justify-between p-3 rounded-full bg-[#f0f4f9] dark:bg-[#26282e] border-0 shadow-none cursor-pointer hover:bg-[#e1e9f5] dark:hover:bg-[#30333b] transition-colors">
               <div className="flex items-center gap-2.5 min-w-0 pl-1">
-                <div className="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-200/60 dark:border-emerald-900/40">
+                <div className="w-6 h-6 rounded-full bg-[#e6f4ea] text-[#137333] dark:bg-[#0f5223]/50 dark:text-[#81c995] flex items-center justify-center shrink-0 border-0 shadow-none">
                   <FileCheck className="w-3.5 h-3.5" />
                 </div>
-                <span className="text-xs font-medium text-slate-700 dark:text-zinc-300 truncate">
+                <span className="text-xs font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] truncate">
                   Extract from {sessionFiles.length} uploaded file{sessionFiles.length !== 1 ? 's' : ''}
                 </span>
               </div>
@@ -372,26 +372,26 @@ export const SessionTableGeneratorModal: React.FC<SessionTableGeneratorModalProp
                 type="checkbox"
                 checked={includeContext}
                 onChange={(e) => setIncludeContext(e.target.checked)}
-                className="rounded-full text-emerald-600 focus:ring-0 h-4 w-4 cursor-pointer mr-1"
+                className="rounded-full text-[#137333] focus:ring-0 h-4 w-4 cursor-pointer mr-1"
               />
             </label>
           )}
 
           {/* Action Buttons */}
-          <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-zinc-800/80">
+          <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-slate-100 dark:border-zinc-800/80">
             <button
               type="button"
               onClick={onClose}
-              className={APP_STYLES.button.secondary}
+              className="h-10 px-5 rounded-full text-xs sm:text-[13px] font-bold text-[#1f1f1f] dark:text-[#e3e3e3] bg-[#edf2f9] hover:bg-[#e1e9f5] dark:bg-[#26282e] dark:hover:bg-[#30333b] border-0 transition-all active:scale-95 cursor-pointer shadow-none"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!topic.trim()}
-              className={`${APP_STYLES.button.primary} !bg-emerald-600 !border-emerald-600 !hover:bg-emerald-700`}
+              className="h-10 px-6 rounded-full text-xs sm:text-[13px] font-bold text-white bg-[#137333] hover:bg-[#0f5223] border-0 shadow-[0_2px_8px_rgba(19,115,51,0.3)] transition-all active:scale-95 cursor-pointer flex items-center gap-2 disabled:opacity-50"
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <Sparkles className="w-4 h-4 stroke-[2.2]" />
               <span>Generate Table</span>
             </button>
           </div>

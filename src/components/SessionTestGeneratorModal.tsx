@@ -160,7 +160,7 @@ export const SessionTestGeneratorModal: React.FC<SessionTestGeneratorModalProps>
             animate="animate"
             exit="exit"
             style={gpuTransformStyle}
-            className={`${APP_STYLES.customBuilder.card} w-full max-w-lg overflow-hidden flex flex-col modal-content-smooth`}
+            className="w-full max-w-lg rounded-[28px] sm:rounded-[32px] bg-white dark:bg-[#1e2024] border-0 shadow-[0_8px_32px_rgba(0,0,0,0.12),0_1px_4px_rgba(0,0,0,0.06)] dark:shadow-[0_12px_44px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col modal-content-smooth"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Round Modern Header */}
@@ -169,20 +169,20 @@ export const SessionTestGeneratorModal: React.FC<SessionTestGeneratorModalProps>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-[#282a2d] transition-colors cursor-pointer shadow-none border border-slate-200/80 dark:border-zinc-800/80 -ml-1 mr-0.5"
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-[#5e5e5e] hover:text-[#1f1f1f] dark:text-[#c4c7c5] dark:hover:text-[#e3e3e3] bg-[#edf2f9] hover:bg-[#e1e9f5] dark:bg-[#26282e] dark:hover:bg-[#30333b] transition-all cursor-pointer border-0 shadow-none -ml-1 mr-0.5 active:scale-95"
                   title="Back to Chat (Esc)"
                   aria-label="Back to Chat"
                 >
-                  <ArrowLeft className="w-4 h-4" />
+                  <ArrowLeft className="w-4.5 h-4.5 stroke-[2.2]" />
                 </button>
-                <div className="w-9 h-9 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-none border border-blue-200/60 dark:border-blue-900/40">
-                  <GraduationCap className="w-4.5 h-4.5" />
+                <div className="w-10 h-10 rounded-full bg-[#d3e3fd] text-[#0b57d0] dark:bg-[#004a77] dark:text-[#c2e7ff] flex items-center justify-center shrink-0 border-0 shadow-none">
+                  <GraduationCap className="w-5 h-5 stroke-[2.2]" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                  <h2 className="text-[15px] sm:text-base font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
                     Generate Practice Test
                   </h2>
-                  <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  <p className="text-[11px] sm:text-xs text-[#5e5e5e] dark:text-[#9aa0a6]">
                     Custom questions with step-by-step LaTeX solutions
                   </p>
                 </div>
@@ -190,9 +190,9 @@ export const SessionTestGeneratorModal: React.FC<SessionTestGeneratorModalProps>
               <button
                 type="button"
                 onClick={onClose}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-[#282a2d] transition-colors cursor-pointer shadow-none border border-slate-200/80 dark:border-zinc-800/80"
+                className="w-9 h-9 rounded-full flex items-center justify-center text-[#5e5e5e] hover:text-[#1f1f1f] dark:text-[#c4c7c5] dark:hover:text-[#e3e3e3] bg-[#edf2f9] hover:bg-[#e1e9f5] dark:bg-[#26282e] dark:hover:bg-[#30333b] transition-all cursor-pointer border-0 shadow-none active:scale-95"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4.5 h-4.5 stroke-[2.2]" />
               </button>
             </div>
 
@@ -201,7 +201,7 @@ export const SessionTestGeneratorModal: React.FC<SessionTestGeneratorModalProps>
               {/* Test Title & Topic */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
+                  <label className="block text-xs sm:text-[12.5px] font-bold text-[#1f1f1f] dark:text-[#e3e3e3] mb-1.5">
                     Test Title
                   </label>
                   <input
@@ -209,12 +209,12 @@ export const SessionTestGeneratorModal: React.FC<SessionTestGeneratorModalProps>
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="e.g. Calculus Final Exam Review"
-                    className="w-full px-3.5 py-2.5 rounded-full bg-slate-50 dark:bg-[#282a2d] text-slate-900 dark:text-zinc-100 focus:outline-none text-xs transition-all shadow-none border border-slate-200/80 dark:border-zinc-800/80"
+                    className="w-full px-4 py-2.5 rounded-full bg-[#f0f4f9] dark:bg-[#26282e] text-[#1f1f1f] dark:text-[#e3e3e3] placeholder-[#747775] dark:placeholder-[#8e918f] focus:outline-none focus:ring-2 focus:ring-[#0b57d0]/40 text-xs sm:text-[13px] transition-all border-0 shadow-none"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
+                  <label className="block text-xs sm:text-[12.5px] font-bold text-[#1f1f1f] dark:text-[#e3e3e3] mb-1.5">
                     Topic
                   </label>
                   <select
@@ -231,9 +231,9 @@ export const SessionTestGeneratorModal: React.FC<SessionTestGeneratorModalProps>
                         setTopic(val);
                       }
                     }}
-                    className="w-full px-3.5 py-2.5 rounded-full bg-slate-50 dark:bg-[#282a2d] text-slate-900 dark:text-zinc-100 focus:outline-none text-xs cursor-pointer transition-all shadow-none border border-slate-200/80 dark:border-zinc-800/80"
+                    className="w-full px-4 py-2.5 rounded-full bg-[#f0f4f9] dark:bg-[#26282e] text-[#1f1f1f] dark:text-[#e3e3e3] focus:outline-none focus:ring-2 focus:ring-[#0b57d0]/40 text-xs sm:text-[13px] cursor-pointer transition-all border-0 shadow-none"
                   >
-                    <option value="__CUSTOM__" className="font-bold text-blue-600 dark:text-blue-400">+ Custom Topic...</option>
+                    <option value="__CUSTOM__" className="font-bold text-[#0b57d0] dark:text-[#a8c7fa]">+ Custom Topic...</option>
                     <optgroup label="Standard Topics">
                       {DEFAULT_TOPICS.map((t) => (
                         <option key={t} value={t}>{t}</option>
@@ -256,7 +256,7 @@ export const SessionTestGeneratorModal: React.FC<SessionTestGeneratorModalProps>
                         value={customTopicInput}
                         onChange={(e) => setCustomTopicInput(e.target.value)}
                         placeholder="Enter topic name..."
-                        className="w-full px-3.5 py-2 rounded-full bg-blue-50/70 dark:bg-blue-950/40 text-slate-900 dark:text-zinc-100 focus:outline-none text-xs transition-all shadow-none border border-blue-200/80 dark:border-blue-800/60"
+                        className="w-full px-4 py-2 rounded-full bg-[#d3e3fd]/40 dark:bg-[#004a77]/30 text-[#1f1f1f] dark:text-[#e3e3e3] placeholder-[#747775] dark:placeholder-[#8e918f] focus:outline-none focus:ring-2 focus:ring-[#0b57d0]/40 text-xs transition-all border-0 shadow-none"
                         autoFocus
                       />
                     </div>
@@ -288,14 +288,14 @@ export const SessionTestGeneratorModal: React.FC<SessionTestGeneratorModalProps>
                           key={fileId}
                           type="button"
                           onClick={() => toggleFileSelection(fileId)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all cursor-pointer truncate max-w-full shadow-none ${
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all cursor-pointer truncate max-w-full border-0 shadow-none ${
                             isSelected 
-                              ? 'bg-blue-600 text-white font-medium border border-blue-600' 
-                              : 'bg-slate-50 dark:bg-[#282a2d] text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-[#35373b] border border-slate-200/80 dark:border-zinc-800/80'
+                              ? 'bg-[#0b57d0] text-white font-medium' 
+                              : 'bg-[#edf2f9] dark:bg-[#26282e] text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-[#e1e9f5] dark:hover:bg-[#30333b]'
                           }`}
                         >
                           {isSelected ? (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-white shrink-0" />
+                            <CheckCircle2 className="w-3.5 h-3.5 text-white shrink-0 stroke-[2.2]" />
                           ) : isPdf ? (
                             <FileText className="w-3.5 h-3.5 text-red-500 shrink-0" />
                           ) : (
@@ -311,7 +311,7 @@ export const SessionTestGeneratorModal: React.FC<SessionTestGeneratorModalProps>
 
               {/* Number of Questions */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                <label className="block text-xs sm:text-[12.5px] font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
                   Questions Count
                 </label>
                 <div className="flex items-center gap-1.5">
@@ -323,10 +323,10 @@ export const SessionTestGeneratorModal: React.FC<SessionTestGeneratorModalProps>
                         setQuestionCount(count);
                         setCustomCount('');
                       }}
-                      className={`flex-1 py-2 rounded-full text-xs font-semibold transition-all text-center cursor-pointer shadow-none ${
+                      className={`flex-1 py-2.5 rounded-full text-xs transition-all text-center cursor-pointer border-0 shadow-none ${
                         questionCount === count && !customCount
-                          ? 'bg-blue-600 text-white border border-blue-600'
-                          : 'bg-slate-50 dark:bg-[#282a2d] text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-[#35373b] border border-slate-200/80 dark:border-zinc-800/80'
+                          ? 'bg-[#0b57d0] hover:bg-[#0842a0] text-white font-bold shadow-[0_2px_6px_rgba(11,87,208,0.25)]'
+                          : 'bg-[#edf2f9] dark:bg-[#26282e] text-[#444746] dark:text-[#c4c7c5] hover:bg-[#e1e9f5] dark:hover:bg-[#30333b] font-semibold'
                       }`}
                     >
                       {count} Qs
@@ -339,10 +339,10 @@ export const SessionTestGeneratorModal: React.FC<SessionTestGeneratorModalProps>
                     placeholder="Custom"
                     value={customCount}
                     onChange={(e) => setCustomCount(e.target.value)}
-                    className={`w-20 px-3 py-2 rounded-full text-xs text-center font-medium bg-slate-50 dark:bg-[#282a2d] focus:outline-none shadow-none border ${
+                    className={`w-20 px-3 py-2 rounded-full text-xs text-center font-medium bg-[#f0f4f9] dark:bg-[#26282e] focus:outline-none border-0 shadow-none focus:ring-2 focus:ring-[#0b57d0]/40 transition-all ${
                       customCount
-                        ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-300 font-bold border-blue-400 dark:border-blue-600'
-                        : 'text-slate-800 dark:text-zinc-200 border-slate-200/80 dark:border-zinc-800/80'
+                        ? 'text-[#0b57d0] dark:text-[#a8c7fa] font-bold'
+                        : 'text-[#1f1f1f] dark:text-[#e3e3e3]'
                     }`}
                   />
                 </div>
@@ -351,19 +351,19 @@ export const SessionTestGeneratorModal: React.FC<SessionTestGeneratorModalProps>
               {/* Difficulty and Question Type */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                  <label className="block text-xs sm:text-[12.5px] font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
                     Difficulty
                   </label>
-                  <div className="grid grid-cols-3 gap-1">
+                  <div className="grid grid-cols-3 gap-1.5">
                     {DIFFICULTIES.map((lvl) => (
                       <button
                         key={lvl}
                         type="button"
                         onClick={() => setDifficulty(lvl)}
-                        className={`py-2 rounded-full text-xs font-semibold text-center transition-all cursor-pointer shadow-none ${
+                        className={`py-2.5 rounded-full text-xs text-center transition-all cursor-pointer border-0 shadow-none ${
                           difficulty === lvl
-                            ? 'bg-blue-600 text-white border border-blue-600'
-                            : 'bg-slate-50 dark:bg-[#282a2d] text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-[#35373b] border border-slate-200/80 dark:border-zinc-800/80'
+                            ? 'bg-[#0b57d0] hover:bg-[#0842a0] text-white font-bold shadow-[0_2px_6px_rgba(11,87,208,0.25)]'
+                            : 'bg-[#edf2f9] dark:bg-[#26282e] text-[#444746] dark:text-[#c4c7c5] hover:bg-[#e1e9f5] dark:hover:bg-[#30333b] font-semibold'
                         }`}
                       >
                         {lvl}
@@ -373,19 +373,19 @@ export const SessionTestGeneratorModal: React.FC<SessionTestGeneratorModalProps>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                  <label className="block text-xs sm:text-[12.5px] font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
                     Format
                   </label>
-                  <div className="grid grid-cols-3 gap-1">
+                  <div className="grid grid-cols-3 gap-1.5">
                     {QUESTION_TYPES.map((item) => (
                       <button
                         key={item.id}
                         type="button"
                         onClick={() => setQuestionType(item.id as any)}
-                        className={`py-2 rounded-full text-xs font-semibold text-center transition-all cursor-pointer shadow-none ${
+                        className={`py-2.5 rounded-full text-xs text-center transition-all cursor-pointer border-0 shadow-none ${
                           questionType === item.id
-                            ? 'bg-blue-600 text-white border border-blue-600'
-                            : 'bg-slate-50 dark:bg-[#282a2d] text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-[#35373b] border border-slate-200/80 dark:border-zinc-800/80'
+                            ? 'bg-[#0b57d0] hover:bg-[#0842a0] text-white font-bold shadow-[0_2px_6px_rgba(11,87,208,0.25)]'
+                            : 'bg-[#edf2f9] dark:bg-[#26282e] text-[#444746] dark:text-[#c4c7c5] hover:bg-[#e1e9f5] dark:hover:bg-[#30333b] font-semibold'
                         }`}
                       >
                         {item.label}
@@ -397,7 +397,7 @@ export const SessionTestGeneratorModal: React.FC<SessionTestGeneratorModalProps>
 
               {/* Optional Instructions */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                <label className="block text-xs sm:text-[12.5px] font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
                   Additional Directives (Optional)
                 </label>
                 <input
@@ -405,24 +405,24 @@ export const SessionTestGeneratorModal: React.FC<SessionTestGeneratorModalProps>
                   value={additionalNotes}
                   onChange={(e) => setAdditionalNotes(e.target.value)}
                   placeholder="e.g. Focus on integration by parts; include edge cases"
-                  className="w-full px-3.5 py-2.5 rounded-full bg-slate-50 dark:bg-[#282a2d] text-slate-900 dark:text-zinc-100 focus:outline-none text-xs transition-all shadow-none border border-slate-200/80 dark:border-zinc-800/80"
+                  className="w-full px-4 py-2.5 rounded-full bg-[#f0f4f9] dark:bg-[#26282e] text-[#1f1f1f] dark:text-[#e3e3e3] placeholder-[#747775] dark:placeholder-[#8e918f] focus:outline-none focus:ring-2 focus:ring-[#0b57d0]/40 text-xs sm:text-[13px] transition-all border-0 shadow-none"
                 />
               </div>
 
               {/* Action Buttons */}
-              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-zinc-800/80">
+              <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-slate-100 dark:border-zinc-800/80">
                 <button
                   type="button"
                   onClick={onClose}
-                  className={APP_STYLES.button.secondary}
+                  className="h-10 px-5 rounded-full text-xs sm:text-[13px] font-bold text-[#1f1f1f] dark:text-[#e3e3e3] bg-[#edf2f9] hover:bg-[#e1e9f5] dark:bg-[#26282e] dark:hover:bg-[#30333b] border-0 transition-all active:scale-95 cursor-pointer shadow-none"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className={`${APP_STYLES.button.primary} !bg-blue-600 !border-blue-600 !hover:bg-blue-700`}
+                  className="h-10 px-6 rounded-full text-xs sm:text-[13px] font-bold text-white bg-[#0b57d0] hover:bg-[#0842a0] border-0 shadow-[0_2px_8px_rgba(11,87,208,0.3)] transition-all active:scale-95 cursor-pointer flex items-center gap-2"
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
+                  <Sparkles className="w-4 h-4 stroke-[2.2]" />
                   <span>Generate Test</span>
                 </button>
               </div>

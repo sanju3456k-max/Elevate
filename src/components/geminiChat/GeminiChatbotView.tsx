@@ -4289,9 +4289,9 @@ MANDATORY INSTRUCTIONS:
                             handleSendMessage(c.prompt);
                           }
                         }}
-                        className="group flex items-center gap-3.5 p-4 rounded-[24px] bg-white hover:bg-[#f8fafd] dark:bg-[#1e2024] dark:hover:bg-[#282a30] border border-slate-300 dark:border-transparent shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer active:scale-[0.99] text-left w-full min-h-[66px]"
+                        className="group flex items-center gap-3.5 p-4 rounded-[26px] sm:rounded-[28px] bg-white hover:bg-[#f8fafd] dark:bg-[#1e2024] dark:hover:bg-[#282a30] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-md transition-all duration-200 cursor-pointer active:scale-[0.99] text-left w-full min-h-[66px]"
                       >
-                        <div className={`w-11 h-11 rounded-full shrink-0 flex items-center justify-center ${card.iconColor}`}>
+                        <div className={`w-11 h-11 rounded-full shrink-0 flex items-center justify-center border-0 shadow-none ${card.iconColor}`}>
                           <CardIcon className="w-5.5 h-5.5" />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -5379,50 +5379,50 @@ MANDATORY INSTRUCTIONS:
           onClick={() => setSelectedPreviewAttachment(null)}
         >
           <div 
-            className="bg-white dark:bg-[#1e1f20] rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-xl animate-in zoom-in-98 duration-150 modal-content-smooth"
+            className="bg-white dark:bg-[#1e2024] rounded-[28px] sm:rounded-[32px] max-w-2xl w-full p-5 sm:p-6 space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.12),0_1px_4px_rgba(0,0,0,0.06)] dark:shadow-[0_12px_44px_rgba(0,0,0,0.6)] border-0 animate-in zoom-in-98 duration-150 modal-content-smooth"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-zinc-800/80">
               <div className="flex items-center gap-2.5 min-w-0">
                 <button
                   type="button"
                   onClick={() => setSelectedPreviewAttachment(null)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-[#282a2d] text-slate-500 dark:text-zinc-300 cursor-pointer transition-all shrink-0 -ml-1"
+                  className="w-9 h-9 rounded-full flex items-center justify-center bg-[#edf2f9] hover:bg-[#e1e9f5] dark:bg-[#26282e] dark:hover:bg-[#30333b] text-[#5e5e5e] hover:text-[#1f1f1f] dark:text-[#c4c7c5] dark:hover:text-[#e3e3e3] cursor-pointer transition-all shrink-0 -ml-1 border-0 shadow-none active:scale-95"
                   title="Back to Chat (Esc)"
                   aria-label="Back to Chat"
                 >
-                  <ArrowLeft className="w-4 h-4" />
+                  <ArrowLeft className="w-4.5 h-4.5 stroke-[2.2]" />
                 </button>
-                <div className="p-2 rounded-xl bg-slate-100 dark:bg-zinc-800 shrink-0">
+                <div className="w-10 h-10 rounded-full bg-[#d3e3fd] text-[#0b57d0] dark:bg-[#004a77] dark:text-[#c2e7ff] flex items-center justify-center shrink-0 border-0 shadow-none">
                   {getFileIcon(selectedPreviewAttachment.name, selectedPreviewAttachment.mimeType)}
                 </div>
-                <span className="font-bold text-sm text-slate-900 dark:text-zinc-100 truncate">{selectedPreviewAttachment.name}</span>
+                <span className="font-bold text-[14.5px] sm:text-[15px] text-[#1f1f1f] dark:text-[#e3e3e3] truncate">{selectedPreviewAttachment.name}</span>
               </div>
               <button
                 onClick={() => setSelectedPreviewAttachment(null)}
-                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-[#282a2d] text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer transition-all"
+                className="w-9 h-9 rounded-full flex items-center justify-center bg-[#edf2f9] hover:bg-[#e1e9f5] dark:bg-[#26282e] dark:hover:bg-[#30333b] text-[#5e5e5e] hover:text-[#1f1f1f] dark:text-[#c4c7c5] dark:hover:text-[#e3e3e3] cursor-pointer transition-all border-0 shadow-none active:scale-95"
                 title="Close preview (Esc)"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4.5 h-4.5 stroke-[2.2]" />
               </button>
             </div>
 
             {selectedPreviewAttachment.previewUrl && selectedPreviewAttachment.previewUrl.trim() ? (
-              <div className="max-h-96 overflow-hidden rounded-2xl flex items-center justify-center bg-black/5 dark:bg-black/40 p-2">
+              <div className="max-h-96 overflow-hidden rounded-[22px] flex items-center justify-center bg-black/5 dark:bg-black/40 p-2">
                 <img
                   src={selectedPreviewAttachment.previewUrl}
                   alt={selectedPreviewAttachment.name}
-                  className="max-h-92 object-contain rounded-xl"
+                  className="max-h-92 object-contain rounded-[18px]"
                 />
               </div>
             ) : selectedPreviewAttachment.mimeType === 'application/pdf' ? (
-              <div className="p-8 text-center rounded-2xl bg-slate-50/80 dark:bg-[#131314]/80">
+              <div className="p-8 text-center rounded-[22px] bg-[#f0f4f9] dark:bg-[#16181c]">
                 <FileText className="w-12 h-12 text-red-500 mx-auto mb-2" />
-                <p className="font-bold text-sm text-slate-800 dark:text-zinc-200">PDF Document Ready for Gemini Analysis</p>
-                <p className="text-xs text-slate-400 mt-1">Processed natively during reasoning.</p>
+                <p className="font-bold text-sm text-[#1f1f1f] dark:text-[#e3e3e3]">PDF Document Ready for Gemini Analysis</p>
+                <p className="text-xs text-[#5e5e5e] dark:text-[#9aa0a6] mt-1">Processed natively during reasoning.</p>
               </div>
             ) : (
-              <pre className="p-4 bg-[#131314] text-zinc-200 font-mono text-xs rounded-2xl max-h-80 overflow-auto whitespace-pre-wrap">
+              <pre className="p-4 bg-[#131314] text-zinc-200 font-mono text-xs rounded-[20px] max-h-80 overflow-auto whitespace-pre-wrap">
                 {typeof selectedPreviewAttachment.data === 'string' && selectedPreviewAttachment.data.startsWith('data:')
                   ? atob(selectedPreviewAttachment.data.split(',')[1] || '')
                   : selectedPreviewAttachment.data}
@@ -5439,18 +5439,18 @@ MANDATORY INSTRUCTIONS:
           onClick={() => setConfirmModal(null)}
         >
           <div 
-            className="bg-white dark:bg-[#1e1f20] rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-xl animate-in zoom-in-98 duration-150 modal-content-smooth"
+            className="bg-white dark:bg-[#1e2024] rounded-[28px] max-w-sm w-full p-6 space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.12),0_1px_4px_rgba(0,0,0,0.06)] dark:shadow-[0_12px_44px_rgba(0,0,0,0.6)] border-0 animate-in zoom-in-98 duration-150 modal-content-smooth"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-2xl bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0 shadow-xs">
-                <Trash2 className="w-5 h-5" />
+              <div className="w-11 h-11 rounded-full bg-red-100 text-red-600 dark:bg-red-950/70 dark:text-red-300 flex items-center justify-center shrink-0 border-0 shadow-none">
+                <Trash2 className="w-5 h-5 stroke-[2.2]" />
               </div>
               <div className="space-y-1">
-                <h3 className="font-bold text-base text-slate-900 dark:text-zinc-100">
+                <h3 className="font-bold text-base text-[#1f1f1f] dark:text-[#e3e3e3]">
                   {confirmModal.title}
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+                <p className="text-xs text-[#5e5e5e] dark:text-[#9aa0a6] leading-relaxed">
                   {confirmModal.message}
                 </p>
               </div>
@@ -5460,14 +5460,14 @@ MANDATORY INSTRUCTIONS:
               <button
                 type="button"
                 onClick={() => setConfirmModal(null)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-[#282a2d] transition-colors cursor-pointer"
+                className="h-10 px-5 rounded-full text-xs font-bold text-[#1f1f1f] dark:text-[#e3e3e3] bg-[#edf2f9] hover:bg-[#e1e9f5] dark:bg-[#26282e] dark:hover:bg-[#30333b] border-0 transition-all cursor-pointer shadow-none active:scale-95"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={confirmModal.onConfirm}
-                className="px-4.5 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-sm active:scale-95 transition-all cursor-pointer"
+                className="h-10 px-5 rounded-full text-xs font-bold bg-[#b3261e] hover:bg-[#8c1d18] text-white border-0 shadow-[0_2px_6px_rgba(179,38,30,0.3)] active:scale-95 transition-all cursor-pointer"
               >
                 Delete
               </button>
