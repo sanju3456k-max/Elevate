@@ -207,21 +207,21 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
     switch (action) {
       case 'CREATE_TEST':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border-0 shadow-xs">
-            <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] border-0 shadow-none">
+            <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
             <span>AI Test Generated</span>
           </span>
         );
       case 'UPDATE_TEST':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-bold bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border-0 shadow-xs">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border-0 shadow-none">
             <RotateCcw className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
             <span>{isSaved ? 'Test Updated' : 'Test Update Proposed'}</span>
           </span>
         );
       case 'DELETE_TEST':
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-bold bg-red-100 dark:bg-red-950/80 text-red-700 dark:text-red-300 border-0 shadow-xs">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-red-100 dark:bg-red-950/70 text-red-700 dark:text-red-300 border-0 shadow-none">
             <Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
             <span>Delete Test</span>
           </span>
@@ -232,19 +232,19 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
   };
 
   return (
-    <div className="my-3 p-4 rounded-2xl bg-[#f0f4f9] dark:bg-[#1e2024] space-y-3 text-slate-900 dark:text-zinc-100 border-0 shadow-xs">
-      {/* Top Header Row with Badges - Sharp Borders */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pb-1">
-        <div className="flex items-center gap-2">
+    <div className="my-3 p-4 sm:p-5 rounded-[26px] sm:rounded-[28px] bg-white dark:bg-[#1e2024] space-y-3.5 text-[#1f1f1f] dark:text-[#e3e3e3] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-all">
+      {/* Top Header Row with Badges */}
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-0.5">
+        <div className="flex items-center gap-2 flex-wrap">
           {getActionBadge()}
           {isSaved ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border-0 shadow-xs">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#e6f4ea] text-[#137333] dark:bg-[#0d381e] dark:text-[#81c995] border-0 shadow-none">
+              <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.2]" />
               <span>{isDelete ? 'Deleted' : isUpdate ? 'Updated' : 'Saved in Library'}</span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-200 border-0 shadow-xs">
-              <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#fef7e0] text-[#b06000] dark:bg-[#3c2f00] dark:text-[#fdd663] border-0 shadow-none">
+              <AlertCircle className="w-3.5 h-3.5 stroke-[2.2]" />
               <span>{isDelete ? 'Ready to Delete' : isUpdate ? 'Ready to Update' : 'Ready to Save'}</span>
             </span>
           )}
@@ -252,7 +252,7 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
 
         <div className="flex items-center gap-2">
           {effectiveTest.id && (
-            <span className="text-[11px] font-mono font-bold text-slate-600 dark:text-zinc-400 px-2.5 py-0.5 rounded-xl bg-white dark:bg-[#282a2d] border-0 shadow-xs">
+            <span className="text-[11px] font-mono font-bold text-[#5e5e5e] dark:text-[#9aa0a6] px-3 py-1 rounded-full bg-[#edf2f9] dark:bg-[#26282e] border-0 shadow-none">
               #{effectiveTest.id}
             </span>
           )}
@@ -261,16 +261,16 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
 
       {/* Test Title & Description */}
       <div className="space-y-2">
-        <div className="flex items-start gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5 shadow-none border border-blue-200/60 dark:border-blue-900/40">
-            <BookOpen className="w-4 h-4" />
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0 mt-0.5 border-0 shadow-none">
+            <BookOpen className="w-5 h-5 stroke-[2.2]" />
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="font-bold text-base sm:text-lg text-slate-900 dark:text-zinc-100 tracking-tight leading-snug">
+            <h4 className="font-bold text-base sm:text-lg text-[#1f1f1f] dark:text-[#e3e3e3] tracking-tight leading-snug">
               <MathRenderer content={effectiveTest.title} />
             </h4>
             {effectiveTest.description && (
-              <div className="text-xs text-slate-600 dark:text-zinc-400 mt-1 font-normal leading-relaxed">
+              <div className="text-xs sm:text-[12.5px] text-[#5e5e5e] dark:text-[#9aa0a6] mt-1 font-normal leading-relaxed">
                 <MathRenderer content={effectiveTest.description} />
               </div>
             )}
@@ -278,15 +278,15 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
         </div>
 
         {summary && (
-          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#21222e] text-xs text-slate-700 dark:text-zinc-300 leading-relaxed font-medium flex items-start gap-2.5 shadow-none border border-slate-300 dark:border-zinc-700">
-            <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-600 flex items-center justify-center text-[10px] shrink-0 font-bold border border-blue-200/60 dark:border-blue-900/40">AI</span>
+          <div className="p-3.5 rounded-[20px] bg-[#f0f4f9] dark:bg-[#16181c] text-xs text-[#444746] dark:text-[#c4c7c5] leading-relaxed font-medium flex items-start gap-2.5 border-0 shadow-none">
+            <span className="w-6 h-6 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#0b57d0] dark:text-[#c2e7ff] flex items-center justify-center text-[10.5px] shrink-0 font-extrabold border-0">AI</span>
             <div className="flex-1"><MathRenderer content={summary} /></div>
           </div>
         )}
 
         {saveSuccessNotice && (
-          <div className="p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/70 text-xs text-emerald-800 dark:text-emerald-200 font-semibold flex items-center gap-2 animate-fade-in shadow-none border border-emerald-200/80 dark:border-emerald-800/60">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <div className="p-3 rounded-[20px] bg-[#e6f4ea] dark:bg-[#0d381e] text-xs text-[#137333] dark:text-[#81c995] font-semibold flex items-center gap-2 animate-fade-in border-0 shadow-none">
+            <CheckCircle2 className="w-4 h-4 text-[#137333] dark:text-[#81c995] shrink-0" />
             <span>{saveSuccessNotice}</span>
           </div>
         )}
@@ -294,47 +294,47 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
 
       {/* Metadata Chips */}
       <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
-        <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-[#21222e] text-slate-700 dark:text-zinc-200 flex items-center gap-1.5 shadow-none border border-slate-300 dark:border-zinc-700">
-          <GraduationCap className="w-3.5 h-3.5 text-blue-500" />
+        <span className="px-3.5 py-1.5 rounded-full bg-[#edf2f9] dark:bg-[#26282e] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-semibold flex items-center gap-1.5 border-0 shadow-none">
+          <GraduationCap className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2]" />
           <span><MathRenderer content={effectiveTest.topic || 'General Math'} /></span>
         </span>
 
-        <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-[#21222e] text-slate-700 dark:text-zinc-200 flex items-center gap-1.5 shadow-none border border-slate-300 dark:border-zinc-700">
-          <Layers className="w-3.5 h-3.5 text-indigo-500" />
+        <span className="px-3.5 py-1.5 rounded-full bg-[#edf2f9] dark:bg-[#26282e] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-semibold flex items-center gap-1.5 border-0 shadow-none">
+          <Layers className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 stroke-[2.2]" />
           <span>
             {questionsCount} Questions
             {newlyAddedCount > 0 && (
-              <span className="ml-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
+              <span className="ml-1 text-[11px] text-[#137333] dark:text-[#81c995] font-bold">
                 (+{newlyAddedCount} new)
               </span>
             )}
           </span>
         </span>
 
-        <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-[#21222e] text-slate-700 dark:text-zinc-200 flex items-center gap-1.5 shadow-none border border-slate-300 dark:border-zinc-700">
-          <Clock className="w-3.5 h-3.5 text-amber-500" />
+        <span className="px-3.5 py-1.5 rounded-full bg-[#edf2f9] dark:bg-[#26282e] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-semibold flex items-center gap-1.5 border-0 shadow-none">
+          <Clock className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 stroke-[2.2]" />
           <span>{effectiveTest.timeLimitMinutes || effectiveTest.time || 15} mins</span>
         </span>
       </div>
 
-      {/* Questions & Solutions Preview Section - Sharp Borders Clean Accordion */}
+      {/* Questions & Solutions Preview Section - App M3 Accordion */}
       {questionsCount > 0 && (
-        <div className={`${APP_STYLES.widgets.container} overflow-hidden shadow-none`}>
+        <div className="rounded-[22px] bg-[#f8fafd] dark:bg-[#181a20] border-0 shadow-none overflow-hidden transition-all">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full px-4 py-2.5 flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-[#202124] transition-colors cursor-pointer"
+            className="w-full px-4 py-2.5 sm:py-3 flex items-center justify-between text-xs sm:text-[12.5px] font-bold text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-[#edf2f9] dark:hover:bg-[#24262c] transition-colors cursor-pointer border-0 shadow-none"
           >
             <span className="flex items-center gap-2">
-              <FileCheck className="w-4 h-4 text-blue-500" />
+              <FileCheck className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2]" />
               <span>{isExpanded ? 'Hide Questions & Solutions' : `Preview Questions & Solutions (${questionsCount})`}</span>
             </span>
-            <span className="flex items-center gap-1 text-slate-500 text-[11px]">
-              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            <span className="flex items-center gap-1 text-[#5e5e5e] dark:text-[#9aa0a6] text-[11px]">
+              {isExpanded ? <ChevronUp className="w-4 h-4 stroke-[2.2]" /> : <ChevronDown className="w-4 h-4 stroke-[2.2]" />}
             </span>
           </button>
 
           {isExpanded && (
-            <div className="p-2 space-y-2 max-h-96 overflow-y-auto">
+            <div className="p-2.5 space-y-2.5 max-h-96 overflow-y-auto">
               {(showAllQuestions ? effectiveTest.questions : effectiveTest.questions.slice(0, 3)).map((q, idx) => {
                 const isNewQuestion = isUpdate && existingTest && !existingTest.questions?.some(
                   (eq) => (eq.id && q.id && eq.id === q.id) || (eq.text && q.text && eq.text.trim().toLowerCase() === q.text.trim().toLowerCase())
@@ -342,28 +342,28 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
                 return (
                   <div 
                     key={`test-action-q-${effectiveTest.id || 'test'}-${q.id || 'q'}-${idx}`}
-                    className="w-full p-3.5 rounded-xl bg-white dark:bg-[#12131a] text-xs space-y-2.5 shadow-none border border-slate-200/80 dark:border-zinc-800/80"
+                    className="w-full p-3.5 rounded-[20px] bg-white dark:bg-[#1e2024] text-xs space-y-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border-0"
                   >
-                    <div className="flex items-center justify-between font-semibold text-slate-800 dark:text-zinc-200">
+                    <div className="flex items-center justify-between font-semibold text-[#1f1f1f] dark:text-[#e3e3e3]">
                       <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-0.5 rounded-full bg-blue-100/70 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[11px] font-semibold shadow-none border border-blue-200/60 dark:border-blue-900/40">
+                        <span className="px-3 py-1 rounded-full bg-[#d3e3fd]/60 dark:bg-[#004a77]/50 text-[#041e49] dark:text-[#c2e7ff] text-[11px] font-bold border-0 shadow-none">
                           Question {idx + 1} • {q.type === 'numerical' ? 'Numerical Answer' : 'Multiple Choice'}
                         </span>
                         {isNewQuestion && (
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold shadow-none border border-emerald-200/60 dark:border-emerald-800/40">
+                          <span className="px-2.5 py-1 rounded-full bg-[#c4eed0] dark:bg-[#0f5223] text-[#072711] dark:text-[#c4eed0] text-[10px] font-bold border-0 shadow-none">
                             New Addition
                           </span>
                         )}
                       </div>
                       {q.points && (
-                        <span className="text-[11px] text-slate-400 font-mono">
+                        <span className="text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-mono">
                           {q.points} pt{q.points > 1 ? 's' : ''}
                         </span>
                       )}
                     </div>
                     
                     {/* Question Text with Full LaTeX Math Rendering */}
-                    <div className="text-slate-900 dark:text-zinc-100 font-normal text-[13px] leading-relaxed pl-0.5">
+                    <div className="text-[#1f1f1f] dark:text-[#e3e3e3] font-normal text-[13px] leading-relaxed pl-0.5">
                       <MathRenderer content={q.text} />
                     </div>
 
@@ -390,20 +390,20 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
                           return (
                             <div 
                               key={oIdx} 
-                              className={`p-2.5 rounded-xl text-xs flex items-center gap-2 transition-all shadow-none border ${
+                              className={`p-2.5 rounded-[16px] text-xs flex items-center gap-2.5 transition-all border-0 shadow-none ${
                                 isCorrect
-                                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 font-semibold border-emerald-500 dark:border-emerald-400'
-                                  : 'bg-white dark:bg-[#21222e] text-slate-700 dark:text-zinc-300 border-slate-300 dark:border-zinc-700'
+                                  ? 'bg-[#e6f4ea] dark:bg-[#0f5223]/40 text-[#137333] dark:text-[#81c995] font-semibold'
+                                  : 'bg-[#f0f4f9] dark:bg-[#16181c] text-[#1f1f1f] dark:text-[#e3e3e3]'
                               }`}
                             >
-                              <span className={`w-5 h-5 rounded-full flex items-center justify-center font-mono text-[10px] font-bold shrink-0 shadow-none ${
-                                isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-[#282a2d] text-slate-600 dark:text-zinc-300'
+                              <span className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 border-0 ${
+                                isCorrect ? 'bg-[#137333] text-white' : 'bg-[#edf2f9] dark:bg-[#26282e] text-[#444746] dark:text-[#c4c7c5]'
                               }`}>
                                 {String.fromCharCode(65 + oIdx)}
                               </span>
                               <div className="truncate flex-1 font-normal"><MathRenderer content={String(opt)} /></div>
                               {isCorrect && (
-                                <span className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
+                                <span className="text-[10px] uppercase font-bold text-[#137333] dark:text-[#81c995] shrink-0">
                                   Correct
                                 </span>
                               )}
@@ -415,9 +415,9 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
 
                     {/* Numerical Answer with MathRenderer */}
                     {(!q.options || q.options.length === 0) && (
-                      <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-200 font-semibold text-xs flex items-center gap-2 w-full shadow-none border border-emerald-200/80 dark:border-emerald-800/60">
+                      <div className="p-2.5 rounded-[16px] bg-[#e6f4ea] dark:bg-[#0f5223]/40 text-[#137333] dark:text-[#81c995] font-semibold text-xs flex items-center gap-2 w-full border-0 shadow-none">
                         <span>Correct Answer:</span>
-                        <div className="font-mono px-2 py-0.5 rounded-lg bg-white dark:bg-[#21222e] text-emerald-700 dark:text-emerald-300 shadow-none border border-emerald-300 dark:border-emerald-800">
+                        <div className="font-mono px-2.5 py-0.5 rounded-full bg-white dark:bg-[#1e2024] text-[#137333] dark:text-[#81c995] shadow-xs border-0">
                           <MathRenderer content={String(q.correctAnswer)} />
                         </div>
                       </div>
@@ -425,11 +425,11 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
 
                     {/* Step-by-Step Solution with MathRenderer */}
                     {(q.explanation || q.solution) && (
-                      <div className="mt-3 pt-2.5 border-t border-slate-200/80 dark:border-zinc-800/60 text-xs text-slate-700 dark:text-zinc-200 space-y-1 w-full">
-                        <div className="font-semibold text-slate-900 dark:text-zinc-100 flex items-center gap-1.5 mb-1 text-[11px] uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                      <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-zinc-800/80 text-xs text-[#444746] dark:text-[#c4c7c5] space-y-1 w-full">
+                        <div className="font-bold text-[#0b57d0] dark:text-[#a8c7fa] flex items-center gap-1.5 mb-1 text-[11px] uppercase tracking-wider">
                           <span>Step-by-Step Solution:</span>
                         </div>
-                        <div className="leading-relaxed font-normal text-slate-700 dark:text-zinc-300">
+                        <div className="leading-relaxed font-normal text-[#1f1f1f] dark:text-[#e3e3e3]">
                           <MathRenderer content={q.explanation || q.solution || ''} />
                         </div>
                       </div>
@@ -441,7 +441,7 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
               {effectiveTest.questions.length > 3 && (
                 <button
                   onClick={() => setShowAllQuestions(!showAllQuestions)}
-                  className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-slate-100/70 dark:hover:bg-[#181a24] py-2.5 w-full text-center cursor-pointer transition-colors rounded-xl shadow-none border border-slate-200/80 dark:border-zinc-800/80"
+                  className="text-xs font-bold text-[#0b57d0] dark:text-[#a8c7fa] hover:bg-[#edf2f9] dark:hover:bg-[#26282e] py-2.5 w-full text-center cursor-pointer transition-colors rounded-full border-0 shadow-none"
                 >
                   {showAllQuestions ? 'Show fewer questions' : `Show all ${effectiveTest.questions.length} questions...`}
                 </button>
@@ -451,7 +451,7 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
         </div>
       )}
 
-      {/* Action Options Underneath - Sharp Borders */}
+      {/* Action Options Underneath - App M3 Style */}
       <div className="flex flex-wrap items-center gap-2 pt-1">
         {/* 1. Save to Library / Update Button */}
         <button
@@ -464,16 +464,16 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
           }}
           onDoubleClick={handleUnsaveTest}
           disabled={isApplying}
-          className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer active:scale-95 shadow-none border flex items-center gap-1.5 ${
+          className={`h-9 px-4 sm:px-4.5 rounded-full text-xs sm:text-[13px] font-bold transition-all cursor-pointer active:scale-95 border-0 shadow-none flex items-center gap-1.5 ${
             isApplying
-              ? 'bg-indigo-500 text-white border-indigo-500 opacity-90 cursor-wait'
+              ? 'bg-[#0b57d0] text-white opacity-85 cursor-wait'
               : isSaved
-              ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+              ? 'bg-[#137333] hover:bg-[#0f5223] text-white'
               : isDelete
-              ? 'bg-red-600 border-red-600 hover:bg-red-700 text-white'
+              ? 'bg-[#b3261e] hover:bg-[#8c1d18] text-white'
               : isUpdate
-              ? 'bg-indigo-600 border-indigo-600 hover:bg-indigo-700 text-white'
-              : 'bg-blue-600 border-blue-600 hover:bg-blue-700 text-white'
+              ? 'bg-[#0b57d0] hover:bg-[#0842a0] text-white'
+              : 'bg-[#0b57d0] hover:bg-[#0842a0] text-white'
           }`}
           title={
             isApplying
@@ -517,7 +517,7 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
         {onStartTest && !isDelete && effectiveTest.questions.length > 0 && (
           <button
             onClick={() => onStartTest(effectiveTest, 'timed')}
-            className="p-2 sm:px-4 sm:py-2 rounded-full text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-[#21222e] dark:hover:bg-[#282a2d] text-slate-800 dark:text-zinc-100 transition-all cursor-pointer active:scale-95 inline-flex items-center gap-1.5 shadow-none border border-slate-300 dark:border-zinc-700"
+            className="h-9 px-3.5 sm:px-4 rounded-full text-xs sm:text-[13px] font-bold bg-[#edf2f9] hover:bg-[#e1e9f5] dark:bg-[#26282e] dark:hover:bg-[#30333b] text-[#1f1f1f] dark:text-[#e3e3e3] transition-all cursor-pointer active:scale-95 inline-flex items-center gap-1.5 border-0 shadow-none"
             title="Take Test"
           >
             <Play className="w-3.5 h-3.5 fill-current" />
@@ -542,10 +542,10 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
                 }));
               }
             }}
-            className="px-4 py-2 rounded-full text-xs font-semibold bg-blue-50 hover:bg-blue-100/90 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 transition-all cursor-pointer active:scale-95 inline-flex items-center gap-1.5 shadow-none border border-blue-200/80 dark:border-blue-800/60"
+            className="h-9 px-4 rounded-full text-xs sm:text-[13px] font-bold bg-[#d3e3fd] hover:bg-[#c2e7ff] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff] transition-all cursor-pointer active:scale-95 inline-flex items-center gap-1.5 border-0 shadow-none"
             title="Edit this test in Studio with AI assistance"
           >
-            <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+            <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
             <span>Edit in Studio with AI</span>
           </button>
         )}
@@ -553,13 +553,13 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
 
       {/* Inline AI Edit Panel - Updates this specific message directly */}
       {showInlineAiEdit && (
-        <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 space-y-3 animate-fadeIn shadow-none border border-blue-200/80 dark:border-blue-800/60">
-          <div className="flex items-center justify-between text-xs font-bold text-blue-800 dark:text-blue-300">
+        <div className="p-3.5 sm:p-4 rounded-[22px] bg-[#d3e3fd]/40 dark:bg-[#004a77]/25 space-y-3 animate-fadeIn border-0 shadow-none">
+          <div className="flex items-center justify-between text-xs font-bold text-[#041e49] dark:text-[#c2e7ff]">
             <span className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+              <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
               <span>Edit this Test with AI</span>
             </span>
-            <span className="text-[11px] font-normal text-blue-600 dark:text-blue-400">
+            <span className="text-[11px] font-normal text-[#0b57d0] dark:text-[#a8c7fa]">
               Response directly updates this message
             </span>
           </div>
@@ -570,7 +570,7 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
               value={inlinePrompt}
               onChange={(e) => setInlinePrompt(e.target.value)}
               placeholder="e.g. Add 5 more questions to make 25, make questions harder, add explanations..."
-              className="flex-1 px-3.5 py-2 text-xs rounded-xl bg-white dark:bg-[#21222e] text-slate-900 dark:text-zinc-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 shadow-none border border-blue-200/80 dark:border-blue-800/60"
+              className="flex-1 px-4 py-2 text-xs sm:text-[13px] rounded-full bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] placeholder-[#747775] dark:placeholder-[#8e918f] focus:outline-none focus:ring-2 focus:ring-[#0b57d0]/40 border-0 shadow-xs"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey && inlinePrompt.trim()) {
                   e.preventDefault();
@@ -608,7 +608,7 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
                 setInlinePrompt('');
               }}
               disabled={!inlinePrompt.trim()}
-              className="px-3.5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl cursor-pointer disabled:opacity-50 active:scale-95 transition-all shrink-0 shadow-none border border-blue-600"
+              className="h-9 px-4 text-xs font-bold bg-[#0b57d0] hover:bg-[#0842a0] text-white rounded-full cursor-pointer disabled:opacity-50 active:scale-95 transition-all shrink-0 border-0 shadow-none"
             >
               Update Test
             </button>
