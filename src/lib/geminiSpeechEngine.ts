@@ -580,12 +580,25 @@ class CleanSpeechEngine {
 
       rec.onerror = (e: any) => {
         const err = e?.error;
+        // On mobile, 'no-speech' is emitted when the user pauses between sentences.
+        // 'audio-capture' or 'network' can happen momentarily. Do not kill dictation!
         if (err === 'no-speech' || err === 'aborted') return;
 
         console.warn('Speech recognition dictation error:', err);
         if (err === 'not-allowed' || err === 'service-not-allowed') {
           notifySpeechMessage('Microphone access is blocked. Please allow microphone permission in your browser address bar.', 'error');
           this.stopAll();
+          return;
+        }
+
+        // For temporary mobile network / audio-capture hiccups, safely schedule a reconnect
+        if (this.currentMode === 'dictation') {
+          if (this.restartTimer) clearTimeout(this.restartTimer);
+          this.restartTimer = setTimeout(() => {
+            if (this.currentMode === 'dictation') {
+              this.initDictationMic();
+            }
+          }, 200);
         }
       };
 
@@ -605,17 +618,14 @@ class CleanSpeechEngine {
 
         // CONTINUOUS DICTATION WATCHDOG:
         // Automatically restart if user did NOT explicitly turn it off!
+        // Never call onDictationEndCallback unless mode was explicitly stopped by user.
         if (this.currentMode === 'dictation') {
           if (this.restartTimer) clearTimeout(this.restartTimer);
           this.restartTimer = setTimeout(() => {
             if (this.currentMode === 'dictation') {
               this.initDictationMic();
             }
-          }, 150);
-        } else {
-          if (this.onDictationEndCallback) {
-            this.onDictationEndCallback();
-          }
+          }, 80);
         }
       };
 
@@ -676,7 +686,11 @@ class CleanSpeechEngine {
    */
   public stopDictation() {
     if (this.currentMode === 'dictation') {
+      const cb = this.onDictationEndCallback;
       this.stopAll();
+      if (cb) {
+        cb();
+      }
     }
   }
 
@@ -1161,6 +1175,7 @@ class CleanSpeechEngine {
     this.isRecognitionActive = false;
     this.dictationSpeechRec = null;
     this.dictationAccumulated = '';
+    this.onDictationEndCallback = null;
 
     if (this.proactiveRefreshTimer) {
       clearInterval(this.proactiveRefreshTimer);
