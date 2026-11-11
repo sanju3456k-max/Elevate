@@ -3818,11 +3818,11 @@ MANDATORY INSTRUCTIONS:
               animate="animate"
               exit="exit"
               style={gpuTransformStyle}
-              className="bg-[#f8fafd] dark:bg-[#141619] w-[88vw] max-w-[340px] sm:max-w-sm h-full flex flex-col justify-between shadow-2xl rounded-l-[28px] overflow-hidden touch-pan-y cursor-default drawer-panel relative z-10 text-[#1f1f1f] dark:text-[#e3e3e3] border-0 ring-0"
+              className="bg-white dark:bg-[#1e2024] w-[88vw] max-w-[340px] sm:max-w-sm h-full flex flex-col justify-between shadow-2xl rounded-l-[28px] overflow-hidden touch-pan-y cursor-default drawer-panel relative z-10 text-[#1f1f1f] dark:text-[#e3e3e3] border-0 ring-0"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Drawer Top Header (Material 3 Surface Header) */}
-              <div className="p-4 sm:p-5 pt-[calc(env(safe-area-inset-top,0px)+1rem)] bg-white dark:bg-[#1e2024] flex items-center justify-between shrink-0 rounded-tl-[28px] border-0 shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.2)]">
+              {/* Drawer Top Header */}
+              <div className="p-4 sm:p-5 pt-[calc(env(safe-area-inset-top,0px)+1rem)] bg-white dark:bg-[#1e2024] flex items-center justify-between shrink-0 rounded-tl-[28px] border-b border-slate-100 dark:border-zinc-800/80">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0 shadow-xs">
                     <Clock className="w-5 h-5 stroke-[2.2]" />
@@ -3849,8 +3849,8 @@ MANDATORY INSTRUCTIONS:
                 </button>
               </div>
 
-              {/* Drawer Action Bar: New Chat & Search (Material 3 Controls) */}
-              <div className="p-4 space-y-3 bg-[#f8fafd] dark:bg-[#141619] shrink-0">
+              {/* Drawer Action Bar: New Chat & Search (Matching App M3 Style) */}
+              <div className="p-4 space-y-3 bg-white dark:bg-[#1e2024] border-b border-slate-100 dark:border-zinc-800/80 shrink-0">
                 <button
                   onClick={() => {
                     handleNewChat();
@@ -3862,31 +3862,44 @@ MANDATORY INSTRUCTIONS:
                   <span>New Conversation</span>
                 </button>
 
-                {/* Search conversations & Quick Actions */}
+                {/* Search conversations & Delete Buttons matching DriveFileManager / App M3 Style */}
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
-                    <Search className="w-4 h-4 text-[#5e5e5e] dark:text-[#9aa0a6] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="text"
-                      placeholder="Search chats..."
-                      value={historySearchQuery}
-                      onChange={(e) => setHistorySearchQuery(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-full bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] placeholder:text-[#5e5e5e]/80 dark:placeholder:text-[#9aa0a6]/80 text-xs font-medium border-0 shadow-[0_2px_6px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] focus:outline-none focus:ring-2 focus:ring-[#0b57d0] transition-all"
-                    />
+                    <div className="h-10 w-full rounded-full bg-[#f0f4f9] dark:bg-[#141619] flex items-center px-4 gap-2.5 border-0 shadow-none transition-all">
+                      <Search className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0 stroke-[2.2]" />
+                      <input
+                        type="text"
+                        value={historySearchQuery}
+                        onChange={(e) => setHistorySearchQuery(e.target.value)}
+                        placeholder="Search chats..."
+                        className="w-full bg-transparent text-xs text-[#1f1f1f] dark:text-[#e3e3e3] placeholder-[#5e5e5e]/70 dark:placeholder-[#9aa0a6]/70 border-0 outline-none focus:ring-0 font-normal"
+                      />
+                      {historySearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setHistorySearchQuery('')}
+                          className="w-6 h-6 rounded-full bg-transparent hover:bg-[#1f1f1f]/8 dark:hover:bg-[#e3e3e3]/8 text-[#5e5e5e] dark:text-[#9aa0a6] flex items-center justify-center transition-all cursor-pointer border-0 shrink-0"
+                          title="Clear search"
+                        >
+                          <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                        </button>
+                      )}
+                    </div>
                   </div>
+
                   {activeSession && activeSession.messages.length > 1 && (
                     <button
                       onClick={handleClearCurrentChat}
-                      className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950/40 text-[#5e5e5e] dark:text-[#9aa0a6] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0"
+                      className="w-10 h-10 rounded-full bg-[#f0f4f9] dark:bg-[#141619] hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950/40 text-[#5e5e5e] dark:text-[#9aa0a6] border-0 shadow-none flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0"
                       title="Clear messages in current chat"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" />
+                      <RotateCcw className="w-4 h-4" />
                     </button>
                   )}
                   {sessions.length > 0 && (
                     <button
                       onClick={handleDeleteAllSessions}
-                      className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-red-50 hover:text-[#ba1a1a] dark:hover:bg-red-950/40 text-[#5e5e5e] dark:text-[#9aa0a6] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0"
+                      className="w-10 h-10 rounded-full bg-[#f0f4f9] dark:bg-[#141619] hover:bg-red-50 hover:text-[#ba1a1a] dark:hover:bg-red-950/40 text-[#5e5e5e] dark:text-[#9aa0a6] border-0 shadow-none flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0"
                       title="Delete all chat history"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -3895,8 +3908,8 @@ MANDATORY INSTRUCTIONS:
                 </div>
               </div>
 
-              {/* Scrollable Sessions List (Material 3 Elevated Rounded Cards) */}
-              <div className="p-3 sm:p-4 space-y-2.5 overflow-y-auto flex-1 overscroll-contain bg-[#f8fafd] dark:bg-[#141619] [scrollbar-width:thin]">
+              {/* Scrollable Sessions List (Transparent entries against white background) */}
+              <div className="p-3 sm:p-4 space-y-1 overflow-y-auto flex-1 overscroll-contain bg-white dark:bg-[#1e2024] [scrollbar-width:thin]">
                 {filteredSessions.length === 0 ? (
                   <div className="py-12 text-center text-xs text-[#5e5e5e] dark:text-[#9aa0a6]">
                     No conversations found.
@@ -3929,17 +3942,17 @@ MANDATORY INSTRUCTIONS:
                           }
                           setIsSidebarOpen(false);
                         }}
-                        className={`w-full flex items-center justify-between p-3.5 rounded-[22px] sm:rounded-[24px] transition-all duration-200 cursor-pointer border-0 select-none group ${
+                        className={`w-full flex items-center justify-between p-3 rounded-[20px] sm:rounded-[24px] transition-all duration-150 cursor-pointer border-0 select-none group ${
                           isActive
-                            ? 'bg-[#d3e3fd]/60 dark:bg-[#004a77]/35 text-[#041e49] dark:text-[#c2e7ff] shadow-[0_2px_8px_rgba(11,87,208,0.15)] ring-1.5 ring-[#0b57d0] dark:ring-[#a8c7fa]'
-                            : 'bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] shadow-[0_2px_6px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] active:scale-[0.99]'
+                            ? 'bg-[#d3e3fd]/60 dark:bg-[#004a77]/35 text-[#041e49] dark:text-[#c2e7ff] font-bold shadow-none'
+                            : 'bg-transparent hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] shadow-none'
                         }`}
                       >
                         <div className="flex items-center gap-3 min-w-0 flex-1 pr-1">
                           <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${
                             isActive 
                               ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49] shadow-xs' 
-                              : 'bg-[#f0f4f9] dark:bg-[#282a30] text-[#0b57d0] dark:text-[#a8c7fa] group-hover:bg-[#e8f0fe] dark:group-hover:bg-[#32363d]'
+                              : 'bg-[#f0f4f9] dark:bg-[#282a30] text-[#0b57d0] dark:text-[#a8c7fa] group-hover:bg-[#e1e9f5] dark:group-hover:bg-[#343840]'
                           }`}>
                             <MessageSquare className="w-4.5 h-4.5 stroke-[2]" />
                           </div>
@@ -3963,7 +3976,7 @@ MANDATORY INSTRUCTIONS:
                           <button
                             type="button"
                             onClick={(e) => handleDeleteSession(session.id, e)}
-                            className="w-8 h-8 rounded-full flex items-center justify-center opacity-60 group-hover:opacity-100 text-[#5e5e5e] dark:text-[#9aa0a6] hover:text-[#ba1a1a] dark:hover:text-[#ffb4ab] hover:bg-[#ba1a1a]/10 dark:hover:bg-[#ba1a1a]/20 transition-all cursor-pointer"
+                            className="w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 text-[#5e5e5e] dark:text-[#9aa0a6] hover:text-[#ba1a1a] dark:hover:text-[#ffb4ab] hover:bg-red-50 dark:hover:bg-red-950/40 transition-all cursor-pointer border-0 bg-transparent shrink-0"
                             title="Delete chat"
                             aria-label="Delete conversation"
                           >
