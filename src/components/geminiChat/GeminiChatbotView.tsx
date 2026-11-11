@@ -1949,251 +1949,6 @@ Formatting & Quality Requirements:
     };
   }, []);
 
-  // Convert Live Talk exchange into formal conversation chat messages (Official Gemini App Experience)
-  const commitLiveTurnToChat = useCallback((userText: string, assistantText: string) => {
-    const cleanUser = userText.trim();
-    const cleanAssistant = assistantText.trim();
-    if (!cleanUser && !cleanAssistant) return;
-
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const newMessages: ChatbotMessage[] = [];
-
-    if (cleanUser) {
-      newMessages.push({
-        id: `msg_live_u_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        role: 'user',
-        content: cleanUser,
-        timestamp: timeStr,
-      });
-    }
-
-    if (cleanAssistant) {
-      newMessages.push({
-        id: `msg_live_a_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        role: 'assistant',
-        content: cleanAssistant,
-        timestamp: timeStr,
-        modelUsed: 'gemini-2.5-flash-native-audio-latest',
-        roleUsed: 'Theta Live'
-      });
-    }
-
-    if (newMessages.length === 0) return;
-
-    let targetId = activeSessionId;
-    if (!targetId) {
-      targetId = `session_${Date.now()}`;
-      setActiveSessionId(targetId);
-    }
-
-    updateActiveSession((prev) => {
-      const existing = prev.messages || [];
-      let title = prev.title;
-      // Auto-title session based on user's first spoken sentence
-      if ((existing.length === 0 || title === 'New Conversation' || title === 'Theta Live Conversation') && cleanUser) {
-        title = cleanUser.slice(0, 36) + (cleanUser.length > 36 ? '...' : '');
-      }
-
-      return {
-        ...prev,
-        title,
-        messages: [...existing, ...newMessages],
-        updatedAt: Date.now()
-      };
-    }, targetId);
-
-    setTimeout(() => scrollToBottom(true), 80);
-  }, [activeSessionId, updateActiveSession]);
-
-  // Send typed/spoken text prompt into Gemini Live session
-  const sendLiveTalkPrompt = useCallback((promptText: string) => {
-    const textToSend = promptText.trim();
-    if (!textToSend) return;
-    liveTalkUserTranscriptRef.current = textToSend;
-    setLiveTalkUserTranscript(textToSend);
-    liveTalkAssistantTranscriptRef.current = '';
-    setLiveTalkAssistantTranscript('');
-    setLiveTalkTranscript(textToSend);
-    geminiLiveClient.sendTextPrompt(textToSend);
-  }, []);
-
-  // Toggle Microphone Mute/Unmute in Live Talk mode
-  const toggleLiveTalkMic = useCallback(() => {
-    const nextMuted = geminiLiveClient.toggleMute();
-    setIsMicMuted(nextMuted);
-  }, []);
-
-  // Toggle Gemini Voice Response or Stop current speech immediately
-  const toggleVoiceResponse = useCallback(() => {
-    if (liveTalkStatus === 'speaking') {
-      geminiLiveClient.stopAllAudioPlayback();
-      setLiveTalkStatus('listening');
-    } else {
-      setIsVoiceResponseEnabled((prev) => !prev);
-    }
-  }, [liveTalkStatus]);
-
-  // Stop & clean up Live Talk completely and commit any pending live exchange to chat
-  const stopLiveTalk = useCallback(() => {
-    geminiLiveClient.disconnect();
-    const pendingUser = liveTalkUserTranscriptRef.current;
-    const pendingAssistant = liveTalkAssistantTranscriptRef.current;
-    if (pendingUser.trim() || pendingAssistant.trim()) {
-      commitLiveTurnToChat(pendingUser, pendingAssistant);
-    }
-    liveTalkUserTranscriptRef.current = '';
-    liveTalkAssistantTranscriptRef.current = '';
-    setLiveTalkUserTranscript('');
-    setLiveTalkAssistantTranscript('');
-    setIsLiveTalkActive(false);
-    isLiveTalkActiveRef.current = false;
-    setIsMicMuted(false);
-    setLiveTalkStatus('idle');
-    setLiveTalkTranscript('');
-    setLiveVolume(0);
-  }, [commitLiveTurnToChat]);
-
-  const toggleLiveTalkMode = async () => {
-    if (isLiveTalkActive) {
-      stopLiveTalk();
-    } else {
-      // Synchronously unlock and prepare Web Audio in the user gesture!
-      geminiLiveClient.prepareAudioContext();
-
-      if (isDictating) {
-        speechEngine.stopAll();
-        setIsDictating(false);
-      }
-
-      // Ensure an active session exists for live mode
-      if (!activeSessionId) {
-        const newId = `session_${Date.now()}`;
-        const effectiveUid = currentUserUid || auth.currentUser?.uid || null;
-        const isSignedIn = Boolean(effectiveUid && effectiveUid !== 'guest-user' && effectiveUid !== 'anonymous');
-        const freshSession: ChatSession = {
-          id: newId,
-          title: 'Theta Live Conversation',
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          modelTier: selectedModel || 'gemini-3.8-flash',
-          selectedTestId: null,
-          cloudSyncEnabled: Boolean(isSignedIn),
-          messages: [],
-          sessionDocuments: []
-        };
-        setSessions((prev) => [freshSession, ...prev]);
-        setActiveSessionId(newId);
-      }
-
-      setIsLiveTalkActive(true);
-      isLiveTalkActiveRef.current = true;
-      setIsMicMuted(false);
-      setLiveTalkStatus('connecting');
-      liveTalkUserTranscriptRef.current = '';
-      liveTalkAssistantTranscriptRef.current = '';
-      setLiveTalkUserTranscript('');
-      setLiveTalkAssistantTranscript('');
-      setLiveTalkTranscript('');
-      setLiveVolume(0);
-
-      geminiLiveClient.setCallbacks({
-        onStatusChange: (status) => {
-          if (status === 'idle') {
-            setIsLiveTalkActive(false);
-            isLiveTalkActiveRef.current = false;
-          }
-          setLiveTalkStatus(status);
-        },
-        onVolumeChange: (vol) => {
-          setLiveVolume(vol);
-        },
-        onTranscript: (text, isAssistant) => {
-          if (isAssistant) {
-            liveTalkAssistantTranscriptRef.current = text;
-            setLiveTalkAssistantTranscript(text);
-          } else {
-            liveTalkUserTranscriptRef.current = text;
-            setLiveTalkUserTranscript(text);
-          }
-          setLiveTalkTranscript(text);
-        },
-        onTurnComplete: (detail) => {
-          const userText = detail?.userText || liveTalkUserTranscriptRef.current;
-          const assistantText = detail?.assistantText || liveTalkAssistantTranscriptRef.current;
-          if (userText.trim() || assistantText.trim()) {
-            commitLiveTurnToChat(userText, assistantText);
-          }
-          liveTalkUserTranscriptRef.current = '';
-          liveTalkAssistantTranscriptRef.current = '';
-          setLiveTalkUserTranscript('');
-          setLiveTalkAssistantTranscript('');
-          setLiveTalkTranscript('');
-        },
-        onInterrupted: (detail) => {
-          wasInterruptedRef.current = true;
-          setLiveTalkStatus('listening');
-          const userText = detail?.userText || liveTalkUserTranscriptRef.current;
-          const partialAssistant = detail?.assistantText || liveTalkAssistantTranscriptRef.current;
-          if (userText.trim() || partialAssistant.trim()) {
-            commitLiveTurnToChat(userText, partialAssistant ? `${partialAssistant} [interrupted]` : '');
-          }
-          liveTalkUserTranscriptRef.current = '';
-          liveTalkAssistantTranscriptRef.current = '';
-          setLiveTalkUserTranscript('');
-          setLiveTalkAssistantTranscript('');
-          setLiveTalkTranscript('');
-        },
-        onError: (errMsg) => {
-          setSpeechNotification({
-            message: errMsg,
-            type: 'error',
-          });
-          stopLiveTalk();
-        },
-      });
-
-      const success = await geminiLiveClient.connect({
-        voice: 'Aoede', // Official Gemini Live voice mapped to Vega
-        systemInstruction: "You are Theta, an ultra-responsive, friendly, and encouraging AI math tutor in a direct live voice conversation. Answer promptly and concisely in 1 to 3 clear spoken sentences. Do not use markdown, code blocks, bullet points, asterisks, or formulas formatted as code; speak math naturally and conversationally. Respond immediately to the user's questions without filler introductory phrases.",
-      });
-
-      if (!success) {
-        stopLiveTalk();
-      }
-    }
-  };
-
-  // Toggle Speech-to-Text Voice Dictation into textarea with single-instance clean stream
-  const toggleSpeechRecognition = () => {
-    if (typeof window === 'undefined') return;
-    if (!isSpeechRecognitionSupported()) {
-      setSpeechNotification({
-        message: 'Speech recognition is not supported in this browser. Please use Google Chrome, Edge, or Safari.',
-        type: 'warning',
-      });
-      return;
-    }
-
-    if (isDictating) {
-      speechEngine.stopAll();
-      setIsDictating(false);
-      return;
-    }
-
-    if (isLiveTalkActive) {
-      stopLiveTalk();
-    }
-
-    const baseText = inputMessage.trim();
-    setIsDictating(true);
-
-    speechEngine.startDictation(
-      baseText,
-      (text) => setInputMessage(text),
-      () => setIsDictating(false)
-    );
-  };
-
   // Listen for canvas modal open events dispatched by interactive tables, tests, and images
   useEffect(() => {
     const handleExpandTable = (e: Event) => {
@@ -2697,6 +2452,251 @@ Formatting & Quality Requirements:
       if (document.body) document.body.scrollTop = 0;
     }
   }, [activeSessionId, activeSession?.messages?.length]);
+
+  // Convert Live Talk exchange into formal conversation chat messages (Official Gemini App Experience)
+  const commitLiveTurnToChat = useCallback((userText: string, assistantText: string) => {
+    const cleanUser = userText.trim();
+    const cleanAssistant = assistantText.trim();
+    if (!cleanUser && !cleanAssistant) return;
+
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const newMessages: ChatbotMessage[] = [];
+
+    if (cleanUser) {
+      newMessages.push({
+        id: `msg_live_u_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        role: 'user',
+        content: cleanUser,
+        timestamp: timeStr,
+      });
+    }
+
+    if (cleanAssistant) {
+      newMessages.push({
+        id: `msg_live_a_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        role: 'assistant',
+        content: cleanAssistant,
+        timestamp: timeStr,
+        modelUsed: 'gemini-2.5-flash-native-audio-latest',
+        roleUsed: 'Theta Live'
+      });
+    }
+
+    if (newMessages.length === 0) return;
+
+    let targetId = activeSessionId;
+    if (!targetId) {
+      targetId = `session_${Date.now()}`;
+      setActiveSessionId(targetId);
+    }
+
+    updateActiveSession((prev) => {
+      const existing = prev.messages || [];
+      let title = prev.title;
+      // Auto-title session based on user's first spoken sentence
+      if ((existing.length === 0 || title === 'New Conversation' || title === 'Theta Live Conversation') && cleanUser) {
+        title = cleanUser.slice(0, 36) + (cleanUser.length > 36 ? '...' : '');
+      }
+
+      return {
+        ...prev,
+        title,
+        messages: [...existing, ...newMessages],
+        updatedAt: Date.now()
+      };
+    }, targetId);
+
+    setTimeout(() => scrollToBottom(true), 80);
+  }, [activeSessionId, updateActiveSession]);
+
+  // Send typed/spoken text prompt into Gemini Live session
+  const sendLiveTalkPrompt = useCallback((promptText: string) => {
+    const textToSend = promptText.trim();
+    if (!textToSend) return;
+    liveTalkUserTranscriptRef.current = textToSend;
+    setLiveTalkUserTranscript(textToSend);
+    liveTalkAssistantTranscriptRef.current = '';
+    setLiveTalkAssistantTranscript('');
+    setLiveTalkTranscript(textToSend);
+    geminiLiveClient.sendTextPrompt(textToSend);
+  }, []);
+
+  // Toggle Microphone Mute/Unmute in Live Talk mode
+  const toggleLiveTalkMic = useCallback(() => {
+    const nextMuted = geminiLiveClient.toggleMute();
+    setIsMicMuted(nextMuted);
+  }, []);
+
+  // Toggle Gemini Voice Response or Stop current speech immediately
+  const toggleVoiceResponse = useCallback(() => {
+    if (liveTalkStatus === 'speaking') {
+      geminiLiveClient.stopAllAudioPlayback();
+      setLiveTalkStatus('listening');
+    } else {
+      setIsVoiceResponseEnabled((prev) => !prev);
+    }
+  }, [liveTalkStatus]);
+
+  // Stop & clean up Live Talk completely and commit any pending live exchange to chat
+  const stopLiveTalk = useCallback(() => {
+    geminiLiveClient.disconnect();
+    const pendingUser = liveTalkUserTranscriptRef.current;
+    const pendingAssistant = liveTalkAssistantTranscriptRef.current;
+    if (pendingUser.trim() || pendingAssistant.trim()) {
+      commitLiveTurnToChat(pendingUser, pendingAssistant);
+    }
+    liveTalkUserTranscriptRef.current = '';
+    liveTalkAssistantTranscriptRef.current = '';
+    setLiveTalkUserTranscript('');
+    setLiveTalkAssistantTranscript('');
+    setIsLiveTalkActive(false);
+    isLiveTalkActiveRef.current = false;
+    setIsMicMuted(false);
+    setLiveTalkStatus('idle');
+    setLiveTalkTranscript('');
+    setLiveVolume(0);
+  }, [commitLiveTurnToChat]);
+
+  const toggleLiveTalkMode = async () => {
+    if (isLiveTalkActive) {
+      stopLiveTalk();
+    } else {
+      // Synchronously unlock and prepare Web Audio in the user gesture!
+      geminiLiveClient.prepareAudioContext();
+
+      if (isDictating) {
+        speechEngine.stopAll();
+        setIsDictating(false);
+      }
+
+      // Ensure an active session exists for live mode
+      if (!activeSessionId) {
+        const newId = `session_${Date.now()}`;
+        const effectiveUid = currentUserUid || auth.currentUser?.uid || null;
+        const isSignedIn = Boolean(effectiveUid && effectiveUid !== 'guest-user' && effectiveUid !== 'anonymous');
+        const freshSession: ChatSession = {
+          id: newId,
+          title: 'Theta Live Conversation',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          modelTier: selectedModel || 'gemini-3.8-flash',
+          selectedTestId: null,
+          cloudSyncEnabled: Boolean(isSignedIn),
+          messages: [],
+          sessionDocuments: []
+        };
+        setSessions((prev) => [freshSession, ...prev]);
+        setActiveSessionId(newId);
+      }
+
+      setIsLiveTalkActive(true);
+      isLiveTalkActiveRef.current = true;
+      setIsMicMuted(false);
+      setLiveTalkStatus('connecting');
+      liveTalkUserTranscriptRef.current = '';
+      liveTalkAssistantTranscriptRef.current = '';
+      setLiveTalkUserTranscript('');
+      setLiveTalkAssistantTranscript('');
+      setLiveTalkTranscript('');
+      setLiveVolume(0);
+
+      geminiLiveClient.setCallbacks({
+        onStatusChange: (status) => {
+          if (status === 'idle') {
+            setIsLiveTalkActive(false);
+            isLiveTalkActiveRef.current = false;
+          }
+          setLiveTalkStatus(status);
+        },
+        onVolumeChange: (vol) => {
+          setLiveVolume(vol);
+        },
+        onTranscript: (text, isAssistant) => {
+          if (isAssistant) {
+            liveTalkAssistantTranscriptRef.current = text;
+            setLiveTalkAssistantTranscript(text);
+          } else {
+            liveTalkUserTranscriptRef.current = text;
+            setLiveTalkUserTranscript(text);
+          }
+          setLiveTalkTranscript(text);
+        },
+        onTurnComplete: (detail) => {
+          const userText = detail?.userText || liveTalkUserTranscriptRef.current;
+          const assistantText = detail?.assistantText || liveTalkAssistantTranscriptRef.current;
+          if (userText.trim() || assistantText.trim()) {
+            commitLiveTurnToChat(userText, assistantText);
+          }
+          liveTalkUserTranscriptRef.current = '';
+          liveTalkAssistantTranscriptRef.current = '';
+          setLiveTalkUserTranscript('');
+          setLiveTalkAssistantTranscript('');
+          setLiveTalkTranscript('');
+        },
+        onInterrupted: (detail) => {
+          wasInterruptedRef.current = true;
+          setLiveTalkStatus('listening');
+          const userText = detail?.userText || liveTalkUserTranscriptRef.current;
+          const partialAssistant = detail?.assistantText || liveTalkAssistantTranscriptRef.current;
+          if (userText.trim() || partialAssistant.trim()) {
+            commitLiveTurnToChat(userText, partialAssistant ? `${partialAssistant} [interrupted]` : '');
+          }
+          liveTalkUserTranscriptRef.current = '';
+          liveTalkAssistantTranscriptRef.current = '';
+          setLiveTalkUserTranscript('');
+          setLiveTalkAssistantTranscript('');
+          setLiveTalkTranscript('');
+        },
+        onError: (errMsg) => {
+          setSpeechNotification({
+            message: errMsg,
+            type: 'error',
+          });
+          stopLiveTalk();
+        },
+      });
+
+      const success = await geminiLiveClient.connect({
+        voice: 'Aoede', // Official Gemini Live voice mapped to Vega
+        systemInstruction: "You are Theta, an ultra-responsive, friendly, and encouraging AI math tutor in a direct live voice conversation. Answer promptly and concisely in 1 to 3 clear spoken sentences. Do not use markdown, code blocks, bullet points, asterisks, or formulas formatted as code; speak math naturally and conversationally. Respond immediately to the user's questions without filler introductory phrases.",
+      });
+
+      if (!success) {
+        stopLiveTalk();
+      }
+    }
+  };
+
+  // Toggle Speech-to-Text Voice Dictation into textarea with single-instance clean stream
+  const toggleSpeechRecognition = () => {
+    if (typeof window === 'undefined') return;
+    if (!isSpeechRecognitionSupported()) {
+      setSpeechNotification({
+        message: 'Speech recognition is not supported in this browser. Please use Google Chrome, Edge, or Safari.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    if (isDictating) {
+      speechEngine.stopAll();
+      setIsDictating(false);
+      return;
+    }
+
+    if (isLiveTalkActive) {
+      stopLiveTalk();
+    }
+
+    const baseText = inputMessage.trim();
+    setIsDictating(true);
+
+    speechEngine.startDictation(
+      baseText,
+      (text) => setInputMessage(text),
+      () => setIsDictating(false)
+    );
+  };
 
   // Navigate to Gemini-style New Chat Home Screen
   const handleNewChat = () => {
