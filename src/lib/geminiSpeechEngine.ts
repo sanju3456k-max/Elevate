@@ -25,10 +25,10 @@ export const GEMINI_VOICE_PERSONAS: Record<'vega', VoicePersonaInfo> = {
     id: 'vega',
     name: 'Vega',
     gender: 'female',
-    tone: 'Warm & Melodic',
+    tone: 'Warm, Expressive & Melodic',
     description: 'Natural, friendly, and expressive conversational tone (Default)',
-    pitch: 1.12,
-    rate: 1.02,
+    pitch: 1.05,
+    rate: 1.0,
   },
 };
 
@@ -896,7 +896,25 @@ class CleanSpeechEngine {
 
         this.onTranscriptCallback?.(cleaned);
 
-        // Reset silence timer to wait for user to finish thought before auto-sending
+        // Adaptive Endpointing (Smart Silence Detection):
+        // Tailors pause sensitivity to conversational grammar across mobile and desktop:
+        // - Connector / Incomplete trailing words ("and", "because", "so", "but", "or", "like"): wait 1800ms
+        // - Complete sentence ending with terminal punctuation (?, ., !): fire in 800ms
+        // - Short answers (<= 3 words, e.g. "yes", "option B", "continue"): fire in 750ms
+        // - Standard conversational default: 1100ms
+        const trimmedSpeech = cleaned.trim();
+        const lastWord = userTokens[userTokens.length - 1] || '';
+        const CONNECTORS = new Set(['and', 'because', 'so', 'but', 'or', 'if', 'then', 'that', 'which', 'like', 'with', 'to', 'for', 'about']);
+        
+        let dynamicSilenceMs = 1100;
+        if (CONNECTORS.has(lastWord)) {
+          dynamicSilenceMs = 1800; // User is linking a thought, give them breathing room
+        } else if (/[.?!]$/.test(trimmedSpeech)) {
+          dynamicSilenceMs = 800;  // Completed thought with terminal punctuation
+        } else if (userTokens.length <= 3) {
+          dynamicSilenceMs = 750;  // Fast punchy reply
+        }
+
         if (this.silenceTimer) clearTimeout(this.silenceTimer);
         this.silenceTimer = setTimeout(() => {
           if (
@@ -908,7 +926,7 @@ class CleanSpeechEngine {
           ) {
             this.handleAutoSendPrompt(cleaned.trim());
           }
-        }, 1250);
+        }, dynamicSilenceMs);
       };
 
       rec.onerror = (e: any) => {
@@ -1059,14 +1077,33 @@ class CleanSpeechEngine {
         this.initLiveTalkMic(SpeechRec);
       }
 
-      const utter = new SpeechSynthesisUtterance(clean);
-      applyGeminiVoice(utter, 'vega');
+      // Sentence-level chunking for natural speech cadence and low-latency playback:
+      // Split on sentence boundaries while preserving conversational punctuation
+      const sentenceRegex = /[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g;
+      const sentenceMatches = clean.match(sentenceRegex) || [clean];
+      const sentences = sentenceMatches.map((s) => s.trim()).filter((s) => s.length > 0);
 
-      this.activeUtterance = utter;
-      utter.onend = () => resumeListeningFresh();
-      utter.onerror = () => resumeListeningFresh();
+      if (sentences.length === 0) {
+        resumeListeningFresh();
+        return;
+      }
 
-      window.speechSynthesis.speak(utter);
+      // Speak sentences sequentially via Web Speech queue
+      sentences.forEach((sentence, index) => {
+        const utter = new SpeechSynthesisUtterance(sentence);
+        applyGeminiVoice(utter, 'vega');
+
+        if (index === sentences.length - 1) {
+          utter.onend = () => resumeListeningFresh();
+          utter.onerror = () => resumeListeningFresh();
+        }
+
+        if (index === 0) {
+          this.activeUtterance = utter;
+        }
+
+        window.speechSynthesis.speak(utter);
+      });
     } catch {
       resumeListeningFresh();
     }

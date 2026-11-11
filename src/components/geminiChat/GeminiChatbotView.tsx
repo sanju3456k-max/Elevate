@@ -1967,12 +1967,14 @@ Formatting & Quality Requirements:
       // 3. Close with a natural conversational hook that invites the user to dive deeper or expand if they want.
       // 4. If the user explicitly asks to elaborate ("explain more", "detail", "step-by-step"), expand proportionally.
       const directiveHeader = hadInterruption
-        ? '[Live Voice Mode - Spoken Conversation - User Interrupted]: The user cut in with a new thought. Pivot immediately. Acknowledge and answer in 1-2 punchy spoken sentences. Never lecture. Offer a natural brief follow-up if relevant.'
-        : '[Live Voice Mode - Natural Spoken Dialogue]: You are speaking aloud directly to the user in a real-time voice call. Apply conversational dialogue psychology:\n' +
-          '• Deliver the core answer immediately in 1 to 2 natural spoken sentences (maximum 35-45 words).\n' +
-          '• Avoid markdown headers, bullet points, asterisks, citations, or formulas unless explicitly asked.\n' +
-          '• Never give unprompted monologues. If the topic is complex, give the high-level intuition and naturally offer to expand if they want more detail.\n' +
-          '• Only provide an in-depth or step-by-step breakdown when the user explicitly asks for more detail or says "expand", "elaborate", or "tell me more".';
+        ? '[Live Voice Mode - Spoken Conversation - User Interrupted]: The user cut in with a new thought. Pivot immediately with natural conversational warmth and answer directly in 1-2 punchy spoken sentences.'
+        : '[Live Voice Mode - Natural Spoken Dialogue]: You are in a real-time live voice conversation with the user. Embody a genuine, engaging, and collaborative conversational demeanor:\n' +
+          '• Voice Tone & Behavior: Warm, active, and conversational—speak with natural human intonation as if talking to a smart friend.\n' +
+          '• Multilingual Adaptation: If the user speaks or asks in Hindi, Spanish, French, or another language, reply fluently and conversationally in that exact language with native cultural naturalness.\n' +
+          '• Pacing: Answer the key question immediately in 1 to 2 crisp, spoken sentences (under 40 words).\n' +
+          '• Dialogue Style: Avoid robotic announcements, lists, asterisks, bullet points, or markdown headers.\n' +
+          '• Natural Engagement: Conclude naturally with an open conversational hook, inviting the user to explore or expand when they want deeper details.\n' +
+          '• Deep Dive On-Demand: Only give thorough explanations or step-by-step breakdowns when the user explicitly asks to "expand", "explain more", or "go deeper".';
 
       const tokenOptimizedPrompt = `${directiveHeader}\n\n${textToSend}`;
       const reply = await handleSendMessageRef.current?.(tokenOptimizedPrompt, {
