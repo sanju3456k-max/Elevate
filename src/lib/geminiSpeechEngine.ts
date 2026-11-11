@@ -542,7 +542,7 @@ class CleanSpeechEngine {
       const rec = new this.dictationSpeechRec();
       rec.continuous = true;
       rec.interimResults = true;
-      rec.lang = 'en-US';
+      rec.lang = (typeof navigator !== 'undefined' && navigator.language) ? navigator.language : 'en-US';
 
       this.startGuardTimer = setTimeout(() => {
         if (this.isStartingRecognition) {
@@ -668,6 +668,24 @@ class CleanSpeechEngine {
     this.onTranscriptCallback = onTranscript;
     this.onDictationEndCallback = onEnded;
 
+    // MUTE CHIMES ON MOBILE:
+    // Acquire a continuous VoIP MediaStream with hardware echo cancellation.
+    // This locks the Android audio subsystem into MODE_IN_COMMUNICATION,
+    // which prevents the operating system from playing mic-on/mic-off chime tones on each speech chunk.
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+      try {
+        this.activeMediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+      } catch (streamErr) {
+        console.warn('Dictation VoIP communication stream note:', streamErr);
+      }
+    }
+
     this.initDictationMic();
   }
 
@@ -779,7 +797,9 @@ class CleanSpeechEngine {
       const rec = new SpeechRec();
       rec.continuous = true;
       rec.interimResults = true;
-      rec.lang = 'en-US';
+      // Do not hardcode sub-locales that Android Chrome speech services can drop;
+      // 'en-US' or window.navigator.language provides widest cross-device mobile recognition
+      rec.lang = (typeof navigator !== 'undefined' && navigator.language) ? navigator.language : 'en-US';
 
       this.startGuardTimer = setTimeout(() => {
         if (this.isStartingRecognition) {
