@@ -593,8 +593,8 @@ class CleanSpeechEngine {
   }
 
   private initLiveTalkMic(SpeechRec: any) {
-    // Under no condition should mic be active if muted or if assistant is speaking through speakers
-    if (this.currentMode !== 'live-talk' || this.isMuted || this.isAssistantSpeaking) {
+    // Under no condition should mic be active if muted
+    if (this.currentMode !== 'live-talk' || this.isMuted) {
       return;
     }
 
@@ -622,29 +622,65 @@ class CleanSpeechEngine {
       };
 
       rec.onresult = (event: any) => {
-        // Echo filter: ignore if muted or assistant is speaking
-        if (this.isMuted || this.isAssistantSpeaking) return;
+        if (this.isMuted) return;
 
         const cleaned = extractCleanSpeechFromEvent(event);
         if (!cleaned || cleaned.trim().length < 2) return;
 
-        // Anti-Self-Echo Guard: If speech matches what assistant just said, discard it completely
-        if (this.lastAssistantSpokenText) {
+        // 1. Auto-Listening Barge-In while Assistant is Speaking:
+        // Distinguish human user's new words from assistant's own voice coming through speakers
+        if (this.isAssistantSpeaking) {
+          const assistantWords = new Set(
+            (this.lastAssistantSpokenText || '')
+              .toLowerCase()
+              .replace(/[^\w\s]/g, '')
+              .split(/\s+/)
+              .filter((w) => w.length >= 3)
+          );
+
+          const userWords = cleaned
+            .toLowerCase()
+            .replace(/[^\w\s]/g, '')
+            .split(/\s+/)
+            .filter((w) => w.length >= 3);
+
+          // Find words spoken by user that are NOT in Theta's currently playing sentence
+          const novelWords = userWords.filter((w) => !assistantWords.has(w));
+
+          // If all words heard are identical to Theta's current speech, it's just speaker audio -> ignore
+          if (userWords.length > 0 && novelWords.length === 0) {
+            return;
+          }
+
+          // Human user spoke a new command/word! Auto-interrupt immediately:
+          if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+            try {
+              window.speechSynthesis.cancel();
+            } catch {}
+          }
+          this.activeUtterance = null;
+          this.isAssistantSpeaking = false;
+          this.isProcessingPrompt = false;
+          this.onStatusCallback?.('listening');
+          this.onInterruptionCallback?.();
+        }
+
+        // 2. Auto-Listening Interruption while AI is generating (thinking / sending):
+        if (this.isProcessingPrompt) {
+          this.isProcessingPrompt = false;
+          this.onStatusCallback?.('listening');
+          this.onInterruptionCallback?.();
+        }
+
+        // Post-speaking Echo Guard: If speech matches what assistant just said, discard it
+        if (this.lastAssistantSpokenText && !this.isAssistantSpeaking) {
           const userLower = cleaned.toLowerCase().trim();
           if (
             this.lastAssistantSpokenText.includes(userLower) ||
             userLower.includes(this.lastAssistantSpokenText)
           ) {
-            console.log('Echo-guard filtered self-talk audio loop:', cleaned);
             return;
           }
-        }
-
-        // Mid-Generation Interruption: If AI was formulating response (sending/thinking), user speech cancels it
-        if (this.isProcessingPrompt) {
-          this.isProcessingPrompt = false;
-          this.onStatusCallback?.('listening');
-          this.onInterruptionCallback?.();
         }
 
         this.onTranscriptCallback?.(cleaned);
@@ -683,10 +719,10 @@ class CleanSpeechEngine {
       };
 
       rec.onend = () => {
-        // Auto-reconnect if live talk is still active and assistant is not speaking
-        if (this.currentMode === 'live-talk' && !this.isMuted && !this.isAssistantSpeaking) {
+        // Auto-reconnect if live talk is still active
+        if (this.currentMode === 'live-talk' && !this.isMuted) {
           setTimeout(() => {
-            if (this.currentMode === 'live-talk' && !this.isMuted && !this.isAssistantSpeaking) {
+            if (this.currentMode === 'live-talk' && !this.isMuted) {
               this.initLiveTalkMic(SpeechRec);
             }
           }, 250);
@@ -714,7 +750,7 @@ class CleanSpeechEngine {
   }
 
   /**
-   * Handle assistant response speaking with clean speaker isolation (anti-self-echo)
+   * Handle assistant response speaking with clean speaker isolation and auto-listen barge-in
    */
   public handleAssistantReply(responseText: string, voiceEnabled: boolean) {
     if (this.currentMode !== 'live-talk') {
@@ -730,7 +766,7 @@ class CleanSpeechEngine {
       this.isProcessingPrompt = false;
       this.onTranscriptCallback?.(''); // Clear transcript for user's next question
 
-      // Wait 250ms for speaker echo in the room to finish fading out before opening mic
+      // Wait 150ms for speaker echo in the room to finish fading out before opening mic
       setTimeout(() => {
         if (this.currentMode === 'live-talk' && !this.isMuted) {
           this.onStatusCallback?.('listening');
@@ -738,7 +774,7 @@ class CleanSpeechEngine {
             this.initLiveTalkMic(SpeechRec);
           }
         }
-      }, 250);
+      }, 150);
     };
 
     if (!voiceEnabled || !isSpeechSynthesisSupported()) {
@@ -759,19 +795,9 @@ class CleanSpeechEngine {
       this.lastAssistantSpokenText = clean.toLowerCase();
       this.isProcessingPrompt = false;
 
-      // CRITICAL FIX FOR SELF-ECHO LOOP:
-      // Stop microphone recognition while device speakers output assistant's voice
-      // so Theta never hears or loops its own spoken response!
-      if (this.activeRecognition) {
-        try {
-          const r = this.activeRecognition;
-          r.onend = null;
-          r.onerror = null;
-          r.onresult = null;
-          r.onstart = null;
-          r.abort();
-        } catch {}
-        this.activeRecognition = null;
+      // Keep speech recognition actively listening in background for hands-free auto-barge-in
+      if (SpeechRec && !this.activeRecognition && !this.isMuted) {
+        this.initLiveTalkMic(SpeechRec);
       }
 
       const utter = new SpeechSynthesisUtterance(clean);

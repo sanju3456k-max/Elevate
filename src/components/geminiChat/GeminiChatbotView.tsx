@@ -1337,6 +1337,22 @@ export const GeminiImageLightbox: React.FC<GeminiImageLightboxProps> = ({ src, o
 };
 
 /**
+ * Strips internal system prompt directives (such as [Live Voice Mode...]) from the display content
+ * so the chat interface shows only the user's actual spoken text or typed query.
+ */
+export function cleanDisplayMessageContent(content: string): string {
+  if (!content) return '';
+  if (/^\[Live Voice Mode/i.test(content)) {
+    const parts = content.split(/\n\s*\n/);
+    if (parts.length > 1) {
+      return parts.slice(1).join('\n\n').trim();
+    }
+    return content.replace(/^\[Live Voice Mode[^\]]*\]:[^\n]*\n?/i, '').trim();
+  }
+  return content;
+}
+
+/**
  * Token-Lean App Context Architect:
  * Organizes application state into lean, categorized slices (~150 tokens base)
  * and performs on-demand targeted lookups ONLY when specifically requested.
@@ -1907,6 +1923,7 @@ Formatting & Quality Requirements:
   const isVoiceResponseEnabledRef = useRef<boolean>(true);
   const lastSentPromptRef = useRef<{ text: string; time: number }>({ text: '', time: 0 });
   const isSendingRef = useRef<boolean>(false);
+  const wasInterruptedRef = useRef<boolean>(false);
   const handleSendMessageRef = useRef<any>(null);
 
   useEffect(() => {
@@ -1926,13 +1943,23 @@ Formatting & Quality Requirements:
     const textToSend = promptText.trim();
     if (!textToSend) return;
 
+    const hadInterruption = wasInterruptedRef.current;
+    wasInterruptedRef.current = false;
+
     setLiveTalkStatus('sending');
     setLiveTalkTranscript('');
 
     try {
       // Live Voice Mode token optimization: Instruct Gemini to respond conversationally in 2-3 concise sentences
-      const tokenOptimizedPrompt = `[Live Voice Mode - Spoken Conversation]: Please answer concisely and conversationally in 2-3 direct spoken sentences. Avoid markdown headers, asterisks, bullet points, or tables unless explicitly asked.\n\n${textToSend}`;
-      const reply = await handleSendMessageRef.current?.(tokenOptimizedPrompt);
+      // If user interrupted in-between responding, instruct model to pivot directly to new instruction
+      const directiveHeader = hadInterruption
+        ? '[Live Voice Mode - Spoken Conversation - User Interrupted with New Directive]: The user interrupted the previous incomplete response with a new directive. Please pivot immediately and answer the new instruction directly in 2-3 concise conversational spoken sentences. Avoid markdown headers, asterisks, bullet points, or tables unless explicitly asked.'
+        : '[Live Voice Mode - Spoken Conversation]: Please answer concisely and conversationally in 2-3 direct spoken sentences. Avoid markdown headers, asterisks, bullet points, or tables unless explicitly asked.';
+
+      const tokenOptimizedPrompt = `${directiveHeader}\n\n${textToSend}`;
+      const reply = await handleSendMessageRef.current?.(tokenOptimizedPrompt, {
+        displayPrompt: textToSend
+      });
       if (isLiveTalkActiveRef.current) {
         if (typeof reply === 'string' && reply.trim()) {
           speechEngine.handleAssistantReply(reply, isVoiceResponseEnabledRef.current);
@@ -2000,6 +2027,7 @@ Formatting & Quality Requirements:
         (status) => setLiveTalkStatus(status),
         () => {
           // Real-time Interruption: User spoke while assistant was generating or speaking
+          wasInterruptedRef.current = true;
           if (abortControllerRef.current) {
             abortControllerRef.current.abort();
             abortControllerRef.current = null;
@@ -2166,6 +2194,7 @@ Formatting & Quality Requirements:
   }, [isLoading, loadingStartTime]);
 
   const handleCancelRequest = () => {
+    wasInterruptedRef.current = true;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -2815,6 +2844,7 @@ Formatting & Quality Requirements:
       isRetry?: boolean;
       overrideModel?: GeminiModelTier;
       overrideMessages?: ChatbotMessage[];
+      displayPrompt?: string;
     },
     explicitTargetMessageId?: string,
     explicitEditingContext?: EditingContext
@@ -2861,7 +2891,8 @@ Formatting & Quality Requirements:
       const newId = `session_${Date.now()}`;
       const effectiveUid = currentUserUid || auth.currentUser?.uid || null;
       const isSignedIn = Boolean(effectiveUid && effectiveUid !== 'guest-user' && effectiveUid !== 'anonymous');
-      const autoTitle = textToSend ? textToSend.slice(0, 36) + (textToSend.length > 36 ? '...' : '') : 'New Conversation';
+      const cleanPromptForTitle = options?.displayPrompt || cleanDisplayMessageContent(textToSend);
+      const autoTitle = cleanPromptForTitle ? cleanPromptForTitle.slice(0, 36) + (cleanPromptForTitle.length > 36 ? '...' : '') : 'New Conversation';
 
       const freshSession: ChatSession = {
         id: newId,
@@ -2892,10 +2923,14 @@ Formatting & Quality Requirements:
       updatedMessages = [...(targetSessionObj.messages || [])];
     } else {
       const userMessageId = `msg_${Date.now()}`;
+      const rawUserContent = textToSend || (attachments.length > 0 ? `[Attached ${attachments.length} file(s)]` : '');
+      const displayContent = options?.displayPrompt
+        ? options.displayPrompt
+        : cleanDisplayMessageContent(rawUserContent);
       const newUserMessage: ChatbotMessage = {
         id: userMessageId,
         role: 'user',
-        content: textToSend || (attachments.length > 0 ? `[Attached ${attachments.length} file(s)]` : ''),
+        content: displayContent,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         attachments: attachments.length > 0 ? [...attachments] : undefined
       };
@@ -2919,7 +2954,8 @@ Formatting & Quality Requirements:
     let updatedTitle = targetSessionObj.title;
     const isGenericTitle = !targetSessionObj.title || targetSessionObj.title === 'New Conversation' || targetSessionObj.title.length <= 4;
     if ((targetSessionObj.messages.length <= 1 || isGenericTitle) && textToSend && !targetMessageId) {
-      updatedTitle = textToSend.slice(0, 36) + (textToSend.length > 36 ? '...' : '');
+      const cleanPromptForTitle = options?.displayPrompt || cleanDisplayMessageContent(textToSend);
+      updatedTitle = cleanPromptForTitle.slice(0, 36) + (cleanPromptForTitle.length > 36 ? '...' : '');
     }
 
     updateActiveSession((s) => ({
@@ -2933,7 +2969,8 @@ Formatting & Quality Requirements:
     setInputMessage('');
     const sentAttachments = [...attachments];
     setAttachments([]);
-    setLoadingPrompt(textToSend);
+    const cleanLoadingPrompt = options?.displayPrompt || cleanDisplayMessageContent(textToSend);
+    setLoadingPrompt(cleanLoadingPrompt);
     setLoadingStartTime(Date.now());
     setIsLoading(true);
 
@@ -2972,10 +3009,11 @@ Formatting & Quality Requirements:
       // Token Optimization: In Live Voice mode, keep rolling context of last 6 messages to save up to 80% input tokens
       const historyLimit = isLiveTalkActiveRef.current ? 6 : 30;
       const recentMessages = validMessages.slice(-historyLimit);
-      const historyPayload = recentMessages.map((m) => {
+      const historyPayload = recentMessages.map((m, idx) => {
+        const isLatestUserMessage = idx === recentMessages.length - 1 && m.role === 'user';
         return {
           role: m.role,
-          content: m.content,
+          content: isLatestUserMessage && textToSend ? textToSend : m.content,
           attachments: m.attachments?.map((a) => ({
             name: a.name,
             mimeType: a.mimeType,
@@ -4411,7 +4449,7 @@ MANDATORY INSTRUCTIONS:
                         <div className="group relative flex flex-col items-end gap-1">
                           <div className="bg-[#f0f4f9] dark:bg-[#282a2d] text-slate-900 dark:text-zinc-100 rounded-[22px] px-4.5 py-3 text-[17px] leading-relaxed whitespace-pre-wrap font-medium w-full">
                             {(() => {
-                              const text = msg.content;
+                              const text = cleanDisplayMessageContent(msg.content);
                               const isExpanded = expandedPromptMessageIds.has(msg.id);
                               const onToggle = () => toggleExpandPrompt(msg.id);
                               const isLatestMessageLoading = isLoading && idx === messages.length - 1;
@@ -4714,7 +4752,7 @@ MANDATORY INSTRUCTIONS:
                               type="button"
                               onClick={() => {
                                 setEditingMessageId(msg.id);
-                                setEditingText(msg.content);
+                                setEditingText(cleanDisplayMessageContent(msg.content));
                               }}
                               className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-[#282a2d] text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-100 transition-colors cursor-pointer"
                               title="Edit message"
@@ -4725,7 +4763,7 @@ MANDATORY INSTRUCTIONS:
                             {/* Copy User Message */}
                             <button
                               type="button"
-                              onClick={() => handleCopyMessage(msg.id, msg.content)}
+                              onClick={() => handleCopyMessage(msg.id, cleanDisplayMessageContent(msg.content))}
                               className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-[#282a2d] text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-100 transition-colors cursor-pointer"
                               title="Copy message"
                             >
@@ -4735,7 +4773,7 @@ MANDATORY INSTRUCTIONS:
                             {/* Speak User Message */}
                             <button
                               type="button"
-                              onClick={() => handleToggleSpeakMessage(msg.id, msg.content)}
+                              onClick={() => handleToggleSpeakMessage(msg.id, cleanDisplayMessageContent(msg.content))}
                               className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
                                 speakingMessageId === msg.id
                                   ? 'text-blue-600 dark:text-blue-400 bg-blue-100/70 dark:bg-blue-950/60'

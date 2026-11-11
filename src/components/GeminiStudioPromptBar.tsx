@@ -290,10 +290,10 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
                     type="button"
                     onClick={onCancelRequest}
                     className="text-emerald-700 dark:text-emerald-300 hover:underline flex items-center gap-1.5 cursor-pointer font-medium"
-                    title="Tap to interrupt and speak"
+                    title="Speak naturally anytime to interrupt, or tap here"
                   >
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                    Theta is speaking... Tap here to speak / interrupt.
+                    Theta is speaking... (Speak anytime to interrupt)
                   </button>
                 ) : liveTalkStatus === 'sending' || isLoading ? (
                   <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
