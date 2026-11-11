@@ -56,6 +56,7 @@ export interface GeminiStudioPromptBarProps {
   onToggleVoiceResponse: () => void;
   onSendLiveTalkPrompt: (text: string) => void;
   onStopLiveTalk: () => void;
+  onOpenFullLiveView?: () => void;
   // Targeted Edit Mode
   editingContext: {
     type: 'test' | 'code' | 'table' | 'message' | 'image';
@@ -102,6 +103,7 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
   onToggleVoiceResponse,
   onSendLiveTalkPrompt,
   onStopLiveTalk,
+  onOpenFullLiveView,
   editingContext,
   onCancelEditMode,
   currentModel,
@@ -267,10 +269,23 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
               </div>
             </div>
 
-            {/* Right Header Controls: Vega Voice Badge & Close Live Talk Button */}
-            <div className="flex items-center gap-2 shrink-0">
+            {/* Right Header Controls: Vega Voice Badge, Full Live Screen Toggle & Close Button */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {/* Expand into Full Live Talk View (Theta Button) */}
+              <button
+                type="button"
+                onClick={onOpenFullLiveView || onToggleLiveTalk}
+                className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-300 flex items-center gap-1.5 transition-all cursor-pointer border border-blue-200 dark:border-blue-800 shadow-2xs active:scale-95"
+                title="Open Fullscreen Voice Interface"
+              >
+                <div className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-black leading-none">
+                  θ
+                </div>
+                <span className="hidden xs:inline text-[11px] font-semibold">Live Screen</span>
+              </button>
+
               {/* Dedicated Vega Voice Badge */}
-              <div className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-[#282a2d] text-slate-700 dark:text-zinc-200 flex items-center gap-1.5 border-0 shadow-none">
+              <div className="hidden sm:flex px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-[#282a2d] text-slate-700 dark:text-zinc-200 items-center gap-1.5 border-0 shadow-none">
                 <span className="text-blue-500">✨</span>
                 <span>Vega Voice</span>
               </div>
