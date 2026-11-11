@@ -322,19 +322,19 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
         <div className="rounded-[22px] bg-[#f8fafd] dark:bg-[#181a20] border-0 shadow-none overflow-hidden transition-all">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full px-4 py-2.5 sm:py-3 flex items-center justify-between text-xs sm:text-[12.5px] font-bold text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-[#edf2f9] dark:hover:bg-[#24262c] transition-colors cursor-pointer border-0 shadow-none"
+            className="w-full px-4 py-2.5 sm:py-3 flex items-center justify-between text-xs sm:text-[13px] font-bold text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-[#edf2f9] dark:hover:bg-[#24262c] transition-colors cursor-pointer border-0 shadow-none"
           >
             <span className="flex items-center gap-2">
               <FileCheck className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2]" />
               <span>{isExpanded ? 'Hide Questions & Solutions' : `Preview Questions & Solutions (${questionsCount})`}</span>
             </span>
-            <span className="flex items-center gap-1 text-[#5e5e5e] dark:text-[#9aa0a6] text-[11px]">
+            <span className="flex items-center gap-1 text-[#5e5e5e] dark:text-[#9aa0a6] text-xs">
               {isExpanded ? <ChevronUp className="w-4 h-4 stroke-[2.2]" /> : <ChevronDown className="w-4 h-4 stroke-[2.2]" />}
             </span>
           </button>
 
           {isExpanded && (
-            <div className="p-2.5 space-y-2.5 max-h-96 overflow-y-auto">
+            <div className="p-3 sm:p-3.5 space-y-3 max-h-[32rem] overflow-y-auto">
               {(showAllQuestions ? effectiveTest.questions : effectiveTest.questions.slice(0, 3)).map((q, idx) => {
                 const isNewQuestion = isUpdate && existingTest && !existingTest.questions?.some(
                   (eq) => (eq.id && q.id && eq.id === q.id) || (eq.text && q.text && eq.text.trim().toLowerCase() === q.text.trim().toLowerCase())
@@ -342,34 +342,34 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
                 return (
                   <div 
                     key={`test-action-q-${effectiveTest.id || 'test'}-${q.id || 'q'}-${idx}`}
-                    className="w-full p-3.5 rounded-[20px] bg-white dark:bg-[#1e2024] text-xs space-y-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border-0"
+                    className="w-full p-4 sm:p-4.5 rounded-[22px] bg-white dark:bg-[#1e2024] space-y-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border-0"
                   >
                     <div className="flex items-center justify-between font-semibold text-[#1f1f1f] dark:text-[#e3e3e3]">
                       <div className="flex items-center gap-2">
-                        <span className="px-3 py-1 rounded-full bg-[#d3e3fd]/60 dark:bg-[#004a77]/50 text-[#041e49] dark:text-[#c2e7ff] text-[11px] font-bold border-0 shadow-none">
+                        <span className="px-3 py-1 rounded-full bg-[#d3e3fd]/60 dark:bg-[#004a77]/50 text-[#041e49] dark:text-[#c2e7ff] text-xs sm:text-[13px] font-bold border-0 shadow-none">
                           Question {idx + 1} • {q.type === 'numerical' ? 'Numerical Answer' : 'Multiple Choice'}
                         </span>
                         {isNewQuestion && (
-                          <span className="px-2.5 py-1 rounded-full bg-[#c4eed0] dark:bg-[#0f5223] text-[#072711] dark:text-[#c4eed0] text-[10px] font-bold border-0 shadow-none">
+                          <span className="px-2.5 py-1 rounded-full bg-[#c4eed0] dark:bg-[#0f5223] text-[#072711] dark:text-[#c4eed0] text-xs font-bold border-0 shadow-none">
                             New Addition
                           </span>
                         )}
                       </div>
                       {q.points && (
-                        <span className="text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-mono">
+                        <span className="text-xs sm:text-[13px] text-[#5e5e5e] dark:text-[#9aa0a6] font-mono">
                           {q.points} pt{q.points > 1 ? 's' : ''}
                         </span>
                       )}
                     </div>
                     
                     {/* Question Text with Full LaTeX Math Rendering */}
-                    <div className="text-[#1f1f1f] dark:text-[#e3e3e3] font-normal text-[13px] leading-relaxed pl-0.5">
+                    <div className="text-[#1f1f1f] dark:text-[#e3e3e3] font-medium text-[16px] sm:text-[17px] leading-relaxed pl-0.5">
                       <MathRenderer content={q.text} />
                     </div>
 
                     {/* Question Diagram / Image */}
                     {(q.imageUrl || (q as any).paperLayout?.imageUrl || (Array.isArray(q.imageUrls) && q.imageUrls.some(Boolean))) && (
-                      <div className="my-2.5 max-w-full flex justify-center">
+                      <div className="my-3 max-w-full flex justify-center">
                         <QuestionDiagramViewer
                           imageUrl={q.imageUrl || (q as any).paperLayout?.imageUrl}
                           imageUrls={q.imageUrls}
@@ -384,26 +384,26 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
 
                     {/* Options (MCQ) with MathRenderer */}
                     {Array.isArray(q.options) && q.options.length > 0 && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1.5 w-full">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2 w-full">
                         {q.options.map((opt, oIdx) => {
                           const isCorrect = checkIsOptionCorrect(opt, oIdx, q);
                           return (
                             <div 
                               key={oIdx} 
-                              className={`p-2.5 rounded-[16px] text-xs flex items-center gap-2.5 transition-all border-0 shadow-none ${
+                              className={`p-3 rounded-[16px] text-[15px] sm:text-[16px] flex items-center gap-3 transition-all border-0 shadow-none ${
                                 isCorrect
                                   ? 'bg-[#e6f4ea] dark:bg-[#0f5223]/40 text-[#137333] dark:text-[#81c995] font-semibold'
                                   : 'bg-[#f0f4f9] dark:bg-[#16181c] text-[#1f1f1f] dark:text-[#e3e3e3]'
                               }`}
                             >
-                              <span className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 border-0 ${
+                              <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shrink-0 border-0 ${
                                 isCorrect ? 'bg-[#137333] text-white' : 'bg-[#edf2f9] dark:bg-[#26282e] text-[#444746] dark:text-[#c4c7c5]'
                               }`}>
                                 {String.fromCharCode(65 + oIdx)}
                               </span>
-                              <div className="truncate flex-1 font-normal"><MathRenderer content={String(opt)} /></div>
+                              <div className="flex-1 min-w-0 font-normal leading-relaxed"><MathRenderer content={String(opt)} /></div>
                               {isCorrect && (
-                                <span className="text-[10px] uppercase font-bold text-[#137333] dark:text-[#81c995] shrink-0">
+                                <span className="text-xs uppercase font-bold tracking-wider text-[#137333] dark:text-[#81c995] shrink-0">
                                   Correct
                                 </span>
                               )}
@@ -415,9 +415,9 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
 
                     {/* Numerical Answer with MathRenderer */}
                     {(!q.options || q.options.length === 0) && (
-                      <div className="p-2.5 rounded-[16px] bg-[#e6f4ea] dark:bg-[#0f5223]/40 text-[#137333] dark:text-[#81c995] font-semibold text-xs flex items-center gap-2 w-full border-0 shadow-none">
+                      <div className="p-3 rounded-[16px] bg-[#e6f4ea] dark:bg-[#0f5223]/40 text-[#137333] dark:text-[#81c995] font-semibold text-[15px] sm:text-[16px] flex items-center gap-2.5 w-full border-0 shadow-none">
                         <span>Correct Answer:</span>
-                        <div className="font-mono px-2.5 py-0.5 rounded-full bg-white dark:bg-[#1e2024] text-[#137333] dark:text-[#81c995] shadow-xs border-0">
+                        <div className="font-mono px-3 py-1 rounded-full bg-white dark:bg-[#1e2024] text-[#137333] dark:text-[#81c995] text-sm sm:text-base shadow-xs border-0">
                           <MathRenderer content={String(q.correctAnswer)} />
                         </div>
                       </div>
@@ -425,11 +425,11 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
 
                     {/* Step-by-Step Solution with MathRenderer */}
                     {(q.explanation || q.solution) && (
-                      <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-zinc-800/80 text-xs text-[#444746] dark:text-[#c4c7c5] space-y-1 w-full">
-                        <div className="font-bold text-[#0b57d0] dark:text-[#a8c7fa] flex items-center gap-1.5 mb-1 text-[11px] uppercase tracking-wider">
+                      <div className="mt-3.5 pt-3 border-t border-slate-100 dark:border-zinc-800/80 space-y-1.5 w-full">
+                        <div className="font-bold text-[#0b57d0] dark:text-[#a8c7fa] flex items-center gap-1.5 mb-1.5 text-xs sm:text-sm uppercase tracking-wider">
                           <span>Step-by-Step Solution:</span>
                         </div>
-                        <div className="leading-relaxed font-normal text-[#1f1f1f] dark:text-[#e3e3e3]">
+                        <div className="leading-relaxed font-normal text-[15px] sm:text-[16px] text-[#1f1f1f] dark:text-[#e3e3e3]">
                           <MathRenderer content={q.explanation || q.solution || ''} />
                         </div>
                       </div>
@@ -441,7 +441,7 @@ export const GeminiTestActionCard: React.FC<GeminiTestActionCardProps> = ({
               {effectiveTest.questions.length > 3 && (
                 <button
                   onClick={() => setShowAllQuestions(!showAllQuestions)}
-                  className="text-xs font-bold text-[#0b57d0] dark:text-[#a8c7fa] hover:bg-[#edf2f9] dark:hover:bg-[#26282e] py-2.5 w-full text-center cursor-pointer transition-colors rounded-full border-0 shadow-none"
+                  className="text-xs sm:text-sm font-bold text-[#0b57d0] dark:text-[#a8c7fa] hover:bg-[#edf2f9] dark:hover:bg-[#26282e] py-2.5 w-full text-center cursor-pointer transition-colors rounded-full border-0 shadow-none"
                 >
                   {showAllQuestions ? 'Show fewer questions' : `Show all ${effectiveTest.questions.length} questions...`}
                 </button>

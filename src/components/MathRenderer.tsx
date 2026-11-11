@@ -514,12 +514,53 @@ function normalizeUiTokens(text: string): string {
 }
 
 /**
+ * Renders LaTeX formulas inside table cells with full \displaystyle
+ * ensuring fractions, integrals, powers, and symbols appear at full display scale,
+ * clean, legible, and uniform with normal text.
+ */
+function renderTableCellMath(rawMath: string): string {
+  const cleaned = cleanMathString(rawMath);
+  if (!cleaned) return '';
+
+  if (cleaned.includes('§§') || /_TOKEN_\d+/i.test(cleaned)) {
+    return cleaned;
+  }
+
+  // Prepend \displaystyle if not already present or inside an environment
+  let expr = cleaned;
+  if (!expr.includes('\\displaystyle') && !expr.trim().startsWith('\\begin')) {
+    expr = `\\displaystyle ${expr}`;
+  }
+
+  try {
+    const rendered = katex.renderToString(expr, {
+      ...KATEX_OPTIONS,
+      displayMode: false
+    });
+    return `<span class="inline-math table-cell-math">${rendered}</span>`;
+  } catch {
+    return renderMathToken(expr, false);
+  }
+}
+
+/**
  * Helper to format table cells cleanly with rich typography, code tags, checkboxes, and full math support (Google AI mode)
  */
 export function formatTableCellContent(cellText: string): string {
   if (!cellText) return '';
   let cleaned = normalizeUiTokens(String(cellText).trim());
   if (cleaned === '$') return '';
+
+  // Clean app-action prefixes e.g. [app-action:LaunchTest] -> [LaunchTest]
+  cleaned = cleaned.replace(/\[\s*app-action\s*:\s*([^\]]+)\]/gi, '[$1]');
+
+  // Normalize spaced asterisks or underscores around action badges e.g. * * [LaunchTest] * * -> [LaunchTest]
+  cleaned = cleaned.replace(/\*[\s*]*(\[[a-zA-Z0-9_\-\s]{2,40}\])[\s*]*\*/g, '$1');
+  cleaned = cleaned.replace(/_[\s_]*(\[[a-zA-Z0-9_\-\s]{2,40}\])[\s_]*_/g, '$1');
+  cleaned = cleaned.replace(/\*\s+\*/g, '**');
+  cleaned = cleaned.replace(/_\s+_/g, '__');
+  // Strip leading and trailing stray asterisks
+  cleaned = cleaned.replace(/^\*[\s*]+(?=\[)/, '').replace(/(?<=\])[\s*]+\*$/, '');
 
   // Tokens storage for widgets, math, and code
   const tokens: string[] = [];
@@ -528,6 +569,20 @@ export function formatTableCellContent(cellText: string): string {
     tokens.push(html);
     return `\uFFF0TCTK${idx}\uFFF1`;
   };
+
+  // Quick-access action buttons or badges in tables (e.g. [LaunchTest], [OpenNotes], [ViewAnalytics], [CreateNew])
+  cleaned = cleaned.replace(/\[\s*([a-zA-Z0-9_\-\s]{2,40})\s*\](?!\()/g, (match, actionName) => {
+    const act = actionName.trim();
+    // Exclude plain numbers, mathematical intervals like [0, 1] or checkboxes
+    if (/^\d+(\s*,\s*\d+)*$/.test(act) || /^[xX✓✔\s]$/.test(act)) return match;
+
+    return saveCellToken(
+      `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#d3e3fd]/80 dark:bg-[#004a77]/60 text-[#041e49] dark:text-[#c2e7ff] border-0 select-none shadow-xs whitespace-nowrap align-middle cursor-pointer hover:bg-[#c2e7ff] dark:hover:bg-[#005a92] transition-colors" data-table-action="${escapeHtml(act)}">` +
+        `<span class="w-1.5 h-1.5 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa]"></span>` +
+        `<span>${escapeHtml(act)}</span>` +
+      `</span>`
+    );
+  });
 
   // 1. PRIORITY: Checkbox indicators (standalone [x], [ ], or followed by status text e.g. [x] Done, [ ] Pending)
   const standaloneCheckboxMatch = cleaned.match(/^(\s*-\s*)?\[\s*([xX✓✔\s])\s*\]\s*$/);
@@ -572,7 +627,7 @@ export function formatTableCellContent(cellText: string): string {
     (cleaned.startsWith('\\[') && cleaned.endsWith('\\]') && cleaned.length > 4)
   ) {
     const math = cleaned.startsWith('$$') ? cleaned.slice(2, -2).trim() : cleaned.slice(2, -2).trim();
-    return renderMathToken(math, false);
+    return renderTableCellMath(math);
   }
 
   // 0b. Exact inline math: $...$ or \(...\)
@@ -581,12 +636,12 @@ export function formatTableCellContent(cellText: string): string {
     (cleaned.startsWith('\\(') && cleaned.endsWith('\\)') && cleaned.length > 4)
   ) {
     const math = cleaned.startsWith('$') ? cleaned.slice(1, -1).trim() : cleaned.slice(2, -2).trim();
-    return renderMathToken(math, false);
+    return renderTableCellMath(math);
   }
 
   // 0c. Standalone pure math equation/expression (e.g. \Delta t = \sqrt{2h/g}, v = u + at, E = mc^2, \lambda = \frac{ax}{D}, etc.)
   if (!cleaned.includes('$') && !cleaned.includes('\uFFF0') && isPureMathString(cleaned)) {
-    return renderMathToken(cleaned, false);
+    return renderTableCellMath(cleaned);
   }
 
   // 1. Exact checkbox indicators: [x] or [X] and [ ]
@@ -603,27 +658,27 @@ export function formatTableCellContent(cellText: string): string {
     return saveCellToken(html);
   });
 
-  // 3. PRIORITY: Extract and render ALL LaTeX math blocks BEFORE color tags or markdown!
-  // This guarantees math formulas inside color pills, bullets, and text are 100% rendered with KaTeX.
+  // 3. PRIORITY: Extract and render ALL LaTeX math blocks with full display style!
+  // This guarantees math formulas inside table cells are 100% rendered with KaTeX in clear, legible display scale.
 
-  // 3a. Display math $$...$$ and \[...\] (rendered compact for table cells)
-  cleaned = cleaned.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => saveCellToken(renderMathToken(math, false)));
-  cleaned = cleaned.replace(/\\\[([\s\S]+?)\\\]/g, (_, math) => saveCellToken(renderMathToken(math, false)));
+  // 3a. Display math $$...$$ and \[...\]
+  cleaned = cleaned.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => saveCellToken(renderTableCellMath(math)));
+  cleaned = cleaned.replace(/\\\[([\s\S]+?)\\\]/g, (_, math) => saveCellToken(renderTableCellMath(math)));
 
   // 3b. Explicit inline math $...$ and \(...\)
-  cleaned = cleaned.replace(/\$([^\$\n]+?)\$/g, (_, math) => saveCellToken(renderMathToken(math, false)));
-  cleaned = cleaned.replace(/\\\(([\s\S]+?)\\\)/g, (_, math) => saveCellToken(renderMathToken(math, false)));
+  cleaned = cleaned.replace(/\$([^\$\n]+?)\$/g, (_, math) => saveCellToken(renderTableCellMath(math)));
+  cleaned = cleaned.replace(/\\\(([\s\S]+?)\\\)/g, (_, math) => saveCellToken(renderTableCellMath(math)));
 
   // 3c. Raw matrix environments \begin{pmatrix}...\end{pmatrix}
   cleaned = cleaned.replace(/(\\begin\{(?:bmatrix|pmatrix|vmatrix|Vmatrix|matrix|aligned|cases|array)\}[\s\S]+?\\end\{(?:bmatrix|pmatrix|vmatrix|Vmatrix|matrix|aligned|cases|array)\})/gi, (match) => {
-    return saveCellToken(renderMathToken(match, false));
+    return saveCellToken(renderTableCellMath(match));
   });
 
   // 3d. Fix dangling single $ math expressions (e.g. "$h^2 > ab" at end of line without closing $)
   if ((cleaned.match(/\$/g) || []).length % 2 === 1) {
     cleaned = cleaned.replace(/\$([a-zA-Z0-9_\\\{\}\^+\-*\/|\s><=]+)(?=[,.;:!?\n]|$)/g, (match, expr) => {
       if (/[a-zA-Z0-9]/.test(expr) && !/^\s*\d+(\.\d+)?\s*$/.test(expr)) {
-        return saveCellToken(renderMathToken(expr.trim(), false));
+        return saveCellToken(renderTableCellMath(expr.trim()));
       }
       return match;
     });
@@ -631,7 +686,7 @@ export function formatTableCellContent(cellText: string): string {
 
   // 3e. Extract unwrapped LaTeX formulas (e.g. \frac{x}{a} \pm \frac{y}{b} = 0, \lim, \int, etc.)
   if (cleaned.includes('\\') || /[a-zA-Z]_[0-9a-zA-Z]/.test(cleaned)) {
-    cleaned = extractUnwrappedLatexExpressions(cleaned, (rendered) => saveCellToken(rendered));
+    cleaned = extractUnwrappedLatexExpressions(cleaned, (rendered, rawMath) => saveCellToken(renderTableCellMath(rawMath || rendered)));
   }
 
   // 3f. Handle isolated commands and Greek letters (\theta, \pm, \implies, etc.)
@@ -705,10 +760,16 @@ export function formatTableCellContent(cellText: string): string {
   cleaned = cleaned.replace(/\\_/g, '_');
   cleaned = cleaned.replace(/(?:[_\-–—]\s+){2,}[_\-–—]/g, '________');
 
-  // 9. Markdown formatting
-  cleaned = cleaned.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-zinc-100">$1</strong>');
+  // 9. Markdown formatting (bold, italic, strikethrough)
+  cleaned = cleaned.replace(/\*\*\s*([^*]+?)\s*\*\*/g, '<strong class="font-bold text-slate-900 dark:text-zinc-100">$1</strong>');
+  cleaned = cleaned.replace(/__\s*([^_]+?)\s*__/g, '<strong class="font-bold text-slate-900 dark:text-zinc-100">$1</strong>');
   cleaned = cleaned.replace(/(?<=^|\s)\*(\S[^*\n]*?\S|\S)\*(?=\s|$|[.,;:!?])/g, '<em>$1</em>');
+  cleaned = cleaned.replace(/(?<=^|\s)_(\S[^_\n]*?\S|\S)_(?=\s|$|[.,;:!?])/g, '<em>$1</em>');
   cleaned = cleaned.replace(/<br\s*\/?>/gi, '<br />');
+
+  // Clean any stray dangling markdown punctuation from cells
+  cleaned = cleaned.replace(/(?<=^|\s)\*{1,4}(?=\s|$)/g, '');
+  cleaned = cleaned.replace(/(?<=^|\s)_{1,4}(?=\s|$)/g, '');
 
   // 10. Multi-bullet formatting: handles bullets like "• item 1 \n • item 2" cleanly
   if (cleaned.includes('•') || cleaned.includes('\n•') || cleaned.includes('\n- ')) {
@@ -864,9 +925,8 @@ export const MathRenderer: React.FC<MathRendererProps> = ({
       return '';
     });
 
-      // Extract JSON widgets (MindMap, InteractiveGraph, InteractiveTable)
-      processed = processed.replace(/```(mindmap|graph|chart|interactive-table)\s*\r?\n([\s\S]*?)```/gi, (_, lang, json) => {
-        const langLower = lang.toLowerCase();
+      // Extract JSON widgets (MindMap, InteractiveGraph, InteractiveTable, function plots)
+      processed = processed.replace(/```(?:mindmap|graph|chart|function|interactive-graph|interactive-table|app-action|json)\s*\r?\n([\s\S]*?)```/gi, (fullBlock, json) => {
         let data: any = null;
         try {
           data = JSON.parse(json.trim());
@@ -877,22 +937,142 @@ export const MathRenderer: React.FC<MathRendererProps> = ({
               .replace(/,\s*([\]}])/g, '$1')
               .replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
             data = JSON.parse(safe);
-          } catch (e) {
-            console.warn(`Could not parse ${langLower} JSON payload:`, e);
-          }
+          } catch {}
         }
 
         if (data && typeof data === 'object') {
-          const id = Date.now().toString() + Math.random().toString().slice(2, 6);
-          const html = `<div id="widget-${id}" class="react-widget-mount my-4 w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800" data-widget-type="${langLower}" data-widget-payload="${encodeURIComponent(JSON.stringify(data))}"></div>`;
-          return saveCodeToken(html);
+          // If it is a Function or Graph or Chart widget
+          if (data.type === 'function' || data.type === 'graph' || data.type === 'chart' || data.functionConfig || data.chartConfig) {
+            const widgetType = data.type === 'chart' ? 'chart' : 'function';
+            const html = `<div class="react-widget-mount my-4 w-full overflow-hidden rounded-[24px] border border-slate-200 dark:border-zinc-800 shadow-xs" data-widget-type="${widgetType}" data-widget-payload="${encodeURIComponent(JSON.stringify(data))}"></div>`;
+            return saveCodeToken(html);
+          }
+
+          if (data.id && (data.label || data.children)) {
+            const html = `<div class="react-widget-mount my-4 w-full overflow-hidden rounded-[24px] border border-slate-200 dark:border-zinc-800 shadow-xs" data-widget-type="mindmap" data-widget-payload="${encodeURIComponent(JSON.stringify(data))}"></div>`;
+            return saveCodeToken(html);
+          }
+
+          if (data.headers && data.rows) {
+            const html = `<div class="react-widget-mount my-4 w-full overflow-hidden rounded-[24px] border border-slate-200 dark:border-zinc-800 shadow-xs" data-widget-type="interactive-table" data-widget-payload="${encodeURIComponent(JSON.stringify(data))}"></div>`;
+            return saveCodeToken(html);
+          }
         }
 
-        // Graceful fallback to formatted code container instead of broken UI
-        const cleanCode = escapeHtml(json.trim());
-        const html = `<div class="my-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#121316] p-4 text-xs font-mono overflow-x-auto"><div class="text-[10px] font-bold text-slate-500 mb-2 uppercase tracking-wider">${langLower} data</div><pre><code>${cleanCode}</code></pre></div>`;
-        return saveCodeToken(html);
+        return fullBlock;
       });
+
+      // Extract unfenced bare JSON function, graph, chart, table, or mindmap payloads
+      // (handles arbitrary nested levels of braces correctly without regex truncation)
+      const parseBalancedBareJson = (source: string): string => {
+        let result = '';
+        let i = 0;
+        while (i < source.length) {
+          const nextOpenBrace = source.indexOf('{', i);
+          if (nextOpenBrace === -1) {
+            result += source.slice(i);
+            break;
+          }
+
+          // Check if before the open brace was line start or newline (allowing whitespace)
+          const before = source.slice(i, nextOpenBrace);
+          const isLineStart = /(?:^|\n)\s*$/.test(before);
+
+          if (!isLineStart) {
+            result += source.slice(i, nextOpenBrace + 1);
+            i = nextOpenBrace + 1;
+            continue;
+          }
+
+          // Walk forward to find balanced closing brace
+          let depth = 0;
+          let inString = false;
+          let escape = false;
+          let closeIndex = -1;
+
+          for (let j = nextOpenBrace; j < source.length; j++) {
+            const ch = source[j];
+            if (escape) {
+              escape = false;
+              continue;
+            }
+            if (ch === '\\') {
+              escape = true;
+              continue;
+            }
+            if (ch === '"') {
+              inString = !inString;
+              continue;
+            }
+            if (!inString) {
+              if (ch === '{') {
+                depth++;
+              } else if (ch === '}') {
+                depth--;
+                if (depth === 0) {
+                  closeIndex = j;
+                  break;
+                }
+              }
+            }
+          }
+
+          if (closeIndex === -1) {
+            result += source.slice(i, nextOpenBrace + 1);
+            i = nextOpenBrace + 1;
+            continue;
+          }
+
+          const candidateJson = source.slice(nextOpenBrace, closeIndex + 1);
+          // Check if candidate looks like our supported widgets
+          if (
+            candidateJson.includes('"functionConfig"') ||
+            candidateJson.includes('"chartConfig"') ||
+            candidateJson.includes('"type"') ||
+            candidateJson.includes('"formula"') ||
+            candidateJson.includes('"headers"')
+          ) {
+            try {
+              let data: any = null;
+              try {
+                data = JSON.parse(candidateJson);
+              } catch {
+                const safe = candidateJson
+                  .replace(/\/\/.*$/gm, '')
+                  .replace(/,\s*([\]}])/g, '$1')
+                  .replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
+                data = JSON.parse(safe);
+              }
+
+              if (data && typeof data === 'object') {
+                if (data.type === 'function' || data.type === 'graph' || data.type === 'chart' || data.functionConfig || data.chartConfig || data.formula) {
+                  const widgetType = (data.type === 'chart' || data.chartConfig) ? 'chart' : 'function';
+                  const html = `<div class="react-widget-mount my-4 w-full overflow-hidden rounded-[24px] border border-slate-200 dark:border-zinc-800 shadow-xs" data-widget-type="${widgetType}" data-widget-payload="${encodeURIComponent(JSON.stringify(data))}"></div>`;
+                  result += before + `\n\n${saveCodeToken(html)}\n\n`;
+                  i = closeIndex + 1;
+                  continue;
+                } else if (data.headers && data.rows) {
+                  const html = `<div class="react-widget-mount my-4 w-full overflow-hidden rounded-[24px] border border-slate-200 dark:border-zinc-800 shadow-xs" data-widget-type="interactive-table" data-widget-payload="${encodeURIComponent(JSON.stringify(data))}"></div>`;
+                  result += before + `\n\n${saveCodeToken(html)}\n\n`;
+                  i = closeIndex + 1;
+                  continue;
+                } else if (data.id && (data.label || data.children)) {
+                  const html = `<div class="react-widget-mount my-4 w-full overflow-hidden rounded-[24px] border border-slate-200 dark:border-zinc-800 shadow-xs" data-widget-type="mindmap" data-widget-payload="${encodeURIComponent(JSON.stringify(data))}"></div>`;
+                  result += before + `\n\n${saveCodeToken(html)}\n\n`;
+                  i = closeIndex + 1;
+                  continue;
+                }
+              }
+            } catch {}
+          }
+
+          result += source.slice(i, nextOpenBrace + 1);
+          i = nextOpenBrace + 1;
+        }
+        return result;
+      };
+
+      processed = parseBalancedBareJson(processed);
 
       // Extract code blocks first to protect them from other parsing
       processed = processed.replace(/```([a-zA-Z0-9_\-\+]*)\n([\s\S]*?)```/g, (_, lang, code) => {
@@ -930,7 +1110,7 @@ export const MathRenderer: React.FC<MathRendererProps> = ({
               `</button>` +
               `<button type="button" data-edit-code="${encodedCode}" data-code-lang="${langLabel}" class="px-2.5 py-1 rounded-md text-blue-400 hover:text-blue-300 hover:bg-blue-950/40 font-semibold flex items-center gap-1.5 transition-all text-[11px] cursor-pointer" title="Prompt Gemini to modify this code">` +
                 `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>` +
-                `<span>Edit with AI</span>` +
+                `<span>Edit</span>` +
               `</button>` +
             `</div>` +
           `</div>` +
@@ -1095,30 +1275,30 @@ export const MathRenderer: React.FC<MathRendererProps> = ({
         const currentFontSize = getPreferredTableFontSize();
         const fontConfig = TABLE_FONT_SIZE_CONFIG[currentFontSize] || TABLE_FONT_SIZE_CONFIG.large;
 
-        // Structured square container with minimal clean square borders and responsive scrolling
+        // Structured container with modern rounded corners, clean borders, and responsive scrolling
         let tableHtml = '<div class="my-4 w-full select-text group/table-export">';
-        tableHtml += '<div class="table-panel-box overflow-x-auto w-full max-w-full rounded-none border border-slate-200/90 dark:border-zinc-800 bg-white dark:bg-[#0c0d14] shadow-xs [scrollbar-width:thin] scrollbar-thin touch-auto overscroll-x-contain">';
+        tableHtml += '<div class="table-panel-box overflow-x-auto w-full max-w-full rounded-[20px] border border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#16181d] shadow-[0_2px_10px_rgba(0,0,0,0.04)] [scrollbar-width:thin] scrollbar-thin touch-auto overscroll-x-contain">';
         tableHtml += `<table class="w-full min-w-full text-left border-collapse ${fontConfig.table} leading-relaxed" data-table-root data-current-size="${currentFontSize}">`;
 
-        // Minimal header with background tint, solid divider, and clear column separation
-        tableHtml += '<thead class="bg-slate-50/90 dark:bg-zinc-800/40 border-b border-slate-200/90 dark:border-zinc-800 select-none">';
-        tableHtml += '<tr class="divide-x divide-slate-200/70 dark:divide-zinc-800/80">';
+        // Modern header strip with clean, distinct contrast and clear column separation
+        tableHtml += '<thead class="bg-[#eceff4] dark:bg-[#1e2129] border-b-2 border-slate-300/80 dark:border-zinc-700 select-none">';
+        tableHtml += '<tr class="divide-x divide-slate-200/80 dark:divide-zinc-700/70">';
         headerCells.forEach((cell, idx) => {
           const isIndex = isIndexColumn(idx);
           const align = isIndex ? 'text-center' : (colAlignments[idx] || 'text-left');
           const widthClass = isIndex
-            ? 'w-[48px] min-w-[48px] max-w-[64px] px-1.5 sm:px-2 py-3 text-center shrink-0'
-            : `${fontConfig.th} min-w-[100px] sm:min-w-[130px] break-words ${align}`;
-          tableHtml += `<th class="${widthClass} text-slate-800 dark:text-zinc-200 font-bold align-top whitespace-normal tracking-tight">`;
+            ? 'w-[48px] min-w-[48px] max-w-[64px] px-2 py-3.5 text-center shrink-0'
+            : `${fontConfig.th} min-w-[110px] sm:min-w-[140px] break-words ${align}`;
+          tableHtml += `<th class="${widthClass} text-slate-900 dark:text-zinc-100 font-bold uppercase tracking-wider text-[12px] sm:text-[13px] py-3.5 sm:py-4 px-4 sm:px-5 align-middle whitespace-normal">`;
           tableHtml += `<span>${formatTableCellContent(cell)}</span>`;
           tableHtml += '</th>';
         });
         tableHtml += '</tr></thead>';
 
-        // Body rows with subtle hover, cell dividers, and crisp padding
+        // Body rows with alternating two-color strips (pure white & clean light gray)
         if (splitBody.length > 0) {
-          tableHtml += '<tbody class="divide-y divide-slate-100 dark:divide-zinc-800/40">';
-          splitBody.forEach((rawCells) => {
+          tableHtml += '<tbody class="divide-y divide-slate-200/70 dark:divide-zinc-800/60">';
+          splitBody.forEach((rawCells, rowIdx) => {
             const cells: string[] = [];
             if (rawCells.length === targetCols) {
               cells.push(...rawCells);
@@ -1134,13 +1314,18 @@ export const MathRenderer: React.FC<MathRendererProps> = ({
               cells.push(rawCells.slice(targetCols - 1).join(' | '));
             }
 
-            tableHtml += '<tr class="divide-x divide-slate-100 dark:divide-zinc-800/30 transition-colors hover:bg-slate-50/70 dark:hover:bg-zinc-800/20">';
+            // Two colored strips: white and light gray
+            const stripeBg = rowIdx % 2 === 0
+              ? 'bg-white dark:bg-[#16181d]'
+              : 'bg-[#f8f9fa] dark:bg-[#1c1e24]';
+
+            tableHtml += `<tr class="${stripeBg} divide-x divide-slate-200/60 dark:divide-zinc-800/40 transition-colors hover:bg-[#edf2f7] dark:hover:bg-[#252830] select-text">`;
             cells.forEach((c, idx) => {
               const isIndex = isIndexColumn(idx);
               const align = isIndex ? 'text-center' : (colAlignments[idx] || 'text-left');
               const cellClasses = isIndex
-                ? 'w-[48px] min-w-[48px] max-w-[64px] px-1.5 py-3 sm:px-2 sm:py-3.5 text-center font-bold text-slate-900 dark:text-zinc-100 align-top shrink-0'
-                : `${fontConfig.td} text-slate-800 dark:text-zinc-200 align-top min-w-[100px] sm:min-w-[130px] break-words ${align}`;
+                ? 'w-[48px] min-w-[48px] max-w-[64px] px-2 py-3.5 text-center font-bold text-slate-900 dark:text-zinc-100 align-middle shrink-0'
+                : `${fontConfig.td} text-slate-800 dark:text-zinc-200 align-middle min-w-[110px] sm:min-w-[140px] break-words ${align}`;
               tableHtml += `<td class="${cellClasses}">${formatTableCellContent(c)}</td>`;
             });
             tableHtml += '</tr>';
@@ -1167,10 +1352,10 @@ export const MathRenderer: React.FC<MathRendererProps> = ({
             tableHtml += '<span class="save-table-note-text">Save<span class="hidden xs:inline sm:inline"> to Note</span></span>';
             tableHtml += '</button>';
 
-            // 3. Edit with AI Button
-            tableHtml += `<button type="button" data-edit-table="${encodedTable}" class="inline-flex items-center gap-1 sm:gap-1.5 px-2 py-1 rounded-md text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors text-[11px] sm:text-xs font-semibold cursor-pointer shrink-0 whitespace-nowrap bg-transparent border-0 shadow-none" title="Edit this table with AI in Canvas Studio">`;
-            tableHtml += '<svg class="w-3.5 h-3.5 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3Z"/></svg>';
-            tableHtml += '<span>Edit<span class="hidden xs:inline sm:inline"> with AI</span></span>';
+            // 3. Edit Button
+            tableHtml += `<button type="button" data-edit-table="${encodedTable}" class="inline-flex items-center gap-1 sm:gap-1.5 px-2 py-1 rounded-md text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors text-[11px] sm:text-xs font-semibold cursor-pointer shrink-0 whitespace-nowrap bg-transparent border-0 shadow-none" title="Edit this table in Canvas Studio">`;
+            tableHtml += '<svg class="w-3.5 h-3.5 text-blue-500 shrink-0 overflow-visible" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg>';
+            tableHtml += '<span>Edit</span>';
             tableHtml += '</button>';
 
             // 4. Retry Button
@@ -1267,6 +1452,23 @@ export const MathRenderer: React.FC<MathRendererProps> = ({
         const trimmedText = (textAfter || '').trim();
         if (trimmedText) return escapeHtml(trimmedText);
         return '';
+      });
+
+      // Clean app-action prefixes e.g. [app-action:LaunchTest] -> [LaunchTest]
+      processed = processed.replace(/\[\s*app-action\s*:\s*([^\]]+)\]/gi, '[$1]');
+
+      // Normalize spaced asterisks or underscores around action badges in chat body
+      processed = processed.replace(/\*[\s*]*(\[(?:LaunchTest|OpenNotes|ViewAnalytics|CreateNew|TakeQuiz|ReviewMistakes|[a-zA-Z0-9_\-\s]{2,30})\])[\s*]*\*/g, '$1');
+      processed = processed.replace(/_[\s_]*(\[(?:LaunchTest|OpenNotes|ViewAnalytics|CreateNew|TakeQuiz|ReviewMistakes|[a-zA-Z0-9_\-\s]{2,30})\])[\s_]*_/g, '$1');
+
+      // Process action buttons in chat body (e.g. [LaunchTest], [OpenNotes], [ViewAnalytics], [CreateNew])
+      processed = processed.replace(/\[\s*(LaunchTest|OpenNotes|ViewAnalytics|CreateNew|TakeQuiz|ReviewMistakes)\s*\](?!\()/gi, (match, actionName) => {
+        const act = actionName.trim();
+        const html = `<span class="inline-flex items-center gap-1.5 px-3 py-1 my-1 rounded-full text-xs font-bold bg-[#d3e3fd]/80 dark:bg-[#004a77]/60 text-[#041e49] dark:text-[#c2e7ff] border-0 select-none shadow-xs whitespace-nowrap align-middle cursor-pointer hover:bg-[#c2e7ff] dark:hover:bg-[#005a92] transition-colors" data-table-action="${escapeHtml(act)}">` +
+          `<span class="w-1.5 h-1.5 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa]"></span>` +
+          `<span>${escapeHtml(act)}</span>` +
+        `</span>`;
+        return saveToken(html, `[${act}]`);
       });
 
       // J. Process inline `code`
@@ -1443,7 +1645,7 @@ export const MathRenderer: React.FC<MathRendererProps> = ({
       return;
     }
 
-    const widgetMounts = el.querySelectorAll('.react-widget-mount:not(.mounted)');
+    const widgetMounts = el.querySelectorAll('.react-widget-mount');
     if (widgetMounts.length === 0) {
       setWidgetPortals((prev) => (prev.length === 0 ? prev : []));
       return;
@@ -1458,14 +1660,14 @@ export const MathRenderer: React.FC<MathRendererProps> = ({
       if (type && payloadEncoded) {
         try {
           const payload = JSON.parse(decodeURIComponent(payloadEncoded));
-          mount.classList.add('mounted');
-          const id = `${type}-${idx}-${Date.now()}`;
+          const id = `${type}-${idx}`;
 
           let node: React.ReactNode = null;
           if (type === 'mindmap') {
             node = <MindMapVisualizer data={payload} />;
-          } else if (type === 'graph' || type === 'chart') {
-            node = <InteractiveGraphWidget type={type as 'chart' | 'function'} {...payload} />;
+          } else if (type === 'graph' || type === 'chart' || type === 'function' || type === 'interactive-graph') {
+            const widgetType = (payload.type === 'chart' || type === 'chart') ? 'chart' : 'function';
+            node = <InteractiveGraphWidget type={widgetType} {...payload} />;
           } else if (type === 'interactive-table') {
             node = <InteractiveTableWidget tableConfig={payload} />;
           }
@@ -1488,6 +1690,25 @@ export const MathRenderer: React.FC<MathRendererProps> = ({
 
     const handleContainerClick = (e: MouseEvent) => {
       const clickTarget = e.target as HTMLElement;
+
+      // Action chip click inside table cells (e.g. [LaunchTest], [OpenNotes], [ViewAnalytics], [CreateNew])
+      const actionChip = clickTarget.closest('[data-table-action]') as HTMLElement | null;
+      if (actionChip) {
+        e.preventDefault();
+        e.stopPropagation();
+        const actionName = actionChip.getAttribute('data-table-action') || '';
+        const lower = actionName.toLowerCase();
+        if (lower.includes('launch') || lower.includes('start') || lower.includes('test')) {
+          window.dispatchEvent(new CustomEvent('gemini-open-test-canvas', { detail: {} }));
+        } else if (lower.includes('note') || lower.includes('formula')) {
+          window.dispatchEvent(new CustomEvent('gemini-switch-tab', { detail: { tab: 'notes' } }));
+        } else if (lower.includes('analytic') || lower.includes('progress')) {
+          window.dispatchEvent(new CustomEvent('gemini-switch-tab', { detail: { tab: 'analytics' } }));
+        } else if (lower.includes('create') || lower.includes('builder')) {
+          window.dispatchEvent(new CustomEvent('gemini-switch-tab', { detail: { tab: 'custom-builder' } }));
+        }
+        return;
+      }
 
       // 0. TABLE FONT SIZE TOGGLE (2 options: A+ and A++ in a single button)
       const fontToggleBtn = clickTarget.closest('button[data-table-font-toggle], button[data-table-font]') as HTMLButtonElement | null;

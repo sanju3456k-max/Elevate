@@ -67,25 +67,47 @@ const DEFAULT_COLORS = ['#0084ff', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '
 function evaluateMathFunction(exprStr: string, xVal: number, params: { a: number; b: number; c: number }): number | null {
   try {
     const { a, b, c } = params;
-    let sanitized = exprStr
+    let sanitized = (exprStr || '')
       .toLowerCase()
+      .trim()
+      // Remove f(x)= or y=
+      .replace(/^(?:f\s*\(\s*x\s*\)|y)\s*=\s*/i, '')
+      // Remove LaTeX backslashes e.g. \tan -> tan, \sin -> sin, \pi -> pi
+      .replace(/\\(sin|cos|tan|cot|sec|csc|exp|ln|log|sqrt|pi)/gi, '$1')
+      .replace(/\\cdot/gi, '*')
       .replace(/\s+/g, '')
+      // Implicit multiplication
       .replace(/(\d)x/g, '$1*x')
       .replace(/(\d)a/g, '$1*a')
       .replace(/(\d)b/g, '$1*b')
       .replace(/(\d)c/g, '$1*c')
+      .replace(/\)\(/g, ')*(')
+      .replace(/(\d)\(/g, '$1*(')
+      .replace(/\)(x|[a-c])/g, ')*$1')
+      // Functions without parentheses e.g. tanx, sinx, cosx, secx, cscx, cotx
+      .replace(/\btanx\b/g, 'tan(x)')
+      .replace(/\bsinx\b/g, 'sin(x)')
+      .replace(/\bcosx\b/g, 'cos(x)')
+      .replace(/\bcotx\b/g, 'cot(x)')
+      .replace(/\bsecx\b/g, 'sec(x)')
+      .replace(/\bcscx\b/g, 'csc(x)')
+      // Powers
       .replace(/x\^(\d+|\([^\)]+\))/g, 'Math.pow(x, $1)')
       .replace(/\^/g, '**')
-      .replace(/sin\(/g, 'Math.sin(')
-      .replace(/cos\(/g, 'Math.cos(')
-      .replace(/tan\(/g, 'Math.tan(')
-      .replace(/exp\(/g, 'Math.exp(')
+      // JS Math functions
+      .replace(/\bsin\(/g, 'Math.sin(')
+      .replace(/\bcos\(/g, 'Math.cos(')
+      .replace(/\btan\(/g, 'Math.tan(')
+      .replace(/\bcot\(/g, '(1/Math.tan(')
+      .replace(/\bsec\(/g, '(1/Math.cos(')
+      .replace(/\bcsc\(/g, '(1/Math.sin(')
+      .replace(/\bexp\(/g, 'Math.exp(')
       .replace(/e\^x/g, 'Math.exp(x)')
-      .replace(/log\(/g, 'Math.log10(')
-      .replace(/ln\(/g, 'Math.log(')
-      .replace(/sqrt\(/g, 'Math.sqrt(')
-      .replace(/abs\(/g, 'Math.abs(')
-      .replace(/pi/g, 'Math.PI');
+      .replace(/\blog\(/g, 'Math.log10(')
+      .replace(/\bln\(/g, 'Math.log(')
+      .replace(/\bsqrt\(/g, 'Math.sqrt(')
+      .replace(/\babs\(/g, 'Math.abs(')
+      .replace(/\bpi\b/g, 'Math.PI');
 
     // Replace parameter variables
     sanitized = sanitized
@@ -98,6 +120,11 @@ function evaluateMathFunction(exprStr: string, xVal: number, params: { a: number
     const val = fn(xVal);
 
     if (typeof val === 'number' && !isNaN(val) && isFinite(val)) {
+      const isAsymptotic = /tan|sec|csc|cot/i.test(exprStr);
+      if (isAsymptotic && Math.abs(val) > 20) {
+        return null;
+      }
+      if (Math.abs(val) > 5000) return null;
       return val;
     }
     return null;
@@ -106,29 +133,48 @@ function evaluateMathFunction(exprStr: string, xVal: number, params: { a: number
   }
 }
 
-export const InteractiveGraphWidget: React.FC<GraphWidgetProps> = ({
-  type = 'function',
-  functionConfig,
-  chartConfig,
-  onExpandToCanvas,
-  isDarkMode = false
-}) => {
+export const InteractiveGraphWidget: React.FC<GraphWidgetProps & Record<string, any>> = (props) => {
+  const {
+    type = 'function',
+    functionConfig,
+    chartConfig,
+    onExpandToCanvas,
+    isDarkMode = false
+  } = props;
+
+  // Seamlessly support either functionConfig object OR root props (formula, title, xDomain, etc.)
+  const effectiveFunctionConfig: FunctionPlotConfig = functionConfig || {
+    formula: props.formula || 'x^2 - 4',
+    title: props.title,
+    xDomain: props.xDomain,
+    a: props.a,
+    b: props.b,
+    c: props.c,
+    showDerivative: props.showDerivative,
+    showIntegralArea: props.showIntegralArea
+  };
+
   // Interactive sliders state for function parameters
-  const [paramA, setParamA] = useState<number>(functionConfig?.a ?? 1);
-  const [paramB, setParamB] = useState<number>(functionConfig?.b ?? 0);
-  const [paramC, setParamC] = useState<number>(functionConfig?.c ?? 0);
-  const [showDerivative, setShowDerivative] = useState<boolean>(functionConfig?.showDerivative ?? false);
-  const [showIntegralArea, setShowIntegralArea] = useState<boolean>(functionConfig?.showIntegralArea ?? false);
-  const [xMin, setXMin] = useState<number>(functionConfig?.xDomain?.[0] ?? -10);
-  const [xMax, setXMax] = useState<number>(functionConfig?.xDomain?.[1] ?? 10);
+  const [paramA, setParamA] = useState<number>(effectiveFunctionConfig?.a ?? 1);
+  const [paramB, setParamB] = useState<number>(effectiveFunctionConfig?.b ?? 0);
+  const [paramC, setParamC] = useState<number>(effectiveFunctionConfig?.c ?? 0);
+  const [showDerivative, setShowDerivative] = useState<boolean>(effectiveFunctionConfig?.showDerivative ?? false);
+  const [showIntegralArea, setShowIntegralArea] = useState<boolean>(effectiveFunctionConfig?.showIntegralArea ?? false);
+  const [xMin, setXMin] = useState<number>(effectiveFunctionConfig?.xDomain?.[0] ?? -10);
+  const [xMax, setXMax] = useState<number>(effectiveFunctionConfig?.xDomain?.[1] ?? 10);
+
+  const formula = effectiveFunctionConfig?.formula || 'x^2 - 4';
+
+  const isAsymptotic = useMemo(() => {
+    return /tan|sec|csc|cot/i.test(formula);
+  }, [formula]);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
 
   // Generate dataset for function plot
   const plotData = useMemo(() => {
     if (type !== 'function') return [];
     
-    const formula = functionConfig?.formula || 'x^2 - 4';
-    const points: Array<{ x: number; y: number; dy?: number | null; yZero?: number }> = [];
+    const points: Array<{ x: number; y: number | null; dy?: number | null; yZero?: number }> = [];
     const step = (xMax - xMin) / 100;
 
     for (let x = xMin; x <= xMax + 0.0001; x += step) {
@@ -145,17 +191,15 @@ export const InteractiveGraphWidget: React.FC<GraphWidgetProps> = ({
         }
       }
 
-      if (yVal !== null) {
-        points.push({
-          x: roundedX,
-          y: Math.round(yVal * 100) / 100,
-          dy: dyVal,
-          yZero: 0
-        });
-      }
+      points.push({
+        x: roundedX,
+        y: yVal !== null ? Math.round(yVal * 100) / 100 : null,
+        dy: dyVal,
+        yZero: 0
+      });
     }
     return points;
-  }, [type, functionConfig?.formula, paramA, paramB, paramC, showDerivative, xMin, xMax]);
+  }, [type, formula, paramA, paramB, paramC, showDerivative, xMin, xMax]);
 
   // Derived properties of the function (zeros, min/max)
   const functionMetrics = useMemo(() => {
@@ -166,12 +210,14 @@ export const InteractiveGraphWidget: React.FC<GraphWidgetProps> = ({
 
     for (let i = 0; i < plotData.length; i++) {
       const { x, y } = plotData[i];
+      if (y === null) continue;
       if (y < minY) minY = y;
       if (y > maxY) maxY = y;
 
-      if (i > 0) {
-        const prevY = plotData[i - 1].y;
-        if ((prevY <= 0 && y >= 0) || (prevY >= 0 && y <= 0)) {
+      if (i > 0 && plotData[i - 1].y !== null) {
+        const prevY = plotData[i - 1].y!;
+        // Don't register asymptotic jump as zero crossing
+        if (!isAsymptotic && ((prevY <= 0 && y >= 0) || (prevY >= 0 && y <= 0))) {
           zeros.push(x);
         }
       }
@@ -183,14 +229,14 @@ export const InteractiveGraphWidget: React.FC<GraphWidgetProps> = ({
       zerosCount: zeros.length,
       sampleZeros: zeros.slice(0, 3)
     };
-  }, [plotData]);
+  }, [plotData, isAsymptotic]);
 
   const resetParams = () => {
-    setParamA(functionConfig?.a ?? 1);
-    setParamB(functionConfig?.b ?? 0);
-    setParamC(functionConfig?.c ?? 0);
-    setXMin(functionConfig?.xDomain?.[0] ?? -10);
-    setXMax(functionConfig?.xDomain?.[1] ?? 10);
+    setParamA(effectiveFunctionConfig?.a ?? 1);
+    setParamB(effectiveFunctionConfig?.b ?? 0);
+    setParamC(effectiveFunctionConfig?.c ?? 0);
+    setXMin(effectiveFunctionConfig?.xDomain?.[0] ?? -10);
+    setXMax(effectiveFunctionConfig?.xDomain?.[1] ?? 10);
   };
 
   const axisStroke = isDarkMode ? '#64748b' : '#94a3b8';
@@ -211,7 +257,7 @@ export const InteractiveGraphWidget: React.FC<GraphWidgetProps> = ({
           <div className="min-w-0">
             <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100 truncate flex items-center gap-2">
               {type === 'function' 
-                ? (functionConfig?.title || `Interactive Function Plot: f(x) = ${functionConfig?.formula || 'x^2'}`)
+                ? (effectiveFunctionConfig?.title || `Interactive Function Plot: f(x) = ${formula}`)
                 : (chartConfig?.title || 'Data Visualization')
               }
               <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-[#0084ff]/10 dark:bg-[#0084ff]/20 text-[#0084ff] dark:text-[#339dff] shrink-0">
@@ -253,8 +299,8 @@ export const InteractiveGraphWidget: React.FC<GraphWidgetProps> = ({
         {type === 'function' ? (
           <div className="space-y-3">
             {/* Recharts Function Plot */}
-            <div className="h-64 sm:h-72 w-full pt-2">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-64 sm:h-72 w-full pt-2 min-h-[260px]">
+              <ResponsiveContainer width="100%" height="100%" minHeight={260}>
                 <AreaChart data={plotData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorY" x1="0" y1="0" x2="0" y2="1">
@@ -275,7 +321,13 @@ export const InteractiveGraphWidget: React.FC<GraphWidgetProps> = ({
                     tickLine={false}
                     domain={[xMin, xMax]}
                   />
-                  <YAxis stroke={axisStroke} fontSize={11} tickLine={false} />
+                  <YAxis 
+                    stroke={axisStroke} 
+                    fontSize={11} 
+                    tickLine={false} 
+                    domain={isAsymptotic ? [-12, 12] : ['auto', 'auto']}
+                    allowDataOverflow={isAsymptotic}
+                  />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: isDarkMode ? '#1e202e' : '#ffffff',
@@ -306,6 +358,7 @@ export const InteractiveGraphWidget: React.FC<GraphWidgetProps> = ({
                     strokeWidth={2.5}
                     fillOpacity={1}
                     fill="url(#colorY)"
+                    connectNulls={false}
                     activeDot={{ r: 6, stroke: '#0084ff', strokeWidth: 2, fill: '#ffffff' }}
                   />
 
@@ -430,7 +483,13 @@ export const InteractiveGraphWidget: React.FC<GraphWidgetProps> = ({
                 <BarChart data={chartConfig.data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.6} />
                   <XAxis dataKey={chartConfig.xKey} stroke={axisStroke} fontSize={11} tickLine={false} />
-                  <YAxis stroke={axisStroke} fontSize={11} tickLine={false} />
+                  <YAxis 
+                    stroke={axisStroke} 
+                    fontSize={11} 
+                    tickLine={false} 
+                    domain={isAsymptotic ? [-12, 12] : ['auto', 'auto']}
+                    allowDataOverflow={isAsymptotic}
+                  />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: isDarkMode ? '#1e202e' : '#ffffff',
@@ -482,7 +541,13 @@ export const InteractiveGraphWidget: React.FC<GraphWidgetProps> = ({
                 <LineChart data={chartConfig?.data || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} opacity={0.6} />
                   <XAxis dataKey={chartConfig?.xKey || 'name'} stroke={axisStroke} fontSize={11} tickLine={false} />
-                  <YAxis stroke={axisStroke} fontSize={11} tickLine={false} />
+                  <YAxis 
+                    stroke={axisStroke} 
+                    fontSize={11} 
+                    tickLine={false} 
+                    domain={isAsymptotic ? [-12, 12] : ['auto', 'auto']}
+                    allowDataOverflow={isAsymptotic}
+                  />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: isDarkMode ? '#1e202e' : '#ffffff',

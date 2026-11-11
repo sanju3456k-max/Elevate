@@ -8,7 +8,9 @@ import {
   Trash2, 
   MessageSquare, 
   Cloud, 
-  CloudOff 
+  CloudOff,
+  Settings2,
+  X
 } from 'lucide-react';
 import { ChatSession, GeminiModelTier } from '../types';
 
@@ -27,6 +29,10 @@ interface GeminiChatSidebarProps {
   handleDeleteSession: (sessionId: string, e: React.MouseEvent) => void;
   activeSessionHasMessages: boolean;
   hasSessions: boolean;
+  selectedModel?: GeminiModelTier;
+  onOpenModelDropdown?: () => void;
+  onOpenPersonaSettings?: () => void;
+  activeRoleName?: string;
 }
 
 export const GeminiChatSidebar: React.FC<GeminiChatSidebarProps> = ({
@@ -43,7 +49,11 @@ export const GeminiChatSidebar: React.FC<GeminiChatSidebarProps> = ({
   setSelectedModel,
   handleDeleteSession,
   activeSessionHasMessages,
-  hasSessions
+  hasSessions,
+  selectedModel = 'gemini-3.1-flash-lite',
+  onOpenModelDropdown,
+  onOpenPersonaSettings,
+  activeRoleName = 'Theta AI Tutor'
 }) => {
   return (
     <aside
@@ -78,35 +88,24 @@ export const GeminiChatSidebar: React.FC<GeminiChatSidebarProps> = ({
         </button>
       </div>
 
-      <div className="p-4 space-y-3 bg-white dark:bg-[#1e2024] border-b border-slate-100 dark:border-zinc-800/80 shrink-0">
-        <button
-          onClick={() => {
-            handleNewChat();
-            setIsSidebarOpen(false);
-          }}
-          className="w-full h-11 px-5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white font-bold text-xs tracking-wide shadow-[0_2px_6px_rgba(11,87,208,0.25)] flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-all select-none border-0 outline-none"
-        >
-          <Plus className="w-4.5 h-4.5 stroke-[2.5]" />
-          <span>New Conversation</span>
-        </button>
-
-        {/* Search conversations */}
+      <div className="p-3 sm:p-4 bg-white dark:bg-[#1e2024] border-b border-slate-100 dark:border-zinc-800/80 shrink-0">
+        {/* Search, Clear Messages & New Conversation in ONE ROW */}
         <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <div className="h-10 w-full rounded-full bg-[#f0f4f9] dark:bg-[#141619] flex items-center px-4 gap-2.5 border-0 shadow-none transition-all">
+          <div className="relative flex-1 min-w-0">
+            <div className="h-10 w-full rounded-full bg-[#f0f4f9] dark:bg-[#141619] flex items-center px-3.5 gap-2 border-0 shadow-none transition-all">
               <Search className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0 stroke-[2.2]" />
               <input
                 type="text"
                 value={historySearchQuery}
                 onChange={(e) => setHistorySearchQuery(e.target.value)}
                 placeholder="Search chats..."
-                className="w-full bg-transparent text-xs text-[#1f1f1f] dark:text-[#e3e3e3] placeholder-[#5e5e5e]/70 dark:placeholder-[#9aa0a6]/70 border-0 outline-none focus:ring-0 font-normal"
+                className="w-full bg-transparent text-xs text-[#1f1f1f] dark:text-[#e3e3e3] placeholder-[#5e5e5e]/70 dark:placeholder-[#9aa0a6]/70 border-0 outline-none focus:ring-0 font-normal min-w-0"
               />
               {historySearchQuery && (
                 <button
                   type="button"
                   onClick={() => setHistorySearchQuery('')}
-                  className="w-6 h-6 rounded-full bg-transparent hover:bg-[#1f1f1f]/8 dark:hover:bg-[#e3e3e3]/8 text-[#5e5e5e] dark:text-[#9aa0a6] flex items-center justify-center transition-all cursor-pointer border-0 shrink-0"
+                  className="w-5 h-5 rounded-full bg-transparent hover:bg-[#1f1f1f]/8 dark:hover:bg-[#e3e3e3]/8 text-[#5e5e5e] dark:text-[#9aa0a6] flex items-center justify-center transition-all cursor-pointer border-0 shrink-0"
                   title="Clear search"
                 >
                   <X className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -116,22 +115,27 @@ export const GeminiChatSidebar: React.FC<GeminiChatSidebarProps> = ({
           </div>
           {activeSessionHasMessages && (
             <button
+              type="button"
               onClick={handleClearCurrentChat}
               className="w-10 h-10 rounded-full bg-[#f0f4f9] dark:bg-[#141619] hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950/40 text-[#5e5e5e] dark:text-[#9aa0a6] border-0 shadow-none flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0"
               title="Clear messages in current chat"
+              aria-label="Clear messages in current chat"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw className="w-4 h-4 stroke-[2.2]" />
             </button>
           )}
-          {hasSessions && (
-            <button
-              onClick={handleDeleteAllSessions}
-              className="w-10 h-10 rounded-full bg-[#f0f4f9] dark:bg-[#141619] hover:bg-red-50 hover:text-[#ba1a1a] dark:hover:bg-red-950/40 text-[#5e5e5e] dark:text-[#9aa0a6] border-0 shadow-none flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0"
-              title="Delete all chat history"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              handleNewChat();
+              setIsSidebarOpen(false);
+            }}
+            className="w-10 h-10 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white flex items-center justify-center shadow-[0_2px_6px_rgba(11,87,208,0.25)] cursor-pointer active:scale-95 transition-all select-none border-0 outline-none shrink-0"
+            title="New Conversation"
+            aria-label="New Conversation"
+          >
+            <Plus className="w-5 h-5 stroke-[2.5]" />
+          </button>
         </div>
       </div>
 
@@ -196,23 +200,6 @@ export const GeminiChatSidebar: React.FC<GeminiChatSidebarProps> = ({
                     type="button"
                     onClick={(e) => handleDeleteSession(session.id, e)}
                     className="w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 text-[#5e5e5e] dark:text-[#9aa0a6] hover:text-[#ba1a1a] dark:hover:text-[#ffb4ab] hover:bg-red-50 dark:hover:bg-red-950/40 transition-all cursor-pointer border-0 bg-transparent shrink-0"
-                    title="Delete chat"
-                    aria-label="Delete conversation"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-                <div className="flex items-center gap-1 shrink-0 ml-1">
-                  <button
-                    type="button"
-                    onClick={(e) => handleDeleteSession(session.id, e)}
-                    className="w-8 h-8 rounded-full flex items-center justify-center opacity-60 group-hover:opacity-100 text-[#5e5e5e] dark:text-[#9aa0a6] hover:text-[#ba1a1a] dark:hover:text-[#ffb4ab] hover:bg-[#ba1a1a]/10 dark:hover:bg-[#ba1a1a]/20 transition-all cursor-pointer"
                     title="Delete chat"
                     aria-label="Delete conversation"
                   >

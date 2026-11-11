@@ -1072,7 +1072,9 @@ router5.post(["/", "/chatbot"], async (req, res) => {
     selectedTestId = null,
     sessionDocuments = [],
     stagedQuestions = [],
-    appContext = null
+    appContext = null,
+    enableCodeExecution = false,
+    usePython = false
   } = req.body;
   const requestedModelStr = directSelectedModel || modelTier || model || "gemini-flash-lite-latest";
   let selectedModel = "gemini-flash-lite-latest";
@@ -1176,7 +1178,10 @@ You can ask me to **solve math and science problems**, **plot 2D/3D functions**,
     const isTargetedImageEdit = latestUserMsg.includes("[TARGETED IMAGE EDIT MODE]") || latestUserMsg.includes("[TARGETED EDIT MODE]") && (latestUserMsg.toLowerCase().includes("visual image") || latestUserMsg.toLowerCase().includes("generated image") || latestUserMsg.toLowerCase().includes("regarding the generated visual") || latestUserMsg.toLowerCase().includes("update image") || latestUserMsg.toLowerCase().includes("modify this image") || latestUserMsg.toLowerCase().includes("edit this image"));
     const isExplicitImageKeyword = /(generate|create|imagine|render|draw|paint|make|produce)\s+(an?\s+)?(new\s+|updated\s+|alternative\s+)?(image|picture|photo|illustration|drawing|painting|visual\s+artwork|graphic|portrait|wallpaper|scene)\b|^(imagine|draw|paint)\s+(a|an|the|me)?|visual\s+variation|edit\s+this\s+image|modify\s+this\s+image|visual\s+adjustments|photorealistic|cyberpunk\s+art|watercolor\s+painting|minimalist\s+vector/i.test(latestUserMsg);
     isImageGenerationRequest = isExplicitImageCommand || isTargetedImageEdit || isExplicitImageKeyword;
-    const isExplicitPythonPlotRequest = /\b(matplotlib|python\s*plot|visual\s*figure\s*plot|run\s*python|execute\s*python|python\s+code|python\s+script|numpy\s+plot|scipy|sympy\s+plot|code\s*execut|calculate\s*pi)\b/i.test(latestUserMsg) || /\b(plot\s+the|plot\s+a|draw\s+a\s+(graph|chart|plot)|graph\s+of|curve\s+of|plot\s+of|scatter\s*plot|vector\s*field|contour\s*plot|3d\s*(surface|mesh)|polar\s*plot|phase\s*portrait|function\s*f\(x\))\b/i.test(latestUserMsg);
+    const isExplicitPythonCommand = /\b(matplotlib|python\s*plot|visual\s*figure\s*plot|run\s*python|execute\s*python|python\s+code|python\s+script|numpy\s+plot|scipy|sympy\s+plot|code\s*execut|calculate\s*pi)\b/i.test(latestUserMsg);
+    const isMathPlotIntent = /\b(plot|graph|draw|sketch|visualize|render|generate|make|show)\b/i.test(latestUserMsg) && /\b(tan|sin|cos|cot|sec|csc|tanx|sinx|cosx|cotx|secx|cscx|ln|log|exp|sqrt|func|function|curve|equation|formula|asymptote|quadrant|parabola|hyperbola|ellipse|circle|distribution|normal|gaussian|f\(x\)|y\s*=|x\^|graph|plot|diagram|figure|axes|axis)\b/i.test(latestUserMsg);
+    const isImageOfGraph = /\b(image|picture|figure|visual|diagram)\s+of\s+(a\s+)?(graph|plot|curve|function)\b/i.test(latestUserMsg) || /\b(make|generate|produce|show|create)\s+.*?(image|visual|figure)\s+of\s+.*?(graph|plot)\b/i.test(latestUserMsg);
+    const isExplicitPythonPlotRequest = Boolean(enableCodeExecution || usePython) || isExplicitPythonCommand;
     const needsCodeExecution = isExplicitPythonPlotRequest;
     const isDiscussingTests = /(test|quiz|question|exam|library|score|attempt|derive|problem|review\s*q|discuss\s*q|generate|create|make\s*(a\s*)?test|update\s*(a\s*)?test|edit\s*(a\s*)?test|add\s*question|modify\s*(a\s*)?test|new\s*test|custom\s*test)/i.test(latestUserMsg);
     const baseInstruction = effectiveInstruction ? effectiveInstruction : ROLE_INSTRUCTIONS[effectiveRole] || ROLE_INSTRUCTIONS.general_tutor;
@@ -1191,8 +1196,9 @@ You have an integrated real-time sandboxed Python Code Execution engine equipped
 When the user requests any plot, graph, chart, geometry drawing, mathematical curve, 3D surface, vector field, or math visual diagram:
 1. NEVER say "As an AI, I cannot draw or generate images". You have a full Python Matplotlib renderer!
 2. ALWAYS execute clean, standalone Python code using the \`codeExecution\` tool to generate the figure.
-3. CRITICAL MANDATE: DO NOT output raw markdown code blocks in your text response! The Python script is automatically executed in the tool call and stored for the Canva page Code button. Output only a brief, clean conversational summary in text.
-3. ADHERE TO ULTRA-PREMIUM MODERN PUBLICATION-GRADE SCIENTIFIC AESTHETICS:
+3. MANDATORY: ALWAYS call \`plt.show()\` at the very end of your Python code script! Calling \`plt.show()\` is strictly required so that the platform captures the plot and automatically renders it as an authentic high-resolution diagram image for the user.
+4. CRITICAL MANDATE: DO NOT output raw markdown code blocks in your text response! The Python script is automatically executed in the tool call and stored for the Canva page Code button. Output only a brief, clean conversational summary in text.
+5. ADHERE TO ULTRA-PREMIUM MODERN PUBLICATION-GRADE SCIENTIFIC AESTHETICS:
    - High-DPI Resolution & Sharpness:
      * Initialize with \`plt.figure(figsize=(10, 6), dpi=300)\` or \`fig, ax = plt.subplots(figsize=(10, 6), dpi=300)\`.
      * For multi-panel plots, use \`fig, axes = plt.subplots(nrows, ncols, figsize=(12, 5 * nrows), dpi=300)\`.
@@ -1249,14 +1255,29 @@ Whenever presenting comparisons, benchmarks, specifications, summaries, or struc
    - Use [trend:up], [trend:down], [trend:flat] for trend indicators.
 5. MATHEMATICAL RIGOR:
    - Wrap all mathematical expressions and symbols inside tables in LaTeX delimiters (e.g. $f(x) = x^2$, $\\alpha$).
-6. Empty or non-applicable values should use \u2014 or N/A instead of blank spaces.`;
+6. Empty or non-applicable values should use \u2014 or N/A instead of blank spaces.
+7. Clean typography: NEVER output broken, spaced, or fragmented markdown formatting (e.g. do NOT write "* * [Action] * *", write clean bold actions like "**[Action]**" or plain text).`;
     const interactiveWidgetDirective = `
-=== INTERACTIVE UI WIDGETS DIRECTIVE ===
+=== INTERACTIVE UI WIDGETS & FUNCTION PLOTTING DIRECTIVE ===
 You can embed interactive rich React components seamlessly in your markdown!
-If the user requests a mind map, interactive function graph, or an interactive data table, output the exact JSON format in a markdown code block.
+When the user requests any function plot, curve, or mathematical graph (e.g. "plot tanx graph pls", "plot a tanx quadrent mix graph", "plot sin(x)", "plot f(x) = x^2 - 4"):
+ALWAYS output the interactive function graph component using a \`\`\`graph code block with valid JSON:
+\`\`\`graph
+{
+  "type": "function",
+  "functionConfig": {
+    "formula": "tan(x)",
+    "title": "Tangent Function: f(x) = tan(x)",
+    "xDomain": [-6.28, 6.28],
+    "showDerivative": true,
+    "showIntegralArea": false
+  }
+}
+\`\`\`
+Along with the graph widget, provide a concise, high-yield mathematical summary of the function's analytical properties (domain, range, asymptotes, periodicity, quadrant behavior, roots) in standard LaTeX math ($...$).
 
 1. MIND MAP VISUALIZER
-For mapping concepts, taxonomies, or hierarchies.
+For mapping concepts, taxonomies, or hierarchies:
 \`\`\`mindmap
 {
   "id": "root",
@@ -1268,23 +1289,8 @@ For mapping concepts, taxonomies, or hierarchies.
 }
 \`\`\`
 
-2. INTERACTIVE FUNCTION GRAPH
-For plotting interactive mathematical functions.
-\`\`\`graph
-{
-  "type": "function",
-  "functionConfig": {
-    "formula": "x^2 - 4*x + 3",
-    "title": "Parabola Demo",
-    "xDomain": [-10, 10],
-    "showDerivative": true,
-    "showIntegralArea": false
-  }
-}
-\`\`\`
-
-3. INTERACTIVE DATA TABLE
-For large, sortable datasets.
+2. INTERACTIVE DATA TABLE
+For large, sortable datasets:
 \`\`\`interactive-table
 {
   "title": "Comparison Table",
@@ -1292,6 +1298,11 @@ For large, sortable datasets.
   "rows": [["Item A", "10"], ["Item B", "20"]]
 }
 \`\`\`
+
+CRITICAL MANDATES:
+- NEVER output bare, un-fenced JSON objects or raw app-action codes directly into your conversational chat response!
+- ALWAYS wrap interactive widget JSON strictly inside a \`\`\`graph, \`\`\`mindmap, or \`\`\`interactive-table code block so the visual plotter renders smoothly.
+- NEVER leak backend app actions or raw internal parameters in chat text.
 `;
     const formattingEnhancements = `
 You are the official-grade Gemini STEM Tutor & Test Assistant.
@@ -1866,7 +1877,8 @@ ${decoded.slice(0, 5e4)}`
             parsedParts.push({ type: "text", text: response.text });
           }
         }
-        if (isImageGenerationRequest && generatedImages.length === 0) {
+        const requestedVisual = isImageGenerationRequest || needsCodeExecution && !executableCodeList.some((c) => c.code.includes("plt.show")) || isMathPlotIntent && generatedImages.length === 0;
+        if ((isImageGenerationRequest || requestedVisual) && generatedImages.length === 0) {
           try {
             const { prompt: targetVisualPrompt, aspectRatio, style } = parseVisualPromptAndOptions(latestUserMsg);
             const aiImg = await generateImageVisualUrl(ai, targetVisualPrompt, { aspectRatio, style });

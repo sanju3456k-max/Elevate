@@ -1202,4 +1202,50 @@
   box-shadow: 0 4px 16px rgba(168, 199, 250, 0.15);
 }
 
+/* ==========================================================================
+   Full Display Style & Typography for LaTeX Math in Tables
+   ========================================================================== */
+.table-cell-math,
+.table-cell-math-content .inline-math,
+[data-table-root] .inline-math,
+.table-panel-box .inline-math,
+table td .inline-math {
+  display: inline-flex !important;
+  align-items: center !important;
+  vertical-align: middle !important;
+  max-width: 100% !important;
+  line-height: normal !important;
+}
+
+.table-cell-math .katex,
+.table-cell-math-content .katex,
+[data-table-root] .katex,
+.table-panel-box .katex,
+table td .katex {
+  font-size: 1.05em !important;
+  line-height: normal !important;
+}
+
+/* Ensure fractions, integrals, and limits in table cells do not shrink to cramped textstyle */
+.table-cell-math .katex .mfrac,
+.table-cell-math-content .katex .mfrac,
+[data-table-root] .katex .mfrac,
+.table-panel-box .katex .mfrac,
+table td .katex .mfrac {
+  font-size: 1em !important;
+  margin: 0.15em 0 !important;
+}
+
+.table-cell-math .katex .mopen,
+.table-cell-math .katex .mclose,
+.table-cell-math-content .katex .mopen,
+.table-cell-math-content .katex .mclose,
+[data-table-root] .katex .mopen,
+[data-table-root] .katex .mclose,
+table td .katex .mopen,
+table td .katex .mclose {
+  font-size: 1.05em !important;
+}
+
+
 

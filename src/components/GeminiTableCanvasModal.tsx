@@ -629,51 +629,51 @@ export const GeminiTableCanvasModal: React.FC<GeminiTableCanvasModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 bg-[#f8fafc] dark:bg-[#0c0d12] text-slate-900 dark:text-zinc-100 flex flex-col animate-in fade-in duration-200 select-none"
+      className="fixed inset-0 z-50 bg-[#f8fafd] dark:bg-[#0c0d12] text-slate-900 dark:text-zinc-100 flex flex-col animate-in fade-in duration-200 select-none"
     >
-      {/* Top Header Bar - Zero Borders */}
-      <header className="flex items-center justify-between gap-2 px-3 sm:px-6 py-2.5 sm:py-3 bg-white dark:bg-[#13141a] shrink-0">
+      {/* Top Header Bar - Clean PrepLens M3 Styling */}
+      <header className="flex items-center justify-between gap-2 px-3 sm:px-6 py-2.5 sm:py-3 bg-white dark:bg-[#13141a] border-0 shrink-0 shadow-none">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all cursor-pointer active:scale-95 shrink-0 -ml-1 mr-0.5"
+            className="w-9 h-9 rounded-full flex items-center justify-center bg-[#edf2f9] hover:bg-[#e1e9f5] dark:bg-[#26282e] dark:hover:bg-[#30333b] text-[#5e5e5e] hover:text-[#1f1f1f] dark:text-[#c4c7c5] dark:hover:text-[#e3e3e3] cursor-pointer transition-all active:scale-95 shrink-0 -ml-1 mr-0.5"
             title="Back to Chat (Esc)"
             aria-label="Back to Chat"
           >
-            <ArrowLeft className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+            <ArrowLeft className="w-4.5 h-4.5 stroke-[2.2]" />
           </button>
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-            <FileSpreadsheet className="w-4 h-4 sm:w-5 sm:h-5" />
+          <div className="w-9 h-9 rounded-full bg-[#d3e3fd] text-[#0b57d0] dark:bg-[#004a77] dark:text-[#c2e7ff] flex items-center justify-center shrink-0">
+            <FileSpreadsheet className="w-4.5 h-4.5" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <h1 className="text-xs sm:text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
+              <h1 className="text-sm sm:text-base font-bold text-[#1f1f1f] dark:text-[#e3e3e3] tracking-tight truncate">
                 Table Canvas Studio
               </h1>
-              <span className="hidden sm:inline-flex px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold shrink-0 whitespace-nowrap">
-                Interactive Live View
+              <span className="hidden sm:inline-flex px-2.5 py-0.5 rounded-full bg-[#e8f0fe] dark:bg-[#1f2b42] text-[#0b57d0] dark:text-[#a8c7fa] text-[11px] font-semibold shrink-0 whitespace-nowrap">
+                Live Studio
               </span>
             </div>
-            <p className="hidden xs:block text-[11px] sm:text-xs text-slate-500 dark:text-zinc-400 truncate">
+            <p className="hidden xs:block text-xs text-[#5e5e5e] dark:text-[#9aa0a6] truncate">
               {hasValidTable ? `${sortedRows.length} ${sortedRows.length === 1 ? 'row' : 'rows'} • ${headers.length} columns` : 'Formatted Data View'}
               {searchQuery && ` (filtered from ${rows.length})`}
             </p>
           </div>
         </div>
 
-        {/* Center/Right Toolbar - Zero Borders */}
+        {/* Center/Right Toolbar */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           {/* Table Font Size Toggle: 2 font options (A+ and A++) in a single button */}
           <button
             type="button"
             onClick={() => handleSetFontSize(tableFontSize === 'large' ? 'xlarge' : 'large')}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 text-xs font-semibold transition-all cursor-pointer shadow-2xs select-none active:scale-95"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#edf2f9] hover:bg-[#e1e9f5] dark:bg-[#26282e] dark:hover:bg-[#30333b] text-[#444746] dark:text-[#c4c7c5] text-xs font-semibold transition-all cursor-pointer select-none active:scale-95"
             title="Toggle table font size (A+ / A++)"
           >
-            <span className={tableFontSize === 'large' ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-zinc-500 font-normal'}>A+</span>
+            <span className={tableFontSize === 'large' ? 'font-bold text-[#0b57d0] dark:text-[#a8c7fa]' : 'text-slate-400 dark:text-zinc-500 font-normal'}>A+</span>
             <span className="text-slate-300 dark:text-zinc-600 text-[10px]">/</span>
-            <span className={tableFontSize === 'xlarge' ? 'font-bold text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-zinc-500 font-normal'}>A++</span>
+            <span className={tableFontSize === 'xlarge' ? 'font-bold text-[#0b57d0] dark:text-[#a8c7fa]' : 'text-slate-400 dark:text-zinc-500 font-normal'}>A++</span>
           </button>
 
           {/* Search Input */}
@@ -685,7 +685,7 @@ export const GeminiTableCanvasModal: React.FC<GeminiTableCanvasModalProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search table..."
-                className="pl-8 pr-3 py-1.5 text-xs rounded-full bg-slate-100 dark:bg-zinc-800/80 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 w-24 xs:w-32 sm:w-48 transition-all"
+                className="pl-8 pr-3 py-1.5 text-xs rounded-full bg-[#edf2f9] dark:bg-[#212328] text-[#1f1f1f] dark:text-[#e3e3e3] placeholder-[#747775] dark:placeholder-[#8e918f] focus:outline-none focus:ring-2 focus:ring-blue-500/30 w-24 xs:w-32 sm:w-48 transition-all border-0"
               />
               {searchQuery && (
                 <button 
@@ -702,14 +702,14 @@ export const GeminiTableCanvasModal: React.FC<GeminiTableCanvasModalProps> = ({
           <button
             type="button"
             onClick={() => setShowCodeDrawer(!showCodeDrawer)}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer active:scale-95 ${
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer active:scale-95 ${
               showCodeDrawer
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200'
+                ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49]'
+                : 'bg-[#edf2f9] hover:bg-[#e1e9f5] text-[#444746] dark:bg-[#26282e] dark:hover:bg-[#30333b] dark:text-[#c4c7c5]'
             }`}
             title="Toggle Table Code & Live Editor"
           >
-            <Code2 className="w-3.5 h-3.5 text-blue-500" />
+            <Code2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
             <span>Code</span>
           </button>
 
@@ -717,15 +717,15 @@ export const GeminiTableCanvasModal: React.FC<GeminiTableCanvasModalProps> = ({
           <button
             type="button"
             onClick={handleCopyMarkdown}
-            className="p-2 sm:px-3.5 sm:py-1.5 rounded-full bg-slate-100 hover:bg-slate-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+            className="p-2 sm:px-3.5 sm:py-1.5 rounded-full bg-[#edf2f9] hover:bg-[#e1e9f5] dark:bg-[#26282e] dark:hover:bg-[#30333b] text-[#444746] dark:text-[#c4c7c5] text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
             title="Copy Table"
           >
             {copiedMd ? <Check className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />}
             <span className="hidden md:inline">{copiedMd ? 'Copied' : 'Copy'}</span>
           </button>
 
-          {/* Desktop Zoom Controls (Hidden on Mobile, shown on Desktop md screens and up) */}
-          <div className="hidden md:flex items-center p-0.5 rounded-full bg-slate-100 dark:bg-zinc-800/80">
+          {/* Desktop Zoom Controls */}
+          <div className="hidden md:flex items-center p-0.5 rounded-full bg-[#edf2f9] dark:bg-[#26282e]">
             <button
               type="button"
               onClick={() => setZoomLevel(prev => Math.max(0.4, Number((prev - 0.2).toFixed(2))))}
@@ -778,7 +778,7 @@ export const GeminiTableCanvasModal: React.FC<GeminiTableCanvasModalProps> = ({
               <div className="w-full rounded-none border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#0c0d14] overflow-hidden shadow-xs">
                 <div className="overflow-x-auto w-full max-w-full pb-1 touch-auto [scrollbar-width:thin] scrollbar-thin">
                   <table className={`w-full min-w-full text-left border-collapse ${TABLE_FONT_SIZE_CONFIG[tableFontSize].table}`}>
-                    <thead className="bg-slate-50/90 dark:bg-[#12141c]/90 text-slate-500 dark:text-zinc-400 font-semibold uppercase tracking-wider select-none sticky top-0 z-10 border-b border-slate-200/70 dark:border-zinc-800/80 backdrop-blur-xs">
+                    <thead className="bg-[#eceff4] dark:bg-[#1e2129] text-slate-900 dark:text-zinc-100 font-bold uppercase tracking-wider select-none sticky top-0 z-10 border-b-2 border-slate-300/80 dark:border-zinc-700 backdrop-blur-xs text-[12px] sm:text-[13px]">
                       <tr>
                         {headers.map((head, idx) => {
                           const isSorted = sortCol === idx;
@@ -825,7 +825,7 @@ export const GeminiTableCanvasModal: React.FC<GeminiTableCanvasModalProps> = ({
                         sortedRows.map((row, rIdx) => (
                           <tr 
                             key={rIdx} 
-                            className="hover:bg-slate-50/60 dark:hover:bg-zinc-800/20 transition-colors group"
+                            className={`transition-colors group hover:bg-blue-50/40 dark:hover:bg-blue-950/20 ${rIdx % 2 === 0 ? 'bg-white dark:bg-[#16181d]' : 'bg-[#f8f9fa] dark:bg-[#1c1e24]'}`}
                           >
                             {row.map((cell, cIdx) => {
                               const isEditingThisCell = editingCell?.rowIndex === rIdx && editingCell?.colIndex === cIdx;
@@ -1150,13 +1150,13 @@ export const GeminiTableCanvasModal: React.FC<GeminiTableCanvasModalProps> = ({
       )}
     </div>
 
-      {/* Bottom Floating AI Prompt Bar - Zero Borders */}
-      <footer className="p-3 sm:p-4 bg-white dark:bg-[#13141a] shrink-0">
-        <div className="max-w-4xl mx-auto space-y-2">
-          {/* Quick chips with thin borders */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-zinc-400 flex items-center gap-1 shrink-0">
-              <Sparkles className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+      {/* Bottom Floating AI Prompt Bar - Clean PrepLens M3 Pill Design */}
+      <footer className="p-3 sm:p-4 bg-white dark:bg-[#13141a] border-0 shrink-0 shadow-none">
+        <div className="max-w-4xl mx-auto space-y-2.5">
+          {/* Quick chips with rounded-full pill styling */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <span className="text-[11px] font-semibold text-[#5e5e5e] dark:text-[#9aa0a6] flex items-center gap-1 shrink-0">
+              <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
               <span className="hidden xs:inline">Edit with AI:</span>
             </span>
             {quickPromptChips.map((chip, idx) => (
@@ -1168,31 +1168,29 @@ export const GeminiTableCanvasModal: React.FC<GeminiTableCanvasModalProps> = ({
                   onEditWithAi(promptToSend, messageId);
                   onClose();
                 }}
-                className="shrink-0 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-blue-50/80 dark:bg-zinc-800/80 dark:hover:bg-blue-950/60 text-slate-700 hover:text-blue-600 dark:text-zinc-300 dark:hover:text-blue-300 text-[11px] sm:text-xs font-medium border border-slate-200/80 dark:border-zinc-800 shadow-xs transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+                className="shrink-0 px-3 py-1.5 rounded-full bg-[#f0f4f9] hover:bg-[#e1e9f5] dark:bg-[#1e2024] dark:hover:bg-[#282a30] text-[#444746] hover:text-[#0b57d0] dark:text-[#c4c7c5] dark:hover:text-[#a8c7fa] text-xs font-semibold border-0 shadow-none transition-all cursor-pointer active:scale-95 whitespace-nowrap"
               >
                 {chip}
               </button>
             ))}
           </div>
 
-          {/* Prompt input with thin borders */}
-          <form onSubmit={handleSubmitAiPrompt} className="flex items-center gap-1.5 sm:gap-2">
-            <div className="relative flex-1 min-w-0">
-              <input
-                type="text"
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                placeholder="Ask Gemini to modify this table (e.g. add growth rate column, recalculate totals)..."
-                className="w-full pl-4 pr-4 py-2.5 sm:py-3 text-xs sm:text-sm rounded-2xl bg-slate-100 dark:bg-zinc-800/80 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 border border-slate-200/80 dark:border-zinc-800 focus:outline-none focus:border-blue-500 shadow-xs transition-all"
-              />
-            </div>
+          {/* Prompt input with modern M3 pill container */}
+          <form onSubmit={handleSubmitAiPrompt} className="relative flex items-center gap-2 p-1.5 pl-4 sm:pl-5 rounded-full bg-[#f0f4f9] dark:bg-[#1e2024] border-0 shadow-[0_2px_12px_rgba(0,0,0,0.04)] focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:bg-white dark:focus-within:bg-[#16181d] transition-all">
+            <input
+              type="text"
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              placeholder="Ask Gemini to modify this table (e.g. add growth rate column, recalculate totals)..."
+              className="flex-1 bg-transparent text-xs sm:text-[14.5px] font-medium text-[#1f1f1f] dark:text-[#e3e3e3] placeholder-[#747775] dark:placeholder-[#8e918f] focus:outline-none"
+            />
             <button
               type="submit"
               disabled={!aiPrompt.trim()}
-              className="px-4 py-2.5 sm:py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-semibold border border-blue-500 shadow-xs flex items-center gap-1.5 transition-all text-xs sm:text-sm cursor-pointer active:scale-95 shrink-0"
+              className="px-4 py-2 sm:py-2.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#c2e7ff] text-white dark:text-[#041e49] font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition-all shadow-none border-0 cursor-pointer active:scale-95 disabled:opacity-40 shrink-0"
             >
               <Send className="w-3.5 h-3.5" />
-              <span className="hidden xs:inline">Apply</span>
+              <span>Apply</span>
             </button>
           </form>
         </div>

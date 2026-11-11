@@ -10,7 +10,8 @@ import {
   Crown,
   Check,
   Medal,
-  Award
+  Award,
+  Sparkles
 } from 'lucide-react';
 import type { MathTest, LeaderboardEntry, TestLeaderboardSummary } from '../types';
 import type { User } from 'firebase/auth';
@@ -260,7 +261,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
           className="fixed inset-0 z-[60] bg-white dark:bg-[#0c0e12] overflow-y-auto flex flex-col font-sans pb-10 select-text [scrollbar-width:thin]"
         >
           {/* Top Header - Seamless Fixed Background Without Heavy Blur Shader */}
-          <header className="sticky top-0 z-20 bg-white/98 dark:bg-[#0c0e12]/98 border-b border-slate-100 dark:border-zinc-800/80 shrink-0">
+          <header className="sticky top-0 z-20 bg-white dark:bg-[#0c0e12] border-0 shadow-none shrink-0">
           <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-2.5 sm:py-3.5 flex items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
               <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-amber-950 flex items-center justify-center shadow-xs shrink-0">
@@ -332,15 +333,15 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
               {/* ========================================================= */}
               {/* 1. TOP PERFORMERS PODIUM (Olympic 3-Tier Podium)         */}
               {/* ========================================================= */}
-              <div className="rounded-[24px] sm:rounded-[32px] bg-gradient-to-b from-amber-50/80 to-amber-100/40 dark:from-amber-950/20 dark:to-zinc-900/60 border border-amber-200/70 dark:border-amber-900/40 p-3.5 sm:p-5 lg:p-6 space-y-3 sm:space-y-4 shadow-xs">
+              <div className="rounded-[24px] sm:rounded-[32px] bg-gradient-to-b from-amber-50/80 to-amber-100/40 dark:from-amber-950/20 dark:to-zinc-900/60 border border-amber-200/70 dark:border-amber-900/40 p-3 sm:p-4.5 lg:p-5 space-y-3 sm:space-y-4 shadow-xs">
                 <div className="text-center text-[11px] sm:text-xs font-black tracking-widest uppercase text-amber-800 dark:text-amber-400 flex items-center justify-center gap-1.5">
                   <span>TOP PERFORMERS</span>
                 </div>
 
                 {/* Podium Grid */}
-                <div className="flex items-end justify-center gap-2 sm:gap-3.5 lg:gap-4 pt-2 sm:pt-3 min-h-[210px] sm:min-h-[250px]">
+                <div className="flex items-end justify-center gap-1.5 sm:gap-2.5 lg:gap-3 pt-2 sm:pt-3 min-h-[210px] sm:min-h-[250px]">
                   {/* 2nd Place (Left) */}
-                  <div className="flex flex-col items-center flex-1 min-w-0 max-w-[105px] sm:max-w-[140px]">
+                  <div className="flex flex-col items-center flex-1 min-w-0 max-w-[95px] sm:max-w-[125px] lg:max-w-[130px]">
                     {top2 ? (
                       <div className="flex flex-col items-center mb-1.5 sm:mb-2 text-center w-full">
                         <div className="relative mb-1.5 sm:mb-2">
@@ -352,7 +353,10 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                             <Medal className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-700 dark:text-zinc-300 shrink-0" />
                           </span>
                         </div>
-                        <div className="font-bold text-[11px] sm:text-sm text-slate-900 dark:text-zinc-100 truncate w-full px-0.5">
+                        <div 
+                          className="font-bold text-[11px] sm:text-xs lg:text-[12.5px] text-slate-900 dark:text-zinc-100 text-center leading-tight break-words line-clamp-2 w-full px-0.5"
+                          title={top2.userName}
+                        >
                           {top2.userName}
                         </div>
                         <div className="text-[10px] sm:text-[11px] font-extrabold text-amber-700 dark:text-amber-400 font-mono">
@@ -375,8 +379,8 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                     </div>
                   </div>
 
-                  {/* 1st Place (Center - TALL & GOLDEN) */}
-                  <div className="flex flex-col items-center flex-1 min-w-0 max-w-[120px] sm:max-w-[160px]">
+                  {/* 1st Place (Center - TALL & GOLDEN - TOPPER) */}
+                  <div className="flex flex-col items-center flex-1 min-w-0 max-w-[135px] sm:max-w-[165px] lg:max-w-[175px]">
                     {top1 ? (
                       <div className="flex flex-col items-center mb-1.5 sm:mb-2 text-center w-full">
                         <Crown className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500 fill-amber-400 mb-0.5 drop-shadow-xs" />
@@ -389,7 +393,10 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                             <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-950 fill-amber-950 shrink-0" />
                           </span>
                         </div>
-                        <div className="font-black text-xs sm:text-base text-slate-900 dark:text-zinc-100 truncate w-full px-0.5">
+                        <div 
+                          className="font-black text-xs sm:text-sm lg:text-[13.5px] text-slate-900 dark:text-zinc-100 text-center leading-tight break-words line-clamp-2 w-full px-0.5"
+                          title={top1.userName}
+                        >
                           {top1.userName}
                         </div>
                         <div className="text-[11px] sm:text-xs font-black text-amber-700 dark:text-amber-400 font-mono">
@@ -413,7 +420,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                   </div>
 
                   {/* 3rd Place (Right) */}
-                  <div className="flex flex-col items-center flex-1 min-w-0 max-w-[105px] sm:max-w-[140px]">
+                  <div className="flex flex-col items-center flex-1 min-w-0 max-w-[95px] sm:max-w-[125px] lg:max-w-[130px]">
                     {top3 ? (
                       <div className="flex flex-col items-center mb-1.5 sm:mb-2 text-center w-full">
                         <div className="relative mb-1.5 sm:mb-2">
@@ -425,7 +432,10 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                             <Award className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-100 shrink-0" />
                           </span>
                         </div>
-                        <div className="font-bold text-[11px] sm:text-sm text-slate-900 dark:text-zinc-100 truncate w-full px-0.5">
+                        <div 
+                          className="font-bold text-[11px] sm:text-xs lg:text-[12.5px] text-slate-900 dark:text-zinc-100 text-center leading-tight break-words line-clamp-2 w-full px-0.5"
+                          title={top3.userName}
+                        >
                           {top3.userName}
                         </div>
                         <div className="text-[10px] sm:text-[11px] font-extrabold text-amber-700 dark:text-amber-400 font-mono">
@@ -451,48 +461,94 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
               </div>
 
               {/* ========================================================= */}
-              {/* 2. YOUR VERIFIED STANDING (Minimal Royal Blue Card)       */}
+              {/* 2. YOUR VERIFIED STANDING (Optimized Modern Card)          */}
               {/* ========================================================= */}
-              {summary?.currentUserEntry && (
-                <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white rounded-[20px] sm:rounded-[24px] p-3 sm:p-4 flex items-center justify-between gap-2.5 sm:gap-4 shadow-xl relative overflow-hidden">
-                  <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-md flex flex-col items-center justify-center shrink-0 border border-white/25 shadow-inner">
-                      <span className="text-[7.5px] sm:text-[8.5px] font-extrabold tracking-widest uppercase text-blue-200/90 leading-none">
-                        RANK
-                      </span>
-                      <span className="text-base sm:text-xl font-black text-white leading-none mt-0.5">
-                        {summary.currentUserRank || summary.currentUserEntry.rank || '-'}
-                      </span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[8.5px] sm:text-[9.5px] font-extrabold tracking-widest text-blue-200 uppercase leading-none mb-0.5">
-                        YOUR VERIFIED STANDING
-                      </div>
-                      <div className="text-xs sm:text-base font-black text-white flex items-baseline gap-1.5 flex-wrap leading-tight">
-                        <span>Rank</span>
-                        <span className="text-amber-300 font-black">
-                          {summary.currentUserRank || summary.currentUserEntry.rank || '-'}
+              {summary?.currentUserEntry && (() => {
+                const userRank = summary.currentUserRank || summary.currentUserEntry.rank || 1;
+                const percentile = Math.max(1, Math.round((userRank / Math.max(1, summary.totalParticipants)) * 100));
+                const totalPts = summary.currentUserEntry.totalPoints || ((test.questions?.length || 10) * 4);
+                const isTop1 = userRank === 1;
+                const isTop2 = userRank === 2;
+                const isTop3 = userRank === 3;
+
+                return (
+                  <div className="relative overflow-hidden rounded-[24px] sm:rounded-[28px] p-4 sm:p-5 bg-gradient-to-br from-[#1a73e8] via-[#0b57d0] to-[#0842a0] dark:from-[#1558b0] dark:via-[#0b57d0] dark:to-[#073273] text-white shadow-lg border-0">
+                    {/* Decorative Ambient Radial Highlights */}
+                    <div className="absolute -right-8 -top-8 w-36 h-36 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+                    <div className="absolute -left-6 -bottom-6 w-28 h-28 rounded-full bg-indigo-300/15 blur-xl pointer-events-none" />
+
+                    <div className="relative z-10 space-y-3">
+                      {/* Top Header Tag Row */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] sm:text-[10.5px] font-black tracking-widest text-blue-100 uppercase flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                          <span>YOUR VERIFIED STANDING</span>
                         </span>
-                        <span className="text-blue-100/90 font-bold text-[11px] sm:text-xs">
-                          of {summary.totalParticipants} Students
+
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/15 text-white backdrop-blur-xs border border-white/15 shadow-2xs">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                          <span>{summary.currentUserEntry.attemptMode === 'omr' ? 'OMR Verified' : 'Online Verified'}</span>
                         </span>
                       </div>
-                      <div className="text-[10px] sm:text-xs text-blue-100/90 font-medium truncate mt-0.5">
-                        Top {Math.max(1, Math.round(((summary.currentUserRank || 1) / Math.max(1, summary.totalParticipants)) * 100))}% • Score: {summary.currentUserEntry.score}/{summary.currentUserEntry.totalPoints || ((test.questions?.length || 10) * 4)} ({summary.currentUserEntry.percentage}%)
+
+                      {/* Main Standing Row */}
+                      <div className="flex items-center gap-3 sm:gap-4">
+                        {/* High-Definition Rank Badge */}
+                        <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-white/20 dark:bg-white/15 backdrop-blur-md flex flex-col items-center justify-center shrink-0 border border-white/25 shadow-inner">
+                          {isTop1 ? (
+                            <Trophy className="w-4 h-4 text-amber-300 fill-amber-300 mb-0.5 shrink-0" />
+                          ) : isTop2 ? (
+                            <Medal className="w-4 h-4 text-slate-200 shrink-0 mb-0.5" />
+                          ) : isTop3 ? (
+                            <Award className="w-4 h-4 text-amber-200 shrink-0 mb-0.5" />
+                          ) : (
+                            <span className="text-[8px] font-black tracking-widest text-blue-200 uppercase leading-none">RANK</span>
+                          )}
+                          <span className="text-lg sm:text-xl font-black text-white leading-none mt-0.5 font-mono">
+                            #{userRank}
+                          </span>
+                        </div>
+
+                        {/* Rank Heading & Context */}
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm sm:text-base md:text-lg font-black text-white flex items-baseline gap-1.5 flex-wrap leading-tight">
+                            <span>Rank</span>
+                            <span className="text-amber-300 font-mono font-black text-base sm:text-xl">
+                              #{userRank}
+                            </span>
+                            <span className="text-blue-100/90 font-bold text-xs sm:text-sm">
+                              of {summary.totalParticipants} Students
+                            </span>
+                          </div>
+
+                          <div className="text-[11px] sm:text-xs text-blue-100/90 font-medium mt-0.5">
+                            You outperformed <span className="font-bold text-white">{Math.max(0, 100 - percentile)}%</span> of test participants
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Performance Metric Badges */}
+                      <div className="flex items-center gap-2 pt-1 flex-wrap">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 dark:bg-white/15 text-[11px] sm:text-xs font-bold text-white shadow-2xs backdrop-blur-xs border border-white/15">
+                          <span className="text-amber-300">★</span>
+                          <span>Top {percentile}%</span>
+                        </span>
+
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/20 dark:bg-white/15 text-[11px] sm:text-xs font-bold text-white font-mono shadow-2xs backdrop-blur-xs border border-white/15">
+                          <span>Score: {summary.currentUserEntry.score}/{totalPts} ({summary.currentUserEntry.percentage}%)</span>
+                        </span>
+
+                        {summary.currentUserEntry.timeSpentSeconds ? (
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/20 dark:bg-white/15 text-[11px] sm:text-xs font-bold text-white font-mono shadow-2xs backdrop-blur-xs border border-white/15">
+                            <Clock className="w-3 h-3 text-blue-200" />
+                            <span>{formatDuration(summary.currentUserEntry.timeSpentSeconds)} taken</span>
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   </div>
-
-                  {summary.currentUserEntry.timeSpentSeconds ? (
-                    <div className="shrink-0 self-center">
-                      <span className="bg-white/15 backdrop-blur-sm px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full text-[10.5px] sm:text-xs font-bold font-mono text-white flex items-center gap-1 border border-white/15 whitespace-nowrap shadow-xs">
-                        <Clock className="w-3 h-3 text-blue-200" />
-                        <span>{formatDuration(summary.currentUserEntry.timeSpentSeconds)} taken</span>
-                      </span>
-                    </div>
-                  ) : null}
-                </div>
-              )}
+                );
+              })()}
             </div>
 
             {/* RIGHT COLUMN (Desktop): All Student Rankings List */}
@@ -571,7 +627,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                       style={{ contentVisibility: 'auto', containIntrinsicSize: '0 62px' }}
                       className={`p-3 sm:px-5 sm:py-3.5 rounded-[18px] sm:rounded-[22px] flex items-center justify-between gap-2.5 sm:gap-4 transition-all ${
                         isCurrentUser
-                          ? 'bg-[#0b57d0]/10 border-2 border-[#0b57d0]/40 dark:bg-[#a8c7fa]/10 dark:border-[#a8c7fa]/40 shadow-xs'
+                          ? 'bg-blue-50/80 border-2 border-[#0b57d0]/60 dark:bg-blue-950/25 dark:border-[#a8c7fa]/50 shadow-xs'
                           : 'bg-white dark:bg-zinc-900 border border-slate-200/90 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
                       }`}
                     >
@@ -638,7 +694,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                       <span className="w-12 h-px bg-slate-300 dark:bg-zinc-700"></span>
                     </div>
 
-                    <div className="p-3 sm:px-5 sm:py-3.5 rounded-[18px] sm:rounded-[22px] flex items-center justify-between gap-2.5 sm:gap-4 bg-[#0b57d0]/10 border-2 border-[#0b57d0]/40 dark:bg-[#a8c7fa]/10 dark:border-[#a8c7fa]/40 shadow-xs">
+                    <div className="p-3.5 sm:px-5 sm:py-4 rounded-[20px] sm:rounded-[24px] flex items-center justify-between gap-2.5 sm:gap-4 bg-gradient-to-r from-blue-50/80 to-indigo-50/50 dark:from-blue-950/30 dark:to-indigo-950/20 border border-blue-200/80 dark:border-blue-800/50 shadow-xs">
                       <div className="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1">
                         <div className="relative shrink-0">
                           <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full ${getAvatarBgColor(summary.currentUserEntry.userName)} text-white font-black text-sm sm:text-base flex items-center justify-center shadow-xs`}>

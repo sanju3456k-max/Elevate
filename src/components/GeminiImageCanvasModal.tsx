@@ -174,32 +174,32 @@ plt.show()`;
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#f8fafc] dark:bg-[#0c0d12] text-slate-900 dark:text-zinc-100 flex flex-col animate-in fade-in duration-150 select-none gpu-accelerated">
-      {/* Top Header Bar - Zero Borders */}
-      <header className="px-3 sm:px-6 py-2.5 sm:py-3 bg-white dark:bg-[#13141a] flex items-center justify-between gap-2 shrink-0">
+    <div className="fixed inset-0 z-50 bg-white dark:bg-[#13141a] text-slate-900 dark:text-zinc-100 flex flex-col animate-in fade-in duration-150 select-none gpu-accelerated">
+      {/* Top Header Bar - Clean Seamless White Styling */}
+      <header className="px-3 sm:px-6 py-2.5 sm:py-3 bg-white dark:bg-[#13141a] border-0 shadow-none flex items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all cursor-pointer active:scale-95 shrink-0 -ml-1 mr-0.5"
+            className="w-9 h-9 rounded-full flex items-center justify-center bg-[#edf2f9] hover:bg-[#e1e9f5] dark:bg-[#26282e] dark:hover:bg-[#30333b] text-[#5e5e5e] hover:text-[#1f1f1f] dark:text-[#c4c7c5] dark:hover:text-[#e3e3e3] cursor-pointer transition-all active:scale-95 shrink-0 -ml-1 mr-0.5"
             title="Back to Chat (Esc)"
             aria-label="Back to Chat"
           >
-            <ArrowLeft className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+            <ArrowLeft className="w-4.5 h-4.5 stroke-[2.2]" />
           </button>
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-            <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+          <div className="w-9 h-9 rounded-full bg-[#f3e8fd] text-[#7c3aed] dark:bg-[#3b2063] dark:text-[#d8b4fe] flex items-center justify-center shrink-0">
+            <ImageIcon className="w-4.5 h-4.5" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <h1 className="text-xs sm:text-base font-bold text-slate-900 dark:text-white truncate">
+              <h1 className="text-sm sm:text-base font-bold text-[#1f1f1f] dark:text-[#e3e3e3] truncate">
                 {isPlot ? `Figure ${index + 1} Plot` : 'Visual Canvas'}
               </h1>
-              <span className="hidden sm:inline-flex px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-300 text-[10px] font-bold shrink-0 whitespace-nowrap">
+              <span className="hidden sm:inline-flex px-2.5 py-0.5 rounded-full bg-[#f3e8fd] text-[#7c3aed] dark:bg-[#3b2063] dark:text-[#d8b4fe] text-[11px] font-semibold shrink-0 whitespace-nowrap">
                 {isPlot ? 'Matplotlib' : 'AI Studio'}
               </span>
             </div>
-            <p className="hidden xs:block text-[11px] sm:text-xs text-slate-500 dark:text-zinc-400 truncate">
+            <p className="hidden xs:block text-xs text-[#5e5e5e] dark:text-[#9aa0a6] truncate">
               {imagePrompt || messageText || 'Visual canvas with AI prompt editing'}
             </p>
           </div>
@@ -210,29 +210,14 @@ plt.show()`;
           <button
             type="button"
             onClick={handleCopyImage}
-            className="p-2 rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+            className="p-2 rounded-full bg-[#edf2f9] hover:bg-[#e1e9f5] dark:bg-[#26282e] dark:hover:bg-[#30333b] text-[#444746] dark:text-[#c4c7c5] transition-colors cursor-pointer active:scale-95"
             title="Copy image to clipboard"
           >
-            {copied ? <Check className="w-4 h-4 text-emerald-500 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+            {copied ? <Check className="w-4 h-4 text-emerald-500 dark:text-emerald-400" /> : <Copy className="w-4 h-4" />}
           </button>
 
-          {/* Python Code Drawer Toggle - Round & Shadowless */}
-          <button
-            type="button"
-            onClick={() => setShowCodeDrawer(!showCodeDrawer)}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
-              showCodeDrawer
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200'
-            }`}
-            title="Toggle Python Code Inspector"
-          >
-            <Code2 className="w-3.5 h-3.5 text-blue-500" />
-            <span>Code</span>
-          </button>
-
-          {/* Zoom Controls - Zero Borders */}
-          <div className="hidden md:flex items-center p-0.5 rounded-full bg-slate-100 dark:bg-zinc-800/80">
+          {/* Zoom Controls */}
+          <div className="hidden md:flex items-center p-0.5 rounded-full bg-[#edf2f9] dark:bg-[#26282e]">
             <button
               type="button"
               onClick={() => setZoomLevel(prev => Math.max(0.5, Number((prev - 0.25).toFixed(2))))}
@@ -264,17 +249,17 @@ plt.show()`;
             <button
               type="button"
               onClick={onRegenerateVariation}
-              className="hidden xs:flex p-2 rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              className="hidden xs:flex p-2 rounded-full bg-[#edf2f9] hover:bg-[#e1e9f5] dark:bg-[#26282e] dark:hover:bg-[#30333b] text-[#444746] dark:text-[#c4c7c5] transition-colors cursor-pointer active:scale-95"
               title="Regenerate alternative creative variation"
             >
-              <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <RotateCcw className="w-4 h-4" />
             </button>
           )}
         </div>
       </header>
 
-      {/* Main Canvas Presentation Body - Zero Borders */}
-      <main className="flex-1 overflow-hidden relative flex bg-[#f1f5f9] dark:bg-[#090a0f]">
+      {/* Main Canvas Presentation Body */}
+      <main className="flex-1 overflow-hidden relative flex bg-white dark:bg-[#13141a]">
         {/* Visual Canvas Display Area */}
         <div className="flex-1 overflow-auto flex items-center justify-center p-3 sm:p-8 select-none">
           <div 
@@ -283,14 +268,14 @@ plt.show()`;
               transformOrigin: 'center center',
               transition: 'transform 0.15s ease-out' 
             }}
-            className="flex items-center justify-center rounded-3xl bg-white dark:bg-[#13141b] p-2 sm:p-3 shadow-sm transition-all"
+            className="flex items-center justify-center rounded-[28px] sm:rounded-[32px] bg-white dark:bg-[#13141a] p-2 sm:p-3 border-0 shadow-none transition-all max-w-[92vw] max-h-[82vh]"
           >
             {imageUrl && imageUrl.trim() ? (
               <img 
                 src={imageUrl} 
                 alt={imagePrompt || 'Visual Artifact'}
                 onClick={() => setZoomLevel(prev => (prev === 1 ? 1.5 : 1))}
-                className="max-h-[65vh] sm:max-h-[75vh] w-auto max-w-full object-contain rounded-2xl cursor-zoom-in"
+                className="max-h-[65vh] sm:max-h-[75vh] w-auto max-w-full object-contain rounded-[20px] sm:rounded-[24px] cursor-zoom-in"
                 title="Click to toggle zoom"
               />
             ) : null}
@@ -419,13 +404,13 @@ plt.show()`;
         )}
       </main>
 
-      {/* Bottom AI Edit Assistant Bar - Zero Borders */}
-      <footer className="p-3 sm:p-4 bg-white dark:bg-[#13141a] shrink-0">
-        <div className="max-w-4xl mx-auto space-y-2">
-          {/* Quick Action Chips - Thin Borders */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-            <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 dark:text-zinc-400 flex items-center gap-1 shrink-0">
-              <Sparkles className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+      {/* Bottom AI Edit Assistant Bar - Clean Seamless White Styling */}
+      <footer className="p-3 sm:p-4 bg-white dark:bg-[#13141a] border-0 shadow-none shrink-0">
+        <div className="max-w-4xl mx-auto space-y-2.5">
+          {/* Quick Action Chips */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <span className="text-[11px] font-semibold text-[#5e5e5e] dark:text-[#9aa0a6] flex items-center gap-1 shrink-0">
+              <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
               <span className="hidden xs:inline">Edit with AI:</span>
             </span>
             {quickPromptChips.map((chip, idx) => (
@@ -434,37 +419,34 @@ plt.show()`;
                 type="button"
                 disabled={isLoading}
                 onClick={() => handleChipClick(chip)}
-                className="shrink-0 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-purple-50/80 dark:bg-zinc-800/80 dark:hover:bg-purple-950/60 text-slate-700 hover:text-purple-600 dark:text-zinc-300 dark:hover:text-purple-300 text-[11px] sm:text-xs font-medium border border-slate-200/80 dark:border-zinc-800 shadow-xs transition-all cursor-pointer disabled:opacity-50 active:scale-95 whitespace-nowrap"
+                className="shrink-0 px-3 py-1.5 rounded-full bg-[#f0f4f9] hover:bg-[#e1e9f5] dark:bg-[#1e2024] dark:hover:bg-[#282a30] text-[#444746] hover:text-[#0b57d0] dark:text-[#c4c7c5] dark:hover:text-[#a8c7fa] text-xs font-semibold border-0 shadow-none transition-all cursor-pointer disabled:opacity-50 active:scale-95 whitespace-nowrap"
               >
                 {chip}
               </button>
             ))}
           </div>
 
-          {/* Custom Prompt Form - Thin Borders */}
-          <form onSubmit={handleSubmitAiPrompt} className="flex items-center gap-1.5 sm:gap-2">
-            <div className="relative flex-1 min-w-0">
-              <input
-                type="text"
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                disabled={isLoading}
-                placeholder={
-                  isPlot 
-                    ? "Ask Gemini to modify this plot (e.g. change color map, add grid, highlight peak)..."
-                    : "Ask Gemini to modify this image (e.g. change lighting, add details)..."
-                }
-                className="w-full pl-4 pr-4 py-2.5 sm:py-3 text-xs sm:text-sm rounded-2xl bg-slate-100 dark:bg-zinc-800/80 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 border border-slate-200/80 dark:border-zinc-800 focus:outline-none focus:border-purple-500 shadow-xs transition-all disabled:opacity-50"
-              />
-            </div>
+          {/* Custom Prompt Form with M3 Pill Container */}
+          <form onSubmit={handleSubmitAiPrompt} className="relative flex items-center gap-2 p-1.5 pl-4 sm:pl-5 rounded-full bg-[#f0f4f9] dark:bg-[#1e2024] border-0 shadow-[0_2px_12px_rgba(0,0,0,0.04)] focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:bg-white dark:focus-within:bg-[#16181d] transition-all">
+            <input
+              type="text"
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              disabled={isLoading}
+              placeholder={
+                isPlot 
+                  ? "Ask Gemini to modify this plot (e.g. change colors, add grid, highlight peak)..."
+                  : "Ask Gemini to modify this image (e.g. change lighting, add details)..."
+              }
+              className="flex-1 bg-transparent text-xs sm:text-[14.5px] font-medium text-[#1f1f1f] dark:text-[#e3e3e3] placeholder-[#747775] dark:placeholder-[#8e918f] focus:outline-none disabled:opacity-50"
+            />
             <button
               type="submit"
               disabled={!aiPrompt.trim() || isLoading}
-              className="px-4 py-2.5 sm:py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white font-semibold border border-purple-500 shadow-xs flex items-center gap-1.5 transition-all text-xs sm:text-sm cursor-pointer active:scale-95 shrink-0"
+              className="px-4 py-2 sm:py-2.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#c2e7ff] text-white dark:text-[#041e49] font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition-all shadow-none border-0 cursor-pointer active:scale-95 disabled:opacity-40 shrink-0"
             >
               <Send className="w-3.5 h-3.5" />
-              <span className="hidden xs:inline">{isLoading ? 'Updating...' : 'Apply Edit'}</span>
-              <span className="xs:hidden">{isLoading ? '...' : 'Apply'}</span>
+              <span>{isLoading ? 'Updating...' : 'Apply'}</span>
             </button>
           </form>
         </div>

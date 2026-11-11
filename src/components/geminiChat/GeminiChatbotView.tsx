@@ -5,6 +5,7 @@ import {
   User as UserIcon, 
   Send, 
   Sparkles, 
+  Sparkle,
   RotateCcw, 
   Copy, 
   Check, 
@@ -1040,28 +1041,9 @@ export const GeneratedPlotArtifact: React.FC<GeneratedPlotArtifactProps> = ({
         ) : null}
       </div>
 
-      {/* Action Bar: Minimal buttons: Edit with AI, Save to Notes, Copy, Retry */}
+      {/* Action Bar: Minimal buttons: Edit, Save to Notes, Copy, Retry */}
       <div className="flex items-center gap-1 sm:gap-1.5 pt-2 select-none flex-nowrap sm:flex-wrap overflow-x-auto no-scrollbar max-w-full">
-        {/* Code Button - Only displayed for executable Python plots, removed for image generation */}
-        {!isImagen && Boolean(pythonCode) && (
-          <button
-            type="button"
-            onClick={() => {
-              if (onOpenCanvas) {
-                onOpenCanvas();
-              } else {
-                onPreview(dataUri);
-              }
-            }}
-            className="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-[#282a2d] transition-colors cursor-pointer text-[11px] sm:text-xs font-medium inline-flex items-center gap-1 shrink-0 whitespace-nowrap"
-            title="View, edit, and copy code"
-          >
-            <Code2 className="w-3.5 h-3.5" />
-            <span>Code</span>
-          </button>
-        )}
-
-        {/* Edit with AI Button (Opens dedicated Visual Canvas Studio page) */}
+        {/* Edit Button (Opens dedicated Visual Canvas Studio page) */}
         <button
           type="button"
           onClick={() => {
@@ -1072,10 +1054,10 @@ export const GeneratedPlotArtifact: React.FC<GeneratedPlotArtifactProps> = ({
             }
           }}
           className="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-[#282a2d] transition-colors cursor-pointer text-[11px] sm:text-xs font-medium inline-flex items-center gap-1 shrink-0 whitespace-nowrap"
-          title="Edit this image with AI in dedicated visual canvas"
+          title="Edit this image in dedicated visual canvas"
         >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Edit<span className="hidden xs:inline sm:inline"> with AI</span></span>
+          <Sparkle className="w-3.5 h-3.5 text-blue-500 shrink-0 overflow-visible" />
+          <span>Edit</span>
         </button>
 
         {/* Save to Notes Button */}
@@ -2771,8 +2753,9 @@ Formatting & Quality Requirements:
     );
   };
 
-  // Clear messages in current session
+  // Clear messages in current session (clears messages of only this chat, preserving the chat entry and page)
   const handleClearCurrentChat = () => {
+    if (!activeSession) return;
     requestConfirmation(
       'Clear All Messages',
       'Are you sure you want to clear all messages in this conversation?',
@@ -2785,12 +2768,12 @@ Formatting & Quality Requirements:
           modelUsed: selectedModel,
           roleUsed: PRESET_ROLES.find((r) => r.id === selectedRole)?.name || 'Tutor'
         };
-        const updated = {
-          ...activeSession,
+        updateActiveSession((prevSession) => ({
+          ...prevSession,
           messages: [resetMsg],
           updatedAt: Date.now()
-        };
-        updateActiveSession(() => updated);
+        }));
+        setIsSidebarOpen(false);
       }
     );
   };
@@ -3145,6 +3128,8 @@ MANDATORY INSTRUCTIONS:
           customInstruction: customInstruction.trim() || undefined,
           customSystemInstruction: customInstruction.trim() || undefined,
           temperature: effectiveTemperature,
+          enableCodeExecution: Boolean(enableCodeExecution),
+          usePython: Boolean(enableCodeExecution),
           selectedTestId: targetSessionObj?.selectedTestId || null,
           appContext,
           testLibrary: Array.isArray(tests)
@@ -3849,36 +3834,25 @@ MANDATORY INSTRUCTIONS:
                 </button>
               </div>
 
-              {/* Drawer Action Bar: New Chat & Search (Matching App M3 Style) */}
-              <div className="p-4 space-y-3 bg-white dark:bg-[#1e2024] border-b border-slate-100 dark:border-zinc-800/80 shrink-0">
-                <button
-                  onClick={() => {
-                    handleNewChat();
-                    setIsSidebarOpen(false);
-                  }}
-                  className="w-full h-11 px-5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white font-bold text-xs tracking-wide shadow-[0_2px_6px_rgba(11,87,208,0.25)] flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-all select-none border-0 outline-none"
-                >
-                  <Plus className="w-4.5 h-4.5 stroke-[2.5]" />
-                  <span>New Conversation</span>
-                </button>
-
-                {/* Search conversations & Delete Buttons matching DriveFileManager / App M3 Style */}
+              {/* Drawer Action Bar: Search, Clear Messages & New Conversation in ONE ROW */}
+              <div className="p-3 sm:p-4 bg-white dark:bg-[#1e2024] border-b border-slate-100 dark:border-zinc-800/80 shrink-0">
                 <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <div className="h-10 w-full rounded-full bg-[#f0f4f9] dark:bg-[#141619] flex items-center px-4 gap-2.5 border-0 shadow-none transition-all">
+                  {/* 1. Search Bar */}
+                  <div className="relative flex-1 min-w-0">
+                    <div className="h-10 w-full rounded-full bg-[#f0f4f9] dark:bg-[#141619] flex items-center px-3.5 gap-2 border-0 shadow-none transition-all">
                       <Search className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0 stroke-[2.2]" />
                       <input
                         type="text"
                         value={historySearchQuery}
                         onChange={(e) => setHistorySearchQuery(e.target.value)}
                         placeholder="Search chats..."
-                        className="w-full bg-transparent text-xs text-[#1f1f1f] dark:text-[#e3e3e3] placeholder-[#5e5e5e]/70 dark:placeholder-[#9aa0a6]/70 border-0 outline-none focus:ring-0 font-normal"
+                        className="w-full bg-transparent text-xs text-[#1f1f1f] dark:text-[#e3e3e3] placeholder-[#5e5e5e]/70 dark:placeholder-[#9aa0a6]/70 border-0 outline-none focus:ring-0 font-normal min-w-0"
                       />
                       {historySearchQuery && (
                         <button
                           type="button"
                           onClick={() => setHistorySearchQuery('')}
-                          className="w-6 h-6 rounded-full bg-transparent hover:bg-[#1f1f1f]/8 dark:hover:bg-[#e3e3e3]/8 text-[#5e5e5e] dark:text-[#9aa0a6] flex items-center justify-center transition-all cursor-pointer border-0 shrink-0"
+                          className="w-5 h-5 rounded-full bg-transparent hover:bg-[#1f1f1f]/8 dark:hover:bg-[#e3e3e3]/8 text-[#5e5e5e] dark:text-[#9aa0a6] flex items-center justify-center transition-all cursor-pointer border-0 shrink-0"
                           title="Clear search"
                         >
                           <X className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -3887,24 +3861,32 @@ MANDATORY INSTRUCTIONS:
                     </div>
                   </div>
 
-                  {activeSession && activeSession.messages.length > 1 && (
+                  {/* 2. Clear Messages in Current Chat Button (RotateCcw) */}
+                  {activeSession && activeSession.messages && activeSession.messages.length > 0 && (
                     <button
+                      type="button"
                       onClick={handleClearCurrentChat}
                       className="w-10 h-10 rounded-full bg-[#f0f4f9] dark:bg-[#141619] hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950/40 text-[#5e5e5e] dark:text-[#9aa0a6] border-0 shadow-none flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0"
                       title="Clear messages in current chat"
+                      aria-label="Clear messages in current chat"
                     >
-                      <RotateCcw className="w-4 h-4" />
+                      <RotateCcw className="w-4 h-4 stroke-[2.2]" />
                     </button>
                   )}
-                  {sessions.length > 0 && (
-                    <button
-                      onClick={handleDeleteAllSessions}
-                      className="w-10 h-10 rounded-full bg-[#f0f4f9] dark:bg-[#141619] hover:bg-red-50 hover:text-[#ba1a1a] dark:hover:bg-red-950/40 text-[#5e5e5e] dark:text-[#9aa0a6] border-0 shadow-none flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0"
-                      title="Delete all chat history"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
+
+                  {/* 3. Round Icon New Conversation Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleNewChat();
+                      setIsSidebarOpen(false);
+                    }}
+                    className="w-10 h-10 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white flex items-center justify-center shadow-[0_2px_6px_rgba(11,87,208,0.25)] cursor-pointer active:scale-95 transition-all select-none border-0 outline-none shrink-0"
+                    title="New Conversation"
+                    aria-label="New Conversation"
+                  >
+                    <Plus className="w-5 h-5 stroke-[2.5]" />
+                  </button>
                 </div>
               </div>
 
@@ -4040,12 +4022,17 @@ MANDATORY INSTRUCTIONS:
               <button
                 onClick={() => setShowModelDropdown(!showModelDropdown)}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-transparent hover:bg-slate-100 dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs sm:text-[13px] font-semibold border-0 shadow-none transition-all cursor-pointer active:scale-95 shrink-0"
+                title={`Selected Model: ${currentModelConfig.label.replace(' (Recommended)', '')}`}
               >
-                <div className="p-0.5 rounded-full text-emerald-600 dark:text-emerald-400 shrink-0">
-                  <GraduationCap className="w-4 h-4" />
+                <div className={`p-0.5 rounded-full ${currentModelConfig.color || 'text-emerald-600 dark:text-emerald-400'} shrink-0`}>
+                  {React.createElement(currentModelConfig.icon || GraduationCap, { className: "w-4 h-4" })}
                 </div>
-                <span className="hidden sm:inline text-xs sm:text-[13px]">Gemini 3.5</span>
-                <span className="sm:hidden text-xs sm:text-[13px] font-medium">{currentModelConfig.label.split(' ')[1] || '3.5'}</span>
+                <span className="hidden sm:inline text-xs sm:text-[13px] font-semibold">
+                  {currentModelConfig.label.replace(' (Recommended)', '')}
+                </span>
+                <span className="sm:hidden text-xs sm:text-[13px] font-medium">
+                  {currentModelConfig.label.replace(/^Gemini\s+/i, '').replace(' (Recommended)', '')}
+                </span>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               </button>
 
@@ -4062,9 +4049,9 @@ MANDATORY INSTRUCTIONS:
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 6, scale: 0.98 }}
                       transition={{ duration: 0.15 }}
-                      className="fixed left-1/2 -translate-x-1/2 top-[calc(env(safe-area-inset-top,0px)+3.25rem)] sm:absolute sm:right-0 sm:left-auto sm:translate-x-0 sm:top-full sm:mt-2 w-[calc(100vw-1.5rem)] max-w-sm sm:w-80 max-h-[75vh] overflow-y-auto bg-white dark:bg-[#1e2024] rounded-[28px] shadow-[0_4px_16px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.6)] border border-slate-200 dark:border-zinc-700 p-3 z-50 space-y-1 modal-content-smooth"
+                      className="fixed left-1/2 -translate-x-1/2 top-[calc(env(safe-area-inset-top,0px)+3.25rem)] sm:absolute sm:right-0 sm:left-auto sm:translate-x-0 sm:top-full sm:mt-2 w-[calc(100vw-1.5rem)] max-w-sm sm:w-80 max-h-[75vh] overflow-y-auto bg-white dark:bg-[#1e2024] rounded-[28px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.6)] border border-slate-200/80 dark:border-zinc-800 p-2.5 z-50 space-y-1 modal-content-smooth"
                     >
-                      <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+                      <div className="px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
                         Select Gemini Model
                       </div>
                       {MODEL_OPTIONS.map((m) => {
@@ -4078,21 +4065,25 @@ MANDATORY INSTRUCTIONS:
                               setShowModelDropdown(false);
                               updateActiveSession((s) => ({ ...s, modelTier: m.id }));
                             }}
-                            className={`p-2.5 rounded-[20px] cursor-pointer transition-all flex items-start gap-2.5 border ${
+                            className={`p-2.5 rounded-[20px] cursor-pointer transition-all flex items-start gap-3 border-0 ${
                               isSelected
-                                ? 'bg-[#d3e3fd] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff] font-semibold border-blue-400/50'
-                                : 'bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border-slate-200 dark:border-zinc-700'
+                                ? 'bg-[#d3e3fd]/60 dark:bg-[#004a77]/35 text-[#041e49] dark:text-[#c2e7ff] font-semibold'
+                                : 'bg-transparent hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3]'
                             }`}
                           >
-                            <div className="p-1.5 rounded-full bg-white dark:bg-[#141619] shrink-0 mt-0.5 shadow-xs">
-                              <Icon className={`w-4 h-4 ${m.color}`} />
+                            <div className={`p-2 rounded-full shrink-0 mt-0.5 transition-colors ${
+                              isSelected 
+                                ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49] shadow-xs' 
+                                : 'bg-[#f0f4f9] dark:bg-[#282a30] text-[#0b57d0] dark:text-[#a8c7fa]'
+                            }`}>
+                              <Icon className="w-4 h-4 stroke-[2.2]" />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="font-bold text-xs flex items-center justify-between gap-1.5">
+                              <div className="font-bold text-xs sm:text-[13px] flex items-center justify-between gap-1.5">
                                 <span className="truncate">{m.label}</span>
-                                {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />}
+                                {isSelected && <Check className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0 stroke-[2.5]" />}
                               </div>
-                              <div className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5 leading-tight">{m.description}</div>
+                              <div className="text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] mt-0.5 leading-snug">{m.description}</div>
                             </div>
                           </div>
                         );
@@ -4140,7 +4131,7 @@ MANDATORY INSTRUCTIONS:
           </div>
         </header>
 
-        {/* Role & Persona Settings Drawer with Web Speech Accessibility Options */}
+        {/* Role & Persona Settings Drawer with Clean M3 App Card Design */}
         <AnimatePresence>
           {showRoleConfig && (
             <motion.div
@@ -4148,23 +4139,34 @@ MANDATORY INSTRUCTIONS:
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.98 }}
               transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-[#f0f4f9] dark:bg-[#21222e] border border-slate-200/80 dark:border-zinc-800/80 p-3.5 sm:p-5 overflow-y-auto max-h-[75vh] shrink-0 mx-2.5 sm:mx-6 my-2 rounded-3xl shadow-none gpu-accelerated modal-content-smooth"
+              className="bg-white dark:bg-[#1e2024] border border-slate-200/80 dark:border-zinc-800 p-4 sm:p-5 overflow-y-auto max-h-[75vh] shrink-0 mx-2.5 sm:mx-6 my-2.5 rounded-[28px] shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] gpu-accelerated modal-content-smooth"
             >
               <div className="max-w-3xl mx-auto space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider">
-                    Persona Settings
-                  </span>
+                <div className="flex items-center justify-between pb-1">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0">
+                      <Settings2 className="w-4 h-4 stroke-[2.2]" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold text-[#1f1f1f] dark:text-[#e3e3e3] uppercase tracking-wider">
+                        Persona Settings
+                      </h3>
+                      <p className="text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6]">
+                        Choose tutoring style & analytical depth
+                      </p>
+                    </div>
+                  </div>
                   <button
                     onClick={() => setShowRoleConfig(false)}
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer transition-colors shadow-none border border-slate-200/80 dark:border-zinc-800/80"
+                    className="w-8 h-8 rounded-full flex items-center justify-center bg-[#f0f4f9] hover:bg-[#e2e8f0] dark:bg-[#282a30] dark:hover:bg-[#343840] text-[#5e5e5e] dark:text-[#9aa0a6] cursor-pointer transition-colors border-0 shadow-none"
+                    title="Close Persona Settings"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                {/* Persona Cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {/* Persona Cards - Clean Plain Transparent Entries */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {PRESET_ROLES.map((role) => {
                     const Icon = role.icon;
                     const isSelected = selectedRole === role.id;
@@ -4178,21 +4180,27 @@ MANDATORY INSTRUCTIONS:
                             updateActiveSession((s) => ({ ...s, modelTier: role.recommendedModel }));
                           }
                         }}
-                        className={`p-3.5 rounded-2xl cursor-pointer transition-colors duration-150 flex flex-col justify-between border shadow-none ${
+                        className={`p-3.5 rounded-[20px] cursor-pointer transition-all duration-150 flex flex-col justify-between border-0 select-none ${
                           isSelected
-                            ? 'bg-white dark:bg-[#20222e] text-blue-600 dark:text-blue-400 border-[#0b57d0] dark:border-[#a8c7fa] ring-2 ring-[#0b57d0] dark:ring-[#a8c7fa] font-semibold'
-                            : 'bg-white/90 dark:bg-[#21222e]/90 hover:bg-white dark:hover:bg-[#20222e] text-slate-700 dark:text-zinc-300 border-slate-300 dark:border-zinc-700'
+                            ? 'bg-[#d3e3fd]/60 dark:bg-[#004a77]/35 text-[#041e49] dark:text-[#c2e7ff] font-semibold'
+                            : 'bg-transparent hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3]'
                         }`}
                       >
                         <div>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <Icon className={`w-4 h-4 ${isSelected ? 'text-blue-600' : 'text-slate-500'}`} />
-                            {isSelected && <Check className="w-3.5 h-3.5 text-blue-600" />}
+                          <div className="flex items-center justify-between mb-2">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                              isSelected
+                                ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49] shadow-xs'
+                                : 'bg-[#f0f4f9] dark:bg-[#282a30] text-[#0b57d0] dark:text-[#a8c7fa]'
+                            }`}>
+                              <Icon className="w-4 h-4 stroke-[2]" />
+                            </div>
+                            {isSelected && <Check className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.5]" />}
                           </div>
-                          <div className="font-bold text-xs text-slate-900 dark:text-zinc-100">{role.name}</div>
-                          <div className="text-[10px] text-slate-500 dark:text-zinc-400 mt-1 leading-tight line-clamp-2">{role.description}</div>
+                          <div className="font-bold text-xs sm:text-[13px] text-[#1f1f1f] dark:text-[#e3e3e3]">{role.name}</div>
+                          <div className="text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] mt-1 leading-snug line-clamp-2">{role.description}</div>
                         </div>
-                        <div className="text-[9px] font-bold text-blue-600 dark:text-blue-400 mt-2">
+                        <div className="text-[10px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] mt-2.5">
                           {role.tag}
                         </div>
                       </div>
@@ -4201,22 +4209,22 @@ MANDATORY INSTRUCTIONS:
                 </div>
 
                 {/* Settings Controls */}
-                <div className="pt-2 space-y-2">
-                  {/* Temperature Slider Sub-container Strip */}
-                  <div className="flex items-center justify-between gap-4 p-3.5 rounded-2xl bg-white dark:bg-[#21222e] border border-slate-300 dark:border-zinc-700 shadow-none flex-wrap sm:flex-nowrap">
+                <div className="pt-1">
+                  {/* Temperature Slider Seamless Card Strip */}
+                  <div className="p-3.5 rounded-[20px] bg-[#f0f4f9]/80 dark:bg-[#141619] border-0 flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                        <Sparkles className="w-4 h-4" />
+                      <div className="w-8 h-8 rounded-full bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0">
+                        <Sparkles className="w-4 h-4 stroke-[2.2]" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
+                        <div className="text-xs font-bold text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center gap-1.5">
                           <span>Creativity (Temperature)</span>
-                          <span className="text-[10px] font-mono px-2 py-0.5 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 rounded-full font-bold">
+                          <span className="text-[10px] font-mono px-2 py-0.5 bg-[#d3e3fd] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff] rounded-full font-bold">
                             {temperature}
                           </span>
                         </div>
-                        <div className="text-[10px] text-slate-500 dark:text-zinc-400">
-                          Lower values (0.2–0.4) are more factual & precise; higher values (0.7–1.0) are more creative.
+                        <div className="text-[10px] text-[#5e5e5e] dark:text-[#9aa0a6]">
+                          Lower values (0.2–0.4) are more factual; higher values (0.7–1.0) are more creative.
                         </div>
                       </div>
                     </div>
@@ -4228,7 +4236,7 @@ MANDATORY INSTRUCTIONS:
                         step="0.1"
                         value={temperature}
                         onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                        className="w-full accent-blue-600 cursor-pointer"
+                        className="w-full accent-[#0b57d0] dark:accent-[#a8c7fa] cursor-pointer"
                       />
                     </div>
                   </div>
@@ -5328,77 +5336,64 @@ MANDATORY INSTRUCTIONS:
             })
           )}
 
-          {/* Gemini Thought & Reasoning Live Progress Card */}
+          {/* Gemini Thought & Reasoning Live Progress Indicator (Plain Background with Minimal Tag & Waving Indicator) */}
           {isLoading && !editingTargetMessageId && (() => {
             const promptLower = (loadingPrompt || '').toLowerCase();
             const isTest = /\b(test|quiz|question|exam|library|score|attempt|mock|recalling|feynman|syllabus)\b/i.test(promptLower);
-            const isPlot = /\b(matplotlib|numpy\s*plot|plot\s+the|plot\s+a|draw\s+a\s+(graph|chart|plot)|graph\s+of|curve\s+of|scatter\s*plot|vector\s*field|contour\s*plot|3d\s*(surface|mesh)|polar\s*plot|phase\s*portrait|run\s*python|execute\s*python)\b/i.test(promptLower);
+            const isPlot = Boolean(enableCodeExecution) || /\b(matplotlib|numpy\s*plot|plot|graph|chart|draw\s+a\s+(graph|chart|plot)|graph\s+of|curve\s+of|scatter\s*plot|vector\s*field|contour\s*plot|3d\s*(surface|mesh)|polar\s*plot|phase\s*portrait|run\s*python|execute\s*python)\b/i.test(promptLower);
             const isCalc = /\b(calculate|integral|derivative|equation|matrix|solve|proof|derive|formula)\b/i.test(promptLower);
 
-            let phaseTitle = "Thinking";
-            let phaseSub = "Formulating response...";
-
+            let minimalTag = "Thinking";
             if (isTest) {
-              phaseTitle = "Searching Test Library";
-              if (elapsedTime < 1.5) {
-                phaseSub = "Scanning test repository & matching questions...";
-              } else if (elapsedTime < 3.0) {
-                phaseSub = "Verifying formulas & step-by-step LaTeX derivation...";
-              } else {
-                phaseSub = "Structuring interactive test review card...";
-              }
+              minimalTag = "Searching tests";
             } else if (isPlot) {
-              phaseTitle = "Generating Visual Plot";
-              if (elapsedTime < 1.5) {
-                phaseSub = "Analyzing function parameters & domain coordinates...";
-              } else if (elapsedTime < 3.5) {
-                phaseSub = "Executing Python sandbox & computing Matplotlib curves...";
-              } else {
-                phaseSub = "Rendering high-resolution plot & LaTeX annotations...";
-              }
+              minimalTag = "Generating visual";
             } else if (isCalc) {
-              phaseTitle = "Deriving Mathematical Solution";
-              if (elapsedTime < 1.5) {
-                phaseSub = "Breaking down formulas & boundary conditions...";
-              } else if (elapsedTime < 3.0) {
-                phaseSub = "Computing step-by-step algebraic steps in LaTeX...";
-              } else {
-                phaseSub = "Verifying numerical results & key takeaways...";
-              }
+              minimalTag = "Computing solution";
             } else {
-              phaseTitle = "Thinking";
-              if (elapsedTime < 1.2) {
-                phaseSub = "Analyzing query...";
-              } else if (elapsedTime < 2.5) {
-                phaseSub = "Synthesizing step-by-step response in LaTeX...";
+              if (elapsedTime < 1.5) {
+                minimalTag = "Thinking";
+              } else if (elapsedTime < 3.0) {
+                minimalTag = "Analyzing";
               } else {
-                phaseSub = "Finalizing answer...";
+                minimalTag = "Formulating response";
               }
             }
 
             return (
-              <div className="flex w-full max-w-3xl mx-auto justify-start animate-fade-in">
-                <div className="w-full max-w-xl">
-                  <div className="p-3.5 rounded-2xl bg-[#f0f4f9] dark:bg-[#1e1f20] border-0 outline-none ring-0 shadow-xs space-y-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-sm bg-[#0b57d0] dark:bg-[#a8c7fa] animate-pulse" />
-                        <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">
-                          {phaseTitle}
-                        </span>
-                      </div>
-                      <span className="text-[11px] font-mono font-bold text-[#0b57d0] dark:text-[#a8c7fa]">
-                        {elapsedTime.toFixed(1)}s
-                      </span>
-                    </div>
-                    {/* Sharp Progress Bar Track & Indicator */}
-                    <div className="w-full h-1.5 bg-slate-200 dark:bg-zinc-800 rounded-sm overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-[#0b57d0] via-indigo-600 to-[#a8c7fa] transition-all duration-300 rounded-sm animate-pulse" style={{ width: `${Math.min(98, Math.max(12, (elapsedTime / 3.5) * 100))}%` }} />
-                    </div>
-                    <div className="text-xs text-slate-600 dark:text-zinc-400 flex items-center gap-1.5 transition-all duration-300 font-medium">
-                      <span>{phaseSub}</span>
-                    </div>
+              <div className="flex w-full max-w-3xl mx-auto justify-start animate-fade-in py-1">
+                <div className="flex items-center gap-2.5 px-1 py-1.5 bg-transparent border-0 select-none">
+                  {/* Subtle Sparkle Icon */}
+                  <div className="w-6 h-6 rounded-full bg-blue-50/80 dark:bg-blue-950/40 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0">
+                    <Sparkles className="w-3.5 h-3.5 animate-pulse stroke-[2.2]" />
                   </div>
+
+                  {/* Minimal Waiting Tag */}
+                  <span className="text-xs font-semibold text-slate-700 dark:text-zinc-200 tracking-tight">
+                    {minimalTag}
+                  </span>
+
+                  {/* Waving Dots Indicator */}
+                  <div className="flex items-center gap-1.5 ml-1">
+                    {[0, 1, 2].map((i) => (
+                      <motion.span
+                        key={i}
+                        animate={{ y: [0, -4, 0], opacity: [0.35, 1, 0.35] }}
+                        transition={{
+                          duration: 0.75,
+                          repeat: Infinity,
+                          delay: i * 0.15,
+                          ease: "easeInOut",
+                        }}
+                        className="w-1.5 h-1.5 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa]"
+                      />
+                    ))}
+                  </div>
+
+                  {/* Subtle Duration Elapsed Counter */}
+                  <span className="text-[10px] font-mono text-slate-400 dark:text-zinc-500 ml-1.5 font-medium">
+                    {elapsedTime.toFixed(1)}s
+                  </span>
                 </div>
               </div>
             );
@@ -5478,6 +5473,7 @@ MANDATORY INSTRUCTIONS:
             editingContext={editingContext}
             onCancelEditMode={() => setEditingContext(null)}
             currentModel={selectedModel}
+            onOpenModelDropdown={() => setShowModelDropdown(true)}
             sessionFiles={sessionFiles}
             onOpenSessionFilesTestGenerator={() => {
               setEditingContext(null);

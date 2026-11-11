@@ -18,21 +18,21 @@ export interface FontSizeClasses {
 
 export const TABLE_FONT_SIZE_CONFIG: Record<TableFontSize, FontSizeClasses> = {
   large: {
-    table: 'text-sm sm:text-[14.5px]',
-    th: 'px-4 py-3 sm:px-5 sm:py-3 text-xs sm:text-[12px] tracking-wider',
-    td: 'px-4 py-3 sm:px-5 sm:py-3.5 leading-relaxed',
-    badge: 'text-xs px-2.5 py-0.5',
+    table: 'text-[16px] sm:text-[17px]',
+    th: 'px-4 py-3 sm:px-5 sm:py-3.5 text-sm sm:text-[15.5px] font-bold tracking-tight',
+    td: 'px-4 py-3 sm:px-5 sm:py-3.5 leading-relaxed text-[16px] sm:text-[17px] font-medium',
+    badge: 'text-xs sm:text-sm px-3 py-1',
     minColWidth: 'min-w-[140px] sm:min-w-[180px]',
-    mathClass: 'text-[14.5px]',
+    mathClass: 'text-[17px]',
     label: 'A+'
   },
   xlarge: {
-    table: 'text-base sm:text-[16.5px]',
-    th: 'px-5 py-3.5 sm:px-6 sm:py-3.5 text-[12.5px] sm:text-[13.5px] tracking-wider',
-    td: 'px-5 py-3.5 sm:px-6 sm:py-4 leading-relaxed',
-    badge: 'text-xs sm:text-sm px-3 py-1',
+    table: 'text-[18px] sm:text-[19px]',
+    th: 'px-5 py-3.5 sm:px-6 sm:py-4 text-base sm:text-[17.5px] font-bold tracking-tight',
+    td: 'px-5 py-3.5 sm:px-6 sm:py-4.5 leading-relaxed text-[18px] sm:text-[19px] font-medium',
+    badge: 'text-sm px-3.5 py-1.5',
     minColWidth: 'min-w-[160px] sm:min-w-[210px]',
-    mathClass: 'text-[16.5px]',
+    mathClass: 'text-[19px]',
     label: 'A++'
   }
 };

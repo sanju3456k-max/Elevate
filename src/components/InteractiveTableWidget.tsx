@@ -15,6 +15,7 @@ import {
   FileSpreadsheet,
   FileText,
   Sparkles,
+  Sparkle,
   Columns,
   Undo2,
   Redo2,
@@ -710,7 +711,7 @@ export const InteractiveTableWidget: React.FC<InteractiveTableWidgetProps> = ({
         <table className={`w-full min-w-full border-collapse text-left ${TABLE_FONT_SIZE_CONFIG[tableFontSize].table}`}>
           {/* Header Row */}
           <thead>
-            <tr className="bg-slate-100 dark:bg-[#08080a] text-slate-800 dark:text-zinc-200 font-bold select-none">
+            <tr className="bg-[#eceff4] dark:bg-[#1e2129] border-b-2 border-slate-300/80 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 font-bold uppercase tracking-wider text-[12px] sm:text-[13px] select-none">
               {headers.map((header, colIdx) => {
                 const isSorted = sortColumnIndex === colIdx;
                 const isIndex = colIdx === 0 && (
@@ -787,7 +788,7 @@ export const InteractiveTableWidget: React.FC<InteractiveTableWidgetProps> = ({
               filteredAndSortedRows.map((row, rIdx) => (
                 <tr
                   key={rIdx}
-                  className="hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-colors group"
+                  className={`transition-colors group hover:bg-blue-50/40 dark:hover:bg-blue-950/20 ${rIdx % 2 === 0 ? 'bg-white dark:bg-[#16181d]' : 'bg-[#f8f9fa] dark:bg-[#1c1e24]'}`}
                 >
                   {row.map((cell, colIdx) => {
                     const isEditingThisCell =
@@ -978,7 +979,7 @@ export const InteractiveTableWidget: React.FC<InteractiveTableWidgetProps> = ({
             <span>{isSavedToNotes ? 'Saved' : <>Save<span className="hidden xs:inline sm:inline"> to Note</span></>}</span>
           </button>
 
-          {/* Edit with AI Button */}
+          {/* Edit Button */}
           <button
             type="button"
             onClick={() => {
@@ -991,10 +992,10 @@ export const InteractiveTableWidget: React.FC<InteractiveTableWidgetProps> = ({
               }));
             }}
             className="px-2 sm:px-2.5 py-1 rounded-lg bg-transparent hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer border-0 shadow-none text-[11px] sm:text-xs font-semibold flex items-center gap-1 shrink-0 whitespace-nowrap"
-            title="Edit this table with AI"
+            title="Edit this table"
           >
-            <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-500" />
-            <span>Edit<span className="hidden xs:inline sm:inline"> with AI</span></span>
+            <Sparkle className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+            <span>Edit</span>
           </button>
 
           {/* Retry Button */}
