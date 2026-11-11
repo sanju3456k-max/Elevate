@@ -2895,6 +2895,11 @@ Formatting & Quality Requirements:
     isSendingRef.current = true;
     lastSentPromptRef.current = { text: textToSend, time: now };
 
+    if (isDictating) {
+      speechEngine.stopAll();
+      setIsDictating(false);
+    }
+
     setInputMessage('');
 
     const activeEditingContext = explicitEditingContext || editingContext;

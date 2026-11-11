@@ -488,6 +488,7 @@ class CleanSpeechEngine {
   private isAssistantSpeaking: boolean = false;
   private isStartingRecognition: boolean = false;
   private isRecognitionActive: boolean = false;
+  private isDictationManuallyStopped: boolean = false;
   private lastAssistantSpokenText: string = '';
 
   // Listeners
@@ -501,6 +502,7 @@ class CleanSpeechEngine {
    * Safe recognition terminator with total cleanup of listeners and locks
    */
   private safeStopRecognition() {
+    this.isDictationManuallyStopped = true;
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
       this.restartTimer = null;
@@ -521,7 +523,7 @@ class CleanSpeechEngine {
   }
 
   /**
-   * Start clean 1-click dictation into the prompt box
+   * Start clean continuous dictation into the prompt box (stays active until manually toggled off or sent)
    */
   public async startDictation(
     existingInput: string,
@@ -544,55 +546,78 @@ class CleanSpeechEngine {
 
     this.stopAll();
 
+    this.isDictationManuallyStopped = false;
     this.currentMode = 'dictation';
     this.onTranscriptCallback = onTranscript;
     this.onDictationEndCallback = onEnded;
 
-    const baseText = existingInput ? existingInput.trim() : '';
+    let baseText = existingInput ? existingInput.trim() : '';
+    let latestAccumulatedText = baseText;
 
-    try {
-      const rec = new SpeechRec();
-      rec.continuous = true;
-      rec.interimResults = true;
-      rec.lang = 'en-US';
+    const startSession = () => {
+      if (this.isDictationManuallyStopped || this.currentMode !== 'dictation') return;
 
-      rec.onresult = (event: any) => {
-        const sessionSpeech = extractCleanSpeechFromEvent(event);
-        if (!sessionSpeech) return;
+      try {
+        const rec = new SpeechRec();
+        rec.continuous = true;
+        rec.interimResults = true;
+        rec.lang = 'en-US';
 
-        const total = baseText ? mergeSpeechChunks([baseText, sessionSpeech]) : sessionSpeech;
-        const cleaned = cleanSpeechTranscript(total);
+        rec.onresult = (event: any) => {
+          const sessionSpeech = extractCleanSpeechFromEvent(event);
+          if (!sessionSpeech) return;
 
-        if (this.onTranscriptCallback && cleaned) {
-          this.onTranscriptCallback(cleaned);
+          const total = baseText ? mergeSpeechChunks([baseText, sessionSpeech]) : sessionSpeech;
+          const cleaned = cleanSpeechTranscript(total);
+          latestAccumulatedText = cleaned;
+
+          if (this.onTranscriptCallback && cleaned) {
+            this.onTranscriptCallback(cleaned);
+          }
+        };
+
+        rec.onerror = (e: any) => {
+          const err = e?.error;
+          // 'no-speech' and 'aborted' are normal pauses while thinking - do NOT stop listening!
+          if (err === 'no-speech' || err === 'aborted') return;
+
+          console.warn('Speech recognition dictation notice:', err);
+          if (err === 'not-allowed' || err === 'service-not-allowed') {
+            notifySpeechMessage('Microphone access is blocked. Please allow microphone permission in your browser address bar.', 'error');
+            this.stopAll();
+          }
+        };
+
+        rec.onend = () => {
+          // Continuous dictation: Keep microphone listening unless explicitly stopped by user!
+          if (!this.isDictationManuallyStopped && this.currentMode === 'dictation') {
+            baseText = latestAccumulatedText;
+            setTimeout(() => {
+              startSession();
+            }, 60);
+            return;
+          }
+
+          this.currentMode = 'idle';
+          if (this.onDictationEndCallback) {
+            this.onDictationEndCallback();
+          }
+        };
+
+        rec.start();
+        this.activeRecognition = rec;
+      } catch (err) {
+        console.warn('Speech dictation start notice:', err);
+        if (!this.isDictationManuallyStopped && this.currentMode === 'dictation') {
+          setTimeout(() => startSession(), 200);
+        } else {
+          this.currentMode = 'idle';
+          onEnded();
         }
-      };
+      }
+    };
 
-      rec.onerror = (e: any) => {
-        const err = e?.error;
-        if (err === 'no-speech' || err === 'aborted') return;
-
-        console.warn('Speech recognition dictation error:', err);
-        if (err === 'not-allowed' || err === 'service-not-allowed') {
-          notifySpeechMessage('Microphone access is blocked. Please allow microphone permission in your browser address bar.', 'error');
-        }
-        this.stopAll();
-      };
-
-      rec.onend = () => {
-        this.currentMode = 'idle';
-        if (this.onDictationEndCallback) {
-          this.onDictationEndCallback();
-        }
-      };
-
-      rec.start();
-      this.activeRecognition = rec;
-    } catch (err) {
-      console.warn('Speech dictation error:', err);
-      notifySpeechMessage('Could not start microphone. Please check your browser audio permissions.', 'error');
-      onEnded();
-    }
+    startSession();
   }
 
   /**

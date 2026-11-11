@@ -3468,6 +3468,9 @@ function setupLiveWebSocket(server) {
                     }
                   }
                 },
+                thinkingConfig: {
+                  thinkingBudget: 0
+                },
                 systemInstruction: {
                   parts: [{ text: systemInstruction }]
                 }
