@@ -1625,7 +1625,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                     }}
                   >
                     <img
-                      src="./assets/preplens-icon.svg?v=17"
+                      src="./assets/elevate-watermark.svg?v=17"
                       alt=""
                       className="elevate-watermark-img pointer-events-none select-none"
                       crossOrigin="anonymous"

@@ -13,7 +13,8 @@ const PRECACHE_ASSETS = [
   '/icon-maskable-512.png?v=17',
   '/apple-touch-icon.png?v=17',
   '/assets/preplens-icon.png?v=17',
-  '/assets/preplens-icon.svg?v=17'
+  '/assets/preplens-icon.svg?v=17',
+  '/assets/elevate-watermark.svg?v=17'
 ];
 
 // Install: Cache critical shell assets safely without failing if one asset is missing
