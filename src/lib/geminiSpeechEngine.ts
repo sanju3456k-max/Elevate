@@ -558,6 +558,15 @@ class CleanSpeechEngine {
       if (this.isDictationManuallyStopped || this.currentMode !== 'dictation') return;
 
       try {
+        if (this.activeRecognition) {
+          try {
+            this.activeRecognition.onend = null;
+            this.activeRecognition.onerror = null;
+            this.activeRecognition.abort();
+          } catch {}
+          this.activeRecognition = null;
+        }
+
         const rec = new SpeechRec();
         rec.continuous = true;
         rec.interimResults = true;
@@ -578,8 +587,10 @@ class CleanSpeechEngine {
 
         rec.onerror = (e: any) => {
           const err = e?.error;
-          // 'no-speech' and 'aborted' are normal pauses while thinking - do NOT stop listening!
-          if (err === 'no-speech' || err === 'aborted') return;
+          // 'no-speech', 'aborted', 'network', and 'audio-capture' are normal momentary pauses while speaking - do NOT stop listening!
+          if (err === 'no-speech' || err === 'aborted' || err === 'network' || err === 'audio-capture') {
+            return;
+          }
 
           console.warn('Speech recognition dictation notice:', err);
           if (err === 'not-allowed' || err === 'service-not-allowed') {
@@ -589,12 +600,16 @@ class CleanSpeechEngine {
         };
 
         rec.onend = () => {
+          if (this.activeRecognition === rec) {
+            this.activeRecognition = null;
+          }
+
           // Continuous dictation: Keep microphone listening unless explicitly stopped by user!
           if (!this.isDictationManuallyStopped && this.currentMode === 'dictation') {
             baseText = latestAccumulatedText;
             setTimeout(() => {
               startSession();
-            }, 60);
+            }, 80);
             return;
           }
 
@@ -609,10 +624,12 @@ class CleanSpeechEngine {
       } catch (err) {
         console.warn('Speech dictation start notice:', err);
         if (!this.isDictationManuallyStopped && this.currentMode === 'dictation') {
-          setTimeout(() => startSession(), 200);
+          setTimeout(() => startSession(), 250);
         } else {
           this.currentMode = 'idle';
-          onEnded();
+          if (this.onDictationEndCallback) {
+            this.onDictationEndCallback();
+          }
         }
       }
     };

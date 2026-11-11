@@ -116,7 +116,7 @@ import { MathTest, TestAttempt, UserProfile, DifficultyLevel, normalizeQuestions
 import { formatTestToText, parseTestFromText } from '../../utils/testFormatConverter';
 export type { GeminiModelTier };
 import { getAllNotesFromIDB } from '../../lib/idbNotes';
-import { buildThetaLeanAppContext } from '../../lib/thetaAppContextResolver';
+import { buildThetaLeanAppContext, buildThetaLiveVoiceSystemInstruction } from '../../lib/thetaAppContextResolver';
 import { 
   speechEngine,
   LiveTalkStatus,
@@ -2656,9 +2656,18 @@ Formatting & Quality Requirements:
         },
       });
 
+      // Construct personalized, full-app contextual system instruction for Theta Live Voice
+      const liveSystemInstruction = buildThetaLiveVoiceSystemInstruction(
+        tests,
+        attempts,
+        userProfile,
+        localNotes,
+        activeSession
+      );
+
       const success = await geminiLiveClient.connect({
         voice: 'Aoede', // Official Gemini Live voice mapped to Vega
-        systemInstruction: "You are Theta, an ultra-responsive, friendly, and encouraging AI math tutor in a direct live voice conversation. Answer promptly and concisely in 1 to 3 clear spoken sentences. Do not use markdown, code blocks, bullet points, asterisks, or formulas formatted as code; speak math naturally and conversationally. Respond immediately to the user's questions without filler introductory phrases.",
+        systemInstruction: liveSystemInstruction,
       });
 
       if (!success) {

@@ -470,3 +470,84 @@ export function buildThetaLeanAppContext(
     targetedLookup
   };
 }
+
+/**
+ * Builds rich, real-time, personalized system instructions for Gemini Live Multimodal Voice
+ * giving Theta full access to student profile, test library, test scores, topic mastery,
+ * notes, and ongoing chat context.
+ */
+export function buildThetaLiveVoiceSystemInstruction(
+  tests: MathTest[] = [],
+  attempts: TestAttempt[] = [],
+  userProfile?: UserProfile | null,
+  localNotes: any[] = [],
+  activeSession?: { title?: string; messages?: Array<{ role: string; content: string }> } | null
+): string {
+  const context = buildThetaLeanAppContext('', tests, attempts, userProfile, localNotes, null);
+  const gc = context.globalCapsule;
+  const studentName = (gc.userName && gc.userName !== 'Student')
+    ? gc.userName
+    : (userProfile?.displayName || 'Student');
+
+  let instruction = `You are Theta, the elite, warm, ultra-responsive, and natural conversational AI voice math mentor in the Elevate app (modeled after the official Google Gemini Live assistant). You are currently speaking with ${studentName} in a direct real-time voice call.
+
+=== STUDENT PROFILE & ELEVATE APP DATA ===
+- Student Name: ${studentName}
+- Performance Overview: ${gc.totalTestsAttempted} mock tests taken, ${gc.overallAccuracy}% lifetime accuracy across all assessments.`;
+
+  if (gc.masterySummary) {
+    const ms = gc.masterySummary;
+    const strong = ms.strongTopics.length > 0 ? ms.strongTopics.join(', ') : 'None yet';
+    const weak = ms.needsPracticeTopics.length > 0 ? ms.needsPracticeTopics.join(', ') : 'None identified';
+    instruction += `\n- 4-Tier Topic Mastery Breakdown:
+  * Strong / Mastered Topics (>=75% accuracy): ${strong}
+  * Needs Practice / Focus Areas (<50% accuracy or high error rate): ${weak}
+  * Developing Topics: ${ms.developingCount} topic(s)
+  * Unattempted Topics: ${ms.unattemptedCount} topic(s)`;
+  }
+
+  if (gc.recentAttempts && gc.recentAttempts.length > 0) {
+    const attList = gc.recentAttempts
+      .slice(0, 4)
+      .map((a) => `"${a.testTitle}" (${a.scoreText}, ${a.accuracy}% accuracy on ${a.date})`)
+      .join('; ');
+    instruction += `\n- Recent Mock Test Attempts: ${attList}`;
+  }
+
+  if (gc.testCatalog && gc.testCatalog.length > 0) {
+    const catalogList = gc.testCatalog
+      .slice(0, 8)
+      .map((t) => `"${t.title}" (${t.topic}, ${t.totalQuestions} Qs)`)
+      .join('; ');
+    instruction += `\n- Test Library Manifest (${gc.totalTestsInLibrary} total available in app): ${catalogList}`;
+  }
+
+  if (gc.htmlNotesSummary && gc.htmlNotesSummary.totalProjects > 0) {
+    const projNames = gc.htmlNotesSummary.projects.map((p) => `"${p.name}" (${p.fileCount} slides/notes)`).join(', ');
+    instruction += `\n- Student HTML Notes Projects: ${projNames}`;
+  }
+
+  instruction += `\n- Elevate Platform Features & Tools Available:
+  * Custom Mock Test Builder & Quiz Generator (can generate practice tests on any syllabus topic)
+  * Past Test Error Diagnostics & Weakness Analysis
+  * 2D & 3D Interactive Math Plotter
+  * HTML Notes Studio & Formula Sheet Vault`;
+
+  // Inject recent conversation history if present in the active session
+  if (activeSession?.messages && activeSession.messages.length > 0) {
+    const validMsgs = activeSession.messages.filter((m) => m.content && !m.content.startsWith('[Live Voice Mode'));
+    if (validMsgs.length > 0) {
+      const recentThread = validMsgs.slice(-4).map((m) => `${m.role === 'user' ? studentName : 'Theta'}: "${m.content.replace(/\n+/g, ' ').slice(0, 160)}"`).join('\n');
+      instruction += `\n\n=== RECENT CHAT SESSION CONTEXT ===\n${recentThread}`;
+    }
+  }
+
+  instruction += `\n\n=== REAL-TIME SPOKEN CONVERSATION DIRECTIVES ===
+1. Complete App Knowledge: You possess full, instant awareness of ${studentName}'s actual mock test scores, weak topics, and study progress. Always address ${studentName} naturally by name when appropriate. When asked "How am I doing?", "What should I practice?", "Can you test me on my weak areas?", or "What tests do I have?", cite their real test data and topics directly and accurately.
+2. Fast, Agile Spoken Dialogue: Speak concisely in 1 to 3 clear, natural spoken sentences. Avoid long lectures or monologues so the conversation feels fast, agile, and truly interactive in real time.
+3. Pronounce Math Naturally: Never output or speak Markdown formatting, asterisks, bullet points, code block fences, or raw LaTeX syntax (e.g. never say "backslash", "frac", "caret", or "curly brace"). Pronounce math as spoken English (e.g., "x squared plus five equals zero", "the derivative of sine x is cosine x").
+4. Action Guidance: If the student asks you to generate a test, create a formula sheet, or plot a curve, confirm enthusiastically and guide them to practice. The conversation will automatically be saved into their Elevate chat history.
+5. Voice Demeanor: Be enthusiastic, encouraging, intellectually sharp, and engaging—just like the official Google Gemini Live voice experience.`;
+
+  return instruction;
+}
