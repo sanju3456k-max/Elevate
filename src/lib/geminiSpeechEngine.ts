@@ -886,13 +886,13 @@ class CleanSpeechEngine {
           }
           const echoRatio = userTokens.length > 0 ? echoMatches / userTokens.length : 0;
 
-          // If speech is primarily what the assistant just spoke (>= 60% overlap) or exact substring of it -> drop as echo
-          if (echoRatio >= 0.60 || this.lastAssistantSpokenText.includes(userLower)) {
+          // Reject if the heard phrase is an exact substring of what assistant spoke OR has heavy overlap
+          if (echoRatio >= 0.70 || this.lastAssistantSpokenText.includes(userLower)) {
             return;
           }
 
-          // Once user begins speaking genuine words, clear the old assistant text so follow-up conversation flows naturally
-          if (userTokens.length >= 2 && echoRatio === 0) {
+          // Once the user speaks any distinct words, clear the old assistant text so conversation flows freely
+          if (userTokens.length >= 1 && echoRatio < 0.30) {
             this.lastAssistantSpokenText = '';
           }
         }
@@ -1094,14 +1094,22 @@ class CleanSpeechEngine {
         return;
       }
 
-      // Speak sentences sequentially via Web Speech queue
+      // Speak sentences sequentially via Web Speech queue with safety recovery
+      let hasEnded = false;
+      const safeComplete = () => {
+        if (!hasEnded) {
+          hasEnded = true;
+          resumeListeningFresh();
+        }
+      };
+
       sentences.forEach((sentence, index) => {
         const utter = new SpeechSynthesisUtterance(sentence);
         applyGeminiVoice(utter, 'vega');
 
         if (index === sentences.length - 1) {
-          utter.onend = () => resumeListeningFresh();
-          utter.onerror = () => resumeListeningFresh();
+          utter.onend = safeComplete;
+          utter.onerror = safeComplete;
         }
 
         if (index === 0) {
@@ -1110,6 +1118,15 @@ class CleanSpeechEngine {
 
         window.speechSynthesis.speak(utter);
       });
+
+      // Browser TTS Watchdog: on mobile browsers, speechSynthesis occasionally fails to fire onend for long sentences.
+      // Estimate maximum reasonable speech duration and force listening recovery if hung.
+      const estimatedDurationMs = Math.max(3000, clean.split(/\s+/).length * 450);
+      setTimeout(() => {
+        if (this.isAssistantSpeaking && !hasEnded) {
+          safeComplete();
+        }
+      }, estimatedDurationMs + 2000);
     } catch {
       resumeListeningFresh();
     }

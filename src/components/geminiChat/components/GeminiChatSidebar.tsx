@@ -47,15 +47,15 @@ export const GeminiChatSidebar: React.FC<GeminiChatSidebarProps> = ({
 }) => {
   return (
     <aside
-      className={`fixed lg:static inset-y-0 left-0 z-50 lg:z-auto h-full w-72 lg:w-80 bg-[#f0f4f9] dark:bg-[#1e1f20] border-r border-slate-200/80 dark:border-[#282a2d] flex flex-col shrink-0 transition-transform duration-200 ease-out drawer-panel ${
+      className={`fixed lg:static inset-y-0 left-0 z-50 lg:z-auto h-full w-72 lg:w-80 bg-white dark:bg-[#1a1b1e] border-r border-slate-200 dark:border-[#282a2d] flex flex-col shrink-0 transition-transform duration-200 ease-out shadow-lg lg:shadow-none drawer-panel ${
         isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:hidden'
       }`}
     >
       {/* Sidebar Header & New Chat Button */}
-      <div className="pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] px-3.5 pb-3.5 space-y-3 border-b border-slate-200/80 dark:border-[#282a2d] shrink-0">
+      <div className="pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] px-3.5 pb-3.5 space-y-3 border-b border-slate-100 dark:border-[#282a2d] bg-white dark:bg-[#1a1b1e] shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xs">
+            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
               <Sparkles className="w-4 h-4" />
             </div>
             <span className="font-bold text-sm tracking-tight text-slate-800 dark:text-zinc-100">
@@ -64,7 +64,7 @@ export const GeminiChatSidebar: React.FC<GeminiChatSidebarProps> = ({
           </div>
           <button
             onClick={() => setIsSidebarOpen(false)}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-[#282a2d] cursor-pointer transition-colors"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-[#282a2d] cursor-pointer transition-colors"
             title="Back to conversation (Esc)"
             aria-label="Back to conversation"
           >
@@ -74,7 +74,7 @@ export const GeminiChatSidebar: React.FC<GeminiChatSidebarProps> = ({
 
         <button
           onClick={handleNewChat}
-          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-full bg-white dark:bg-[#21222e] text-slate-800 dark:text-zinc-100 hover:bg-blue-50 dark:hover:bg-[#20222e] border border-slate-300 dark:border-transparent text-xs font-bold transition-all shadow-none cursor-pointer active:scale-98"
+          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-50 hover:bg-blue-50/70 dark:bg-[#21222e] text-slate-800 dark:text-zinc-100 dark:hover:bg-[#282a36] border border-slate-200/80 dark:border-transparent text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-98"
         >
           <Plus className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           <span>New Chat</span>
@@ -89,13 +89,13 @@ export const GeminiChatSidebar: React.FC<GeminiChatSidebarProps> = ({
               placeholder="Search chats..."
               value={historySearchQuery}
               onChange={(e) => setHistorySearchQuery(e.target.value)}
-              className="w-full bg-white dark:bg-[#21222e] border border-slate-300 dark:border-transparent shadow-none rounded-full pl-8.5 pr-3 py-1.5 text-xs text-slate-800 dark:text-zinc-200 placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-all"
+              className="w-full bg-slate-50 dark:bg-[#21222e] border border-slate-200/80 dark:border-transparent shadow-xs rounded-xl pl-8.5 pr-3 py-1.5 text-xs text-slate-800 dark:text-zinc-200 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
             />
           </div>
           {activeSessionHasMessages && (
             <button
               onClick={handleClearCurrentChat}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors shrink-0 cursor-pointer shadow-none border border-slate-300 dark:border-transparent"
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors shrink-0 cursor-pointer shadow-xs border border-slate-200/80 dark:border-transparent bg-slate-50 dark:bg-[#21222e]"
               title="Clear messages in current chat"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -104,7 +104,7 @@ export const GeminiChatSidebar: React.FC<GeminiChatSidebarProps> = ({
           {hasSessions && (
             <button
               onClick={handleDeleteAllSessions}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors shrink-0 cursor-pointer shadow-none border border-slate-300 dark:border-transparent"
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors shrink-0 cursor-pointer shadow-xs border border-slate-200/80 dark:border-transparent bg-slate-50 dark:bg-[#21222e]"
               title="Delete all chat history"
             >
               <Trash2 className="w-4 h-4" />
@@ -114,7 +114,7 @@ export const GeminiChatSidebar: React.FC<GeminiChatSidebarProps> = ({
       </div>
 
       {/* Scrollable Sessions List */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1">
+      <div className="flex-1 overflow-y-auto p-2.5 space-y-1.5 bg-white dark:bg-[#1a1b1e]">
         {filteredSessions.length === 0 ? (
           <div className="p-4 text-center text-xs text-slate-400">
             No conversations found.
@@ -139,10 +139,10 @@ export const GeminiChatSidebar: React.FC<GeminiChatSidebarProps> = ({
                     }
                   }
                 }}
-                className={`group relative flex items-center justify-between px-3 py-2.5 rounded-full text-xs font-medium cursor-pointer transition-all ${
+                className={`group relative flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium cursor-pointer transition-all border ${
                   isActive
-                    ? 'bg-[#d3e3fd] dark:bg-[#282a2d] text-blue-900 dark:text-blue-300 font-bold shadow-2xs'
-                    : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-200/60 dark:hover:bg-[#282a2d]/60'
+                    ? 'bg-blue-50 dark:bg-[#282a2d] border-blue-200/80 dark:border-blue-900/60 text-blue-900 dark:text-blue-300 font-bold shadow-xs'
+                    : 'bg-white dark:bg-[#1a1b1e] border-slate-100 dark:border-zinc-800/60 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-[#232428] hover:border-slate-200'
                 }`}
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1 pr-1">
@@ -154,7 +154,7 @@ export const GeminiChatSidebar: React.FC<GeminiChatSidebarProps> = ({
                   <button
                     type="button"
                     onClick={(e) => handleDeleteSession(session.id, e)}
-                    className="w-6.5 h-6.5 rounded-full flex items-center justify-center opacity-60 group-hover:opacity-100 text-slate-400 hover:text-red-500 hover:bg-slate-200 dark:hover:bg-[#3c4043] transition-all cursor-pointer"
+                    className="w-6.5 h-6.5 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-[#3c4043] transition-all cursor-pointer"
                     title="Delete chat"
                     aria-label="Delete conversation"
                   >
