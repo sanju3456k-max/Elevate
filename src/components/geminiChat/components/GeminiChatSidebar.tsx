@@ -47,37 +47,46 @@ export const GeminiChatSidebar: React.FC<GeminiChatSidebarProps> = ({
 }) => {
   return (
     <aside
-      className={`fixed lg:static inset-y-0 left-0 z-50 lg:z-auto h-full w-72 lg:w-80 bg-white dark:bg-[#1a1b1e] border-r border-slate-200 dark:border-[#282a2d] flex flex-col shrink-0 transition-transform duration-200 ease-out shadow-lg lg:shadow-none drawer-panel ${
-        isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:hidden'
+      className={`fixed inset-y-0 right-0 z-50 h-full w-[88vw] max-w-[340px] sm:max-w-sm bg-white dark:bg-[#1e2024] border-l border-slate-100 dark:border-zinc-800/80 shadow-2xl rounded-l-[24px] flex flex-col shrink-0 transition-transform duration-200 ease-out drawer-panel ${
+        isSidebarOpen ? 'translate-x-0' : 'translate-x-full'
       }`}
     >
-      {/* Sidebar Header & New Chat Button */}
-      <div className="pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] px-3.5 pb-3.5 space-y-3 border-b border-slate-100 dark:border-[#282a2d] bg-white dark:bg-[#1a1b1e] shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <span className="font-bold text-sm tracking-tight text-slate-800 dark:text-zinc-100">
-              Chat History
-            </span>
+      {/* Sidebar Header */}
+      <div className="p-4 sm:p-5 pt-[calc(env(safe-area-inset-top,0px)+1rem)] bg-white dark:bg-[#1e2024] flex items-center justify-between shrink-0 rounded-tl-[24px] border-b border-slate-100 dark:border-zinc-800/80">
+        <div className="flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-100 dark:border-blue-900/40 shadow-xs">
+            <Sparkles className="w-5 h-5" />
           </div>
-          <button
-            onClick={() => setIsSidebarOpen(false)}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-[#282a2d] cursor-pointer transition-colors"
-            title="Back to conversation (Esc)"
-            aria-label="Back to conversation"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-base text-slate-800 dark:text-zinc-100 tracking-tight">
+                Chat History
+              </span>
+            </div>
+            <div className="w-full h-[2px] mt-0.5 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 opacity-90" />
+          </div>
         </div>
-
         <button
-          onClick={handleNewChat}
-          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-50 hover:bg-blue-50/70 dark:bg-[#21222e] text-slate-800 dark:text-zinc-100 dark:hover:bg-[#282a36] border border-slate-200/80 dark:border-transparent text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-98"
+          onClick={() => setIsSidebarOpen(false)}
+          className="w-9 h-9 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-[#282a2d] cursor-pointer transition-colors"
+          title="Close chat history (Esc)"
+          aria-label="Close chat history"
         >
-          <Plus className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-          <span>New Chat</span>
+          <ArrowLeft className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="p-4 space-y-3 bg-white dark:bg-[#1e2024] border-b border-slate-100 dark:border-zinc-800/80 shrink-0">
+        <button
+          onClick={() => {
+            handleNewChat();
+            setIsSidebarOpen(false);
+          }}
+          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition-all shadow-xs cursor-pointer active:scale-98"
+        >
+          <Plus className="w-4 h-4" />
+          <span>New Conversation</span>
+        </button>
         </button>
 
         {/* Search conversations */}

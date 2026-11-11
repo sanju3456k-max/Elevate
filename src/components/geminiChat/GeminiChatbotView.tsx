@@ -69,6 +69,13 @@ import {
 import { saveSingleNoteToIDB } from '../../lib/idbNotes';
 import { copyFormattedTextToClipboard, copyImageToClipboard } from '../../lib/tableClipboard';
 import { 
+  androidBackdropVariants, 
+  androidDrawerRightVariants, 
+  gpuAcceleratedStyle, 
+  gpuTransformStyle 
+} from '../../lib/animationConfig';
+import { useScrollLock } from '../../hooks/useScrollLock';
+import { 
   auth, 
   onAuthStateChanged,
   signInWithGoogle,
@@ -1722,6 +1729,9 @@ export const GeminiChatbotView: React.FC<GeminiChatbotViewProps> = ({
     priority: 15,
     id: 'gemini_message_editing'
   });
+
+  // Lock body & document scrolling while chat history side drawer is open
+  useScrollLock(isSidebarOpen);
 
   // 13. History Sidebar Drawer (Mobile, Tablet, Desktop)
   useBackHandler({
@@ -3788,152 +3798,185 @@ MANDATORY INSTRUCTIONS:
         </div>
       )}
 
-      {/* Mobile & Tablet Backdrop for Sidebar */}
+      {/* RIGHT: Chat History Side Drawer (Right-to-Left slide-over matching Home Drawer & App UI) */}
       <AnimatePresence>
         {isSidebarOpen && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setIsSidebarOpen(false)}
-            className="lg:hidden fixed inset-0 z-40 bg-black/50"
-          />
-        )}
-      </AnimatePresence>
-
-      {/* LEFT: Conversation History Sidebar (Slide-over on mobile & tablet, collapsible on desktop) */}
-      <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 lg:z-auto h-full w-72 lg:w-80 bg-[#f0f4f9] dark:bg-[#1e1f20] border-r border-slate-200/80 dark:border-[#282a2d] flex flex-col shrink-0 transition-transform duration-200 ease-out drawer-panel ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:hidden'
-        }`}
-      >
-        {/* Sidebar Header & New Chat Button */}
-        <div className="pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] px-3.5 pb-3.5 space-y-3 border-b border-slate-200/80 dark:border-[#282a2d] shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xs">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <span className="font-bold text-sm tracking-tight text-slate-800 dark:text-zinc-100">
-                Chat History
-              </span>
-            </div>
-            <button
-              onClick={() => setIsSidebarOpen(false)}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-[#282a2d] cursor-pointer transition-colors"
-              title="Back to conversation (Esc)"
-              aria-label="Back to conversation"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-          </div>
-
-          <button
-            onClick={handleNewChat}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-full bg-white dark:bg-[#21222e] text-slate-800 dark:text-zinc-100 hover:bg-blue-50 dark:hover:bg-[#20222e] border border-slate-300 dark:border-transparent text-xs font-bold transition-all shadow-none cursor-pointer active:scale-98"
+            variants={androidBackdropVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            style={gpuAcceleratedStyle}
+            className="fixed inset-0 bg-black/40 z-50 flex justify-end select-none cursor-pointer"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setIsSidebarOpen(false);
+            }}
           >
-            <Plus className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            <span>New Chat</span>
-          </button>
-
-          {/* Search conversations */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search chats..."
-                value={historySearchQuery}
-                onChange={(e) => setHistorySearchQuery(e.target.value)}
-                className="w-full bg-white dark:bg-[#21222e] border border-slate-300 dark:border-transparent shadow-none rounded-full pl-8.5 pr-3 py-1.5 text-xs text-slate-800 dark:text-zinc-200 placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-all"
-              />
-            </div>
-            {activeSession && activeSession.messages.length > 1 && (
-              <button
-                onClick={handleClearCurrentChat}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors shrink-0 cursor-pointer shadow-none border border-slate-300 dark:border-transparent"
-                title="Clear messages in current chat"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-            )}
-            {sessions.length > 0 && (
-              <button
-                onClick={handleDeleteAllSessions}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors shrink-0 cursor-pointer shadow-none border border-slate-300 dark:border-transparent"
-                title="Delete all chat history"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Scrollable Sessions List */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {filteredSessions.length === 0 ? (
-            <div className="p-4 text-center text-xs text-slate-400">
-              No conversations found.
-            </div>
-          ) : (
-            filteredSessions.map((session) => {
-              const isActive = session.id === activeSessionId;
-              return (
-                <div
-                  key={session.id}
-                  onClick={() => {
-                    if (session.id !== activeSessionId) {
-                      const effectiveUid = currentUserUid || auth.currentUser?.uid || getCachedAuthUser()?.uid || null;
-                      if (effectiveUid && effectiveUid !== 'guest-user' && effectiveUid !== 'anonymous') {
-                        if (activeSessionRef.current) {
-                          flushActiveChatSessionOnExit(effectiveUid, activeSessionRef.current).catch(() => {});
-                        } else {
-                          flushChatArchiveOnExit(effectiveUid, sessionsRef.current).catch(() => {});
-                        }
-                      }
-                    }
-                    setActiveSessionId(session.id);
-                    if (session.modelTier) {
-                      setSelectedModel(session.modelTier);
-                    }
-                    if (typeof window !== 'undefined') {
-                      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-                      if (document.documentElement) document.documentElement.scrollTop = 0;
-                      if (document.body) document.body.scrollTop = 0;
-                      if (window.innerWidth < 1024) {
-                        setIsSidebarOpen(false);
-                      }
-                    }
-                  }}
-                  className={`group relative flex items-center justify-between px-3 py-2.5 rounded-full text-xs font-medium cursor-pointer transition-all ${
-                    isActive
-                      ? 'bg-[#d3e3fd] dark:bg-[#282a2d] text-blue-900 dark:text-blue-300 font-bold shadow-2xs'
-                      : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-200/60 dark:hover:bg-[#282a2d]/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0 flex-1 pr-1">
-                    <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
-                    <span className="truncate">{session.title || 'New Conversation'}</span>
+            <motion.aside
+              variants={androidDrawerRightVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              style={gpuTransformStyle}
+              className="bg-white dark:bg-[#1e2024] w-[88vw] max-w-[340px] sm:max-w-sm h-full flex flex-col justify-between shadow-2xl rounded-l-[24px] overflow-hidden touch-pan-y cursor-default drawer-panel relative z-10 text-[#1f1f1f] dark:text-[#e3e3e3] border-0 ring-0 border-l border-slate-100 dark:border-zinc-800/80"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Drawer Top Header */}
+              <div className="p-4 sm:p-5 pt-[calc(env(safe-area-inset-top,0px)+1rem)] bg-white dark:bg-[#1e2024] flex items-center justify-between shrink-0 rounded-tl-[24px] border-b border-slate-100 dark:border-zinc-800/80">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-100 dark:border-blue-900/40 shadow-xs">
+                    <Clock className="w-5 h-5" />
                   </div>
-
-                  <div className="flex items-center gap-1 shrink-0 ml-1">
-                    {/* Delete chat button */}
-                    <button
-                      type="button"
-                      onClick={(e) => handleDeleteSession(session.id, e)}
-                      className="w-6.5 h-6.5 rounded-full flex items-center justify-center opacity-60 group-hover:opacity-100 text-slate-400 hover:text-red-500 hover:bg-slate-200 dark:hover:bg-[#3c4043] transition-all cursor-pointer"
-                      title="Delete chat"
-                      aria-label="Delete conversation"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-base text-slate-800 dark:text-zinc-100 tracking-tight">
+                        Chat History
+                      </span>
+                    </div>
+                    <div className="w-full h-[2px] mt-0.5 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 opacity-90" />
                   </div>
                 </div>
-              );
-            })
-          )}
-        </div>
-      </aside>
+                <button
+                  id="close-chat-history-drawer-btn"
+                  onClick={() => setIsSidebarOpen(false)}
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-[#282a2d] transition-colors cursor-pointer"
+                  title="Close chat history (Esc)"
+                  aria-label="Close chat history"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Drawer Action Bar: New Chat & Search */}
+              <div className="p-4 space-y-3 bg-white dark:bg-[#1e2024] border-b border-slate-100 dark:border-zinc-800/80 shrink-0">
+                <button
+                  onClick={() => {
+                    handleNewChat();
+                    setIsSidebarOpen(false);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition-all shadow-xs cursor-pointer active:scale-98"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>New Conversation</span>
+                </button>
+
+                {/* Search conversations */}
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search chats..."
+                      value={historySearchQuery}
+                      onChange={(e) => setHistorySearchQuery(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-[#282a2d] border border-slate-200/80 dark:border-zinc-700/60 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-zinc-200 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-[#21222e] transition-all"
+                    />
+                  </div>
+                  {activeSession && activeSession.messages.length > 1 && (
+                    <button
+                      onClick={handleClearCurrentChat}
+                      className="w-8.5 h-8.5 rounded-xl flex items-center justify-center text-slate-500 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors shrink-0 cursor-pointer border border-slate-200/80 dark:border-zinc-700/60"
+                      title="Clear messages in current chat"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {sessions.length > 0 && (
+                    <button
+                      onClick={handleDeleteAllSessions}
+                      className="w-8.5 h-8.5 rounded-xl flex items-center justify-center text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors shrink-0 cursor-pointer border border-slate-200/80 dark:border-zinc-700/60"
+                      title="Delete all chat history"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Scrollable Sessions List (Clean White Cards) */}
+              <div className="p-3 sm:p-4 space-y-2 overflow-y-auto flex-1 overscroll-contain bg-white dark:bg-[#1e2024]">
+                {filteredSessions.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-slate-400 dark:text-zinc-500">
+                    No conversations found.
+                  </div>
+                ) : (
+                  filteredSessions.map((session) => {
+                    const isActive = session.id === activeSessionId;
+                    return (
+                      <div
+                        key={session.id}
+                        onClick={() => {
+                          if (session.id !== activeSessionId) {
+                            const effectiveUid = currentUserUid || auth.currentUser?.uid || getCachedAuthUser()?.uid || null;
+                            if (effectiveUid && effectiveUid !== 'guest-user' && effectiveUid !== 'anonymous') {
+                              if (activeSessionRef.current) {
+                                flushActiveChatSessionOnExit(effectiveUid, activeSessionRef.current).catch(() => {});
+                              } else {
+                                flushChatArchiveOnExit(effectiveUid, sessionsRef.current).catch(() => {});
+                              }
+                            }
+                          }
+                          setActiveSessionId(session.id);
+                          if (session.modelTier) {
+                            setSelectedModel(session.modelTier);
+                          }
+                          if (typeof window !== 'undefined') {
+                            window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+                            if (document.documentElement) document.documentElement.scrollTop = 0;
+                            if (document.body) document.body.scrollTop = 0;
+                          }
+                          setIsSidebarOpen(false);
+                        }}
+                        className={`group relative flex items-center justify-between p-3 rounded-xl border text-xs font-medium cursor-pointer transition-all ${
+                          isActive
+                            ? 'bg-blue-50/80 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800/60 text-blue-900 dark:text-blue-200 font-semibold shadow-xs'
+                            : 'bg-white dark:bg-[#21222e] border-slate-100 dark:border-zinc-800/80 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-[#282a2d] hover:border-slate-200 dark:hover:border-zinc-700/60 shadow-2xs'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-1">
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                            isActive 
+                              ? 'bg-blue-100 dark:bg-blue-900/60 text-blue-600 dark:text-blue-300' 
+                              : 'bg-slate-100 dark:bg-[#282a2d] text-slate-500 dark:text-zinc-400'
+                          }`}>
+                            <MessageSquare className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate font-semibold text-xs text-slate-800 dark:text-zinc-200">
+                              {session.title || 'New Conversation'}
+                            </div>
+                            <div className="text-[10px] text-slate-400 dark:text-zinc-500 flex items-center gap-1.5 mt-0.5">
+                              <span>{session.messages?.length || 0} msgs</span>
+                              {session.updatedAt && (
+                                <>
+                                  <span>•</span>
+                                  <span>{new Date(session.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0 ml-1">
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteSession(session.id, e)}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center opacity-60 group-hover:opacity-100 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-all cursor-pointer"
+                            title="Delete chat"
+                            aria-label="Delete conversation"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </motion.aside>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* RIGHT: Main Clean Gemini Chat Panel */}
       <div className="flex-1 flex flex-col h-full bg-white dark:bg-[#131314] text-[#1f1f1f] dark:text-[#e3e3e3] min-w-0 overflow-hidden">
@@ -4058,15 +4101,6 @@ MANDATORY INSTRUCTIONS:
               <Settings2 className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
             </button>
 
-            {/* Toggle History Sidebar Button */}
-            <button
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center bg-transparent text-[#5e5e5e] dark:text-[#9aa0a6] hover:bg-slate-100 dark:hover:bg-[#282a30] transition-all cursor-pointer shrink-0 active:scale-95 border-0 shadow-none"
-              title={isSidebarOpen ? 'Close Chat History' : 'Open Chat History'}
-            >
-              <Clock className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
-            </button>
-
             {/* New Chat Button */}
             <button
               onClick={handleNewChat}
@@ -4074,6 +4108,19 @@ MANDATORY INSTRUCTIONS:
               title="Start a New Chat"
             >
               <Plus className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+            </button>
+
+            {/* Toggle History Sidebar Button (Shifted rightward of New Conversation button) */}
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className={`w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all cursor-pointer shrink-0 active:scale-95 border-0 shadow-none ${
+                isSidebarOpen
+                  ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
+                  : 'bg-transparent text-[#5e5e5e] dark:text-[#9aa0a6] hover:bg-slate-100 dark:hover:bg-[#282a30]'
+              }`}
+              title={isSidebarOpen ? 'Close Chat History' : 'Open Chat History'}
+            >
+              <Clock className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
             </button>
           </div>
         </header>
