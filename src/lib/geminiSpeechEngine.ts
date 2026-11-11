@@ -25,10 +25,10 @@ export const GEMINI_VOICE_PERSONAS: Record<'vega', VoicePersonaInfo> = {
     id: 'vega',
     name: 'Vega',
     gender: 'female',
-    tone: 'Warm, Expressive & Melodic',
-    description: 'Natural, friendly, and expressive conversational tone (Default)',
-    pitch: 1.05,
-    rate: 1.0,
+    tone: 'Warm, Clear & Natural',
+    description: 'Natural, friendly, and expressive conversational tone with comfortable pacing',
+    pitch: 1.02,
+    rate: 0.94, // Slightly relaxed pacing for maximum clarity and natural listening comfort
   },
 };
 

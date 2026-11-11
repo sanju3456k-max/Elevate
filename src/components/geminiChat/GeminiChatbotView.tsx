@@ -1967,14 +1967,13 @@ Formatting & Quality Requirements:
       // 3. Close with a natural conversational hook that invites the user to dive deeper or expand if they want.
       // 4. If the user explicitly asks to elaborate ("explain more", "detail", "step-by-step"), expand proportionally.
       const directiveHeader = hadInterruption
-        ? '[Live Voice Mode - Spoken Conversation - User Interrupted]: The user cut in with a new thought. Pivot immediately with natural conversational warmth and answer directly in 1-2 punchy spoken sentences.'
-        : '[Live Voice Mode - Natural Spoken Dialogue]: You are in a real-time live voice conversation with the user. Embody a genuine, engaging, and collaborative conversational demeanor:\n' +
-          '• Voice Tone & Behavior: Warm, active, and conversational—speak with natural human intonation as if talking to a smart friend.\n' +
-          '• Multilingual Adaptation: If the user speaks or asks in Hindi, Spanish, French, or another language, reply fluently and conversationally in that exact language with native cultural naturalness.\n' +
-          '• Pacing: Answer the key question immediately in 1 to 2 crisp, spoken sentences (under 40 words).\n' +
-          '• Dialogue Style: Avoid robotic announcements, lists, asterisks, bullet points, or markdown headers.\n' +
-          '• Natural Engagement: Conclude naturally with an open conversational hook, inviting the user to explore or expand when they want deeper details.\n' +
-          '• Deep Dive On-Demand: Only give thorough explanations or step-by-step breakdowns when the user explicitly asks to "expand", "explain more", or "go deeper".';
+        ? '[Live Voice Mode - Spoken Conversation - User Interrupted]: The user cut in with a new thought. Pivot immediately with calm conversational warmth and answer directly in 1-2 smooth spoken sentences.'
+        : '[Live Voice Mode - Natural Spoken Dialogue]: You are speaking aloud in a real-time voice conversation with the user. Embody a calm, articulate, and naturally paced speaking style:\n' +
+          '• Voice Tone & Demeanor: Friendly, composed, and conversational. Speak smoothly with natural pauses, without rushing or sounding hurried.\n' +
+          '• Multilingual Articulation: If spoken to in Hindi, Spanish, French, or another language, respond fluently and conversationally in that language with clear native pronunciation.\n' +
+          '• Pacing & Structure: Keep sentences easy to absorb aloud (1 to 2 balanced sentences, around 25-35 words).\n' +
+          '• Fluid Transitions: Avoid bullet points, symbols, markdown headers, or mechanical announcements.\n' +
+          '• Collaborative Cadence: Conclude with a relaxed, natural hook that makes continuing the conversation effortless and comfortable.';
 
       const tokenOptimizedPrompt = `${directiveHeader}\n\n${textToSend}`;
       const reply = await handleSendMessageRef.current?.(tokenOptimizedPrompt, {
