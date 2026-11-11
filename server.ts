@@ -1,12 +1,10 @@
 import express from "express";
-import http from "http";
 import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import routes from "./server/routes/index.js";
 import pwaRoutes from "./server/routes/pwa.js";
-import { setupLiveWebSocket } from "./server/routes/ai/liveWebSocket.js";
 
 dotenv.config();
 
@@ -100,10 +98,7 @@ async function startServer() {
     console.error("Server unhandled rejection:", reason);
   });
 
-  const httpServer = http.createServer(app);
-  setupLiveWebSocket(httpServer);
-
-  httpServer.listen(PORT, "0.0.0.0", () => {
+  app.listen(PORT, "0.0.0.0", () => {
     console.log(`Modular Server running on http://0.0.0.0:${PORT}`);
   });
 }

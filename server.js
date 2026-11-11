@@ -1,14 +1,12 @@
 // server.ts
 import express from "express";
-import http from "http";
 import path3 from "path";
 import fs2 from "fs";
-import dotenv2 from "dotenv";
+import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 
 // server/routes/index.ts
 import { Router as Router9 } from "express";
-import { GoogleGenAI as GoogleGenAI3 } from "@google/genai";
 
 // server/routes/drive.ts
 import { Router } from "express";
@@ -301,12 +299,12 @@ var withTimeout = (promise, timeoutMs = 15e3, errorMsg = "Gemini request timed o
   });
 };
 var getAiClient = (overrideApiKey) => {
-  const apiKey2 = overrideApiKey || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-  if (!apiKey2) {
+  const apiKey = overrideApiKey || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) {
     throw new Error("Gemini API key is not configured");
   }
   return new GoogleGenAI({
-    apiKey: apiKey2,
+    apiKey,
     httpOptions: {
       headers: {
         "User-Agent": "aistudio-build"
@@ -2242,12 +2240,12 @@ async function withTimeout2(promise, timeoutMs = 25e3, errorMsg = "Gemini reques
   }
 }
 function getAiClient2(overrideApiKey) {
-  const apiKey2 = overrideApiKey || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-  if (!apiKey2) {
+  const apiKey = overrideApiKey || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) {
     throw new Error("Gemini API key is not configured");
   }
   return new GoogleGenAI2({
-    apiKey: apiKey2,
+    apiKey,
     httpOptions: {
       headers: {
         "User-Agent": "aistudio-build"
@@ -3343,20 +3341,6 @@ var generalRateLimiter = createRateLimiter({
   max: 180,
   message: "Too many requests. Please slow down and try again in a moment."
 });
-router9.post(["/gemini/live-token", "/ai/gemini/live-token"], aiRateLimiter, async (_req, res) => {
-  try {
-    const apiKey2 = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || "";
-    if (!apiKey2) {
-      return res.status(500).json({ error: "Gemini API key is not configured on server" });
-    }
-    const ai = new GoogleGenAI3({ apiKey: apiKey2 });
-    const token = await ai.authTokens.create({});
-    return res.json({ token: token.name });
-  } catch (err) {
-    console.error("Error creating live auth token:", err);
-    return res.status(500).json({ error: err?.message || "Failed to create live auth token" });
-  }
-});
 router9.use("/drive", generalRateLimiter, drive_default);
 router9.use("/share", generalRateLimiter, share_default);
 router9.use("/leaderboard", generalRateLimiter, leaderboard_default);
@@ -3398,199 +3382,8 @@ router10.get("/sw.js", (_req, res) => {
 });
 var pwa_default = router10;
 
-// server/routes/ai/liveWebSocket.ts
-import { WebSocketServer, WebSocket } from "ws";
-import { GoogleGenAI as GoogleGenAI4 } from "@google/genai";
-import dotenv from "dotenv";
-dotenv.config();
-var apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || "";
-function setupLiveWebSocket(server) {
-  const wss = new WebSocketServer({
-    server,
-    path: "/api/gemini/live-ws"
-  });
-  console.log("Gemini Multimodal Live WebSocket server initialized on /api/gemini/live-ws");
-  wss.on("connection", async (clientWs, req) => {
-    console.log("Client connected to Gemini Live WebSocket from", req.socket.remoteAddress);
-    if (!apiKey) {
-      console.error("Gemini API key is not configured on server.");
-      clientWs.send(JSON.stringify({ type: "error", message: "Gemini API key is not configured on server." }));
-      clientWs.close();
-      return;
-    }
-    const ai = new GoogleGenAI4({ apiKey });
-    let session = null;
-    let isSessionAlive = false;
-    let selectedVoice = "Aoede";
-    clientWs.on("message", async (data, isBinary) => {
-      try {
-        if (isBinary) {
-          if (session && isSessionAlive) {
-            const base64Data = data.toString("base64");
-            session.sendRealtimeInput({
-              media: [
-                {
-                  mimeType: "audio/pcm;rate=16000",
-                  data: base64Data
-                }
-              ]
-            });
-          }
-          return;
-        }
-        const msg = JSON.parse(data.toString());
-        if (msg.type === "init") {
-          const voiceMap = {
-            vega: "Aoede",
-            Vega: "Aoede",
-            aoede: "Aoede",
-            Aoede: "Aoede",
-            kore: "Kore",
-            Kore: "Kore",
-            puck: "Puck",
-            Puck: "Puck",
-            fenrir: "Fenrir",
-            Fenrir: "Fenrir",
-            charon: "Charon",
-            Charon: "Charon"
-          };
-          selectedVoice = voiceMap[msg.voice] || "Aoede";
-          const systemInstruction = msg.systemInstruction || "You are Theta, an intelligent, conversational, and highly encouraging AI math tutor. Keep your spoken responses concise, direct, and conversational (typically 2 to 3 sentences). Avoid markdown formatting, asterisks, bullet points, and tables in spoken conversation unless explicitly asked.";
-          try {
-            session = await ai.live.connect({
-              model: "models/gemini-2.5-flash-native-audio-latest",
-              config: {
-                responseModalities: ["AUDIO"],
-                speechConfig: {
-                  voiceConfig: {
-                    prebuiltVoiceConfig: {
-                      voiceName: selectedVoice
-                    }
-                  }
-                },
-                thinkingConfig: {
-                  thinkingBudget: 0
-                },
-                systemInstruction: {
-                  parts: [{ text: systemInstruction }]
-                }
-              },
-              callbacks: {
-                onopen: () => {
-                  console.log("Gemini Multimodal Live session opened with voice:", selectedVoice);
-                  isSessionAlive = true;
-                  if (clientWs.readyState === WebSocket.OPEN) {
-                    clientWs.send(JSON.stringify({ type: "ready", voice: selectedVoice }));
-                  }
-                },
-                onmessage: (serverMsg) => {
-                  if (!isSessionAlive || clientWs.readyState !== WebSocket.OPEN) return;
-                  if (serverMsg.serverContent) {
-                    const content = serverMsg.serverContent;
-                    if (content.interrupted) {
-                      console.log("Gemini Live server detected user voice barge-in (interrupted).");
-                      clientWs.send(JSON.stringify({ type: "interrupted" }));
-                      return;
-                    }
-                    if (content.modelTurn?.parts) {
-                      for (const part of content.modelTurn.parts) {
-                        if (part.inlineData) {
-                          clientWs.send(JSON.stringify({
-                            type: "audio_chunk",
-                            mimeType: part.inlineData.mimeType,
-                            data: part.inlineData.data
-                          }));
-                        }
-                        if (part.text && !part.thought) {
-                          clientWs.send(JSON.stringify({
-                            type: "text_chunk",
-                            text: part.text
-                          }));
-                        }
-                      }
-                    }
-                    if (content.turnComplete) {
-                      clientWs.send(JSON.stringify({ type: "turn_complete" }));
-                    }
-                  }
-                },
-                onerror: (err) => {
-                  console.error("Gemini Live session error:", err?.message || err);
-                  if (clientWs.readyState === WebSocket.OPEN) {
-                    clientWs.send(JSON.stringify({ type: "error", message: err?.message || "Live session error" }));
-                  }
-                },
-                onclose: (e) => {
-                  console.log("Gemini Live session closed code:", e?.code, "reason:", e?.reason);
-                  isSessionAlive = false;
-                  if (clientWs.readyState === WebSocket.OPEN) {
-                    clientWs.send(JSON.stringify({ type: "closed", code: e?.code, reason: e?.reason }));
-                  }
-                }
-              }
-            });
-          } catch (initErr) {
-            console.error("Failed to initialize Gemini Live session:", initErr?.message || initErr);
-            if (clientWs.readyState === WebSocket.OPEN) {
-              clientWs.send(JSON.stringify({ type: "error", message: initErr?.message || "Failed to start Live session" }));
-            }
-          }
-        } else if (msg.type === "client_content") {
-          if (session && isSessionAlive && msg.text) {
-            session.sendClientContent({
-              turns: [
-                {
-                  role: "user",
-                  parts: [{ text: msg.text }]
-                }
-              ],
-              turnComplete: true
-            });
-          }
-        } else if (msg.type === "realtime_input") {
-          if (session && isSessionAlive && msg.data) {
-            session.sendRealtimeInput({
-              media: [
-                {
-                  mimeType: msg.mimeType || "audio/pcm;rate=16000",
-                  data: msg.data
-                }
-              ]
-            });
-          }
-        }
-      } catch (err) {
-        console.error("Error processing client WebSocket message:", err?.message || err);
-      }
-    });
-    clientWs.on("close", () => {
-      console.log("Client disconnected from Live WebSocket.");
-      isSessionAlive = false;
-      if (session?.conn) {
-        try {
-          session.conn.close();
-        } catch {
-        }
-        session = null;
-      }
-    });
-    clientWs.on("error", (err) => {
-      console.warn("Client WebSocket error:", err?.message || err);
-      isSessionAlive = false;
-      if (session?.conn) {
-        try {
-          session.conn.close();
-        } catch {
-        }
-        session = null;
-      }
-    });
-  });
-  return wss;
-}
-
 // server.ts
-dotenv2.config();
+dotenv.config();
 var __filename = fileURLToPath(import.meta.url);
 var __dirname = path3.dirname(__filename);
 async function startServer() {
@@ -3664,9 +3457,7 @@ async function startServer() {
   process.on("unhandledRejection", (reason) => {
     console.error("Server unhandled rejection:", reason);
   });
-  const httpServer = http.createServer(app);
-  setupLiveWebSocket(httpServer);
-  httpServer.listen(PORT, "0.0.0.0", () => {
+  app.listen(PORT, "0.0.0.0", () => {
     console.log(`Modular Server running on http://0.0.0.0:${PORT}`);
   });
 }

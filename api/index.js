@@ -4,7 +4,6 @@ import dotenv from "dotenv";
 
 // server/routes/index.ts
 import { Router as Router9 } from "express";
-import { GoogleGenAI as GoogleGenAI3 } from "@google/genai";
 
 // server/routes/drive.ts
 import { Router } from "express";
@@ -3338,20 +3337,6 @@ var generalRateLimiter = createRateLimiter({
   windowMs: 60 * 1e3,
   max: 180,
   message: "Too many requests. Please slow down and try again in a moment."
-});
-router9.post(["/gemini/live-token", "/ai/gemini/live-token"], aiRateLimiter, async (_req, res) => {
-  try {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || "";
-    if (!apiKey) {
-      return res.status(500).json({ error: "Gemini API key is not configured on server" });
-    }
-    const ai = new GoogleGenAI3({ apiKey });
-    const token = await ai.authTokens.create({});
-    return res.json({ token: token.name });
-  } catch (err) {
-    console.error("Error creating live auth token:", err);
-    return res.status(500).json({ error: err?.message || "Failed to create live auth token" });
-  }
 });
 router9.use("/drive", generalRateLimiter, drive_default);
 router9.use("/share", generalRateLimiter, share_default);
