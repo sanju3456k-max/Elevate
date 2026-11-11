@@ -459,10 +459,26 @@ export function applyGeminiFemaleVoice(utterance: SpeechSynthesisUtterance) {
 }
 
 /**
+ * Direct voice interrupt keywords that immediately halt assistant speech on first word
+ */
+const INTERRUPT_KEYWORDS = new Set([
+  'stop', 'wait', 'pause', 'cancel', 'hold', 'no', 'listen', 'theta', 'hey', 'quiet'
+]);
+
+function extractWords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s]/g, '')
+    .split(/\s+/)
+    .filter((w) => w.length >= 2);
+}
+
+/**
  * Clean Speech Engine Controller
  */
 class CleanSpeechEngine {
   private activeRecognition: any = null;
+  private activeMediaStream: MediaStream | null = null;
   private activeUtterance: SpeechSynthesisUtterance | null = null;
   private currentMode: 'idle' | 'dictation' | 'live-talk' = 'idle';
   private silenceTimer: any = null;
@@ -613,6 +629,24 @@ class CleanSpeechEngine {
     this.isAssistantSpeaking = false;
     this.lastAssistantSpokenText = '';
 
+    // MUTE CHIMES & ENGAGE HARDWARE AEC:
+    // Acquire continuous audio stream with hardware echo cancellation and noise suppression.
+    // This switches Android/OS audio routing to MODE_IN_COMMUNICATION (VoIP mode),
+    // which automatically mutes OS mic-on/mic-off chimes and activates hardware echo cancellation.
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+      try {
+        this.activeMediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+      } catch (streamErr) {
+        console.warn('VoIP communication stream note:', streamErr);
+      }
+    }
+
     this.onStatusCallback('listening');
     this.onTranscriptCallback?.('');
 
@@ -625,13 +659,7 @@ class CleanSpeechEngine {
   }
 
   private initLiveTalkMic(SpeechRec: any) {
-    // Under no condition should mic be active if muted, if mode is not live-talk, or if assistant is speaking or processing
-    if (
-      this.currentMode !== 'live-talk' ||
-      this.isMuted ||
-      this.isAssistantSpeaking ||
-      this.isProcessingPrompt
-    ) {
+    if (this.currentMode !== 'live-talk' || this.isMuted) {
       return;
     }
 
@@ -655,21 +683,62 @@ class CleanSpeechEngine {
       };
 
       rec.onresult = (event: any) => {
-        // Absolute hardware isolation: if muted, speaking, or processing prompt, discard completely
-        if (
-          this.isMuted ||
-          this.isAssistantSpeaking ||
-          this.isProcessingPrompt ||
-          this.currentMode !== 'live-talk'
-        ) {
+        if (this.isMuted || this.currentMode !== 'live-talk') {
           return;
         }
 
         const cleaned = extractCleanSpeechFromEvent(event);
         if (!cleaned || cleaned.trim().length < 2) return;
 
-        // Post-speaking Echo Guard: If speech matches what assistant just said, discard it
-        if (this.lastAssistantSpokenText) {
+        const userTokens = extractWords(cleaned);
+        if (userTokens.length === 0) return;
+
+        const isDirectKeyword = userTokens.length === 1 && INTERRUPT_KEYWORDS.has(userTokens[0]);
+
+        // 1. Hands-Free Voice Interruption while Assistant is Speaking:
+        // Discriminate speaker echo from true user voice interruption using similarity classification
+        if (this.isAssistantSpeaking) {
+          const assistantTokens = new Set(extractWords(this.lastAssistantSpokenText || ''));
+
+          let echoMatches = 0;
+          for (const token of userTokens) {
+            if (assistantTokens.has(token)) {
+              echoMatches++;
+            }
+          }
+          const echoRatio = userTokens.length > 0 ? echoMatches / userTokens.length : 0;
+
+          // If >= 35% of heard words match Theta's current speech, it's speaker audio echo -> ignore
+          if (echoRatio >= 0.35 && !isDirectKeyword) {
+            return;
+          }
+
+          // Human user spoke a command to interrupt! Cut off speech synthesis immediately:
+          if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+            try {
+              window.speechSynthesis.cancel();
+            } catch {}
+          }
+          this.activeUtterance = null;
+          this.isAssistantSpeaking = false;
+          this.isProcessingPrompt = false;
+          this.onInterruptionCallback?.();
+          this.onStatusCallback?.('listening');
+        }
+
+        // 2. Hands-Free Voice Interruption while Gemini is formulating response (thinking / sending):
+        if (this.isProcessingPrompt) {
+          if (userTokens.length >= 2 || isDirectKeyword) {
+            this.isProcessingPrompt = false;
+            this.onInterruptionCallback?.();
+            this.onStatusCallback?.('listening');
+          } else {
+            return;
+          }
+        }
+
+        // 3. Post-speaking Echo Guard: If speech matches what assistant previously said, discard
+        if (this.lastAssistantSpokenText && !this.isAssistantSpeaking) {
           const userLower = cleaned.toLowerCase().trim();
           if (
             this.lastAssistantSpokenText.includes(userLower) ||
@@ -789,9 +858,6 @@ class CleanSpeechEngine {
       this.silenceTimer = null;
     }
 
-    // Stop recognition while prompt is sent to Gemini (prevents room noise from triggering false aborts)
-    this.safeStopRecognition();
-
     this.onAutoSendCallback?.(text);
   }
 
@@ -804,23 +870,14 @@ class CleanSpeechEngine {
       return;
     }
 
-    const SpeechRec = getSpeechRecognition();
-
     const resumeListeningFresh = () => {
       this.activeUtterance = null;
       this.isAssistantSpeaking = false;
       this.isProcessingPrompt = false;
       this.onTranscriptCallback?.(''); // Clear transcript for user's next question
-
-      // Wait 200ms acoustic guard delay for speaker reverb to clear before opening mic
-      setTimeout(() => {
-        if (this.currentMode === 'live-talk' && !this.isMuted) {
-          this.onStatusCallback?.('listening');
-          if (SpeechRec) {
-            this.initLiveTalkMic(SpeechRec);
-          }
-        }
-      }, 200);
+      if (this.currentMode === 'live-talk' && !this.isMuted) {
+        this.onStatusCallback?.('listening');
+      }
     };
 
     if (!voiceEnabled || !isSpeechSynthesisSupported()) {
@@ -835,9 +892,6 @@ class CleanSpeechEngine {
     }
 
     try {
-      // 1. HARDWARE ISOLATION: Stop recognition so microphone cannot hear speaker output!
-      this.safeStopRecognition();
-
       window.speechSynthesis.cancel();
       this.onStatusCallback?.('speaking');
       this.isAssistantSpeaking = true;
@@ -882,15 +936,6 @@ class CleanSpeechEngine {
     this.onTranscriptCallback?.('');
     this.onInterruptionCallback?.();
     this.onStatusCallback?.('listening');
-
-    const SpeechRec = getSpeechRecognition();
-    if (SpeechRec && this.currentMode === 'live-talk' && !this.isMuted) {
-      setTimeout(() => {
-        if (this.currentMode === 'live-talk' && !this.isMuted) {
-          this.initLiveTalkMic(SpeechRec);
-        }
-      }, 100);
-    }
   }
 
   /**
@@ -923,19 +968,10 @@ class CleanSpeechEngine {
       } catch {}
     }
 
-    this.safeStopRecognition();
     this.onTranscriptCallback?.('');
 
     if (this.currentMode === 'live-talk' && !this.isMuted) {
       this.onStatusCallback?.('listening');
-      const SpeechRec = getSpeechRecognition();
-      if (SpeechRec) {
-        setTimeout(() => {
-          if (this.currentMode === 'live-talk' && !this.isMuted) {
-            this.initLiveTalkMic(SpeechRec);
-          }
-        }, 150);
-      }
     }
   }
 
@@ -981,6 +1017,13 @@ class CleanSpeechEngine {
     }
 
     this.safeStopRecognition();
+
+    if (this.activeMediaStream) {
+      try {
+        this.activeMediaStream.getTracks().forEach((track) => track.stop());
+      } catch {}
+      this.activeMediaStream = null;
+    }
 
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
