@@ -571,11 +571,21 @@ export const TestList: React.FC<TestListProps> = ({
   }, [tests, cloudSearchResults, searchQuery, selectedTopic]);
 
   if (selectedReportAttempt) {
+    const targetTest = tests.find((t) => (t && t.id && t.id === selectedReportAttempt.testId) || (t && t.title && t.title === selectedReportAttempt.testTitle)) || detailedTest || undefined;
+    const testAtts = targetTest ? getTestAttempts(targetTest) : [];
+    const sortedAtts = [...testAtts].sort((a, b) => {
+      const timeA = new Date(a.completedAt || a.createdAt || 0).getTime();
+      const timeB = new Date(b.completedAt || b.createdAt || 0).getTime();
+      return timeA - timeB;
+    });
+    const isFirst = sortedAtts.length <= 1 || sortedAtts[0]?.id === selectedReportAttempt.id;
+
     return (
       <TestReportAnalysisView
         attempt={selectedReportAttempt}
-        test={tests.find((t) => (t && t.id && t.id === selectedReportAttempt.testId) || (t && t.title && t.title === selectedReportAttempt.testTitle)) || detailedTest || undefined}
+        test={targetTest}
         allTests={tests}
+        isFirstAttempt={isFirst}
         onClose={() => setSelectedReportAttempt(null)}
         onRetakeTest={(testId) => {
           const t = tests.find((item) => item.id === testId);
@@ -1022,7 +1032,7 @@ export const TestList: React.FC<TestListProps> = ({
                         }
                       };
 
-                      const renderAttemptCard = (attempt: TestAttempt, label: string) => {
+                      const renderAttemptCard = (attempt: TestAttempt, label: string, isFirstAttempt: boolean = true) => {
                         const answersList = Object.values(attempt.answers || {}) as { 
                           selectedOption?: string; 
                           isCorrect?: boolean; 
@@ -1054,7 +1064,8 @@ export const TestList: React.FC<TestListProps> = ({
                           return `${m}m ${s}s`;
                         };
                         const timeTakenStr = formatAttemptDuration(attempt);
-                        const testRank = getAttemptRank(detailedTest, attempt);
+                        // Ranking scheme strictly applies only to the 1st ever attempt of any unique test
+                        const testRank = isFirstAttempt ? getAttemptRank(detailedTest, attempt) : null;
 
                         return (
                           <div 
@@ -1222,15 +1233,15 @@ export const TestList: React.FC<TestListProps> = ({
                       if (!last) {
                         return (
                           <div className="grid grid-cols-1 gap-2.5 sm:gap-3.5">
-                            {first && renderAttemptCard(first, 'FIRST ATTEMPT')}
+                            {first && renderAttemptCard(first, 'FIRST ATTEMPT', true)}
                           </div>
                         );
                       }
 
                       return (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3.5">
-                          {first && renderAttemptCard(first, 'FIRST ATTEMPT')}
-                          {last && renderAttemptCard(last, 'LAST ATTEMPT')}
+                          {first && renderAttemptCard(first, 'FIRST ATTEMPT', true)}
+                          {last && renderAttemptCard(last, 'LAST ATTEMPT', false)}
                         </div>
                       );
                     })()}

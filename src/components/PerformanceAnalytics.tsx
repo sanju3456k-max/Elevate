@@ -490,11 +490,21 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
   }, []);
 
   if (selectedReportAttempt) {
+    const parentGroup = groupedTestHistory.find(g => 
+      g.attempts.some(a => a.id === selectedReportAttempt.id) ||
+      g.testId === selectedReportAttempt.testId ||
+      (g.testTitle && selectedReportAttempt.testTitle && g.testTitle.toLowerCase() === selectedReportAttempt.testTitle.toLowerCase())
+    );
+    const isFirst = parentGroup 
+      ? parentGroup.firstAttempt.id === selectedReportAttempt.id || parentGroup.attempts.length <= 1
+      : true;
+
     return (
       <TestReportAnalysisView
         attempt={selectedReportAttempt}
         test={tests.find((t) => (t && t.id && t.id === selectedReportAttempt.testId) || (t && t.title && t.title === selectedReportAttempt.testTitle))}
         allTests={tests}
+        isFirstAttempt={isFirst}
         onClose={() => setSelectedReportAttempt(null)}
         onRetakeTest={onRetakeTest}
         onViewRawSolutions={onViewAttemptResult}
@@ -836,6 +846,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
               const latest = group.latestAttempt;
               const isExpanded = expandedGroupKeys.has(group.groupKey);
               const firstRank = getFirstAttemptRank(group);
+              const isLatestFirst = latest.id === group.firstAttempt.id || group.attempts.length <= 1;
 
               const answersList = Object.values(latest.answers || {}) as { 
                 selectedOption?: string; 
@@ -944,8 +955,8 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                   {/* Row 4: Single combined strip for Rank, Time, and Score matching App UI */}
                   <div className="flex items-center gap-2 !mt-0">
                     <div className="inline-flex items-center gap-2 sm:gap-2.5 px-3 py-1 rounded-full bg-[#edf2f9] dark:bg-[#26282e] border-0 ring-0 shadow-none shrink-0 text-[10.5px] sm:text-xs">
-                      {/* Rank Section */}
-                      {firstRank && (
+                      {/* Rank Section - Strictly rendered only for 1st ever attempt */}
+                      {isLatestFirst && firstRank && (
                         <>
                           <div 
                             className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400 font-bold shrink-0"

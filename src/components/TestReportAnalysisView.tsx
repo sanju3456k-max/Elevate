@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import type { TestAttempt, MathTest, MathQuestion, TestLeaderboardSummary } from '../types';
 import { getQuestionExplanation } from '../types';
-import { isAttemptOmrMode } from '../lib/storage';
+import { isAttemptOmrMode, loadScopedAttempts } from '../lib/storage';
 import { fetchTestLeaderboard } from '../lib/firebase';
 import { TestLeaderboardModal } from './TestLeaderboardModal';
 import { APP_STYLES } from './ui/AppStyles';
@@ -45,6 +45,7 @@ export interface TestReportAnalysisViewProps {
   attempt: TestAttempt;
   test?: MathTest | null;
   allTests?: MathTest[];
+  isFirstAttempt?: boolean;
   onClose: () => void;
   onRetakeTest?: (testId: string) => void;
   onViewRawSolutions?: (attempt: TestAttempt) => void;
@@ -283,12 +284,32 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
   attempt,
   test,
   allTests = [],
+  isFirstAttempt,
   onClose,
   onRetakeTest,
   onViewRawSolutions,
   onGenerateThetaCourse,
   onNavigateTab,
 }) => {
+  const effectiveIsFirst = useMemo(() => {
+    if (typeof isFirstAttempt === 'boolean') {
+      return isFirstAttempt;
+    }
+    try {
+      const stored = loadScopedAttempts();
+      const testAtts = stored.filter(a => 
+        (attempt.testId && a.testId === attempt.testId) ||
+        (attempt.testTitle && a.testTitle && a.testTitle.toLowerCase() === attempt.testTitle.toLowerCase())
+      );
+      if (testAtts.length > 1) {
+        testAtts.sort((a, b) => {
+          return new Date(a.completedAt || a.createdAt || 0).getTime() - new Date(b.completedAt || b.createdAt || 0).getTime();
+        });
+        return testAtts[0]?.id === attempt.id;
+      }
+    } catch {}
+    return true;
+  }, [isFirstAttempt, attempt.id, attempt.testId, attempt.testTitle]);
   const [expandedPerformanceTopics, setExpandedPerformanceTopics] = useState<Record<string, boolean>>({});
   const [expandedActionableTopics, setExpandedActionableTopics] = useState<Record<string, boolean>>({});
   const [performanceFilter, setPerformanceFilter] = useState<'all' | 'strong' | 'actionable' | 'practice' | 'unattempted'>('all');
@@ -1287,8 +1308,8 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
               </h2>
             </div>
 
-            {/* Global Rank Tag strictly at the top-right corner without border ring or hash */}
-            {leaderboardSummary?.currentUserRank ? (
+            {/* Global Rank Tag strictly at the top-right corner without border ring or hash - Strictly for 1st ever attempt */}
+            {effectiveIsFirst && leaderboardSummary?.currentUserRank ? (
               <button
                 type="button"
                 onClick={() => setIsLeaderboardOpen(true)}
