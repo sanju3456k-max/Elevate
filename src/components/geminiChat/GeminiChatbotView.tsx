@@ -4195,27 +4195,16 @@ MANDATORY INSTRUCTIONS:
                   },
                   {
                     id: 'universal-image-gen',
-                    category: 'actions',
+                    category: 'plots',
+                    categories: ['actions', 'plots'],
                     forAll: true,
                     icon: ImageIcon,
                     iconColor: 'text-purple-700 dark:text-purple-300 bg-purple-100/70 dark:bg-purple-950/60',
-                    title: 'Generate Visual Image',
-                    badge: 'Image',
+                    title: 'Generate Visual Images & 2D/3D Diagrams',
+                    badge: 'Image & Plot',
                     badgeColor: 'bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-200',
-                    description: 'Diagrams, 3D math plots & visual...',
+                    description: '2D/3D math plots, geometric curves & visual diagrams...',
                     modal: 'image' as const,
-                  },
-                  {
-                    id: 'math-plot-flexible',
-                    category: 'plots',
-                    forAll: true,
-                    icon: LineChart,
-                    iconColor: 'text-blue-700 dark:text-blue-300 bg-blue-100/70 dark:bg-blue-950/60',
-                    title: 'Plot 2D/3D Diagrams',
-                    badge: 'Python',
-                    badgeColor: 'bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-200',
-                    description: 'Visualize mathematical curves, 3D...',
-                    prefill: 'Generate an interactive Python plot using NumPy and Matplotlib to visualize [Function / Curve / Diagram, e.g. sin(x)*exp(-x)].',
                   },
                   {
                     id: 'diagnose-performance',
@@ -4257,14 +4246,18 @@ MANDATORY INSTRUCTIONS:
                     forAll: false,
                     icon: LineChart,
                     iconColor: 'text-cyan-700 dark:text-cyan-300 bg-cyan-100/70 dark:bg-cyan-950/60',
-                    title: 'Scientific & Plot Diagrams',
+                    title: 'Scientific Curve & Plot Script',
                     badge: 'Python',
                     badgeColor: 'bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-200',
-                    description: 'Plot statistical distributions, regressions, physics models & scientific diagrams',
+                    description: 'Plot statistical distributions, regressions & physics models',
                     prefill: 'Generate a Python Matplotlib script to plot scientific data, probability distributions, or physics diagrams for [Topic].',
                   },
                 ]
-                  .filter((p) => activeStarterCategory === 'all' ? p.forAll : p.category === activeStarterCategory)
+                  .filter((p) => {
+                    if (activeStarterCategory === 'all') return p.forAll;
+                    if ((p as any).categories) return (p as any).categories.includes(activeStarterCategory);
+                    return p.category === activeStarterCategory;
+                  })
                   .map((card) => {
                     const CardIcon = card.icon;
                     return (

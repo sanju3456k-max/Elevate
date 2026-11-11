@@ -612,7 +612,7 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
                     </span>
                   </button>
 
-                  {/* Generate Visual Image / Plot */}
+                  {/* Generate Visual Image & 2D/3D Diagrams */}
                   <button
                     type="button"
                     onClick={() => {
@@ -632,16 +632,16 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-[13px] sm:text-[13.5px] font-bold text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center gap-1.5">
-                          <span>Generate Visual Image</span>
+                          <span>Generate Visual Image & 2D/3D Plots</span>
                           <Sparkles className="w-3.5 h-3.5 text-purple-500 shrink-0" />
                         </div>
                         <div className="text-[11.5px] text-[#5e5e5e] dark:text-[#9aa0a6] truncate">
-                          Diagrams, 3D math plots & visuals
+                          Diagrams, 2D/3D math plots & visual graphics
                         </div>
                       </div>
                     </div>
                     <span className="px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/70 text-purple-800 dark:text-purple-200 text-[10.5px] font-bold shrink-0 border-0 shadow-none">
-                      Image
+                      Image & Plot
                     </span>
                   </button>
 

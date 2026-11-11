@@ -127,10 +127,10 @@ export const SessionImageGeneratorModal: React.FC<SessionImageGeneratorModalProp
                 </div>
                 <div>
                   <h3 className="text-[15px] sm:text-base font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
-                    Generate Visual Image
+                    Generate Visual Image & 2D/3D Diagrams
                   </h3>
                   <p className="text-[11px] sm:text-xs text-[#5e5e5e] dark:text-[#9aa0a6]">
-                    Mathematical diagrams, plots & AI illustrations
+                    Mathematical diagrams, 2D/3D plots & visual graphics
                   </p>
                 </div>
               </div>
