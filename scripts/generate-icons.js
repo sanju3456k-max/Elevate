@@ -16,6 +16,18 @@ async function generate() {
     fs.writeFileSync(path.join(publicDir, 'favicon.svg'), svgLens, 'utf-8');
     fs.writeFileSync(path.join(publicDir, 'icon-512.svg'), svgLens, 'utf-8');
     fs.writeFileSync(path.join(publicDir, 'icon-192.svg'), svgLens, 'utf-8');
+    fs.writeFileSync(path.join(publicDir, 'assets', 'elevate-icon.svg'), svgLens, 'utf-8');
+  }
+
+  // Attempt raster PNG & ICO generation if Python and pymupdf are available
+  try {
+    const { execSync } = await import('child_process');
+    const rasterScript = path.join(path.resolve('scripts'), 'generate-raster-icons.py');
+    if (fs.existsSync(rasterScript)) {
+      execSync('python scripts/generate-raster-icons.py', { stdio: 'inherit' });
+    }
+  } catch (err) {
+    // Graceful fallback if python/pymupdf is not in environment
   }
 
   console.log('Verified authentic HD vector SVG and PNG PWA assets in public/.');

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <rect width="1024" height="1024" fill="#c3defd" />
+  <rect width="1024" height="1024" fill="#ffffff" />
   <g transform="translate(112.64, 112.64) scale(0.78)">
-    <circle cx="512" cy="512" r="510" fill="#c3defd" />
+    <circle cx="512" cy="512" r="510" fill="#ffffff" />
     <path
       d="M 688 274 L 688 197.5 L 338 197.5 L 488 407 L 338 616.5 L 688 616.5 L 688 540"
       fill="none"
