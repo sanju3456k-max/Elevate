@@ -1,16 +1,22 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Mic, 
   MicOff, 
-  PhoneOff, 
+  X, 
   Sparkles, 
-  Radio, 
-  Volume2, 
+  MessageSquare, 
+  Video, 
+  Upload, 
+  Menu, 
+  MoreHorizontal, 
+  ThumbsUp, 
+  ThumbsDown, 
+  Copy, 
+  Check, 
+  Share2, 
   Square,
-  MessageSquare,
-  User as UserIcon,
-  Bot
+  ArrowRight
 } from 'lucide-react';
 import { GeminiLiveStatus } from '../../lib/geminiLiveClient';
 import { ChatbotMessage } from './GeminiChatbotView';
@@ -28,6 +34,7 @@ export interface ThetaLiveTalkOverlayProps {
   currentAssistantTranscript: string;
   messages: ChatbotMessage[];
   studentName?: string;
+  onSendPrompt?: (text: string) => void;
 }
 
 export const ThetaLiveTalkOverlay: React.FC<ThetaLiveTalkOverlayProps> = ({
@@ -43,8 +50,13 @@ export const ThetaLiveTalkOverlay: React.FC<ThetaLiveTalkOverlayProps> = ({
   currentAssistantTranscript,
   messages,
   studentName = 'Harry',
+  onSendPrompt,
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [likedMap, setLikedMap] = useState<Record<string, 'up' | 'down'>>({});
+  const [cameraActive, setCameraActive] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
 
   // Auto-scroll transcript container as speech streams in
   useEffect(() => {
@@ -52,6 +64,44 @@ export const ThetaLiveTalkOverlay: React.FC<ThetaLiveTalkOverlayProps> = ({
       scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
   }, [currentUserTranscript, currentAssistantTranscript, messages.length]);
+
+  // Find the latest completed user prompt and assistant response
+  const conversationTurns = useMemo(() => {
+    const valid = messages.filter((m) => !m.isError && m.roleUsed !== 'System Status');
+    return valid;
+  }, [messages]);
+
+  const latestUserMessage = useMemo(() => {
+    for (let i = conversationTurns.length - 1; i >= 0; i--) {
+      if (conversationTurns[i].role === 'user') {
+        return conversationTurns[i].content;
+      }
+    }
+    return '';
+  }, [conversationTurns]);
+
+  const latestAssistantMessage = useMemo(() => {
+    for (let i = conversationTurns.length - 1; i >= 0; i--) {
+      if (conversationTurns[i].role === 'assistant') {
+        return conversationTurns[i];
+      }
+    }
+    return null;
+  }, [conversationTurns]);
+
+  // Copy helper
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleLike = (id: string, type: 'up' | 'down') => {
+    setLikedMap((prev) => ({
+      ...prev,
+      [id]: prev[id] === type ? undefined! : type,
+    }));
+  };
 
   if (!isOpen) return null;
 
@@ -61,13 +111,18 @@ export const ThetaLiveTalkOverlay: React.FC<ThetaLiveTalkOverlayProps> = ({
   const isPaused = status === 'paused' || isMicMuted;
 
   // Normalized visual volume scale
-  const normVol = Math.max(0.05, Math.min(1.0, volume * 2.2));
-  const orbScale = isSpeaking ? 1 + normVol * 0.45 : isListening ? 1 + normVol * 0.25 : 1;
+  const normVol = Math.max(0.08, Math.min(1.0, volume * 2.5));
 
-  // Recent messages for the live conversation thread (filtering system status)
-  const recentDisplayMessages = messages
-    .filter((m) => !m.isError && m.roleUsed !== 'System Status')
-    .slice(-10);
+  // Determine user prompt card text
+  const displayUserPrompt = currentUserTranscript
+    ? currentUserTranscript
+    : latestUserMessage
+    ? latestUserMessage
+    : '';
+
+  // Determine assistant response to show
+  const hasActiveAssistantStream = Boolean(currentAssistantTranscript);
+  const displayAssistantText = currentAssistantTranscript || latestAssistantMessage?.content || '';
 
   return (
     <AnimatePresence>
@@ -75,296 +130,391 @@ export const ThetaLiveTalkOverlay: React.FC<ThetaLiveTalkOverlayProps> = ({
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.98 }}
-        transition={{ duration: 0.2, ease: 'easeOut' }}
-        className="fixed inset-0 z-[120] bg-[#0c0d12]/95 backdrop-blur-2xl text-white flex flex-col justify-between overflow-hidden select-none"
+        transition={{ duration: 0.22, ease: 'easeOut' }}
+        className="fixed inset-0 z-[120] bg-gradient-to-b from-[#f8fafd] via-[#edf3fa] to-[#e4eefb] dark:from-[#0c0d12] dark:via-[#11131a] dark:to-[#171a24] text-neutral-900 dark:text-neutral-100 flex flex-col justify-between overflow-hidden select-none"
       >
         {/* Ambient Animated Glow Mesh in Background */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-40">
+        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30 dark:opacity-40">
           <motion.div
             animate={{
-              scale: isSpeaking ? [1, 1.3, 1] : [1, 1.1, 1],
-              opacity: isSpeaking ? [0.35, 0.6, 0.35] : [0.2, 0.35, 0.2],
+              scale: isSpeaking ? [1, 1.25, 1] : [1, 1.1, 1],
+              opacity: isSpeaking ? [0.45, 0.7, 0.45] : [0.25, 0.4, 0.25],
             }}
             transition={{ repeat: Infinity, duration: isSpeaking ? 2.5 : 4, ease: 'easeInOut' }}
-            className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[340px] sm:w-[500px] h-[340px] sm:h-[500px] rounded-full bg-gradient-to-tr from-blue-600/30 via-indigo-500/25 to-purple-600/30 blur-[90px]"
+            className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[340px] sm:w-[540px] h-[340px] sm:h-[540px] rounded-full bg-gradient-to-tr from-sky-400/30 via-indigo-400/25 to-purple-400/30 dark:from-blue-600/30 dark:via-indigo-500/25 dark:to-purple-600/30 blur-[100px]"
           />
         </div>
 
-        {/* TOP BAR: Model Badge, Status & Clickable Theta Toggle Button */}
-        <div className="relative z-10 flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-white/10 bg-white/5 backdrop-blur-md">
-          {/* Left: Theta Live Brand & Live Audio Badge */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <span className="text-white font-bold text-sm tracking-tight">θ</span>
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-sm sm:text-base tracking-tight bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-300 bg-clip-text text-transparent">
-                  Theta Live
-                </span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30">
-                  Voice
-                </span>
-              </div>
-              <p className="text-[11px] text-zinc-400">
-                Speaking with {studentName}
-              </p>
-            </div>
-          </div>
+        {/* TOP BAR: Menu on Left, Pill on Right (Theta Button & Chat View Toggle) */}
+        <div className="relative z-20 flex items-center justify-between px-5 sm:px-8 pt-5 pb-3">
+          {/* Left: Menu / Drawer Icon Button */}
+          <button
+            type="button"
+            onClick={onCloseToChat}
+            className="w-10 h-10 rounded-full flex items-center justify-center text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 transition-all cursor-pointer active:scale-95"
+            title="Chat menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
 
-          {/* Right: Switch to Chat View (Theta Icon Button) & End Call */}
-          <div className="flex items-center gap-2">
+          {/* Right: Pill container with Clickable Theta Icon Button, Chat Icon & Options */}
+          <div className="flex items-center gap-1.5 p-1 rounded-full bg-white/80 dark:bg-neutral-800/80 backdrop-blur-md shadow-sm border border-neutral-200/60 dark:border-neutral-700/60">
             {/* THETA BUTTON TO SWITCH TO FULL CHAT PAGE */}
             <button
               type="button"
               onClick={onCloseToChat}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-blue-600/30 to-purple-600/30 hover:from-blue-600/50 hover:to-purple-600/50 text-blue-200 border border-blue-400/40 transition-all cursor-pointer active:scale-95 shadow-md shadow-indigo-900/20"
-              title="Switch to full chat view (call continues in background)"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-600/15 via-indigo-600/15 to-purple-600/15 hover:from-blue-600/25 hover:to-purple-600/25 text-blue-700 dark:text-blue-300 transition-all cursor-pointer active:scale-95 group"
+              title="Click Theta to switch to full chat conversation"
             >
-              <div className="w-4.5 h-4.5 rounded-full bg-blue-500 flex items-center justify-center text-[11px] font-bold text-white">
+              <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-xs">
                 θ
               </div>
-              <span className="text-xs font-semibold">View Chat</span>
-              <MessageSquare className="w-3.5 h-3.5 opacity-80" />
+              <span className="text-xs font-bold tracking-tight">Theta</span>
             </button>
 
-            {/* End Call Button */}
-            <button
-              type="button"
-              onClick={onEndCall}
-              className="w-8.5 h-8.5 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 flex items-center justify-center transition-all cursor-pointer active:scale-95"
-              title="End Live Voice Call"
-            >
-              <PhoneOff className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* CENTER INTERACTIVE STAGE: Dynamic Audio Orb & Live Streaming Transcript */}
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-between px-4 sm:px-8 py-3 overflow-hidden max-w-3xl mx-auto w-full">
-          {/* Animated Voice Orb Visualizer (ChatGPT Voice Mode Style) */}
-          <div className="my-auto flex flex-col items-center justify-center shrink-0 py-2">
-            <div className="relative flex items-center justify-center">
-              {/* Outer Pulsing Soundwave Rings */}
-              {isSpeaking && (
-                <>
-                  <motion.div
-                    animate={{ scale: [1, 1.45, 1], opacity: [0.6, 0.1, 0.6] }}
-                    transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
-                    className="absolute w-36 sm:w-44 h-36 sm:h-44 rounded-full border border-blue-400/40"
-                  />
-                  <motion.div
-                    animate={{ scale: [1, 1.7, 1], opacity: [0.4, 0, 0.4] }}
-                    transition={{ repeat: Infinity, duration: 2.2, ease: 'easeInOut', delay: 0.3 }}
-                    className="absolute w-36 sm:w-44 h-36 sm:h-44 rounded-full border border-purple-400/30"
-                  />
-                </>
-              )}
-
-              {isListening && (
-                <motion.div
-                  animate={{ scale: [1, 1.25, 1], opacity: [0.5, 0.15, 0.5] }}
-                  transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
-                  className="absolute w-36 sm:w-44 h-36 sm:h-44 rounded-full border border-cyan-400/40"
-                />
-              )}
-
-              {/* Main Dynamic Glowing Orb */}
-              <motion.div
-                animate={{
-                  scale: orbScale,
-                }}
-                transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-                className={`w-28 sm:w-36 h-28 sm:h-36 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 ${
-                  isSpeaking
-                    ? 'bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-600 shadow-blue-500/50'
-                    : isListening
-                    ? 'bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 shadow-cyan-500/40'
-                    : isConnecting
-                    ? 'bg-gradient-to-tr from-amber-600 via-orange-500 to-indigo-600 animate-pulse shadow-amber-500/30'
-                    : 'bg-zinc-800 shadow-zinc-900 border border-zinc-700/60'
-                }`}
-              >
-                {/* Center Theta Glyph / Icon */}
-                <div className="flex flex-col items-center justify-center">
-                  <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-wider drop-shadow-md">
-                    θ
-                  </span>
-                  {/* Miniature live wave bars inside orb */}
-                  <div className="flex items-center gap-0.5 mt-1">
-                    {[1, 2, 3, 4, 5].map((i) => {
-                      const h = isSpeaking
-                        ? 3 + normVol * 14 * Math.sin(i * 1.2)
-                        : isListening
-                        ? 2 + normVol * 8 * Math.cos(i * 1.1)
-                        : 2;
-                      return (
-                        <div
-                          key={i}
-                          style={{ height: `${Math.max(2, h)}px` }}
-                          className="w-1 bg-white/90 rounded-full transition-all duration-100"
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-
-            {/* Current State Text Label */}
-            <div className="mt-3.5 flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${
-                isSpeaking
-                  ? 'bg-emerald-400 animate-ping'
-                  : isListening
-                  ? 'bg-blue-400 animate-pulse'
-                  : isConnecting
-                  ? 'bg-amber-400 animate-spin'
-                  : 'bg-zinc-500'
-              }`} />
-              <span className="text-xs sm:text-sm font-semibold tracking-wide text-zinc-300">
-                {isConnecting
-                  ? 'Connecting to Gemini Live...'
-                  : isSpeaking
-                  ? 'Theta is speaking...'
-                  : isListening
-                  ? 'Listening to you... Speak anytime'
-                  : isPaused
-                  ? 'Microphone muted'
-                  : 'Ready'}
-              </span>
-            </div>
-          </div>
-
-          {/* REAL-TIME SPOKEN TRANSCRIPT STREAM (Messages showing as spoken) */}
-          <div
-            ref={scrollContainerRef}
-            className="w-full max-h-[36vh] sm:max-h-[42vh] overflow-y-auto space-y-2.5 px-2 py-2 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur-md scroll-smooth"
-          >
-            {/* Previous Turn History */}
-            {recentDisplayMessages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex gap-2.5 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                {msg.role !== 'user' && (
-                  <div className="w-6 h-6 rounded-full bg-indigo-600/80 flex items-center justify-center shrink-0 text-white text-[11px] font-bold mt-0.5">
-                    θ
-                  </div>
-                )}
-                <div
-                  className={`max-w-[85%] px-3.5 py-2 rounded-2xl text-xs sm:text-[13px] leading-relaxed ${
-                    msg.role === 'user'
-                      ? 'bg-blue-600/70 text-white rounded-br-xs'
-                      : 'bg-zinc-800/80 text-zinc-100 rounded-bl-xs border border-white/5'
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
-                </div>
-                {msg.role === 'user' && (
-                  <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center shrink-0 text-white text-[10px] font-bold mt-0.5">
-                    <UserIcon className="w-3.5 h-3.5" />
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {/* LIVE REAL-TIME IN-PROGRESS USER SPEECH (Types dynamically as spoken) */}
-            {currentUserTranscript && (
-              <div className="flex gap-2.5 justify-end animate-in fade-in duration-150">
-                <div className="max-w-[85%] px-3.5 py-2 rounded-2xl text-xs sm:text-[13px] leading-relaxed bg-blue-600 text-white rounded-br-xs shadow-md shadow-blue-900/30 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-white animate-pulse shrink-0" />
-                  <p className="whitespace-pre-wrap font-medium">{currentUserTranscript}</p>
-                </div>
-                <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center shrink-0 text-white text-[10px] font-bold mt-0.5">
-                  <Mic className="w-3.5 h-3.5" />
-                </div>
-              </div>
-            )}
-
-            {/* LIVE REAL-TIME IN-PROGRESS THETA RESPONSE (Types dynamically as spoken) */}
-            {currentAssistantTranscript && (
-              <div className="flex gap-2.5 justify-start animate-in fade-in duration-150">
-                <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center shrink-0 text-white text-[11px] font-bold mt-0.5 shadow-xs">
-                  θ
-                </div>
-                <div className="max-w-[85%] px-3.5 py-2 rounded-2xl text-xs sm:text-[13px] leading-relaxed bg-zinc-800 text-zinc-100 rounded-bl-xs border border-indigo-500/30 shadow-md shadow-indigo-950/20 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
-                  <p className="whitespace-pre-wrap font-medium">{currentAssistantTranscript}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Empty State Prompt */}
-            {!currentUserTranscript && !currentAssistantTranscript && recentDisplayMessages.length === 0 && (
-              <div className="text-center py-6 text-zinc-400 space-y-1">
-                <p className="text-xs sm:text-sm font-medium">
-                  Say anything to begin...
-                </p>
-                <p className="text-[11px] text-zinc-500">
-                  "Theta, what are my weak topics?" or "Test me on calculus"
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* BOTTOM ACTION DOCK: Mic Mute, Interrupt, Theta Chat Toggle & End Call */}
-        <div className="relative z-10 px-4 sm:px-6 py-4 border-t border-white/10 bg-white/5 backdrop-blur-xl">
-          <div className="flex items-center justify-center gap-4 sm:gap-6 max-w-md mx-auto">
-            {/* 1. Mute / Unmute Mic Button */}
-            <button
-              type="button"
-              onClick={onToggleMic}
-              className={`w-13 h-13 sm:w-14 sm:h-14 rounded-full flex flex-col items-center justify-center transition-all cursor-pointer active:scale-95 shadow-lg ${
-                isMicMuted
-                  ? 'bg-red-500/20 text-red-400 border border-red-500/40 shadow-red-500/10'
-                  : 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
-              }`}
-              title={isMicMuted ? 'Unmute microphone' : 'Mute microphone'}
-            >
-              {isMicMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-              <span className="text-[9px] font-bold mt-0.5">
-                {isMicMuted ? 'Muted' : 'Mic'}
-              </span>
-            </button>
-
-            {/* 2. Switch to Full Chat View (THETA ICON BUTTON) */}
+            {/* Chat Document/View Icon Button */}
             <button
               type="button"
               onClick={onCloseToChat}
-              className="w-14 h-14 sm:w-15 sm:h-15 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white flex flex-col items-center justify-center transition-all cursor-pointer active:scale-95 shadow-xl shadow-indigo-500/30 border border-white/20"
-              title="Open full chat conversation (Call keeps running)"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50 transition-all cursor-pointer active:scale-95"
+              title="Open Chat Transcript"
             >
-              <span className="text-lg font-black tracking-tight leading-none">θ</span>
-              <span className="text-[9px] font-bold mt-0.5 tracking-wide">Chat</span>
+              <MessageSquare className="w-4 h-4" />
             </button>
 
-            {/* 3. Interrupt / Cancel Response Button (Active when Theta is speaking) */}
+            {/* 3-Dots Options Menu */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowOptions(!showOptions)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50 transition-all cursor-pointer active:scale-95"
+                title="Options"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+
+              {showOptions && (
+                <div className="absolute right-0 mt-2 w-48 rounded-2xl bg-white dark:bg-neutral-800 shadow-xl border border-neutral-200 dark:border-neutral-700 p-2 z-30 animate-in fade-in zoom-in-95 duration-150">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowOptions(false);
+                      onCloseToChat();
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700/60 rounded-xl transition-all flex items-center gap-2"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-blue-500" />
+                    Open Chat View
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowOptions(false);
+                      onToggleMic();
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700/60 rounded-xl transition-all flex items-center gap-2"
+                  >
+                    {isMicMuted ? <Mic className="w-3.5 h-3.5 text-emerald-500" /> : <MicOff className="w-3.5 h-3.5 text-amber-500" />}
+                    {isMicMuted ? 'Unmute Microphone' : 'Mute Microphone'}
+                  </button>
+                  <div className="my-1 border-t border-neutral-200/60 dark:border-neutral-700/60" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowOptions(false);
+                      onEndCall();
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-all flex items-center gap-2"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    End Live Call
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* UPPER CONVERSATION CANVAS (Google Gemini Live Response Experience) */}
+        <div 
+          ref={scrollContainerRef}
+          className="relative z-10 flex-1 overflow-y-auto px-6 sm:px-12 md:px-20 py-4 flex flex-col justify-start max-w-3xl mx-auto w-full scroll-smooth"
+        >
+          {/* INITIAL STATE: Glowing Multi-Color Star + "What's next, [Name]?" */}
+          {!displayAssistantText && !displayUserPrompt && (
+            <div className="my-auto flex flex-col items-center justify-center text-center space-y-5 py-6">
+              {/* Four-Point Multi-Color Radiant Star */}
+              <motion.div
+                animate={{
+                  scale: [1, 1.1, 1],
+                  rotate: [0, 4, -4, 0],
+                }}
+                transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
+                className="relative w-14 h-14 flex items-center justify-center"
+              >
+                <svg viewBox="0 0 48 48" fill="none" className="w-14 h-14 drop-shadow-md">
+                  <defs>
+                    <linearGradient id="geminiStarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#38bdf8" />
+                      <stop offset="35%" stopColor="#4f46e5" />
+                      <stop offset="70%" stopColor="#9333ea" />
+                      <stop offset="100%" stopColor="#ec4899" />
+                    </linearGradient>
+                  </defs>
+                  <path
+                    d="M24 0C24 13.255 13.255 24 0 24C13.255 24 24 34.745 24 48C24 34.745 34.745 24 48 24C34.745 24 24 13.255 24 0Z"
+                    fill="url(#geminiStarGrad)"
+                  />
+                </svg>
+              </motion.div>
+
+              {/* Greeting */}
+              <div className="space-y-1">
+                <h1 className="text-2xl sm:text-3xl font-medium tracking-tight text-neutral-800 dark:text-neutral-100">
+                  What's next, {studentName}?
+                </h1>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  {isConnecting ? 'Connecting to Gemini Live...' : 'Ask Theta anything or practice together'}
+                </p>
+              </div>
+
+              {/* Quick suggestion chips */}
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-2 max-w-md">
+                {[
+                  'How are my test scores?',
+                  'Test me on calculus',
+                  'Summarize my weak topics',
+                ].map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => {
+                      if (onSendPrompt) onSendPrompt(chip);
+                    }}
+                    className="px-3.5 py-2 rounded-full bg-white/70 dark:bg-neutral-800/70 hover:bg-white dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 text-xs font-medium border border-neutral-200/60 dark:border-neutral-700/60 shadow-xs transition-all cursor-pointer active:scale-95"
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ACTIVE ASSISTANT RESPONSE DISPLAY (Types out in real time) */}
+          {(displayAssistantText || isSpeaking || isConnecting) && (
+            <div className="w-full space-y-4 pt-2">
+              {/* Connecting / Thinking Status */}
+              {isConnecting && !displayAssistantText && (
+                <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400 text-sm font-medium animate-pulse">
+                  <Sparkles className="w-4 h-4 text-blue-500 animate-spin" />
+                  <span>Connecting to Theta Live...</span>
+                </div>
+              )}
+
+              {/* Streaming or Completed Response Text */}
+              {displayAssistantText && (
+                <div className="space-y-3">
+                  <div className="text-base sm:text-lg md:text-xl font-normal leading-relaxed text-neutral-800 dark:text-neutral-100 tracking-normal">
+                    <p className="whitespace-pre-wrap">{displayAssistantText}</p>
+                    {/* Glowing Live Cursor while Assistant is actively streaming */}
+                    {hasActiveAssistantStream && (
+                      <span className="inline-block w-2 h-4.5 ml-1 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-sm animate-pulse align-middle" />
+                    )}
+                  </div>
+
+                  {/* Under-Response Action Row (Thumbs Up, Down, Share, Copy, More) */}
+                  {!hasActiveAssistantStream && displayAssistantText && (
+                    <div className="flex items-center gap-1 text-neutral-500 dark:text-neutral-400 pt-1">
+                      {/* Thumbs Up */}
+                      <button
+                        type="button"
+                        onClick={() => handleLike('latest', 'up')}
+                        className={`p-2 rounded-full hover:bg-neutral-200/50 dark:hover:bg-neutral-800/60 transition-all cursor-pointer active:scale-95 ${
+                          likedMap['latest'] === 'up' ? 'text-blue-600 dark:text-blue-400' : ''
+                        }`}
+                        title="Good response"
+                      >
+                        <ThumbsUp className="w-4 h-4" />
+                      </button>
+
+                      {/* Thumbs Down */}
+                      <button
+                        type="button"
+                        onClick={() => handleLike('latest', 'down')}
+                        className={`p-2 rounded-full hover:bg-neutral-200/50 dark:hover:bg-neutral-800/60 transition-all cursor-pointer active:scale-95 ${
+                          likedMap['latest'] === 'down' ? 'text-red-500' : ''
+                        }`}
+                        title="Poor response"
+                      >
+                        <ThumbsDown className="w-4 h-4" />
+                      </button>
+
+                      {/* Share */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (navigator.share) {
+                            navigator.share({ title: 'Theta Live Response', text: displayAssistantText }).catch(() => {});
+                          }
+                        }}
+                        className="p-2 rounded-full hover:bg-neutral-200/50 dark:hover:bg-neutral-800/60 transition-all cursor-pointer active:scale-95"
+                        title="Share"
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </button>
+
+                      {/* Copy */}
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(displayAssistantText, 'latest')}
+                        className="p-2 rounded-full hover:bg-neutral-200/50 dark:hover:bg-neutral-800/60 transition-all cursor-pointer active:scale-95 relative"
+                        title="Copy response"
+                      >
+                        {copiedId === 'latest' ? (
+                          <Check className="w-4 h-4 text-emerald-500" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </button>
+
+                      {/* Pause / Interrupt if currently speaking */}
+                      {isSpeaking && (
+                        <button
+                          type="button"
+                          onClick={onInterrupt}
+                          className="ml-2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 text-xs font-semibold border border-amber-500/30 transition-all cursor-pointer active:scale-95"
+                          title="Interrupt Theta"
+                        >
+                          <Square className="w-3 h-3 fill-current" />
+                          <span>Pause</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* LOWER SECTION: User Prompt Card & Bottom Dock */}
+        <div className="relative z-20 px-5 sm:px-8 pb-7 pt-2 flex flex-col items-center gap-4 max-w-xl mx-auto w-full">
+          {/* USER INSTRUCTION CARD (Italic typography matching Gemini Live) */}
+          <div className="w-full">
+            <div className="w-full px-5 py-3.5 rounded-2xl bg-[#edf2f8]/90 dark:bg-neutral-800/90 border border-neutral-300/50 dark:border-neutral-700/60 shadow-xs backdrop-blur-md transition-all">
+              {displayUserPrompt ? (
+                <div className="flex items-center gap-2.5">
+                  {currentUserTranscript && (
+                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shrink-0" />
+                  )}
+                  <p className="text-sm sm:text-base italic text-neutral-800 dark:text-neutral-200 font-normal leading-snug">
+                    {displayUserPrompt}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm italic text-neutral-400 dark:text-neutral-500 font-normal">
+                  {isListening ? 'Listening to you... Speak anytime' : 'Ask Theta anything or tap the mic...'}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* BOTTOM DOCK (5 Circular / Pill Controls matching Gemini Live) */}
+          <div className="w-full flex items-center justify-between sm:justify-center sm:gap-5 px-1">
+            {/* 1. Camera / Video Button */}
             <button
               type="button"
-              onClick={onInterrupt}
-              disabled={!isSpeaking}
-              className={`w-13 h-13 sm:w-14 sm:h-14 rounded-full flex flex-col items-center justify-center transition-all cursor-pointer active:scale-95 shadow-lg ${
-                isSpeaking
-                  ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 animate-pulse'
-                  : 'bg-white/5 text-zinc-500 border border-white/5 opacity-50 cursor-not-allowed'
+              onClick={() => setCameraActive(!cameraActive)}
+              className={`w-12 h-12 rounded-full shadow-md flex items-center justify-center transition-all cursor-pointer active:scale-95 border ${
+                cameraActive
+                  ? 'bg-blue-600 text-white border-blue-500 shadow-blue-500/30'
+                  : 'bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-200/70 dark:border-neutral-700/70 hover:bg-neutral-50 dark:hover:bg-neutral-750'
               }`}
-              title="Interrupt Theta's spoken response"
+              title={cameraActive ? 'Camera active' : 'Enable camera / visuals'}
             >
-              <Square className="w-4.5 h-4.5 fill-current" />
-              <span className="text-[9px] font-bold mt-0.5">Pause</span>
+              <Video className="w-5 h-5" />
             </button>
 
-            {/* 4. End Call Hang-Up Button */}
+            {/* 2. Upload / App Context Button */}
+            <button
+              type="button"
+              onClick={onCloseToChat}
+              className="w-12 h-12 rounded-full bg-white dark:bg-neutral-800 shadow-md flex items-center justify-center text-neutral-700 dark:text-neutral-200 border border-neutral-200/70 dark:border-neutral-700/70 hover:bg-neutral-50 dark:hover:bg-neutral-750 transition-all cursor-pointer active:scale-95"
+              title="Upload context or view chat notes"
+            >
+              <Upload className="w-5 h-5" />
+            </button>
+
+            {/* 3. Centerpiece: The Iconic Gemini Live Glowing Fluid Wave Capsule */}
+            <div className="w-24 sm:w-28 h-12 rounded-full relative overflow-hidden bg-white/95 dark:bg-neutral-900/95 shadow-lg border border-neutral-200/70 dark:border-neutral-700/70 flex items-center justify-center select-none">
+              {/* Fluid animated liquid wave background */}
+              <motion.div
+                animate={{
+                  y: isSpeaking
+                    ? [4, -4, 4]
+                    : isListening
+                    ? [2, -2, 2]
+                    : [0, 0, 0],
+                  scaleY: isSpeaking
+                    ? [1, 1 + normVol * 0.9, 1]
+                    : isListening
+                    ? [1, 1 + normVol * 0.5, 1]
+                    : 1,
+                }}
+                transition={{
+                  repeat: Infinity,
+                  duration: isSpeaking ? 1.6 : 2.4,
+                  ease: 'easeInOut',
+                }}
+                className="absolute inset-0 flex items-end justify-center pointer-events-none"
+              >
+                {/* Radiant Aurora Gradient Wave */}
+                <div 
+                  style={{
+                    height: `${Math.max(22, 22 + normVol * 26)}px`,
+                  }}
+                  className={`w-full rounded-t-full transition-all duration-150 blur-[2px] opacity-90 ${
+                    isSpeaking
+                      ? 'bg-gradient-to-t from-blue-600 via-indigo-500 to-cyan-400'
+                      : isListening
+                      ? 'bg-gradient-to-t from-cyan-500 via-sky-400 to-indigo-500'
+                      : 'bg-gradient-to-t from-blue-500/40 via-indigo-500/30 to-purple-500/20'
+                  }`}
+                />
+              </motion.div>
+
+              {/* Center Theta Glyph overlaid */}
+              <div className="relative z-10 flex items-center justify-center">
+                <span className="text-white font-extrabold text-sm drop-shadow-md">
+                  θ
+                </span>
+              </div>
+            </div>
+
+            {/* 4. Microphone Toggle Button */}
+            <button
+              type="button"
+              onClick={onToggleMic}
+              className={`w-12 h-12 rounded-full shadow-md flex items-center justify-center transition-all cursor-pointer active:scale-95 border ${
+                isMicMuted
+                  ? 'bg-red-500/15 text-red-500 border-red-500/30'
+                  : isListening
+                  ? 'bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-100 border-blue-400/50 shadow-blue-500/20 ring-2 ring-blue-400/30'
+                  : 'bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border-neutral-200/70 dark:border-neutral-700/70 hover:bg-neutral-50 dark:hover:bg-neutral-750'
+              }`}
+              title={isMicMuted ? 'Unmute microphone' : 'Mute microphone'}
+            >
+              {isMicMuted ? <MicOff className="w-5 h-5 text-red-500" /> : <Mic className="w-5 h-5" />}
+            </button>
+
+            {/* 5. Close / End Live Talk Button */}
             <button
               type="button"
               onClick={onEndCall}
-              className="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-red-600 hover:bg-red-500 text-white flex flex-col items-center justify-center transition-all cursor-pointer active:scale-95 shadow-xl shadow-red-600/30 border border-red-400/40"
-              title="End Voice Call"
+              className="w-12 h-12 rounded-full bg-white dark:bg-neutral-800 shadow-md flex items-center justify-center text-neutral-700 dark:text-neutral-200 border border-neutral-200/70 dark:border-neutral-700/70 hover:bg-neutral-50 dark:hover:bg-neutral-750 transition-all cursor-pointer active:scale-95"
+              title="End Live Talk"
             >
-              <PhoneOff className="w-5 h-5" />
-              <span className="text-[9px] font-bold mt-0.5">End</span>
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>

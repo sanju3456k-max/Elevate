@@ -4089,33 +4089,39 @@ MANDATORY INSTRUCTIONS:
               </button>
             )}
 
-            {/* Chatbot Powered by AI Title */}
-            <div 
+            {/* Chatbot Powered by AI Title & Theta Live Toggle */}
+            <button 
+              type="button"
               onClick={() => {
                 if (isLiveTalkActive) {
                   setIsLiveTalkFullViewOpen(true);
+                } else {
+                  toggleLiveTalkMode();
                 }
               }}
-              className={`flex flex-col justify-center ml-0.5 shrink-0 leading-tight ${
-                isLiveTalkActive ? 'cursor-pointer hover:opacity-85 transition-opacity' : ''
-              }`}
-              title={isLiveTalkActive ? "Click Theta to open Live Voice View" : undefined}
+              className="flex items-center gap-2 p-1 -ml-1 rounded-2xl hover:bg-slate-100 dark:hover:bg-[#282a30] transition-all cursor-pointer text-left group"
+              title={isLiveTalkActive ? "Click to open full Live Voice screen" : "Click to start Theta Live Talk"}
             >
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-base sm:text-lg tracking-tight bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent leading-none">
-                  Theta
-                </span>
-                {isLiveTalkActive && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 text-[10px] font-bold border border-blue-500/30 animate-pulse">
-                    <Radio className="w-2.5 h-2.5" />
-                    Live
-                  </span>
-                )}
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white font-extrabold text-sm shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform shrink-0">
+                θ
               </div>
-              <span className="text-[10.5px] sm:text-[11.5px] font-medium text-slate-500 dark:text-zinc-400 mt-0.5 leading-none whitespace-nowrap">
-                powered by <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent font-semibold">Gemini</span>
-              </span>
-            </div>
+              <div className="flex flex-col justify-center leading-tight">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-base sm:text-lg tracking-tight bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent leading-none">
+                    Theta
+                  </span>
+                  {isLiveTalkActive ? (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 text-[10px] font-bold border border-blue-500/30 animate-pulse">
+                      <Radio className="w-2.5 h-2.5" />
+                      Live
+                    </span>
+                  ) : null}
+                </div>
+                <span className="text-[10.5px] sm:text-[11px] font-medium text-slate-500 dark:text-zinc-400 mt-0.5 leading-none whitespace-nowrap">
+                  {isLiveTalkActive ? 'Tap for Live Voice' : 'powered by Gemini'}
+                </span>
+              </div>
+            </button>
           </div>
 
           {/* Right: Model Selection, Cloud Sync, and Action Buttons (Compact Transparent Row) */}
@@ -5655,6 +5661,7 @@ MANDATORY INSTRUCTIONS:
         currentAssistantTranscript={liveTalkAssistantTranscript}
         messages={messages}
         studentName={auth.currentUser?.displayName?.split(' ')[0] || userProfile?.displayName?.split(' ')[0] || 'Harry'}
+        onSendPrompt={sendLiveTalkPrompt}
       />
 
       {/* Fullscreen Generated Plot Preview Modal */}
