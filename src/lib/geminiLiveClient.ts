@@ -1,12 +1,14 @@
 /**
- * Gemini Multimodal Live Client
- * Implements the official Google Gemini Live architecture:
- * - Primary: Direct WebSockets to Google Gemini Live API via short-lived Ephemeral Token
- *   (bypasses Vercel serverless limitations, zero hops, ultra-low latency)
- * - Fallback: Bidirectional proxy via local WebSocket server (/api/gemini/live-ws)
- * - Native 16kHz PCM audio streaming with Hardware Acoustic Echo Cancellation & Noise Suppression
- * - Native 24kHz raw neural voice playback (Vega / Aoede)
- * - Server-side Voice Activity Detection (VAD) & instant barge-in
+ * Gemini Multimodal Live Client - Real-Time Low Latency Engine
+ * 
+ * Optimizations for instantaneous spoken conversation:
+ * 1. thinkingBudget: 0 - completely eliminates the 3-5 second thinking delay, returning audio immediately
+ * 2. Hardware Sample-Rate Downsampler - downsamples native mic rates (48kHz Android, 44.1kHz iOS/Mac)
+ *    to exact 16,000 Hz 16-bit linear PCM with anti-aliasing box filter (prevents 3x slowed-down rumble)
+ * 3. 100ms Packet Aggregation (~1600 samples) - optimal VoIP transmission cadence without network flooding
+ * 4. Client-side VAD Gate - cleanly detects speech and stops streaming continuous noise in silence
+ * 5. Direct Ephemeral Token Connection to Google CDN - zero server proxy latency
+ * 6. Instant Server-side Barge-In & Web Audio playback queue cancellation
  */
 
 import { GoogleGenAI } from '@google/genai';
@@ -21,6 +23,43 @@ export interface GeminiLiveCallbacks {
   onTurnComplete?: () => void;
   onVolumeChange?: (volume: number, isAssistant: boolean) => void;
   onError?: (errMessage: string) => void;
+}
+
+/**
+ * High-fidelity linear downsampler from arbitrary hardware rate (48000 / 44100 Hz) to 16,000 Hz PCM16
+ */
+function downsampleTo16k(input: Float32Array, inputSampleRate: number): Int16Array {
+  if (inputSampleRate === 16000) {
+    const output = new Int16Array(input.length);
+    for (let i = 0; i < input.length; i++) {
+      const s = Math.max(-1, Math.min(1, input[i]));
+      output[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    return output;
+  }
+
+  const sampleRatio = inputSampleRate / 16000;
+  const newLength = Math.round(input.length / sampleRatio);
+  const result = new Int16Array(newLength);
+  let offsetResult = 0;
+  let offsetInput = 0;
+
+  while (offsetResult < result.length) {
+    const nextOffsetInput = Math.round((offsetResult + 1) * sampleRatio);
+    let sum = 0;
+    let count = 0;
+    for (let i = offsetInput; i < nextOffsetInput && i < input.length; i++) {
+      sum += input[i];
+      count++;
+    }
+    const sample = count > 0 ? sum / count : input[offsetInput] || 0;
+    const s = Math.max(-1, Math.min(1, sample));
+    result[offsetResult] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    offsetResult++;
+    offsetInput = nextOffsetInput;
+  }
+
+  return result;
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -44,10 +83,16 @@ export class GeminiLiveClient {
   private isConnected: boolean = false;
   private status: GeminiLiveStatus = 'idle';
 
-  // Playback queue tracking for gapless neural audio
+  // Audio queue tracking for gapless 24kHz neural audio playback
   private nextPlaybackTime: number = 0;
   private activeAudioSources: AudioBufferSourceNode[] = [];
   private accumulatedAssistantText: string = '';
+
+  // 100ms packet aggregation buffer for 16kHz audio (~1600 samples per packet)
+  private pcmAccumulator: number[] = [];
+  private hasSpokenInTurn: boolean = false;
+  private lastSpeechTimestamp: number = 0;
+  private trailingSilenceSent: boolean = false;
 
   // Callbacks
   private callbacks: GeminiLiveCallbacks = {};
@@ -89,7 +134,7 @@ export class GeminiLiveClient {
 
   /**
    * Connect to Gemini Live session.
-   * Requests an ephemeral token from server, connecting directly to Google's Live WebSocket.
+   * Acquires ephemeral token from server and opens direct WebSocket to Google edge CDN.
    */
   public async connect(options?: {
     voice?: GeminiLiveVoice;
@@ -113,7 +158,6 @@ export class GeminiLiveClient {
           noiseSuppression: true,
           autoGainControl: true,
           channelCount: 1,
-          sampleRate: 16000,
         },
       });
     } catch (err: any) {
@@ -126,7 +170,7 @@ export class GeminiLiveClient {
     // 2. Initialize Web Audio Contexts
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      this.inputAudioContext = new AudioCtx({ sampleRate: 16000 });
+      this.inputAudioContext = new AudioCtx();
       this.outputAudioContext = new AudioCtx({ sampleRate: 24000 });
 
       if (this.inputAudioContext.state === 'suspended') {
@@ -139,10 +183,9 @@ export class GeminiLiveClient {
       console.warn('AudioContext initialization note:', err);
     }
 
-    // Map voice
     const voice = options?.voice || 'Aoede';
     const systemInstruction = options?.systemInstruction ||
-      'You are Theta, an intelligent, conversational, and highly encouraging AI math tutor. Keep your spoken responses concise, direct, and conversational (typically 2 to 3 sentences). Avoid markdown formatting, asterisks, bullet points, and tables in spoken conversation unless explicitly asked.';
+      'You are Theta, a fast, intelligent, conversational, and highly encouraging AI math tutor. Keep your spoken responses concise, direct, and conversational (typically 1 to 3 sentences). Avoid markdown formatting, asterisks, bullet points, and tables in spoken conversation unless explicitly asked.';
 
     // 3. Attempt Ephemeral Token flow (Works directly on Vercel, mobile, cellular networks)
     let token: string | null = null;
@@ -160,7 +203,7 @@ export class GeminiLiveClient {
 
     if (token) {
       try {
-        console.log('Connecting to Google Gemini Live using ephemeral token...');
+        console.log('Connecting to Google Gemini Live using ephemeral token (Zero-Thinking Realtime Mode)...');
         const clientAi = new GoogleGenAI({
           apiKey: token,
           httpOptions: { apiVersion: 'v1alpha' }
@@ -177,13 +220,16 @@ export class GeminiLiveClient {
                 }
               }
             },
+            thinkingConfig: {
+              thinkingBudget: 0 // Eliminate thinking latency for instant speech response
+            },
             systemInstruction: {
               parts: [{ text: systemInstruction }]
             }
           },
           callbacks: {
             onopen: () => {
-              console.log('Connected directly to Google Gemini Multimodal Live API!');
+              console.log('Connected directly to Google Gemini Multimodal Live API in Real-Time Mode!');
               this.isConnected = true;
               this.setStatus('listening');
               this.startMicrophoneCapture();
@@ -316,23 +362,29 @@ export class GeminiLiveClient {
   }
 
   /**
-   * Start 16kHz linear PCM microphone streaming via ScriptProcessorNode
+   * Start 16kHz linear PCM microphone streaming with real-time downsampling & 100ms packet aggregation
    */
   private startMicrophoneCapture() {
     if (!this.inputAudioContext || !this.mediaStream) return;
 
     try {
       const source = this.inputAudioContext.createMediaStreamSource(this.mediaStream);
-      // Buffer size: 2048 samples at 16kHz = ~128ms per packet
+      const inputSampleRate = this.inputAudioContext.sampleRate || 48000;
+      // Buffer size: 2048 samples at input rate (~42ms at 48kHz, ~128ms at 16kHz)
       const processor = this.inputAudioContext.createScriptProcessor(2048, 1, 1);
       this.scriptProcessor = processor;
+
+      this.pcmAccumulator = [];
+      this.hasSpokenInTurn = false;
+      this.lastSpeechTimestamp = 0;
+      this.trailingSilenceSent = false;
 
       processor.onaudioprocess = (e) => {
         if (!this.isConnected || this.isMuted) return;
 
         const inputChannel = e.inputBuffer.getChannelData(0);
 
-        // 1. Calculate RMS volume for visualizer waves
+        // 1. Calculate RMS volume for visualizer waves and VAD gating
         let sumSquares = 0;
         for (let i = 0; i < inputChannel.length; i++) {
           sumSquares += inputChannel[i] * inputChannel[i];
@@ -340,26 +392,39 @@ export class GeminiLiveClient {
         const rms = Math.sqrt(sumSquares / inputChannel.length);
         this.callbacks.onVolumeChange?.(Math.min(1, rms * 5), false);
 
-        // 2. Convert Float32Array (-1.0 to +1.0) to Int16Array (-32768 to 32767)
-        const pcm16 = new Int16Array(inputChannel.length);
-        for (let i = 0; i < inputChannel.length; i++) {
-          const s = Math.max(-1, Math.min(1, inputChannel[i]));
-          pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        // 2. Downsample from hardware rate (e.g. 48kHz / 44.1kHz) to exact 16,000 Hz PCM16
+        const downsampled16k = downsampleTo16k(inputChannel, inputSampleRate);
+
+        // 3. VAD Activity Detection
+        const isVoiceActive = rms > 0.012;
+        const now = Date.now();
+
+        if (isVoiceActive) {
+          this.hasSpokenInTurn = true;
+          this.lastSpeechTimestamp = now;
+          this.trailingSilenceSent = false;
         }
 
-        // 3. Send audio chunk via active session or WebSocket proxy
-        if (this.session) {
-          const base64Data = arrayBufferToBase64(pcm16.buffer);
-          this.session.sendRealtimeInput({
-            media: [
-              {
-                mimeType: 'audio/pcm;rate=16000',
-                data: base64Data
-              }
-            ]
-          });
-        } else if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-          this.ws.send(pcm16.buffer);
+        // Only stream when user is speaking or within 600ms grace period after speaking
+        const isWithinSpeechWindow = this.hasSpokenInTurn && (now - this.lastSpeechTimestamp < 600);
+
+        if (isVoiceActive || isWithinSpeechWindow) {
+          for (let i = 0; i < downsampled16k.length; i++) {
+            this.pcmAccumulator.push(downsampled16k[i]);
+          }
+
+          // When accumulated ~1600 samples (100ms of 16kHz audio), transmit packet
+          if (this.pcmAccumulator.length >= 1600) {
+            const packetSamples = new Int16Array(this.pcmAccumulator);
+            this.pcmAccumulator = [];
+            this.sendPcmPacket(packetSamples);
+          }
+        } else if (this.hasSpokenInTurn && !this.trailingSilenceSent && (now - this.lastSpeechTimestamp >= 600)) {
+          // Send 200ms of trailing comfort silence to ensure clean word endpointing
+          this.trailingSilenceSent = true;
+          const silenceSamples = new Int16Array(3200); // 200ms of 16kHz silence
+          this.sendPcmPacket(silenceSamples);
+          this.hasSpokenInTurn = false;
         }
       };
 
@@ -367,6 +432,25 @@ export class GeminiLiveClient {
       processor.connect(this.inputAudioContext.destination);
     } catch (err) {
       console.error('Error starting microphone capture:', err);
+    }
+  }
+
+  /**
+   * Transmit a 16kHz PCM audio packet over the active connection
+   */
+  private sendPcmPacket(packet: Int16Array) {
+    if (this.session) {
+      const base64Data = arrayBufferToBase64(packet.buffer);
+      this.session.sendRealtimeInput({
+        media: [
+          {
+            mimeType: 'audio/pcm;rate=16000',
+            data: base64Data
+          }
+        ]
+      });
+    } else if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(packet.buffer);
     }
   }
 
@@ -401,6 +485,7 @@ export class GeminiLiveClient {
       audioBuffer.copyToChannel(float32Array, 0);
 
       const currentTime = this.outputAudioContext.currentTime;
+      // Start immediately on first chunk or maintain gapless queue
       if (this.nextPlaybackTime < currentTime) {
         this.nextPlaybackTime = currentTime;
       }
@@ -490,6 +575,10 @@ export class GeminiLiveClient {
   public disconnect() {
     this.isConnected = false;
     this.stopAllAudioPlayback();
+
+    this.pcmAccumulator = [];
+    this.hasSpokenInTurn = false;
+    this.lastSpeechTimestamp = 0;
 
     if (this.scriptProcessor) {
       try {

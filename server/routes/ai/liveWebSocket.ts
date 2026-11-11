@@ -83,6 +83,9 @@ export function setupLiveWebSocket(server: HttpServer) {
                     }
                   }
                 },
+                thinkingConfig: {
+                  thinkingBudget: 0
+                },
                 systemInstruction: {
                   parts: [{ text: systemInstruction }]
                 }
