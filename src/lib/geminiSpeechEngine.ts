@@ -494,6 +494,7 @@ class CleanSpeechEngine {
   private isStartingRecognition: boolean = false;
   private isRecognitionActive: boolean = false;
   private lastAssistantSpokenText: string = '';
+  private ignoreSpeechUntilTime: number = 0; // Timestamp lock to discard residual acoustic tail after cancel/interrupt
 
   // Listeners
   private onTranscriptCallback: ((text: string) => void) | null = null;
@@ -793,6 +794,11 @@ class CleanSpeechEngine {
 
       rec.onresult = (event: any) => {
         if (this.isMuted || this.currentMode !== 'live-talk') {
+          return;
+        }
+
+        // Interruption Acoustic Drain Lock: Discard any residual audio buffers queued before or during cancel/interrupt
+        if (Date.now() < this.ignoreSpeechUntilTime) {
           return;
         }
 
@@ -1123,6 +1129,12 @@ class CleanSpeechEngine {
     this.isProcessingPrompt = false;
     this.lastAssistantSpokenText = ''; // Clear prior response text immediately on interrupt
 
+    // Acoustic Drain Window:
+    // When TTS is aborted mid-sentence, the operating system's microphone buffer still holds the
+    // physical speaker sound from the last ~400ms. We set a 450ms drain lock so any in-flight
+    // audio chunk echoing the assistant's interrupted words is completely discarded.
+    this.ignoreSpeechUntilTime = Date.now() + 450;
+
     if (this.silenceTimer) {
       clearTimeout(this.silenceTimer);
       this.silenceTimer = null;
@@ -1136,11 +1148,16 @@ class CleanSpeechEngine {
     this.onInterruptionCallback?.();
     this.onStatusCallback?.('listening');
 
-    // Immediately stop old recognition and boot up fresh recognition instance right away
+    // Forcibly tear down stale recognition so any buffered speech from the speaker is dropped
     this.safeStopRecognition();
     const SpeechRec = getSpeechRecognition();
     if (SpeechRec && this.currentMode === 'live-talk' && !this.isMuted) {
-      this.initLiveTalkMic(SpeechRec);
+      // Boot up clean mic after the acoustic drain period
+      setTimeout(() => {
+        if (this.currentMode === 'live-talk' && !this.isMuted) {
+          this.initLiveTalkMic(SpeechRec);
+        }
+      }, 100);
     }
   }
 
@@ -1151,6 +1168,7 @@ class CleanSpeechEngine {
     this.isProcessingPrompt = false;
     this.isAssistantSpeaking = false;
     this.lastAssistantSpokenText = '';
+    this.ignoreSpeechUntilTime = Date.now() + 450;
 
     if (this.silenceTimer) {
       clearTimeout(this.silenceTimer);
