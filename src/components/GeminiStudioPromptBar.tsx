@@ -426,8 +426,8 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
         {/* Middle Auto-Expanding Textarea with Search Icon Indicator */}
         <div className="flex items-start gap-2.5 px-0.5">
           <div className="pt-1.5 shrink-0 select-none">
-            <span className="w-5 h-5 rounded-full bg-gradient-to-tr from-[#4285F4] via-[#9B72CB] to-[#EA4335] flex items-center justify-center text-white text-[10px] font-bold shadow-none">
-              <Sparkles className="w-3 h-3" />
+            <span className="w-5.5 h-5.5 rounded-full bg-gradient-to-tr from-[#4285F4] via-[#9B72CB] to-[#EA4335] flex items-center justify-center text-white text-[10px] font-bold shadow-none">
+              <Sparkles className="w-3.5 h-3.5" />
             </span>
           </div>
           <textarea
@@ -442,7 +442,7 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
                 : 'Ask anything, explore theorems, generate tests, or plot with AI...'
             }
             rows={1}
-            className="w-full bg-transparent text-[17px] font-medium text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none resize-none py-1 max-h-[140px] overflow-y-auto leading-relaxed border-0 ring-0 shadow-none"
+            className="w-full bg-transparent text-[16px] sm:text-[17.5px] font-medium text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none resize-none py-1 max-h-[140px] overflow-y-auto leading-relaxed border-0 ring-0 shadow-none"
           />
         </div>
 
@@ -454,14 +454,14 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
             <button
               type="button"
               onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
-              className={`w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 border border-slate-200 dark:border-transparent shadow-xs ${
+              className={`w-9 h-9 sm:w-9.5 sm:h-9.5 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 border border-slate-200 dark:border-transparent shadow-xs ${
                 isAddMenuOpen
                   ? 'bg-blue-600 text-white rotate-45 border-blue-600'
                   : 'bg-white dark:bg-[#282a2d] text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-[#f8fafd] dark:hover:bg-[#35383f]'
               }`}
               title="Add files & AI tools (+)"
             >
-              <Plus className="w-4.5 h-4.5" />
+              <Plus className="w-5 h-5" />
             </button>
 
             {/* Quick Toggle Pills: Google Search & Python */}
@@ -469,28 +469,28 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
               <button
                 type="button"
                 onClick={onToggleSearchGrounding}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer select-none border border-slate-200 dark:border-transparent outline-none active:scale-95 ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12.5px] sm:text-xs font-bold transition-all duration-150 cursor-pointer select-none border border-slate-200 dark:border-transparent outline-none active:scale-95 ${
                   enableSearchGrounding
                     ? 'bg-[#d3e3fd] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff] border-blue-300 dark:border-transparent shadow-xs'
                     : 'bg-white dark:bg-[#282a2d] text-[#444746] dark:text-[#c4c7c5] hover:bg-[#f8fafd] dark:hover:bg-[#35383f] shadow-xs'
                 }`}
                 title="Toggle Google Search Grounding"
               >
-                <Globe className="w-3.5 h-3.5" />
+                <Globe className="w-4 h-4" />
                 <span>Search</span>
               </button>
 
               <button
                 type="button"
                 onClick={onToggleCodeExecution}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer select-none border border-slate-200 dark:border-transparent outline-none active:scale-95 ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12.5px] sm:text-xs font-bold transition-all duration-150 cursor-pointer select-none border border-slate-200 dark:border-transparent outline-none active:scale-95 ${
                   enableCodeExecution
                     ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-200 border-emerald-300 dark:border-transparent shadow-xs'
                     : 'bg-white dark:bg-[#282a2d] text-[#444746] dark:text-[#c4c7c5] hover:bg-[#f8fafd] dark:hover:bg-[#35383f] shadow-xs'
                 }`}
                 title="Toggle Python Code Execution Sandbox"
               >
-                <Code2 className="w-3.5 h-3.5" />
+                <Code2 className="w-4 h-4" />
                 <span>Python</span>
               </button>
             </div>
@@ -668,28 +668,28 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
             <button
               type="button"
               onClick={onToggleDictation}
-              className={`w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 border border-slate-200 dark:border-zinc-700 shadow-xs ${
+              className={`w-9 h-9 sm:w-9.5 sm:h-9.5 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 border border-slate-200 dark:border-zinc-700 shadow-xs ${
                 isDictating
                   ? 'bg-red-500 text-white animate-pulse border-red-500'
                   : 'text-slate-700 dark:text-zinc-300 bg-white dark:bg-[#282a2d] hover:bg-[#f8fafd] dark:hover:bg-[#35373b]'
               }`}
               title={isDictating ? 'Stop speech dictation' : 'Speech-to-Text Dictation (Mic)'}
             >
-              {isDictating ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              {isDictating ? <MicOff className="w-4.5 h-4.5" /> : <Mic className="w-4.5 h-4.5" />}
             </button>
 
             {/* Live Talk Interactive Voice Button */}
             <button
               type="button"
               onClick={onToggleLiveTalk}
-              className={`w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 border border-slate-200 dark:border-zinc-700 shadow-xs ${
+              className={`w-9 h-9 sm:w-9.5 sm:h-9.5 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 border border-slate-200 dark:border-zinc-700 shadow-xs ${
                 isLiveTalkActive
                   ? 'bg-blue-600 text-white animate-pulse border-blue-600'
                   : 'bg-white dark:bg-[#282a2d] hover:bg-[#f8fafd] dark:hover:bg-[#35373b] text-blue-600 dark:text-blue-400'
               }`}
               title="Live Talk Voice Assistant"
             >
-              <Radio className="w-4 h-4" />
+              <Radio className="w-4.5 h-4.5" />
             </button>
 
             {/* Submit / Cancel Action Button */}
@@ -697,24 +697,24 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
               <button
                 type="button"
                 onClick={onCancelRequest}
-                className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full flex items-center justify-center bg-red-600 hover:bg-red-700 text-white transition-transform active:scale-95 cursor-pointer border-0 shadow-xs animate-pulse"
+                className="w-9 h-9 sm:w-9.5 sm:h-9.5 rounded-full flex items-center justify-center bg-red-600 hover:bg-red-700 text-white transition-transform active:scale-95 cursor-pointer border-0 shadow-xs animate-pulse"
                 title="Stop generating"
               >
-                <Square className="w-3.5 h-3.5 fill-current" />
+                <Square className="w-4 h-4 fill-current" />
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => onSendMessage()}
                 disabled={!inputMessage.trim() && attachments.length === 0}
-                className={`w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all cursor-pointer border-0 shadow-xs ${
+                className={`w-9 h-9 sm:w-9.5 sm:h-9.5 rounded-full flex items-center justify-center transition-all cursor-pointer border-0 shadow-xs ${
                   !inputMessage.trim() && attachments.length === 0
                     ? 'bg-slate-200 dark:bg-[#282a2d] text-slate-400 dark:text-zinc-600 cursor-not-allowed opacity-60'
                     : 'bg-[#0b57d0] hover:bg-[#0842a0] text-white active:scale-95'
                 }`}
                 title="Send Prompt (Enter)"
               >
-                <Send className="w-4 h-4 ml-0.5" />
+                <Send className="w-4.5 h-4.5 ml-0.5" />
               </button>
             )}
           </div>
