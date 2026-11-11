@@ -462,7 +462,8 @@ export function applyGeminiFemaleVoice(utterance: SpeechSynthesisUtterance) {
  * Direct voice interrupt keywords that immediately halt assistant speech on first word
  */
 const INTERRUPT_KEYWORDS = new Set([
-  'stop', 'wait', 'pause', 'cancel', 'hold', 'no', 'listen', 'theta', 'hey', 'quiet'
+  'stop', 'wait', 'pause', 'cancel', 'hold', 'no', 'listen', 'theta', 'hey', 'quiet',
+  'ok', 'okay', 'shut', 'hush', 'enough', 'next', 'shh', 'change', 'wrong', 'no wait', 'what'
 ]);
 
 function extractWords(text: string): string[] {
@@ -483,6 +484,10 @@ class CleanSpeechEngine {
   private currentMode: 'idle' | 'dictation' | 'live-talk' = 'idle';
   private silenceTimer: any = null;
   private restartTimer: any = null;
+  private startGuardTimer: any = null;      // Clears isStartingRecognition if onstart never fires
+  private proactiveRefreshTimer: any = null; // 50s proactive refresh to beat Android 60s kill
+  private dictationSpeechRec: any = null;   // Stored SpeechRec class for dictation restarts
+  private dictationAccumulated: string = ''; // Accumulated dictation text across reconnects
   private isProcessingPrompt: boolean = false;
   private isMuted: boolean = false;
   private isAssistantSpeaking: boolean = false;
@@ -505,6 +510,10 @@ class CleanSpeechEngine {
       clearTimeout(this.restartTimer);
       this.restartTimer = null;
     }
+    if (this.startGuardTimer) {
+      clearTimeout(this.startGuardTimer);
+      this.startGuardTimer = null;
+    }
     if (this.activeRecognition) {
       try {
         const r = this.activeRecognition;
@@ -521,7 +530,116 @@ class CleanSpeechEngine {
   }
 
   /**
-   * Start clean 1-click dictation into the prompt box
+   * Internal helper to start/restart continuous dictation recognition instance
+   */
+  private initDictationMic() {
+    if (this.currentMode !== 'dictation' || !this.dictationSpeechRec) return;
+
+    this.safeStopRecognition();
+    this.isStartingRecognition = true;
+
+    try {
+      const rec = new this.dictationSpeechRec();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = 'en-US';
+
+      this.startGuardTimer = setTimeout(() => {
+        if (this.isStartingRecognition) {
+          this.isStartingRecognition = false;
+        }
+      }, 3000);
+
+      rec.onstart = () => {
+        if (this.startGuardTimer) {
+          clearTimeout(this.startGuardTimer);
+          this.startGuardTimer = null;
+        }
+        this.isStartingRecognition = false;
+        this.isRecognitionActive = true;
+        this.activeRecognition = rec;
+      };
+
+      let sessionSpeechAccumulated = '';
+
+      rec.onresult = (event: any) => {
+        if (this.currentMode !== 'dictation') return;
+
+        const sessionSpeech = extractCleanSpeechFromEvent(event);
+        if (!sessionSpeech) return;
+        sessionSpeechAccumulated = sessionSpeech;
+
+        const base = this.dictationAccumulated ? this.dictationAccumulated.trim() : '';
+        const total = base ? mergeSpeechChunks([base, sessionSpeech]) : sessionSpeech;
+        const cleaned = cleanSpeechTranscript(total);
+
+        if (this.onTranscriptCallback && cleaned) {
+          this.onTranscriptCallback(cleaned);
+        }
+      };
+
+      rec.onerror = (e: any) => {
+        const err = e?.error;
+        if (err === 'no-speech' || err === 'aborted') return;
+
+        console.warn('Speech recognition dictation error:', err);
+        if (err === 'not-allowed' || err === 'service-not-allowed') {
+          notifySpeechMessage('Microphone access is blocked. Please allow microphone permission in your browser address bar.', 'error');
+          this.stopAll();
+        }
+      };
+
+      rec.onend = () => {
+        this.isRecognitionActive = false;
+        this.isStartingRecognition = false;
+        this.activeRecognition = null;
+
+        // Consolidate text heard in this run into dictationAccumulated
+        if (sessionSpeechAccumulated) {
+          const base = this.dictationAccumulated ? this.dictationAccumulated.trim() : '';
+          this.dictationAccumulated = base
+            ? mergeSpeechChunks([base, sessionSpeechAccumulated])
+            : sessionSpeechAccumulated;
+          sessionSpeechAccumulated = '';
+        }
+
+        // CONTINUOUS DICTATION WATCHDOG:
+        // Automatically restart if user did NOT explicitly turn it off!
+        if (this.currentMode === 'dictation') {
+          if (this.restartTimer) clearTimeout(this.restartTimer);
+          this.restartTimer = setTimeout(() => {
+            if (this.currentMode === 'dictation') {
+              this.initDictationMic();
+            }
+          }, 150);
+        } else {
+          if (this.onDictationEndCallback) {
+            this.onDictationEndCallback();
+          }
+        }
+      };
+
+      rec.start();
+      this.activeRecognition = rec;
+    } catch (err) {
+      this.isStartingRecognition = false;
+      this.isRecognitionActive = false;
+      this.activeRecognition = null;
+      console.warn('Dictation mic init error, scheduling retry:', err);
+      if (this.currentMode === 'dictation') {
+        if (this.restartTimer) clearTimeout(this.restartTimer);
+        this.restartTimer = setTimeout(() => {
+          if (this.currentMode === 'dictation') {
+            this.initDictationMic();
+          }
+        }, 300);
+      }
+    }
+  }
+
+  /**
+   * Start clean continuous dictation into the prompt box.
+   * Keeps listening indefinitely until user explicitly clicks off.
    */
   public async startDictation(
     existingInput: string,
@@ -545,53 +663,20 @@ class CleanSpeechEngine {
     this.stopAll();
 
     this.currentMode = 'dictation';
+    this.dictationSpeechRec = SpeechRec;
+    this.dictationAccumulated = existingInput ? existingInput.trim() : '';
     this.onTranscriptCallback = onTranscript;
     this.onDictationEndCallback = onEnded;
 
-    const baseText = existingInput ? existingInput.trim() : '';
+    this.initDictationMic();
+  }
 
-    try {
-      const rec = new SpeechRec();
-      rec.continuous = true;
-      rec.interimResults = true;
-      rec.lang = 'en-US';
-
-      rec.onresult = (event: any) => {
-        const sessionSpeech = extractCleanSpeechFromEvent(event);
-        if (!sessionSpeech) return;
-
-        const total = baseText ? mergeSpeechChunks([baseText, sessionSpeech]) : sessionSpeech;
-        const cleaned = cleanSpeechTranscript(total);
-
-        if (this.onTranscriptCallback && cleaned) {
-          this.onTranscriptCallback(cleaned);
-        }
-      };
-
-      rec.onerror = (e: any) => {
-        const err = e?.error;
-        if (err === 'no-speech' || err === 'aborted') return;
-
-        console.warn('Speech recognition dictation error:', err);
-        if (err === 'not-allowed' || err === 'service-not-allowed') {
-          notifySpeechMessage('Microphone access is blocked. Please allow microphone permission in your browser address bar.', 'error');
-        }
-        this.stopAll();
-      };
-
-      rec.onend = () => {
-        this.currentMode = 'idle';
-        if (this.onDictationEndCallback) {
-          this.onDictationEndCallback();
-        }
-      };
-
-      rec.start();
-      this.activeRecognition = rec;
-    } catch (err) {
-      console.warn('Speech dictation error:', err);
-      notifySpeechMessage('Could not start microphone. Please check your browser audio permissions.', 'error');
-      onEnded();
+  /**
+   * Explicitly stop dictation mode
+   */
+  public stopDictation() {
+    if (this.currentMode === 'dictation') {
+      this.stopAll();
     }
   }
 
@@ -656,6 +741,29 @@ class CleanSpeechEngine {
         this.initLiveTalkMic(SpeechRec);
       }
     }, 100);
+
+    // Proactive refresh cycle to prevent Android / Mobile Chrome 60-second silent audio drops
+    if (this.proactiveRefreshTimer) clearInterval(this.proactiveRefreshTimer);
+    this.proactiveRefreshTimer = setInterval(() => {
+      if (
+        this.currentMode === 'live-talk' &&
+        !this.isMuted &&
+        !this.isAssistantSpeaking &&
+        !this.isProcessingPrompt
+      ) {
+        this.safeStopRecognition();
+        setTimeout(() => {
+          if (
+            this.currentMode === 'live-talk' &&
+            !this.isMuted &&
+            !this.isAssistantSpeaking &&
+            !this.isProcessingPrompt
+          ) {
+            this.initLiveTalkMic(SpeechRec);
+          }
+        }, 120);
+      }
+    }, 45000); // 45 seconds refresh before the browser's 60-second silent kill
   }
 
   private initLiveTalkMic(SpeechRec: any) {
@@ -663,10 +771,7 @@ class CleanSpeechEngine {
       return;
     }
 
-    if (this.isStartingRecognition || (this.isRecognitionActive && this.activeRecognition)) {
-      return;
-    }
-
+    // Always cleanly reset previous instance to avoid zombie listeners or stuck recognition locks
     this.safeStopRecognition();
     this.isStartingRecognition = true;
 
@@ -676,7 +781,17 @@ class CleanSpeechEngine {
       rec.interimResults = true;
       rec.lang = 'en-US';
 
+      this.startGuardTimer = setTimeout(() => {
+        if (this.isStartingRecognition) {
+          this.isStartingRecognition = false;
+        }
+      }, 1500);
+
       rec.onstart = () => {
+        if (this.startGuardTimer) {
+          clearTimeout(this.startGuardTimer);
+          this.startGuardTimer = null;
+        }
         this.isStartingRecognition = false;
         this.isRecognitionActive = true;
         this.activeRecognition = rec;
@@ -696,34 +811,53 @@ class CleanSpeechEngine {
         const isDirectKeyword = userTokens.length === 1 && INTERRUPT_KEYWORDS.has(userTokens[0]);
 
         // 1. Hands-Free Voice Interruption while Assistant is Speaking:
-        // Discriminate speaker echo from true user voice interruption using similarity classification
         if (this.isAssistantSpeaking) {
-          const assistantTokens = new Set(extractWords(this.lastAssistantSpokenText || ''));
+          // In speaking mode, the mic is ONLY listening for genuine user interruption commands!
+          // Normal ambient sound or words the assistant is speaking MUST NEVER be passed through or auto-sent.
+          
+          // Direct interrupt keywords always trigger an immediate cut-off
+          if (isDirectKeyword) {
+            this.interruptAndListen();
+            return;
+          }
 
+          // If the user says a phrase to interrupt, verify it has ZERO match with what the assistant is speaking
+          const assistantTokens = new Set(extractWords(this.lastAssistantSpokenText || ''));
           let echoMatches = 0;
           for (const token of userTokens) {
             if (assistantTokens.has(token)) {
               echoMatches++;
             }
           }
-          const echoRatio = userTokens.length > 0 ? echoMatches / userTokens.length : 0;
 
-          // If >= 35% of heard words match Theta's current speech, it's speaker audio echo -> ignore
-          if (echoRatio >= 0.35 && !isDirectKeyword) {
+          // If ANY words match the assistant's speech, or if it's very short ambient noise (< 3 words), treat as speaker bleed
+          if (echoMatches > 0 || userTokens.length < 3) {
             return;
           }
 
-          // Human user spoke a command to interrupt! Cut off speech synthesis immediately:
-          if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-            try {
-              window.speechSynthesis.cancel();
-            } catch {}
+          // If the heard text is found anywhere in the assistant's response, ignore it completely
+          const userLower = cleaned.toLowerCase().trim();
+          if (this.lastAssistantSpokenText && (this.lastAssistantSpokenText.includes(userLower) || userLower.includes(this.lastAssistantSpokenText))) {
+            return;
           }
-          this.activeUtterance = null;
-          this.isAssistantSpeaking = false;
-          this.isProcessingPrompt = false;
-          this.onInterruptionCallback?.();
-          this.onStatusCallback?.('listening');
+
+          // Genuine multi-word new instruction while assistant is speaking -> trigger interruption!
+          this.interruptAndListen();
+          this.onTranscriptCallback?.(cleaned);
+
+          if (this.silenceTimer) clearTimeout(this.silenceTimer);
+          this.silenceTimer = setTimeout(() => {
+            if (
+              this.currentMode === 'live-talk' &&
+              !this.isMuted &&
+              !this.isAssistantSpeaking &&
+              !this.isProcessingPrompt &&
+              cleaned.trim().length >= 2
+            ) {
+              this.handleAutoSendPrompt(cleaned.trim());
+            }
+          }, 1250);
+          return;
         }
 
         // 2. Hands-Free Voice Interruption while Gemini is formulating response (thinking / sending):
@@ -737,16 +871,34 @@ class CleanSpeechEngine {
           }
         }
 
-        // 3. Post-speaking Echo Guard: If speech matches what assistant previously said, discard
+        // 3. Post-speaking Echo & Residual Acoustic Tail Guard:
+        // When assistant has just finished speaking, device speakers have residual reverb and
+        // SpeechRecognition events may deliver late-arriving chunks of what the speaker played.
         if (this.lastAssistantSpokenText && !this.isAssistantSpeaking) {
           const userLower = cleaned.toLowerCase().trim();
-          if (
-            this.lastAssistantSpokenText.includes(userLower) ||
-            userLower.includes(this.lastAssistantSpokenText)
-          ) {
+          const assistantTokens = new Set(extractWords(this.lastAssistantSpokenText || ''));
+
+          let echoMatches = 0;
+          for (const token of userTokens) {
+            if (assistantTokens.has(token)) {
+              echoMatches++;
+            }
+          }
+          const echoRatio = userTokens.length > 0 ? echoMatches / userTokens.length : 0;
+
+          // If speech is primarily what the assistant just spoke (>= 60% overlap) or exact substring of it -> drop as echo
+          if (echoRatio >= 0.60 || this.lastAssistantSpokenText.includes(userLower)) {
             return;
           }
+
+          // Once user begins speaking genuine words, clear the old assistant text so follow-up conversation flows naturally
+          if (userTokens.length >= 2 && echoRatio === 0) {
+            this.lastAssistantSpokenText = '';
+          }
         }
+
+        // Only accept genuine user speech with at least 2 characters and at least 1 meaningful word
+        if (userTokens.length === 0) return;
 
         this.onTranscriptCallback?.(cleaned);
 
@@ -875,9 +1027,18 @@ class CleanSpeechEngine {
       this.isAssistantSpeaking = false;
       this.isProcessingPrompt = false;
       this.onTranscriptCallback?.(''); // Clear transcript for user's next question
-      if (this.currentMode === 'live-talk' && !this.isMuted) {
-        this.onStatusCallback?.('listening');
-      }
+
+      // Wait 350ms after speech ends to prevent acoustic tail from registering,
+      // and ensure recognition is freshly restarted for the user's next question!
+      setTimeout(() => {
+        if (this.currentMode === 'live-talk' && !this.isMuted && !this.isAssistantSpeaking) {
+          this.onStatusCallback?.('listening');
+          const SpeechRec = getSpeechRecognition();
+          if (SpeechRec && (!this.activeRecognition || !this.isRecognitionActive)) {
+            this.initLiveTalkMic(SpeechRec);
+          }
+        }
+      }, 350);
     };
 
     if (!voiceEnabled || !isSpeechSynthesisSupported()) {
@@ -897,6 +1058,12 @@ class CleanSpeechEngine {
       this.isAssistantSpeaking = true;
       this.lastAssistantSpokenText = clean.toLowerCase();
       this.isProcessingPrompt = false;
+
+      // Ensure recognition is running continuously so the user can speak to interrupt anytime!
+      const SpeechRec = getSpeechRecognition();
+      if (SpeechRec && (!this.activeRecognition || !this.isRecognitionActive)) {
+        this.initLiveTalkMic(SpeechRec);
+      }
 
       const utter = new SpeechSynthesisUtterance(clean);
       applyGeminiVoice(utter, 'vega');
@@ -923,6 +1090,7 @@ class CleanSpeechEngine {
     this.activeUtterance = null;
     this.isAssistantSpeaking = false;
     this.isProcessingPrompt = false;
+    this.lastAssistantSpokenText = ''; // Clear prior response text immediately on interrupt
 
     if (this.silenceTimer) {
       clearTimeout(this.silenceTimer);
@@ -936,6 +1104,13 @@ class CleanSpeechEngine {
     this.onTranscriptCallback?.('');
     this.onInterruptionCallback?.();
     this.onStatusCallback?.('listening');
+
+    // Immediately stop old recognition and boot up fresh recognition instance right away
+    this.safeStopRecognition();
+    const SpeechRec = getSpeechRecognition();
+    if (SpeechRec && this.currentMode === 'live-talk' && !this.isMuted) {
+      this.initLiveTalkMic(SpeechRec);
+    }
   }
 
   /**
@@ -944,6 +1119,7 @@ class CleanSpeechEngine {
   public cancelCurrentTurn() {
     this.isProcessingPrompt = false;
     this.isAssistantSpeaking = false;
+    this.lastAssistantSpokenText = '';
 
     if (this.silenceTimer) {
       clearTimeout(this.silenceTimer);
@@ -972,6 +1148,11 @@ class CleanSpeechEngine {
 
     if (this.currentMode === 'live-talk' && !this.isMuted) {
       this.onStatusCallback?.('listening');
+      this.safeStopRecognition();
+      const SpeechRec = getSpeechRecognition();
+      if (SpeechRec) {
+        this.initLiveTalkMic(SpeechRec);
+      }
     }
   }
 
@@ -998,7 +1179,17 @@ class CleanSpeechEngine {
     this.lastAssistantSpokenText = '';
     this.isStartingRecognition = false;
     this.isRecognitionActive = false;
+    this.dictationSpeechRec = null;
+    this.dictationAccumulated = '';
 
+    if (this.proactiveRefreshTimer) {
+      clearInterval(this.proactiveRefreshTimer);
+      this.proactiveRefreshTimer = null;
+    }
+    if (this.startGuardTimer) {
+      clearTimeout(this.startGuardTimer);
+      this.startGuardTimer = null;
+    }
     if (this.silenceTimer) {
       clearTimeout(this.silenceTimer);
       this.silenceTimer = null;

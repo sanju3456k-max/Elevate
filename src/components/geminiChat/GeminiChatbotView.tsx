@@ -1339,15 +1339,25 @@ export const GeminiImageLightbox: React.FC<GeminiImageLightboxProps> = ({ src, o
 /**
  * Strips internal system prompt directives (such as [Live Voice Mode...]) from the display content
  * so the chat interface shows only the user's actual spoken text or typed query.
+ *
+ * Handles all variants:
+ * - Single-line directive: "[Live Voice Mode - ...]: ...\nUser text"
+ * - Double-newline separator: "[Live Voice Mode - ...]: ...\n\nUser text"
+ * - Interrupted directive: "[Live Voice Mode - Spoken Conversation - User Interrupted...]: ...\n\nUser text"
  */
 export function cleanDisplayMessageContent(content: string): string {
   if (!content) return '';
+  // Strip any [Live Voice Mode ...]: ... directive block at start of message
+  // Covers single \n and double \n\n separators, multiline directives, any dash/em-dash variants
   if (/^\[Live Voice Mode/i.test(content)) {
-    const parts = content.split(/\n\s*\n/);
+    // Try splitting on blank line first (double newline with optional whitespace)
+    const parts = content.split(/\n[ \t]*\n+/);
     if (parts.length > 1) {
       return parts.slice(1).join('\n\n').trim();
     }
-    return content.replace(/^\[Live Voice Mode[^\]]*\]:[^\n]*\n?/i, '').trim();
+    // Fallback: strip everything up to and including the closing bracket colon line
+    const stripped = content.replace(/^\[Live Voice Mode[^\]]*\]:[^\n]*\n?/i, '').trim();
+    return stripped;
   }
   return content;
 }
@@ -1950,11 +1960,19 @@ Formatting & Quality Requirements:
     setLiveTalkTranscript('');
 
     try {
-      // Live Voice Mode token optimization: Instruct Gemini to respond conversationally in 2-3 concise sentences
-      // If user interrupted in-between responding, instruct model to pivot directly to new instruction
+      // Live Voice Mode Scientific Conversational Architecting:
+      // Based on Cognitive Load Theory and conversational turn-taking principles:
+      // 1. Spoken responses must be crisp, digestible (1 to 2 direct spoken sentences, ~25-45 words).
+      // 2. Deliver the core insight upfront without throat-clearing, monologue lectures, or lists.
+      // 3. Close with a natural conversational hook that invites the user to dive deeper or expand if they want.
+      // 4. If the user explicitly asks to elaborate ("explain more", "detail", "step-by-step"), expand proportionally.
       const directiveHeader = hadInterruption
-        ? '[Live Voice Mode - Spoken Conversation - User Interrupted with New Directive]: The user interrupted the previous incomplete response with a new directive. Please pivot immediately and answer the new instruction directly in 2-3 concise conversational spoken sentences. Avoid markdown headers, asterisks, bullet points, or tables unless explicitly asked.'
-        : '[Live Voice Mode - Spoken Conversation]: Please answer concisely and conversationally in 2-3 direct spoken sentences. Avoid markdown headers, asterisks, bullet points, or tables unless explicitly asked.';
+        ? '[Live Voice Mode - Spoken Conversation - User Interrupted]: The user cut in with a new thought. Pivot immediately. Acknowledge and answer in 1-2 punchy spoken sentences. Never lecture. Offer a natural brief follow-up if relevant.'
+        : '[Live Voice Mode - Natural Spoken Dialogue]: You are speaking aloud directly to the user in a real-time voice call. Apply conversational dialogue psychology:\n' +
+          '• Deliver the core answer immediately in 1 to 2 natural spoken sentences (maximum 35-45 words).\n' +
+          '• Avoid markdown headers, bullet points, asterisks, citations, or formulas unless explicitly asked.\n' +
+          '• Never give unprompted monologues. If the topic is complex, give the high-level intuition and naturally offer to expand if they want more detail.\n' +
+          '• Only provide an in-depth or step-by-step breakdown when the user explicitly asks for more detail or says "expand", "elaborate", or "tell me more".';
 
       const tokenOptimizedPrompt = `${directiveHeader}\n\n${textToSend}`;
       const reply = await handleSendMessageRef.current?.(tokenOptimizedPrompt, {
@@ -3016,9 +3034,13 @@ Formatting & Quality Requirements:
       const recentMessages = validMessages.slice(-historyLimit);
       const historyPayload = recentMessages.map((m, idx) => {
         const isLatestUserMessage = idx === recentMessages.length - 1 && m.role === 'user';
+        // For history messages, strip any stale [Live Voice Mode] directive that may have been
+        // stored in old sessions before the display-clean fix was applied
+        const rawContent = isLatestUserMessage && textToSend ? textToSend : m.content;
+        const cleanContent = m.role === 'user' ? cleanDisplayMessageContent(rawContent) : rawContent;
         return {
           role: m.role,
-          content: isLatestUserMessage && textToSend ? textToSend : m.content,
+          content: cleanContent,
           attachments: m.attachments?.map((a) => ({
             name: a.name,
             mimeType: a.mimeType,

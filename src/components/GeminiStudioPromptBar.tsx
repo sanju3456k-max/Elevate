@@ -315,18 +315,29 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
           {/* Bottom Action Bar: Cancel Turn & Live Controls */}
           <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-zinc-800/80 flex items-center justify-between gap-2">
             <div>
-              {/* Cancel In-Flight Response Button (Active when thinking or speaking) */}
-              {(liveTalkStatus === 'sending' || isLoading || liveTalkStatus === 'speaking') && (
+              {/* Stop / Interrupt Response Button:
+                  Active both while formulating answer AND while Theta is speaking aloud. */}
+              {liveTalkStatus === 'speaking' ? (
+                <button
+                  type="button"
+                  onClick={onCancelRequest}
+                  className="px-3 py-1.5 rounded-full bg-red-100 hover:bg-red-200 dark:bg-red-950/60 dark:hover:bg-red-900/80 text-red-700 dark:text-red-300 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border-0 shadow-xs active:scale-95 animate-pulse"
+                  title="Stop Theta speaking and listen immediately"
+                >
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                  <span>Stop Speaking</span>
+                </button>
+              ) : (liveTalkStatus === 'sending' || isLoading) ? (
                 <button
                   type="button"
                   onClick={onCancelRequest}
                   className="px-3 py-1.5 rounded-full bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border-0 shadow-none"
-                  title="Cancel response and resume listening"
+                  title="Cancel generating response"
                 >
                   <Square className="w-3.5 h-3.5 fill-current" />
                   <span>Interrupt / Cancel</span>
                 </button>
-              )}
+              ) : null}
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
