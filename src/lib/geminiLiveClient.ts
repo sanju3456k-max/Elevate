@@ -227,6 +227,17 @@ export class GeminiLiveClient {
           this.ws = ws;
           this.isDirectGoogleWs = true;
 
+          let connectionTimeout: any = null;
+          connectionTimeout = setTimeout(() => {
+            if (!this.isConnected) {
+              console.warn('Gemini Live setup timed out after 12s');
+              this.setStatus('error');
+              this.callbacks.onError?.('Connection timed out. Please tap to try again.');
+              try { ws.close(); } catch {}
+              resolve(false);
+            }
+          }, 12000);
+
           ws.onopen = () => {
             console.log('Connected directly to Google Gemini Multimodal Live API WebSocket!');
             const setupMessage = {
@@ -253,12 +264,22 @@ export class GeminiLiveClient {
             ws.send(JSON.stringify(setupMessage));
           };
 
-          ws.onmessage = (event) => {
+          ws.onmessage = async (event) => {
             try {
-              const msg = JSON.parse(event.data);
+              let jsonData: string;
+              if (typeof Blob !== 'undefined' && event.data instanceof Blob) {
+                jsonData = await event.data.text();
+              } else if (typeof ArrayBuffer !== 'undefined' && event.data instanceof ArrayBuffer) {
+                jsonData = new TextDecoder().decode(event.data);
+              } else {
+                jsonData = typeof event.data === 'string' ? event.data : String(event.data);
+              }
+
+              const msg = JSON.parse(jsonData);
 
               if (msg.setupComplete) {
                 console.log('Gemini Live setup confirmed.');
+                if (connectionTimeout) clearTimeout(connectionTimeout);
                 this.isConnected = true;
                 this.setStatus('listening');
                 this.startMicrophoneCapture();
@@ -325,6 +346,7 @@ export class GeminiLiveClient {
           };
 
           ws.onerror = (err) => {
+            if (connectionTimeout) clearTimeout(connectionTimeout);
             if (this.isExplicitlyClosed) return;
             console.error('Gemini Live WebSocket error:', err);
             if (this.isConnected) {
@@ -335,6 +357,7 @@ export class GeminiLiveClient {
           };
 
           ws.onclose = (e) => {
+            if (connectionTimeout) clearTimeout(connectionTimeout);
             if (this.isExplicitlyClosed) return;
             console.log('Gemini Live WebSocket closed:', e);
             const wasConnected = this.isConnected;
