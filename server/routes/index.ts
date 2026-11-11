@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { GoogleGenAI } from "@google/genai";
 import driveRouter from "./drive.js";
 import shareRouter from "./share.js";
 import leaderboardRouter from "./leaderboard.js";
@@ -22,6 +23,22 @@ const generalRateLimiter = createRateLimiter({
   windowMs: 60 * 1000,
   max: 180,
   message: "Too many requests. Please slow down and try again in a moment."
+});
+
+// Ephemeral Token for Gemini Live Audio WebSocket (Works on Vercel Serverless, Web & Mobile)
+router.post(["/gemini/live-token", "/ai/gemini/live-token"], aiRateLimiter, async (_req, res) => {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || "";
+    if (!apiKey) {
+      return res.status(500).json({ error: "Gemini API key is not configured on server" });
+    }
+    const ai = new GoogleGenAI({ apiKey });
+    const token = await ai.authTokens.create({});
+    return res.json({ token: token.name });
+  } catch (err: any) {
+    console.error("Error creating live auth token:", err);
+    return res.status(500).json({ error: err?.message || "Failed to create live auth token" });
+  }
 });
 
 // Modular Routes

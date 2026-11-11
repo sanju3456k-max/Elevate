@@ -1,11 +1,15 @@
 /**
  * Gemini Multimodal Live Client
  * Implements the official Google Gemini Live architecture:
- * - Native 16kHz PCM audio streaming over bidirectional WebSocket (/api/gemini/live-ws)
- * - Native 24kHz neural audio playback via Web Audio API (Aoede, Kore, Puck, Fenrir, Charon)
- * - Zero OS microphone chimes or beeps (VoIP communication mode with hardware AEC)
- * - Real-time Voice Activity Detection (VAD) & server-side instant barge-in
+ * - Primary: Direct WebSockets to Google Gemini Live API via short-lived Ephemeral Token
+ *   (bypasses Vercel serverless limitations, zero hops, ultra-low latency)
+ * - Fallback: Bidirectional proxy via local WebSocket server (/api/gemini/live-ws)
+ * - Native 16kHz PCM audio streaming with Hardware Acoustic Echo Cancellation & Noise Suppression
+ * - Native 24kHz raw neural voice playback (Vega / Aoede)
+ * - Server-side Voice Activity Detection (VAD) & instant barge-in
  */
+
+import { GoogleGenAI } from '@google/genai';
 
 export type GeminiLiveVoice = 'Aoede' | 'Kore' | 'Puck' | 'Fenrir' | 'Charon';
 export type GeminiLiveStatus = 'idle' | 'connecting' | 'listening' | 'speaking' | 'paused' | 'error';
@@ -19,8 +23,19 @@ export interface GeminiLiveCallbacks {
   onError?: (errMessage: string) => void;
 }
 
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
 export class GeminiLiveClient {
   private ws: WebSocket | null = null;
+  private session: any = null;
   private inputAudioContext: AudioContext | null = null;
   private outputAudioContext: AudioContext | null = null;
   private mediaStream: MediaStream | null = null;
@@ -73,13 +88,14 @@ export class GeminiLiveClient {
   }
 
   /**
-   * Connect to backend Gemini Live WebSocket and start bidirectional audio
+   * Connect to Gemini Live session.
+   * Requests an ephemeral token from server, connecting directly to Google's Live WebSocket.
    */
   public async connect(options?: {
     voice?: GeminiLiveVoice;
     systemInstruction?: string;
   }): Promise<boolean> {
-    if (this.isConnected || this.ws) {
+    if (this.isConnected || this.session || this.ws) {
       this.disconnect();
     }
 
@@ -103,7 +119,7 @@ export class GeminiLiveClient {
     } catch (err: any) {
       console.error('Failed to acquire microphone for Gemini Live:', err);
       this.setStatus('error');
-      this.callbacks.onError?.('Microphone permission was denied. Please allow microphone access.');
+      this.callbacks.onError?.('Microphone permission was denied. Please allow microphone access in browser settings.');
       return false;
     }
 
@@ -113,7 +129,6 @@ export class GeminiLiveClient {
       this.inputAudioContext = new AudioCtx({ sampleRate: 16000 });
       this.outputAudioContext = new AudioCtx({ sampleRate: 24000 });
 
-      // Resume contexts if suspended by browser autoplay policy
       if (this.inputAudioContext.state === 'suspended') {
         await this.inputAudioContext.resume();
       }
@@ -124,7 +139,113 @@ export class GeminiLiveClient {
       console.warn('AudioContext initialization note:', err);
     }
 
-    // 3. Connect to backend WebSocket proxy
+    // Map voice
+    const voice = options?.voice || 'Aoede';
+    const systemInstruction = options?.systemInstruction ||
+      'You are Theta, an intelligent, conversational, and highly encouraging AI math tutor. Keep your spoken responses concise, direct, and conversational (typically 2 to 3 sentences). Avoid markdown formatting, asterisks, bullet points, and tables in spoken conversation unless explicitly asked.';
+
+    // 3. Attempt Ephemeral Token flow (Works directly on Vercel, mobile, cellular networks)
+    let token: string | null = null;
+    try {
+      const tokenRes = await fetch('/api/gemini/live-token', { method: 'POST' });
+      if (tokenRes.ok) {
+        const tokenData = await tokenRes.json();
+        if (tokenData?.token) {
+          token = tokenData.token;
+        }
+      }
+    } catch (err) {
+      console.warn('Could not fetch ephemeral token from /api/gemini/live-token:', err);
+    }
+
+    if (token) {
+      try {
+        console.log('Connecting to Google Gemini Live using ephemeral token...');
+        const clientAi = new GoogleGenAI({
+          apiKey: token,
+          httpOptions: { apiVersion: 'v1alpha' }
+        });
+
+        this.session = await clientAi.live.connect({
+          model: 'models/gemini-2.5-flash-native-audio-latest',
+          config: {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: {
+                  voiceName: voice
+                }
+              }
+            },
+            systemInstruction: {
+              parts: [{ text: systemInstruction }]
+            }
+          },
+          callbacks: {
+            onopen: () => {
+              console.log('Connected directly to Google Gemini Multimodal Live API!');
+              this.isConnected = true;
+              this.setStatus('listening');
+              this.startMicrophoneCapture();
+            },
+            onmessage: (msg: any) => {
+              if (msg.serverContent) {
+                const content = msg.serverContent;
+
+                // Native Server Barge-In (Interrupted by user speech)
+                if (content.interrupted) {
+                  console.log('Gemini Live server detected user voice barge-in (interrupted).');
+                  this.stopAllAudioPlayback();
+                  this.setStatus('listening');
+                  this.callbacks.onInterrupted?.();
+                  return;
+                }
+
+                // Incoming Audio and Text chunks
+                if (content.modelTurn?.parts) {
+                  for (const part of content.modelTurn.parts) {
+                    if (part.inlineData) {
+                      this.playPcm24kChunk(part.inlineData.data);
+                    }
+                    if (part.text && !part.thought) {
+                      this.accumulatedAssistantText += part.text;
+                      this.callbacks.onTranscript?.(this.accumulatedAssistantText, true);
+                    }
+                  }
+                }
+
+                // Turn Complete
+                if (content.turnComplete) {
+                  this.accumulatedAssistantText = '';
+                  this.callbacks.onTurnComplete?.();
+                  if (this.activeAudioSources.length === 0) {
+                    this.setStatus('listening');
+                  }
+                }
+              }
+            },
+            onerror: (err: any) => {
+              console.error('Gemini Live session error:', err);
+              this.setStatus('error');
+              this.callbacks.onError?.('Network connection issue with Gemini Live server.');
+            },
+            onclose: () => {
+              console.log('Gemini Live session closed.');
+              this.disconnect();
+            }
+          }
+        });
+
+        this.isConnected = true;
+        this.setStatus('listening');
+        this.startMicrophoneCapture();
+        return true;
+      } catch (directErr: any) {
+        console.warn('Direct connection failed, attempting local proxy fallback:', directErr);
+      }
+    }
+
+    // 4. Fallback: Connect via local WebSocket server proxy (/api/gemini/live-ws)
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
     const wsUrl = `${protocol}//${host}/api/gemini/live-ws`;
@@ -136,13 +257,10 @@ export class GeminiLiveClient {
 
         ws.onopen = () => {
           this.isConnected = true;
-          console.log('Gemini Live WebSocket opened, sending init handshake...');
-
-          // Send initialization handshake
           ws.send(JSON.stringify({
             type: 'init',
-            voice: options?.voice || 'Aoede',
-            systemInstruction: options?.systemInstruction,
+            voice,
+            systemInstruction,
           }));
         };
 
@@ -151,12 +269,10 @@ export class GeminiLiveClient {
             const msg = JSON.parse(event.data);
 
             if (msg.type === 'ready') {
-              console.log('Gemini Live session ready, voice:', msg.voice);
               this.setStatus('listening');
               this.startMicrophoneCapture();
               resolve(true);
             } else if (msg.type === 'interrupted') {
-              console.log('Gemini Live server detected barge-in interruption!');
               this.stopAllAudioPlayback();
               this.setStatus('listening');
               this.callbacks.onInterrupted?.();
@@ -172,7 +288,6 @@ export class GeminiLiveClient {
                 this.setStatus('listening');
               }
             } else if (msg.type === 'error') {
-              console.error('Gemini Live server reported error:', msg.message);
               this.callbacks.onError?.(msg.message || 'Live session encountered an issue.');
             }
           } catch (parseErr) {
@@ -181,20 +296,20 @@ export class GeminiLiveClient {
         };
 
         ws.onerror = (err) => {
-          console.error('Gemini Live WebSocket error:', err);
+          console.error('Gemini Live WebSocket proxy error:', err);
           this.setStatus('error');
           this.callbacks.onError?.('Network connection issue with Gemini Live server.');
           resolve(false);
         };
 
         ws.onclose = () => {
-          console.log('Gemini Live WebSocket closed.');
           this.disconnect();
           resolve(false);
         };
       } catch (wsErr) {
-        console.error('Failed to create WebSocket to Gemini Live:', wsErr);
+        console.error('Failed to create WebSocket proxy:', wsErr);
         this.setStatus('error');
+        this.callbacks.onError?.('Unable to establish connection to Gemini Live server.');
         resolve(false);
       }
     });
@@ -213,13 +328,11 @@ export class GeminiLiveClient {
       this.scriptProcessor = processor;
 
       processor.onaudioprocess = (e) => {
-        if (!this.isConnected || this.isMuted || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
-          return;
-        }
+        if (!this.isConnected || this.isMuted) return;
 
         const inputChannel = e.inputBuffer.getChannelData(0);
 
-        // 1. Calculate RMS volume for visualizer waves and VAD thresholding
+        // 1. Calculate RMS volume for visualizer waves
         let sumSquares = 0;
         for (let i = 0; i < inputChannel.length; i++) {
           sumSquares += inputChannel[i] * inputChannel[i];
@@ -234,8 +347,20 @@ export class GeminiLiveClient {
           pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
         }
 
-        // 3. Send binary PCM16 audio packet to server
-        this.ws.send(pcm16.buffer);
+        // 3. Send audio chunk via active session or WebSocket proxy
+        if (this.session) {
+          const base64Data = arrayBufferToBase64(pcm16.buffer);
+          this.session.sendRealtimeInput({
+            media: [
+              {
+                mimeType: 'audio/pcm;rate=16000',
+                data: base64Data
+              }
+            ]
+          });
+        } else if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          this.ws.send(pcm16.buffer);
+        }
       };
 
       source.connect(processor);
@@ -252,7 +377,6 @@ export class GeminiLiveClient {
     if (!this.outputAudioContext) return;
 
     try {
-      // Decode base64 to binary
       const binaryString = atob(base64Data);
       const len = binaryString.length;
       const bytes = new Uint8Array(len);
@@ -260,14 +384,12 @@ export class GeminiLiveClient {
         bytes[i] = binaryString.charCodeAt(i);
       }
 
-      // Read Int16 PCM samples
       const int16Array = new Int16Array(bytes.buffer);
       const float32Array = new Float32Array(int16Array.length);
       for (let i = 0; i < int16Array.length; i++) {
         float32Array[i] = int16Array[i] / 32768.0;
       }
 
-      // Calculate audio output volume for animation
       let sumSquares = 0;
       for (let i = 0; i < float32Array.length; i++) {
         sumSquares += float32Array[i] * float32Array[i];
@@ -275,11 +397,9 @@ export class GeminiLiveClient {
       const rms = Math.sqrt(sumSquares / float32Array.length);
       this.callbacks.onVolumeChange?.(Math.min(1, rms * 5), true);
 
-      // Create AudioBuffer at Gemini's native 24kHz rate
       const audioBuffer = this.outputAudioContext.createBuffer(1, float32Array.length, 24000);
       audioBuffer.copyToChannel(float32Array, 0);
 
-      // Schedule gapless playback
       const currentTime = this.outputAudioContext.currentTime;
       if (this.nextPlaybackTime < currentTime) {
         this.nextPlaybackTime = currentTime;
@@ -326,11 +446,20 @@ export class GeminiLiveClient {
    * Send a direct text prompt or user directive into the live context
    */
   public sendTextPrompt(text: string) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-    this.ws.send(JSON.stringify({
-      type: 'client_content',
-      text: text.trim(),
-    }));
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    if (this.session) {
+      this.session.sendClientContent({
+        turns: [{ role: 'user', parts: [{ text: trimmed }] }],
+        turnComplete: true,
+      });
+    } else if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({
+        type: 'client_content',
+        text: trimmed,
+      }));
+    }
   }
 
   /**
@@ -388,6 +517,13 @@ export class GeminiLiveClient {
         this.outputAudioContext.close();
       } catch {}
       this.outputAudioContext = null;
+    }
+
+    if (this.session) {
+      try {
+        this.session.close?.();
+      } catch {}
+      this.session = null;
     }
 
     if (this.ws) {
