@@ -41,6 +41,7 @@ import {
   requestPersistentStorage,
   // High-capacity IndexedDB storage engine
   getAllTestsFromIndexedDB,
+  getTestFromIndexedDB,
   putAllTestsToIndexedDB,
   putTestToIndexedDB,
   deleteTestFromIndexedDB,
@@ -773,11 +774,28 @@ export function loadScopedTests(userId?: string | null): MathTest[] {
     const isGuest = !userId || userId === 'guest-user' || userId === 'anonymous';
     const deletedIds = getAllDeletedTestIds(userId);
 
+    let masterPublishedIds = new Set<string>();
+    try {
+      const rawPub = localStorage.getItem('master_published_test_ids');
+      if (rawPub) {
+        const arr = JSON.parse(rawPub);
+        if (Array.isArray(arr)) masterPublishedIds = new Set(arr);
+      }
+    } catch {}
+
+    const isMasterOrRemedial = (t: MathTest) => {
+      if (!t || !t.id) return false;
+      if (masterPublishedIds.has(t.id)) return true;
+      if (String(t.id).startsWith('remedial_')) return true;
+      if ((t as any).isPersonalizedRemedial || t.category === 'Remedial' || t.topic === 'Personalized Test' || t.topic === 'Targeted Remedial Practice') return true;
+      return false;
+    };
+
     // 1. Instant synchronous check from L1 In-Memory mirror
     const mem = getInMemoryTests(userId);
     if (mem && Array.isArray(mem)) {
       if (isGuest) {
-        const sanitized = mem.filter((t: MathTest) => t && t.id && !deletedIds.has(t.id));
+        const sanitized = mem.filter((t: MathTest) => t && t.id && !deletedIds.has(t.id) && !isMasterOrRemedial(t));
         const guestIds = new Set(sanitized.map((t) => t.id));
         SAMPLE_MATH_TESTS.forEach((s) => {
           if (!deletedIds.has(s.id) && !guestIds.has(s.id)) {
@@ -818,7 +836,7 @@ export function loadScopedTests(userId?: string | null): MathTest[] {
       if (Array.isArray(parsed)) {
         setInMemoryTests(userId, parsed);
         if (isGuest) {
-          const sanitizedGuestTests = parsed.filter((t: MathTest) => t && t.id && !deletedIds.has(t.id));
+          const sanitizedGuestTests = parsed.filter((t: MathTest) => t && t.id && !deletedIds.has(t.id) && !isMasterOrRemedial(t));
           const guestIds = new Set(sanitizedGuestTests.map((t) => t.id));
           SAMPLE_MATH_TESTS.forEach((s) => {
             if (!deletedIds.has(s.id) && !guestIds.has(s.id)) {
@@ -869,7 +887,26 @@ export function saveScopedTests(userId: string | null | undefined, tests: MathTe
     const isGuest = !userId || userId === 'guest-user' || userId === 'anonymous';
     const { testsKey } = getScopedStorageKeys(userId);
     
-    const safeTests = tests.map((t) => {
+    let masterPublishedIds = new Set<string>();
+    try {
+      const rawPub = localStorage.getItem('master_published_test_ids');
+      if (rawPub) {
+        const arr = JSON.parse(rawPub);
+        if (Array.isArray(arr)) masterPublishedIds = new Set(arr);
+      }
+    } catch {}
+
+    const isMasterOrRemedial = (t: MathTest) => {
+      if (!t || !t.id) return false;
+      if (masterPublishedIds.has(t.id)) return true;
+      if (String(t.id).startsWith('remedial_')) return true;
+      if ((t as any).isPersonalizedRemedial || t.category === 'Remedial' || t.topic === 'Personalized Test' || t.topic === 'Targeted Remedial Practice') return true;
+      return false;
+    };
+
+    const targetList = isGuest ? tests.filter((t) => !isMasterOrRemedial(t)) : tests;
+
+    const safeTests = targetList.map((t) => {
       if (!t) return t;
       if (isGuest) {
         return {
@@ -1417,6 +1454,14 @@ export async function loadFullTestOnDemand(
     return foundLocal;
   }
 
+  // 2b. Check high-capacity IndexedDB storage cache
+  try {
+    const idbTest = await getTestFromIndexedDB(userId, testId);
+    if (idbTest && Array.isArray(idbTest.questions) && idbTest.questions.length > 0) {
+      return idbTest;
+    }
+  } catch {}
+
   // 3. Check sample tests
   const sample = SAMPLE_MATH_TESTS.find((s) => s.id === testId);
   if (sample && Array.isArray(sample.questions) && sample.questions.length > 0) {
@@ -1427,12 +1472,13 @@ export async function loadFullTestOnDemand(
   try {
     const remote = await fetchFullTestFromFirestore(testId);
     if (remote && Array.isArray(remote.questions) && remote.questions.length > 0) {
-      // Update local cache with hydrated test
+      // Update local cache and IndexedDB with hydrated test
       const updated = localScoped.map((t) => (t.id === testId ? remote : t));
       if (!updated.some((t) => t.id === testId)) {
         updated.push(remote);
       }
       saveScopedTests(userId, updated);
+      putTestToIndexedDB(userId, remote).catch(() => {});
       return remote;
     }
   } catch (err) {

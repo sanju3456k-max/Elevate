@@ -585,9 +585,14 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
 
     const answersRecord: Record<string, QuestionAnswer> = {};
 
-    editableDetections.forEach((d) => {
+    const wrongQuestionIndices: number[] = [];
+    const unattemptedQuestionIndices: number[] = [];
+    const flaggedQuestionIndices: number[] = [];
+
+    editableDetections.forEach((d, idx) => {
       const q = test.questions[d.questionNumber - 1];
       const qId = q?.id || d.questionId;
+      const qIndex = d.questionNumber - 1 >= 0 ? d.questionNumber - 1 : idx;
       
       let selectedOptionText = '';
       if (d.detectedOption) {
@@ -606,6 +611,12 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
         flagged: false,
         timeSpentSeconds: timePerQ,
       };
+
+      if (!d.detectedOption) {
+        unattemptedQuestionIndices.push(qIndex);
+      } else if (!d.isCorrect) {
+        wrongQuestionIndices.push(qIndex);
+      }
     });
 
     const finalAttempt: TestAttempt = {
@@ -627,6 +638,9 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
       completedAt: new Date().toISOString(),
       createdAt: new Date(Date.now() - (omrExamTime * 1000)).toISOString(),
       _syncStatus: 'pending',
+      wrongQuestionIndices,
+      unattemptedQuestionIndices,
+      flaggedQuestionIndices,
     };
 
     setIsSaved(true);
@@ -866,7 +880,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                     <div className="flex items-center gap-2 text-xs font-bold">
                       <div className="px-3.5 py-1.5 rounded-[28px] bg-[#f0f4f9] dark:bg-[#141619] text-slate-700 dark:text-zinc-300 flex items-center gap-1.5 border-0">
                         <BookOpen className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                        <span>{test.questions?.length ?? test.questionCount ?? 0} Qs</span>
+                        <span>{(Array.isArray(test.questions) && test.questions.length > 0) ? test.questions.length : (test.questionCount || test.timeLimitMinutes || 50)} Qs</span>
                       </div>
                       <div className="px-3.5 py-1.5 rounded-[28px] bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 flex items-center gap-1.5 border-0">
                         <Clock className="w-3.5 h-3.5 text-amber-500" />

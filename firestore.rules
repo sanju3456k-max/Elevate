@@ -11,6 +11,10 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isMasterAdmin() {
+      return isSignedIn() && request.auth.token.email != null && request.auth.token.email.lower() == 'sanju3456k@gmail.com';
+    }
+
     // Default deny
     match /{document=**} {
       allow read, write: if false;
@@ -50,19 +54,41 @@ service cloud.firestore {
     // Test Leaderboards: Lightweight rankings per test
     // 1. Top Bucket Document: Single document containing top 100 students (1 Read for everyone)
     match /test_leaderboards/{testId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isSignedIn();
     }
 
     match /test_leaderboards/{testId}/summary/{docId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isSignedIn();
     }
 
     // 2. Individual user entries (1 doc per user)
     match /test_leaderboards/{testId}/entries/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isOwner(userId);
+      allow read: if true;
+      allow write: if isOwner(userId) || isMasterAdmin();
+    }
+
+    // Master Published Tests: Official papers curated and published by Master Academic Head
+    // Public read: All users (guests and signed in students) can view and take tests
+    // Write: Strictly restricted to Master Enterprise Account (sanju3456k@gmail.com)
+    match /published_tests/{testId} {
+      allow read: if true;
+      allow write: if isMasterAdmin();
+    }
+
+    match /master_catalog/{docId} {
+      allow read: if true;
+      allow write: if isMasterAdmin();
+    }
+
+    // Personalized Remedial Assignments:
+    // Read: Master or the recipient student
+    // Write: Master can create/delete; assigned student can update their completion status
+    match /remedial_assignments/{assignmentId} {
+      allow read: if isSignedIn() && (isMasterAdmin() || resource.data.studentId == request.auth.uid || (resource.data.studentEmail != null && resource.data.studentEmail == request.auth.token.email));
+      allow create, delete: if isMasterAdmin();
+      allow update: if isSignedIn() && (isMasterAdmin() || resource.data.studentId == request.auth.uid);
     }
 
     // Math Tests: Deprecated legacy collection. Only owner delete is permitted for cleanup.

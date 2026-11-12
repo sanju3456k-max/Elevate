@@ -673,6 +673,25 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
         };
       });
 
+      const wrongQuestionIndices: number[] = [];
+      const unattemptedQuestionIndices: number[] = [];
+      const flaggedQuestionIndices: number[] = [];
+      const flaggedQuestions: string[] = [];
+
+      normalizedQuestions.forEach((q, idx) => {
+        const a = formattedAnswers[q.id];
+        const isAns = a?.selectedOption !== null && a?.selectedOption !== undefined && String(a.selectedOption).trim() !== '';
+        if (!isAns) {
+          unattemptedQuestionIndices.push(idx);
+        } else if (!a?.isCorrect) {
+          wrongQuestionIndices.push(idx);
+        }
+        if (a?.flagged) {
+          flaggedQuestionIndices.push(idx);
+          flaggedQuestions.push(q.id);
+        }
+      });
+
       const percentage = totalPoints > 0 ? Math.round((score / totalPoints) * 100) : 0;
       const passed = percentage >= (test.passingScorePercentage || 60);
 
@@ -698,6 +717,10 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
         attemptMode: 'online',
         completedAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
+        wrongQuestionIndices,
+        unattemptedQuestionIndices,
+        flaggedQuestionIndices,
+        flaggedQuestions,
       };
 
       isSubmittedRef.current = true;

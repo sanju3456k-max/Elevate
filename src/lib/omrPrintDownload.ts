@@ -146,7 +146,7 @@ const QUESTION_PAPER_PRINT_CSS = `
     margin: 0 !important;
     padding: 0 !important;
     width: 210mm !important;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    font-family: 'Times New Roman', Times, Tinos, "Liberation Serif", serif !important;
     font-size: 10pt !important;
     line-height: 1.35 !important;
     -webkit-font-smoothing: antialiased !important;
@@ -170,6 +170,7 @@ const QUESTION_PAPER_PRINT_CSS = `
     border-radius: 0 !important;
     background-color: #ffffff !important;
     color: #000000 !important;
+    font-family: 'Times New Roman', Times, Tinos, "Liberation Serif", serif !important;
     overflow: hidden !important;
     box-sizing: border-box !important;
     position: relative !important;
@@ -180,6 +181,18 @@ const QUESTION_PAPER_PRINT_CSS = `
     break-after: page !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+  }
+
+  .a4-page-item h1,
+  .a4-page-item h2,
+  .a4-page-item h3,
+  .a4-page-item h4,
+  .a4-page-item p,
+  .a4-page-item span:not(.katex *):not(.delimsizing *),
+  .a4-page-item div:not(.katex *),
+  .a4-page-item strong,
+  .a4-page-item em {
+    font-family: 'Times New Roman', Times, Tinos, "Liberation Serif", serif !important;
   }
 
   .a4-page-item:last-child {
@@ -421,7 +434,7 @@ const QUESTION_PAPER_PRINT_CSS = `
   }
   .katex .mopen:not(.delimsizing),
   .katex .mclose:not(.delimsizing) {
-    font-family: KaTeX_Main, 'Inter', sans-serif !important;
+    font-family: KaTeX_Main, 'Times New Roman', Times, Tinos, serif !important;
   }
   .katex .delimsizing {
     font-family: KaTeX_Size1, KaTeX_Size2, KaTeX_Size3, KaTeX_Size4, KaTeX_Main, sans-serif;
@@ -504,6 +517,7 @@ export async function triggerSystemPrint(
         position: relative !important;
         background: #ffffff !important;
         color: #000000 !important;
+        font-family: 'Times New Roman', Times, Tinos, "Liberation Serif", serif !important;
         overflow: hidden !important;
         ${!isLast ? 'page-break-after: always !important; break-after: page !important;' : 'page-break-after: auto !important; break-after: auto !important;'}
       ">
@@ -519,6 +533,7 @@ export async function triggerSystemPrint(
   <base href="${window.location.origin}/">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(documentTitle)}</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tinos:ital,wght@0,400;0,700;1,400;1,700&display=swap">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
   <style>
     ${extractedCss}

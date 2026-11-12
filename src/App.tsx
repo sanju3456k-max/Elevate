@@ -23,6 +23,18 @@ import { syncHub } from './lib/syncEngine';
 import { smartCoordinator } from './lib/smartLocalCoordinator';
 import { optimizeTestForFirestore } from './lib/imageOptimization';
 import { clearAllNotesFromIDB } from './lib/idbNotes';
+import { 
+  isMasterUser, 
+  isGuestUser,
+  isMasterTest,
+  isRemedialTest,
+  markRemedialTestCompleted, 
+  mergePublishedMasterTests,
+  fetchPublishedMasterTestsFromCloud,
+  subscribeToPublishedMasterTests,
+  fetchCloudAssignedRemedialTests,
+  subscribeToAssignedRemedialTests
+} from './lib/masterAccount';
 import type { User } from 'firebase/auth';
 import { normalizeQuestions, type ActiveTab, type MathTest, type TestAttempt, type ActiveTestSession, type UserProfile, type TestHistoryEntry } from './types';
 import { triggerBlobDownload } from './lib/omrPrintDownload';
@@ -72,6 +84,7 @@ import { ResumeTestModal } from './components/ResumeTestModal';
 import { GeminiChatbotView } from './components/GeminiChatbotView';
 import { NotesStudio } from './components/notesStudio/NotesStudio';
 import { BulkPrintStudio } from './components/BulkPrintStudio';
+import { MasterConsoleView } from './components/MasterConsoleView';
 import { SettingsModal } from './components/SettingsModal';
 import { InstallAppModal } from './components/InstallAppModal';
 import { GuestMigrationModal } from './components/auth/GuestMigrationModal';
@@ -361,17 +374,85 @@ export default function App() {
     window.addEventListener('theme-changed', handleThemeChanged);
     return () => window.removeEventListener('theme-changed', handleThemeChanged);
   }, []);
+
+  // Guard Master Console route strictly to sanju3456k@gmail.com
+  useEffect(() => {
+    if (activeTab === 'master-console' && !isMasterUser(currentUser || cachedUser)) {
+      setActiveTab('tests');
+    }
+  }, [activeTab, currentUser, cachedUser, setActiveTab]);
   
   // Scoped app data state (isolated between guest local mode & individual user accounts)
   // Hydrates immediately with the active account's dataset on frame 0
   const [tests, setTests] = useState<MathTest[]>(() => {
     const initialUser = getCachedAuthUser();
-    return loadScopedTests(initialUser?.uid);
+    const raw = loadScopedTests(initialUser?.uid);
+    const isMaster = isMasterUser(initialUser);
+    const isGuest = isGuestUser(initialUser);
+    return mergePublishedMasterTests(raw, isMaster, isGuest);
   });
   const [attempts, setAttempts] = useState<TestAttempt[]>(() => {
     const initialUser = getCachedAuthUser();
     return loadScopedAttempts(initialUser?.uid);
   });
+
+  // Real-time synchronization for published master tests and remedial assignments across all accounts
+  useEffect(() => {
+    const activeUser = currentUser || cachedUser;
+    const isMaster = isMasterUser(activeUser);
+    const isGuest = isGuestUser(activeUser);
+
+    // STRICT RULE: Guest users do not take benefits of MasterConsole implements
+    if (isGuest) {
+      setTests((prev) => mergePublishedMasterTests(prev, false, true));
+      return;
+    }
+
+    // 1. Instant cloud fetch of published master tests
+    fetchPublishedMasterTestsFromCloud().then((publishedList) => {
+      if (!isMaster && publishedList.length > 0) {
+        setTests((prev) => mergePublishedMasterTests(prev, false, false));
+      }
+    }).catch(() => {});
+
+    // 2. Real-time Firestore snapshot listener for published master tests
+    const unsubscribePublished = subscribeToPublishedMasterTests(() => {
+      const activeUid = currentUser?.uid || cachedUser?.uid || null;
+      const master = isMasterUser(currentUser || cachedUser);
+      const guest = isGuestUser(currentUser || cachedUser);
+      if (!master && !guest) {
+        const scoped = loadScopedTests(activeUid);
+        setTests(mergePublishedMasterTests(scoped, false, false));
+      }
+    });
+
+    // 3. Initial fetch & real-time listener for student remedial test assignments
+    const activeUid = currentUser?.uid || cachedUser?.uid || null;
+    const activeEmail = currentUser?.email || cachedUser?.email || null;
+
+    fetchCloudAssignedRemedialTests(activeUid, activeEmail).catch(() => {});
+
+    const unsubscribeRemedial = subscribeToAssignedRemedialTests(activeUid, activeEmail, () => {
+      // Triggers UI refresh via remedial-tests-updated event
+    });
+
+    // 4. Local storage event listener for same-device window sync
+    const handlePublishedUpdated = () => {
+      const targetUid = currentUser?.uid || cachedUser?.uid || null;
+      const master = isMasterUser(currentUser || cachedUser);
+      const guest = isGuestUser(currentUser || cachedUser);
+      const scoped = loadScopedTests(targetUid);
+      const merged = mergePublishedMasterTests(scoped, master, guest);
+      setTests(merged);
+    };
+    window.addEventListener('tests-published-updated', handlePublishedUpdated);
+
+    return () => {
+      unsubscribePublished();
+      unsubscribeRemedial();
+      window.removeEventListener('tests-published-updated', handlePublishedUpdated);
+    };
+  }, [currentUser, cachedUser]);
 
   const lastSavedTestsRef = useRef<MathTest[]>(tests);
   const lastSavedAttemptsRef = useRef<TestAttempt[]>(attempts);
@@ -491,11 +572,14 @@ export default function App() {
     if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== currentUid) {
       // Reload tests and attempts from the newly active scope
       const scopedTests = loadScopedTests(currentUid);
+      const isMaster = isMasterUser(currentUser || cachedUser);
+      const isGuest = isGuestUser(currentUser || cachedUser);
+      const mergedTests = mergePublishedMasterTests(scopedTests, isMaster, isGuest);
       const scopedAttempts = loadScopedAttempts(currentUid);
       const scopedSessions = loadAllScopedActiveSessions(currentUid);
       lastSavedTestsRef.current = scopedTests;
       lastSavedAttemptsRef.current = scopedAttempts;
-      setTests(scopedTests);
+      setTests(mergedTests);
       setAttempts(scopedAttempts);
       setActiveSessionsMap(scopedSessions);
       setActiveTestSession(loadScopedActiveSession(currentUid));
@@ -530,12 +614,15 @@ export default function App() {
     setIsAuthLoading(false);
 
     // Reload tests, attempts and active sessions strictly from the authenticated user's scope
+    const isMaster = isMasterUser(user);
+    const isGuest = isGuestUser(user);
     const scopedTests = loadScopedTests(user.uid);
+    const mergedTests = mergePublishedMasterTests(scopedTests, isMaster, isGuest);
     const scopedAttempts = loadScopedAttempts(user.uid);
     const scopedSessions = loadAllScopedActiveSessions(user.uid);
     lastSavedTestsRef.current = scopedTests;
     lastSavedAttemptsRef.current = scopedAttempts;
-    setTests(scopedTests);
+    setTests(mergedTests);
     setAttempts(scopedAttempts);
     setActiveSessionsMap(scopedSessions);
     setActiveTestSession(loadScopedActiveSession(user.uid));
@@ -593,7 +680,8 @@ export default function App() {
           const guestTests = loadScopedTests(null);
           const guestAttempts = loadScopedAttempts(null);
           const guestSessions = loadAllScopedActiveSessions(null);
-          setTests(guestTests);
+          const mergedGuestTests = mergePublishedMasterTests(guestTests, false, true);
+          setTests(mergedGuestTests);
           setAttempts(guestAttempts);
           setActiveSessionsMap(guestSessions);
           setActiveTestSession(loadScopedActiveSession(null));
@@ -664,10 +752,13 @@ export default function App() {
   useEffect(() => {
     const unsubTests = syncHub.subscribe('tests', (testsList) => {
       if (Array.isArray(testsList)) {
+        const isMaster = isMasterUser(currentUser || cachedUser);
+        const isGuest = isGuestUser(currentUser || cachedUser);
+        const merged = mergePublishedMasterTests(testsList, isMaster, isGuest);
         setTests((prev) => {
-          if (areTestsEqual(prev, testsList)) return prev;
+          if (areTestsEqual(prev, merged)) return prev;
           lastSavedTestsRef.current = testsList;
-          return testsList;
+          return merged;
         });
       }
     });
@@ -690,7 +781,7 @@ export default function App() {
       unsubAttempts();
       unsubPref();
     };
-  }, []);
+  }, [currentUser, cachedUser]);
 
   // Listen for IndexedDB background hydration and updates to ensure UI displays all data
   useEffect(() => {
@@ -700,10 +791,13 @@ export default function App() {
       const eventUid = customEvent?.detail?.userId;
       if (eventUid === undefined || eventUid === activeUid) {
         const loadedTests = loadScopedTests(activeUid);
+        const isMaster = isMasterUser(currentUser || cachedUser);
+        const isGuest = isGuestUser(currentUser || cachedUser);
+        const merged = mergePublishedMasterTests(loadedTests, isMaster, isGuest);
         setTests((prev) => {
-          if (areTestsEqual(prev, loadedTests)) return prev;
+          if (areTestsEqual(prev, merged)) return prev;
           lastSavedTestsRef.current = loadedTests;
-          return loadedTests;
+          return merged;
         });
 
         const loadedAttempts = loadScopedAttempts(activeUid);
@@ -724,10 +818,13 @@ export default function App() {
       const eventUid = customEvent?.detail?.userId;
       if (eventUid === undefined || eventUid === activeUid) {
         const loaded = loadScopedTests(activeUid);
+        const isMaster = isMasterUser(currentUser || cachedUser);
+        const isGuest = isGuestUser(currentUser || cachedUser);
+        const merged = mergePublishedMasterTests(loaded, isMaster, isGuest);
         setTests((prev) => {
-          if (areTestsEqual(prev, loaded)) return prev;
+          if (areTestsEqual(prev, merged)) return prev;
           lastSavedTestsRef.current = loaded;
-          return loaded;
+          return merged;
         });
       }
     };
@@ -789,7 +886,10 @@ export default function App() {
       const cloudTests = await fetchTestsFromFirestore(limitCount, force);
       setHasMoreTests(cloudTests.length >= limitCount);
       const reconciled = smartCoordinator.reconcileTests(activeUid, cloudTests, deletedIds);
-      setTests((prev) => (areTestsEqual(prev, reconciled) ? prev : reconciled));
+      const isMaster = isMasterUser(currentUser || cachedUser);
+      const isGuest = isGuestUser(currentUser || cachedUser);
+      const merged = mergePublishedMasterTests(reconciled, isMaster, isGuest);
+      setTests((prev) => (areTestsEqual(prev, merged) ? prev : merged));
     } catch (err) {
       console.warn('Could not fetch cloud tests:', err);
     }
@@ -972,10 +1072,23 @@ export default function App() {
 
   // Test Runner Handlers
   const handleStartTest = async (test: MathTest, mode: 'timed' | 'practice') => {
+    const isGuest = isGuestUser(currentUser || cachedUser);
+    if (isGuest && (isMasterTest(test) || isRemedialTest(test))) {
+      showToast('Sign in required to access tests published by Master Academic Head.', 'warning');
+      setIsAuthModalOpen(true);
+      return;
+    }
+
     const targetUid = currentUser?.uid || cachedUser?.uid || null;
     const fullTest = (test.questions && test.questions.length > 0)
       ? test
       : (await loadFullTestOnDemand(test.id, tests, targetUid)) || test;
+
+    if (isGuest && (isMasterTest(fullTest) || isRemedialTest(fullTest))) {
+      showToast('Sign in required to access tests published by Master Academic Head.', 'warning');
+      setIsAuthModalOpen(true);
+      return;
+    }
 
     const existingSession = loadScopedActiveSession(targetUid, fullTest.id);
 
@@ -1014,10 +1127,23 @@ export default function App() {
   };
 
   const handleStartOmrTest = async (test: MathTest, initialTab: 'print' | 'scan' | 'keys' | 'review' = 'print') => {
+    const isGuest = isGuestUser(currentUser || cachedUser);
+    if (isGuest && (isMasterTest(test) || isRemedialTest(test))) {
+      showToast('Sign in required to access tests published by Master Academic Head.', 'warning');
+      setIsAuthModalOpen(true);
+      return;
+    }
+
     const targetUid = currentUser?.uid || cachedUser?.uid || null;
     const fullTest = (test.questions && test.questions.length > 0)
       ? test
       : (await loadFullTestOnDemand(test.id, tests, targetUid)) || test;
+
+    if (isGuest && (isMasterTest(fullTest) || isRemedialTest(fullTest))) {
+      showToast('Sign in required to access tests published by Master Academic Head.', 'warning');
+      setIsAuthModalOpen(true);
+      return;
+    }
 
     setLastAttempt(null);
     setCurrentTest(fullTest);
@@ -1027,9 +1153,18 @@ export default function App() {
   };
 
   const handleResumeSession = async (specificTestId?: string) => {
+    const isGuest = isGuestUser(currentUser || cachedUser);
     const targetUid = currentUser?.uid || cachedUser?.uid || null;
     const targetTestId = specificTestId || pendingStartTest?.test.id || activeTestSession?.testId;
     const session = (targetTestId ? loadScopedActiveSession(targetUid, targetTestId) : null) || activeTestSession;
+
+    if (isGuest && session?.test && (isMasterTest(session.test) || isRemedialTest(session.test))) {
+      showToast('Sign in required to access tests published by Master Academic Head.', 'warning');
+      setIsAuthModalOpen(true);
+      setShowResumeModal(false);
+      setPendingStartTest(null);
+      return;
+    }
 
     if (session && session.test) {
       let testFromLib = tests.find((t) => t.id === session.testId) || session.test;
@@ -1168,6 +1303,16 @@ export default function App() {
     // Direct real-time write to Firebase for authenticated users
     if (activeUid && activeUid !== 'anonymous' && activeUid !== 'guest-user') {
       saveAttemptToFirestore(validatedAttempt, activeUid).catch(console.warn);
+    }
+
+    // If this was an assigned adaptive remedial test, mark it as completed
+    if (validatedAttempt.testId && validatedAttempt.testId.startsWith('remedial_')) {
+      markRemedialTestCompleted(
+        validatedAttempt.testId,
+        activeUid || 'student-demo',
+        validatedAttempt.score,
+        validatedAttempt.percentage || 0
+      );
     }
 
     const isOmr = attempt.attemptMode === 'omr' || isAttemptOmrMode(attempt) || activeTab === 'omr-test';
@@ -1479,8 +1624,8 @@ export default function App() {
         </div>
       )}
 
-      {/* Navigation Header - Hidden during active test attempts, test creator, review solution mode, custom builder, performance analytics, notes repository, html notes studio, and bulk print */}
-      {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'create' && activeTab !== 'results' && activeTab !== 'custom-builder' && activeTab !== 'chatbot' && activeTab !== 'analytics' && activeTab !== 'notes-repository' && activeTab !== 'bulk-print' && activeTab !== 'html-notes' && (
+      {/* Navigation Header - Hidden during active test attempts, test creator, review solution mode, custom builder, performance analytics, notes repository, html notes studio, bulk print, and master console */}
+      {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'create' && activeTab !== 'results' && activeTab !== 'custom-builder' && activeTab !== 'chatbot' && activeTab !== 'analytics' && activeTab !== 'notes-repository' && activeTab !== 'bulk-print' && activeTab !== 'html-notes' && activeTab !== 'master-console' && (
         <Navbar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -1611,12 +1756,16 @@ export default function App() {
       )}
 
       {/* Main Content Area */}
-      {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'results' && activeTab !== 'create' && activeTab !== 'custom-builder' && (
+      {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'results' && activeTab !== 'create' && activeTab !== 'custom-builder' && activeTab !== 'master-console' && (
         <main className="flex-1 min-w-0 bg-[#e5e9f0] dark:bg-[#0b0c10]">
           {/* Mock Tests Library */}
           {activeTab === 'tests' && (
             <TestList
-              tests={tests}
+              tests={mergePublishedMasterTests(
+                tests,
+                isMasterUser(currentUser || cachedUser),
+                isGuestUser(currentUser || cachedUser)
+              )}
               attempts={attempts}
               currentUser={currentUser}
               userProfile={userProfile}
@@ -1741,6 +1890,31 @@ export default function App() {
         />
       )}
 
+      {/* Full-Screen Academic Master Console (Exclusively for sanju3456k@gmail.com) */}
+      {activeTab === 'master-console' && isMasterUser(currentUser || cachedUser) && (
+        <MasterConsoleView
+          onBack={() => goBack()}
+          tests={tests}
+          attempts={attempts}
+          currentUserEmail={currentUser?.email || cachedUser?.email}
+          currentUserId={currentUser?.uid || cachedUser?.uid}
+          currentUserName={currentUser?.displayName || cachedUser?.displayName}
+          isDarkMode={isDarkMode}
+          onToggleTheme={toggleTheme}
+          onStartTest={handleStartTest}
+          onRefreshTests={() => {
+            const targetUid = currentUser?.uid || cachedUser?.uid || null;
+            const freshTests = loadScopedTests(targetUid);
+            const isMaster = isMasterUser(currentUser || cachedUser);
+            const isGuest = isGuestUser(currentUser || cachedUser);
+            const merged = mergePublishedMasterTests(freshTests, isMaster, isGuest);
+            if (Array.isArray(merged) && merged.length > 0) {
+              setTests(merged);
+            }
+          }}
+        />
+      )}
+
       {/* Atomic Guest-to-Account Migration Modal */}
       <GuestMigrationModal
         isOpen={isGuestMigrationOpen}
@@ -1754,7 +1928,9 @@ export default function App() {
           );
           const activeUid = currentUser?.uid || null;
           const freshTests = loadScopedTests(activeUid);
-          setTests(freshTests);
+          const isMaster = isMasterUser(currentUser || cachedUser);
+          const isGuest = isGuestUser(currentUser || cachedUser);
+          setTests(mergePublishedMasterTests(freshTests, isMaster, isGuest));
           const freshAttempts = loadScopedAttempts(activeUid);
           setAttempts(freshAttempts);
         }}
@@ -1772,7 +1948,9 @@ export default function App() {
         onDataChanged={() => {
           const activeUid = currentUser?.uid || null;
           const freshTests = loadScopedTests(activeUid);
-          setTests(freshTests);
+          const isMaster = isMasterUser(currentUser || cachedUser);
+          const isGuest = isGuestUser(currentUser || cachedUser);
+          setTests(mergePublishedMasterTests(freshTests, isMaster, isGuest));
           const freshAttempts = loadScopedAttempts(activeUid);
           setAttempts(freshAttempts);
           const freshSessions = loadAllScopedActiveSessions(activeUid);

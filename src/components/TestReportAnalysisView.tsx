@@ -323,14 +323,24 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
     initialQuestionNumber?: number;
   } | null>(null);
 
+  const isRemedial = Boolean(
+    (test as any)?.isPersonalizedRemedial ||
+    test?.category === 'Remedial' ||
+    (test?.id && String(test.id).startsWith('remedial_')) ||
+    (attempt?.testId && String(attempt.testId).startsWith('remedial_')) ||
+    attempt?.testTopic === 'Personalized Test' ||
+    attempt?.testTopic === 'Targeted Remedial Practice' ||
+    (test as any)?.remedialAssignment
+  );
+
   const [leaderboardSummary, setLeaderboardSummary] = useState<TestLeaderboardSummary | null>(null);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState<boolean>(false);
 
   useEffect(() => {
-    if (attempt?.testId || attempt?.testTitle) {
+    if (!isRemedial && (attempt?.testId || attempt?.testTitle)) {
       fetchTestLeaderboard(attempt.testId || '', attempt.testTitle).then(setLeaderboardSummary).catch(() => {});
     }
-  }, [attempt?.testId, attempt?.testTitle]);
+  }, [attempt?.testId, attempt?.testTitle, isRemedial]);
   const [extraAddonsPrompt, setExtraAddonsPrompt] = useState<string>('');
   const promptBarInputRef = useRef<HTMLInputElement>(null);
 
@@ -1266,16 +1276,18 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
 
           {/* Right: Actions (View Solutions, Leaderboard without border ring) */}
           <div className="flex items-center gap-2">
-            <button
-              id="report-top-leaderboard-btn"
-              type="button"
-              onClick={() => setIsLeaderboardOpen(true)}
-              className="w-9 h-9 sm:w-auto sm:h-9 sm:px-3.5 rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 font-bold text-xs border-0 ring-0 shadow-none flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all outline-none"
-              title="View Test Leaderboard & Rankings"
-            >
-              <Trophy className="w-4 h-4 sm:w-3.5 sm:h-3.5 stroke-[2.2]" />
-              <span className="hidden sm:inline">Leaderboard</span>
-            </button>
+            {!isRemedial && (
+              <button
+                id="report-top-leaderboard-btn"
+                type="button"
+                onClick={() => setIsLeaderboardOpen(true)}
+                className="w-9 h-9 sm:w-auto sm:h-9 sm:px-3.5 rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 font-bold text-xs border-0 ring-0 shadow-none flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all outline-none"
+                title="View Test Leaderboard & Rankings"
+              >
+                <Trophy className="w-4 h-4 sm:w-3.5 sm:h-3.5 stroke-[2.2]" />
+                <span className="hidden sm:inline">Leaderboard</span>
+              </button>
+            )}
             {onViewRawSolutions && (
               <button
                 id="report-top-view-solutions-btn"
@@ -1308,8 +1320,8 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
               </h2>
             </div>
 
-            {/* Global Rank Tag strictly at the top-right corner without border ring or hash - Strictly for 1st ever attempt */}
-            {effectiveIsFirst && leaderboardSummary?.currentUserRank ? (
+            {/* Global Rank Tag strictly at the top-right corner without border ring or hash - Strictly for 1st ever attempt on standard tests */}
+            {!isRemedial && effectiveIsFirst && leaderboardSummary?.currentUserRank ? (
               <button
                 type="button"
                 onClick={() => setIsLeaderboardOpen(true)}

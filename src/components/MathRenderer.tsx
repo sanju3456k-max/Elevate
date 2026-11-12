@@ -2314,7 +2314,7 @@ function buildHtmlTableFromMarkdown(mdTable: string): string {
     return clean;
   };
 
-  let html = `<table style="border-collapse: collapse; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; width: 100%; border: 1px solid #cbd5e1; font-size: 13px; line-height: 1.5; color: #0f172a;">`;
+  let html = `<table style="border-collapse: collapse; font-family: inherit; width: 100%; border: 1px solid #cbd5e1; font-size: 13px; line-height: 1.5; color: #0f172a;">`;
   
   // Header row - neutral clean background without colored text highlight
   html += `<thead><tr>`;

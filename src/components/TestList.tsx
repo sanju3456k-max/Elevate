@@ -34,12 +34,14 @@ import {
   Eye,
   RotateCcw,
   Bookmark,
-  Info
+  Info,
+  Crown,
+  ShieldCheck
 } from 'lucide-react';
-import type { MathTest, TestAttempt, ActiveTestSession, UserProfile, TestHistoryEntry } from '../types';
+import type { MathTest, TestAttempt, ActiveTestSession, UserProfile, TestHistoryEntry, AssignedRemedialTest } from '../types';
 import { getAllAvailableTopics } from '../utils/topics';
 import { isAttemptOmrMode, pruneAttemptsToFirstAndLast } from '../lib/storage';
-import { searchCloudTests, fetchTestLeaderboard, getLocalLeaderboardEntries } from '../lib/firebase';
+import { searchCloudTests, fetchTestLeaderboard, getLocalLeaderboardEntries, getCachedFullTest } from '../lib/firebase';
 import { createShareUrlAsync, formatTestShareMessage } from '../utils/shareUtils';
 import type { User } from 'firebase/auth';
 import { useScrollLock } from '../hooks/useScrollLock';
@@ -55,6 +57,15 @@ import {
 } from '../lib/animationConfig';
 import { APP_STYLES } from './ui/AppStyles';
 import { TestLeaderboardModal } from './TestLeaderboardModal';
+import { 
+  getAssignedRemedialTestsForStudent, 
+  materializeRemedialTest, 
+  fetchCloudAssignedRemedialTests,
+  getMasterDispatchLedger,
+  isMasterTest,
+  isRemedialTest,
+  isGuestUser
+} from '../lib/masterAccount';
 
 interface TestListProps {
   tests: MathTest[];
@@ -83,6 +94,20 @@ interface TestListProps {
 // Google Material 3 topic tokens and icons resolver
 const getTopicM3Tokens = (topic?: string) => {
   const t = (topic || '').toLowerCase();
+  if (t.includes('personalized') || t.includes('remedial')) {
+    return {
+      icon: 'auto_awesome',
+      badgeClass: 'bg-[#ffe8d9] text-[#ea580c] dark:bg-[#432313] dark:text-[#ff9d5c]',
+      borderClass: 'border-[#ea580c]/40',
+      headerBg: 'bg-gradient-to-br from-[#fff7ed] to-[#ffe8d9] dark:from-[#2e1507] dark:to-[#432313]',
+      accentColor: '#ea580c',
+      tonalBg: '#ffe8d9',
+      tonalText: '#ea580c',
+      tonalDarkBg: '#432313',
+      tonalDarkText: '#ff9d5c',
+      accentOn: '#ffffff',
+    };
+  }
   if (t.includes('algebra') || t.includes('linear')) {
     return {
       icon: 'functions',
@@ -274,10 +299,110 @@ export const TestList: React.FC<TestListProps> = ({
   const [leaderboardTest, setLeaderboardTest] = useState<MathTest | null>(null);
   const [testRanks, setTestRanks] = useState<Record<string, { rank: number; total?: number }>>({});
 
+  // Adaptive Remedial Tests assigned by Master Enterprise Head
+  const [remedialUpdateCounter, setRemedialUpdateCounter] = useState<number>(0);
+  useEffect(() => {
+    // Reactively refresh when assignments change - do NOT invoke fetchCloud inside event to prevent loops
+    const handleUpdate = () => {
+      setRemedialUpdateCounter((c) => c + 1);
+    };
+
+    window.addEventListener('remedial-tests-updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    // Initial fetch from Cloud once on mount (only for authenticated students)
+    if (!isGuestUser(currentUser)) {
+      fetchCloudAssignedRemedialTests(currentUser?.uid, currentUser?.email)
+        .then((cloudAssignments) => {
+          if (cloudAssignments && cloudAssignments.length > 0) {
+            setRemedialUpdateCounter((c) => c + 1);
+          }
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      window.removeEventListener('remedial-tests-updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, [currentUser?.uid, currentUser?.email]);
+
+  const assignedRemedialTests = useMemo(() => {
+    // Strictly disallow guest / anonymous / logged-out users from remedial & personalized tests
+    const isGuest = isGuestUser(currentUser);
+    if (isGuest) return [];
+
+    const activeUid = (currentUser?.uid || '').trim();
+    const activeEmail = (currentUser?.email || '').trim().toLowerCase();
+    const emailSlug = activeEmail.replace(/[@.]/g, '_');
+
+    if (!activeUid && !activeEmail) return [];
+
+    // Master Dispatch Ledger lookup for definitive revoked/unassigned status
+    const ledger = getMasterDispatchLedger();
+    const unassignedSet = new Set(ledger.filter((item) => item.isUnassigned).map((item) => item.id));
+
+    // 1. Direct scoped storage lists for this specific student
+    const directSources = [
+      ...(activeUid ? getAssignedRemedialTestsForStudent(activeUid) : []),
+      ...(activeEmail ? getAssignedRemedialTestsForStudent(activeEmail) : []),
+      ...(emailSlug ? getAssignedRemedialTestsForStudent(emailSlug) : []),
+    ];
+
+    // 2. Lookup matches in Master Dispatch Ledger specifically targeted to this student
+    const ledgerMatches = ledger.filter((item) => {
+      if (!item || item.isUnassigned || unassignedSet.has(item.id)) return false;
+      const targetId = (item.studentId || '').trim();
+      const targetEmail = (item.studentEmail || '').trim().toLowerCase();
+      if (activeUid && targetId === activeUid) return true;
+      if (activeEmail && (targetId === activeEmail || targetEmail === activeEmail || targetId === emailSlug)) return true;
+      return false;
+    });
+
+    const seen = new Set<string>();
+    const uniqueList: AssignedRemedialTest[] = [];
+    [...directSources, ...ledgerMatches].forEach((item) => {
+      if (item && item.id && !seen.has(item.id) && !item.isUnassigned && !unassignedSet.has(item.id)) {
+        seen.add(item.id);
+        uniqueList.push(item);
+      }
+    });
+
+    return uniqueList;
+  }, [currentUser, remedialUpdateCounter]);
+
+  // Materialize assigned personalized tests into full MathTests for display in the main library grid
+  const materializedRemedialTests: MathTest[] = useMemo(() => {
+    if (isGuestUser(currentUser)) return [];
+    return assignedRemedialTests.map((assigned) => {
+      const mat = materializeRemedialTest(assigned, tests);
+      return {
+        ...mat,
+        topic: 'Personalized Test',
+        isPersonalizedRemedial: true,
+        remedialAssignment: assigned,
+      };
+    });
+  }, [assignedRemedialTests, tests, currentUser]);
+
+  const handleLaunchAssignedTest = (assigned: AssignedRemedialTest, mode: 'timed' | 'practice' = 'timed') => {
+    const materialized = materializeRemedialTest(assigned, tests);
+    onStartTest(materialized, mode);
+  };
+
+  const handleLaunchAssignedOmr = (assigned: AssignedRemedialTest) => {
+    const materialized = materializeRemedialTest(assigned, tests);
+    if (onStartOmrTest) {
+      onStartOmrTest(materialized);
+    } else {
+      onStartTest(materialized, 'timed');
+    }
+  };
+
   // Asynchronously resolve leaderboard rank for detailed test
   useEffect(() => {
     let isMounted = true;
-    if (!detailedTest) return;
+    if (!detailedTest || isRemedialTest(detailedTest)) return;
     const key = `${detailedTest.id || ''}:::${detailedTest.title || ''}`;
 
     (async () => {
@@ -541,14 +666,22 @@ export const TestList: React.FC<TestListProps> = ({
 
   const filteredTests = useMemo(() => {
     const seenIds = new Set<string>();
-    const allCandidates = [...tests, ...cloudSearchResults];
+    const allCandidates = [...materializedRemedialTests, ...tests, ...cloudSearchResults];
     const cleanSearch = searchQuery.trim().toLowerCase();
     const cleanTopic = selectedTopic.trim().toLowerCase();
+
+    const isGuest = isGuestUser(currentUser);
 
     const list = allCandidates.filter((test) => {
       if (!test || !test.id) return false;
       if (seenIds.has(test.id)) return false;
       seenIds.add(test.id);
+
+      // STRICT RULE: Guest users do not take benefits of MasterConsole implements
+      // (No published Master tests and no remedial tests)
+      if (isGuest && (isMasterTest(test) || isRemedialTest(test))) {
+        return false;
+      }
 
       const matchesSearch = 
         cleanSearch === '' ||
@@ -564,11 +697,13 @@ export const TestList: React.FC<TestListProps> = ({
     });
 
     return [...list].sort((a, b) => {
+      if ((a as any).isPersonalizedRemedial && !(b as any).isPersonalizedRemedial) return -1;
+      if (!(a as any).isPersonalizedRemedial && (b as any).isPersonalizedRemedial) return 1;
       const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return timeB - timeA;
     });
-  }, [tests, cloudSearchResults, searchQuery, selectedTopic]);
+  }, [materializedRemedialTests, tests, cloudSearchResults, searchQuery, selectedTopic, currentUser]);
 
   if (selectedReportAttempt) {
     const targetTest = tests.find((t) => (t && t.id && t.id === selectedReportAttempt.testId) || (t && t.title && t.title === selectedReportAttempt.testTitle)) || detailedTest || undefined;
@@ -779,7 +914,26 @@ export const TestList: React.FC<TestListProps> = ({
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5 sm:gap-3"
         >
           {filteredTests.map((test, index) => {
-            const questionCount = test.questions?.length ?? test.questionCount ?? 0;
+            const questionCount = (() => {
+              if (Array.isArray(test.questions) && test.questions.length > 0) return test.questions.length;
+              if (typeof test.questionCount === 'number' && test.questionCount > 0) return test.questionCount;
+              if (typeof (test as any).questionsCount === 'number' && (test as any).questionsCount > 0) return (test as any).questionsCount;
+              if (typeof (test as any).totalQuestions === 'number' && (test as any).totalQuestions > 0) return (test as any).totalQuestions;
+              try {
+                const cached = getCachedFullTest(test.id);
+                if (cached?.questions?.length && cached.questions.length > 0) return cached.questions.length;
+                if (cached?.questionCount && cached.questionCount > 0) return cached.questionCount;
+              } catch {}
+              try {
+                const atts = attempts.filter(a => a.testId === test.id);
+                if (atts.length > 0) {
+                  const ansCount = atts[0].answers ? Object.keys(atts[0].answers).length : 0;
+                  if (ansCount > 0) return ansCount;
+                  if (atts[0].totalPoints && atts[0].totalPoints > 0) return Math.round(atts[0].totalPoints / 4);
+                }
+              } catch {}
+              return test.timeLimitMinutes > 0 ? test.timeLimitMinutes : 50;
+            })();
             const timeDisplay = test.timeLimitMinutes > 0 ? `${test.timeLimitMinutes}m` : 'Untimed';
             const isNew = isTestNew(test);
 
@@ -797,8 +951,12 @@ export const TestList: React.FC<TestListProps> = ({
                 {/* Row 1: Topic tag above title & Title */}
                 <div className="w-full pointer-events-none space-y-0.5">
                   {test.topic && (
-                    <span className="text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider text-[#0b57d0] dark:text-[#a8c7fa] block truncate">
-                      {test.topic}
+                    <span className={`text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider block truncate ${
+                      (test as any).isPersonalizedRemedial || test.topic === 'Personalized Test'
+                        ? 'text-orange-600 dark:text-orange-400'
+                        : 'text-[#0b57d0] dark:text-[#a8c7fa]'
+                    }`}>
+                      {(test as any).isPersonalizedRemedial ? 'Personalized Test' : test.topic}
                     </span>
                   )}
                   <h3 className="text-[17px] sm:text-[17px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors leading-snug break-words">
@@ -806,7 +964,7 @@ export const TestList: React.FC<TestListProps> = ({
                   </h3>
                 </div>
 
-                {/* Row 2: Question count & time (Left), Minimal 'New' badge & Chevron (Bottom Right) */}
+                {/* Row 2: Question count & time (Left), Minimal 'Personalized Test' / 'New' badge & Chevron (Bottom Right) */}
                 <div className="flex items-center justify-between w-full pt-0.5 pointer-events-none">
                   <div className="flex items-center gap-1.5 text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-medium leading-none">
                     <span className="inline-flex items-center gap-1 text-[11px] text-[#444746] dark:text-[#c4c7c5] px-1 py-0.5 leading-none">
@@ -820,7 +978,15 @@ export const TestList: React.FC<TestListProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
-                    {isNew && (
+                    {(test as any).isPersonalizedRemedial ? (
+                      <span
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold tracking-wide uppercase bg-orange-500/15 dark:bg-orange-500/25 text-orange-600 dark:text-orange-400 border-0 shadow-none shrink-0"
+                        title="Personalized Practice Set assigned by Academic Head"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500 dark:bg-orange-400 shrink-0 inline-block" />
+                        <span>Personalized Practice Set</span>
+                      </span>
+                    ) : isNew ? (
                       <span
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold tracking-wide uppercase bg-orange-500/15 dark:bg-orange-500/25 text-orange-600 dark:text-orange-400 border-0 shadow-none shrink-0"
                         title="New test created within the last 24 hours"
@@ -828,7 +994,7 @@ export const TestList: React.FC<TestListProps> = ({
                         <span className="w-1.5 h-1.5 rounded-full bg-orange-500 dark:bg-orange-400 shrink-0 inline-block" />
                         <span>New</span>
                       </span>
-                    )}
+                    ) : null}
                     <ChevronRight className="w-3.5 h-3.5 text-[#747775] dark:text-[#8e918f] group-hover:translate-x-0.5 transition-transform shrink-0" />
                   </div>
                 </div>
@@ -888,6 +1054,11 @@ export const TestList: React.FC<TestListProps> = ({
                 <div className="px-4 py-3.5 sm:px-6 sm:py-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] flex items-center justify-between gap-4 bg-transparent border-0 shadow-none shrink-0">
                   <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                     <div className="min-w-0">
+                      {(detailedTest as any).isPersonalizedRemedial && (
+                        <span className="text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider text-orange-600 dark:text-orange-400 block truncate">
+                          Personalized Test
+                        </span>
+                      )}
                       <h2 className="font-bold text-base sm:text-xl text-[#1f1f1f] dark:text-[#e3e3e3] tracking-tight truncate">
                         {detailedTest.title}
                       </h2>
@@ -906,13 +1077,15 @@ export const TestList: React.FC<TestListProps> = ({
                         <Share2 className="w-5 h-5 text-[#5e5e5e] dark:text-[#9aa0a6]" />
                       )}
                     </md-icon-button>
-                    <md-icon-button
-                      id="leaderboard-detailed-test-modal-btn"
-                      onClick={() => setLeaderboardTest(detailedTest)}
-                      title="View Test Leaderboard & Rankings"
-                    >
-                      <Trophy className="w-5 h-5 text-amber-500 hover:text-amber-600 transition-colors" />
-                    </md-icon-button>
+                    {!isRemedialTest(detailedTest) && (
+                      <md-icon-button
+                        id="leaderboard-detailed-test-modal-btn"
+                        onClick={() => setLeaderboardTest(detailedTest)}
+                        title="View Test Leaderboard & Rankings"
+                      >
+                        <Trophy className="w-5 h-5 text-amber-500 hover:text-amber-600 transition-colors" />
+                      </md-icon-button>
+                    )}
                     <md-icon-button
                       id="close-detailed-modal-btn"
                       onClick={() => setDetailedTest(null)}
@@ -935,7 +1108,16 @@ export const TestList: React.FC<TestListProps> = ({
                           <span>Questions</span>
                         </div>
                         <div className="text-lg sm:text-2xl font-black text-[#1f1f1f] dark:text-[#e3e3e3] font-mono mt-0.5">
-                          {detailedTest.questions?.length ?? detailedTest.questionCount ?? 0}
+                          {(() => {
+                            if (Array.isArray(detailedTest.questions) && detailedTest.questions.length > 0) return detailedTest.questions.length;
+                            if (typeof detailedTest.questionCount === 'number' && detailedTest.questionCount > 0) return detailedTest.questionCount;
+                            try {
+                              const cached = getCachedFullTest(detailedTest.id);
+                              if (cached?.questions?.length && cached.questions.length > 0) return cached.questions.length;
+                              if (cached?.questionCount && cached.questionCount > 0) return cached.questionCount;
+                            } catch {}
+                            return detailedTest.timeLimitMinutes > 0 ? detailedTest.timeLimitMinutes : 50;
+                          })()}
                         </div>
                       </div>
 
@@ -1064,8 +1246,8 @@ export const TestList: React.FC<TestListProps> = ({
                           return `${m}m ${s}s`;
                         };
                         const timeTakenStr = formatAttemptDuration(attempt);
-                        // Ranking scheme strictly applies only to the 1st ever attempt of any unique test
-                        const testRank = isFirstAttempt ? getAttemptRank(detailedTest, attempt) : null;
+                        // Ranking scheme strictly applies only to standard tests (never personalized remedial tests)
+                        const testRank = (!isRemedialTest(detailedTest) && isFirstAttempt) ? getAttemptRank(detailedTest, attempt) : null;
 
                         return (
                           <div 

@@ -886,7 +886,7 @@ const RenderStreamItem: React.FC<{
           <span className="font-semibold text-[10.5pt] shrink-0 select-none">
             {item.questionNumber}.
           </span>
-          <div className="flex-1 min-w-0 font-normal text-black text-[10.5pt] tracking-tight">
+          <div className="flex-1 min-w-0 font-normal text-black text-[10.5pt] tracking-normal">
             <MathRenderer 
               text={item.statementText || ''} 
               className="text-black font-normal text-[10.5pt] leading-[1.32]" 
@@ -943,7 +943,7 @@ const RenderStreamItem: React.FC<{
 
     return (
       <div data-stream-id={item.id} className={`pl-4 ${topPaddingClass} ${bottomPaddingClass}`}>
-        <div className={`grid ${colsClass} gap-x-3 gap-y-1 text-[10pt]`}>
+        <div className={`grid ${colsClass} gap-x-3 gap-y-1 text-[10pt] tracking-normal`}>
           {opts.map((opt) => (
             <div key={opt.originalIndex} className="flex flex-col gap-1 min-w-0 overflow-visible select-none">
               <div className="flex items-start gap-1 min-w-0 overflow-visible select-none">
@@ -978,7 +978,7 @@ const RenderStreamItem: React.FC<{
     const bottomPaddingClass = item.isLastOptionOfQuestion ? 'pb-1' : 'pb-0.5';
 
     return (
-      <div data-stream-id={item.id} className={`pl-4 ${topPaddingClass} ${bottomPaddingClass} text-[10pt]`}>
+      <div data-stream-id={item.id} className={`pl-4 ${topPaddingClass} ${bottomPaddingClass} text-[10pt] tracking-normal`}>
         <div className="flex items-start gap-1.5 min-w-0">
           <span className="font-semibold text-[10pt] shrink-0 select-none pt-[1px]">({opt.label})</span>
           <div className="flex-1 min-w-0">
@@ -1509,7 +1509,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                     height: `${currentPageHPx}px`,
                     minHeight: `${pageHPx + PREVIEW_BOTTOM_EXTRA_HEIGHT_PX}px`,
                     padding: '10mm 12mm 16mm 12mm',
-                    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                    fontFamily: "'Times New Roman', Times, Tinos, 'Liberation Serif', serif",
                     boxSizing: 'border-box',
                     textRendering: 'optimizeLegibility',
                     WebkitFontSmoothing: 'antialiased',

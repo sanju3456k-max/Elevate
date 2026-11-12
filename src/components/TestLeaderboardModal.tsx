@@ -57,14 +57,23 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
   currentUser,
   onClose,
 }) => {
-  useScrollLock(isOpen);
-  useBackHandler({ isOpen, onBack: onClose, priority: 60 });
+  const isRemedial = Boolean(
+    (test as any)?.isPersonalizedRemedial ||
+    test?.category === 'Remedial' ||
+    (test?.id && String(test.id).startsWith('remedial_')) ||
+    (test as any)?.remedialAssignment ||
+    test?.topic === 'Personalized Test' ||
+    test?.topic === 'Targeted Remedial Practice'
+  );
+
+  useScrollLock(isOpen && !isRemedial);
+  useBackHandler({ isOpen: isOpen && !isRemedial, onBack: onClose, priority: 60 });
 
   // 1. Immediately hydrate initial summary synchronously to prevent layout shifts & loading flashes on open
   const initialCache = useMemo(() => {
-    if (!isOpen || (!test?.id && !test?.title)) return null;
+    if (!isOpen || isRemedial || (!test?.id && !test?.title)) return null;
     return getSynchronousCachedLeaderboard(test.id || '', test.title, currentUser?.uid);
-  }, [isOpen, test?.id, test?.title, currentUser?.uid]);
+  }, [isOpen, isRemedial, test?.id, test?.title, currentUser?.uid]);
 
   const [summary, setSummary] = useState<TestLeaderboardSummary | null>(initialCache);
   const [isLoading, setIsLoading] = useState<boolean>(!initialCache);
@@ -250,7 +259,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
 
   return createPortal(
     <AnimatePresence>
-      {isOpen && test && (
+      {isOpen && test && !isRemedial && (
         <motion.div
           key="leaderboard-fullpage-container"
           variants={studioFadeVariants}

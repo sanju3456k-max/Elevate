@@ -1837,98 +1837,45 @@ export function subscribeToTests(
     return () => {};
   }
 
-  let isFirstSnapshot = true;
+  // Master Enterprise Architecture: Students do NOT author tests in users/{userId}/tests.
+  // Their tests are supplied authoritatively via MASTER_CATALOG on-demand 1-read hydration.
+  // Disarming this idle listener completely eliminates background read loops for students!
+  const isMaster = auth.currentUser?.email?.toLowerCase().trim() === 'sanju3456k@gmail.com';
+  if (!isMaster) {
+    return () => {};
+  }
 
   try {
-    // Real-time listener on user-scoped subcollection: /users/{userId}/tests
+    // Master Enterprise: One-time initial hydration for Master Admin instead of continuous open stream
     const userTestsCol = collection(db, 'users', userId, 'tests');
-    return onSnapshot(userTestsCol, (snap) => {
-      const deltas: FirestoreDocChange<MathTest>[] = [];
-
-      firestoreTelemetry.record({
-        type: isFirstSnapshot ? 'STREAM_LISTEN' : 'STREAM_DELTA',
-        collection: 'tests',
-        path: `users/${userId}/tests`,
-        operation: 'onSnapshot',
-        docCount: isFirstSnapshot ? snap.docs.length : snap.docChanges().length,
-        data: snap.docs.map((d) => ({ id: d.id, title: (d.data() as any)?.title })),
-        caller: isFirstSnapshot ? 'Initial User Tests Real-time Stream' : 'Live User Tests Delta Change',
-      });
-
-      // If user subcollection is empty on initial load, check legacy root /tests and migrate
-      if (isFirstSnapshot && snap.empty) {
-        isFirstSnapshot = false;
-        const legacyQ = query(collection(db, 'tests'), where('authorId', '==', userId), limit(100));
-        getDocs(legacyQ).then((legacySnap) => {
-          if (!legacySnap.empty) {
-            const migrated: MathTest[] = [];
-            legacySnap.forEach((d) => {
-              const data = d.data() as MathTest;
-              if (data && data.id) {
-                const norm: MathTest = {
-                  ...data,
-                  questions: normalizeQuestions(Array.isArray(data.questions) ? data.questions : []),
-                };
-                migrated.push(norm);
-                setDoc(doc(db, 'users', userId, 'tests', data.id), sanitizeForFirestore(norm), { merge: true }).catch(() => {});
-              }
+    getDocs(query(userTestsCol, limit(100)))
+      .then((snap) => {
+        const customTests: MathTest[] = [];
+        snap.forEach((d) => {
+          const data = d.data() as MathTest;
+          if (data && data.id) {
+            customTests.push({
+              ...data,
+              questions: normalizeQuestions(Array.isArray(data.questions) ? data.questions : []),
             });
-            if (migrated.length > 0) {
-              const mergedMap = new Map<string, MathTest>();
-              migrated.forEach((t) => mergedMap.set(t.id, t));
-              SAMPLE_MATH_TESTS.forEach((st) => {
-                if (!mergedMap.has(st.id)) mergedMap.set(st.id, st);
-              });
-              onUpdate(Array.from(mergedMap.values()));
-            }
           }
-        }).catch(() => {});
-        return;
-      }
-
-      snap.docChanges().forEach((change) => {
-        const raw = change.doc.data() as MathTest;
-        const normalized: MathTest = {
-          ...raw,
-          id: change.doc.id,
-          questions: normalizeQuestions(Array.isArray(raw?.questions) ? raw.questions : []),
-        };
-        deltas.push({
-          type: change.type,
-          id: change.doc.id,
-          data: normalized,
-          isInitialLoad: isFirstSnapshot,
         });
-      });
-
-      isFirstSnapshot = false;
-
-      const customTests: MathTest[] = [];
-      snap.forEach((d) => {
-        const data = d.data() as MathTest;
-        if (data && data.id) {
-          customTests.push({
-            ...data,
-            questions: normalizeQuestions(Array.isArray(data.questions) ? data.questions : []),
+        if (customTests.length > 0) {
+          const mergedMap = new Map<string, MathTest>();
+          customTests.forEach((t) => mergedMap.set(t.id, t));
+          SAMPLE_MATH_TESTS.forEach((st) => {
+            if (!mergedMap.has(st.id)) mergedMap.set(st.id, st);
           });
+          onUpdate(Array.from(mergedMap.values()));
         }
+      })
+      .catch(() => {
+        onUpdate(SAMPLE_MATH_TESTS);
       });
 
-      const mergedMap = new Map<string, MathTest>();
-      customTests.forEach((t) => mergedMap.set(t.id, t));
-      SAMPLE_MATH_TESTS.forEach((st) => {
-        if (!mergedMap.has(st.id)) {
-          mergedMap.set(st.id, st);
-        }
-      });
-
-      onUpdate(Array.from(mergedMap.values()), deltas);
-    }, (err) => {
-      console.warn('User tests snapshot listener warning:', err?.message);
-      handleFirestoreError(err, OperationType.LIST, `users/${userId}/tests`);
-    });
+    return () => {};
   } catch (err) {
-    console.warn('Failed to attach user tests snapshot listener:', err);
+    console.warn('Failed to fetch user tests on login:', err);
     return () => {};
   }
 }
@@ -2064,6 +2011,12 @@ export function getSynchronousCachedLeaderboard(testId: string, testTitle?: stri
 
 export function saveLocalLeaderboardEntry(testId: string, entry: LeaderboardEntry, testTitle?: string): boolean {
   try {
+    // Strictly disallow guest users from ranking facilities
+    const uid = (entry.userId || '').trim().toLowerCase();
+    if (!uid || uid === 'guest-user' || uid === 'guest_user' || uid === 'anonymous' || uid === 'local-user') {
+      return false;
+    }
+
     const canonicalKey = getLocalLeaderboardKey(testId, testTitle);
     const rawKey = `${LOCAL_LEADERBOARD_KEY_PREFIX}${(testId || '').replace(/[./[\]*~#$]/g, '_')}`;
 
@@ -2103,7 +2056,13 @@ function buildLeaderboardSummaryFromList(
   entries: LeaderboardEntry[], 
   currentUserId?: string
 ): TestLeaderboardSummary {
-  const sorted = [...entries].sort((a, b) => {
+  // STRICT RULE: Only allow logged-in authenticated users in ranking facilities
+  const authenticatedOnly = entries.filter((e) => {
+    const uid = (e?.userId || '').trim().toLowerCase();
+    return uid && uid !== 'guest-user' && uid !== 'guest_user' && uid !== 'anonymous' && uid !== 'local-user';
+  });
+
+  const sorted = [...authenticatedOnly].sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
     return (a.timeSpentSeconds || 0) - (b.timeSpentSeconds || 0);
   });
@@ -2124,23 +2083,70 @@ function buildLeaderboardSummaryFromList(
 
 /**
  * Synchronizes an attempt's score into the test's public leaderboard.
- * Keeps the student's highest score / fastest time across attempts.
- */
-/**
- * Synchronizes an attempt's score into the test's public leaderboard.
  * STRICT FIRST-ATTEMPT ONLY POLICY:
  * Only the user's initial first attempt is recorded into the ranking system.
  * Subsequent attempts by the same user do not alter rankings and execute 0 Firestore writes.
+ * GUEST USERS: Strictly disallowed from ranking facilities.
  */
 export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?: string): Promise<void> {
   if (!attempt || (!attempt.testId && !attempt.testTitle)) return;
-  const currentUid = overrideUserId || auth.currentUser?.uid || attempt.userId;
+
+  // Personalized remedial practice tests are user-specific directives and strictly do NOT use ranking system
+  if (
+    attempt.testId?.startsWith('remedial_') ||
+    attempt.testTopic === 'Personalized Test' ||
+    attempt.testTopic === 'Targeted Remedial Practice' ||
+    (attempt as any).isPersonalizedRemedial
+  ) {
+    return;
+  }
+  const currentUid = (overrideUserId || auth.currentUser?.uid || attempt.userId || '').trim();
+  const uidLower = currentUid.toLowerCase();
+
+  // Strictly disallow guest users from ranking facilities
+  if (!currentUid || uidLower === 'guest-user' || uidLower === 'guest_user' || uidLower === 'anonymous' || uidLower === 'local-user') {
+    return;
+  }
+
   const canonicalId = getCanonicalLeaderboardId(attempt.testId, attempt.testTitle);
   const rawSafeId = (attempt.testId || '').replace(/[./[\]*~#$]/g, '_');
 
   // Fast client-side check: does user already have an initial attempt cached locally?
   const existingLocal = getLocalLeaderboardEntries(attempt.testId, attempt.testTitle);
   const alreadyHasInitialAttemptLocally = existingLocal.some((e) => e.userId === currentUid);
+
+  // Extract wrong, unattempted, and flagged question indices for Master Console cohort analytics
+  const wrongQuestionIndices: number[] = Array.isArray((attempt as any).wrongQuestionIndices)
+    ? [...(attempt as any).wrongQuestionIndices]
+    : [];
+  const unattemptedQuestionIndices: number[] = Array.isArray((attempt as any).unattemptedQuestionIndices)
+    ? [...(attempt as any).unattemptedQuestionIndices]
+    : [];
+  const flaggedQuestionIndices: number[] = Array.isArray((attempt as any).flaggedQuestionIndices)
+    ? [...(attempt as any).flaggedQuestionIndices]
+    : [];
+
+  if (
+    wrongQuestionIndices.length === 0 &&
+    unattemptedQuestionIndices.length === 0 &&
+    flaggedQuestionIndices.length === 0 &&
+    attempt.answers
+  ) {
+    const answersEntries = Object.entries(attempt.answers);
+    answersEntries.forEach(([key, ansObj], idx) => {
+      const qIndex = !isNaN(Number(key)) ? Number(key) : idx;
+      const opt = ansObj?.selectedOption;
+      const isAns = opt !== null && opt !== undefined && String(opt).trim() !== '';
+      if (!isAns) {
+        unattemptedQuestionIndices.push(qIndex);
+      } else if (!ansObj?.isCorrect) {
+        wrongQuestionIndices.push(qIndex);
+      }
+      if (ansObj?.flagged) {
+        flaggedQuestionIndices.push(qIndex);
+      }
+    });
+  }
 
   const newEntry: LeaderboardEntry = {
     userId: currentUid || 'guest_user',
@@ -2155,6 +2161,11 @@ export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?
     testTitle: attempt.testTitle || '',
     attemptNumber: 1,
     firstAttemptId: attempt.id,
+    wrongQuestionIndices: wrongQuestionIndices.length > 0 ? wrongQuestionIndices : undefined,
+    unattemptedQuestionIndices: unattemptedQuestionIndices.length > 0 ? unattemptedQuestionIndices : undefined,
+    flaggedQuestionIndices: flaggedQuestionIndices.length > 0 ? flaggedQuestionIndices : undefined,
+    userAnswers: attempt.userAnswers || undefined,
+    questionsCount: attempt.answers ? Object.keys(attempt.answers).length : (Array.isArray(attempt.questions) ? attempt.questions.length : undefined),
   };
 
   // 1. Cache locally. If already exists, saveLocalLeaderboardEntry returns false.
@@ -2190,40 +2201,20 @@ export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?
 
   // 3. Firestore Cloud Check & Write (Zero extra writes if first attempt already exists in cloud)
   try {
-    const targetDocRefs = [doc(db, 'test_leaderboards', canonicalId, 'entries', currentUid)];
-    if (rawSafeId && rawSafeId !== canonicalId) {
-      targetDocRefs.push(doc(db, 'test_leaderboards', rawSafeId, 'entries', currentUid));
-    }
+    const targetDocRef = doc(db, 'test_leaderboards', canonicalId, 'entries', currentUid);
 
     // Check if cloud document already exists
-    let docAlreadyExistsInCloud = false;
-    for (const ref of targetDocRefs) {
-      try {
-        const existingSnap = await getDoc(ref).catch(() => null);
-        if (existingSnap && existingSnap.exists()) {
-          // Strict First-Attempt rule: Document already exists in Firestore!
-          // Do NOT overwrite; exit immediately with 0 extra writes.
-          docAlreadyExistsInCloud = true;
-          break;
-        }
-      } catch (e) {
-        console.warn('Leaderboard entry check notice:', e);
-      }
-    }
-
-    if (docAlreadyExistsInCloud) {
-      // First attempt already safely registered in cloud!
+    const existingSnap = await getDoc(targetDocRef).catch(() => null);
+    if (existingSnap && existingSnap.exists()) {
+      // Strict First-Attempt rule: Document already exists in Firestore!
+      // Do NOT overwrite; exit immediately with 0 extra writes.
       return;
     }
 
     const sanitized = sanitizeForFirestore(newEntry);
-    for (const ref of targetDocRefs) {
-      try {
-        await setDoc(ref, sanitized, { merge: true });
-      } catch (e) {
-        console.warn('Leaderboard entry write notice:', e);
-      }
-    }
+    await setDoc(targetDocRef, sanitized, { merge: true }).catch((e) => {
+      console.warn('Leaderboard entry write notice:', e);
+    });
 
     // -------------------------------------------------------------
     // Ultra-Optimized Top-Bucket Update (1-Read Architecture)
@@ -2273,6 +2264,84 @@ export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?
       }
     } catch (bucketErr) {
       // Non-blocking background bucket sync
+    }
+
+    // -------------------------------------------------------------
+    // Master Enterprise Diamond Plan: Compact Cohort Bucket Enrollment
+    // Stores ~150 byte record into cohort_bucket_1.
+    // If cohort_bucket_1 reaches 700 KB, auto-spills to cohort_bucket_2.
+    // Commits disaster recovery snapshot to latest_snapshot.
+    // -------------------------------------------------------------
+    try {
+      const cohortBucket1Ref = doc(db, 'test_leaderboards', canonicalId, 'summary', 'cohort_bucket_1');
+      const cohortBucket2Ref = doc(db, 'test_leaderboards', canonicalId, 'summary', 'cohort_bucket_2');
+      const cohortBackupRef = doc(db, 'test_leaderboards', canonicalId, 'backup', 'latest_snapshot');
+
+      const compactRecord = {
+        uid: currentUid,
+        name: newEntry.userName || 'Learner',
+        email: newEntry.userEmail || '',
+        score: newEntry.score,
+        totalPoints: newEntry.totalPoints,
+        percentage: newEntry.percentage,
+        mode: newEntry.attemptMode || 'online',
+        durationSeconds: newEntry.timeSpentSeconds || 0,
+        wrongIndices: wrongQuestionIndices,
+        unattemptedIndices: unattemptedQuestionIndices,
+        flaggedIndices: flaggedQuestionIndices,
+        timestamp: Date.now(),
+        completedAt: newEntry.completedAt || new Date().toISOString(),
+      };
+
+      const c1Snap = await getDoc(cohortBucket1Ref).catch(() => null);
+      let targetCohortRef = cohortBucket1Ref;
+      let targetBucketIndex = 1;
+
+      if (c1Snap && c1Snap.exists()) {
+        const c1Data = c1Snap.data() || {};
+        const estSize = JSON.stringify(c1Data).length;
+        if (estSize >= 716800 || c1Data.hasPart2) {
+          targetCohortRef = cohortBucket2Ref;
+          targetBucketIndex = 2;
+          await setDoc(cohortBucket1Ref, { hasPart2: true, totalParts: 2, updatedAt: new Date().toISOString() }, { merge: true }).catch(() => {});
+        }
+      }
+
+      await setDoc(targetCohortRef, {
+        testId: canonicalId,
+        testTitle: attempt.testTitle || '',
+        bucketIndex: targetBucketIndex,
+        attempts: arrayUnion(compactRecord),
+        updatedAt: new Date().toISOString(),
+      }, { merge: true }).catch(() => {});
+
+      // Mirror atomic snapshot backup to latest_snapshot
+      await setDoc(cohortBackupRef, {
+        testId: canonicalId,
+        testTitle: attempt.testTitle || '',
+        lastEnrolledUid: currentUid,
+        backupTimestamp: new Date().toISOString(),
+        score: newEntry.score,
+        percentage: newEntry.percentage,
+      }, { merge: true }).catch(() => {});
+
+      // Personal student attempt history backup: /users/{userId}/profile/history
+      if (currentUid && currentUid !== 'guest-user' && currentUid !== 'anonymous') {
+        const studentHistoryRef = doc(db, 'users', currentUid, 'profile', 'history');
+        await setDoc(studentHistoryRef, {
+          attempts: arrayUnion({
+            testId: canonicalId,
+            testTitle: attempt.testTitle || '',
+            score: newEntry.score,
+            totalPoints: newEntry.totalPoints,
+            percentage: newEntry.percentage,
+            completedAt: newEntry.completedAt || new Date().toISOString(),
+          }),
+          updatedAt: new Date().toISOString(),
+        }, { merge: true }).catch(() => {});
+      }
+    } catch (cohortErr) {
+      console.warn('Silent cohort bucket write notice:', cohortErr);
     }
 
     firestoreTelemetry.record({
@@ -2389,16 +2458,62 @@ export async function fetchTestLeaderboard(
   let loadedFromBucket = false;
 
   try {
-    // A. 1-Read Bucket Fetch: read /test_leaderboards/{canonicalId}/summary/top_bucket
-    const bucketDocRef = doc(db, 'test_leaderboards', canonicalId, 'summary', 'top_bucket');
-    const bucketSnap = await getDoc(bucketDocRef).catch(() => null);
+    // A0. 1-Read Cohort Bucket Fetch (Master Enterprise Architecture)
+    // Reads single document /test_leaderboards/{canonicalId}/summary/cohort_bucket_1
+    const cohortBucketDocRef = doc(db, 'test_leaderboards', canonicalId, 'summary', 'cohort_bucket_1');
+    const cohortSnap = await getDoc(cohortBucketDocRef).catch(() => null);
 
-    if (bucketSnap && bucketSnap.exists()) {
-      const bData = bucketSnap.data();
-      if (Array.isArray(bData.entries) && bData.entries.length > 0) {
-        cloudEntries.push(...bData.entries);
-        totalParticipantsFromBucket = bData.totalParticipants || bData.entries.length;
-        loadedFromBucket = true;
+    if (cohortSnap && cohortSnap.exists()) {
+      const cData = cohortSnap.data() || {};
+      let attemptsList: any[] = Array.isArray(cData.attempts) ? cData.attempts : [];
+      if (cData.hasPart2) {
+        try {
+          const c2Ref = doc(db, 'test_leaderboards', canonicalId, 'summary', 'cohort_bucket_2');
+          const c2Snap = await getDoc(c2Ref).catch(() => null);
+          if (c2Snap && c2Snap.exists()) {
+            const c2Data = c2Snap.data() || {};
+            if (Array.isArray(c2Data.attempts)) {
+              attemptsList = [...attemptsList, ...c2Data.attempts];
+            }
+          }
+        } catch {}
+      }
+
+      attemptsList.forEach((att: any) => {
+        if (!att) return;
+        cloudEntries.push({
+          userId: att.uid || att.userId,
+          userName: att.name || att.userName || 'Learner',
+          userEmail: att.email || att.userEmail || '',
+          score: typeof att.score === 'number' ? att.score : 0,
+          totalPoints: typeof att.totalPoints === 'number' ? att.totalPoints : 200,
+          percentage: typeof att.percentage === 'number' ? att.percentage : 0,
+          timeSpentSeconds: typeof att.durationSeconds === 'number' ? att.durationSeconds : (att.timeSpentSeconds || 0),
+          attemptMode: att.mode || 'online',
+          completedAt: att.completedAt || (att.timestamp ? new Date(att.timestamp).toISOString() : new Date().toISOString()),
+          testTitle: testTitle || '',
+          attemptNumber: 1,
+          wrongQuestionIndices: att.wrongIndices,
+          unattemptedQuestionIndices: att.unattemptedIndices,
+        });
+      });
+
+      totalParticipantsFromBucket = attemptsList.length;
+      loadedFromBucket = true;
+    }
+
+    // A1. Fallback to top_bucket summary doc
+    if (!loadedFromBucket) {
+      const bucketDocRef = doc(db, 'test_leaderboards', canonicalId, 'summary', 'top_bucket');
+      const bucketSnap = await getDoc(bucketDocRef).catch(() => null);
+
+      if (bucketSnap && bucketSnap.exists()) {
+        const bData = bucketSnap.data();
+        if (Array.isArray(bData.entries) && bData.entries.length > 0) {
+          cloudEntries.push(...bData.entries);
+          totalParticipantsFromBucket = bData.totalParticipants || bData.entries.length;
+          loadedFromBucket = true;
+        }
       }
     }
 
@@ -2684,78 +2799,28 @@ export function subscribeToAttempts(
     return () => {};
   }
 
-  let isFirstSnapshot = true;
-
+  // Master Enterprise Zero-Idle-Cost: One-time initial fetch on login instead of persistent open stream.
+  // Student attempts are captured locally and in cohort_bucket_1. Idle reads drop to strictly 0!
   try {
-    // Real-time listener on user-scoped subcollection: /users/{userId}/attempts
     const userAttemptsCol = collection(db, 'users', userId, 'attempts');
-    return onSnapshot(userAttemptsCol, (snap) => {
-      const deltas: FirestoreDocChange<TestAttempt>[] = [];
-
-      firestoreTelemetry.record({
-        type: isFirstSnapshot ? 'STREAM_LISTEN' : 'STREAM_DELTA',
-        collection: 'attempts',
-        path: `users/${userId}/attempts`,
-        operation: 'onSnapshot',
-        docCount: isFirstSnapshot ? snap.docs.length : snap.docChanges().length,
-        data: snap.docs.map((d) => ({ id: d.id, testId: (d.data() as any)?.testId, score: (d.data() as any)?.score })),
-        caller: isFirstSnapshot ? 'Initial User Attempts Real-time Stream' : 'Live User Attempt Delta Change',
-      });
-
-      // If user subcollection is empty on initial load, check legacy root /attempts and migrate
-      if (isFirstSnapshot && snap.empty) {
-        isFirstSnapshot = false;
-        const legacyQ = query(collection(db, 'attempts'), where('userId', '==', userId), limit(25));
-        getDocs(legacyQ).then((legacySnap) => {
-          if (!legacySnap.empty) {
-            const migrated: TestAttempt[] = [];
-            legacySnap.forEach((d) => {
-              const data = d.data() as TestAttempt;
-              if (data && data.id) {
-                migrated.push(data);
-                setDoc(doc(db, 'users', userId, 'attempts', data.id), sanitizeForFirestore(data), { merge: true }).catch(() => {});
-              }
-            });
-            if (migrated.length > 0) {
-              migrated.sort((a, b) => new Date(b.completedAt || b.createdAt || 0).getTime() - new Date(a.completedAt || a.createdAt || 0).getTime());
-              onUpdate(migrated);
-            }
-          }
-        }).catch(() => {});
-        return;
-      }
-
-      snap.docChanges().forEach((change) => {
-        const raw = change.doc.data() as TestAttempt;
-        const normalized: TestAttempt = {
-          ...raw,
-          id: change.doc.id,
-        };
-        deltas.push({
-          type: change.type,
-          id: change.doc.id,
-          data: normalized,
-          isInitialLoad: isFirstSnapshot,
+    getDocs(query(userAttemptsCol, limit(50)))
+      .then((snap) => {
+        const list: TestAttempt[] = [];
+        snap.forEach((d) => {
+          const data = d.data() as TestAttempt;
+          if (data && data.id) list.push(data);
         });
+        list.sort((a, b) => new Date(b.completedAt || b.createdAt || 0).getTime() - new Date(a.completedAt || a.createdAt || 0).getTime());
+        onUpdate(list);
+      })
+      .catch((err) => {
+        console.warn('Initial attempts fetch notice:', err?.message);
+        onUpdate([]);
       });
 
-      isFirstSnapshot = false;
-
-      const list: TestAttempt[] = [];
-      snap.forEach((d) => {
-        const data = d.data() as TestAttempt;
-        if (data && data.id) {
-          list.push(data);
-        }
-      });
-      list.sort((a, b) => new Date(b.completedAt || b.createdAt || 0).getTime() - new Date(a.completedAt || a.createdAt || 0).getTime());
-      onUpdate(list, deltas);
-    }, (err) => {
-      console.warn('User attempts snapshot listener warning:', err?.message);
-      handleFirestoreError(err, OperationType.LIST, `users/${userId}/attempts`);
-    });
+    return () => {};
   } catch (err) {
-    console.warn('Failed to attach user attempts snapshot listener:', err);
+    console.warn('Failed to fetch initial attempts:', err);
     return () => {};
   }
 }
@@ -3295,6 +3360,12 @@ export function invalidateFirestoreCaches(): void {
   fullTestCache.clear();
 }
 
+export function getCachedFullTest(testId: string): MathTest | null {
+  if (!testId) return null;
+  const cached = fullTestCache.get(testId);
+  return cached ? cached.data : null;
+}
+
 export async function fetchFullTestFromFirestore(testId: string): Promise<MathTest | null> {
   if (!testId || isOfflineLocalOnlyMode()) return null;
   const cached = fullTestCache.get(testId);
@@ -3306,9 +3377,22 @@ export async function fetchFullTestFromFirestore(testId: string): Promise<MathTe
 
   try {
     const currentUid = auth.currentUser?.uid;
-    let snap = currentUid && currentUid !== 'anonymous' && currentUid !== 'guest-user'
-      ? await getDoc(doc(db, 'users', currentUid, 'tests', testId))
-      : null;
+    const isMaster = auth.currentUser?.email?.toLowerCase().trim() === 'sanju3456k@gmail.com';
+
+    // 1. Primary Authoritative: test_leaderboards/{testId}/summary/published_paper (Strictly 1 Read on 1st attempt!)
+    let snap = await getDoc(doc(db, 'test_leaderboards', testId, 'summary', 'published_paper')).catch(() => null);
+
+    // 2. If Master Admin, check Master Library
+    if ((!snap || !snap.exists()) && isMaster) {
+      snap = await getDoc(doc(db, 'master_account', 'library', 'tests', testId)).catch(() => null);
+    }
+
+    // 3. Fallback: user subcollection if user authored custom test
+    if ((!snap || !snap.exists()) && currentUid && currentUid !== 'anonymous' && currentUid !== 'guest-user') {
+      snap = await getDoc(doc(db, 'users', currentUid, 'tests', testId)).catch(() => null);
+    }
+
+    // 4. Fallback: legacy root tests
     if (!snap || !snap.exists()) {
       try {
         snap = await getDoc(doc(db, 'tests', testId));

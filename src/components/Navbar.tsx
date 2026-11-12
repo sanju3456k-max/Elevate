@@ -30,7 +30,9 @@ import {
   FileText,
   Printer,
   Code,
-  FileCode
+  FileCode,
+  Crown,
+  ShieldCheck
 } from 'lucide-react';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { useScrollLock } from '../hooks/useScrollLock';
@@ -46,6 +48,7 @@ import { APP_STYLES } from './ui/AppStyles';
 import type { User } from 'firebase/auth';
 import type { ActiveTab } from '../types';
 import { type CachedAuthUser, isOfflineLocalOnlyMode } from '../lib/storage';
+import { isMasterUser } from '../lib/masterAccount';
 
 interface NavbarProps {
   activeTab: ActiveTab;
@@ -111,6 +114,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   useScrollLock(isDrawerOpen);
 
   const displayUser = currentUser || cachedUser || null;
+  const isMaster = isMasterUser(displayUser);
 
   const isSearchActive = isSearchOpen || Boolean(searchQuery);
 
@@ -229,8 +233,22 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </div>
 
-            {/* Right Controls: Chatbot & Google Login/Profile */}
+            {/* Right Controls: Master Console, Chatbot & Google Login/Profile */}
             <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Master Console Button (Exclusively for sanju3456k@gmail.com) */}
+              {isMaster && (
+                <button
+                  id="header-master-console-btn"
+                  type="button"
+                  onClick={() => handleNavClick('master-console')}
+                  title="Open Academic Master Console (sanju3456k@gmail.com)"
+                  className="h-9 px-3 rounded-full bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/10 hover:from-amber-500/30 hover:to-yellow-500/30 text-amber-900 dark:text-amber-200 border border-amber-500/40 shadow-xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0 font-extrabold text-xs"
+                >
+                  <Crown className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
+                  <span className="hidden sm:inline">Master Console</span>
+                </button>
+              )}
+
               {/* Bot Icon Button */}
               <button
                 id="header-chatbot-icon-btn"
@@ -309,6 +327,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                           </div>
 
                       <div className="p-2 space-y-1">
+                        {isMaster && (
+                          <div className="flex items-center justify-between px-3 py-2 text-xs font-bold rounded-full bg-amber-100/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border border-amber-500/30">
+                            <div className="flex items-center gap-2">
+                              <Crown className="w-4 h-4 shrink-0 text-amber-500 fill-amber-500" />
+                              <span>Academic Enterprise Head</span>
+                            </div>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 font-black">MASTER</span>
+                          </div>
+                        )}
+
                         <div className="flex items-center justify-between px-3 py-2 text-xs font-medium rounded-full bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 text-[#041e49] dark:text-[#c2e7ff]">
                           <div className="flex items-center gap-2">
                             <Cloud className="w-4 h-4 shrink-0 text-[#0b57d0] dark:text-[#a8c7fa]" />
@@ -589,6 +617,45 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <ChevronRight className="w-4 h-4 opacity-70" />
                     </button>
                   </div>
+
+                  {/* Master Enterprise Console Section (Only for sanju3456k@gmail.com) */}
+                  {isMaster && (
+                    <>
+                      <md-divider class="my-2 opacity-50" />
+                      <div className="space-y-1.5 pt-1">
+                        <div className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider px-3 mb-1 flex items-center gap-1.5">
+                          <Crown className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                          <span>Enterprise Head</span>
+                        </div>
+
+                        <button
+                          id="drawer-item-master-console"
+                          onClick={() => handleNavClick('master-console')}
+                          className={`${activeTab === 'master-console' ? APP_STYLES.nav.itemActive : APP_STYLES.nav.item} relative overflow-hidden`}
+                        >
+                          <md-ripple />
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8.5 h-8.5 rounded-full flex items-center justify-center shrink-0 ${
+                              activeTab === 'master-console'
+                                ? 'bg-amber-500 text-slate-950 font-black'
+                                : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
+                            }`}>
+                              <Crown className="w-4.5 h-4.5 fill-current stroke-[2.2]" />
+                            </div>
+                            <div className="flex flex-col items-start text-left leading-tight">
+                              <span className="text-[17px] font-semibold text-amber-900 dark:text-amber-200">
+                                Master Console
+                              </span>
+                              <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                                Adaptive Remedial Engine
+                              </span>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 opacity-70" />
+                        </button>
+                      </div>
+                    </>
+                  )}
 
                   <md-divider class="my-2 opacity-50" />
 

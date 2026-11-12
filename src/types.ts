@@ -73,6 +73,8 @@ export interface MathTest {
   updatedAt?: string | number;
   isLocalDraft?: boolean;
   testCode?: string;
+  isPersonalizedRemedial?: boolean;
+  remedialAssignment?: AssignedRemedialTest;
   _syncStatus?: 'synced' | 'pending' | 'failed';
 }
 
@@ -293,6 +295,11 @@ export interface TestAttempt {
   completedAt: string;
   createdAt: string;
   _syncStatus?: 'synced' | 'pending' | 'failed';
+  wrongQuestionIndices?: number[];
+  unattemptedQuestionIndices?: number[];
+  flaggedQuestionIndices?: number[];
+  flaggedQuestions?: string[];
+  userAnswers?: Record<string, any>;
 }
 
 export interface OmrBubbleReading {
@@ -347,6 +354,12 @@ export interface LeaderboardEntry {
   rank?: number;
   attemptNumber?: number;
   firstAttemptId?: string;
+  wrongQuestionIndices?: number[];
+  unattemptedQuestionIndices?: number[];
+  flaggedQuestionIndices?: number[];
+  flaggedQuestions?: string[];
+  userAnswers?: Record<string, any>;
+  questionsCount?: number;
 }
 
 export interface LeaderboardTopBucketDoc {
@@ -451,7 +464,42 @@ export interface ActiveTestSession {
   updatedAt: string;
 }
 
-export type ActiveTab = 'tests' | 'create' | 'custom-builder' | 'take-test' | 'omr-test' | 'results' | 'analytics' | 'chatbot' | 'notes-repository' | 'bulk-print' | 'html-notes';
+export type ActiveTab = 'tests' | 'create' | 'custom-builder' | 'take-test' | 'omr-test' | 'results' | 'analytics' | 'chatbot' | 'notes-repository' | 'bulk-print' | 'html-notes' | 'master-console';
+
+export type RemedialFilterType = 'wrong' | 'unattempted' | 'marked' | 'unmarked' | 'all_errors' | string;
+
+export interface QuestionPointer {
+  sourceTestId: string;
+  questionIndex: number;
+  originalQuestionId?: string;
+  topic?: string;
+  difficulty?: string;
+  sourceTestTitle?: string;
+  questionData?: MathQuestion;
+}
+
+export interface AssignedRemedialTest {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentEmail?: string;
+  title: string;
+  description?: string;
+  sourceTestIds: string[];
+  filterType: RemedialFilterType;
+  categories?: ('wrong' | 'unattempted' | 'marked' | 'unmarked' | string)[];
+  pointers: QuestionPointer[];
+  totalQuestions: number;
+  timeLimitMinutes?: number;
+  createdAt: string;
+  dispatchedBy: string;
+  isCompleted?: boolean;
+  completedScore?: number;
+  completedPercentage?: number;
+  completedAt?: string;
+  isUnassigned?: boolean;
+  unassignedAt?: string;
+}
 
 export interface ParsedAppAction {
   type: 'NAVIGATE' | 'LAUNCH_TEST' | 'OPEN_STUDIO' | 'OPEN_CUSTOM_BUILDER' | 'OPEN_OMR' | 'OPEN_ANALYTICS' | 'DIAGNOSE_WEAKNESSES' | 'EXPORT_DATA' | 'OPEN_HTML_NOTES' | 'OPEN_NOTES';

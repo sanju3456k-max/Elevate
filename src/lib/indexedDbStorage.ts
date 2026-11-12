@@ -375,6 +375,58 @@ export async function putTestToIndexedDB(userId: string | null | undefined, test
 }
 
 /**
+ * Retrieves a single test with full questions from IndexedDB
+ */
+export async function getTestFromIndexedDB(userId: string | null | undefined, testId: string): Promise<MathTest | null> {
+  if (!testId) return null;
+  const normUid = normalizeStorageUid(userId);
+
+  // Check memory cache first
+  const current = memoryTestsCache.get(normUid);
+  if (current) {
+    const found = current.find((t) => t.id === testId);
+    if (found && Array.isArray(found.questions) && found.questions.length > 0) {
+      return found;
+    }
+  }
+
+  try {
+    const db = await getIndexedDb();
+    if (!db) return null;
+
+    if (db.objectStoreNames.contains(STORE_TESTS)) {
+      return new Promise<MathTest | null>((resolve) => {
+        const tx = db.transaction([STORE_TESTS], 'readonly');
+        const store = tx.objectStore(STORE_TESTS);
+        const compositeKey = `${normUid}_${testId}`;
+        const req = store.get(compositeKey);
+        req.onsuccess = () => {
+          const res = req.result;
+          if (res && res.data && Array.isArray(res.data.questions) && res.data.questions.length > 0) {
+            resolve(res.data);
+          } else {
+            // Also check under guest fallback key
+            const guestReq = store.get(`guest_${testId}`);
+            guestReq.onsuccess = () => {
+              const gRes = guestReq.result;
+              if (gRes && gRes.data && Array.isArray(gRes.data.questions) && gRes.data.questions.length > 0) {
+                resolve(gRes.data);
+              } else {
+                resolve(null);
+              }
+            };
+            guestReq.onerror = () => resolve(null);
+          }
+        };
+        req.onerror = () => resolve(null);
+      });
+    }
+  } catch {}
+
+  return null;
+}
+
+/**
  * Deletes a test from IndexedDB and memory cache
  */
 export async function deleteTestFromIndexedDB(userId: string | null | undefined, testId: string): Promise<void> {
@@ -494,6 +546,57 @@ export async function getAllAttemptsFromIndexedDB(userId?: string | null): Promi
     console.warn('getAllAttemptsFromIndexedDB error:', err);
     return memoryAttemptsCache.get(normUid) || [];
   }
+}
+
+/**
+ * Retrieves all test attempts across all users/accounts stored in IndexedDB.
+ * Used by Master Console to discover authentic student error analytics locally.
+ */
+export async function getAllAttemptsAcrossAllUsersFromIndexedDB(): Promise<TestAttempt[]> {
+  const results: TestAttempt[] = [];
+  const seenIds = new Set<string>();
+
+  // 1. Gather all synchronous attempts in memory cache
+  memoryAttemptsCache.forEach((list) => {
+    if (Array.isArray(list)) {
+      list.forEach((att) => {
+        if (att && att.id && !seenIds.has(att.id)) {
+          seenIds.add(att.id);
+          results.push(att);
+        }
+      });
+    }
+  });
+
+  // 2. Query IndexedDB discrete store
+  try {
+    const db = await getIndexedDb();
+    if (db && db.objectStoreNames.contains(STORE_ATTEMPTS)) {
+      await new Promise<void>((resolve) => {
+        try {
+          const tx = db.transaction([STORE_ATTEMPTS], 'readonly');
+          const store = tx.objectStore(STORE_ATTEMPTS);
+          const req = store.getAll();
+          req.onsuccess = () => {
+            const items = req.result || [];
+            items.forEach((it: any) => {
+              const att = it.data || it;
+              if (att && att.id && !seenIds.has(att.id)) {
+                seenIds.add(att.id);
+                results.push(att);
+              }
+            });
+            resolve();
+          };
+          req.onerror = () => resolve();
+        } catch {
+          resolve();
+        }
+      });
+    }
+  } catch {}
+
+  return results;
 }
 
 /**
