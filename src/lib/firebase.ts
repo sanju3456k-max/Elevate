@@ -3512,12 +3512,7 @@ export async function fetchFullTestFromFirestore(testId: string): Promise<MathTe
     // 1. Primary Authoritative: test_leaderboards/{testId}/summary/published_paper (Strictly 1 Read on 1st attempt!)
     let snap = await getDoc(doc(db, 'test_leaderboards', testId, 'summary', 'published_paper')).catch(() => null);
 
-    // 2. If Master Admin, check Master Library
-    if ((!snap || !snap.exists()) && isMaster) {
-      snap = await getDoc(doc(db, 'master_account', 'library', 'tests', testId)).catch(() => null);
-    }
-
-    // 3. Fallback: user subcollection if user authored custom test
+    // 2. Fallback: user subcollection if user authored custom test
     if ((!snap || !snap.exists()) && currentUid && currentUid !== 'anonymous' && currentUid !== 'guest-user') {
       snap = await getDoc(doc(db, 'users', currentUid, 'tests', testId)).catch(() => null);
     }

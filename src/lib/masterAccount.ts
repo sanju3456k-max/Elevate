@@ -321,15 +321,7 @@ export async function publishMasterTest(test: MathTest): Promise<{ success: bool
       const docRef = doc(db, 'test_leaderboards', masterTest.id, 'summary', 'published_paper');
       await setDoc(docRef, sanitizedFullPaper, { merge: true });
 
-      // Channel C: Master Authoritative Library Storage
-      if (isMasterUser(auth.currentUser)) {
-        try {
-          const masterAuthoritativeDocRef = doc(db, 'master_account', 'library', 'tests', masterTest.id);
-          await setDoc(masterAuthoritativeDocRef, sanitizedFullPaper, { merge: true }).catch(() => {});
-        } catch {}
-      }
-
-      // Channel D: Atomic Backup Snapshot (Mirror state for disaster recovery)
+      // Channel C: Atomic Backup Snapshot (Mirror state for disaster recovery)
       await setDoc(catalogBackupDocRef, {
         testId: masterTest.id,
         testTitle: masterTest.title,
@@ -416,13 +408,7 @@ export async function unpublishMasterTest(testId: string): Promise<void> {
       const docRef = doc(db, 'test_leaderboards', testId, 'summary', 'published_paper');
       await deleteDoc(docRef).catch(() => {});
 
-      // 2b. Delete from master authoritative library
-      if (isMasterUser(auth.currentUser)) {
-        try {
-          const masterAuthoritativeDocRef = doc(db, 'master_account', 'library', 'tests', testId);
-          await deleteDoc(masterAuthoritativeDocRef).catch(() => {});
-        } catch {}
-      }
+
     } catch (err) {
       console.warn('Could not complete cloud unpublish:', err);
     }
