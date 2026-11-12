@@ -1484,11 +1484,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                     className="w-full px-4 py-2 text-xs font-semibold rounded-full bg-[#f0f4f9] dark:bg-[#141619] border-0 text-[#1f1f1f] dark:text-[#e3e3e3] focus:outline-none focus:ring-2 focus:ring-[#0b57d0] cursor-pointer"
                   >
                     {filteredAnalyticsTests.map((t) => {
-                      const globalIdx = tests.findIndex((item) => item.id === t.id) + 1;
                       const qCount = t.questions?.length || (t as any).questionCount || 50;
                       return (
                         <option key={t.id} value={t.id}>
-                          #{globalIdx}. {t.title} ({qCount} Questions)
+                          {t.title} ({qCount} Questions)
                         </option>
                       );
                     })}
@@ -1580,7 +1579,6 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-72 overflow-y-auto pr-1 [scrollbar-width:thin]">
                     {filteredAnalyticsTests.map((t) => {
                       const isSelected = t.id === selectedAnalyticsTestId;
-                      const globalIdx = tests.findIndex((item) => item.id === t.id) + 1;
                       const qCount = t.questions?.length || (t as any).questionCount || 50;
 
                       return (
@@ -1597,7 +1595,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                         >
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-bold truncate">
-                              #{globalIdx}. {t.title}
+                              {t.title}
                             </p>
                             <p className={`text-[10px] font-mono mt-0.5 ${isSelected ? 'text-[#041e49]/70 dark:text-[#c2e7ff]/70' : 'text-[#5e5e5e] dark:text-[#9aa0a6]'}`}>
                               {qCount} Questions • {t.timeLimitMinutes || 60}m
