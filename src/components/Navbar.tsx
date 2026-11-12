@@ -242,9 +242,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                   type="button"
                   onClick={() => handleNavClick('master-console')}
                   title="Open Academic Master Console (sanju3456k@gmail.com)"
-                  className="h-9 px-3 rounded-full bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/10 hover:from-amber-500/30 hover:to-yellow-500/30 text-amber-900 dark:text-amber-200 border border-amber-500/40 shadow-xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0 font-extrabold text-xs"
+                  className="h-9 px-3 rounded-full bg-orange-500 hover:bg-orange-600 dark:bg-orange-500 dark:hover:bg-orange-600 text-white border-0 shadow-[0_2px_6px_rgba(249,115,22,0.35)] flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0 font-bold text-xs outline-none select-none"
                 >
-                  <Crown className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
+                  <Crown className="w-4 h-4 text-white fill-white shrink-0" />
                   <span className="hidden sm:inline">Master Console</span>
                 </button>
               )}
