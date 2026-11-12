@@ -17,6 +17,7 @@ import type { MathTest, LeaderboardEntry, TestLeaderboardSummary } from '../type
 import type { User } from 'firebase/auth';
 import { 
   fetchTestLeaderboard, 
+  subscribeToTestLeaderboard,
   syncAllUserAttemptsToLeaderboard,
   getSynchronousCachedLeaderboard
 } from '../lib/firebase';
@@ -81,47 +82,56 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
   const [justRefreshed, setJustRefreshed] = useState<boolean>(false);
   const [modeFilter, setModeFilter] = useState<'all' | 'online' | 'omr'>('all');
 
-  const loadLeaderboardData = useCallback(async (force = false) => {
+  const handleManualRefresh = useCallback(async () => {
     if (!test?.id && !test?.title) return;
-    if (force) {
-      setIsRefreshing(true);
-    } else if (!summary) {
+    setIsRefreshing(true);
+    try {
+      if (currentUser?.uid) {
+        await syncAllUserAttemptsToLeaderboard(currentUser.uid, test.id).catch(() => {});
+      }
+      const data = await fetchTestLeaderboard(test.id || '', test.title, true);
+      setSummary(data);
+      setJustRefreshed(true);
+      setTimeout(() => setJustRefreshed(false), 2500);
+    } catch (err) {
+      console.warn('Failed to refresh leaderboard:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [test?.id, test?.title, currentUser?.uid]);
+
+  // Real-time active listener: strictly 1 listener on 1 single document while modal is open!
+  // Cost: Exactly 1 document read on modal open.
+  // Immediately unsubscribes when modal closes or unmounts, leaving 0 background listeners.
+  useEffect(() => {
+    if (!isOpen || (!test?.id && !test?.title)) {
+      setSummary(null);
+      return;
+    }
+
+    // 1. Instant 0ms cached display
+    const syncData = getSynchronousCachedLeaderboard(test.id || '', test.title, currentUser?.uid);
+    if (syncData) {
+      setSummary(syncData);
+      setIsLoading(false);
+    } else {
       setIsLoading(true);
     }
 
-    try {
-      // If forcing refresh, also push all local user attempts for this test
-      if (force && currentUser?.uid) {
-        await syncAllUserAttemptsToLeaderboard(currentUser.uid, test.id).catch(() => {});
-      }
-
-      const data = await fetchTestLeaderboard(test.id || '', test.title, force);
-      setSummary(data);
-
-      if (force) {
-        setJustRefreshed(true);
-        setTimeout(() => setJustRefreshed(false), 2500);
-      }
-    } catch (err) {
-      console.warn('Failed to load leaderboard:', err);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [test?.id, test?.title, currentUser?.uid, summary]);
-
-  useEffect(() => {
-    if (isOpen && (test?.id || test?.title)) {
-      const syncData = getSynchronousCachedLeaderboard(test.id || '', test.title, currentUser?.uid);
-      if (syncData) {
-        setSummary(syncData);
+    // 2. Attach strictly ONE active listener on the single cohort_bucket_1 document (Strictly 1 Read)
+    const unsubscribe = subscribeToTestLeaderboard(
+      test.id || '',
+      test.title,
+      (liveSummary) => {
+        setSummary(liveSummary);
         setIsLoading(false);
       }
-      loadLeaderboardData(false);
-    } else {
-      setSummary(null);
-    }
-  }, [isOpen, test?.id, test?.title, loadLeaderboardData, currentUser?.uid]);
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [isOpen, test?.id, test?.title, currentUser?.uid]);
 
   // Synchronize status bar theme-color to match leaderboard page body (#ffffff light / #0c0e12 dark)
   useEffect(() => {
@@ -287,7 +297,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
             <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
               <button
                 type="button"
-                onClick={() => loadLeaderboardData(true)}
+                onClick={() => handleManualRefresh()}
                 disabled={isRefreshing || isLoading}
                 title={justRefreshed ? "Rankings refreshed & synced!" : "Sync & Refresh live rankings"}
                 className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-95 disabled:opacity-50 ${

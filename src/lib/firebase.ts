@@ -2398,6 +2398,122 @@ export async function syncAllUserAttemptsToLeaderboard(userId?: string, targetTe
 }
 
 /**
+ * Real-time Active Leaderboard Listener (Master Enterprise Architecture)
+ * Attaches STRICTLY 1 onSnapshot listener to the single cohort_bucket_1 document while the leaderboard modal is open.
+ * Unsubscribes immediately when the modal closes or on unmount.
+ * Cost: Exactly 1 document read on attach.
+ */
+export function subscribeToTestLeaderboard(
+  testId: string,
+  testTitle: string | undefined,
+  onUpdate: (summary: TestLeaderboardSummary) => void
+): () => void {
+  if (isOfflineLocalOnlyMode() || typeof window === 'undefined' || (!testId && !testTitle)) {
+    return () => {};
+  }
+
+  const canonicalId = getCanonicalLeaderboardId(testId, testTitle);
+  const cohortBucketDocRef = doc(db, 'test_leaderboards', canonicalId, 'summary', 'cohort_bucket_1');
+
+  try {
+    const unsub = onSnapshot(
+      cohortBucketDocRef,
+      (snap) => {
+        firestoreTelemetry.record({
+          type: 'READ',
+          collection: 'test_leaderboards',
+          path: `test_leaderboards/${canonicalId}/summary/cohort_bucket_1`,
+          operation: 'onSnapshot',
+          docCount: snap.exists() ? 1 : 0,
+          caller: 'Active Leaderboard Modal View Listener (Strictly 1 Document Read)',
+        });
+
+        const cloudEntries: LeaderboardEntry[] = [];
+        let totalParticipants = 0;
+
+        if (snap.exists()) {
+          const cData = snap.data() || {};
+          const attemptsList: any[] = Array.isArray(cData.attempts) ? cData.attempts : [];
+          attemptsList.forEach((att: any) => {
+            if (!att) return;
+            cloudEntries.push({
+              userId: att.uid || att.userId,
+              userName: att.name || att.userName || 'Learner',
+              userEmail: att.email || att.userEmail || '',
+              score: typeof att.score === 'number' ? att.score : 0,
+              totalPoints: typeof att.totalPoints === 'number' ? att.totalPoints : 200,
+              percentage: typeof att.percentage === 'number' ? att.percentage : 0,
+              timeSpentSeconds: typeof att.durationSeconds === 'number' ? att.durationSeconds : (att.timeSpentSeconds || 0),
+              attemptMode: att.mode || 'online',
+              completedAt: att.completedAt || (att.timestamp ? new Date(att.timestamp).toISOString() : new Date().toISOString()),
+              testTitle: testTitle || '',
+              attemptNumber: 1,
+              wrongQuestionIndices: att.wrongIndices,
+              unattemptedQuestionIndices: att.unattemptedIndices,
+            });
+          });
+          totalParticipants = attemptsList.length;
+        }
+
+        // Merge with local entries
+        const localEntries = [
+          ...getLocalLeaderboardEntries(testId, testTitle),
+          ...getLocalLeaderboardEntries(canonicalId),
+        ];
+
+        const mergedMap = new Map<string, LeaderboardEntry>();
+        cloudEntries.forEach((e) => {
+          if (!e || !e.userId) return;
+          const existing = mergedMap.get(e.userId);
+          if (!existing || e.score > existing.score || (e.score === existing.score && e.timeSpentSeconds < existing.timeSpentSeconds)) {
+            mergedMap.set(e.userId, e);
+          }
+        });
+        localEntries.forEach((e) => {
+          if (!e || !e.userId) return;
+          const existing = mergedMap.get(e.userId);
+          if (!existing || e.score > existing.score) {
+            mergedMap.set(e.userId, e);
+          }
+        });
+
+        const allEntries = Array.from(mergedMap.values());
+        allEntries.sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score;
+          return a.timeSpentSeconds - b.timeSpentSeconds;
+        });
+
+        const rankedEntries: LeaderboardEntry[] = allEntries.map((e, idx) => ({
+          ...e,
+          rank: idx + 1,
+        }));
+
+        const currentUid = auth.currentUser?.uid;
+        const currentEntry = currentUid ? rankedEntries.find((e) => e.userId === currentUid) : undefined;
+
+        const summary: TestLeaderboardSummary = {
+          entries: rankedEntries,
+          totalParticipants: Math.max(totalParticipants, rankedEntries.length),
+          currentUserRank: currentEntry?.rank,
+          currentUserEntry: currentEntry,
+        };
+
+        inMemoryLeaderboardCache.set(canonicalId, { data: summary, timestamp: Date.now() });
+        onUpdate(summary);
+      },
+      (err) => {
+        console.warn('subscribeToTestLeaderboard notice:', err);
+      }
+    );
+
+    return unsub;
+  } catch (err) {
+    console.warn('Failed to attach subscribeToTestLeaderboard:', err);
+    return () => {};
+  }
+}
+
+/**
  * Enterprise-grade optimized leaderboard fetcher.
  * Merges entries by test title and testId, immune to missing composite index errors.
  */
@@ -2517,37 +2633,34 @@ export async function fetchTestLeaderboard(
       }
     }
 
-    // B. If bucket not found or if forceRefresh requested, fallback to querying collections
-    if (!loadedFromBucket || forceRefresh) {
-      const collectionsToCheck = [canonicalId];
-      if (rawSafeId && rawSafeId !== canonicalId) {
-        collectionsToCheck.push(rawSafeId);
+    // A2. Single-Document Fallback on rawSafeId if canonical bucket not found (Cost: Strictly 1 Read)
+    if (!loadedFromBucket && rawSafeId && rawSafeId !== canonicalId) {
+      const altCohortBucketRef = doc(db, 'test_leaderboards', rawSafeId, 'summary', 'cohort_bucket_1');
+      const altCohortSnap = await getDoc(altCohortBucketRef).catch(() => null);
+      if (altCohortSnap && altCohortSnap.exists()) {
+        const altData = altCohortSnap.data() || {};
+        let attemptsList: any[] = Array.isArray(altData.attempts) ? altData.attempts : [];
+        attemptsList.forEach((att: any) => {
+          if (!att) return;
+          cloudEntries.push({
+            userId: att.uid || att.userId,
+            userName: att.name || att.userName || 'Learner',
+            userEmail: att.email || att.userEmail || '',
+            score: typeof att.score === 'number' ? att.score : 0,
+            totalPoints: typeof att.totalPoints === 'number' ? att.totalPoints : 200,
+            percentage: typeof att.percentage === 'number' ? att.percentage : 0,
+            timeSpentSeconds: typeof att.durationSeconds === 'number' ? att.durationSeconds : (att.timeSpentSeconds || 0),
+            attemptMode: att.mode || 'online',
+            completedAt: att.completedAt || (att.timestamp ? new Date(att.timestamp).toISOString() : new Date().toISOString()),
+            testTitle: testTitle || '',
+            attemptNumber: 1,
+            wrongQuestionIndices: att.wrongIndices,
+            unattemptedQuestionIndices: att.unattemptedIndices,
+          });
+        });
+        totalParticipantsFromBucket = attemptsList.length;
+        loadedFromBucket = true;
       }
-
-      for (const colId of collectionsToCheck) {
-        try {
-          const colRef = collection(db, 'test_leaderboards', colId, 'entries');
-          const snap = await getDocs(query(colRef, limit(100)));
-          if (snap && !snap.empty) {
-            snap.docs.forEach((d) => {
-              cloudEntries.push(d.data() as LeaderboardEntry);
-            });
-          }
-        } catch (colErr) {
-          console.warn(`Could not read entries from ${colId}:`, colErr);
-        }
-      }
-    }
-
-    // C. If current user is logged in and not found in the top bucket, fetch ONLY current user's entry (Cost: 1 extra read)
-    if (currentUid && loadedFromBucket && !cloudEntries.some(e => e.userId === currentUid)) {
-      try {
-        const userEntryDocRef = doc(db, 'test_leaderboards', canonicalId, 'entries', currentUid);
-        const userEntrySnap = await getDoc(userEntryDocRef).catch(() => null);
-        if (userEntrySnap && userEntrySnap.exists()) {
-          cloudEntries.push(userEntrySnap.data() as LeaderboardEntry);
-        }
-      } catch {}
     }
   } catch (err) {
     console.warn('Cloud leaderboard retrieval warning:', err);

@@ -41,7 +41,7 @@ import {
 import type { MathTest, TestAttempt, ActiveTestSession, UserProfile, TestHistoryEntry, AssignedRemedialTest } from '../types';
 import { getAllAvailableTopics } from '../utils/topics';
 import { isAttemptOmrMode, pruneAttemptsToFirstAndLast } from '../lib/storage';
-import { searchCloudTests, fetchTestLeaderboard, getLocalLeaderboardEntries, getCachedFullTest } from '../lib/firebase';
+import { searchCloudTests, getLocalLeaderboardEntries, getCachedFullTest, getSynchronousCachedLeaderboard } from '../lib/firebase';
 import { createShareUrlAsync, formatTestShareMessage } from '../utils/shareUtils';
 import type { User } from 'firebase/auth';
 import { useScrollLock } from '../hooks/useScrollLock';
@@ -399,43 +399,39 @@ export const TestList: React.FC<TestListProps> = ({
     }
   };
 
-  // Asynchronously resolve leaderboard rank for detailed test
+  // Synchronously resolve leaderboard rank for detailed test from local/cached storage (Strictly 0 cloud reads)
+  // Cloud leaderboard is only read when the user explicitly clicks the Leaderboard Trophy button.
   useEffect(() => {
-    let isMounted = true;
     if (!detailedTest || isRemedialTest(detailedTest)) return;
     const key = `${detailedTest.id || ''}:::${detailedTest.title || ''}`;
 
-    (async () => {
-      try {
-        const summary = await fetchTestLeaderboard(detailedTest.id, detailedTest.title);
-        if (!isMounted || !summary) return;
+    try {
+      const summary = getSynchronousCachedLeaderboard(detailedTest.id, detailedTest.title, currentUser?.uid);
+      if (!summary) return;
 
-        let rank = summary.currentUserRank || summary.currentUserEntry?.rank;
-        if (!rank && summary.entries?.length) {
-          const currentUid = currentUser?.uid;
-          const currentName = currentUser?.displayName;
-          const match = summary.entries.find(e => 
-            (currentUid && e.userId === currentUid) || 
-            (currentName && e.userName && e.userName.toLowerCase() === currentName.toLowerCase())
-          );
-          if (match?.rank) {
-            rank = match.rank;
+      let rank = summary.currentUserRank || summary.currentUserEntry?.rank;
+      if (!rank && summary.entries?.length) {
+        const currentUid = currentUser?.uid;
+        const currentName = currentUser?.displayName;
+        const match = summary.entries.find(e => 
+          (currentUid && e.userId === currentUid) || 
+          (currentName && e.userName && e.userName.toLowerCase() === currentName.toLowerCase())
+        );
+        if (match?.rank) {
+          rank = match.rank;
+        }
+      }
+
+      if (rank) {
+        setTestRanks(prev => ({
+          ...prev,
+          [key]: {
+            rank,
+            total: summary.totalParticipants || summary.entries.length
           }
-        }
-
-        if (rank) {
-          setTestRanks(prev => ({
-            ...prev,
-            [key]: {
-              rank,
-              total: summary.totalParticipants || summary.entries.length
-            }
-          }));
-        }
-      } catch {}
-    })();
-
-    return () => { isMounted = false; };
+        }));
+      }
+    } catch {}
   }, [detailedTest, currentUser?.uid, currentUser?.displayName]);
 
   // Helper to resolve verified leaderboard rank for an attempt card
