@@ -2425,12 +2425,35 @@ export function getAllLocalAttemptsAcrossAccounts(): TestAttempt[] {
 }
 
 /**
- * In-memory cache for cohort attempts to eliminate repetitive Firestore read spikes
+ * In-memory & session-storage cache for cohort attempts to eliminate repetitive Firestore read spikes
  * during Master Console test selections and remedial previews.
  */
 const cohortAttemptsMemoryCache = new Map<string, { timestamp: number; attempts: TestAttempt[] }>();
 const activeCohortFetchPromises = new Map<string, Promise<TestAttempt[]>>();
-const COHORT_CACHE_TTL_MS = 5 * 60 * 1000; // 5-minute memory cache
+const COHORT_CACHE_TTL_MS = 15 * 60 * 1000; // 15-minute cache
+
+function getSessionCachedCohortAttempts(testId: string): TestAttempt[] | null {
+  try {
+    if (typeof sessionStorage === 'undefined') return null;
+    const raw = sessionStorage.getItem(`elevate_cohort_cache_${testId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && Array.isArray(parsed.attempts) && (Date.now() - parsed.timestamp < COHORT_CACHE_TTL_MS)) {
+      return parsed.attempts;
+    }
+  } catch {}
+  return null;
+}
+
+function setSessionCachedCohortAttempts(testId: string, attempts: TestAttempt[]): void {
+  try {
+    if (typeof sessionStorage === 'undefined') return;
+    sessionStorage.setItem(`elevate_cohort_cache_${testId}`, JSON.stringify({
+      timestamp: Date.now(),
+      attempts,
+    }));
+  } catch {}
+}
 
 /**
  * Convert a Firestore LeaderboardEntry into a lightweight synthetic TestAttempt
@@ -2591,14 +2614,21 @@ export function convertCompactRecordToAttempt(rec: any, activeTest: MathTest): T
  *
  * Drastically minimizes Firestore reads down to 1 doc per test with 5-minute memory caching.
  */
-export async function fetchCohortAttemptsForTest(test: MathTest): Promise<TestAttempt[]> {
+export async function fetchCohortAttemptsForTest(test: MathTest, forceRefresh: boolean = false): Promise<TestAttempt[]> {
   if (!test || !test.id) return [];
 
   const cacheKey = test.id;
   const now = Date.now();
-  const cached = cohortAttemptsMemoryCache.get(cacheKey);
-  if (cached && (now - cached.timestamp < COHORT_CACHE_TTL_MS)) {
-    return cached.attempts;
+  if (!forceRefresh) {
+    const cached = cohortAttemptsMemoryCache.get(cacheKey);
+    if (cached && (now - cached.timestamp < COHORT_CACHE_TTL_MS)) {
+      return cached.attempts;
+    }
+    const sessionCached = getSessionCachedCohortAttempts(cacheKey);
+    if (sessionCached) {
+      cohortAttemptsMemoryCache.set(cacheKey, { timestamp: now, attempts: sessionCached });
+      return sessionCached;
+    }
   }
 
   if (activeCohortFetchPromises.has(cacheKey)) {
@@ -2793,6 +2823,7 @@ export async function fetchCohortAttemptsForTest(test: MathTest): Promise<TestAt
     }
 
     cohortAttemptsMemoryCache.set(cacheKey, { timestamp: Date.now(), attempts: results });
+    setSessionCachedCohortAttempts(cacheKey, results);
     return results;
   })();
 

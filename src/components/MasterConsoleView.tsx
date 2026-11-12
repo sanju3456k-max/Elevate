@@ -37,7 +37,8 @@ import {
   FileText,
   Activity,
   Info,
-  Trash2
+  Trash2,
+  RotateCw
 } from 'lucide-react';
 import type { MathTest, TestAttempt, RemedialFilterType, AssignedRemedialTest } from '../types';
 import { 
@@ -97,9 +98,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   // ==========================================
   // 1. Adaptive Remedial Engine State
   // ==========================================
-  const [selectedSourceTestIds, setSelectedSourceTestIds] = useState<string[]>(() => {
-    return tests.slice(0, 3).map((t) => t.id);
-  });
+  const [selectedSourceTestIds, setSelectedSourceTestIds] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<('wrong' | 'unattempted' | 'marked' | 'unmarked')[]>(['wrong', 'unattempted', 'marked']);
   const [customTitle, setCustomTitle] = useState<string>('Custom Practice Set');
   const [timeLimitMinutes, setTimeLimitMinutes] = useState<number>(30);
@@ -183,8 +182,11 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   const [isLoadingCohort, setIsLoadingCohort] = useState<boolean>(false);
   const fetchingTestIdsRef = useRef<Set<string>>(new Set());
 
-  // Background fetch cohort student attempts for source tests with debounce and deduplication
+  // Background fetch cohort student attempts for source tests with debounce and deduplication (Only on remedial tab)
   React.useEffect(() => {
+    if (activeTab !== 'remedial') return;
+    if (selectedSourceTests.length === 0) return;
+
     selectedSourceTests.forEach((t) => {
       if (t && t.id && !cloudCohortAttemptsMap[t.id] && !fetchingTestIdsRef.current.has(t.id)) {
         fetchingTestIdsRef.current.add(t.id);
@@ -206,7 +208,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
           });
       }
     });
-  }, [selectedSourceTests, cloudCohortAttemptsMap]);
+  }, [selectedSourceTests, cloudCohortAttemptsMap, activeTab]);
 
   const combinedRemedialAttempts = useMemo(() => {
     const seenIds = new Set<string>();
@@ -269,14 +271,17 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
 
   // Keep dispatch ledger reactively in sync across cloud and local events
   React.useEffect(() => {
-    // Initial fetch from cloud Firestore (MASTER_REMEDIAL_CATALOG)
-    fetchMasterDispatchLedgerFromCloud()
-      .then((ledger) => {
-        if (Array.isArray(ledger)) {
-          setDispatchLedger(ledger);
-        }
-      })
-      .catch(() => {});
+    // Only pull from cloud if local ledger is completely empty (0 reads if already cached)
+    const local = getMasterDispatchLedger();
+    if (!local || local.length === 0) {
+      fetchMasterDispatchLedgerFromCloud()
+        .then((ledger) => {
+          if (Array.isArray(ledger) && ledger.length > 0) {
+            setDispatchLedger(ledger);
+          }
+        })
+        .catch(() => {});
+    }
 
     const handleLedgerUpdate = () => {
       setDispatchLedger(getMasterDispatchLedger());
@@ -472,9 +477,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     return tests.find((t) => t.id === selectedAnalyticsTestId) || tests[0] || null;
   }, [tests, selectedAnalyticsTestId]);
 
-  // Fetch cloud cohort student attempts for the selected analytics test
+  // Fetch cloud cohort student attempts for the selected analytics test (Only when viewing Analytics tab)
   React.useEffect(() => {
     if (!selectedAnalyticsTest || !selectedAnalyticsTest.id) return;
+    if (activeTab !== 'analytics') return;
     const testId = selectedAnalyticsTest.id;
     if (cloudCohortAttemptsMap[testId]) return;
 
@@ -490,7 +496,27 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
       .finally(() => {
         setIsLoadingCohort(false);
       });
-  }, [selectedAnalyticsTest, cloudCohortAttemptsMap]);
+  }, [selectedAnalyticsTest, cloudCohortAttemptsMap, activeTab]);
+
+  const [isRefreshingCohort, setIsRefreshingCohort] = useState<boolean>(false);
+
+  const handleRefreshAnalyticsCohort = async () => {
+    if (!selectedAnalyticsTest || !selectedAnalyticsTest.id) return;
+    const testId = selectedAnalyticsTest.id;
+    setIsRefreshingCohort(true);
+    try {
+      const cloudList = await fetchCohortAttemptsForTest(selectedAnalyticsTest, true);
+      setCloudCohortAttemptsMap((prev) => ({
+        ...prev,
+        [testId]: cloudList,
+      }));
+      showNotification(`Refreshed student attempts for "${selectedAnalyticsTest.title}".`, 'info');
+    } catch {
+      alert('Could not refresh attempts. Please try again.');
+    } finally {
+      setIsRefreshingCohort(false);
+    }
+  };
 
   const combinedAnalyticsAttempts = useMemo(() => {
     if (!selectedAnalyticsTest) return attempts;
@@ -567,18 +593,12 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     return getMasterPublishedTestIds();
   });
 
-  // Sync published tests state reactively
+  // Sync published tests state reactively (0 reads on mount, kept synced by App.tsx real-time listener)
   React.useEffect(() => {
     const handleUpdate = () => {
       setPublishedTestIds(getMasterPublishedTestIds());
     };
     window.addEventListener('tests-published-updated', handleUpdate);
-
-    fetchPublishedMasterTestsFromCloud()
-      .then(() => {
-        setPublishedTestIds(getMasterPublishedTestIds());
-      })
-      .catch(() => {});
 
     return () => {
       window.removeEventListener('tests-published-updated', handleUpdate);
@@ -1279,6 +1299,16 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleRefreshAnalyticsCohort}
+                    disabled={isRefreshingCohort || isLoadingCohort}
+                    className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 hover:opacity-90 text-[#041e49] dark:text-[#c2e7ff] flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                    title="Fetch latest student attempt records for this test from cloud (Strictly 1 Read)"
+                  >
+                    <RotateCw className={`w-3.5 h-3.5 ${isRefreshingCohort || isLoadingCohort ? 'animate-spin' : ''}`} />
+                    <span>{isRefreshingCohort || isLoadingCohort ? 'Refreshing...' : 'Refresh Attempts'}</span>
+                  </button>
+
                   <button
                     onClick={handleExportCsv}
                     className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 flex items-center gap-1.5 transition-colors cursor-pointer"
