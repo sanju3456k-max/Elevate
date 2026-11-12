@@ -38,7 +38,8 @@ import {
   Activity,
   Info,
   Trash2,
-  RotateCw
+  RotateCw,
+  Package
 } from 'lucide-react';
 import type { MathTest, TestAttempt, RemedialFilterType, AssignedRemedialTest } from '../types';
 import { 
