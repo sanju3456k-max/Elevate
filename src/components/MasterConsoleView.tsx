@@ -403,6 +403,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     setSelectedSourceTestIds(tests.map((t) => t.id));
   };
 
+  const handleClearSelection = () => {
+    setSelectedSourceTestIds([]);
+  };
+
   const handleDispatchRemedial = async () => {
     if (selectedSourceTests.length === 0) {
       alert('Please select at least 1 source test.');
@@ -620,13 +624,13 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   return (
     <div className="fixed inset-0 bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30 select-none">
       
-      {/* Top App Bar (Google Material 3 Authentic Header) */}
-      <header className="px-4 sm:px-6 py-3 bg-white dark:bg-[#1a1d24] border-b border-slate-200 dark:border-zinc-800 shrink-0 flex items-center justify-between gap-3 z-10 shadow-xs">
+      {/* Top App Bar (Google Material 3 Seamless Header - Color-matched to mobile status bar with 0 border line) */}
+      <header className="px-4 sm:px-6 md:px-8 pt-[calc(env(safe-area-inset-top,0px)+0.45rem)] pb-2 bg-[#e5e9f0] dark:bg-[#0b0c10] shrink-0 flex items-center justify-between gap-3 z-10 border-0 shadow-none">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
             title="Back to App"
-            className="w-9 h-9 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 flex items-center justify-center transition-colors cursor-pointer"
+            className="w-10 h-10 rounded-full bg-white/90 dark:bg-zinc-800/90 hover:bg-white dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 flex items-center justify-center transition-all cursor-pointer shadow-xs border border-slate-300/40 dark:border-zinc-700/50 active:scale-95"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -636,7 +640,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
               <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
                 Master Console
               </h1>
-              <span className="w-2 h-2 rounded-full bg-amber-500" title="Active Master Control" />
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" title="Active Master Control" />
             </div>
             <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono">
               Academic Control Center • {MASTER_ADMIN_EMAIL}
@@ -650,7 +654,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             <button
               onClick={onToggleTheme}
               title="Toggle Dark/Light Mode"
-              className="w-9 h-9 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 flex items-center justify-center transition-colors cursor-pointer"
+              className="w-10 h-10 rounded-full bg-white/90 dark:bg-zinc-800/90 hover:bg-white dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 flex items-center justify-center transition-all cursor-pointer shadow-xs border border-slate-300/40 dark:border-zinc-700/50 active:scale-95"
             >
               {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-[#0b57d0]" />}
             </button>
@@ -659,22 +663,22 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
           <button
             onClick={onBack}
             title="Exit Console"
-            className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 transition-colors cursor-pointer"
+            className="px-4 py-2 rounded-full text-xs font-black bg-white/90 dark:bg-zinc-800/90 hover:bg-white dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 transition-all cursor-pointer shadow-xs border border-slate-300/40 dark:border-zinc-700/50 active:scale-95"
           >
             Done
           </button>
         </div>
       </header>
 
-      {/* Tab Navigation Pill Bar */}
-      <div className="px-4 sm:px-6 py-2.5 bg-[#f8fafd] dark:bg-[#14161b] border-b border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-between gap-3 overflow-x-auto shrink-0">
-        <div className="flex items-center gap-2">
+      {/* Tab Navigation Pill Bar (Seamless M3 Segmented Tabs - No partition line) */}
+      <div className="px-4 sm:px-6 md:px-8 pb-3 pt-0 bg-[#e5e9f0] dark:bg-[#0b0c10] flex items-center justify-between gap-3 overflow-x-auto shrink-0 border-0 shadow-none no-scrollbar">
+        <div className="flex items-center gap-1.5 p-1 bg-slate-300/50 dark:bg-zinc-800/60 rounded-full border border-slate-300/40 dark:border-zinc-700/40 backdrop-blur-md">
           <button
             onClick={() => setActiveTab('remedial')}
-            className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+            className={`px-4 sm:px-5 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
               activeTab === 'remedial'
                 ? 'bg-[#0b57d0] text-white shadow-xs'
-                : 'bg-white dark:bg-zinc-800/80 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700'
+                : 'text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-zinc-700/50'
             }`}
           >
             <Zap className="w-3.5 h-3.5" />
@@ -683,10 +687,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
 
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+            className={`px-4 sm:px-5 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
               activeTab === 'analytics'
                 ? 'bg-[#0b57d0] text-white shadow-xs'
-                : 'bg-white dark:bg-zinc-800/80 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700'
+                : 'text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-zinc-700/50'
             }`}
           >
             <BarChart3 className="w-3.5 h-3.5" />
@@ -695,10 +699,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
 
           <button
             onClick={() => setActiveTab('publishing')}
-            className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+            className={`px-4 sm:px-5 py-2 rounded-full text-xs font-black flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
               activeTab === 'publishing'
                 ? 'bg-[#0b57d0] text-white shadow-xs'
-                : 'bg-white dark:bg-zinc-800/80 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700'
+                : 'text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-zinc-700/50'
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
@@ -706,8 +710,9 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
           </button>
         </div>
 
-        <div className="shrink-0 hidden lg:block text-[11px] text-slate-500 dark:text-zinc-400 font-mono">
-          Single-Instance Storage: Tests (~40 KB) • Attempts (~1 KB) • Pointers (&lt;0.5 KB)
+        <div className="shrink-0 hidden lg:flex items-center gap-2 text-[11px] text-slate-500 dark:text-zinc-400 font-mono bg-white/60 dark:bg-zinc-800/40 px-3.5 py-1.5 rounded-full border border-slate-300/40 dark:border-zinc-700/40">
+          <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+          <span>Single-Instance Storage: Tests (~40 KB) • Attempts (~1 KB) • Pointers (&lt;0.5 KB)</span>
         </div>
       </div>
 
@@ -718,7 +723,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             initial={{ opacity: 0, y: -15 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -15 }}
-            className="mx-4 sm:mx-6 mt-3 p-3 bg-white dark:bg-[#1a1d24] border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 text-xs font-bold rounded-2xl flex items-center gap-2.5 shadow-md shrink-0"
+            className="mx-4 sm:mx-6 md:mx-8 mb-2 p-3 bg-white dark:bg-[#16181f] border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 text-xs font-bold rounded-2xl flex items-center gap-2.5 shadow-md shrink-0"
           >
             <CheckCircle2 className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
             <span>{notification.message}</span>
@@ -727,367 +732,428 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
       </AnimatePresence>
 
       {/* Main View Body */}
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+      <main className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 pb-[calc(max(1.5rem,env(safe-area-inset-bottom,0px))+0.5rem)] pt-1 space-y-6">
 
         {/* ============================================================ */}
         {/* TAB 1: ADAPTIVE REMEDIAL ENGINE                              */}
         {/* ============================================================ */}
         {activeTab === 'remedial' && (
-          <div className="max-w-6xl mx-auto space-y-6">
+          <div className="max-w-7xl mx-auto w-full space-y-6 sm:space-y-8">
             
-            {/* Step 1: Source Tests Selection */}
-            <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#1a1d24] border border-slate-200 dark:border-zinc-800 space-y-3 shadow-xs">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-[#0b57d0] text-white font-black text-xs flex items-center justify-center">
-                    1
-                  </span>
-                  <h2 className="text-sm font-black text-slate-900 dark:text-zinc-100">
-                    Select Source Mock Tests
-                  </h2>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleSelectFirstThree}
-                    className="px-3 py-1 rounded-full text-xs font-bold bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 text-[#041e49] dark:text-[#c2e7ff] hover:opacity-90 transition-opacity cursor-pointer"
-                  >
-                    Select First 3 Tests
-                  </button>
-                  <button
-                    onClick={handleSelectAll}
-                    className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
-                  >
-                    Select All ({tests.length})
-                  </button>
-                </div>
-              </div>
-
-              <p className="text-xs text-slate-500 dark:text-zinc-400">
-                Choose the mock tests to scan for student mistakes, skipped questions, or doubt flags.
-              </p>
-
-              {/* Source Tests Multi-Select Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
-                {tests.map((test) => {
-                  const isSelected = selectedSourceTestIds.includes(test.id);
-                  const hydrated = hydratedTestsMap[test.id];
-                  const qCount = hydrated?.questions?.length || test.questions?.length || (test as any).questionCount || 50;
-
-                  return (
-                    <div
-                      key={test.id}
-                      onClick={() => toggleSourceTest(test.id)}
-                      className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-2.5 select-none ${
-                        isSelected
-                          ? 'bg-[#d3e3fd]/40 dark:bg-[#004a77]/25 border-[#0b57d0] dark:border-[#a8c7fa]'
-                          : 'bg-slate-50 dark:bg-zinc-900/50 border-slate-200 dark:border-zinc-800 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate">
-                          {test.title}
+            {/* Top Responsive Grid: Configuration (Left: Tests & Categories | Right: Dispatch Settings) */}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+              
+              {/* Left Column (8 cols on desktop): Step 1 & Step 2 */}
+              <div className="xl:col-span-8 space-y-6">
+                
+                {/* Step 1: Source Tests Selection */}
+                <div className="p-5 sm:p-6 rounded-[28px] bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 space-y-4 shadow-xs">
+                  <div className="flex items-center justify-between flex-wrap gap-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-full bg-[#0b57d0] text-white font-black text-xs flex items-center justify-center shadow-xs">
+                        1
+                      </span>
+                      <div>
+                        <h2 className="text-sm font-black text-slate-900 dark:text-zinc-100">
+                          Select Source Mock Tests
+                        </h2>
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                          Pick source tests to scan for student mistakes, skipped questions, or doubt flags.
                         </p>
-                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono mt-0.5">
-                          {qCount} Questions • {test.timeLimitMinutes || 60}m
-                        </p>
-                      </div>
-
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border ${
-                        isSelected
-                          ? 'bg-[#0b57d0] border-[#0b57d0] text-white'
-                          : 'border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800'
-                      }`}>
-                        {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Step 2: Target Weakness Category & Settings */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              
-              {/* Category Filter */}
-              <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#1a1d24] border border-slate-200 dark:border-zinc-800 space-y-3 shadow-xs">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-[#0b57d0] text-white font-black text-xs flex items-center justify-center">
-                      2
-                    </span>
-                    <h3 className="text-sm font-black text-slate-900 dark:text-zinc-100">
-                      Target Weakness Categories
-                    </h3>
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={handleSelectAllCategories}
-                      className="px-2 py-0.5 rounded-full text-[10.5px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 transition-colors cursor-pointer"
-                    >
-                      All (Errors + Marked)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSelectWrongOnly}
-                      className="px-2 py-0.5 rounded-full text-[10.5px] font-bold text-slate-600 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 transition-colors cursor-pointer"
-                    >
-                      Wrong
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSelectUnattemptedOnly}
-                      className="px-2 py-0.5 rounded-full text-[10.5px] font-bold text-slate-600 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 transition-colors cursor-pointer"
-                    >
-                      Skipped
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSelectMarkedOnly}
-                      className="px-2 py-0.5 rounded-full text-[10.5px] font-bold text-slate-600 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 transition-colors cursor-pointer"
-                    >
-                      Marked
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSelectUnmarkedOnly}
-                      className="px-2 py-0.5 rounded-full text-[10.5px] font-bold text-slate-600 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 transition-colors cursor-pointer"
-                    >
-                      Unmarked
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSelectAllFourCategories}
-                      className="px-2 py-0.5 rounded-full text-[10.5px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 transition-colors cursor-pointer"
-                    >
-                      All 4
-                    </button>
-                  </div>
-                </div>
-
-                <p className="text-[11.5px] text-slate-500 dark:text-zinc-400">
-                  Select among <strong>Incorrect</strong>, <strong>Unattempted</strong>, <strong>Marked</strong>, and <strong>Unmarked</strong> categories. These categories are automatically selected from each user's test attempts based on their individual performance, and multiple selections are merged with zero duplicate questions.
-                </p>
-
-                <div className="space-y-2">
-                  {[
-                    {
-                      id: 'wrong' as const,
-                      title: 'Incorrect',
-                      desc: 'Strictly questions attempted by student and answered incorrectly.',
-                      badge: 'Attempted & Wrong',
-                    },
-                    {
-                      id: 'unattempted' as const,
-                      title: 'Unattempted',
-                      desc: 'Strictly questions skipped or left unattempted across source tests.',
-                      badge: 'Skipped / Unattempted',
-                    },
-                    {
-                      id: 'marked' as const,
-                      title: 'Marked',
-                      desc: 'Questions marked or flagged for review (whether correct, incorrect, or skipped).',
-                      badge: 'Flagged for Review',
-                    },
-                    {
-                      id: 'unmarked' as const,
-                      title: 'Unmarked',
-                      desc: 'Questions not marked or flagged for review by the student.',
-                      badge: 'Not Flagged',
-                    },
-                  ].map((cat) => {
-                    const isSelected = selectedCategories.includes(cat.id);
-                    return (
-                      <div
-                        key={cat.id}
-                        onClick={() => toggleCategory(cat.id)}
-                        className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
-                          isSelected
-                            ? 'bg-[#d3e3fd]/40 dark:bg-[#004a77]/30 border-[#0b57d0] dark:border-[#a8c7fa] font-bold'
-                            : 'bg-slate-50 dark:bg-zinc-900/40 border-slate-200 dark:border-zinc-800 hover:border-slate-300'
-                        }`}
+                    
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSelectFirstThree}
+                        className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 text-[#041e49] dark:text-[#c2e7ff] hover:opacity-90 transition-all cursor-pointer active:scale-95"
                       >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
-                            isSelected 
-                              ? 'bg-[#0b57d0] border-[#0b57d0] text-white shadow-xs' 
-                              : 'border-slate-300 dark:border-zinc-600 bg-white dark:bg-zinc-800'
+                        Select First 3
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSelectAll}
+                        className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all cursor-pointer active:scale-95"
+                      >
+                        All ({tests.length})
+                      </button>
+                      {selectedSourceTestIds.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearSelection}
+                          className="px-3.5 py-1.5 rounded-full text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 transition-all cursor-pointer active:scale-95"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Source Tests Multi-Select Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+                    {tests.map((test) => {
+                      const isSelected = selectedSourceTestIds.includes(test.id);
+                      const hydrated = hydratedTestsMap[test.id];
+                      const qCount = hydrated?.questions?.length || test.questions?.length || (test as any).questionCount || 50;
+
+                      return (
+                        <div
+                          key={test.id}
+                          onClick={() => toggleSourceTest(test.id)}
+                          className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 select-none active:scale-[0.98] ${
+                            isSelected
+                              ? 'bg-[#d3e3fd]/40 dark:bg-[#004a77]/30 border-[#0b57d0] dark:border-[#a8c7fa] ring-1 ring-[#0b57d0]/30 shadow-xs'
+                              : 'bg-slate-50/70 dark:bg-zinc-900/50 border-slate-200/80 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate">
+                              {test.title}
+                            </p>
+                            <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono mt-0.5">
+                              {qCount} Qs • {test.timeLimitMinutes || 60}m
+                            </p>
+                          </div>
+
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border transition-all ${
+                            isSelected
+                              ? 'bg-[#0b57d0] border-[#0b57d0] text-white shadow-xs'
+                              : 'border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800'
                           }`}>
                             {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="text-xs font-bold text-slate-900 dark:text-zinc-100">{cat.title}</p>
-                              <span className="text-[10px] px-2 py-0.2 rounded-full bg-slate-200/70 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 font-normal">
-                                {cat.badge}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
-                              {cat.desc}
-                            </p>
-                          </div>
                         </div>
-                        {isSelected && (
-                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#0b57d0]/10 text-[#0b57d0] dark:bg-[#a8c7fa]/20 dark:text-[#a8c7fa]">
-                            ACTIVE
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 text-[11px] text-blue-700 dark:text-blue-300 flex items-center gap-2">
-                  <Info className="w-4 h-4 shrink-0 text-blue-600 dark:text-blue-400" />
-                  <span>
-                    Active filter: <strong>{selectedCategories.map((c) => c.toUpperCase()).join(' + ')}</strong> ({totalPointersInCohort} questions across cohort)
-                  </span>
+                {/* Step 2: Target Weakness Categories */}
+                <div className="p-5 sm:p-6 rounded-[28px] bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 space-y-4 shadow-xs">
+                  <div className="flex items-center justify-between gap-2.5 flex-wrap">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-full bg-[#0b57d0] text-white font-black text-xs flex items-center justify-center shadow-xs">
+                        2
+                      </span>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-900 dark:text-zinc-100">
+                          Target Weakness Categories
+                        </h3>
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                          Extracted from each student's 1st-ever attempts with zero duplicate questions.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={handleSelectAllCategories}
+                        className="px-3 py-1 rounded-full text-xs font-bold text-[#0b57d0] dark:text-[#a8c7fa] bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all cursor-pointer active:scale-95"
+                      >
+                        All (Errors + Marked)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSelectWrongOnly}
+                        className="px-3 py-1 rounded-full text-xs font-bold text-slate-700 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all cursor-pointer active:scale-95"
+                      >
+                        Wrong
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSelectUnattemptedOnly}
+                        className="px-3 py-1 rounded-full text-xs font-bold text-slate-700 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all cursor-pointer active:scale-95"
+                      >
+                        Skipped
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSelectMarkedOnly}
+                        className="px-3 py-1 rounded-full text-xs font-bold text-slate-700 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all cursor-pointer active:scale-95"
+                      >
+                        Marked
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSelectUnmarkedOnly}
+                        className="px-3 py-1 rounded-full text-xs font-bold text-slate-700 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all cursor-pointer active:scale-95"
+                      >
+                        Unmarked
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSelectAllFourCategories}
+                        className="px-3 py-1 rounded-full text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all cursor-pointer active:scale-95"
+                      >
+                        All 4
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[
+                      {
+                        id: 'wrong' as const,
+                        title: 'Incorrect',
+                        desc: 'Strictly questions attempted and answered incorrectly.',
+                        badge: 'Attempted & Wrong',
+                      },
+                      {
+                        id: 'unattempted' as const,
+                        title: 'Unattempted',
+                        desc: 'Strictly questions skipped across source tests.',
+                        badge: 'Skipped / Left Blank',
+                      },
+                      {
+                        id: 'marked' as const,
+                        title: 'Marked',
+                        desc: 'Questions flagged for review by the student.',
+                        badge: 'Flagged for Review',
+                      },
+                      {
+                        id: 'unmarked' as const,
+                        title: 'Unmarked',
+                        desc: 'Questions not flagged for review by the student.',
+                        badge: 'Not Flagged',
+                      },
+                    ].map((cat) => {
+                      const isSelected = selectedCategories.includes(cat.id);
+                      return (
+                        <div
+                          key={cat.id}
+                          onClick={() => toggleCategory(cat.id)}
+                          className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 select-none active:scale-[0.98] ${
+                            isSelected
+                              ? 'bg-[#d3e3fd]/40 dark:bg-[#004a77]/30 border-[#0b57d0] dark:border-[#a8c7fa] ring-1 ring-[#0b57d0]/30 shadow-xs'
+                              : 'bg-slate-50/70 dark:bg-zinc-900/50 border-slate-200/80 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                              isSelected 
+                                ? 'bg-[#0b57d0] border-[#0b57d0] text-white shadow-xs' 
+                                : 'border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800'
+                            }`}>
+                              {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs font-bold text-slate-900 dark:text-zinc-100">{cat.title}</p>
+                                <span className="text-[10px] px-2 py-0.2 rounded-full bg-slate-200/70 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 font-normal">
+                                  {cat.badge}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 line-clamp-1">
+                                {cat.desc}
+                              </p>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-[#0b57d0]/10 text-[#0b57d0] dark:bg-[#a8c7fa]/20 dark:text-[#a8c7fa] shrink-0">
+                              ACTIVE
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="p-3 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 text-[11.5px] text-blue-800 dark:text-blue-300 flex items-center gap-2.5">
+                    <Info className="w-4 h-4 shrink-0 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                    <span>
+                      Active filter: <strong>{selectedCategories.map((c) => c.toUpperCase()).join(' + ')}</strong> ({totalPointersInCohort} questions across cohort)
+                    </span>
+                  </div>
                 </div>
+
               </div>
 
-              {/* Title, Duration & Dispatch Action */}
-              <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#1a1d24] border border-slate-200 dark:border-zinc-800 space-y-4 flex flex-col justify-between shadow-xs">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-[#0b57d0] text-white font-black text-xs flex items-center justify-center">
+              {/* Right Column (4 cols on desktop): Sticky Step 3 Practice Settings & Live Dispatch */}
+              <div className="xl:col-span-4 xl:sticky xl:top-4 space-y-6">
+                <div className="p-5 sm:p-6 rounded-[28px] bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 space-y-4.5 shadow-xs">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-7 h-7 rounded-full bg-[#0b57d0] text-white font-black text-xs flex items-center justify-center shadow-xs">
                       3
                     </span>
-                    <h3 className="text-sm font-black text-slate-900 dark:text-zinc-100">
-                      Assigned Practice Settings
-                    </h3>
+                    <div>
+                      <h3 className="text-sm font-black text-slate-900 dark:text-zinc-100">
+                        Assigned Practice Settings
+                      </h3>
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                        Configure title, timer, and launch instant dispatch.
+                      </p>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block mb-1">
-                      Practice Title for Students
-                    </label>
-                    <input
-                      type="text"
-                      value={customTitle}
-                      onChange={(e) => setCustomTitle(e.target.value)}
-                      placeholder="e.g. Targeted Practice Set"
-                      className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#0b57d0] font-semibold"
-                    />
+                  <div className="space-y-3.5">
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block mb-1.5">
+                        Practice Title for Students
+                      </label>
+                      <input
+                        type="text"
+                        value={customTitle}
+                        onChange={(e) => setCustomTitle(e.target.value)}
+                        placeholder="e.g. Targeted Practice Set"
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#0b57d0] font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-bold text-slate-700 dark:text-zinc-300">
+                          Time Limit
+                        </label>
+                        <span className="text-[11px] font-mono text-slate-500 dark:text-zinc-400">
+                          {timeLimitMinutes} minutes
+                        </span>
+                      </div>
+
+                      {/* Quick Duration Pills */}
+                      <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                        {[15, 30, 45, 60, 90].map((mins) => (
+                          <button
+                            key={mins}
+                            type="button"
+                            onClick={() => setTimeLimitMinutes(mins)}
+                            className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer ${
+                              timeLimitMinutes === mins
+                                ? 'bg-[#0b57d0] text-white shadow-xs'
+                                : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700'
+                            }`}
+                          >
+                            {mins}m
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={5}
+                          max={180}
+                          value={timeLimitMinutes}
+                          onChange={(e) => setTimeLimitMinutes(Number(e.target.value))}
+                          className="w-28 px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#0b57d0] font-mono font-bold"
+                        />
+                        <span className="text-[11px] text-slate-400 dark:text-zinc-500">
+                          min (~2 min/Q suggested)
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block mb-1">
-                      Time Limit (Minutes)
-                    </label>
-                    <input
-                      type="number"
-                      min={5}
-                      max={180}
-                      value={timeLimitMinutes}
-                      onChange={(e) => setTimeLimitMinutes(Number(e.target.value))}
-                      className="w-32 px-3.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-[#0b57d0] font-mono font-bold"
-                    />
-                    <span className="text-[11px] text-slate-400 dark:text-zinc-500 ml-2">
-                      (Default ~2 min/question)
+                  {/* Cohort Summary Box */}
+                  <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-zinc-900/60 border border-slate-200/80 dark:border-zinc-800 space-y-2.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-slate-600 dark:text-zinc-400">Source Tests:</span>
+                      <span className="font-mono font-bold text-slate-900 dark:text-zinc-100">
+                        {selectedSourceTests.length} selected
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-slate-600 dark:text-zinc-400">Cohort Impact:</span>
+                      <span className="font-mono font-bold text-[#0b57d0] dark:text-[#a8c7fa]">
+                        {cohortPreview.length} student(s) • {totalPointersInCohort} Qs
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-slate-600 dark:text-zinc-400">Storage Footprint:</span>
+                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        &lt;0.5 KB / student
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Dispatch Action */}
+                  <button
+                    onClick={handleDispatchRemedial}
+                    disabled={isDispatching || selectedSourceTests.length === 0 || cohortPreview.length === 0}
+                    className="w-full py-3.5 px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white font-bold text-xs sm:text-sm tracking-wide shadow-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>
+                      {isDispatching
+                        ? 'Dispatching Practice Sets...'
+                        : cohortPreview.length === 0
+                        ? 'No Student Attempts in Cohort'
+                        : `Dispatch to ${cohortPreview.length} Student(s)`}
                     </span>
-                  </div>
+                  </button>
                 </div>
-
-                {/* Cohort Summary Box */}
-                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-slate-600 dark:text-zinc-400">Selected Source Tests:</span>
-                    <span className="font-mono font-bold text-slate-900 dark:text-zinc-100">
-                      {selectedSourceTests.length} tests
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-slate-600 dark:text-zinc-400">Cohort Impact:</span>
-                    <span className="font-mono font-bold text-[#0b57d0] dark:text-[#a8c7fa]">
-                      {cohortPreview.length} student(s) • {totalPointersInCohort} questions
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-slate-600 dark:text-zinc-400">Storage Footprint:</span>
-                    <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                      &lt;0.5 KB per student (Zero Redundancy)
-                    </span>
-                  </div>
-                </div>
-
-                {/* Dispatch Action */}
-                <button
-                  onClick={handleDispatchRemedial}
-                  disabled={isDispatching || selectedSourceTests.length === 0 || cohortPreview.length === 0}
-                  className="w-full py-3 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white font-bold text-xs sm:text-sm tracking-wide shadow-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  <Send className="w-4 h-4" />
-                  <span>
-                    {isDispatching
-                      ? 'Dispatching Custom Practice...'
-                      : cohortPreview.length === 0
-                      ? 'No Students Attempted Selected Test(s)'
-                      : `Dispatch Custom Practice to ${cohortPreview.length} Student(s)`}
-                  </span>
-                </button>
               </div>
+
             </div>
 
-            {/* Step 3: Live Cohort Breakdown */}
-            <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#1a1d24] border border-slate-200 dark:border-zinc-800 space-y-3 shadow-xs">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="w-6 h-6 rounded-full bg-[#0b57d0] text-white font-black text-xs flex items-center justify-center">
-                    3
+            {/* Step 4: Live Cohort Breakdown */}
+            <div className="p-5 sm:p-6 rounded-[28px] bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 space-y-4 shadow-xs">
+              <div className="flex items-center justify-between flex-wrap gap-2.5">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="w-7 h-7 rounded-full bg-[#0b57d0] text-white font-black text-xs flex items-center justify-center shadow-xs">
+                    4
                   </span>
-                  <h3 className="text-sm font-black text-slate-900 dark:text-zinc-100">
-                    Cohort Error Extraction Preview
-                  </h3>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900/50">
-                    1st-Ever Attempt Diagnostics
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 dark:text-zinc-100">
+                      Cohort Error Extraction Preview
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                      1st-ever attempt diagnostics per student for target weakness questions.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100/80 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900/50">
+                    1st Attempt Diagnostics
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-zinc-400 font-mono">
+                    {cohortPreview.length} Student Record(s)
                   </span>
                 </div>
-                <span className="text-xs text-slate-500 dark:text-zinc-400 font-mono">
-                  {cohortPreview.length} Student Record(s) Evaluated
-                </span>
               </div>
 
               {cohortPreview.length === 0 ? (
-                <div className="p-8 text-center rounded-2xl bg-slate-50 dark:bg-zinc-900/40 border border-dashed border-slate-200 dark:border-zinc-800 space-y-1.5">
+                <div className="p-8 text-center rounded-2xl bg-slate-50/70 dark:bg-zinc-900/40 border border-dashed border-slate-200 dark:border-zinc-800 space-y-2">
                   <p className="text-xs font-bold text-slate-700 dark:text-zinc-300">
                     No student attempts found for the selected test(s) yet.
                   </p>
-                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 max-w-md mx-auto">
+                  <p className="text-[11.5px] text-slate-500 dark:text-zinc-400 max-w-md mx-auto">
                     When students attempt any of the selected source tests, their names, IDs, and targeted weakness questions from their 1st-ever attempts will appear here automatically.
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-zinc-800">
+                <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-zinc-800">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-slate-100/80 dark:bg-zinc-800/80 text-slate-700 dark:text-zinc-300 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-zinc-700">
-                        <th className="py-2.5 px-3">Student Name</th>
-                        <th className="py-2.5 px-3">Student ID / Email</th>
-                        <th className="py-2.5 px-3">1st Attempt Evaluated</th>
-                        <th className="py-2.5 px-3">Targeted Questions (1st Attempt)</th>
-                        <th className="py-2.5 px-3 text-right">Data Overhead</th>
+                        <th className="py-3 px-3.5">Student Name</th>
+                        <th className="py-3 px-3.5">Student ID / Email</th>
+                        <th className="py-3 px-3.5">1st Attempt Evaluated</th>
+                        <th className="py-3 px-3.5">Targeted Questions (1st Attempt)</th>
+                        <th className="py-3 px-3.5 text-right">Data Overhead</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800 font-medium">
+                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/80 font-medium">
                       {cohortPreview.map((s, idx) => (
-                        <tr key={s.studentId + idx} className="hover:bg-slate-50 dark:hover:bg-zinc-800/40">
-                          <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-zinc-100">
+                        <tr key={s.studentId + idx} className="hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 transition-colors">
+                          <td className="py-3 px-3.5 font-bold text-slate-900 dark:text-zinc-100">
                             {s.studentName}
                             {s.studentId === currentUserId && (
-                              <span className="ml-1.5 px-1.5 py-0.2 rounded-full text-[9px] bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">
+                              <span className="ml-2 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">
                                 YOU
                               </span>
                             )}
                           </td>
-                          <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500 dark:text-zinc-400 truncate max-w-[160px]">
+                          <td className="py-3 px-3.5 font-mono text-[11px] text-slate-500 dark:text-zinc-400 truncate max-w-[160px]">
                             {s.studentEmail || s.studentId}
                           </td>
-                          <td className="py-2.5 px-3 text-slate-600 dark:text-zinc-300">
+                          <td className="py-3 px-3.5 text-slate-600 dark:text-zinc-300">
                             {s.attemptCount} attempt(s)
                           </td>
-                          <td className="py-2.5 px-3">
+                          <td className="py-3 px-3.5">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 text-[#041e49] dark:text-[#c2e7ff]">
+                              <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 text-[#041e49] dark:text-[#c2e7ff]">
                                 {s.matchingQuestionsCount} Qs
                               </span>
                               {s.matchingQuestionsCount === 0 && (
@@ -1097,7 +1163,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                               )}
                             </div>
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono text-[11px] text-emerald-600 dark:text-emerald-400">
+                          <td className="py-3 px-3.5 text-right font-mono text-[11px] text-emerald-600 dark:text-emerald-400">
                             ~{(s.matchingQuestionsCount * 0.03).toFixed(2)} KB
                           </td>
                         </tr>
@@ -1108,173 +1174,183 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
               )}
             </div>
 
-            {/* Previously Dispatched Ledger */}
-            <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#1a1d24] border border-slate-200 dark:border-zinc-800 space-y-4 shadow-xs">
-                {/* Header with Assigned/Unassigned Options immediately to the right */}
-                <div className="flex items-center justify-between flex-wrap gap-2.5">
-                  <div className="flex items-center gap-2">
-                    <FileCheck className="w-4 h-4 text-emerald-500" />
-                    <h3 className="text-sm font-black text-slate-900 dark:text-zinc-100">
-                      Dispatched Practice Ledger
-                    </h3>
-                    <span className="text-xs font-mono font-semibold text-slate-400 dark:text-zinc-500">
-                      ({filteredDispatchLedger.length}/{dispatchLedger.length})
-                    </span>
+            {/* Step 5: Dispatched Practice Ledger */}
+            <div className="p-5 sm:p-6 rounded-[28px] bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 space-y-4 shadow-xs">
+              {/* Header with Assigned/Unassigned Options */}
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                    <FileCheck className="w-4 h-4" />
                   </div>
-
-                  {/* Assigned / Unassigned Filter Options & Actions */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="flex items-center p-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-[11px] font-bold border border-slate-200/80 dark:border-zinc-700/80">
-                      <button
-                        type="button"
-                        onClick={() => setLedgerFilter('all')}
-                        className={`px-2.5 py-1 rounded-full transition-all cursor-pointer ${
-                          ledgerFilter === 'all'
-                            ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100 shadow-xs'
-                            : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
-                        }`}
-                      >
-                        All ({dispatchLedger.length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setLedgerFilter('assigned')}
-                        className={`px-2.5 py-1 rounded-full transition-all cursor-pointer ${
-                          ledgerFilter === 'assigned'
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
-                        }`}
-                      >
-                        Assigned ({assignedCount})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setLedgerFilter('unassigned')}
-                        className={`px-2.5 py-1 rounded-full transition-all cursor-pointer ${
-                          ledgerFilter === 'unassigned'
-                            ? 'bg-amber-600 text-white shadow-xs'
-                            : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
-                        }`}
-                      >
-                        Unassigned ({unassignedCount})
-                      </button>
-                    </div>
-
-                    {assignedCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleUnassignAllRemedial}
-                        className="px-2.5 py-1 rounded-full text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 transition-colors cursor-pointer"
-                        title="Unassign all currently assigned tests from students"
-                      >
-                        Unassign All
-                      </button>
-                    )}
-
-                    {dispatchLedger.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={openDeleteModalForBulk}
-                        className="px-2.5 py-1 rounded-full text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 transition-colors cursor-pointer flex items-center gap-1"
-                        title="Delete all practice tests in ledger"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                        Delete All
-                      </button>
-                    )}
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+                      <span>Dispatched Practice Ledger</span>
+                      <span className="text-xs font-mono font-semibold text-slate-400 dark:text-zinc-500">
+                        ({filteredDispatchLedger.length}/{dispatchLedger.length})
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                      Manage dispatched custom practice sets, toggle assignment, or revoke access.
+                    </p>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  {dispatchLedger.length === 0 ? (
-                    <div className="p-6 text-center rounded-2xl bg-slate-50 dark:bg-zinc-900/40 border border-dashed border-slate-200 dark:border-zinc-800">
-                      <p className="text-xs text-slate-500 dark:text-zinc-400">
-                        No custom practice sets dispatched yet. When you dispatch a remedial practice set, it will appear here in real time.
-                      </p>
-                    </div>
-                  ) : filteredDispatchLedger.length === 0 ? (
-                    <div className="p-6 text-center rounded-2xl bg-slate-50 dark:bg-zinc-900/40 border border-dashed border-slate-200 dark:border-zinc-800">
-                      <p className="text-xs text-slate-500 dark:text-zinc-400">
-                        No practice tests found matching "{ledgerFilter}".
-                      </p>
-                    </div>
-                  ) : (
-                    filteredDispatchLedger.map((d) => (
-                      <div
-                        key={d.id}
-                        className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between flex-wrap gap-2 text-xs ${
-                          d.isUnassigned
-                            ? 'bg-slate-50/60 dark:bg-zinc-900/30 border-slate-200 dark:border-zinc-800/80 opacity-75'
-                            : 'bg-white dark:bg-zinc-900/80 border-slate-200 dark:border-zinc-800 shadow-xs'
-                        }`}
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-slate-900 dark:text-zinc-100">{d.title}</span>
-                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700">
-                              {d.filterType}
-                            </span>
-                            {d.isUnassigned && (
-                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50">
-                                Revoked
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                            Student: <span className="font-bold text-slate-800 dark:text-zinc-200">{d.studentName}</span> ({d.studentId}) • {d.totalQuestions} Questions • {new Date(d.createdAt).toLocaleDateString()}
-                          </p>
-                        </div>
+                {/* Assigned / Unassigned Filter Options & Actions */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center p-1 rounded-full bg-slate-100 dark:bg-zinc-800 text-[11px] font-bold border border-slate-200/80 dark:border-zinc-700/80">
+                    <button
+                      type="button"
+                      onClick={() => setLedgerFilter('all')}
+                      className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                        ledgerFilter === 'all'
+                          ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100 shadow-xs'
+                          : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
+                      }`}
+                    >
+                      All ({dispatchLedger.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLedgerFilter('assigned')}
+                      className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                        ledgerFilter === 'assigned'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
+                      }`}
+                    >
+                      Assigned ({assignedCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLedgerFilter('unassigned')}
+                      className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                        ledgerFilter === 'unassigned'
+                          ? 'bg-amber-600 text-white shadow-xs'
+                          : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
+                      }`}
+                    >
+                      Unassigned ({unassignedCount})
+                    </button>
+                  </div>
 
-                        <div className="flex items-center gap-2">
-                          {d.isCompleted && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3" />
-                              Done ({d.completedPercentage || 0}%)
-                            </span>
-                          )}
+                  {assignedCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleUnassignAllRemedial}
+                      className="px-3 py-1.5 rounded-full text-xs font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 transition-colors cursor-pointer active:scale-95"
+                      title="Unassign all currently assigned tests from students"
+                    >
+                      Unassign All
+                    </button>
+                  )}
 
-                          {/* Replaced tag with interactive Assigned to Unassigned button */}
-                          <button
-                            type="button"
-                            onClick={() => handleToggleAssignRemedial(d)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 group ${
-                              !d.isUnassigned
-                                ? 'bg-emerald-50 hover:bg-rose-50 text-emerald-700 hover:text-rose-700 border border-emerald-300 hover:border-rose-300 dark:bg-emerald-950/40 dark:hover:bg-rose-950/40 dark:text-emerald-300 dark:hover:text-rose-300 dark:border-emerald-800'
-                                : 'bg-amber-50 hover:bg-emerald-50 text-amber-700 hover:text-emerald-700 border border-amber-300 hover:border-emerald-300 dark:bg-amber-950/40 dark:hover:bg-emerald-950/40 dark:text-amber-300 dark:hover:text-emerald-300 dark:border-amber-800'
-                            }`}
-                            title={!d.isUnassigned ? 'Click to unassign (revoke) test from student' : 'Click to assign test back to student'}
-                          >
-                            {!d.isUnassigned ? (
-                              <>
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 group-hover:bg-rose-500 transition-colors" />
-                                <span className="group-hover:hidden">Assigned</span>
-                                <span className="hidden group-hover:inline text-[11px] font-extrabold text-rose-600 dark:text-rose-400">Click to Unassign</span>
-                              </>
-                            ) : (
-                              <>
-                                <span className="w-2 h-2 rounded-full bg-amber-500 group-hover:bg-emerald-500 transition-colors" />
-                                <span className="group-hover:hidden">Unassigned</span>
-                                <span className="hidden group-hover:inline text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400">Click to Assign</span>
-                              </>
-                            )}
-                          </button>
-
-                          {/* Delete Button */}
-                          <button
-                            type="button"
-                            onClick={() => openDeleteModalForTest(d)}
-                            className="px-2.5 py-1.5 rounded-full text-xs font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-900/50 transition-all flex items-center gap-1 cursor-pointer active:scale-95 shadow-xs"
-                            title="Delete this practice test"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">Delete</span>
-                          </button>
-                        </div>
-                      </div>
-                    ))
+                  {dispatchLedger.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={openDeleteModalForBulk}
+                      className="px-3 py-1.5 rounded-full text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 transition-colors cursor-pointer flex items-center gap-1.5 active:scale-95"
+                      title="Delete all practice tests in ledger"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete All</span>
+                    </button>
                   )}
                 </div>
               </div>
+
+              <div className="space-y-2.5">
+                {dispatchLedger.length === 0 ? (
+                  <div className="p-8 text-center rounded-2xl bg-slate-50/70 dark:bg-zinc-900/40 border border-dashed border-slate-200 dark:border-zinc-800 space-y-1.5">
+                    <p className="text-xs font-bold text-slate-700 dark:text-zinc-300">
+                      No custom practice sets dispatched yet.
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                      When you dispatch a remedial practice set, it will appear here in real time.
+                    </p>
+                  </div>
+                ) : filteredDispatchLedger.length === 0 ? (
+                  <div className="p-8 text-center rounded-2xl bg-slate-50/70 dark:bg-zinc-900/40 border border-dashed border-slate-200 dark:border-zinc-800">
+                    <p className="text-xs text-slate-500 dark:text-zinc-400">
+                      No practice tests found matching "{ledgerFilter}".
+                    </p>
+                  </div>
+                ) : (
+                  filteredDispatchLedger.map((d) => (
+                    <div
+                      key={d.id}
+                      className={`p-4 rounded-2xl border transition-all flex items-center justify-between flex-wrap gap-3 text-xs ${
+                        d.isUnassigned
+                          ? 'bg-slate-50/60 dark:bg-zinc-900/30 border-slate-200 dark:border-zinc-800/80 opacity-75'
+                          : 'bg-white dark:bg-zinc-900/80 border-slate-200/90 dark:border-zinc-800 shadow-xs'
+                      }`}
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-slate-900 dark:text-zinc-100">{d.title}</span>
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700">
+                            {d.filterType}
+                          </span>
+                          {d.isUnassigned && (
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50">
+                              Revoked
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                          Student: <span className="font-bold text-slate-800 dark:text-zinc-200">{d.studentName}</span> ({d.studentId}) • {d.totalQuestions} Questions • {new Date(d.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {d.isCompleted && (
+                          <span className="px-2.5 py-1 rounded-full text-[10.5px] font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Done ({d.completedPercentage || 0}%)
+                          </span>
+                        )}
+
+                        {/* Interactive Assigned to Unassigned button */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleAssignRemedial(d)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 group ${
+                            !d.isUnassigned
+                              ? 'bg-emerald-50 hover:bg-rose-50 text-emerald-700 hover:text-rose-700 border border-emerald-300 hover:border-rose-300 dark:bg-emerald-950/40 dark:hover:bg-rose-950/40 dark:text-emerald-300 dark:hover:text-rose-300 dark:border-emerald-800'
+                              : 'bg-amber-50 hover:bg-emerald-50 text-amber-700 hover:text-emerald-700 border border-amber-300 hover:border-emerald-300 dark:bg-amber-950/40 dark:hover:bg-emerald-950/40 dark:text-amber-300 dark:hover:text-emerald-300 dark:border-amber-800'
+                          }`}
+                          title={!d.isUnassigned ? 'Click to unassign (revoke) test from student' : 'Click to assign test back to student'}
+                        >
+                          {!d.isUnassigned ? (
+                            <>
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 group-hover:bg-rose-500 transition-colors" />
+                              <span className="group-hover:hidden">Assigned</span>
+                              <span className="hidden group-hover:inline text-[11px] font-extrabold text-rose-600 dark:text-rose-400">Click to Unassign</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="w-2 h-2 rounded-full bg-amber-500 group-hover:bg-emerald-500 transition-colors" />
+                              <span className="group-hover:hidden">Unassigned</span>
+                              <span className="hidden group-hover:inline text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400">Click to Assign</span>
+                            </>
+                          )}
+                        </button>
+
+                        {/* Delete Button */}
+                        <button
+                          type="button"
+                          onClick={() => openDeleteModalForTest(d)}
+                          className="px-3 py-1.5 rounded-full text-xs font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-900/50 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-xs"
+                          title="Delete this practice test"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
 
           </div>
         )}
@@ -1283,26 +1359,30 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
         {/* TAB 2: PER-TEST PERFORMANCE ANALYTICS                        */}
         {/* ============================================================ */}
         {activeTab === 'analytics' && (
-          <div className="max-w-6xl mx-auto space-y-6">
+          <div className="max-w-7xl mx-auto w-full space-y-6 sm:space-y-8">
             
             {/* Top: Test Selector Dropdown */}
-            <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#1a1d24] border border-slate-200 dark:border-zinc-800 space-y-3.5 shadow-xs">
+            <div className="p-5 sm:p-6 rounded-[28px] bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 space-y-4 shadow-xs">
               <div className="flex items-center justify-between flex-wrap gap-3">
-                <div>
-                  <h2 className="text-sm font-black text-slate-900 dark:text-zinc-100 flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                    <span>Select Test for Cohort Performance Mapping</span>
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-                    View every student who attempted this specific test and examine question error distributions.
-                  </p>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-[#0b57d0] dark:text-[#a8c7fa]">
+                    <BarChart3 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-black text-slate-900 dark:text-zinc-100">
+                      Select Test for Cohort Performance Mapping
+                    </h2>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                      View every student who attempted this test and examine question error distributions.
+                    </p>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     onClick={handleRefreshAnalyticsCohort}
                     disabled={isRefreshingCohort || isLoadingCohort}
-                    className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 hover:opacity-90 text-[#041e49] dark:text-[#c2e7ff] flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                    className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 hover:opacity-90 text-[#041e49] dark:text-[#c2e7ff] flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 active:scale-95"
                     title="Fetch latest student attempt records for this test from cloud (Strictly 1 Read)"
                   >
                     <RotateCw className={`w-3.5 h-3.5 ${isRefreshingCohort || isLoadingCohort ? 'animate-spin' : ''}`} />
@@ -1311,10 +1391,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
 
                   <button
                     onClick={handleExportCsv}
-                    className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>Export Gradebook CSV</span>
+                    <span>Export CSV</span>
                   </button>
                 </div>
               </div>
@@ -1403,7 +1483,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
               </div>
 
               {/* Active Selected Test Summary Banner */}
-              <div className="p-3 rounded-2xl bg-slate-50/80 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 flex items-center justify-between flex-wrap gap-2">
+              <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-zinc-900/50 border border-slate-200/80 dark:border-zinc-800 flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <span className="w-6 h-6 rounded-full bg-[#0b57d0] text-white text-[11px] font-black flex items-center justify-center shrink-0">
                     {currentAnalyticsTestIndex >= 0 ? currentAnalyticsTestIndex + 1 : 1}
@@ -1489,10 +1569,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
 
             {/* Test KPI Summary Cards */}
             {testCohortAnalytics && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1a1d24] border border-slate-200 dark:border-zinc-800 shadow-xs">
-                  <p className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase">Total Attempts</p>
-                  <p className="text-lg font-black text-slate-900 dark:text-zinc-100 mt-1 font-mono">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+                <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 shadow-xs">
+                  <p className="text-[10.5px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Total Attempts</p>
+                  <p className="text-xl font-black text-slate-900 dark:text-zinc-100 mt-1 font-mono">
                     {testCohortAnalytics.totalAttempts}
                   </p>
                   <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5">
@@ -1500,9 +1580,9 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   </p>
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1a1d24] border border-slate-200 dark:border-zinc-800 shadow-xs">
-                  <p className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase">Average Score</p>
-                  <p className="text-lg font-black text-[#0b57d0] dark:text-[#a8c7fa] mt-1 font-mono">
+                <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 shadow-xs">
+                  <p className="text-[10.5px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Average Score</p>
+                  <p className="text-xl font-black text-[#0b57d0] dark:text-[#a8c7fa] mt-1 font-mono">
                     {testCohortAnalytics.averagePercentage}%
                   </p>
                   <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5">
@@ -1510,9 +1590,9 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   </p>
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1a1d24] border border-slate-200 dark:border-zinc-800 shadow-xs">
-                  <p className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase">Top Score</p>
-                  <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-1 font-mono">
+                <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 shadow-xs">
+                  <p className="text-[10.5px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Top Score</p>
+                  <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1 font-mono">
                     {testCohortAnalytics.highestScore} pts
                   </p>
                   <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5">
@@ -1520,9 +1600,9 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   </p>
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1a1d24] border border-slate-200 dark:border-zinc-800 shadow-xs">
-                  <p className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase">Average Duration</p>
-                  <p className="text-lg font-black text-slate-900 dark:text-zinc-100 mt-1 font-mono">
+                <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 shadow-xs">
+                  <p className="text-[10.5px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Avg Duration</p>
+                  <p className="text-xl font-black text-slate-900 dark:text-zinc-100 mt-1 font-mono">
                     {Math.round(testCohortAnalytics.averageTimeSeconds / 60)}m
                   </p>
                   <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5">
@@ -1530,9 +1610,9 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   </p>
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1a1d24] border border-slate-200 dark:border-zinc-800 shadow-xs col-span-2 sm:col-span-1">
-                  <p className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase">Attempt Mode</p>
-                  <p className="text-lg font-black text-slate-900 dark:text-zinc-100 mt-1 font-mono">
+                <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 shadow-xs col-span-2 sm:col-span-1">
+                  <p className="text-[10.5px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Attempt Mode</p>
+                  <p className="text-xl font-black text-slate-900 dark:text-zinc-100 mt-1 font-mono">
                     {testCohortAnalytics.onlineAttemptsCount} / {testCohortAnalytics.omrAttemptsCount}
                   </p>
                   <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5">
@@ -1550,14 +1630,14 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 : testCohortAnalytics.questionErrorStats;
 
               return (
-                <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#1a1d24] border border-slate-200 dark:border-zinc-800 space-y-3.5 shadow-xs">
+                <div className="p-5 sm:p-6 rounded-[28px] bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 space-y-4 shadow-xs">
                   <div className="flex items-center justify-between flex-wrap gap-2.5">
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm font-black text-slate-900 dark:text-zinc-100">
                           Question Mistake Heatmap
                         </h3>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 font-mono">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 font-mono">
                           {displayedStats.length} of {totalHeatmapQuestions} shown
                         </span>
                       </div>
@@ -1572,7 +1652,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                       </span>
 
                       {/* Dropdown to switch between First Row and Full View */}
-                      <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-zinc-700">
+                      <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800 px-3 py-1 rounded-full border border-slate-200 dark:border-zinc-700">
                         <label className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 shrink-0">
                           View:
                         </label>
@@ -1594,7 +1674,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                       return (
                         <div
                           key={q.questionNumber}
-                          className={`p-2 rounded-xl text-center border transition-all ${
+                          className={`p-2.5 rounded-2xl text-center border transition-all ${
                             isHighError
                               ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200'
                               : q.errorRatePercentage > 0
@@ -1604,7 +1684,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                         >
                           <p className="text-[11px] font-black">Q{q.questionNumber}</p>
                           <p className="text-xs font-mono font-bold mt-0.5">{q.errorRatePercentage}%</p>
-                          <p className="text-[9px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                          <p className="text-[9.5px] text-slate-500 dark:text-zinc-400 mt-0.5">
                             {q.wrongCount + q.unattemptedCount} err
                           </p>
                         </div>
@@ -1617,7 +1697,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setHeatmapDisplayMode((prev) => (prev === 'firstRow' ? 'full' : 'firstRow'))}
-                      className="w-full py-2 px-3 rounded-xl bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-dashed border-slate-300 dark:border-zinc-700 text-xs font-bold text-slate-700 dark:text-zinc-300 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      className="w-full py-2.5 px-3 rounded-full bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-300/80 dark:border-zinc-700/80 text-xs font-bold text-slate-700 dark:text-zinc-300 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
                       {heatmapDisplayMode === 'firstRow' ? (
                         <>
@@ -1637,13 +1717,13 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             })()}
 
             {/* Detailed Student Attempt Mappings Table */}
-            <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#1a1d24] border border-slate-200 dark:border-zinc-800 space-y-3 shadow-xs">
+            <div className="p-5 sm:p-6 rounded-[28px] bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 space-y-4 shadow-xs">
               <div className="flex items-center justify-between flex-wrap gap-2.5">
                 <div>
                   <h3 className="text-sm font-black text-slate-900 dark:text-zinc-100">
                     Student Performance Mapping Records
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
                     Individual attempts with question mistake breakdown.
                   </p>
                 </div>
@@ -1654,13 +1734,13 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                     value={analyticsSearchQuery}
                     onChange={(e) => setAnalyticsSearchQuery(e.target.value)}
                     placeholder="Search student name..."
-                    className="px-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-[#0b57d0]"
+                    className="px-3.5 py-1.5 text-xs rounded-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-[#0b57d0]"
                   />
 
                   <select
                     value={analyticsModeFilter}
                     onChange={(e) => setAnalyticsModeFilter(e.target.value as any)}
-                    className="px-2.5 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300"
+                    className="px-3 py-1.5 text-xs rounded-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 font-semibold"
                   >
                     <option value="all">All Modes</option>
                     <option value="online">Online Only</option>
@@ -1669,20 +1749,20 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 </div>
               </div>
 
-              <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-zinc-800">
+              <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-zinc-800">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-100/80 dark:bg-zinc-800/80 text-slate-700 dark:text-zinc-300 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-zinc-700">
-                      <th className="py-2.5 px-3">Student</th>
-                      <th className="py-2.5 px-3">Mode</th>
-                      <th className="py-2.5 px-3">Score</th>
-                      <th className="py-2.5 px-3">Percentage</th>
-                      <th className="py-2.5 px-3">Duration</th>
-                      <th className="py-2.5 px-3">Wrong Questions</th>
-                      <th className="py-2.5 px-3 text-right">Attempt Date</th>
+                      <th className="py-3 px-3.5">Student</th>
+                      <th className="py-3 px-3.5">Mode</th>
+                      <th className="py-3 px-3.5">Score</th>
+                      <th className="py-3 px-3.5">Percentage</th>
+                      <th className="py-3 px-3.5">Duration</th>
+                      <th className="py-3 px-3.5">Wrong Questions</th>
+                      <th className="py-3 px-3.5 text-right">Attempt Date</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-zinc-800 font-medium">
+                  <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/80 font-medium">
                     {filteredStudentRows.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="text-center py-10 text-slate-400 dark:text-zinc-500">
@@ -1691,8 +1771,8 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                       </tr>
                     ) : (
                       filteredStudentRows.map((r, i) => (
-                        <tr key={r.attemptId + i} className="hover:bg-slate-50 dark:hover:bg-zinc-800/40">
-                          <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-zinc-100">
+                        <tr key={r.attemptId + i} className="hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 transition-colors">
+                          <td className="py-3 px-3.5 font-bold text-slate-900 dark:text-zinc-100">
                             {r.studentName}
                             {r.studentEmail && (
                               <span className="block text-[10px] font-normal text-slate-400 dark:text-zinc-500 font-mono">
@@ -1700,8 +1780,8 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                               </span>
                             )}
                           </td>
-                          <td className="py-2.5 px-3">
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
+                          <td className="py-3 px-3.5">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
                               r.attemptMode === 'omr'
                                 ? 'bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300'
                                 : 'bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300'
@@ -1709,11 +1789,11 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                               {r.attemptMode}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 font-mono font-bold text-slate-900 dark:text-zinc-100">
+                          <td className="py-3 px-3.5 font-mono font-bold text-slate-900 dark:text-zinc-100">
                             {r.score} / {r.totalPoints}
                           </td>
-                          <td className="py-2.5 px-3 font-mono">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          <td className="py-3 px-3.5 font-mono">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-bold ${
                               r.percentage >= 70
                                 ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
                                 : r.percentage >= 40
@@ -1723,19 +1803,19 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                               {r.percentage}%
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 font-mono text-slate-500 dark:text-zinc-400">
+                          <td className="py-3 px-3.5 font-mono text-slate-500 dark:text-zinc-400">
                             {Math.round(r.timeSpentSeconds / 60)}m
                           </td>
-                          <td className="py-2.5 px-3">
+                          <td className="py-3 px-3.5">
                             {r.wrongQuestionNumbers.length > 0 ? (
                               <div className="flex items-center gap-1 flex-wrap">
                                 {r.wrongQuestionNumbers.slice(0, 5).map((num) => (
-                                  <span key={num} className="px-1.5 py-0.2 rounded-sm text-[9.5px] font-bold bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300">
+                                  <span key={num} className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300">
                                     Q{num}
                                   </span>
                                 ))}
                                 {r.wrongQuestionNumbers.length > 5 && (
-                                  <span className="text-[10px] text-slate-400">
+                                  <span className="text-[10.5px] text-slate-400 font-bold">
                                     +{r.wrongQuestionNumbers.length - 5}
                                   </span>
                                 )}
@@ -1746,7 +1826,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                               </span>
                             )}
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono text-[11px] text-slate-400 dark:text-zinc-500">
+                          <td className="py-3 px-3.5 text-right font-mono text-[11px] text-slate-400 dark:text-zinc-500">
                             {new Date(r.completedAt).toLocaleDateString()}
                           </td>
                         </tr>
@@ -1761,36 +1841,48 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
         )}
 
         {/* ============================================================ */}
+        {/* ============================================================ */}
         {/* TAB 3: PUBLISHING & MASTER TEST BANK                         */}
         {/* ============================================================ */}
         {activeTab === 'publishing' && (
-          <div className="max-w-6xl mx-auto space-y-6">
+          <div className="max-w-7xl mx-auto w-full space-y-6 sm:space-y-8">
             
-            <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#1a1d24] border border-slate-200 dark:border-zinc-800 space-y-3 shadow-xs">
+            <div className="p-5 sm:p-6 rounded-[28px] bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 space-y-4 shadow-xs">
               <div className="flex items-center justify-between flex-wrap gap-3">
-                <div>
-                  <h2 className="text-sm font-black text-slate-900 dark:text-zinc-100">
-                    Publish Tests to All Students
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400">
-                    Tests toggled as "Published" appear immediately in students' Mock Tests Library. Question papers are stored once (~40 KB) to preserve free tier storage.
-                  </p>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                    <Send className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-black text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+                      <span>Publish Tests to All Students</span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300">
+                        {publishedTestIds.length} of {tests.length} Live
+                      </span>
+                    </h2>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                      Tests marked Live appear instantly in student mock catalogs. Question papers are normalized to avoid storage duplication.
+                    </p>
+                  </div>
                 </div>
 
-                <div className="w-full sm:w-64">
-                  <input
-                    type="text"
-                    value={publishingSearch}
-                    onChange={(e) => setPublishingSearch(e.target.value)}
-                    placeholder="Search library tests..."
-                    className="w-full px-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-[#0b57d0]"
-                  />
+                <div className="w-full sm:w-72">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={publishingSearch}
+                      onChange={(e) => setPublishingSearch(e.target.value)}
+                      placeholder="Search mock tests library..."
+                      className="w-full pl-9 pr-3.5 py-2 text-xs rounded-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-[#0b57d0]"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Test Cards List with One-Click Publish Switch */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
               {tests
                 .filter((t) => t.title.toLowerCase().includes(publishingSearch.toLowerCase()) || (t.topic || '').toLowerCase().includes(publishingSearch.toLowerCase()))
                 .map((test) => {
@@ -1800,25 +1892,25 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   return (
                     <div
                       key={test.id}
-                      className={`p-4 rounded-[22px] border transition-all flex flex-col justify-between gap-3 shadow-xs ${
+                      className={`p-4 sm:p-5 rounded-[24px] border transition-all flex flex-col justify-between gap-3.5 shadow-xs ${
                         isPublished
-                          ? 'bg-white dark:bg-[#1a1d24] border-emerald-500/50 dark:border-emerald-500/40 ring-1 ring-emerald-500/20'
-                          : 'bg-white dark:bg-[#1a1d24] border-slate-200 dark:border-zinc-800'
+                          ? 'bg-white dark:bg-[#16181f] border-emerald-500/50 dark:border-emerald-500/40 ring-1 ring-emerald-500/20'
+                          : 'bg-white dark:bg-[#16181f] border-slate-200/80 dark:border-zinc-800/80'
                       }`}
                     >
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 truncate">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 truncate">
                               {test.topic || 'General Math'}
                             </span>
                             {isPublished ? (
-                              <span className="px-2 py-0.2 rounded-full text-[9px] font-black bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 shrink-0">
-                                LIVE FOR STUDENTS
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 shrink-0">
+                                LIVE
                               </span>
                             ) : (
-                              <span className="px-2 py-0.2 rounded-full text-[9px] font-bold bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 shrink-0">
-                                PRIVATE DRAFT
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 shrink-0">
+                                DRAFT
                               </span>
                             )}
                           </div>
@@ -1837,10 +1929,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                       </div>
 
                       {/* Bottom Toggle Bar */}
-                      <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-2">
+                      <div className="pt-2.5 border-t border-slate-100 dark:border-zinc-800/80 flex items-center justify-between gap-2">
                         <button
                           onClick={() => handleTogglePublish(test)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                          className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 ${
                             isPublished
                               ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300'
                               : 'bg-[#0b57d0] hover:bg-[#0842a0] text-white shadow-xs'
@@ -1849,7 +1941,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                           {isPublished ? (
                             <>
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                              <span>Published (Click to Unpublish)</span>
+                              <span>Live (Unpublish)</span>
                             </>
                           ) : (
                             <>
