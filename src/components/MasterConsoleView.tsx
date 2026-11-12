@@ -645,7 +645,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
           </div>
         </div>
 
-        {/* Right Header Controls: Theme toggle, Shifted Back Button, and Close Button */}
+        {/* Right Header Controls: Theme toggle and Close Button */}
         <div className="flex items-center gap-2 shrink-0">
           {onToggleTheme && (
             <button
@@ -657,17 +657,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             </button>
           )}
 
-          {/* Shifted Back Button */}
-          <button
-            onClick={onBack}
-            title="Back to App"
-            aria-label="Back to App"
-            className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-center justify-center transition-all cursor-pointer active:scale-95 outline-none select-none"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-
-          {/* Close Button (replacing Done button) */}
+          {/* Close Button */}
           <button
             onClick={onBack}
             title="Close Console"
