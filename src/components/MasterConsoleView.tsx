@@ -777,14 +777,22 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                       <button
                         type="button"
                         onClick={handleSelectFirstThree}
-                        className="h-8 px-3.5 rounded-full text-xs font-semibold bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] border-0 cursor-pointer active:scale-95 transition-all outline-none"
+                        className={`h-8 px-3.5 rounded-full text-xs font-semibold border-0 cursor-pointer active:scale-95 transition-all outline-none ${
+                          selectedSourceTestIds.length === 3 && tests.slice(0, 3).every((t) => selectedSourceTestIds.includes(t.id))
+                            ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] ring-2 ring-inset ring-[#0b57d0] dark:ring-[#a8c7fa]'
+                            : 'bg-[#f0f4f9] dark:bg-[#141619] hover:bg-[#e9eef6] dark:hover:bg-[#22252a] text-[#1f1f1f] dark:text-[#e3e3e3]'
+                        }`}
                       >
                         Select First 3
                       </button>
                       <button
                         type="button"
                         onClick={handleSelectAll}
-                        className="h-8 px-3.5 rounded-full text-xs font-semibold bg-[#f0f4f9] dark:bg-[#141619] hover:bg-[#e9eef6] dark:hover:bg-[#22252a] text-[#1f1f1f] dark:text-[#e3e3e3] border-0 cursor-pointer active:scale-95 transition-all outline-none"
+                        className={`h-8 px-3.5 rounded-full text-xs font-semibold border-0 cursor-pointer active:scale-95 transition-all outline-none ${
+                          selectedSourceTestIds.length === tests.length && tests.length > 0
+                            ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] ring-2 ring-inset ring-[#0b57d0] dark:ring-[#a8c7fa]'
+                            : 'bg-[#f0f4f9] dark:bg-[#141619] hover:bg-[#e9eef6] dark:hover:bg-[#22252a] text-[#1f1f1f] dark:text-[#e3e3e3]'
+                        }`}
                       >
                         All ({tests.length})
                       </button>
@@ -813,8 +821,8 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                           onClick={() => toggleSourceTest(test.id)}
                           className={`p-3.5 rounded-[20px] transition-all duration-150 cursor-pointer flex items-center justify-between gap-3 select-none active:scale-[0.99] border-0 ${
                             isSelected
-                              ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] shadow-[0_2px_6px_rgba(11,87,208,0.25)]'
-                              : 'bg-[#f0f4f9] dark:bg-[#141619] hover:bg-[#e9eef6] dark:hover:bg-[#22252a] text-[#1f1f1f] dark:text-[#e3e3e3]'
+                              ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] shadow-[0_2px_6px_rgba(11,87,208,0.25)] ring-2 ring-inset ring-[#0b57d0] dark:ring-[#a8c7fa]'
+                              : 'bg-[#f0f4f9] dark:bg-[#141619] hover:bg-[#e9eef6] dark:hover:bg-[#22252a] text-[#1f1f1f] dark:text-[#e3e3e3] ring-1 ring-inset ring-transparent'
                           }`}
                         >
                           <div className="min-w-0 flex-1">
@@ -857,48 +865,85 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                     </div>
 
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={handleSelectAllCategories}
-                        className="h-7 px-3 rounded-full text-xs font-semibold text-[#0b57d0] dark:text-[#a8c7fa] bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 hover:bg-[#d3e3fd] transition-all cursor-pointer active:scale-95 border-0 outline-none"
-                      >
-                        All (Errors + Marked)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSelectWrongOnly}
-                        className="h-7 px-2.5 rounded-full text-xs font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] bg-[#f0f4f9] dark:bg-[#141619] hover:bg-[#e9eef6] dark:hover:bg-[#22252a] transition-all cursor-pointer active:scale-95 border-0 outline-none"
-                      >
-                        Wrong
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSelectUnattemptedOnly}
-                        className="h-7 px-2.5 rounded-full text-xs font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] bg-[#f0f4f9] dark:bg-[#141619] hover:bg-[#e9eef6] dark:hover:bg-[#22252a] transition-all cursor-pointer active:scale-95 border-0 outline-none"
-                      >
-                        Skipped
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSelectMarkedOnly}
-                        className="h-7 px-2.5 rounded-full text-xs font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] bg-[#f0f4f9] dark:bg-[#141619] hover:bg-[#e9eef6] dark:hover:bg-[#22252a] transition-all cursor-pointer active:scale-95 border-0 outline-none"
-                      >
-                        Marked
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSelectUnmarkedOnly}
-                        className="h-7 px-2.5 rounded-full text-xs font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] bg-[#f0f4f9] dark:bg-[#141619] hover:bg-[#e9eef6] dark:hover:bg-[#22252a] transition-all cursor-pointer active:scale-95 border-0 outline-none"
-                      >
-                        Unmarked
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSelectAllFourCategories}
-                        className="h-7 px-3 rounded-full text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 transition-all cursor-pointer active:scale-95 border-0 outline-none"
-                      >
-                        All 4
-                      </button>
+                      {(() => {
+                        const isAllErrorsAndMarked = selectedCategories.length === 3 && ['wrong', 'unattempted', 'marked'].every((c) => selectedCategories.includes(c as any));
+                        const isWrongOnly = selectedCategories.length === 1 && selectedCategories.includes('wrong');
+                        const isSkippedOnly = selectedCategories.length === 1 && selectedCategories.includes('unattempted');
+                        const isMarkedOnly = selectedCategories.length === 1 && selectedCategories.includes('marked');
+                        const isUnmarkedOnly = selectedCategories.length === 1 && selectedCategories.includes('unmarked');
+                        const isAllFour = selectedCategories.length === 4;
+
+                        return (
+                          <>
+                            <button
+                              type="button"
+                              onClick={handleSelectAllCategories}
+                              className={`h-7 px-3 rounded-full text-xs font-semibold transition-all cursor-pointer active:scale-95 border-0 outline-none ${
+                                isAllErrorsAndMarked
+                                  ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] ring-2 ring-inset ring-[#0b57d0] dark:ring-[#a8c7fa]'
+                                  : 'text-[#0b57d0] dark:text-[#a8c7fa] bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 hover:bg-[#d3e3fd]'
+                              }`}
+                            >
+                              All (Errors + Marked)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSelectWrongOnly}
+                              className={`h-7 px-2.5 rounded-full text-xs font-semibold transition-all cursor-pointer active:scale-95 border-0 outline-none ${
+                                isWrongOnly
+                                  ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] ring-2 ring-inset ring-[#0b57d0] dark:ring-[#a8c7fa]'
+                                  : 'text-[#1f1f1f] dark:text-[#e3e3e3] bg-[#f0f4f9] dark:bg-[#141619] hover:bg-[#e9eef6] dark:hover:bg-[#22252a]'
+                              }`}
+                            >
+                              Wrong
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSelectUnattemptedOnly}
+                              className={`h-7 px-2.5 rounded-full text-xs font-semibold transition-all cursor-pointer active:scale-95 border-0 outline-none ${
+                                isSkippedOnly
+                                  ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] ring-2 ring-inset ring-[#0b57d0] dark:ring-[#a8c7fa]'
+                                  : 'text-[#1f1f1f] dark:text-[#e3e3e3] bg-[#f0f4f9] dark:bg-[#141619] hover:bg-[#e9eef6] dark:hover:bg-[#22252a]'
+                              }`}
+                            >
+                              Skipped
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSelectMarkedOnly}
+                              className={`h-7 px-2.5 rounded-full text-xs font-semibold transition-all cursor-pointer active:scale-95 border-0 outline-none ${
+                                isMarkedOnly
+                                  ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] ring-2 ring-inset ring-[#0b57d0] dark:ring-[#a8c7fa]'
+                                  : 'text-[#1f1f1f] dark:text-[#e3e3e3] bg-[#f0f4f9] dark:bg-[#141619] hover:bg-[#e9eef6] dark:hover:bg-[#22252a]'
+                              }`}
+                            >
+                              Marked
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSelectUnmarkedOnly}
+                              className={`h-7 px-2.5 rounded-full text-xs font-semibold transition-all cursor-pointer active:scale-95 border-0 outline-none ${
+                                isUnmarkedOnly
+                                  ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] ring-2 ring-inset ring-[#0b57d0] dark:ring-[#a8c7fa]'
+                                  : 'text-[#1f1f1f] dark:text-[#e3e3e3] bg-[#f0f4f9] dark:bg-[#141619] hover:bg-[#e9eef6] dark:hover:bg-[#22252a]'
+                              }`}
+                            >
+                              Unmarked
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSelectAllFourCategories}
+                              className={`h-7 px-3 rounded-full text-xs font-semibold transition-all cursor-pointer active:scale-95 border-0 outline-none ${
+                                isAllFour
+                                  ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/60 dark:text-emerald-200 ring-2 ring-inset ring-emerald-600 dark:ring-emerald-400'
+                                  : 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100'
+                              }`}
+                            >
+                              All 4
+                            </button>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -937,8 +982,8 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                           onClick={() => toggleCategory(cat.id)}
                           className={`p-3.5 rounded-[20px] transition-all duration-150 cursor-pointer flex items-center justify-between gap-3 select-none active:scale-[0.99] border-0 ${
                             isSelected
-                              ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] shadow-[0_2px_6px_rgba(11,87,208,0.25)]'
-                              : 'bg-[#f0f4f9] dark:bg-[#141619] hover:bg-[#e9eef6] dark:hover:bg-[#22252a] text-[#1f1f1f] dark:text-[#e3e3e3]'
+                              ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] shadow-[0_2px_6px_rgba(11,87,208,0.25)] ring-2 ring-inset ring-[#0b57d0] dark:ring-[#a8c7fa]'
+                              : 'bg-[#f0f4f9] dark:bg-[#141619] hover:bg-[#e9eef6] dark:hover:bg-[#22252a] text-[#1f1f1f] dark:text-[#e3e3e3] ring-1 ring-inset ring-transparent'
                           }`}
                         >
                           <div className="flex items-center gap-3 min-w-0">
@@ -1039,7 +1084,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                             onClick={() => setTimeLimitMinutes(mins)}
                             className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer border-0 outline-none ${
                               timeLimitMinutes === mins
-                                ? 'bg-[#0b57d0] text-white shadow-xs'
+                                ? 'bg-[#0b57d0] text-white shadow-xs ring-2 ring-offset-1 ring-[#0b57d0] dark:ring-offset-[#1e2024] dark:ring-[#a8c7fa]'
                                 : 'bg-[#f0f4f9] dark:bg-[#141619] text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-[#e9eef6] dark:hover:bg-[#22252a]'
                             }`}
                           >
@@ -1556,8 +1601,8 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                           }}
                           className={`p-3 rounded-[18px] border-0 transition-all cursor-pointer flex items-center justify-between gap-2 select-none active:scale-[0.99] ${
                             isSelected
-                              ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] shadow-xs'
-                              : 'bg-[#f0f4f9] dark:bg-[#141619] hover:bg-[#e9eef6] dark:hover:bg-[#22252a] text-[#1f1f1f] dark:text-[#e3e3e3]'
+                              ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] shadow-xs ring-2 ring-inset ring-[#0b57d0] dark:ring-[#a8c7fa]'
+                              : 'bg-[#f0f4f9] dark:bg-[#141619] hover:bg-[#e9eef6] dark:hover:bg-[#22252a] text-[#1f1f1f] dark:text-[#e3e3e3] ring-1 ring-inset ring-transparent'
                           }`}
                         >
                           <div className="min-w-0 flex-1">
