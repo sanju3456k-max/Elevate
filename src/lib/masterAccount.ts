@@ -423,12 +423,6 @@ export async function unpublishMasterTest(testId: string): Promise<void> {
           await deleteDoc(masterAuthoritativeDocRef).catch(() => {});
         } catch {}
       }
-
-      // 3. Delete from dedicated published_tests collection
-      try {
-        const pubRef = doc(db, 'published_tests', testId);
-        await deleteDoc(pubRef).catch(() => {});
-      } catch {}
     } catch (err) {
       console.warn('Could not complete cloud unpublish:', err);
     }
@@ -529,28 +523,6 @@ export async function fetchPublishedMasterTestsFromCloud(): Promise<MathTest[]> 
 
       return list;
     }
-
-    // 2. Fallback: Query published_tests collection
-    try {
-      const pubCol = collection(db, 'published_tests');
-      const pubSnap = await getDocs(query(pubCol, limit(50))).catch(() => null);
-      if (pubSnap && !pubSnap.empty) {
-        const testsMap: Record<string, MathTest> = {};
-        const ids: string[] = [];
-        pubSnap.docs.forEach((d) => {
-          const t = d.data() as MathTest;
-          if (t && t.id) {
-            testsMap[t.id] = t;
-            ids.push(t.id);
-          }
-        });
-        try {
-          localStorage.setItem(GLOBAL_PUBLISHED_TESTS_KEY, JSON.stringify(testsMap));
-          localStorage.setItem(MASTER_PUBLISHED_TESTS_KEY, JSON.stringify(ids));
-        } catch {}
-        return Object.values(testsMap);
-      }
-    } catch {}
   } catch (err) {
     console.warn('Failed to fetch published master tests from cloud:', err);
   }
@@ -1032,10 +1004,6 @@ export async function toggleRemedialAssignmentStatus(
             updatedAt: new Date().toISOString(),
           }, { merge: true }).catch(() => {});
 
-          // Clean up individual assignment doc if unassigned
-          const asgDocRef = doc(db, 'remedial_assignments', assignmentId);
-          await deleteDoc(asgDocRef).catch(() => {});
-
           // Clean up student doc
           const safeStudentId = (item.studentId || '').replace(/[/.[\]*~#$]/g, '_');
           if (safeStudentId) {
@@ -1081,9 +1049,6 @@ export async function toggleRemedialAssignmentStatus(
             assignments: catAssignments,
             updatedAt: new Date().toISOString(),
           }, { merge: true }).catch(() => {});
-
-          const asgDocRef = doc(db, 'remedial_assignments', assignmentId);
-          await setDoc(asgDocRef, sanitizeForFirestore({ ...item, isUnassigned: false }), { merge: true }).catch(() => {});
         }
       } catch (err) {
         console.warn('Cloud sync for toggle remedial status notice:', err);
@@ -1213,9 +1178,7 @@ export async function deleteRemedialAssignment(
           });
         } catch {}
 
-        // B. Delete discrete remedial_assignments document
-        const assignmentDocRef = doc(db, 'remedial_assignments', assignmentId);
-        await deleteDoc(assignmentDocRef).catch(() => {});
+
 
         // C. Clean from student's personal cloud doc
         const safeStudentId = (sId || '').replace(/[/.[\]*~#$]/g, '_');

@@ -408,14 +408,8 @@ export default function App() {
       return;
     }
 
-    // 1. Instant cloud fetch of published master tests
-    fetchPublishedMasterTestsFromCloud().then((publishedList) => {
-      if (!isMaster && publishedList.length > 0) {
-        setTests((prev) => mergePublishedMasterTests(prev, false, false));
-      }
-    }).catch(() => {});
-
-    // 2. Real-time Firestore snapshot listener for published master tests
+    // 1. Real-time Firestore snapshot listener for published master tests (Strictly 1 Read on launch)
+    // Listens exclusively to single document: test_leaderboards/MASTER_CATALOG/summary/published_tests
     const unsubscribePublished = subscribeToPublishedMasterTests(() => {
       const activeUid = currentUser?.uid || cachedUser?.uid || null;
       const master = isMasterUser(currentUser || cachedUser);
@@ -426,17 +420,16 @@ export default function App() {
       }
     });
 
-    // 3. Initial fetch & real-time listener for student remedial test assignments
+    // 2. Real-time listener for student remedial test assignments (Strictly 1 Read on login)
+    // Listens exclusively to single document: test_leaderboards/REMEDIAL_{safeUid}/summary/assignment
     const activeUid = currentUser?.uid || cachedUser?.uid || null;
     const activeEmail = currentUser?.email || cachedUser?.email || null;
-
-    fetchCloudAssignedRemedialTests(activeUid, activeEmail).catch(() => {});
 
     const unsubscribeRemedial = subscribeToAssignedRemedialTests(activeUid, activeEmail, () => {
       // Triggers UI refresh via remedial-tests-updated event
     });
 
-    // 4. Local storage event listener for same-device window sync
+    // 3. Local storage event listener for same-device window sync
     const handlePublishedUpdated = () => {
       const targetUid = currentUser?.uid || cachedUser?.uid || null;
       const master = isMasterUser(currentUser || cachedUser);

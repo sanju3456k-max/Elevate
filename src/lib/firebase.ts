@@ -1845,8 +1845,17 @@ export function subscribeToTests(
     return () => {};
   }
 
+  // Master Enterprise: Local-first check!
+  // If Master already has tests stored locally in cache/IndexedDB, hydrate immediately with 0 reads.
+  const existingLocal = loadScopedTests(userId);
+  const hasCustomTests = existingLocal && existingLocal.some((t) => !SAMPLE_MATH_TESTS.some((st) => st.id === t.id));
+  if (hasCustomTests) {
+    onUpdate(existingLocal);
+    return () => {};
+  }
+
   try {
-    // Master Enterprise: One-time initial hydration for Master Admin instead of continuous open stream
+    // Only pull from users/{userId}/tests if local cache is empty of custom tests (e.g. brand new device)
     const userTestsCol = collection(db, 'users', userId, 'tests');
     getDocs(query(userTestsCol, limit(100)))
       .then((snap) => {
@@ -2912,8 +2921,16 @@ export function subscribeToAttempts(
     return () => {};
   }
 
-  // Master Enterprise Zero-Idle-Cost: One-time initial fetch on login instead of persistent open stream.
-  // Student attempts are captured locally and in cohort_bucket_1. Idle reads drop to strictly 0!
+  // Master Enterprise Zero-Idle-Cost: Local-first check!
+  // If user already has attempts cached locally in cache/IndexedDB, hydrate immediately (0 reads).
+  const existingLocal = loadScopedAttempts(userId);
+  if (existingLocal && existingLocal.length > 0) {
+    onUpdate(existingLocal);
+    return () => {};
+  }
+
+  // Only if local cache is completely empty (e.g. brand new device/browser login),
+  // perform one-time initial hydration pull from cloud.
   try {
     const userAttemptsCol = collection(db, 'users', userId, 'attempts');
     getDocs(query(userAttemptsCol, limit(50)))

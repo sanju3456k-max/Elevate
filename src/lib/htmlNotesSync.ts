@@ -876,9 +876,10 @@ export function subscribeToFirestoreProjects(
     onProjectsUpdate(currentLocal);
   }
 
-  // 2. Fetch remote projects and reconcile non-destructively so cross-device notes appear seamlessly
+  // 2. Local-first guard: Fetch remote projects ONLY if local storage is completely empty (first login / new device)
   let isCancelled = false;
-  if (typeof navigator !== 'undefined' && navigator.onLine && !isGlobalQuotaExceeded()) {
+  const hasLocalProjects = currentLocal && currentLocal.length > 0;
+  if (!hasLocalProjects && typeof navigator !== 'undefined' && navigator.onLine && !isGlobalQuotaExceeded()) {
     try {
       getDoc(doc(db, 'users', userId)).then((uSnap) => {
         if (uSnap.exists()) {
