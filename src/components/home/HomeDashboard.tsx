@@ -281,10 +281,10 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                   onOpenBatches && onOpenBatches();
                 }
               }}
-              className="group cursor-pointer rounded-2xl sm:rounded-3xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-row p-2.5 sm:p-0 gap-3 sm:gap-0 items-center sm:items-stretch justify-between"
+              className="group cursor-pointer rounded-2xl sm:rounded-3xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-row p-0 justify-between items-stretch"
             >
-              {/* Video Thumbnail */}
-              <div className="relative w-32 sm:w-44 aspect-video shrink-0 rounded-xl sm:rounded-none overflow-hidden bg-slate-900/10 dark:bg-black/30">
+              {/* Video Thumbnail (Edge-to-edge flush on left corner) */}
+              <div className="relative w-36 sm:w-48 aspect-video shrink-0 self-stretch overflow-hidden bg-slate-900/10 dark:bg-black/30">
                 <img
                   src={latestLecture?.thumbnailUrl || 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=800&auto=format&fit=crop&q=80'}
                   alt={latestLecture?.title || 'Video Class'}
@@ -304,7 +304,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               </div>
 
               {/* Content & Footer */}
-              <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5 sm:p-4 space-y-1.5 sm:space-y-2">
+              <div className="flex-1 min-w-0 flex flex-col justify-between p-3 sm:p-4 space-y-1.5 sm:space-y-2">
                 <div className="space-y-1">
                   <span className="text-[9.5px] sm:text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider block">
                     Interactive Video
@@ -338,10 +338,10 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                   onOpenAllTests();
                 }
               }}
-              className="group cursor-pointer rounded-2xl sm:rounded-3xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-row p-2.5 sm:p-0 gap-3 sm:gap-0 items-center sm:items-stretch justify-between"
+              className="group cursor-pointer rounded-2xl sm:rounded-3xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-row p-0 justify-between items-stretch"
             >
-              {/* Test Header Badge Area */}
-              <div className="relative w-32 sm:w-44 aspect-video shrink-0 rounded-xl sm:rounded-none overflow-hidden bg-gradient-to-br from-emerald-500/20 via-[var(--md-sys-color-surface-container-highest)] to-teal-500/15 flex flex-col justify-between p-2.5 sm:p-3">
+              {/* Test Header Badge Area (Edge-to-edge flush on left corner) */}
+              <div className="relative w-36 sm:w-48 aspect-video shrink-0 self-stretch overflow-hidden bg-gradient-to-br from-emerald-500/20 via-[var(--md-sys-color-surface-container-highest)] to-teal-500/15 flex flex-col justify-between p-2.5 sm:p-3">
                 <div className="flex items-center justify-between">
                   <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-white font-bold text-[9px] sm:text-[10px] uppercase tracking-wider shadow-xs">
                     Latest Mock Test
@@ -362,7 +362,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               </div>
 
               {/* Content & Footer */}
-              <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5 sm:p-4 space-y-1.5 sm:space-y-2">
+              <div className="flex-1 min-w-0 flex flex-col justify-between p-3 sm:p-4 space-y-1.5 sm:space-y-2">
                 <div className="space-y-1">
                   <p className="hidden sm:block text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-1 leading-relaxed">
                     Timed computer-based test with immediate evaluation and accuracy tracking.
@@ -396,9 +396,9 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         {specialPanelTab === 'lecture' && latestLecture && (
           <div
             onClick={() => handleSelectLectureItem(latestLecture.batchId, latestLecture.id)}
-            className="group cursor-pointer rounded-2xl sm:rounded-3xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-col md:flex-row p-3 sm:p-4 gap-4 items-center"
+            className="group cursor-pointer rounded-2xl sm:rounded-3xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-col md:flex-row p-0 items-stretch"
           >
-            <div className="relative w-full md:w-80 aspect-video shrink-0 rounded-2xl overflow-hidden bg-slate-900/10 dark:bg-black/30">
+            <div className="relative w-full md:w-80 aspect-video shrink-0 self-stretch overflow-hidden bg-slate-900/10 dark:bg-black/30">
               <img
                 src={latestLecture.thumbnailUrl}
                 alt={latestLecture.title}
@@ -407,7 +407,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-purple-600 text-white font-bold text-[10px] uppercase tracking-wider">
                 Featured Class
               </span>
-              <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-black/80 font-mono text-xs text-white">
+              <span className="absolute bottom-2.5 right-2.5 px-2.5 py-0.5 rounded-md bg-black/80 font-mono text-xs text-white">
                 {latestLecture.durationMinutes}:00
               </span>
               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/30">
@@ -416,16 +416,18 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 </div>
               </div>
             </div>
-            <div className="flex-1 min-w-0 space-y-2.5">
-              <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider block">
-                Latest Curriculum Lecture
-              </span>
-              <h3 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-purple-600 dark:group-hover:text-purple-400 transition leading-snug">
-                {latestLecture.title}
-              </h3>
-              <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
-                {latestLecture.description}
-              </p>
+            <div className="flex-1 min-w-0 p-4 sm:p-5 space-y-2.5 flex flex-col justify-between">
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider block">
+                  Latest Curriculum Lecture
+                </span>
+                <h3 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-purple-600 dark:group-hover:text-purple-400 transition leading-snug">
+                  {latestLecture.title}
+                </h3>
+                <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
+                  {latestLecture.description}
+                </p>
+              </div>
               <div className="flex items-center justify-between pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
                 <span className="text-xs text-[var(--md-sys-color-on-surface-variant)] font-medium">
                   {latestLecture.pdfNotes?.length || 0} Study Notes attached • {currentBatch?.instructor?.name || 'Master Educator'}
@@ -442,9 +444,9 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         {specialPanelTab === 'test' && latestTest && (
           <div
             onClick={() => onStartTest(latestTest)}
-            className="group cursor-pointer rounded-2xl sm:rounded-3xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-col md:flex-row p-3 sm:p-4 gap-4 items-center"
+            className="group cursor-pointer rounded-2xl sm:rounded-3xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-col md:flex-row p-0 items-stretch"
           >
-            <div className="relative w-full md:w-80 aspect-video shrink-0 rounded-2xl overflow-hidden bg-gradient-to-br from-emerald-500/25 via-[var(--md-sys-color-surface-container-highest)] to-teal-500/20 flex flex-col justify-between p-4">
+            <div className="relative w-full md:w-80 aspect-video shrink-0 self-stretch overflow-hidden bg-gradient-to-br from-emerald-500/25 via-[var(--md-sys-color-surface-container-highest)] to-teal-500/20 flex flex-col justify-between p-4">
               <div className="flex items-center justify-between">
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-500 text-white font-bold text-[10px] uppercase tracking-wider shadow-xs">
                   Featured Mock Test
@@ -462,7 +464,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 </h4>
               </div>
             </div>
-            <div className="flex-1 min-w-0 space-y-2.5">
+            <div className="flex-1 min-w-0 p-4 sm:p-5 space-y-2.5 flex flex-col justify-between">
               <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
                 Timed Assessment
               </span>
@@ -812,9 +814,9 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
   return (
     <div
       onClick={onSelect}
-      className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-2.5 sm:p-0 gap-3 sm:gap-0 items-center sm:items-stretch border-none shadow-xs hover:shadow-md"
+      className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-0 border-none shadow-xs hover:shadow-md items-stretch"
     >
-      <div className="relative w-32 sm:w-full aspect-video shrink-0 rounded-xl sm:rounded-none overflow-hidden">
+      <div className="relative w-36 sm:w-full aspect-video shrink-0 self-stretch overflow-hidden">
         <img
           src={batch.thumbnailUrl}
           alt={batch.title}
@@ -835,7 +837,7 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
         </div>
       </div>
 
-      <div className="p-1 sm:p-5 flex-1 min-w-0 flex flex-col justify-between space-y-1.5 sm:space-y-3">
+      <div className="p-3 sm:p-5 flex-1 min-w-0 flex flex-col justify-between space-y-1.5 sm:space-y-3">
         <div>
           <h3 className="text-xs sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition leading-snug line-clamp-1 sm:line-clamp-2">
             {batch.title}

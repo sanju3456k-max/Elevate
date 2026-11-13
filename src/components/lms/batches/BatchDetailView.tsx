@@ -274,9 +274,9 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               <div
                 key={b.id}
                 onClick={() => goToBatchFolders(b.id)}
-                className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-2.5 sm:p-0 gap-3 sm:gap-0 items-center sm:items-stretch border-none shadow-xs hover:shadow-md"
+                className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-0 border-none shadow-xs hover:shadow-md items-stretch"
               >
-                <div className="relative w-32 sm:w-full aspect-video shrink-0 rounded-xl sm:rounded-none overflow-hidden">
+                <div className="relative w-36 sm:w-full aspect-video shrink-0 self-stretch overflow-hidden">
                   <img
                     src={b.thumbnailUrl}
                     alt={b.title}
@@ -297,7 +297,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   </div>
                 </div>
 
-                <div className="p-1 sm:p-5 flex-1 min-w-0 flex flex-col justify-between space-y-2 sm:space-y-4">
+                <div className="p-3 sm:p-5 flex-1 min-w-0 flex flex-col justify-between space-y-2 sm:space-y-4">
                   <div className="space-y-1">
                     <h3 className="text-xs sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition leading-snug line-clamp-1 sm:line-clamp-2">
                       {b.title}
@@ -560,9 +560,9 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               <div
                 key={lec.id}
                 onClick={() => goToLectureView(lec.id)}
-                className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-2.5 sm:p-0 gap-3 sm:gap-0 items-center sm:items-stretch border-none shadow-xs hover:shadow-md"
+                className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-0 border-none shadow-xs hover:shadow-md items-stretch"
               >
-                <div className="relative w-32 sm:w-full aspect-video shrink-0 rounded-xl sm:rounded-none overflow-hidden">
+                <div className="relative w-36 sm:w-full aspect-video shrink-0 self-stretch overflow-hidden">
                   <img
                     src={lec.thumbnailUrl}
                     alt={lec.title}
@@ -583,7 +583,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   </div>
                 </div>
 
-                <div className="p-1 sm:p-4 flex-1 min-w-0 flex flex-col justify-between space-y-1.5 sm:space-y-3">
+                <div className="p-3 sm:p-4 flex-1 min-w-0 flex flex-col justify-between space-y-1.5 sm:space-y-3">
                   <div>
                     <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition line-clamp-1 sm:line-clamp-2 leading-snug">
                       {lec.title}
@@ -722,10 +722,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                         showSecurityToast('Opening test runner...');
                       }
                     }}
-                    className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-2.5 sm:p-0 gap-3 sm:gap-0 items-center sm:items-stretch border-none shadow-xs hover:shadow-md"
+                    className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-0 border-none shadow-xs hover:shadow-md items-stretch"
                   >
                     {/* Corner Test Clip / Banner */}
-                    <div className="relative w-32 sm:w-full aspect-video shrink-0 rounded-xl sm:rounded-none overflow-hidden bg-gradient-to-br from-emerald-500/20 via-[var(--md-sys-color-surface-container-high)] to-teal-500/15 flex flex-col justify-between p-2.5 sm:p-4">
+                    <div className="relative w-36 sm:w-full aspect-video shrink-0 self-stretch overflow-hidden bg-gradient-to-br from-emerald-500/20 via-[var(--md-sys-color-surface-container-high)] to-teal-500/15 flex flex-col justify-between p-2.5 sm:p-4">
                       <div className="flex items-center justify-between">
                         <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-wider bg-emerald-500 text-white shadow-xs">
                           {t.difficulty || 'Medium'}
@@ -741,7 +741,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                     </div>
 
                     {/* Test Details */}
-                    <div className="p-1 sm:p-4 flex-1 min-w-0 flex flex-col justify-between space-y-1.5 sm:space-y-3">
+                    <div className="p-3 sm:p-4 flex-1 min-w-0 flex flex-col justify-between space-y-1.5 sm:space-y-3">
                       <div>
                         <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition line-clamp-1 sm:line-clamp-2 leading-snug">
                           {t.title}
