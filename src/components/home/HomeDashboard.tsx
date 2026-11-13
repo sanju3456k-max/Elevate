@@ -221,47 +221,47 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           {/* Card 1: Batch Update Card with new UI thumbnail and styling */}
           <div
             onClick={() => onOpenBatches && onOpenBatches('my-batches')}
-            className="group cursor-pointer rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-col justify-between"
+            className="group cursor-pointer rounded-2xl md:rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-row md:flex-col p-2.5 md:p-0 gap-3 md:gap-0 items-center md:items-stretch justify-between"
           >
-            <div>
-              {/* Thumbnail header */}
-              <div className="relative aspect-video w-full overflow-hidden bg-slate-900/10 dark:bg-black/30">
-                <img
-                  src={currentBatch?.thumbnailUrl || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80'}
-                  alt={currentBatch?.title || 'Batch'}
-                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                />
-                <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-[var(--md-sys-color-surface-container-highest)]/90 backdrop-blur-md text-[var(--md-sys-color-on-surface)] text-[10.5px] font-bold uppercase tracking-wider">
-                  {currentBatch?.category || 'Batch Update'}
-                </span>
-                <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-black/75 text-white text-[10px] font-mono">
-                  {latestAnnouncement ? latestAnnouncement.date : 'Active'}
-                </span>
-              </div>
+            {/* Thumbnail header */}
+            <div className="relative w-32 sm:w-40 md:w-full aspect-video shrink-0 rounded-xl md:rounded-none overflow-hidden bg-slate-900/10 dark:bg-black/30">
+              <img
+                src={currentBatch?.thumbnailUrl || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80'}
+                alt={currentBatch?.title || 'Batch'}
+                className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+              />
+              <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 px-2 md:px-2.5 py-0.5 rounded-full bg-[var(--md-sys-color-surface-container-highest)]/90 backdrop-blur-md text-[var(--md-sys-color-on-surface)] text-[9px] md:text-[10.5px] font-bold uppercase tracking-wider">
+                {currentBatch?.category || 'Batch Update'}
+              </span>
+              <span className="absolute bottom-1.5 right-1.5 md:bottom-2.5 md:right-2.5 px-1.5 md:px-2 py-0.5 rounded-md bg-black/75 text-white text-[9px] md:text-[10px] font-mono">
+                {latestAnnouncement ? latestAnnouncement.date : 'Active'}
+              </span>
+            </div>
 
-              {/* Body */}
-              <div className="p-4 sm:p-5 space-y-1.5">
-                <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
+            {/* Content & Footer in flex-col on mobile */}
+            <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5 md:p-5 md:pt-4 space-y-1.5 md:space-y-3">
+              <div className="space-y-1">
+                <span className="text-[9.5px] md:text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
                   Batch Curriculum
                 </span>
-                <h3 className="text-sm sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition leading-snug line-clamp-1">
+                <h3 className="text-xs sm:text-sm md:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition leading-snug line-clamp-1">
                   {currentBatch ? currentBatch.title : 'JEE / CBSE Foundation Batch'}
                 </h3>
-                <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
+                <p className="hidden sm:block text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-1 md:line-clamp-2 leading-relaxed">
                   {latestAnnouncement ? latestAnnouncement.title : (currentBatch?.description || 'Access video lectures, structured chapter folders, and full revision notes.')}
                 </p>
               </div>
-            </div>
 
-            {/* Footer */}
-            <div className="p-4 sm:p-5 pt-0 flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)]/20 mt-1 pt-3">
-              <span className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] font-medium">
-                {currentBatch?.instructor?.name || 'Master Faculty'}
-              </span>
-              <span className="text-xs font-bold text-[var(--md-sys-color-primary)] flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
-                <span>View</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </span>
+              {/* Footer */}
+              <div className="flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)]/20 pt-1.5 md:pt-3">
+                <span className="text-[10px] md:text-[11px] text-[var(--md-sys-color-on-surface-variant)] font-medium truncate max-w-[120px] md:max-w-none">
+                  {currentBatch?.instructor?.name || 'Master Faculty'}
+                </span>
+                <span className="text-xs font-bold text-[var(--md-sys-color-primary)] flex items-center gap-1 group-hover:translate-x-0.5 transition-transform shrink-0">
+                  <span>View</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </span>
+              </div>
             </div>
           </div>
 
@@ -274,52 +274,52 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 onOpenBatches && onOpenBatches();
               }
             }}
-            className="group cursor-pointer rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-col justify-between"
+            className="group cursor-pointer rounded-2xl md:rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-row md:flex-col p-2.5 md:p-0 gap-3 md:gap-0 items-center md:items-stretch justify-between"
           >
-            <div>
-              {/* Video Thumbnail */}
-              <div className="relative aspect-video w-full overflow-hidden bg-slate-900/10 dark:bg-black/30">
-                <img
-                  src={latestLecture?.thumbnailUrl || 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=800&auto=format&fit=crop&q=80'}
-                  alt={latestLecture?.title || 'Video Class'}
-                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                />
-                <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-purple-600/90 text-white font-bold text-[10px] uppercase tracking-wider backdrop-blur-xs">
-                  New Video Class
-                </span>
-                <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-black/80 font-mono text-[11px] text-white">
-                  {latestLecture ? `${latestLecture.durationMinutes}:00` : '45:00'}
-                </span>
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300 bg-black/30">
-                  <div className="w-10 h-10 rounded-full bg-[var(--md-sys-color-primary)] text-white flex items-center justify-center shadow-lg">
-                    <Play className="w-4 h-4 fill-current ml-0.5" />
-                  </div>
+            {/* Video Thumbnail */}
+            <div className="relative w-32 sm:w-40 md:w-full aspect-video shrink-0 rounded-xl md:rounded-none overflow-hidden bg-slate-900/10 dark:bg-black/30">
+              <img
+                src={latestLecture?.thumbnailUrl || 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=800&auto=format&fit=crop&q=80'}
+                alt={latestLecture?.title || 'Video Class'}
+                className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+              />
+              <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 px-2 md:px-2.5 py-0.5 rounded-full bg-purple-600/90 text-white font-bold text-[9px] md:text-[10px] uppercase tracking-wider backdrop-blur-xs">
+                New Video
+              </span>
+              <span className="absolute bottom-1.5 right-1.5 md:bottom-2.5 md:right-2.5 px-1.5 md:px-2 py-0.5 rounded-md bg-black/80 font-mono text-[9px] md:text-[11px] text-white">
+                {latestLecture ? `${latestLecture.durationMinutes}:00` : '45:00'}
+              </span>
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300 bg-black/30">
+                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-[var(--md-sys-color-primary)] text-white flex items-center justify-center shadow-lg">
+                  <Play className="w-3.5 h-3.5 md:w-4 md:h-4 fill-current ml-0.5" />
                 </div>
-              </div>
-
-              {/* Body */}
-              <div className="p-4 sm:p-5 space-y-1.5">
-                <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider block">
-                  Interactive Video
-                </span>
-                <h3 className="text-sm sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-purple-600 dark:group-hover:text-purple-400 transition leading-snug line-clamp-1">
-                  {latestLecture ? latestLecture.title : 'New interactive video lectures added'}
-                </h3>
-                <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
-                  {latestLecture?.description || 'Stream high-clarity video classes with milestone navigation and timestamped notes.'}
-                </p>
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="p-4 sm:p-5 pt-0 flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)]/20 mt-1 pt-3">
-              <span className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] font-medium">
-                {latestLecture?.pdfNotes?.length || 0} Notes attached
-              </span>
-              <span className="text-xs font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
-                <span>Watch</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </span>
+            {/* Content & Footer in flex-col on mobile */}
+            <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5 md:p-5 md:pt-4 space-y-1.5 md:space-y-3">
+              <div className="space-y-1">
+                <span className="text-[9.5px] md:text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider block">
+                  Interactive Video
+                </span>
+                <h3 className="text-xs sm:text-sm md:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-purple-600 dark:group-hover:text-purple-400 transition leading-snug line-clamp-1">
+                  {latestLecture ? latestLecture.title : 'New interactive video lectures added'}
+                </h3>
+                <p className="hidden sm:block text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-1 md:line-clamp-2 leading-relaxed">
+                  {latestLecture?.description || 'Stream high-clarity video classes with milestone navigation and timestamped notes.'}
+                </p>
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)]/20 pt-1.5 md:pt-3">
+                <span className="text-[10px] md:text-[11px] text-[var(--md-sys-color-on-surface-variant)] font-medium truncate max-w-[120px] md:max-w-none">
+                  {latestLecture?.pdfNotes?.length || 0} Notes attached
+                </span>
+                <span className="text-xs font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform shrink-0">
+                  <span>Watch</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </span>
+              </div>
             </div>
           </div>
 
@@ -332,57 +332,57 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 onOpenAllTests();
               }
             }}
-            className="group cursor-pointer rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-col justify-between"
+            className="group cursor-pointer rounded-2xl md:rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-row md:flex-col p-2.5 md:p-0 gap-3 md:gap-0 items-center md:items-stretch justify-between"
           >
-            <div>
-              {/* Test Header Badge Area */}
-              <div className="relative aspect-video w-full overflow-hidden bg-gradient-to-br from-emerald-500/15 via-[var(--md-sys-color-surface-container-high)] to-teal-500/10 flex flex-col justify-between p-4">
-                <div className="flex items-center justify-between">
-                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500 text-white font-bold text-[10px] uppercase tracking-wider shadow-xs">
-                    New Mock Test
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md bg-white/80 dark:bg-black/60 font-mono text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300">
-                    Live CBT
-                  </span>
-                </div>
-                
-                <div className="space-y-1">
-                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 block">
-                    {latestTest?.topic || 'Mathematics'}
-                  </span>
-                  <h4 className="text-sm sm:text-base font-extrabold text-[var(--md-sys-color-on-surface)] line-clamp-2 leading-tight">
-                    {latestTest ? latestTest.title : 'Full Mock Assessment'}
-                  </h4>
-                </div>
+            {/* Test Header Badge Area */}
+            <div className="relative w-32 sm:w-40 md:w-full aspect-video shrink-0 rounded-xl md:rounded-none overflow-hidden bg-gradient-to-br from-emerald-500/15 via-[var(--md-sys-color-surface-container-high)] to-teal-500/10 flex flex-col justify-between p-2.5 md:p-4">
+              <div className="flex items-center justify-between">
+                <span className="px-2 md:px-2.5 py-0.5 rounded-full bg-emerald-500 text-white font-bold text-[9px] md:text-[10px] uppercase tracking-wider shadow-xs">
+                  New Test
+                </span>
+                <span className="px-1.5 md:px-2 py-0.5 rounded-md bg-white/80 dark:bg-black/60 font-mono text-[9px] md:text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300">
+                  CBT
+                </span>
               </div>
+              
+              <div className="space-y-0.5 md:space-y-1">
+                <span className="text-[9px] md:text-[10.5px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 block">
+                  {latestTest?.topic || 'Mathematics'}
+                </span>
+                <h4 className="text-xs md:text-sm lg:text-base font-extrabold text-[var(--md-sys-color-on-surface)] line-clamp-1 leading-tight">
+                  {latestTest ? latestTest.title : 'Full Mock Assessment'}
+                </h4>
+              </div>
+            </div>
 
-              {/* Body */}
-              <div className="p-4 sm:p-5 space-y-2">
-                <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
-                  Timed computer-based test with immediate evaluation, detailed solution analysis, and accuracy tracking.
+            {/* Content & Footer in flex-col on mobile */}
+            <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5 md:p-5 md:pt-4 space-y-1.5 md:space-y-2">
+              <div className="space-y-1">
+                <p className="hidden sm:block text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-1 md:line-clamp-2 leading-relaxed">
+                  Timed computer-based test with immediate evaluation and accuracy tracking.
                 </p>
-                <div className="flex items-center gap-2.5 text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-medium pt-1">
+                <div className="flex items-center gap-2.5 text-[10px] md:text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-medium pt-0.5">
                   <span className="inline-flex items-center gap-1 text-[#444746] dark:text-[#c4c7c5]">
-                    <Package className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6]" strokeWidth={2.2} />
+                    <Package className="w-3 md:w-3.5 h-3 md:h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6]" strokeWidth={2.2} />
                     <span>{latestTestQuestionCount} Qs</span>
                   </span>
                   <span className="inline-flex items-center gap-1 text-[#444746] dark:text-[#c4c7c5]">
-                    <Clock className="w-3.5 h-3.5 text-[#6750a4] dark:text-[#d0bcff]" strokeWidth={2.2} />
+                    <Clock className="w-3 md:w-3.5 h-3 md:h-3.5 text-[#6750a4] dark:text-[#d0bcff]" strokeWidth={2.2} />
                     <span>{latestTestTimeDisplay}</span>
                   </span>
                 </div>
               </div>
-            </div>
 
-            {/* Footer */}
-            <div className="p-4 sm:p-5 pt-0 flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)]/20 mt-1 pt-3">
-              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
-                Instant Scoring
-              </span>
-              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
-                <span>Start Test</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </span>
+              {/* Footer */}
+              <div className="flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)]/20 pt-1.5 md:pt-3">
+                <span className="text-[10px] md:text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
+                  Instant Scoring
+                </span>
+                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform shrink-0">
+                  <span>Start</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -473,41 +473,41 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 <div className="max-w-xl">
                   <div
                     onClick={() => handleSelectLectureItem(latestLec.batchId, latestLec.id)}
-                    className="bg-[var(--md-sys-color-surface-container)] rounded-3xl overflow-hidden group cursor-pointer transition flex flex-col sm:flex-row border-none shadow-xs hover:shadow-md"
+                    className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row p-2.5 sm:p-0 gap-3 sm:gap-0 items-center sm:items-stretch border-none shadow-xs hover:shadow-md"
                   >
-                    <div className="relative sm:w-52 aspect-video shrink-0 overflow-hidden">
+                    <div className="relative w-32 sm:w-52 aspect-video shrink-0 rounded-xl sm:rounded-none overflow-hidden">
                       <img
                         src={latestLec.thumbnailUrl}
                         alt={latestLec.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                       />
-                      <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-[var(--md-sys-color-tertiary-container)] text-[var(--md-sys-color-on-tertiary-container)] font-bold text-[10px] uppercase tracking-wider border-none">
+                      <span className="absolute top-1.5 left-1.5 sm:top-2.5 sm:left-2.5 px-2 sm:px-2.5 py-0.5 rounded-full bg-[var(--md-sys-color-tertiary-container)] text-[var(--md-sys-color-on-tertiary-container)] font-bold text-[9px] sm:text-[10px] uppercase tracking-wider border-none">
                         Latest Class
                       </span>
-                      <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-black/75 font-mono text-[11px] text-white">
+                      <span className="absolute bottom-1.5 right-1.5 sm:bottom-2.5 sm:right-2.5 px-1.5 sm:px-2 py-0.5 rounded-md bg-black/75 font-mono text-[9px] sm:text-[11px] text-white">
                         {latestLec.durationMinutes}:00
                       </span>
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/25">
-                        <div className="w-10 h-10 rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] flex items-center justify-center shadow-lg border-none">
-                          <Play className="w-4 h-4 fill-current ml-0.5" />
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] flex items-center justify-center shadow-lg border-none">
+                          <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current ml-0.5" />
                         </div>
                       </div>
                     </div>
 
-                    <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-2">
+                    <div className="p-1 sm:p-5 flex-1 min-w-0 flex flex-col justify-between space-y-1.5 sm:space-y-2">
                       <div>
-                        <span className="text-[10.5px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] uppercase tracking-wider block">
+                        <span className="text-[9.5px] sm:text-[10.5px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] uppercase tracking-wider block">
                           Video Lecture
                         </span>
-                        <h4 className="text-sm sm:text-base font-bold text-[var(--md-sys-color-on-surface)] leading-snug mt-0.5">
+                        <h4 className="text-xs sm:text-base font-bold text-[var(--md-sys-color-on-surface)] leading-snug mt-0.5 line-clamp-1 sm:line-clamp-2">
                           {latestLec.title}
                         </h4>
                       </div>
-                      <div className="flex items-center justify-between text-xs pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
-                        <span className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
-                          {latestLec.pdfNotes?.length || 0} Study Notes attached
+                      <div className="flex items-center justify-between text-xs pt-1.5 sm:pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
+                        <span className="text-[10px] sm:text-[11px] text-[var(--md-sys-color-on-surface-variant)] truncate max-w-[120px] sm:max-w-none">
+                          {latestLec.pdfNotes?.length || 0} Notes attached
                         </span>
-                        <span className="text-[var(--md-sys-color-primary)] font-bold flex items-center gap-1">
+                        <span className="text-[var(--md-sys-color-primary)] font-bold flex items-center gap-1 shrink-0 text-xs">
                           <span>Watch</span>
                           <ArrowRight className="w-3.5 h-3.5" />
                         </span>
@@ -758,46 +758,46 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
   return (
     <div
       onClick={onSelect}
-      className="bg-[var(--md-sys-color-surface-container)] rounded-3xl overflow-hidden group cursor-pointer transition flex flex-col border-none shadow-xs hover:shadow-md"
+      className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-2.5 sm:p-0 gap-3 sm:gap-0 items-center sm:items-stretch border-none shadow-xs hover:shadow-md"
     >
-      <div className="relative aspect-video overflow-hidden">
+      <div className="relative w-32 sm:w-full aspect-video shrink-0 rounded-xl sm:rounded-none overflow-hidden">
         <img
           src={batch.thumbnailUrl}
           alt={batch.title}
           className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
         />
-        <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-[var(--md-sys-color-surface-container-highest)]/90 backdrop-blur-md text-[var(--md-sys-color-on-surface)] text-xs font-semibold border-none">
+        <span className="absolute top-1.5 left-1.5 sm:top-3 sm:left-3 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-[var(--md-sys-color-surface-container-highest)]/90 backdrop-blur-md text-[var(--md-sys-color-on-surface)] text-[9px] sm:text-xs font-semibold border-none">
           {batch.category || 'Batch #01'}
         </span>
-        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs text-white">
-          <span className="flex items-center space-x-1 bg-black/60 backdrop-blur-xs px-2.5 py-0.5 rounded-full">
-            <Star className="w-3.5 h-3.5 text-amber-400 fill-current" />
+        <div className="absolute bottom-1.5 left-1.5 right-1.5 sm:bottom-3 sm:left-3 sm:right-3 flex items-center justify-between text-[9px] sm:text-xs text-white">
+          <span className="flex items-center space-x-1 bg-black/60 backdrop-blur-xs px-1.5 sm:px-2.5 py-0.5 rounded-full">
+            <Star className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-amber-400 fill-current" />
             <span className="font-bold">{batch.rating}</span>
           </span>
-          <span className="flex items-center space-x-1 bg-black/60 backdrop-blur-xs px-2.5 py-0.5 rounded-full">
+          <span className="hidden sm:flex items-center space-x-1 bg-black/60 backdrop-blur-xs px-2.5 py-0.5 rounded-full">
             <Users className="w-3.5 h-3.5 text-slate-300" />
             <span>Interactive Cohort</span>
           </span>
         </div>
       </div>
 
-      <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-3">
+      <div className="p-1 sm:p-5 flex-1 min-w-0 flex flex-col justify-between space-y-1.5 sm:space-y-3">
         <div>
-          <h3 className="text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition leading-snug">
+          <h3 className="text-xs sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition leading-snug line-clamp-1 sm:line-clamp-2">
             {batch.title}
           </h3>
         </div>
 
         {/* Instructor info */}
-        <div className="flex items-center space-x-3 pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
+        <div className="flex items-center space-x-2 sm:space-x-3 pt-1 sm:pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
           <img
             src={batch.instructor?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'}
             alt={batch.instructor?.name || 'Faculty'}
-            className="w-9 h-9 rounded-full object-cover border-none"
+            className="w-7 h-7 sm:w-9 sm:h-9 rounded-full object-cover border-none"
           />
-          <div className="text-xs">
-            <p className="font-bold text-[var(--md-sys-color-on-surface)]">{batch.instructor?.name || 'Elevate Faculty'}</p>
-            <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+          <div className="text-[11px] sm:text-xs min-w-0">
+            <p className="font-bold text-[var(--md-sys-color-on-surface)] truncate">{batch.instructor?.name || 'Elevate Faculty'}</p>
+            <p className="text-[9px] sm:text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate">
               {batch.instructor?.designation || 'Master Educator'}
             </p>
           </div>
@@ -806,20 +806,20 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
         {/* Footer: Enrolled Status & Open Batch Button */}
         <div className="flex items-center justify-between pt-1">
           {isEnrolled ? (
-            <div className="flex items-center space-x-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border-none">
-              <CheckCircle className="w-3.5 h-3.5" />
+            <div className="flex items-center space-x-1 sm:space-x-1.5 text-[10px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full border-none">
+              <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
               <span>Full Access</span>
             </div>
           ) : (
             <div>
-              <span className="text-base sm:text-lg font-extrabold text-[var(--md-sys-color-on-surface)]">
+              <span className="text-sm sm:text-lg font-extrabold text-[var(--md-sys-color-on-surface)]">
                 ₹{batch.price}
               </span>
             </div>
           )}
 
           <button
-            className="m3-btn-filled px-4 py-2 text-xs font-bold flex items-center space-x-1.5 shadow-sm border-none outline-none cursor-pointer"
+            className="m3-btn-filled px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold flex items-center space-x-1 shadow-sm border-none outline-none cursor-pointer"
           >
             <span>View</span>
             <ArrowRight className="w-3.5 h-3.5" />

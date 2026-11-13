@@ -269,53 +269,53 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
         {/* Batches Grid or Empty State */}
         {displayedBatches.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {displayedBatches.map((b) => (
               <div
                 key={b.id}
                 onClick={() => goToBatchFolders(b.id)}
-                className="bg-[var(--md-sys-color-surface-container)] rounded-3xl overflow-hidden group cursor-pointer transition flex flex-col border-none shadow-xs hover:shadow-md"
+                className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-2.5 sm:p-0 gap-3 sm:gap-0 items-center sm:items-stretch border-none shadow-xs hover:shadow-md"
               >
-                <div className="relative aspect-video overflow-hidden">
+                <div className="relative w-32 sm:w-full aspect-video shrink-0 rounded-xl sm:rounded-none overflow-hidden">
                   <img
                     src={b.thumbnailUrl}
                     alt={b.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                   />
-                  <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-[var(--md-sys-color-surface-container-highest)]/90 backdrop-blur-md text-[var(--md-sys-color-on-surface)] text-xs font-semibold">
+                  <span className="absolute top-1.5 left-1.5 sm:top-3 sm:left-3 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-[var(--md-sys-color-surface-container-highest)]/90 backdrop-blur-md text-[var(--md-sys-color-on-surface)] text-[9px] sm:text-xs font-semibold">
                     {b.category}
                   </span>
-                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs text-white">
-                    <span className="flex items-center space-x-1 bg-black/60 backdrop-blur-xs px-2.5 py-0.5 rounded-full">
-                      <Star className="w-3.5 h-3.5 text-amber-400 fill-current" />
+                  <div className="absolute bottom-1.5 left-1.5 right-1.5 sm:bottom-3 sm:left-3 sm:right-3 flex items-center justify-between text-[9px] sm:text-xs text-white">
+                    <span className="flex items-center space-x-1 bg-black/60 backdrop-blur-xs px-1.5 sm:px-2.5 py-0.5 rounded-full">
+                      <Star className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-amber-400 fill-current" />
                       <span className="font-bold">{b.rating}</span>
                     </span>
-                    <span className="flex items-center space-x-1 bg-black/60 backdrop-blur-xs px-2.5 py-0.5 rounded-full">
+                    <span className="hidden sm:flex items-center space-x-1 bg-black/60 backdrop-blur-xs px-2.5 py-0.5 rounded-full">
                       <Users className="w-3.5 h-3.5 text-slate-300" />
                       <span>Interactive Batch</span>
                     </span>
                   </div>
                 </div>
 
-                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                  <div className="space-y-1.5">
-                    <h3 className="text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition leading-snug">
+                <div className="p-1 sm:p-5 flex-1 min-w-0 flex flex-col justify-between space-y-2 sm:space-y-4">
+                  <div className="space-y-1">
+                    <h3 className="text-xs sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition leading-snug line-clamp-1 sm:line-clamp-2">
                       {b.title}
                     </h3>
-                    <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
+                    <p className="hidden sm:block text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
                       {b.tagline}
                     </p>
                   </div>
 
-                  <div className="flex items-center space-x-3 pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
+                  <div className="flex items-center space-x-2 sm:space-x-3 pt-1 sm:pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
                     <img
                       src={b.instructor.avatarUrl}
                       alt={b.instructor.name}
-                      className="w-9 h-9 rounded-full object-cover border-none"
+                      className="w-7 h-7 sm:w-9 sm:h-9 rounded-full object-cover border-none"
                     />
-                    <div className="text-xs">
-                      <p className="font-bold text-[var(--md-sys-color-on-surface)]">{b.instructor.name}</p>
-                      <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                    <div className="text-[11px] sm:text-xs min-w-0">
+                      <p className="font-bold text-[var(--md-sys-color-on-surface)] truncate">{b.instructor.name}</p>
+                      <p className="text-[9px] sm:text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate">
                         {b.instructor.designation}
                       </p>
                     </div>
@@ -323,8 +323,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
                   <div className="flex items-center justify-between pt-1">
                     {isEnrolled(b.id) ? (
-                      <div className="flex items-center space-x-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full">
-                        <CheckCircle className="w-3.5 h-3.5" />
+                      <div className="flex items-center space-x-1 sm:space-x-1.5 text-[10px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full">
+                        <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
                         <span>Full Access</span>
                       </div>
                     ) : (
@@ -333,13 +333,13 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                           e.stopPropagation();
                           enrollInBatch(b.id);
                         }}
-                        className="m3-btn-tonal px-3 py-1 text-xs font-bold border-none cursor-pointer"
+                        className="m3-btn-tonal px-2.5 sm:px-3 py-1 text-[11px] sm:text-xs font-bold border-none cursor-pointer"
                       >
                         Enroll (₹{b.price})
                       </button>
                     )}
 
-                    <button className="m3-btn-filled px-4 py-2 text-xs font-bold flex items-center space-x-1.5 border-none outline-none cursor-pointer">
+                    <button className="m3-btn-filled px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold flex items-center space-x-1 border-none outline-none cursor-pointer">
                       <span>View</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
@@ -555,51 +555,51 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
         {/* SECTION 1: VIDEOS */}
         {folderActiveTab === 'videos' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
             {folderLectures.map((lec) => (
               <div
                 key={lec.id}
                 onClick={() => goToLectureView(lec.id)}
-                className="bg-[var(--md-sys-color-surface-container)] rounded-3xl overflow-hidden group cursor-pointer transition flex flex-col border-none shadow-xs hover:shadow-md"
+                className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-2.5 sm:p-0 gap-3 sm:gap-0 items-center sm:items-stretch border-none shadow-xs hover:shadow-md"
               >
-                <div className="relative aspect-video overflow-hidden">
+                <div className="relative w-32 sm:w-full aspect-video shrink-0 rounded-xl sm:rounded-none overflow-hidden">
                   <img
                     src={lec.thumbnailUrl}
                     alt={lec.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                   />
                   {lec.isFreePreview && (
-                    <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-[var(--md-sys-color-tertiary-container)] text-[var(--md-sys-color-on-tertiary-container)] font-bold text-[10px] uppercase">
-                      Free Preview
+                    <span className="absolute top-1.5 left-1.5 sm:top-2.5 sm:left-2.5 px-2 sm:px-2.5 py-0.5 rounded-full bg-[var(--md-sys-color-tertiary-container)] text-[var(--md-sys-color-on-tertiary-container)] font-bold text-[9px] sm:text-[10px] uppercase">
+                      Free
                     </span>
                   )}
-                  <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-black/75 font-mono text-[11px] text-white">
+                  <span className="absolute bottom-1.5 right-1.5 sm:bottom-2.5 sm:right-2.5 px-1.5 sm:px-2 py-0.5 rounded-md bg-black/75 font-mono text-[9px] sm:text-[11px] text-white">
                     {lec.durationMinutes}:00
                   </span>
                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/30">
-                    <div className="w-12 h-12 rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] flex items-center justify-center shadow-lg">
-                      <Play className="w-6 h-6 fill-current ml-0.5" />
+                    <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] flex items-center justify-center shadow-lg">
+                      <Play className="w-3.5 h-3.5 sm:w-6 sm:h-6 fill-current ml-0.5" />
                     </div>
                   </div>
                 </div>
 
-                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                <div className="p-1 sm:p-4 flex-1 min-w-0 flex flex-col justify-between space-y-1.5 sm:space-y-3">
                   <div>
-                    <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition line-clamp-2">
+                    <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition line-clamp-1 sm:line-clamp-2 leading-snug">
                       {lec.title}
                     </h4>
-                    <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 mt-1">
+                    <p className="hidden sm:block text-[11px] text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 mt-1">
                       {lec.description}
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-[var(--md-sys-color-outline-variant)]/20">
-                    <span className="text-[var(--md-sys-color-on-surface-variant)]">
+                  <div className="flex items-center justify-between text-[10px] sm:text-[11px] pt-1 border-t border-[var(--md-sys-color-outline-variant)]/20 mt-auto">
+                    <span className="text-[var(--md-sys-color-on-surface-variant)] truncate max-w-[120px] sm:max-w-none">
                       {lec.pdfNotes?.length || 0} Notes Content
                     </span>
-                    <button className="text-[var(--md-sys-color-primary)] font-bold flex items-center space-x-1 border-none bg-transparent cursor-pointer">
+                    <button className="text-[var(--md-sys-color-primary)] font-bold flex items-center space-x-1 border-none bg-transparent cursor-pointer shrink-0">
                       <span>Watch</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      <ArrowRight className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
                     </button>
                   </div>
                 </div>
