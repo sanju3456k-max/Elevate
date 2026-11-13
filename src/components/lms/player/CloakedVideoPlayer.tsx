@@ -97,6 +97,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   // Double-tap seek gesture state (10s Rewind/Forward)
   const lastTapRef = useRef<{ time: number; side: 'left' | 'right' }>({ time: 0, side: 'left' });
   const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastBackdropClickRef = useRef<number>(0);
   const [seekFeedback, setSeekFeedback] = useState<{ side: 'left' | 'right'; seconds: number } | null>(null);
   const seekFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -110,6 +112,22 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   const selectedQualityRef = useRef('Auto');
   optionsMenuOpenRef.current = optionsMenuOpen;
   selectedQualityRef.current = currentQuality;
+
+  // Helper: Show streamline and tools controls for a set duration (5s by default)
+  const showControlsForDuration = useCallback((duration = 5000) => {
+    setIsControlsVisible(true);
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+      controlsTimeoutRef.current = null;
+    }
+    if (isPlaying) {
+      controlsTimeoutRef.current = setTimeout(() => {
+        if (!isHoveringControlsRef.current && !optionsMenuOpenRef.current) {
+          setIsControlsVisible(false);
+        }
+      }, duration);
+    }
+  }, [isPlaying]);
 
   const rawVideoId = deobfuscateVideoKey(encryptedVideoId);
 
@@ -352,17 +370,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         clearTimeout(tapTimeoutRef.current);
       }
       tapTimeoutRef.current = setTimeout(() => {
-        // Single tap: toggle controls visibility
-        setIsControlsVisible((prev) => {
-          const next = !prev;
-          if (next && isPlaying) {
-            if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-            controlsTimeoutRef.current = setTimeout(() => {
-              setIsControlsVisible(false);
-            }, 3500);
-          }
-          return next;
-        });
+        // Single tap: show streamline and tools navigation for 5 full seconds
+        showControlsForDuration(5000);
         lastTapRef.current = { time: 0, side };
       }, DOUBLE_TAP_DELAY);
     }
@@ -387,10 +396,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     if (playerRef.current && playerRef.current.playVideo) {
       playerRef.current.playVideo();
       setIsPlaying(true);
-      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-      controlsTimeoutRef.current = setTimeout(() => {
-        setIsControlsVisible(false);
-      }, 3500);
+      showControlsForDuration(5000);
     }
   };
 
@@ -398,7 +404,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     if (playerRef.current && playerRef.current.pauseVideo) {
       playerRef.current.pauseVideo();
       setIsPlaying(false);
-      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+        controlsTimeoutRef.current = null;
+      }
       setIsControlsVisible(true);
     }
   };
@@ -643,24 +652,11 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     }
   };
 
-  // Keep controls and dropdowns visible. If pointer is over bottom controls or menus are open, do NOT auto-hide.
-  const controlsTimeoutRef = useRef<any>(null);
+  // Keep controls and dropdowns visible for 5s on mouse move / interaction
   const handleMouseMove = () => {
-    setIsControlsVisible(true);
-    if (controlsTimeoutRef.current) {
-      clearTimeout(controlsTimeoutRef.current);
+    if (!isHoveringControlsRef.current) {
+      showControlsForDuration(5000);
     }
-    controlsTimeoutRef.current = setTimeout(() => {
-      // Do NOT hide controls if pointer is directly in bottom navigation buttons or dropdown menus are open
-      if (
-        isPlaying &&
-        !isHoveringControlsRef.current &&
-        !speedMenuOpenRef.current &&
-        !qualityMenuOpenRef.current
-      ) {
-        setIsControlsVisible(false);
-      }
-    }, 3500);
   };
 
   const availableSpeeds = [0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -767,25 +763,39 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       </div>
 
-      {/* 3. Top Header Bar (Clean Lecture Title when controls are visible, hidden on mobile for clean full view) */}
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className={`absolute top-0 inset-x-0 z-30 p-3 sm:p-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent hidden sm:flex items-center justify-between transition-opacity duration-300 ${
-          isControlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
-      >
-        <h2 className="text-white text-xs sm:text-sm font-semibold truncate max-w-sm sm:max-w-md drop-shadow">
-          {title}
-        </h2>
-      </div>
+      {/* 3. Top Header Bar (Only in Fullscreen mode so inline playback is never obstructed) */}
+      {isFullscreen && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className={`absolute top-0 inset-x-0 z-30 p-3 sm:p-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-center justify-between transition-opacity duration-300 ${
+            isControlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+        >
+          <h2 className="text-white text-xs sm:text-sm font-semibold truncate max-w-sm sm:max-w-md drop-shadow">
+            {title}
+          </h2>
+        </div>
+      )}
 
       {/* 4. Center Play/Pause Large Pulse Button (Shows on tap when controls are visible, or when paused) */}
       {(isControlsVisible || !isPlaying) && isPlayerReady && authStatus === 'authorized' && (
         <div
           onClick={(e) => {
-            // Clicking backdrop outside the button toggles/hides controls if currently playing
-            if (isPlaying) {
-              setIsControlsVisible(false);
+            const now = Date.now();
+            if (now - lastBackdropClickRef.current < 350) {
+              // Double click on screen: explicitly hide controls immediately
+              if (isPlaying) {
+                if (controlsTimeoutRef.current) {
+                  clearTimeout(controlsTimeoutRef.current);
+                  controlsTimeoutRef.current = null;
+                }
+                setIsControlsVisible(false);
+              }
+              lastBackdropClickRef.current = 0;
+            } else {
+              lastBackdropClickRef.current = now;
+              // Single tap on screen: keep controls and streamline tools visible for 5 seconds
+              showControlsForDuration(5000);
             }
           }}
           className={`absolute inset-0 z-20 flex items-center justify-center transition-all ${
@@ -841,7 +851,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             ) {
               setIsControlsVisible(false);
             }
-          }, 3000);
+          }, 5000);
         }}
         className={`absolute bottom-0 inset-x-0 z-30 px-3.5 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-t from-black/95 via-black/80 to-transparent transition-opacity duration-300 flex flex-col space-y-1.5 ${
           isControlsVisible || isHoveringControls || optionsMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'

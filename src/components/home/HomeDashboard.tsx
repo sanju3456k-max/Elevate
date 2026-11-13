@@ -357,23 +357,11 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             </div>
           </div>
 
-          {/* Content & Footer */}
-          <div className="flex-1 min-w-0 flex flex-col justify-between p-3 sm:p-4 gap-2">
-            <div className="w-full">
-              <h3 className="text-sm sm:text-base font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors leading-snug line-clamp-2">
-                {latestLecture ? latestLecture.title : 'New interactive video lectures added'}
-              </h3>
-            </div>
-
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-[10px] sm:text-[11px] text-[var(--md-sys-color-on-surface-variant)] font-medium truncate max-w-[120px] sm:max-w-none">
-                {latestLecture?.pdfNotes?.length || 0} Notes attached
-              </span>
-              <span className="text-xs font-bold text-[#0b57d0] dark:text-[#a8c7fa] flex items-center gap-1 group-hover:translate-x-0.5 transition-transform shrink-0">
-                <span>Watch</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </span>
-            </div>
+          {/* Content: ONLY Lecture Title Name */}
+          <div className="flex-1 min-w-0 flex items-center p-3.5 sm:p-5">
+            <h3 className="text-sm sm:text-base font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors leading-snug line-clamp-2">
+              {latestLecture ? latestLecture.title : 'New interactive video lectures added'}
+            </h3>
           </div>
         </div>
 

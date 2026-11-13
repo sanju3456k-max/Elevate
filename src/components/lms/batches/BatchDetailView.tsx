@@ -866,7 +866,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
         {/* LEFT COLUMN: Full-Width Video Player on Mobile & Lecture Info */}
         <div className="lg:col-span-8 space-y-4">
-          <div className="w-full rounded-none sm:rounded-3xl overflow-hidden shadow-2xl border-none">
+          <div className="-mx-3.5 sm:mx-0 w-[calc(100%+1.75rem)] sm:w-full rounded-none sm:rounded-3xl overflow-hidden shadow-2xl border-none">
             <CloakedVideoPlayer
               encryptedVideoId={activeLecture.encryptedVideoId}
               title={activeLecture.title}
@@ -882,14 +882,9 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             />
           </div>
 
-          {/* Lecture Metadata - Mobile padding prevents touching boundary edges */}
+          {/* Lecture Metadata - Clean & minimal without duplicate chapter title */}
           <div className="px-3.5 sm:px-0">
             <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-2 shadow-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-[var(--md-sys-color-primary)] font-bold">
-                  {currentFolder?.title}
-                </span>
-              </div>
               <h1 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] leading-snug">
                 {activeLecture.title}
               </h1>
