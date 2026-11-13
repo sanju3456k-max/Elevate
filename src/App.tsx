@@ -91,6 +91,7 @@ import { GuestMigrationModal } from './components/auth/GuestMigrationModal';
 import { WelcomeSplash } from './components/WelcomeSplash';
 import { BatchDetailView } from './components/lms/batches/BatchDetailView';
 import { BatchAdminStudio } from './components/lms/BatchAdminStudio';
+import { HomeDashboard } from './components/home/HomeDashboard';
 import { LmsProvider } from './lms/LmsContext';
 import { usePWAInstall } from './hooks/usePWAInstall';
 import { useUIScale } from './hooks/useUIScale';
@@ -150,7 +151,7 @@ function areAttemptsEqual(a: TestAttempt[], b: TestAttempt[]): boolean {
 }
 
 export default function App() {
-  const [activeTab, setActiveTabState] = useState<ActiveTab>('tests');
+  const [activeTab, setActiveTabState] = useState<ActiveTab>('home');
   const [tabHistory, setTabHistory] = useState<ActiveTab[]>([]);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [isGuestMigrationOpen, setIsGuestMigrationOpen] = useState<boolean>(false);
@@ -1755,13 +1756,36 @@ export default function App() {
       {/* Main Content Area */}
       {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'results' && activeTab !== 'create' && activeTab !== 'custom-builder' && activeTab !== 'master-console' && (
         <main className="flex-1 min-w-0 bg-[#e5e9f0] dark:bg-[#0b0c10]">
+          {/* Home Dashboard (Elevate Unified Coaching & Assessment Feed) */}
+          {activeTab === 'home' && (
+            <HomeDashboard
+              tests={mergePublishedMasterTests(
+                tests,
+                isMasterUser(currentUser || cachedUser),
+                isGuestUser(currentUser || cachedUser)
+              )}
+              attempts={attempts}
+              currentUser={currentUser}
+              userProfile={userProfile}
+              onStartTest={(test) => handleStartTest(test, 'timed')}
+              onOpenBatches={() => setActiveTab('batches')}
+              onSelectBatch={() => setActiveTab('batches')}
+              onOpenAllTests={() => setActiveTab('tests')}
+              onOpenAnalytics={() => setActiveTab('analytics')}
+              onOpenNotes={() => setActiveTab('notes-repository')}
+              onOpenThetaAI={() => setActiveTab('chatbot')}
+              onOpenOmr={() => setActiveTab('bulk-print')}
+              onOpenCustomBuilder={() => setActiveTab('custom-builder')}
+            />
+          )}
+
           {/* Video Batches & LMS Suite (Elevate Integrated Curriculum) */}
           {activeTab === 'batches' && (
             <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
               <BatchDetailView
                 availableTests={tests}
                 onStartTest={(test) => handleStartTest(test, 'timed')}
-                onBack={() => setActiveTab('tests')}
+                onBack={() => setActiveTab('home')}
               />
             </div>
           )}

@@ -215,7 +215,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div 
                 id="brand-logo"
                 className="flex items-center gap-2 sm:gap-2.5 cursor-pointer select-none group"
-                onClick={() => handleNavClick('tests')}
+                onClick={() => handleNavClick('home')}
               >
                 <div className="w-9.5 h-9.5 sm:w-10 sm:h-10 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                   <img 
@@ -458,6 +458,25 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <div className="text-[11px] font-bold text-[#5e5e5e] dark:text-[#9aa0a6] uppercase tracking-wider px-3 mb-1">
                       Main Navigation
                     </div>
+
+                    <button
+                      id="drawer-item-home"
+                      onClick={() => handleNavClick('home')}
+                      className={`${activeTab === 'home' ? APP_STYLES.nav.itemActive : APP_STYLES.nav.item} relative overflow-hidden`}
+                    >
+                      <md-ripple />
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8.5 h-8.5 rounded-full flex items-center justify-center shrink-0 ${
+                          activeTab === 'home'
+                            ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49]'
+                            : 'bg-[#e1e3e1]/60 text-[#1f1f1f] dark:bg-[#282a30] dark:text-[#e3e3e3]'
+                        }`}>
+                          <Sparkles className="w-4.5 h-4.5 stroke-[2.2]" />
+                        </div>
+                        <span className="text-[17px] font-semibold">Home Dashboard</span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 opacity-70" />
+                    </button>
                     
                     <button
                       id="drawer-item-batches"
