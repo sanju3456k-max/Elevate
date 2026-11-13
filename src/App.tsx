@@ -38,7 +38,7 @@ import {
 import type { User } from 'firebase/auth';
 import { normalizeQuestions, type ActiveTab, type MathTest, type TestAttempt, type ActiveTestSession, type UserProfile, type TestHistoryEntry } from './types';
 import { triggerBlobDownload } from './lib/omrPrintDownload';
-import { Bot, Sparkles, Share2, Play, X } from 'lucide-react';
+import { Bot, Sparkles, Share2, Play, X, Layers, BookOpen, CheckCircle2, BarChart3 } from 'lucide-react';
 import { decodeTestFromShareUrl } from './utils/shareUtils';
 import { parseTestFromText, formatTestToText, isJsonFormat } from './utils/testFormatConverter';
 import { 
@@ -1757,6 +1757,82 @@ export default function App() {
       {/* Main Content Area */}
       {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'results' && activeTab !== 'create' && activeTab !== 'custom-builder' && activeTab !== 'master-console' && (
         <main className="flex-1 min-w-0 bg-[#e5e9f0] dark:bg-[#0b0c10]">
+          
+          {/* PERSISTENT TOP NAVIGATION BAR (All Batches, My Batches, Test Library, Student Activity) */}
+          {['home', 'batches', 'tests'].includes(activeTab) && (
+            <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-4 pb-1">
+              <div className="flex items-center space-x-2.5 overflow-x-auto pb-1 scrollbar-none">
+                <button
+                  id="persistent-nav-all-batches"
+                  type="button"
+                  onClick={() => {
+                    setBatchesFilter('all');
+                    setActiveTab('batches');
+                  }}
+                  className={`px-4.5 py-2.5 rounded-full text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap border-none outline-none cursor-pointer active:scale-98 ${
+                    activeTab === 'batches' && batchesFilter === 'all'
+                      ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-sm'
+                      : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
+                  }`}
+                >
+                  <Layers className="w-4 h-4" />
+                  <span>All Batches</span>
+                </button>
+
+                <button
+                  id="persistent-nav-my-batches"
+                  type="button"
+                  onClick={() => {
+                    setBatchesFilter('my-batches');
+                    setActiveTab('batches');
+                  }}
+                  className={`px-4.5 py-2.5 rounded-full text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap border-none outline-none cursor-pointer active:scale-98 ${
+                    activeTab === 'batches' && batchesFilter === 'my-batches'
+                      ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-sm'
+                      : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
+                  }`}
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>My Batches</span>
+                </button>
+
+                <button
+                  id="persistent-nav-test-library"
+                  type="button"
+                  onClick={() => setActiveTab('tests')}
+                  className={`px-4.5 py-2.5 rounded-full text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap border-none outline-none cursor-pointer active:scale-98 ${
+                    activeTab === 'tests'
+                      ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-sm'
+                      : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
+                  }`}
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Test Library</span>
+                </button>
+
+                <button
+                  id="persistent-nav-student-activity"
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('home');
+                    setTimeout(() => {
+                      const elem = document.getElementById('student-activity-section');
+                      if (elem) elem.scrollIntoView({ behavior: 'smooth' });
+                    }, 50);
+                  }}
+                  className={`px-4.5 py-2.5 rounded-full text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap border-none outline-none cursor-pointer active:scale-98 ${
+                    activeTab === 'home'
+                      ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-sm'
+                      : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
+                  }`}
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  <span>Student Activity</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Home Dashboard (Elevate Unified Coaching & Assessment Feed) */}
           {activeTab === 'home' && (
             <HomeDashboard
