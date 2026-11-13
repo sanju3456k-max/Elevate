@@ -89,6 +89,26 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     }
   }, [initialFilter]);
 
+  React.useEffect(() => {
+    if (propBatchId) {
+      setSelectedBatchId(propBatchId);
+    }
+  }, [propBatchId]);
+
+  React.useEffect(() => {
+    if (initialLectureId) {
+      const targetLec = lectures.find((l) => l.id === initialLectureId);
+      if (targetLec) {
+        setSelectedLectureId(targetLec.id);
+        if (targetLec.chapterId) setSelectedChapterId(targetLec.chapterId);
+        if (targetLec.batchId) setSelectedBatchId(targetLec.batchId);
+      } else {
+        setSelectedLectureId(initialLectureId);
+      }
+      setCurrentStage('lecture_view');
+    }
+  }, [initialLectureId, lectures]);
+
   const enrolledBatches = useMemo(
     () => batches.filter((b) => isEnrolled(b.id)),
     [batches, isEnrolled]
@@ -151,7 +171,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   }, [currentFolder, availableTests]);
 
   // Selected Lecture for viewing
-  const activeLecture = folderLectures.find((l) => l.id === selectedLectureId) || folderLectures[0] || lectures[0];
+  const activeLecture =
+    folderLectures.find((l) => l.id === selectedLectureId) ||
+    lectures.find((l) => l.id === selectedLectureId) ||
+    folderLectures[0] ||
+    lectures[0];
 
   const lecturePersonalNotes = personalNotes.filter(
     (n) => n.lectureId === (activeLecture?.id || '')

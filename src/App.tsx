@@ -158,6 +158,8 @@ export default function App() {
   const [guestMigrationSummary, setGuestMigrationSummary] = useState<GuestDataSummary | null>(null);
   const [chatbotInitialPrompt, setChatbotInitialPrompt] = useState<string | null>(null);
   const [batchesFilter, setBatchesFilter] = useState<'all' | 'my-batches'>('all');
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  const [selectedLectureId, setSelectedLectureId] = useState<string | null>(null);
 
   const {
     deferredPrompt,
@@ -1933,11 +1935,19 @@ export default function App() {
               userProfile={userProfile}
               onStartTest={(test) => handleStartTest(test, 'timed')}
               onOpenBatches={(filter) => {
+                setSelectedLectureId(null);
                 setBatchesFilter(filter || 'all');
                 setActiveTab('batches');
               }}
-              onSelectBatch={() => {
+              onSelectBatch={(batchId) => {
+                setSelectedBatchId(batchId);
+                setSelectedLectureId(null);
                 setBatchesFilter('all');
+                setActiveTab('batches');
+              }}
+              onSelectLecture={(batchId, lectureId) => {
+                setSelectedBatchId(batchId);
+                setSelectedLectureId(lectureId);
                 setActiveTab('batches');
               }}
               onOpenAllTests={() => setActiveTab('tests')}
@@ -1953,10 +1963,15 @@ export default function App() {
           {activeTab === 'batches' && (
             <div className={`max-w-7xl mx-auto ${isLectureViewActive ? 'px-0 sm:px-6 py-0 sm:py-6' : 'px-3 sm:px-6 py-4 sm:py-6'}`}>
               <BatchDetailView
+                batchId={selectedBatchId || undefined}
+                initialLectureId={selectedLectureId}
                 availableTests={tests}
                 initialFilter={batchesFilter}
                 onStartTest={(test) => handleStartTest(test, 'timed')}
-                onBack={() => setActiveTab('home')}
+                onBack={() => {
+                  setSelectedLectureId(null);
+                  setActiveTab('home');
+                }}
                 onStageChange={(stage) => setIsLectureViewActive(stage === 'lecture_view')}
               />
             </div>
