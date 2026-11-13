@@ -353,7 +353,16 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       }
       tapTimeoutRef.current = setTimeout(() => {
         // Single tap: toggle controls visibility
-        setIsControlsVisible((prev) => !prev);
+        setIsControlsVisible((prev) => {
+          const next = !prev;
+          if (next && isPlaying) {
+            if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+            controlsTimeoutRef.current = setTimeout(() => {
+              setIsControlsVisible(false);
+            }, 3500);
+          }
+          return next;
+        });
         lastTapRef.current = { time: 0, side };
       }, DOUBLE_TAP_DELAY);
     }
@@ -378,6 +387,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     if (playerRef.current && playerRef.current.playVideo) {
       playerRef.current.playVideo();
       setIsPlaying(true);
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+      controlsTimeoutRef.current = setTimeout(() => {
+        setIsControlsVisible(false);
+      }, 3500);
     }
   };
 
@@ -385,6 +398,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     if (playerRef.current && playerRef.current.pauseVideo) {
       playerRef.current.pauseVideo();
       setIsPlaying(false);
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+      setIsControlsVisible(true);
     }
   };
 
@@ -566,7 +581,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         transform: 'translateZ(0)',
         WebkitFontSmoothing: 'antialiased',
       }}
-      className="relative w-full aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl border-none select-none group"
+      className="relative w-full aspect-video bg-black rounded-none sm:rounded-3xl overflow-hidden shadow-2xl border-none select-none group"
     >
       {/* 1. Underlying YouTube Iframe Container - active only when authorized */}
       {authStatus === 'authorized' && (
@@ -663,14 +678,33 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </h2>
       </div>
 
-      {/* 4. Center Play/Pause Large Pulse Button (When Paused) */}
-      {!isPlaying && isPlayerReady && (
+      {/* 4. Center Play/Pause Large Pulse Button (Shows on tap when controls are visible, or when paused) */}
+      {(isControlsVisible || !isPlaying) && isPlayerReady && authStatus === 'authorized' && (
         <div
-          onClick={togglePlay}
-          className="absolute inset-0 z-20 flex items-center justify-center cursor-pointer bg-black/35 backdrop-blur-xs transition-all"
+          onClick={(e) => {
+            // Clicking backdrop outside the button toggles/hides controls if currently playing
+            if (isPlaying) {
+              setIsControlsVisible(false);
+            }
+          }}
+          className={`absolute inset-0 z-20 flex items-center justify-center transition-all ${
+            !isPlaying ? 'bg-black/45 backdrop-blur-xs cursor-pointer' : 'bg-black/25 cursor-pointer'
+          }`}
         >
-          <button className="w-18 h-18 rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition transform border-none">
-            <Play className="w-8 h-8 fill-current ml-1" />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              togglePlay();
+            }}
+            className="w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition transform border-none cursor-pointer"
+            title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+          >
+            {isPlaying ? (
+              <Pause className="w-8 h-8 fill-current" />
+            ) : (
+              <Play className="w-8 h-8 fill-current ml-0.5" />
+            )}
           </button>
         </div>
       )}

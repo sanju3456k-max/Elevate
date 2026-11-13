@@ -382,14 +382,14 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   if (currentStage === 'batch_folders') {
     return (
       <div className="space-y-6 pb-24 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
-        {/* Navigation Breadcrumb */}
-        <div className="flex items-center justify-between">
+        {/* Top Back Navigation */}
+        <div className="flex items-center justify-between pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
           <button
             onClick={() => setCurrentStage('batch_list')}
-            className="flex items-center space-x-1.5 text-xs sm:text-sm font-bold text-[var(--md-sys-color-primary)] hover:underline border-none bg-transparent cursor-pointer"
+            className="flex items-center space-x-1 text-xs sm:text-sm font-bold text-[var(--md-sys-color-primary)] hover:underline border-none bg-transparent cursor-pointer p-0"
           >
-            <ChevronLeft className="w-4 h-4" />
-            <span>All Batches</span>
+            <ChevronLeft className="w-5 h-5 -ml-1" />
+            <span>Back to Batches</span>
           </button>
 
           <span className="text-xs text-[var(--md-sys-color-on-surface-variant)]">
@@ -484,34 +484,25 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   if (currentStage === 'folder_content') {
     return (
       <div className="space-y-6 pb-24 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
-        {/* Navigation Breadcrumb */}
-        <div className="flex items-center space-x-2 text-xs sm:text-sm font-bold">
-          <button
-            onClick={() => setCurrentStage('batch_folders')}
-            className="flex items-center space-x-1 text-[var(--md-sys-color-primary)] hover:underline border-none bg-transparent cursor-pointer"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            <span>{currentBatch.title} Folders</span>
-          </button>
-          <span className="text-[var(--md-sys-color-outline)]">/</span>
-          <span className="text-[var(--md-sys-color-on-surface)] truncate">{currentFolder?.title}</span>
-        </div>
-
-        {/* Folder Header */}
-        <div className="bg-[var(--md-sys-color-surface-container)] rounded-3xl p-5 sm:p-6 shadow-xs flex items-center justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <FolderOpen className="w-5 h-5 text-[var(--md-sys-color-primary)]" />
-              <h1 className="text-lg sm:text-xl font-bold text-[var(--md-sys-color-on-surface)]">
+        {/* Clean Top Header: Back Button on Left Corner & Single Chapter Title */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--md-sys-color-outline-variant)]/20">
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setCurrentStage('batch_folders')}
+              className="p-1.5 rounded-full hover:bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface)] border-none bg-transparent cursor-pointer flex items-center justify-center transition"
+              title="Back to folders"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <div className="flex items-center space-x-2 min-w-0">
+              <FolderOpen className="w-5 h-5 text-[var(--md-sys-color-primary)] shrink-0" />
+              <h1 className="text-lg sm:text-xl font-bold text-[var(--md-sys-color-on-surface)] tracking-tight truncate">
                 {currentFolder?.title}
               </h1>
             </div>
-            <p className="text-xs text-[var(--md-sys-color-on-surface-variant)]">
-              {currentFolder?.description}
-            </p>
           </div>
 
-          <div className="hidden sm:flex items-center space-x-2 text-xs font-semibold px-3 py-1.5 rounded-full bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)]">
+          <div className="flex items-center space-x-2 text-xs font-semibold px-3 py-1.5 rounded-full bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] self-start sm:self-auto">
             <span>{folderLectures.length} Videos</span>
             <span>•</span>
             <span>{folderNotesContent.length} Notes</span>
