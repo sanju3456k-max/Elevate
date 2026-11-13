@@ -1627,9 +1627,9 @@ export default function App() {
         </div>
       )}
 
-      {/* Navigation Header - Hidden during active test attempts, batches LMS, test creator, review solution mode, custom builder, performance analytics, notes repository, html notes studio, bulk print, and master console */}
-      {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'create' && activeTab !== 'results' && activeTab !== 'custom-builder' && activeTab !== 'chatbot' && activeTab !== 'analytics' && activeTab !== 'notes-repository' && activeTab !== 'bulk-print' && activeTab !== 'html-notes' && activeTab !== 'master-console' && activeTab !== 'batches' && (
-        <div>
+      {/* Navigation Header - Hidden during active test attempts, test creator, review solution mode, custom builder, performance analytics, notes repository, html notes studio, bulk print, and master console. In batches section, hidden on mobile only */}
+      {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'create' && activeTab !== 'results' && activeTab !== 'custom-builder' && activeTab !== 'chatbot' && activeTab !== 'analytics' && activeTab !== 'notes-repository' && activeTab !== 'bulk-print' && activeTab !== 'html-notes' && activeTab !== 'master-console' && (
+        <div className={activeTab === 'batches' ? 'hidden sm:block' : ''}>
           <Navbar
             activeTab={activeTab}
             setActiveTab={setActiveTab}
