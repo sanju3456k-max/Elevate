@@ -536,13 +536,110 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     }
   };
 
-  const toggleFullscreen = () => {
+  // Fullscreen & Screen Orientation Management (Auto landscape in fullscreen)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isNowFullscreen = !!(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+      setIsFullscreen(isNowFullscreen);
+
+      if (!isNowFullscreen) {
+        // When exiting fullscreen, restore original orientation
+        try {
+          if (screen.orientation && typeof (screen.orientation as any).unlock === 'function') {
+            (screen.orientation as any).unlock();
+          } else if ((screen as any).unlockOrientation) {
+            (screen as any).unlockOrientation();
+          }
+        } catch (e) {
+          // Ignore unlock errors
+        }
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = async () => {
     if (!containerRef.current) return;
 
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
-    } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+    const el = containerRef.current as any;
+    const isCurrentlyFullscreen = !!(
+      document.fullscreenElement ||
+      (document as any).webkitFullscreenElement ||
+      (document as any).mozFullScreenElement ||
+      (document as any).msFullscreenElement
+    );
+
+    try {
+      if (!isCurrentlyFullscreen) {
+        // Request fullscreen on container
+        if (el.requestFullscreen) {
+          await el.requestFullscreen();
+        } else if (el.webkitRequestFullscreen) {
+          await el.webkitRequestFullscreen();
+        } else if (el.mozRequestFullScreen) {
+          await el.mozRequestFullScreen();
+        } else if (el.msRequestFullscreen) {
+          await el.msRequestFullscreen();
+        }
+
+        setIsFullscreen(true);
+
+        // Lock screen to landscape in full screen
+        try {
+          if (screen.orientation && typeof (screen.orientation as any).lock === 'function') {
+            await (screen.orientation as any).lock('landscape').catch(async () => {
+              await (screen.orientation as any).lock('landscape-primary').catch(() => {});
+            });
+          } else if ((screen as any).lockOrientation) {
+            (screen as any).lockOrientation('landscape');
+          } else if ((screen as any).mozLockOrientation) {
+            (screen as any).mozLockOrientation('landscape');
+          } else if ((screen as any).msLockOrientation) {
+            (screen as any).msLockOrientation('landscape');
+          }
+        } catch (err) {
+          console.debug('Screen orientation lock error/unsupported:', err);
+        }
+      } else {
+        // Exit fullscreen
+        try {
+          if (screen.orientation && typeof (screen.orientation as any).unlock === 'function') {
+            (screen.orientation as any).unlock();
+          } else if ((screen as any).unlockOrientation) {
+            (screen as any).unlockOrientation();
+          }
+        } catch (e) {}
+
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        } else if ((document as any).mozCancelFullScreen) {
+          await (document as any).mozCancelFullScreen();
+        } else if ((document as any).msExitFullscreen) {
+          await (document as any).msExitFullscreen();
+        }
+
+        setIsFullscreen(false);
+      }
+    } catch (err) {
+      console.error('Error toggling fullscreen:', err);
     }
   };
 
@@ -581,7 +678,11 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         transform: 'translateZ(0)',
         WebkitFontSmoothing: 'antialiased',
       }}
-      className="relative w-full aspect-video bg-black rounded-none sm:rounded-3xl overflow-hidden shadow-2xl border-none select-none group"
+      className={`relative w-full bg-black overflow-hidden border-none select-none group transition-all duration-200 ${
+        isFullscreen
+          ? 'h-full w-full aspect-auto rounded-none flex items-center justify-center'
+          : 'aspect-video rounded-none sm:rounded-3xl shadow-2xl'
+      }`}
     >
       {/* 1. Underlying YouTube Iframe Container - active only when authorized */}
       {authStatus === 'authorized' && (
