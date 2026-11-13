@@ -227,9 +227,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <div className="w-9.5 h-9.5 sm:w-10 sm:h-10 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                   <img 
-                    src="./assets/preplens-icon.svg?v=17" 
+                    src="./assets/preplens-icon.svg?v=21" 
                     alt="Elevate" 
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-contain dark:brightness-125"
                   />
                 </div>
                 <div className="flex flex-col justify-center">
@@ -436,9 +436,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <div className="flex items-center gap-2.5">
                     <div className="w-11 h-11 flex items-center justify-center shrink-0">
                       <img 
-                        src="./assets/preplens-icon.svg?v=17" 
+                        src="./assets/preplens-icon.svg?v=21" 
                         alt="Elevate" 
-                        className="w-full h-full object-contain"
+                        className="w-full h-full object-contain dark:brightness-125"
                       />
                     </div>
                     <div>
