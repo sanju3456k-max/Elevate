@@ -12,6 +12,15 @@ import { enableContentSecurityDeterrence } from './security';
 
 export type ThemeMode = 'light' | 'dark';
 
+export const FACULTY_DEFAULT_AVATAR = '/assets/default-profile.svg';
+
+export const getFacultyAvatarUrl = (rawUrl?: string): string => {
+  if (!rawUrl || rawUrl.includes('unsplash.com')) {
+    return FACULTY_DEFAULT_AVATAR;
+  }
+  return rawUrl;
+};
+
 interface AppContextType {
   user: User;
   setUser: React.Dispatch<React.SetStateAction<User>>;
@@ -93,7 +102,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [batches, setBatches] = useState<Batch[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BATCHES);
-    return saved ? JSON.parse(saved) : INITIAL_BATCHES;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.map((b: Batch) => ({
+            ...b,
+            instructor: {
+              ...b.instructor,
+              avatarUrl: getFacultyAvatarUrl(b.instructor?.avatarUrl),
+            },
+          }));
+        }
+      } catch {
+        // Fallback
+      }
+    }
+    return INITIAL_BATCHES;
   });
 
   const [subjects, setSubjects] = useState<Subject[]>(() => {

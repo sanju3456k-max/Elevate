@@ -8,7 +8,6 @@ export const INITIAL_USER: User = {
   phone: '+91 98XXX-XXXXX',
   role: 'student',
   enrolledBatchIds: ['batch_testing_01'],
-  avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
 };
 
 // ONLY ONE SINGLE TESTING BATCH

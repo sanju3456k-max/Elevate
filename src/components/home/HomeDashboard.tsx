@@ -27,7 +27,7 @@ import {
 import type { MathTest, TestAttempt, UserProfile } from '../../types';
 import type { User } from 'firebase/auth';
 import type { Batch } from '../../lms/types';
-import { useApp } from '../../lms/LmsContext';
+import { useApp, getFacultyAvatarUrl } from '../../lms/LmsContext';
 
 interface HomeDashboardProps {
   tests: MathTest[];
@@ -698,9 +698,12 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
         {/* Instructor info with faculty profile icon */}
         <div className="flex items-center space-x-2 sm:space-x-3 pt-1 sm:pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
           <img
-            src={batch.instructor?.avatarUrl || '/assets/default-profile.svg'}
+            src={getFacultyAvatarUrl(batch.instructor?.avatarUrl)}
             alt={batch.instructor?.name || 'Faculty'}
             className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover shrink-0 border-none"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = '/assets/default-profile.png';
+            }}
           />
           <div className="text-[11px] sm:text-xs min-w-0">
             <p className="font-bold text-[var(--md-sys-color-on-surface)] truncate">{batch.instructor?.name || 'Elevate Faculty'}</p>

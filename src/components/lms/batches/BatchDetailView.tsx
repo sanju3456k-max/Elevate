@@ -17,7 +17,7 @@ import {
   Users,
   BookOpen,
 } from 'lucide-react';
-import { useApp } from '../../../lms/LmsContext';
+import { useApp, getFacultyAvatarUrl } from '../../../lms/LmsContext';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
 import { formatDuration } from '../../../lms/security';
 import type { PdfNote } from '../../../lms/types';
@@ -340,14 +340,17 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
                   <div className="flex items-center space-x-2 sm:space-x-3 pt-1 sm:pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
                     <img
-                      src={b.instructor.avatarUrl || '/assets/default-profile.svg'}
-                      alt={b.instructor.name}
+                      src={getFacultyAvatarUrl(b.instructor?.avatarUrl)}
+                      alt={b.instructor?.name || 'Faculty'}
                       className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover shrink-0 border-none"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = '/assets/default-profile.png';
+                      }}
                     />
                     <div className="text-[11px] sm:text-xs min-w-0">
-                      <p className="font-bold text-[var(--md-sys-color-on-surface)] truncate">{b.instructor.name}</p>
+                      <p className="font-bold text-[var(--md-sys-color-on-surface)] truncate">{b.instructor?.name || 'Elevate Faculty'}</p>
                       <p className="text-[9px] sm:text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate">
-                        {b.instructor.designation}
+                        {b.instructor?.designation || 'Master Educator'}
                       </p>
                     </div>
                   </div>
@@ -438,12 +441,15 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
           <div className="flex items-center space-x-3 sm:self-center">
             <img
-              src={currentBatch.instructor.avatarUrl || '/assets/default-profile.svg'}
-              alt={currentBatch.instructor.name}
+              src={getFacultyAvatarUrl(currentBatch.instructor?.avatarUrl)}
+              alt={currentBatch.instructor?.name || 'Faculty'}
               className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 border-none"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = '/assets/default-profile.png';
+              }}
             />
             <div className="text-xs">
-              <p className="font-bold text-[var(--md-sys-color-on-surface)]">{currentBatch.instructor.name}</p>
+              <p className="font-bold text-[var(--md-sys-color-on-surface)]">{currentBatch.instructor?.name || 'Elevate Faculty'}</p>
               <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">Instructor</p>
             </div>
           </div>
