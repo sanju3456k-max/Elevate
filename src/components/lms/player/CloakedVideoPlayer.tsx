@@ -191,20 +191,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     return cleanup;
   }, []);
 
-  // Automatically hide "Encrypted" text after 6 seconds, leaving only the clean shield logo
-  useEffect(() => {
-    const labelTimer = setTimeout(() => {
-      setShowEncryptedLabel(false);
-    }, 6000);
-    return () => clearTimeout(labelTimer);
-  }, []);
 
-  // Also collapse label once video reaches 6 seconds
-  useEffect(() => {
-    if (currentTime >= 6 && showEncryptedLabel) {
-      setShowEncryptedLabel(false);
-    }
-  }, [currentTime, showEncryptedLabel]);
 
   // Load YouTube IFrame API once
   useEffect(() => {
