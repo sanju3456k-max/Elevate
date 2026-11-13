@@ -237,6 +237,78 @@
    M3 Component Base Utility Classes (Strict 0 Border & 0 Ring)
    ========================================================================== */
 
+/* Material 3 Buttons (Borderless, Ringless, Premium) */
+.m3-btn-filled {
+  background-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  border-radius: 9999px;
+  font-weight: 600;
+  border: none !important;
+  outline: none !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.m3-btn-filled:hover {
+  box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 2px 4px rgba(0,0,0,0.23);
+  filter: brightness(1.06);
+}
+
+.m3-btn-filled:active {
+  transform: scale(0.98);
+}
+
+.m3-btn-tonal {
+  background-color: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  border-radius: 9999px;
+  font-weight: 600;
+  border: none !important;
+  outline: none !important;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.m3-btn-tonal:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.m3-btn-outlined {
+  background-color: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-primary);
+  border-radius: 9999px;
+  font-weight: 600;
+  border: none !important;
+  outline: none !important;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.m3-card-elevated {
+  background-color: var(--md-sys-color-surface-container);
+  border-radius: 1.5rem;
+  border: none !important;
+  outline: none !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  transition: box-shadow 0.2s cubic-bezier(0.2, 0, 0, 1), transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.m3-card-elevated:hover {
+  box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+
 /* 1. M3 Cards */
 .md-card-elevated {
   background-color: var(--color-surface);
