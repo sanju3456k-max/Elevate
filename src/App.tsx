@@ -38,7 +38,7 @@ import {
 import type { User } from 'firebase/auth';
 import { normalizeQuestions, type ActiveTab, type MathTest, type TestAttempt, type ActiveTestSession, type UserProfile, type TestHistoryEntry } from './types';
 import { triggerBlobDownload } from './lib/omrPrintDownload';
-import { Bot, Sparkles, Share2, Play, X, Layers, BookOpen, CheckCircle2, BarChart3 } from 'lucide-react';
+import { Bot, Sparkles, Share2, Play, X, Layers, BookOpen, CheckCircle2, BarChart3, Home, TrendingUp } from 'lucide-react';
 import { decodeTestFromShareUrl } from './utils/shareUtils';
 import { parseTestFromText, formatTestToText, isJsonFormat } from './utils/testFormatConverter';
 import { 
@@ -1756,12 +1756,28 @@ export default function App() {
 
       {/* Main Content Area */}
       {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'results' && activeTab !== 'create' && activeTab !== 'custom-builder' && activeTab !== 'master-console' && (
-        <main className="flex-1 min-w-0 bg-[#e5e9f0] dark:bg-[#0b0c10]">
+        <main className="flex-1 min-w-0 bg-[#e5e9f0] dark:bg-[#0b0c10] pb-24 md:pb-8">
           
-          {/* PERSISTENT TOP NAVIGATION BAR (Batches, Test Library, Student Activity) */}
-          {['home', 'batches', 'tests'].includes(activeTab) && (
-            <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-4 pb-1">
+          {/* PERSISTENT DESKTOP NAVIGATION BAR (Home, Batches, Test Library, Student Activity, Analytics) */}
+          {['home', 'batches', 'tests', 'analytics'].includes(activeTab) && (
+            <div className="hidden md:block max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-4 pb-1">
               <div className="flex items-center space-x-2.5 overflow-x-auto pb-1 scrollbar-none">
+                <button
+                  id="persistent-nav-home"
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('home');
+                  }}
+                  className={`px-4.5 py-2.5 rounded-full text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap border-none outline-none cursor-pointer active:scale-98 ${
+                    activeTab === 'home'
+                      ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-sm'
+                      : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
+                  }`}
+                >
+                  <Home className="w-4 h-4" />
+                  <span>Home</span>
+                </button>
+
                 <button
                   id="persistent-nav-batches"
                   type="button"
@@ -1802,17 +1818,137 @@ export default function App() {
                       if (elem) elem.scrollIntoView({ behavior: 'smooth' });
                     }, 50);
                   }}
-                  className={`px-4.5 py-2.5 rounded-full text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap border-none outline-none cursor-pointer active:scale-98 ${
-                    activeTab === 'home'
-                      ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-sm'
-                      : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
-                  }`}
+                  className="px-4.5 py-2.5 rounded-full text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap border-none outline-none cursor-pointer active:scale-98 bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]"
                 >
                   <BarChart3 className="w-4 h-4" />
                   <span>Student Activity</span>
                 </button>
+
+                <button
+                  id="persistent-nav-analytics"
+                  type="button"
+                  onClick={() => setActiveTab('analytics')}
+                  className={`px-4.5 py-2.5 rounded-full text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap border-none outline-none cursor-pointer active:scale-98 ${
+                    activeTab === 'analytics'
+                      ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-sm'
+                      : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
+                  }`}
+                >
+                  <TrendingUp className="w-4 h-4" />
+                  <span>Analytics</span>
+                </button>
               </div>
             </div>
+          )}
+
+          {/* MOBILE BOTTOM NAVIGATION HEADER (Home, Batches, Test Library, Student Activity, Analytics) */}
+          {['home', 'batches', 'tests', 'analytics'].includes(activeTab) && (
+            <nav
+              id="mobile-bottom-nav"
+              aria-label="Mobile Bottom Navigation"
+              className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-[var(--md-sys-color-surface-container)]/95 backdrop-blur-lg border-t border-[var(--md-sys-color-outline-variant)]/20 px-2 py-1 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_24px_rgba(0,0,0,0.5)]"
+            >
+              <div className="grid grid-cols-5 items-center justify-around max-w-md mx-auto">
+                {/* 1. Home */}
+                <button
+                  id="mobile-nav-home"
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('home');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className={`flex flex-col items-center justify-center py-1 px-0.5 rounded-2xl transition active:scale-95 border-none outline-none cursor-pointer ${
+                    activeTab === 'home'
+                      ? 'text-[var(--md-sys-color-primary)] font-bold'
+                      : 'text-[var(--md-sys-color-on-surface-variant)] font-medium hover:text-[var(--md-sys-color-on-surface)]'
+                  }`}
+                >
+                  <div className={`px-2.5 py-0.5 rounded-full transition-colors ${activeTab === 'home' ? 'bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)]' : 'bg-transparent'}`}>
+                    <Home className="w-5 h-5" />
+                  </div>
+                  <span className="text-[10px] tracking-tight mt-0.5 font-semibold">Home</span>
+                </button>
+
+                {/* 2. Batches */}
+                <button
+                  id="mobile-nav-batches"
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('batches');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className={`flex flex-col items-center justify-center py-1 px-0.5 rounded-2xl transition active:scale-95 border-none outline-none cursor-pointer ${
+                    activeTab === 'batches'
+                      ? 'text-[var(--md-sys-color-primary)] font-bold'
+                      : 'text-[var(--md-sys-color-on-surface-variant)] font-medium hover:text-[var(--md-sys-color-on-surface)]'
+                  }`}
+                >
+                  <div className={`px-2.5 py-0.5 rounded-full transition-colors ${activeTab === 'batches' ? 'bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)]' : 'bg-transparent'}`}>
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <span className="text-[10px] tracking-tight mt-0.5 font-semibold">Batches</span>
+                </button>
+
+                {/* 3. Test Library */}
+                <button
+                  id="mobile-nav-test-library"
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('tests');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className={`flex flex-col items-center justify-center py-1 px-0.5 rounded-2xl transition active:scale-95 border-none outline-none cursor-pointer ${
+                    activeTab === 'tests'
+                      ? 'text-[var(--md-sys-color-primary)] font-bold'
+                      : 'text-[var(--md-sys-color-on-surface-variant)] font-medium hover:text-[var(--md-sys-color-on-surface)]'
+                  }`}
+                >
+                  <div className={`px-2.5 py-0.5 rounded-full transition-colors ${activeTab === 'tests' ? 'bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)]' : 'bg-transparent'}`}>
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <span className="text-[10px] tracking-tight mt-0.5 font-semibold">Tests</span>
+                </button>
+
+                {/* 4. Student Activity */}
+                <button
+                  id="mobile-nav-student-activity"
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('home');
+                    setTimeout(() => {
+                      const elem = document.getElementById('student-activity-section');
+                      if (elem) elem.scrollIntoView({ behavior: 'smooth' });
+                    }, 60);
+                  }}
+                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded-2xl transition active:scale-95 border-none outline-none cursor-pointer text-[var(--md-sys-color-on-surface-variant)] font-medium hover:text-[var(--md-sys-color-on-surface)]"
+                >
+                  <div className="px-2.5 py-0.5 rounded-full bg-transparent">
+                    <BarChart3 className="w-5 h-5" />
+                  </div>
+                  <span className="text-[10px] tracking-tight mt-0.5 font-semibold">Activity</span>
+                </button>
+
+                {/* 5. Analytics */}
+                <button
+                  id="mobile-nav-analytics"
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('analytics');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className={`flex flex-col items-center justify-center py-1 px-0.5 rounded-2xl transition active:scale-95 border-none outline-none cursor-pointer ${
+                    activeTab === 'analytics'
+                      ? 'text-[var(--md-sys-color-primary)] font-bold'
+                      : 'text-[var(--md-sys-color-on-surface-variant)] font-medium hover:text-[var(--md-sys-color-on-surface)]'
+                  }`}
+                >
+                  <div className={`px-2.5 py-0.5 rounded-full transition-colors ${activeTab === 'analytics' ? 'bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)]' : 'bg-transparent'}`}>
+                    <TrendingUp className="w-5 h-5" />
+                  </div>
+                  <span className="text-[10px] tracking-tight mt-0.5 font-semibold">Analytics</span>
+                </button>
+              </div>
+            </nav>
           )}
 
           {/* Home Dashboard (Elevate Unified Coaching & Assessment Feed) */}

@@ -90,6 +90,16 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const latestLecture = lectures && lectures.length > 0 ? lectures[lectures.length - 1] : null;
   const latestTest = tests && tests.length > 0 ? tests[0] : null;
 
+  const latestTestQuestionCount = (() => {
+    if (!latestTest) return 50;
+    if (Array.isArray(latestTest.questions) && latestTest.questions.length > 0) return latestTest.questions.length;
+    if (typeof (latestTest as any).questionCount === 'number' && (latestTest as any).questionCount > 0) return (latestTest as any).questionCount;
+    return latestTest.timeLimitMinutes > 0 ? latestTest.timeLimitMinutes : 50;
+  })();
+  const latestTestTimeDisplay = latestTest
+    ? (latestTest.timeLimitMinutes > 0 ? `${latestTest.timeLimitMinutes}m` : (latestTest.durationMinutes ? `${latestTest.durationMinutes}m` : '45m'))
+    : '45m';
+
   // In-progress lectures
   const inProgressLectureIds = Object.keys(watchProgress).filter(
     (id) => !watchProgress[id]?.isCompleted && (watchProgress[id]?.watchedSeconds || 0) > 10
@@ -207,36 +217,55 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
-          {/* Card 1: Batch Announcement / Batch Update (Top Priority) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+          {/* Card 1: Batch Update Card with new UI thumbnail and styling */}
           <div
             onClick={() => onOpenBatches && onOpenBatches('my-batches')}
-            className="group cursor-pointer p-4 sm:p-5 rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition-all duration-200 border-none shadow-xs hover:shadow-md flex flex-col justify-between"
+            className="group cursor-pointer rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-col justify-between"
           >
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10.5px] font-bold uppercase tracking-wider flex items-center gap-1">
-                  <BookOpen className="w-3 h-3" />
-                  <span>Batch Update</span>
+            <div>
+              {/* Thumbnail header */}
+              <div className="relative aspect-video w-full overflow-hidden bg-slate-900/10 dark:bg-black/30">
+                <img
+                  src={currentBatch?.thumbnailUrl || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80'}
+                  alt={currentBatch?.title || 'Batch'}
+                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                />
+                <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-[var(--md-sys-color-surface-container-highest)]/90 backdrop-blur-md text-[var(--md-sys-color-on-surface)] text-[10.5px] font-bold uppercase tracking-wider">
+                  {currentBatch?.category || 'Batch Update'}
                 </span>
-                <span className="text-[10px] text-[var(--md-sys-color-outline)] font-medium">
-                  {latestAnnouncement ? latestAnnouncement.date : 'Today'}
+                <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-black/75 text-white text-[10px] font-mono">
+                  {latestAnnouncement ? latestAnnouncement.date : 'Active'}
                 </span>
               </div>
-              <h3 className="text-sm sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition line-clamp-2">
-                {latestAnnouncement ? latestAnnouncement.title : (currentBatch ? `${currentBatch.title} · Live Enrollment` : 'JEE / CBSE Foundation Batches Active')}
-              </h3>
-              <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
-                {latestAnnouncement ? latestAnnouncement.content : (currentBatch?.description || 'Access video lectures, structured chapter folders, and full revision notes.')}
-              </p>
+
+              {/* Body */}
+              <div className="p-4 sm:p-5 space-y-1.5">
+                <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
+                  Batch Curriculum
+                </span>
+                <h3 className="text-sm sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition leading-snug line-clamp-1">
+                  {currentBatch ? currentBatch.title : 'JEE / CBSE Foundation Batch'}
+                </h3>
+                <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
+                  {latestAnnouncement ? latestAnnouncement.title : (currentBatch?.description || 'Access video lectures, structured chapter folders, and full revision notes.')}
+                </p>
+              </div>
             </div>
-            <div className="pt-3 mt-2 border-t border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between text-xs font-bold text-[var(--md-sys-color-primary)]">
-              <span>View Batch Details</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+
+            {/* Footer */}
+            <div className="p-4 sm:p-5 pt-0 flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)]/20 mt-1 pt-3">
+              <span className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] font-medium">
+                {currentBatch?.instructor?.name || 'Master Faculty'}
+              </span>
+              <span className="text-xs font-bold text-[var(--md-sys-color-primary)] flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                <span>View</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </span>
             </div>
           </div>
 
-          {/* Card 2: New Video Class Update */}
+          {/* Card 2: New Video Class with new UI thumbnail, duration, and play overlay */}
           <div
             onClick={() => {
               if (latestLecture) {
@@ -245,34 +274,56 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 onOpenBatches && onOpenBatches();
               }
             }}
-            className="group cursor-pointer p-4 sm:p-5 rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition-all duration-200 border-none shadow-xs hover:shadow-md flex flex-col justify-between"
+            className="group cursor-pointer rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-col justify-between"
           >
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10.5px] font-bold uppercase tracking-wider flex items-center gap-1">
-                  <Video className="w-3 h-3" />
-                  <span>New Video Class</span>
+            <div>
+              {/* Video Thumbnail */}
+              <div className="relative aspect-video w-full overflow-hidden bg-slate-900/10 dark:bg-black/30">
+                <img
+                  src={latestLecture?.thumbnailUrl || 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=800&auto=format&fit=crop&q=80'}
+                  alt={latestLecture?.title || 'Video Class'}
+                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                />
+                <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-purple-600/90 text-white font-bold text-[10px] uppercase tracking-wider backdrop-blur-xs">
+                  New Video Class
                 </span>
-                {latestLecture && (
-                  <span className="text-[10px] text-[var(--md-sys-color-outline)] font-medium">
-                    {latestLecture.durationMinutes} min
-                  </span>
-                )}
+                <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-black/80 font-mono text-[11px] text-white">
+                  {latestLecture ? `${latestLecture.durationMinutes}:00` : '45:00'}
+                </span>
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300 bg-black/30">
+                  <div className="w-10 h-10 rounded-full bg-[var(--md-sys-color-primary)] text-white flex items-center justify-center shadow-lg">
+                    <Play className="w-4 h-4 fill-current ml-0.5" />
+                  </div>
+                </div>
               </div>
-              <h3 className="text-sm sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-purple-600 dark:group-hover:text-purple-400 transition line-clamp-2">
-                {latestLecture ? latestLecture.title : 'New interactive video lectures added'}
-              </h3>
-              <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
-                {latestLecture ? (latestLecture.description || 'Watch timestamped video stream with synchronized PDF notes and milestones.') : 'Stream high-clarity video classes with milestone navigation.'}
-              </p>
+
+              {/* Body */}
+              <div className="p-4 sm:p-5 space-y-1.5">
+                <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider block">
+                  Interactive Video
+                </span>
+                <h3 className="text-sm sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-purple-600 dark:group-hover:text-purple-400 transition leading-snug line-clamp-1">
+                  {latestLecture ? latestLecture.title : 'New interactive video lectures added'}
+                </h3>
+                <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
+                  {latestLecture?.description || 'Stream high-clarity video classes with milestone navigation and timestamped notes.'}
+                </p>
+              </div>
             </div>
-            <div className="pt-3 mt-2 border-t border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between text-xs font-bold text-purple-600 dark:text-purple-400">
-              <span>Watch</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+
+            {/* Footer */}
+            <div className="p-4 sm:p-5 pt-0 flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)]/20 mt-1 pt-3">
+              <span className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] font-medium">
+                {latestLecture?.pdfNotes?.length || 0} Notes attached
+              </span>
+              <span className="text-xs font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                <span>Watch</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </span>
             </div>
           </div>
 
-          {/* Card 3: New Mock Test Update */}
+          {/* Card 3: New Mock Test with new Test UI styling */}
           <div
             onClick={() => {
               if (latestTest) {
@@ -281,30 +332,57 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 onOpenAllTests();
               }
             }}
-            className="group cursor-pointer p-4 sm:p-5 rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition-all duration-200 border-none shadow-xs hover:shadow-md flex flex-col justify-between"
+            className="group cursor-pointer rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-col justify-between"
           >
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10.5px] font-bold uppercase tracking-wider flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" />
-                  <span>New Mock Test</span>
-                </span>
-                {latestTest && (
-                  <span className="text-[10px] text-[var(--md-sys-color-outline)] font-medium">
-                    {latestTest.timeLimitMinutes || 45}m
+            <div>
+              {/* Test Header Badge Area */}
+              <div className="relative aspect-video w-full overflow-hidden bg-gradient-to-br from-emerald-500/15 via-[var(--md-sys-color-surface-container-high)] to-teal-500/10 flex flex-col justify-between p-4">
+                <div className="flex items-center justify-between">
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500 text-white font-bold text-[10px] uppercase tracking-wider shadow-xs">
+                    New Mock Test
                   </span>
-                )}
+                  <span className="px-2 py-0.5 rounded-md bg-white/80 dark:bg-black/60 font-mono text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300">
+                    Live CBT
+                  </span>
+                </div>
+                
+                <div className="space-y-1">
+                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 block">
+                    {latestTest?.topic || 'Mathematics'}
+                  </span>
+                  <h4 className="text-sm sm:text-base font-extrabold text-[var(--md-sys-color-on-surface)] line-clamp-2 leading-tight">
+                    {latestTest ? latestTest.title : 'Full Mock Assessment'}
+                  </h4>
+                </div>
               </div>
-              <h3 className="text-sm sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition line-clamp-2">
-                {latestTest ? latestTest.title : 'Live CBT Mock Assessment'}
-              </h3>
-              <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
-                {latestTest ? `Timed test on ${latestTest.topic || 'Curriculum'} with instant evaluation and detailed solutions.` : 'Practice computer-based tests with real exam marking.'}
-              </p>
+
+              {/* Body */}
+              <div className="p-4 sm:p-5 space-y-2">
+                <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
+                  Timed computer-based test with immediate evaluation, detailed solution analysis, and accuracy tracking.
+                </p>
+                <div className="flex items-center gap-2.5 text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-medium pt-1">
+                  <span className="inline-flex items-center gap-1 text-[#444746] dark:text-[#c4c7c5]">
+                    <Package className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6]" strokeWidth={2.2} />
+                    <span>{latestTestQuestionCount} Qs</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[#444746] dark:text-[#c4c7c5]">
+                    <Clock className="w-3.5 h-3.5 text-[#6750a4] dark:text-[#d0bcff]" strokeWidth={2.2} />
+                    <span>{latestTestTimeDisplay}</span>
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="pt-3 mt-2 border-t border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between text-xs font-bold text-emerald-600 dark:text-emerald-400">
-              <span>Start Assessment</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+
+            {/* Footer */}
+            <div className="p-4 sm:p-5 pt-0 flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)]/20 mt-1 pt-3">
+              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
+                Instant Scoring
+              </span>
+              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                <span>Start Test</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </span>
             </div>
           </div>
         </div>
