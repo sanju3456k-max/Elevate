@@ -159,6 +159,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
   const [activeLectureId, setActiveLectureId] = useState<string | null>(null);
   const [securityToast, setSecurityToast] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Apply theme class to HTML root element
   useEffect(() => {
@@ -225,9 +226,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const showSecurityToast = (msg: string) => {
     setSecurityToast(msg);
-    setTimeout(() => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    toastTimeoutRef.current = setTimeout(() => {
       setSecurityToast(null);
-    }, 4500);
+      toastTimeoutRef.current = null;
+    }, 5000);
   };
 
   // Enable Anti-Piracy Deterrence (Right-click block, Inspect Element key block)

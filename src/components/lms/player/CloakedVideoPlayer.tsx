@@ -129,6 +129,47 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     }
   }, [isPlaying]);
 
+  // Helper: Toggle controls visibility on tap (tap to reveal for 5s, re-tap to immediately hide)
+  const toggleControls = useCallback(() => {
+    setIsControlsVisible((prev) => {
+      if (prev) {
+        // Re-tap: immediately hide controls and clear any active timer
+        if (controlsTimeoutRef.current) {
+          clearTimeout(controlsTimeoutRef.current);
+          controlsTimeoutRef.current = null;
+        }
+        return false;
+      } else {
+        // Tap to reveal: show controls for 5 seconds
+        if (controlsTimeoutRef.current) {
+          clearTimeout(controlsTimeoutRef.current);
+          controlsTimeoutRef.current = null;
+        }
+        if (isPlaying) {
+          controlsTimeoutRef.current = setTimeout(() => {
+            if (!isHoveringControlsRef.current && !optionsMenuOpenRef.current) {
+              setIsControlsVisible(false);
+            }
+          }, 5000);
+        }
+        return true;
+      }
+    });
+  }, [isPlaying]);
+
+  // Helper: Scientific 5-second decay for in-video note tabs and status notices
+  const securityNoticeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const showNoticeWithDecay = useCallback((msg: string, duration = 5000) => {
+    setSecurityNotice(msg);
+    if (securityNoticeTimeoutRef.current) {
+      clearTimeout(securityNoticeTimeoutRef.current);
+    }
+    securityNoticeTimeoutRef.current = setTimeout(() => {
+      setSecurityNotice(null);
+      securityNoticeTimeoutRef.current = null;
+    }, duration);
+  }, []);
+
   const rawVideoId = deobfuscateVideoKey(encryptedVideoId);
 
   // Ephemeral Batch Token Verification Gateway
@@ -228,8 +269,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       playerRef.current.playVideo();
       setIsPlaying(true);
       setCurrentTime(seekToSeconds);
-      setSecurityNotice(`Jumped to ${formatDuration(seekToSeconds)}`);
-      setTimeout(() => setSecurityNotice(null), 2500);
+      showNoticeWithDecay(`Jumped to ${formatDuration(seekToSeconds)}`, 5000);
     }
   }, [seekToSeconds]);
 
@@ -370,8 +410,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         clearTimeout(tapTimeoutRef.current);
       }
       tapTimeoutRef.current = setTimeout(() => {
-        // Single tap: show streamline and tools navigation for 5 full seconds
-        showControlsForDuration(5000);
+        // Single tap: toggle controls visibility (tap to reveal for 5s, re-tap to immediately hide)
+        toggleControls();
         lastTapRef.current = { time: 0, side };
       }, DOUBLE_TAP_DELAY);
     }
@@ -382,8 +422,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     const handleVisibilityChange = () => {
       if (document.hidden && isPlaying) {
         handlePause();
-        setSecurityNotice('Playback paused: Application focus lost.');
-        setTimeout(() => setSecurityNotice(null), 4000);
+        showNoticeWithDecay('Playback paused: Application focus lost.', 5000);
       }
     };
 
@@ -514,8 +553,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       }
     }
 
-    setSecurityNotice(nextState ? 'Subtitles / Captions Enabled' : 'Subtitles Disabled');
-    setTimeout(() => setSecurityNotice(null), 3000);
+    showNoticeWithDecay(nextState ? 'Subtitles / Captions Enabled' : 'Subtitles Disabled', 5000);
   };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -781,21 +819,13 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       {(isControlsVisible || !isPlaying) && isPlayerReady && authStatus === 'authorized' && (
         <div
           onClick={(e) => {
-            const now = Date.now();
-            if (now - lastBackdropClickRef.current < 350) {
-              // Double click on screen: explicitly hide controls immediately
-              if (isPlaying) {
-                if (controlsTimeoutRef.current) {
-                  clearTimeout(controlsTimeoutRef.current);
-                  controlsTimeoutRef.current = null;
-                }
-                setIsControlsVisible(false);
+            // Re-tap on running video screen: immediately re-hides controls
+            if (isPlaying) {
+              if (controlsTimeoutRef.current) {
+                clearTimeout(controlsTimeoutRef.current);
+                controlsTimeoutRef.current = null;
               }
-              lastBackdropClickRef.current = 0;
-            } else {
-              lastBackdropClickRef.current = now;
-              // Single tap on screen: keep controls and streamline tools visible for 5 seconds
-              showControlsForDuration(5000);
+              setIsControlsVisible(false);
             }
           }}
           className={`absolute inset-0 z-20 flex items-center justify-center transition-all ${
@@ -853,7 +883,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             }
           }, 5000);
         }}
-        className={`absolute bottom-0 inset-x-0 z-30 px-3.5 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-t from-black/95 via-black/80 to-transparent transition-opacity duration-300 flex flex-col space-y-1.5 ${
+        className={`absolute bottom-0 inset-x-0 z-30 px-5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-t from-black/95 via-black/80 to-transparent transition-opacity duration-300 flex flex-col space-y-1.5 ${
           isControlsVisible || isHoveringControls || optionsMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
@@ -932,7 +962,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           className="flex items-center justify-between text-white pt-0.5"
         >
           {/* Left Controls: Play, Skip (Desktop), Volume & Slider, Time */}
-          <div className="flex items-center space-x-1 sm:space-x-2">
+          <div className="flex items-center space-x-1 sm:space-x-2 pl-1 sm:pl-0">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -1029,7 +1059,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           <div
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
-            className="flex items-center space-x-1 sm:space-x-2"
+            className="flex items-center space-x-1.5 sm:space-x-2 pr-1 sm:pr-0"
           >
             {/* Unified Option / Settings Button */}
             <div className="relative" onClick={(e) => e.stopPropagation()}>
