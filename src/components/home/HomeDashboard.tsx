@@ -220,7 +220,30 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   return (
     <div className="space-y-6 sm:space-y-8 pb-24 md:pb-16 max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-2 sm:py-3">
       {/* 1. LATEST UPDATES (Featured Lecture Full Preview & Mock Test) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-2.5 sm:space-y-3">
+        {/* Minimal Waving 'Latest' Badge with 'NEW' Logo */}
+        <div className="flex items-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white dark:bg-[#1e2024] border border-[var(--md-sys-color-outline-variant)]/30 shadow-xs select-none">
+            {/* Minimal Waving Motion Radar Ping */}
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600 dark:bg-blue-400"></span>
+            </span>
+
+            {/* Single Word 'Latest' */}
+            <span className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] tracking-tight">
+              Latest
+            </span>
+
+            {/* Logo of 'New' with subtle waving motion */}
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-orange-500/15 dark:bg-orange-500/25 text-orange-600 dark:text-orange-400 text-[10px] font-black uppercase tracking-wider animate-pulse">
+              <Sparkles className="w-2.5 h-2.5 fill-current" />
+              <span>NEW</span>
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Card 1: Latest Featured Lecture (Full Flush Preview View on Left) */}
         <div
           onClick={() => {
@@ -334,6 +357,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           </div>
         </div>
       </div>
+    </div>
 
       {/* 2. MAIN CONTENT TABS / MODULES */}
       <div className="space-y-6 sm:space-y-8">
