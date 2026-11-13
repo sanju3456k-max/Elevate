@@ -220,128 +220,114 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-24 md:pb-16 max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-2 sm:py-3">
-      {/* 1. TOP PANEL FOR LATEST CURRICULUM UPDATES */}
-      <div className="space-y-3.5">
-        <div className="flex items-center space-x-2">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-          </span>
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] tracking-tight">
-              Latest Curriculum Updates
-            </h2>
-            <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] hidden sm:block">
-              Featured video lecture & live CBT mock assessment
-            </p>
+      {/* 1. LATEST UPDATES (Featured Lecture Full Preview & Mock Test) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Card 1: Latest Featured Lecture (Full Flush Preview View on Left) */}
+        <div
+          onClick={() => {
+            if (latestLecture) {
+              handleSelectLectureItem(latestLecture.batchId, latestLecture.id);
+            } else {
+              onOpenBatches && onOpenBatches();
+            }
+          }}
+          className="group cursor-pointer rounded-[24px] bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 overflow-hidden flex flex-row p-0 justify-between items-stretch relative"
+        >
+          <md-ripple />
+          {/* Video Thumbnail (Edge-to-edge flush on left corner) */}
+          <div className="relative w-36 sm:w-48 aspect-video shrink-0 self-stretch overflow-hidden bg-slate-900/10 dark:bg-black/30">
+            <img
+              src={latestLecture?.thumbnailUrl || 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=800&auto=format&fit=crop&q=80'}
+              alt={latestLecture?.title || 'Video Class'}
+              className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+            />
+            <span className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 px-2 py-0.5 rounded-full bg-pink-100 text-pink-700 dark:bg-purple-900/60 dark:text-purple-300 font-bold text-[8.5px] sm:text-[9.5px] uppercase tracking-wider backdrop-blur-xs">
+              Latest Class
+            </span>
+            <span className="absolute bottom-1.5 right-1.5 sm:bottom-2 sm:right-2 px-1.5 py-0.5 rounded-md bg-black/80 font-mono text-[9px] sm:text-[10.5px] text-white">
+              {latestLecture ? `${latestLecture.durationMinutes}:00` : '18:00'}
+            </span>
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300 bg-black/30">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[var(--md-sys-color-primary)] text-white flex items-center justify-center shadow-lg">
+                <Play className="w-3.5 h-3.5 md:w-4 md:h-4 fill-current ml-0.5" />
+              </div>
+            </div>
+          </div>
+
+          {/* Content & Footer */}
+          <div className="flex-1 min-w-0 flex flex-col justify-between p-3 sm:p-4 space-y-1.5 sm:space-y-2">
+            <div className="space-y-1">
+              <span className="text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider block truncate text-[#0b57d0] dark:text-[#a8c7fa]">
+                Video Lecture
+              </span>
+              <h3 className="text-xs sm:text-sm md:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition leading-snug line-clamp-2">
+                {latestLecture ? latestLecture.title : 'New interactive video lectures added'}
+              </h3>
+              <p className="hidden sm:block text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-1 leading-relaxed">
+                {latestLecture?.description || 'Stream high-clarity video classes with milestone navigation.'}
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)]/20 pt-1.5 sm:pt-2">
+              <span className="text-[10px] sm:text-[11px] text-[var(--md-sys-color-on-surface-variant)] font-medium truncate max-w-[120px] sm:max-w-none">
+                {latestLecture?.pdfNotes?.length || 0} Notes attached
+              </span>
+              <span className="text-xs font-bold text-[#0b57d0] dark:text-[#a8c7fa] flex items-center gap-1 group-hover:translate-x-0.5 transition-transform shrink-0">
+                <span>Watch</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Card 1: Clean Video Card */}
-          <div
-            onClick={() => {
-              if (latestLecture) {
-                handleSelectLectureItem(latestLecture.batchId, latestLecture.id);
-              } else {
-                onOpenBatches && onOpenBatches();
-              }
-            }}
-            className="p-3.5 sm:p-4 rounded-[24px] bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 cursor-pointer group flex flex-row items-center gap-3 sm:gap-4 overflow-hidden relative"
-          >
-            <md-ripple />
-            {/* Video Thumbnail */}
-            <div className="relative w-32 sm:w-44 aspect-video shrink-0 rounded-2xl overflow-hidden bg-slate-900/10 dark:bg-black/30">
-              <img
-                src={latestLecture?.thumbnailUrl || 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=800&auto=format&fit=crop&q=80'}
-                alt={latestLecture?.title || 'Video Class'}
-                className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-              />
-              <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full bg-pink-100 text-pink-700 dark:bg-purple-900/60 dark:text-purple-300 font-bold text-[8.5px] sm:text-[9.5px] uppercase tracking-wider">
-                Latest Class
+        {/* Card 2: Clean Test Card (Matches TestCard from Test Library) */}
+        <div
+          onClick={() => {
+            if (latestTest) {
+              onStartTest(latestTest);
+            } else {
+              onOpenAllTests();
+            }
+          }}
+          className="p-3.5 sm:p-4 rounded-[24px] bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 relative overflow-hidden cursor-pointer group flex flex-col justify-between gap-2.5"
+        >
+          <md-ripple />
+          {/* Row 1: Topic tag above title & Title */}
+          <div className="w-full pointer-events-none space-y-0.5">
+            {latestTest?.topic && (
+              <span className="text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider block truncate text-[#0b57d0] dark:text-[#a8c7fa]">
+                {latestTest.topic}
               </span>
-              <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-md bg-black/80 font-mono text-[9px] sm:text-[10px] text-white">
-                {latestLecture ? `${latestLecture.durationMinutes}:00` : '18:00'}
-              </span>
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300 bg-black/30">
-                <div className="w-8 h-8 rounded-full bg-[#0b57d0] text-white flex items-center justify-center shadow-md">
-                  <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
-                </div>
-              </div>
-            </div>
-
-            {/* Content & Details */}
-            <div className="flex-1 min-w-0 flex flex-col justify-between self-stretch py-0.5 space-y-1">
-              <div className="space-y-0.5">
-                <span className="text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider block truncate text-[#0b57d0] dark:text-[#a8c7fa]">
-                  Video Lecture
-                </span>
-                <h3 className="text-sm sm:text-[15px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors leading-snug line-clamp-2">
-                  {latestLecture ? latestLecture.title : 'New interactive video lectures added'}
-                </h3>
-              </div>
-
-              <div className="flex items-center justify-between pt-1 border-t border-[var(--md-sys-color-outline-variant)]/20">
-                <span className="text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-medium truncate">
-                  {latestLecture?.pdfNotes?.length || 0} Notes attached
-                </span>
-                <span className="text-xs font-bold text-[#0b57d0] dark:text-[#a8c7fa] flex items-center gap-1 group-hover:translate-x-0.5 transition-transform shrink-0">
-                  <span>Watch</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </span>
-              </div>
-            </div>
+            )}
+            <h3 className="text-[16px] sm:text-[17px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors leading-snug break-words">
+              {latestTest ? latestTest.title : 'Full Mock Assessment'}
+            </h3>
           </div>
 
-          {/* Card 2: Clean Test Card (Matches TestCard from Test Library) */}
-          <div
-            onClick={() => {
-              if (latestTest) {
-                onStartTest(latestTest);
-              } else {
-                onOpenAllTests();
-              }
-            }}
-            className="p-3.5 sm:p-4 rounded-[24px] bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 relative overflow-hidden cursor-pointer group flex flex-col justify-between gap-2.5"
-          >
-            <md-ripple />
-            {/* Row 1: Topic tag above title & Title */}
-            <div className="w-full pointer-events-none space-y-0.5">
-              {latestTest?.topic && (
-                <span className="text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider block truncate text-[#0b57d0] dark:text-[#a8c7fa]">
-                  {latestTest.topic}
-                </span>
-              )}
-              <h3 className="text-[16px] sm:text-[17px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors leading-snug break-words">
-                {latestTest ? latestTest.title : 'Full Mock Assessment'}
-              </h3>
+          {/* Row 2: Question count & time (Left), Minimal 'New' badge & Chevron (Bottom Right) */}
+          <div className="flex items-center justify-between w-full pt-1 border-t border-[var(--md-sys-color-outline-variant)]/20 pointer-events-none">
+            <div className="flex items-center gap-2 text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-medium leading-none">
+              <span className="inline-flex items-center gap-1 text-[11px] text-[#444746] dark:text-[#c4c7c5] px-1 py-0.5 leading-none">
+                <Package className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] shrink-0" strokeWidth={2.2} />
+                <span className="leading-none">{latestTestQuestionCount} Qs</span>
+              </span>
+              <span className="inline-flex items-center gap-1 text-[11px] text-[#444746] dark:text-[#c4c7c5] px-1 py-0.5 leading-none">
+                <Clock className="w-3.5 h-3.5 text-[#6750a4] dark:text-[#d0bcff] shrink-0" strokeWidth={2.2} />
+                <span className="leading-none">{latestTestTimeDisplay}</span>
+              </span>
             </div>
 
-            {/* Row 2: Question count & time (Left), Minimal 'New' badge & Chevron (Bottom Right) */}
-            <div className="flex items-center justify-between w-full pt-1 border-t border-[var(--md-sys-color-outline-variant)]/20 pointer-events-none">
-              <div className="flex items-center gap-2 text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-medium leading-none">
-                <span className="inline-flex items-center gap-1 text-[11px] text-[#444746] dark:text-[#c4c7c5] px-1 py-0.5 leading-none">
-                  <Package className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] shrink-0" strokeWidth={2.2} />
-                  <span className="leading-none">{latestTestQuestionCount} Qs</span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {isTestNew(latestTest) ? (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold tracking-wide uppercase bg-orange-500/15 dark:bg-orange-500/25 text-orange-600 dark:text-orange-400 border-0 shadow-none shrink-0"
+                  title="New test created within the last 2 days"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500 dark:orange-400 shrink-0 inline-block" />
+                  <span>New</span>
                 </span>
-                <span className="inline-flex items-center gap-1 text-[11px] text-[#444746] dark:text-[#c4c7c5] px-1 py-0.5 leading-none">
-                  <Clock className="w-3.5 h-3.5 text-[#6750a4] dark:text-[#d0bcff] shrink-0" strokeWidth={2.2} />
-                  <span className="leading-none">{latestTestTimeDisplay}</span>
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1.5 shrink-0">
-                {isTestNew(latestTest) ? (
-                  <span
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold tracking-wide uppercase bg-orange-500/15 dark:bg-orange-500/25 text-orange-600 dark:text-orange-400 border-0 shadow-none shrink-0"
-                    title="New test created within the last 2 days"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500 dark:orange-400 shrink-0 inline-block" />
-                    <span>New</span>
-                  </span>
-                ) : null}
-                <ChevronRight className="w-3.5 h-3.5 text-[#747775] dark:text-[#8e918f] group-hover:translate-x-0.5 transition-transform shrink-0" />
-              </div>
+              ) : null}
+              <ChevronRight className="w-3.5 h-3.5 text-[#747775] dark:text-[#8e918f] group-hover:translate-x-0.5 transition-transform shrink-0" />
             </div>
           </div>
         </div>
