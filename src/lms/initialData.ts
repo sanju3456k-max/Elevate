@@ -29,8 +29,7 @@ export const INITIAL_BATCHES: Batch[] = [
     instructor: {
       name: 'Elevate Labs Faculty',
       designation: 'Master Educator',
-      avatarUrl:
-        'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
+      avatarUrl: '/assets/default-profile.svg',
     },
     validityDays: 365,
     startDate: 'Instant Access',
