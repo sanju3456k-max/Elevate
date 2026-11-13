@@ -103,7 +103,6 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
   const currentBatch = batches[0]; // Testing Batch
   const freeLectures = lectures.filter((l) => l.isFreePreview);
-  const featuredTests = tests.slice(0, 2);
 
   // Latest updates for batch, video, and tests
   const latestAnnouncement = announcements && announcements.length > 0 ? announcements[0] : null;
@@ -320,10 +319,13 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             <div className="flex items-center gap-1.5 shrink-0">
               {isTestNew(latestTest) ? (
                 <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold tracking-wide uppercase bg-orange-500/15 dark:bg-orange-500/25 text-orange-600 dark:text-orange-400 border-0 shadow-none shrink-0"
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold tracking-wide uppercase bg-orange-500/15 dark:bg-orange-500/25 text-orange-600 dark:text-orange-400 border-0 shadow-none shrink-0"
                   title="New test created within the last 2 days"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500 dark:orange-400 shrink-0 inline-block" />
+                  <span className="relative flex h-2 w-2 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500 dark:bg-orange-400"></span>
+                  </span>
                   <span>New</span>
                 </span>
               ) : null}
@@ -357,7 +359,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 onClick={() => onOpenBatches && onOpenBatches(activeView === 'my-batches' ? 'my-batches' : 'all')}
                 className="text-xs font-bold text-[var(--md-sys-color-primary)] hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-0 outline-none"
               >
-                <span>Open Full Batches View</span>
+                <span>All</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -397,80 +399,8 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           </div>
         )}
 
-        {/* FEATURED MOCK ASSESSMENTS (Styled identical to Test Library Cards, Zero bulky descriptions) */}
-        <div className="space-y-4 pt-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] tracking-tight flex items-center space-x-2">
-                <CheckCircle2 className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
-                <span>Featured Mock Assessments</span>
-              </h2>
-              <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
-                Handpicked tests for timed practice & instant evaluation
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={onOpenAllTests}
-              className="text-xs font-bold text-[var(--md-sys-color-primary)] hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-0 outline-none"
-            >
-              <span>View Full Test Library ({tests.length})</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {featuredTests.map((test) => {
-              const questionCount = (() => {
-                if (Array.isArray(test.questions) && test.questions.length > 0) return test.questions.length;
-                if (typeof (test as any).questionCount === 'number' && (test as any).questionCount > 0) return (test as any).questionCount;
-                return test.timeLimitMinutes > 0 ? test.timeLimitMinutes : 50;
-              })();
-              const timeDisplay = test.timeLimitMinutes > 0 ? `${test.timeLimitMinutes}m` : (test.durationMinutes ? `${test.durationMinutes}m` : '45m');
-
-              return (
-                <div
-                  key={test.id}
-                  onClick={() => onStartTest(test)}
-                  className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 relative overflow-hidden cursor-pointer group flex flex-col justify-between gap-3"
-                >
-                  {/* Row 1: Topic tag above title & Title */}
-                  <div className="w-full space-y-1">
-                    <span className="text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider block truncate text-[#0b57d0] dark:text-[#a8c7fa]">
-                      {test.topic || 'Mathematics'}
-                    </span>
-                    <h3 className="text-[16px] sm:text-[17px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors leading-snug">
-                      {test.title}
-                    </h3>
-                  </div>
-
-                  {/* Row 2: Question count & time (Left), and Start Test Action (Right) */}
-                  <div className="flex items-center justify-between w-full pt-1 border-t border-slate-100 dark:border-zinc-800">
-                    <div className="flex items-center gap-2 text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-medium leading-none">
-                      <span className="inline-flex items-center gap-1 text-[#444746] dark:text-[#c4c7c5] px-1 py-0.5 leading-none">
-                        <Package className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] shrink-0" strokeWidth={2.2} />
-                        <span className="leading-none">{questionCount} Qs</span>
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-[#444746] dark:text-[#c4c7c5] px-1 py-0.5 leading-none">
-                        <Clock className="w-3.5 h-3.5 text-[#6750a4] dark:text-[#d0bcff] shrink-0" strokeWidth={2.2} />
-                        <span className="leading-none">{timeDisplay}</span>
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1 text-xs font-bold text-[#0b57d0] dark:text-[#a8c7fa] group-hover:translate-x-0.5 transition-transform">
-                      <span>Start Test</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 3. STUDENT ACTIVITY & DAY-WISE GRAPH SECTION (After Batches & Assessments) */}
-        <div id="student-activity-section" className="bg-[var(--md-sys-color-surface-container)] rounded-3xl p-5 sm:p-7 border-none shadow-xs hover:shadow-md transition space-y-6 pt-2">
+        {/* 3. STUDENT ACTIVITY & DAY-WISE GRAPH SECTION (After Batches) */}
+        <div id="student-activity-section" className="bg-white dark:bg-[#1e2024] rounded-3xl p-5 sm:p-7 border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-6 pt-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
             <div>
               <div className="flex items-center space-x-2">
@@ -484,11 +414,11 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="flex items-center space-x-1.5 text-xs text-[var(--md-sys-color-on-surface-variant)] px-3 py-1.5 rounded-full bg-[var(--md-sys-color-surface-container-high)]">
+              <div className="flex items-center space-x-1.5 text-xs text-[var(--md-sys-color-on-surface-variant)] px-3 py-1.5 rounded-full bg-slate-100 dark:bg-zinc-800">
                 <span className="w-2.5 h-2.5 rounded-full bg-[var(--md-sys-color-primary)]" />
                 <span className="font-semibold">Videos Done</span>
               </div>
-              <div className="flex items-center space-x-1.5 text-xs text-[var(--md-sys-color-on-surface-variant)] px-3 py-1.5 rounded-full bg-[var(--md-sys-color-surface-container-high)]">
+              <div className="flex items-center space-x-1.5 text-xs text-[var(--md-sys-color-on-surface-variant)] px-3 py-1.5 rounded-full bg-slate-100 dark:bg-zinc-800">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                 <span className="font-semibold">Tests Attempted</span>
               </div>
@@ -506,7 +436,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
           {/* 4 Summary Score Metric Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            <div className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] border-none space-y-1">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-black/25 border-none space-y-1">
               <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
                 <span>Videos Completed</span>
                 <Video className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
@@ -519,7 +449,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] border-none space-y-1">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-black/25 border-none space-y-1">
               <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
                 <span>Tests Attempted</span>
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
@@ -532,7 +462,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] border-none space-y-1">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-black/25 border-none space-y-1">
               <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
                 <span>Avg Performance</span>
                 <Award className="w-4 h-4 text-amber-500" />
@@ -545,7 +475,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] border-none space-y-1">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-black/25 border-none space-y-1">
               <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
                 <span>Active Streak</span>
                 <Flame className="w-4 h-4 text-orange-500 fill-orange-500" />
@@ -560,7 +490,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           </div>
 
           {/* Day-Wise Visual Interactive Bar Chart */}
-          <div className="p-5 sm:p-6 rounded-3xl bg-[var(--md-sys-color-surface-container-high)] border-none space-y-4">
+          <div className="p-5 sm:p-6 rounded-3xl bg-slate-50 dark:bg-black/25 border-none space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
