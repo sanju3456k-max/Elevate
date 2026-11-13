@@ -267,7 +267,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               </p>
             </div>
             <div className="pt-3 mt-2 border-t border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between text-xs font-bold text-purple-600 dark:text-purple-400">
-              <span>Watch Video Stream</span>
+              <span>Watch</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </div>
           </div>
@@ -430,7 +430,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                           {latestLec.pdfNotes?.length || 0} Study Notes attached
                         </span>
                         <span className="text-[var(--md-sys-color-primary)] font-bold flex items-center gap-1">
-                          <span>Watch Stream</span>
+                          <span>Watch</span>
                           <ArrowRight className="w-3.5 h-3.5" />
                         </span>
                       </div>
@@ -743,7 +743,7 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
           <button
             className="m3-btn-filled px-4 py-2 text-xs font-bold flex items-center space-x-1.5 shadow-sm border-none outline-none cursor-pointer"
           >
-            <span>Open Batch</span>
+            <span>View</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>

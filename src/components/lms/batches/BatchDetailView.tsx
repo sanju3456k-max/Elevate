@@ -340,7 +340,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                     )}
 
                     <button className="m3-btn-filled px-4 py-2 text-xs font-bold flex items-center space-x-1.5 border-none outline-none cursor-pointer">
-                      <span>View Folders</span>
+                      <span>View</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -598,7 +598,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                       {lec.pdfNotes?.length || 0} Notes Content
                     </span>
                     <button className="text-[var(--md-sys-color-primary)] font-bold flex items-center space-x-1 border-none bg-transparent cursor-pointer">
-                      <span>Watch Stream</span>
+                      <span>Watch</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>

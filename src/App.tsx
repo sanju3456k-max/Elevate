@@ -1758,42 +1758,24 @@ export default function App() {
       {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'results' && activeTab !== 'create' && activeTab !== 'custom-builder' && activeTab !== 'master-console' && (
         <main className="flex-1 min-w-0 bg-[#e5e9f0] dark:bg-[#0b0c10]">
           
-          {/* PERSISTENT TOP NAVIGATION BAR (All Batches, My Batches, Test Library, Student Activity) */}
+          {/* PERSISTENT TOP NAVIGATION BAR (Batches, Test Library, Student Activity) */}
           {['home', 'batches', 'tests'].includes(activeTab) && (
             <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-4 pb-1">
               <div className="flex items-center space-x-2.5 overflow-x-auto pb-1 scrollbar-none">
                 <button
-                  id="persistent-nav-all-batches"
+                  id="persistent-nav-batches"
                   type="button"
                   onClick={() => {
-                    setBatchesFilter('all');
                     setActiveTab('batches');
                   }}
                   className={`px-4.5 py-2.5 rounded-full text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap border-none outline-none cursor-pointer active:scale-98 ${
-                    activeTab === 'batches' && batchesFilter === 'all'
+                    activeTab === 'batches'
                       ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-sm'
                       : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
                   }`}
                 >
                   <Layers className="w-4 h-4" />
-                  <span>All Batches</span>
-                </button>
-
-                <button
-                  id="persistent-nav-my-batches"
-                  type="button"
-                  onClick={() => {
-                    setBatchesFilter('my-batches');
-                    setActiveTab('batches');
-                  }}
-                  className={`px-4.5 py-2.5 rounded-full text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap border-none outline-none cursor-pointer active:scale-98 ${
-                    activeTab === 'batches' && batchesFilter === 'my-batches'
-                      ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-sm'
-                      : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
-                  }`}
-                >
-                  <BookOpen className="w-4 h-4" />
-                  <span>My Batches</span>
+                  <span>Batches</span>
                 </button>
 
                 <button
