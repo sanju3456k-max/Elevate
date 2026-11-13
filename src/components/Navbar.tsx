@@ -206,7 +206,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={() => setIsDrawerOpen(true)}
                 aria-label="Open Navigation Drawer"
                 title="Main Menu"
-                className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-center justify-center cursor-pointer transition-all active:scale-95 outline-none shrink-0"
+                className="w-9 h-9 rounded-full bg-transparent hover:bg-black/8 dark:hover:bg-white/10 text-[#1f1f1f] dark:text-[#e3e3e3] border-0 shadow-none flex items-center justify-center cursor-pointer transition-all active:scale-95 outline-none shrink-0"
               >
                 <Menu className="w-[18px] h-[18px] text-[#1f1f1f] dark:text-[#e3e3e3]" />
               </button>
@@ -255,7 +255,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 type="button"
                 onClick={() => handleNavClick('chatbot')}
                 title="Open Theta AI"
-                className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#0b57d0] dark:text-[#a8c7fa] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-center justify-center cursor-pointer transition-all active:scale-95 outline-none shrink-0"
+                className="w-9 h-9 rounded-full bg-transparent hover:bg-black/8 dark:hover:bg-white/10 text-[#0b57d0] dark:text-[#a8c7fa] border-0 shadow-none flex items-center justify-center cursor-pointer transition-all active:scale-95 outline-none shrink-0"
               >
                 <Bot className={`w-[18px] h-[18px] ${activeTab === 'chatbot' ? 'text-[#0b57d0] dark:text-[#a8c7fa]' : 'text-[#444746] dark:text-[#c4c7c5]'}`} />
               </button>
@@ -268,7 +268,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     type="button"
                     onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                     title={displayUser.displayName || displayUser.email || "Account Profile"}
-                    className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] font-bold text-xs flex items-center justify-center border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] ring-0 outline-none transition-all active:scale-95 cursor-pointer overflow-hidden shrink-0"
+                    className="w-9 h-9 rounded-full bg-transparent hover:bg-black/8 dark:hover:bg-white/10 text-[#1f1f1f] dark:text-[#e3e3e3] font-bold text-xs flex items-center justify-center border-0 shadow-none ring-0 outline-none transition-all active:scale-95 cursor-pointer overflow-hidden shrink-0"
                   >
                     {displayUser.photoURL && displayUser.photoURL.trim() ? (
                       <img 
@@ -387,7 +387,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onClick={onSignIn}
                   disabled={isAuthLoading}
                   title="Sign in with Google"
-                  className="h-9 px-3.5 sm:px-4 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] border-0 text-[#1f1f1f] dark:text-[#e3e3e3] font-bold text-xs sm:text-sm shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-center gap-2 transition-all active:scale-95 cursor-pointer disabled:opacity-50 shrink-0 outline-none"
+                  className="h-9 px-3.5 sm:px-4 rounded-full bg-transparent hover:bg-black/8 dark:hover:bg-white/10 border-0 text-[#1f1f1f] dark:text-[#e3e3e3] font-bold text-xs sm:text-sm shadow-none flex items-center gap-2 transition-all active:scale-95 cursor-pointer disabled:opacity-50 shrink-0 outline-none"
                 >
                   <GoogleLogoIcon />
                   <span>Sign In</span>
