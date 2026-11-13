@@ -89,6 +89,14 @@ const GoogleLogoIcon = () => (
   </svg>
 );
 
+// High-fidelity Home Dashboard SVG Icon
+const HomeDashboardIcon = ({ className }: { className?: string }) => (
+  <svg className={className || "w-5 h-5"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 10.5 12 3l9 7.5V20a2 2 0 0 1-2 2h-4a1 1 0 0 1-1-1v-4a1 1 0 0 0-1-1h-2a1 1 0 0 0-1 1v4a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2z" />
+    <polyline points="9 22 9 12 15 12 15 22" />
+  </svg>
+);
+
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
@@ -466,12 +474,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                     >
                       <md-ripple />
                       <div className="flex items-center gap-3">
-                        <div className={`w-8.5 h-8.5 rounded-full flex items-center justify-center shrink-0 ${
+                        <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
                           activeTab === 'home'
-                            ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49]'
-                            : 'bg-[#e1e3e1]/60 text-[#1f1f1f] dark:bg-[#282a30] dark:text-[#e3e3e3]'
+                            ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
+                            : 'text-[#444746] dark:text-[#c4c7c5]'
                         }`}>
-                          <Sparkles className="w-4.5 h-4.5 stroke-[2.2]" />
+                          <HomeDashboardIcon className="w-5 h-5 stroke-[2.2]" />
                         </div>
                         <span className="text-[17px] font-semibold">Home Dashboard</span>
                       </div>
@@ -485,12 +493,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                     >
                       <md-ripple />
                       <div className="flex items-center gap-3">
-                        <div className={`w-8.5 h-8.5 rounded-full flex items-center justify-center shrink-0 ${
+                        <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
                           activeTab === 'batches'
-                            ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49]'
-                            : 'bg-[#e1e3e1]/60 text-[#1f1f1f] dark:bg-[#282a30] dark:text-[#e3e3e3]'
+                            ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
+                            : 'text-[#444746] dark:text-[#c4c7c5]'
                         }`}>
-                          <Layers className="w-4.5 h-4.5 stroke-[2.2]" />
+                          <Layers className="w-5 h-5 stroke-[2.2]" />
                         </div>
                         <span className="text-[17px] font-semibold">Video Batches & LMS</span>
                       </div>
@@ -504,12 +512,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                     >
                       <md-ripple />
                       <div className="flex items-center gap-3">
-                        <div className={`w-8.5 h-8.5 rounded-full flex items-center justify-center shrink-0 ${
+                        <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
                           activeTab === 'tests'
-                            ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49]'
-                            : 'bg-[#e1e3e1]/60 text-[#1f1f1f] dark:bg-[#282a30] dark:text-[#e3e3e3]'
+                            ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
+                            : 'text-[#444746] dark:text-[#c4c7c5]'
                         }`}>
-                          <BookOpen className="w-4.5 h-4.5 stroke-[2.2]" />
+                          <BookOpen className="w-5 h-5 stroke-[2.2]" />
                         </div>
                         <span className="text-[17px] font-semibold">Mock Tests Library</span>
                       </div>
@@ -523,12 +531,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                     >
                       <md-ripple />
                       <div className="flex items-center gap-3">
-                        <div className={`w-8.5 h-8.5 rounded-full flex items-center justify-center shrink-0 ${
+                        <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
                           activeTab === 'analytics'
-                            ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49]'
-                            : 'bg-[#e1e3e1]/60 text-[#1f1f1f] dark:bg-[#282a30] dark:text-[#e3e3e3]'
+                            ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
+                            : 'text-[#444746] dark:text-[#c4c7c5]'
                         }`}>
-                          <BarChart3 className="w-4.5 h-4.5 stroke-[2.2]" />
+                          <BarChart3 className="w-5 h-5 stroke-[2.2]" />
                         </div>
                         <span className="text-[17px] font-semibold">Performance Analytics</span>
                       </div>
@@ -542,12 +550,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                     >
                       <md-ripple />
                       <div className="flex items-center gap-3">
-                        <div className={`w-8.5 h-8.5 rounded-full flex items-center justify-center shrink-0 ${
+                        <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
                           (activeTab === 'notes-repository' || activeTab === 'html-notes')
-                            ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49]'
-                            : 'bg-[#e1e3e1]/60 text-[#1f1f1f] dark:bg-[#282a30] dark:text-[#e3e3e3]'
+                            ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
+                            : 'text-[#444746] dark:text-[#c4c7c5]'
                         }`}>
-                          <FileText className="w-4.5 h-4.5 stroke-[2.2]" />
+                          <FileText className="w-5 h-5 stroke-[2.2]" />
                         </div>
                         <div className="flex flex-col items-start text-left leading-tight">
                           <span className="font-semibold text-[17px]">Notes Studio</span>
@@ -566,12 +574,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                     >
                       <md-ripple />
                       <div className="flex items-center gap-3">
-                        <div className={`w-8.5 h-8.5 rounded-full flex items-center justify-center shrink-0 ${
+                        <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
                           activeTab === 'chatbot'
-                            ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49]'
-                            : 'bg-[#e1e3e1]/60 text-[#1f1f1f] dark:bg-[#282a30] dark:text-[#e3e3e3]'
+                            ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
+                            : 'text-[#444746] dark:text-[#c4c7c5]'
                         }`}>
-                          <Bot className="w-4.5 h-4.5 stroke-[2.2]" />
+                          <Bot className="w-5 h-5 stroke-[2.2]" />
                         </div>
                         <div className="flex flex-col items-start text-left leading-tight">
                           <span className="font-semibold text-[17px]">
@@ -605,12 +613,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                     >
                       <md-ripple />
                       <div className="flex items-center gap-3">
-                        <div className={`w-8.5 h-8.5 rounded-full flex items-center justify-center shrink-0 ${
+                        <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
                           activeTab === 'create'
-                            ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49]'
-                            : 'bg-[#e1e3e1]/60 text-[#1f1f1f] dark:bg-[#282a30] dark:text-[#e3e3e3]'
+                            ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
+                            : 'text-[#444746] dark:text-[#c4c7c5]'
                         }`}>
-                          <PlusCircle className="w-4.5 h-4.5 stroke-[2.2]" />
+                          <PlusCircle className="w-5 h-5 stroke-[2.2]" />
                         </div>
                         <span className="text-[17px] font-semibold">Test Creator Studio</span>
                       </div>
@@ -624,12 +632,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                     >
                       <md-ripple />
                       <div className="flex items-center gap-3">
-                        <div className={`w-8.5 h-8.5 rounded-full flex items-center justify-center shrink-0 ${
+                        <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
                           activeTab === 'custom-builder'
-                            ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49]'
-                            : 'bg-[#ffe088] text-[#241a00] dark:bg-[#5b4300] dark:text-[#ffe088]'
+                            ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
+                            : 'text-[#444746] dark:text-[#c4c7c5]'
                         }`}>
-                          <SlidersHorizontal className="w-4.5 h-4.5 stroke-[2.2]" />
+                          <SlidersHorizontal className="w-5 h-5 stroke-[2.2]" />
                         </div>
                         <span className="text-[17px] font-semibold">Custom Test Builder</span>
                       </div>
@@ -643,12 +651,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                     >
                       <md-ripple />
                       <div className="flex items-center gap-3">
-                        <div className={`w-8.5 h-8.5 rounded-full flex items-center justify-center shrink-0 ${
+                        <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
                           activeTab === 'bulk-print'
-                            ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49]'
-                            : 'bg-[#e1e3e1]/60 text-[#1f1f1f] dark:bg-[#282a30] dark:text-[#e3e3e3]'
+                            ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
+                            : 'text-[#444746] dark:text-[#c4c7c5]'
                         }`}>
-                          <Printer className="w-4.5 h-4.5 stroke-[2.2]" />
+                          <Printer className="w-5 h-5 stroke-[2.2]" />
                         </div>
                         <span className="text-[17px] font-semibold">OMR and Print Studio</span>
                       </div>
@@ -673,12 +681,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                         >
                           <md-ripple />
                           <div className="flex items-center gap-3">
-                            <div className={`w-8.5 h-8.5 rounded-full flex items-center justify-center shrink-0 ${
+                            <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
                               activeTab === 'master-console'
-                                ? 'bg-amber-500 text-slate-950 font-black'
-                                : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
+                                ? 'text-amber-500'
+                                : 'text-amber-600 dark:text-amber-400'
                             }`}>
-                              <Crown className="w-4.5 h-4.5 fill-current stroke-[2.2]" />
+                              <Crown className="w-5 h-5 fill-current stroke-[2.2]" />
                             </div>
                             <div className="flex flex-col items-start text-left leading-tight">
                               <span className="text-[17px] font-semibold text-amber-900 dark:text-amber-200">
@@ -714,8 +722,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                       >
                         <md-ripple />
                         <div className="flex items-center gap-3">
-                          <div className="w-8.5 h-8.5 rounded-full flex items-center justify-center shrink-0 bg-[#c4eed0] text-[#072711] dark:bg-[#0f5223] dark:text-[#c4eed0] group-hover:scale-105 transition-transform">
-                            <Sliders className="w-4.5 h-4.5 stroke-[2.2]" />
+                          <div className="w-7 h-7 flex items-center justify-center shrink-0 bg-transparent text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-transform">
+                            <Sliders className="w-5 h-5 stroke-[2.2]" />
                           </div>
                           <div className="flex flex-col items-start text-left">
                             <span className="flex items-center gap-1.5 text-[17px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3]">

@@ -181,10 +181,41 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       {/* 1. TOP HEADER NAVIGATION BUTTONS (Exactly 4 Clean Buttons: All Batches, My Batches, Test Library, Student Activity) */}
       <div className="flex items-center space-x-2.5 overflow-x-auto pb-1 scrollbar-none">
         {[
-          { id: 'all-batches', label: 'All Batches', icon: Layers, action: () => setActiveView('all-batches') },
-          { id: 'my-batches', label: 'My Batches', icon: BookOpen, action: () => setActiveView('my-batches') },
-          { id: 'test-library', label: 'Test Library', icon: CheckCircle2, action: () => setActiveView('test-library') },
-          { id: 'activity', label: 'Student Activity', icon: BarChart3, action: () => setActiveView('activity') },
+          { 
+            id: 'all-batches', 
+            label: 'All Batches', 
+            icon: Layers, 
+            action: () => {
+              setActiveView('all-batches');
+              if (onOpenBatches) onOpenBatches();
+            } 
+          },
+          { 
+            id: 'my-batches', 
+            label: 'My Batches', 
+            icon: BookOpen, 
+            action: () => {
+              setActiveView('my-batches');
+            } 
+          },
+          { 
+            id: 'test-library', 
+            label: 'Test Library', 
+            icon: CheckCircle2, 
+            action: () => {
+              onOpenAllTests();
+            } 
+          },
+          { 
+            id: 'activity', 
+            label: 'Student Activity', 
+            icon: BarChart3, 
+            action: () => {
+              setActiveView('activity');
+              const elem = document.getElementById('student-activity-section');
+              if (elem) elem.scrollIntoView({ behavior: 'smooth' });
+            } 
+          },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeView === tab.id;
@@ -206,10 +237,10 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         })}
       </div>
 
-      {/* 2. STREAMLINED TOP HERO BANNER (Eliminated Labs/Smart Coaching/CBT Tag) */}
+      {/* 2. STREAMLINED TOP HERO BANNER (Clean, focused, no duplicate buttons) */}
       <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[var(--md-sys-color-surface-container)] via-[var(--md-sys-color-surface-container)] to-[var(--md-sys-color-surface-container-high)] p-6 sm:p-9 shadow-xs border-none">
         <div className="absolute -top-16 -right-16 w-96 h-96 bg-[var(--md-sys-color-primary)]/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 max-w-3xl space-y-3.5">
+        <div className="relative z-10 max-w-3xl space-y-2">
           <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-[var(--md-sys-color-on-surface)] tracking-tight leading-tight">
             Interactive Video Classes & <span className="text-[var(--md-sys-color-primary)]">Mock Assessments</span>
           </h1>
@@ -217,37 +248,6 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           <p className="text-[var(--md-sys-color-on-surface-variant)] text-xs sm:text-sm sm:leading-relaxed max-w-2xl">
             Distraction-free video streaming with timeline milestones, timestamped notes, and computer-based timed tests for focused concept mastery.
           </p>
-
-          <div className="flex flex-wrap items-center gap-3 pt-2">
-            {currentBatch && (
-              <button
-                type="button"
-                onClick={() => handleSelectBatchItem(currentBatch.id)}
-                className="m3-btn-filled px-6 py-3 text-xs sm:text-sm flex items-center space-x-2 shadow-sm border-none outline-none cursor-pointer hover:scale-102 transition"
-              >
-                <span>Open {currentBatch.title}</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={onOpenBatches}
-              className="m3-btn-tonal px-5 py-3 text-xs sm:text-sm flex items-center space-x-2 border-none outline-none cursor-pointer hover:scale-102 transition"
-            >
-              <Layers className="w-4 h-4" />
-              <span>All Batches</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onOpenAllTests}
-              className="m3-btn-tonal px-5 py-3 text-xs sm:text-sm flex items-center space-x-2 border-none outline-none cursor-pointer hover:scale-102 transition"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Test Library ({tests.length})</span>
-            </button>
-          </div>
         </div>
       </div>
 
