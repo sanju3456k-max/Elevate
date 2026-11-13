@@ -460,6 +460,25 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </div>
                     
                     <button
+                      id="drawer-item-batches"
+                      onClick={() => handleNavClick('batches')}
+                      className={`${activeTab === 'batches' ? APP_STYLES.nav.itemActive : APP_STYLES.nav.item} relative overflow-hidden`}
+                    >
+                      <md-ripple />
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8.5 h-8.5 rounded-full flex items-center justify-center shrink-0 ${
+                          activeTab === 'batches'
+                            ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49]'
+                            : 'bg-[#e1e3e1]/60 text-[#1f1f1f] dark:bg-[#282a30] dark:text-[#e3e3e3]'
+                        }`}>
+                          <Layers className="w-4.5 h-4.5 stroke-[2.2]" />
+                        </div>
+                        <span className="text-[17px] font-semibold">Video Batches & LMS</span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 opacity-70" />
+                    </button>
+
+                    <button
                       id="drawer-item-tests"
                       onClick={() => handleNavClick('tests')}
                       className={`${activeTab === 'tests' ? APP_STYLES.nav.itemActive : APP_STYLES.nav.item} relative overflow-hidden`}

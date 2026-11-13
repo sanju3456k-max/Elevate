@@ -89,6 +89,9 @@ import { SettingsModal } from './components/SettingsModal';
 import { InstallAppModal } from './components/InstallAppModal';
 import { GuestMigrationModal } from './components/auth/GuestMigrationModal';
 import { WelcomeSplash } from './components/WelcomeSplash';
+import { BatchDetailView } from './components/lms/batches/BatchDetailView';
+import { BatchAdminStudio } from './components/lms/BatchAdminStudio';
+import { LmsProvider } from './lms/LmsContext';
 import { usePWAInstall } from './hooks/usePWAInstall';
 import { useUIScale } from './hooks/useUIScale';
 import { useViewHistory, useBackHandler } from './hooks/useBackNavigation';
@@ -1592,7 +1595,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#ededed] dark:bg-[#111318] text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col font-sans antialiased selection:bg-[#0b57d0]/20 selection:text-[#0b57d0] dark:selection:text-[#a8c7fa] transition-colors duration-200">
+    <LmsProvider>
+      <div className="min-h-screen bg-[#ededed] dark:bg-[#111318] text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col font-sans antialiased selection:bg-[#0b57d0]/20 selection:text-[#0b57d0] dark:selection:text-[#a8c7fa] transition-colors duration-200">
       {/* Brand Welcome Screen on App Opening */}
       <WelcomeSplash />
       {/* Toast Notification */}
@@ -1751,6 +1755,17 @@ export default function App() {
       {/* Main Content Area */}
       {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'results' && activeTab !== 'create' && activeTab !== 'custom-builder' && activeTab !== 'master-console' && (
         <main className="flex-1 min-w-0 bg-[#e5e9f0] dark:bg-[#0b0c10]">
+          {/* Video Batches & LMS Suite (Elevate Integrated Curriculum) */}
+          {activeTab === 'batches' && (
+            <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
+              <BatchDetailView
+                availableTests={tests}
+                onStartTest={(test) => handleStartTest(test, 'timed')}
+                onBack={() => setActiveTab('tests')}
+              />
+            </div>
+          )}
+
           {/* Mock Tests Library */}
           {activeTab === 'tests' && (
             <TestList
@@ -1779,6 +1794,7 @@ export default function App() {
               isLoadingMoreTests={isLoadingMoreTests}
               onLoadMoreTests={handleLoadMoreTests}
               onOpenBulkPrint={() => setActiveTab('bulk-print')}
+              onOpenBatches={() => setActiveTab('batches')}
             />
           )}
 
@@ -2052,5 +2068,6 @@ export default function App() {
         )}
       </AnimatePresence>
     </div>
+    </LmsProvider>
   );
 }
