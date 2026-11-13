@@ -29,6 +29,7 @@ interface BatchDetailViewProps {
   onBack?: () => void;
   availableTests?: MathTest[];
   onStartTest?: (test: MathTest) => void;
+  initialFilter?: 'all' | 'my-batches';
 }
 
 export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
@@ -37,6 +38,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   onBack,
   availableTests = [],
   onStartTest,
+  initialFilter = 'all',
 }) => {
   const {
     batches,
@@ -71,6 +73,22 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
   // Inside Folder Tab: 'videos' | 'notes_content'
   const [folderActiveTab, setFolderActiveTab] = useState<'videos' | 'notes_content' | 'tests'>('videos');
+
+  // Filter state for All Batches vs My Batches
+  const [batchFilter, setBatchFilter] = useState<'all' | 'my-batches'>(initialFilter || 'all');
+
+  React.useEffect(() => {
+    if (initialFilter) {
+      setBatchFilter(initialFilter);
+    }
+  }, [initialFilter]);
+
+  const enrolledBatches = useMemo(
+    () => batches.filter((b) => isEnrolled(b.id)),
+    [batches, isEnrolled]
+  );
+
+  const displayedBatches = batchFilter === 'my-batches' ? enrolledBatches : batches;
 
   // Image preview modal state
   const [previewImage, setPreviewImage] = useState<{ title: string; url: string } | null>(null);
@@ -189,7 +207,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   };
 
   /* =========================================================================
-     STAGE 1: BATCH LIST (Shows only the batch list)
+     STAGE 1: BATCH LIST (Shows only the batch list with All / My Batches filters)
      ========================================================================= */
   if (currentStage === 'batch_list') {
     return (
@@ -207,98 +225,147 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             )}
             <div>
               <h1 className="text-xl sm:text-2xl font-extrabold text-[var(--md-sys-color-on-surface)] tracking-tight">
-                Coaching Batches
+                {batchFilter === 'my-batches' ? 'My Enrolled Batches' : 'Coaching Batches'}
               </h1>
               <p className="text-xs sm:text-sm text-[var(--md-sys-color-on-surface-variant)]">
-                Select a batch to explore its folders, video classes, and study materials
+                {batchFilter === 'my-batches'
+                  ? 'Batches you are actively enrolled in with complete curriculum access'
+                  : 'Select a batch to explore its folders, video classes, and study materials'}
               </p>
             </div>
           </div>
-          <span className="self-start sm:self-auto text-xs font-semibold px-3 py-1 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)]">
-            {batches.length} Available Batch
-          </span>
+
+          {/* Filter Pills: All Batches vs My Batches */}
+          <div className="flex items-center space-x-2 self-start sm:self-auto">
+            <button
+              id="batch-filter-all-btn"
+              type="button"
+              onClick={() => setBatchFilter('all')}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition flex items-center space-x-1.5 border-none cursor-pointer active:scale-95 ${
+                batchFilter === 'all'
+                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-sm'
+                  : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
+              }`}
+            >
+              <span>All Batches</span>
+              <span className="opacity-80 text-[11px]">({batches.length})</span>
+            </button>
+
+            <button
+              id="batch-filter-my-btn"
+              type="button"
+              onClick={() => setBatchFilter('my-batches')}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition flex items-center space-x-1.5 border-none cursor-pointer active:scale-95 ${
+                batchFilter === 'my-batches'
+                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-sm'
+                  : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
+              }`}
+            >
+              <span>My Batches</span>
+              <span className="opacity-80 text-[11px]">({enrolledBatches.length})</span>
+            </button>
+          </div>
         </div>
 
-        {/* Batches Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {batches.map((b) => (
-            <div
-              key={b.id}
-              onClick={() => goToBatchFolders(b.id)}
-              className="bg-[var(--md-sys-color-surface-container)] rounded-3xl overflow-hidden group cursor-pointer transition flex flex-col border-none shadow-xs hover:shadow-md"
-            >
-              <div className="relative aspect-video overflow-hidden">
-                <img
-                  src={b.thumbnailUrl}
-                  alt={b.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                />
-                <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-[var(--md-sys-color-surface-container-highest)]/90 backdrop-blur-md text-[var(--md-sys-color-on-surface)] text-xs font-semibold">
-                  {b.category}
-                </span>
-                <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs text-white">
-                  <span className="flex items-center space-x-1 bg-black/60 backdrop-blur-xs px-2.5 py-0.5 rounded-full">
-                    <Star className="w-3.5 h-3.5 text-amber-400 fill-current" />
-                    <span className="font-bold">{b.rating}</span>
-                  </span>
-                  <span className="flex items-center space-x-1 bg-black/60 backdrop-blur-xs px-2.5 py-0.5 rounded-full">
-                    <Users className="w-3.5 h-3.5 text-slate-300" />
-                    <span>Interactive Batch</span>
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                <div className="space-y-1.5">
-                  <h3 className="text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition leading-snug">
-                    {b.title}
-                  </h3>
-                  <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
-                    {b.tagline}
-                  </p>
-                </div>
-
-                <div className="flex items-center space-x-3 pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
+        {/* Batches Grid or Empty State */}
+        {displayedBatches.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {displayedBatches.map((b) => (
+              <div
+                key={b.id}
+                onClick={() => goToBatchFolders(b.id)}
+                className="bg-[var(--md-sys-color-surface-container)] rounded-3xl overflow-hidden group cursor-pointer transition flex flex-col border-none shadow-xs hover:shadow-md"
+              >
+                <div className="relative aspect-video overflow-hidden">
                   <img
-                    src={b.instructor.avatarUrl}
-                    alt={b.instructor.name}
-                    className="w-9 h-9 rounded-full object-cover border-none"
+                    src={b.thumbnailUrl}
+                    alt={b.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                   />
-                  <div className="text-xs">
-                    <p className="font-bold text-[var(--md-sys-color-on-surface)]">{b.instructor.name}</p>
-                    <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
-                      {b.instructor.designation}
-                    </p>
+                  <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-[var(--md-sys-color-surface-container-highest)]/90 backdrop-blur-md text-[var(--md-sys-color-on-surface)] text-xs font-semibold">
+                    {b.category}
+                  </span>
+                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs text-white">
+                    <span className="flex items-center space-x-1 bg-black/60 backdrop-blur-xs px-2.5 py-0.5 rounded-full">
+                      <Star className="w-3.5 h-3.5 text-amber-400 fill-current" />
+                      <span className="font-bold">{b.rating}</span>
+                    </span>
+                    <span className="flex items-center space-x-1 bg-black/60 backdrop-blur-xs px-2.5 py-0.5 rounded-full">
+                      <Users className="w-3.5 h-3.5 text-slate-300" />
+                      <span>Interactive Batch</span>
+                    </span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-1">
-                  {isEnrolled(b.id) ? (
-                    <div className="flex items-center space-x-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full">
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      <span>Full Access</span>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        enrollInBatch(b.id);
-                      }}
-                      className="m3-btn-tonal px-3 py-1 text-xs font-bold border-none cursor-pointer"
-                    >
-                      Enroll (₹{b.price})
-                    </button>
-                  )}
+                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                  <div className="space-y-1.5">
+                    <h3 className="text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition leading-snug">
+                      {b.title}
+                    </h3>
+                    <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
+                      {b.tagline}
+                    </p>
+                  </div>
 
-                  <button className="m3-btn-filled px-4 py-2 text-xs font-bold flex items-center space-x-1.5 border-none outline-none cursor-pointer">
-                    <span>View Folders</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center space-x-3 pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
+                    <img
+                      src={b.instructor.avatarUrl}
+                      alt={b.instructor.name}
+                      className="w-9 h-9 rounded-full object-cover border-none"
+                    />
+                    <div className="text-xs">
+                      <p className="font-bold text-[var(--md-sys-color-on-surface)]">{b.instructor.name}</p>
+                      <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                        {b.instructor.designation}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    {isEnrolled(b.id) ? (
+                      <div className="flex items-center space-x-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full">
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        <span>Full Access</span>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          enrollInBatch(b.id);
+                        }}
+                        className="m3-btn-tonal px-3 py-1 text-xs font-bold border-none cursor-pointer"
+                      >
+                        Enroll (₹{b.price})
+                      </button>
+                    )}
+
+                    <button className="m3-btn-filled px-4 py-2 text-xs font-bold flex items-center space-x-1.5 border-none outline-none cursor-pointer">
+                      <span>View Folders</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-12 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl space-y-4 max-w-lg mx-auto my-8">
+            <BookOpen className="w-12 h-12 text-[var(--md-sys-color-outline)] mx-auto opacity-50" />
+            <h3 className="text-lg font-bold text-[var(--md-sys-color-on-surface)]">
+              No Enrolled Batches
+            </h3>
+            <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] leading-relaxed">
+              You are not currently enrolled in any coaching batches. Explore our available coaching batches to get started.
+            </p>
+            <button
+              type="button"
+              onClick={() => setBatchFilter('all')}
+              className="m3-btn-filled px-5 py-2.5 text-xs font-bold rounded-full cursor-pointer border-none"
+            >
+              Explore All Batches
+            </button>
+          </div>
+        )}
       </div>
     );
   }

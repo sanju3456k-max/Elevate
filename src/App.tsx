@@ -157,6 +157,7 @@ export default function App() {
   const [isGuestMigrationOpen, setIsGuestMigrationOpen] = useState<boolean>(false);
   const [guestMigrationSummary, setGuestMigrationSummary] = useState<GuestDataSummary | null>(null);
   const [chatbotInitialPrompt, setChatbotInitialPrompt] = useState<string | null>(null);
+  const [batchesFilter, setBatchesFilter] = useState<'all' | 'my-batches'>('all');
 
   const {
     deferredPrompt,
@@ -1768,8 +1769,14 @@ export default function App() {
               currentUser={currentUser}
               userProfile={userProfile}
               onStartTest={(test) => handleStartTest(test, 'timed')}
-              onOpenBatches={() => setActiveTab('batches')}
-              onSelectBatch={() => setActiveTab('batches')}
+              onOpenBatches={(filter) => {
+                setBatchesFilter(filter || 'all');
+                setActiveTab('batches');
+              }}
+              onSelectBatch={() => {
+                setBatchesFilter('all');
+                setActiveTab('batches');
+              }}
               onOpenAllTests={() => setActiveTab('tests')}
               onOpenAnalytics={() => setActiveTab('analytics')}
               onOpenNotes={() => setActiveTab('notes-repository')}
@@ -1784,6 +1791,7 @@ export default function App() {
             <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
               <BatchDetailView
                 availableTests={tests}
+                initialFilter={batchesFilter}
                 onStartTest={(test) => handleStartTest(test, 'timed')}
                 onBack={() => setActiveTab('home')}
               />

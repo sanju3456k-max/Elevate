@@ -33,7 +33,7 @@ interface HomeDashboardProps {
   currentUser: User | null;
   userProfile?: UserProfile | null;
   onStartTest: (test: MathTest) => void;
-  onOpenBatches: () => void;
+  onOpenBatches: (filter?: 'all' | 'my-batches') => void;
   onSelectBatch?: (batchId: string) => void;
   onOpenAllTests: () => void;
   onOpenAnalytics?: () => void;
@@ -72,6 +72,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   
   // Filter state for the 4 core buttons: 'all-batches' | 'my-batches' | 'test-library' | 'activity'
   const [activeView, setActiveView] = useState<'all-batches' | 'my-batches' | 'test-library' | 'activity'>('all-batches');
+
+  const enrolledBatches = useMemo(
+    () => batches.filter((b) => isEnrolled(b.id)),
+    [batches, isEnrolled]
+  );
+  const displayedBatches = activeView === 'my-batches' ? enrolledBatches : batches;
 
   const currentBatch = batches[0]; // Testing Batch
   const freeLectures = lectures.filter((l) => l.isFreePreview);
@@ -187,7 +193,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             icon: Layers, 
             action: () => {
               setActiveView('all-batches');
-              if (onOpenBatches) onOpenBatches();
+              if (onOpenBatches) onOpenBatches('all');
             } 
           },
           { 
@@ -196,6 +202,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             icon: BookOpen, 
             action: () => {
               setActiveView('my-batches');
+              if (onOpenBatches) onOpenBatches('my-batches');
             } 
           },
           { 
@@ -407,21 +414,23 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         
         {/* COACHING BATCHES SECTION (Shown when 'all-batches' or 'my-batches') */}
         {(activeView === 'all-batches' || activeView === 'my-batches') && (
-          <div className="space-y-4">
+          <div id="coaching-batches-section" className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] tracking-tight flex items-center space-x-2">
                   <BookOpen className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
-                  <span>{activeView === 'my-batches' ? 'My Enrolled Batch' : 'Coaching Batches'}</span>
+                  <span>{activeView === 'my-batches' ? 'My Enrolled Batches' : 'Coaching Batches'}</span>
                 </h2>
                 <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
-                  Structured curriculum folders, video lectures, and verified notes
+                  {activeView === 'my-batches'
+                    ? 'Batches you are actively enrolled in with complete class access'
+                    : 'Structured curriculum folders, video lectures, and verified notes'}
                 </p>
               </div>
 
               <button
                 type="button"
-                onClick={onOpenBatches}
+                onClick={() => onOpenBatches && onOpenBatches(activeView === 'my-batches' ? 'my-batches' : 'all')}
                 className="text-xs font-bold text-[var(--md-sys-color-primary)] hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-0 outline-none"
               >
                 <span>Open Full Batches View</span>
@@ -429,16 +438,38 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {batches.map((b) => (
-                <M3BatchCard
-                  key={b.id}
-                  batch={b}
-                  onSelect={() => handleSelectBatchItem(b.id)}
-                  isEnrolled={isEnrolled(b.id)}
-                />
-              ))}
-            </div>
+            {displayedBatches.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {displayedBatches.map((b) => (
+                  <M3BatchCard
+                    key={b.id}
+                    batch={b}
+                    onSelect={() => handleSelectBatchItem(b.id)}
+                    isEnrolled={isEnrolled(b.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="p-8 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl space-y-3">
+                <BookOpen className="w-10 h-10 text-[var(--md-sys-color-outline)] mx-auto opacity-50" />
+                <h3 className="text-base font-bold text-[var(--md-sys-color-on-surface)]">
+                  No Enrolled Batches
+                </h3>
+                <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] max-w-sm mx-auto">
+                  You are not currently enrolled in any coaching batches. Explore our available batches to get started.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveView('all-batches');
+                    if (onOpenBatches) onOpenBatches('all');
+                  }}
+                  className="m3-btn-filled px-5 py-2 text-xs font-bold rounded-full border-none cursor-pointer"
+                >
+                  Explore All Batches
+                </button>
+              </div>
+            )}
           </div>
         )}
 

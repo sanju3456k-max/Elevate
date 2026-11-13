@@ -71,7 +71,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [user, setUser] = useState<User>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.USER);
-    return saved ? JSON.parse(saved) : INITIAL_USER;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          const batchIds = Array.isArray(parsed.enrolledBatchIds) && parsed.enrolledBatchIds.length > 0
+            ? parsed.enrolledBatchIds
+            : INITIAL_USER.enrolledBatchIds;
+          return {
+            ...INITIAL_USER,
+            ...parsed,
+            enrolledBatchIds: batchIds,
+          };
+        }
+      } catch {
+        // Fallback
+      }
+    }
+    return INITIAL_USER;
   });
 
   const [batches, setBatches] = useState<Batch[]>(() => {
@@ -303,7 +320,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const isEnrolled = (batchId: string) => {
-    return user.role === 'admin' || user.enrolledBatchIds.includes(batchId);
+    return user.role === 'admin' || (Array.isArray(user.enrolledBatchIds) && user.enrolledBatchIds.includes(batchId));
   };
 
   const enrollInBatch = (batchId: string) => {
