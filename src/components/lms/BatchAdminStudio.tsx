@@ -10,15 +10,42 @@ import {
   Check,
   Sparkles,
   Play,
+  Users,
+  UserPlus,
+  Mail,
+  Phone,
+  Search,
+  FileText,
+  Ban,
+  CheckSquare,
+  Edit3,
+  Eye,
+  Sliders,
+  Calendar,
+  Award,
+  BookOpen,
+  ArrowRight,
+  ExternalLink,
+  IndianRupee,
 } from 'lucide-react';
 import { useApp } from '../../lms/LmsContext';
-import { extractYouTubeId, obfuscateVideoKey } from '../../lms/security';
+import {
+  extractYouTubeId,
+  obfuscateVideoKey,
+  extractGoogleDriveId,
+  buildGoogleDrivePreviewUrl,
+} from '../../lms/security';
 import { CloakedVideoPlayer } from './player/CloakedVideoPlayer';
+import { BatchEditorModal } from './batches/BatchEditorModal';
+import { BatchQuickEnrollModal } from './batches/BatchQuickEnrollModal';
+import { InSituBatchWorkspace } from './batches/InSituBatchWorkspace';
+import type { Batch } from '../../lms/types';
 
 export const BatchAdminStudio: React.FC = () => {
   const {
     batches,
     addBatch,
+    updateBatch,
     deleteBatch,
     subjects,
     addSubject,
@@ -28,9 +55,33 @@ export const BatchAdminStudio: React.FC = () => {
     addLecture,
     user,
     showSecurityToast,
+    enrollStudentByContact,
+    revokeStudentEnrollment,
+    getEnrollmentsForBatch,
+    searchStudents,
+    batchTests,
+    addTestToBatchCatalog,
+    getTestsForBatch,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'add_lecture' | 'manage_batches' | 'curriculum'>('add_lecture');
+  const [activeTab, setActiveTab] = useState<'manage_batches' | 'student_enrollments' | 'add_lecture' | 'curriculum' | 'batch_tests_authoring'>('manage_batches');
+  const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
+
+  // Unified In-Situ Studio States
+  const [workspaceBatchId, setWorkspaceBatchId] = useState<string | null>(null);
+  const [catalogViewMode, setCatalogViewMode] = useState<'studio' | 'student'>('studio');
+  const [catalogCategoryFilter, setCatalogCategoryFilter] = useState<string>('all');
+  const [catalogSearchQuery, setCatalogSearchQuery] = useState<string>('');
+  const [isCreateBatchModalOpen, setIsCreateBatchModalOpen] = useState(false);
+  const [quickEnrollTargetBatch, setQuickEnrollTargetBatch] = useState<Batch | null>(null);
+  const [editBatchTarget, setEditBatchTarget] = useState<Batch | null>(null);
+
+  // Form states for Test Authoring & Bin-Packing
+  const [testTitleInput, setTestTitleInput] = useState('');
+  const [testTopicInput, setTestTopicInput] = useState('');
+  const [testDifficultyInput, setTestDifficultyInput] = useState<'easy' | 'medium' | 'hard' | 'adaptive'>('medium');
+  const [testDurationInput, setTestDurationInput] = useState(60);
+  const [testQCountInput, setTestQCountInput] = useState(30);
 
   // Form states for Add Lecture
   const [selectedBatchId, setSelectedBatchId] = useState<string>(batches[0]?.id || '');
@@ -42,7 +93,15 @@ export const BatchAdminStudio: React.FC = () => {
   const [durationMinutes, setDurationMinutes] = useState(45);
   const [isFreePreview, setIsFreePreview] = useState(false);
   const [pdfTitle, setPdfTitle] = useState('');
+  const [driveUrlInput, setDriveUrlInput] = useState('');
+  const [detectedDriveId, setDetectedDriveId] = useState<string | null>(null);
   const [detectedYtId, setDetectedYtId] = useState<string | null>(null);
+
+  // Form states for Student Enrollment
+  const [enrollContactInput, setEnrollContactInput] = useState('');
+  const [enrollNameInput, setEnrollNameInput] = useState('');
+  const [enrollValidityDays, setEnrollValidityDays] = useState(365);
+  const [studentSearchQuery, setStudentSearchQuery] = useState('');
 
   // Form states for Create Batch
   const [newBatchTitle, setNewBatchTitle] = useState('');
@@ -69,10 +128,21 @@ export const BatchAdminStudio: React.FC = () => {
     setDetectedYtId(ytId);
   };
 
+  // Handle Google Drive URL paste & auto detection
+  const handleDriveUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setDriveUrlInput(val);
+    const driveId = extractGoogleDriveId(val);
+    setDetectedDriveId(driveId);
+  };
+
   const availableSubjects = subjects.filter((s) => s.batchId === selectedBatchId);
   const availableChapters = chapters.filter(
     (c) => c.batchId === selectedBatchId && (!selectedSubjectId || c.subjectId === selectedSubjectId)
   );
+
+  const activeBatchEnrollments = getEnrollmentsForBatch(selectedBatchId);
+  const filteredStudents = searchStudents(studentSearchQuery);
 
   const handleSaveLecture = (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,6 +162,29 @@ export const BatchAdminStudio: React.FC = () => {
     const encryptedKey = obfuscateVideoKey(detectedYtId);
     const generatedThumbnail = `https://img.youtube.com/vi/${detectedYtId}/hqdefault.jpg`;
 
+    const notesList = [];
+    if (pdfTitle.trim()) {
+      if (detectedDriveId) {
+        notesList.push({
+          id: `doc_${Date.now()}`,
+          title: pdfTitle.trim(),
+          url: buildGoogleDrivePreviewUrl(detectedDriveId),
+          size: 'Drive PDF',
+          type: 'drive_doc' as const,
+          driveFileId: detectedDriveId,
+          drivePreviewUrl: buildGoogleDrivePreviewUrl(detectedDriveId),
+        });
+      } else {
+        notesList.push({
+          id: `pdf_${Date.now()}`,
+          title: pdfTitle.trim(),
+          url: '#',
+          size: '2.5 MB',
+          pages: 12,
+        });
+      }
+    }
+
     addLecture({
       batchId: selectedBatchId,
       subjectId: selectedSubjectId,
@@ -104,17 +197,7 @@ export const BatchAdminStudio: React.FC = () => {
       thumbnailUrl: generatedThumbnail,
       order: lectures.length + 1,
       isFreePreview,
-      pdfNotes: pdfTitle.trim()
-        ? [
-            {
-              id: `pdf_${Date.now()}`,
-              title: pdfTitle.trim(),
-              url: '#',
-              size: '2.5 MB',
-              pages: 12,
-            },
-          ]
-        : [],
+      pdfNotes: notesList,
     });
 
     showSecurityToast(`✅ Lecture "${lectureTitle}" added and cloaked successfully!`);
@@ -123,39 +206,118 @@ export const BatchAdminStudio: React.FC = () => {
     setLectureTitle('');
     setLectureDesc('');
     setPdfTitle('');
+    setDriveUrlInput('');
+    setDetectedDriveId(null);
   };
 
-  const handleCreateBatch = (e: React.FormEvent) => {
+  const handleEnrollStudent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!enrollContactInput.trim()) {
+      alert('Please enter a phone number or email address');
+      return;
+    }
+    if (!selectedBatchId) {
+      alert('Please select a target batch');
+      return;
+    }
+
+    const result = enrollStudentByContact({
+      contact: enrollContactInput.trim(),
+      batchId: selectedBatchId,
+      name: enrollNameInput.trim() || undefined,
+      validityDays: Number(enrollValidityDays) || 365,
+    });
+
+    if (result.success) {
+      showSecurityToast(`🎉 ${result.message}`);
+      setEnrollContactInput('');
+      setEnrollNameInput('');
+    } else {
+      showSecurityToast(`⚠️ ${result.message}`);
+    }
+  };
+
+  const handleRevokeEnrollment = async (identifier: string, studentName: string) => {
+    if (window.confirm(`Revoke batch access for ${studentName}?`)) {
+      await revokeStudentEnrollment(identifier, selectedBatchId);
+      showSecurityToast(`Batch access revoked for ${studentName}.`);
+    }
+  };
+
+  const startEditingBatch = (b: (typeof batches)[0]) => {
+    setEditingBatchId(b.id);
+    setNewBatchTitle(b.title);
+    setNewBatchTagline(b.tagline);
+    setNewBatchDesc(b.description);
+    setNewBatchCategory(b.category);
+    setNewBatchPrice(b.price);
+    setNewBatchOrigPrice(b.originalPrice);
+    setNewBatchInstructor(b.instructor?.name || 'Elevate Labs Faculty');
+    setNewBatchBanner(b.bannerUrl);
+    setActiveTab('manage_batches');
+    showSecurityToast(`Editing batch: ${b.title}`);
+  };
+
+  const cancelEditingBatch = () => {
+    setEditingBatchId(null);
+    setNewBatchTitle('');
+    setNewBatchTagline('');
+    setNewBatchDesc('');
+    setNewBatchCategory('Testing Environment');
+    setNewBatchPrice(999);
+    setNewBatchOrigPrice(2999);
+    setNewBatchInstructor('Elevate Labs Faculty');
+  };
+
+  const handleSaveBatch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBatchTitle.trim()) {
       alert('Please enter batch title');
       return;
     }
 
-    addBatch({
-      title: newBatchTitle.trim(),
-      tagline: newBatchTagline.trim() || 'Official testing batch for Elevate Labs',
-      description: newBatchDesc.trim() || 'Testing batch for video cloaking verification.',
-      category: newBatchCategory,
-      price: Number(newBatchPrice),
-      originalPrice: Number(newBatchOrigPrice),
-      bannerUrl: newBatchBanner,
-      thumbnailUrl: newBatchBanner,
-      instructor: {
-        name: newBatchInstructor,
-        designation: 'Lead Educator',
-        avatarUrl:
-          'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
-      },
-      validityDays: 365,
-      startDate: 'Immediate Access',
-      isPublished: true,
-    });
-
-    showSecurityToast(`🎉 New Batch "${newBatchTitle}" created!`);
-    setNewBatchTitle('');
-    setNewBatchTagline('');
-    setNewBatchDesc('');
+    if (editingBatchId) {
+      updateBatch(editingBatchId, {
+        title: newBatchTitle.trim(),
+        tagline: newBatchTagline.trim(),
+        description: newBatchDesc.trim(),
+        category: newBatchCategory,
+        price: Number(newBatchPrice),
+        originalPrice: Number(newBatchOrigPrice),
+        bannerUrl: newBatchBanner,
+        thumbnailUrl: newBatchBanner,
+        instructor: {
+          name: newBatchInstructor,
+          designation: 'Lead Educator',
+          avatarUrl:
+            'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
+        },
+      });
+      showSecurityToast(`✅ Batch "${newBatchTitle}" updated successfully!`);
+      cancelEditingBatch();
+    } else {
+      addBatch({
+        title: newBatchTitle.trim(),
+        tagline: newBatchTagline.trim() || 'Official testing batch for Elevate Labs',
+        description: newBatchDesc.trim() || 'Testing batch for video cloaking verification.',
+        category: newBatchCategory,
+        price: Number(newBatchPrice),
+        originalPrice: Number(newBatchOrigPrice),
+        bannerUrl: newBatchBanner,
+        thumbnailUrl: newBatchBanner,
+        instructor: {
+          name: newBatchInstructor,
+          designation: 'Lead Educator',
+          avatarUrl:
+            'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
+        },
+        validityDays: 365,
+        startDate: 'Immediate Access',
+        isPublished: true,
+      });
+      showSecurityToast(`🎉 New Batch "${newBatchTitle}" created!`);
+      cancelEditingBatch();
+    }
   };
 
   const handleAddSubject = (e: React.FormEvent) => {
@@ -189,6 +351,32 @@ export const BatchAdminStudio: React.FC = () => {
     showSecurityToast('Chapter folder added.');
   };
 
+  const handlePublishTest = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testTitleInput.trim()) {
+      alert('Please enter test title');
+      return;
+    }
+    if (!selectedBatchId) {
+      alert('Please select target batch');
+      return;
+    }
+
+    const result = addTestToBatchCatalog({
+      batchId: selectedBatchId,
+      title: testTitleInput.trim(),
+      topic: testTopicInput.trim() || 'General Mathematics & Physics',
+      difficulty: testDifficultyInput,
+      timeLimitMinutes: Number(testDurationInput) || 60,
+      questionCount: Number(testQCountInput) || 30,
+      passingScorePercentage: 45,
+    });
+
+    showSecurityToast(`⚡ ${result.message}`);
+    setTestTitleInput('');
+    setTestTopicInput('');
+  };
+
   return (
     <div className="space-y-6 pb-24 md:pb-16">
       {/* Studio Header (Borderless) */}
@@ -211,42 +399,66 @@ export const BatchAdminStudio: React.FC = () => {
           </p>
         </div>
 
-        {/* M3 Segmented Tab Switcher (Borderless) */}
-        <div className="flex bg-[var(--md-sys-color-surface-container-high)] p-1 rounded-full border-none self-stretch md:self-auto shadow-xs">
-          <button
-            onClick={() => setActiveTab('add_lecture')}
-            className={`flex-1 md:flex-none px-4 py-2 rounded-full text-xs font-bold flex items-center justify-center space-x-2 transition border-none outline-none ${
-              activeTab === 'add_lecture'
-                ? 'm3-nav-pill-active shadow-xs'
-                : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
-            }`}
-          >
-            <Video className="w-4 h-4" />
-            <span>Add Lecture</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('curriculum')}
-            className={`flex-1 md:flex-none px-4 py-2 rounded-full text-xs font-bold flex items-center justify-center space-x-2 transition border-none outline-none ${
-              activeTab === 'curriculum'
-                ? 'm3-nav-pill-active shadow-xs'
-                : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
-            }`}
-          >
-            <FolderPlus className="w-4 h-4" />
-            <span>Folders</span>
-          </button>
-
+        {/* M3 Segmented Tab Switcher (Horizontal Scrollable & Borderless) */}
+        <div className="flex items-center overflow-x-auto scrollbar-none gap-1.5 bg-[var(--md-sys-color-surface-container-high)] p-1.5 rounded-2xl md:rounded-full border-none max-w-full shadow-xs">
           <button
             onClick={() => setActiveTab('manage_batches')}
-            className={`flex-1 md:flex-none px-4 py-2 rounded-full text-xs font-bold flex items-center justify-center space-x-2 transition border-none outline-none ${
+            className={`px-4 py-2 rounded-xl md:rounded-full text-xs font-bold flex items-center space-x-2 transition border-none outline-none whitespace-nowrap flex-shrink-0 cursor-pointer ${
               activeTab === 'manage_batches'
                 ? 'm3-nav-pill-active shadow-xs'
                 : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
             }`}
           >
-            <Layers className="w-4 h-4" />
-            <span>Batches ({batches.length})</span>
+            <Layers className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
+            <span>Batches & Authoring ({batches.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('student_enrollments')}
+            className={`px-4 py-2 rounded-xl md:rounded-full text-xs font-bold flex items-center space-x-2 transition border-none outline-none whitespace-nowrap flex-shrink-0 cursor-pointer ${
+              activeTab === 'student_enrollments'
+                ? 'm3-nav-pill-active shadow-xs'
+                : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+            }`}
+          >
+            <Users className="w-4 h-4 text-emerald-500" />
+            <span>Student Access & Batches</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('batch_tests_authoring')}
+            className={`px-4 py-2 rounded-xl md:rounded-full text-xs font-bold flex items-center space-x-2 transition border-none outline-none whitespace-nowrap flex-shrink-0 cursor-pointer ${
+              activeTab === 'batch_tests_authoring'
+                ? 'm3-nav-pill-active shadow-xs'
+                : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+            }`}
+          >
+            <CheckSquare className="w-4 h-4 text-indigo-500" />
+            <span>Test Catalogs ({batchTests.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('add_lecture')}
+            className={`px-4 py-2 rounded-xl md:rounded-full text-xs font-bold flex items-center space-x-2 transition border-none outline-none whitespace-nowrap flex-shrink-0 cursor-pointer ${
+              activeTab === 'add_lecture'
+                ? 'm3-nav-pill-active shadow-xs'
+                : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+            }`}
+          >
+            <Video className="w-4 h-4 text-amber-500" />
+            <span>Add Lecture</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('curriculum')}
+            className={`px-4 py-2 rounded-xl md:rounded-full text-xs font-bold flex items-center space-x-2 transition border-none outline-none whitespace-nowrap flex-shrink-0 cursor-pointer ${
+              activeTab === 'curriculum'
+                ? 'm3-nav-pill-active shadow-xs'
+                : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+            }`}
+          >
+            <FolderPlus className="w-4 h-4 text-purple-500" />
+            <span>Folders</span>
           </button>
         </div>
       </div>
@@ -402,18 +614,61 @@ export const BatchAdminStudio: React.FC = () => {
                 />
               </div>
 
-              {/* PDF Notes Title */}
-              <div>
-                <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
-                  Attached PDF Notes (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={pdfTitle}
-                  onChange={(e) => setPdfTitle(e.target.value)}
-                  placeholder="e.g. Sample Handwritten Derivations.pdf"
-                  className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] placeholder-[var(--md-sys-color-outline)] border-none outline-none focus:bg-[var(--md-sys-color-surface-container-highest)]"
-                />
+              {/* Study Material & Google Drive Link Ingestion */}
+              <div className="p-3.5 bg-[var(--md-sys-color-surface-container-high)]/60 rounded-2xl space-y-3 border-none">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-1.5">
+                    <FileText className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
+                    <span>Attach Class Notes / Formula Sheets (Optional)</span>
+                  </label>
+                  <span className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">Zero Storage Pointers</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+                      Material Document Title
+                    </label>
+                    <input
+                      type="text"
+                      value={pdfTitle}
+                      onChange={(e) => setPdfTitle(e.target.value)}
+                      placeholder="e.g. Chapter 01 Notes & DPP.pdf"
+                      className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] placeholder-[var(--md-sys-color-outline)] border-none outline-none focus:bg-[var(--md-sys-color-surface-container-highest)]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+                      Google Drive Share Link (Zero-Storage)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={driveUrlInput}
+                        onChange={handleDriveUrlChange}
+                        placeholder="https://drive.google.com/file/d/.../view"
+                        className="w-full pl-3 pr-8 py-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] placeholder-[var(--md-sys-color-outline)] border-none outline-none focus:bg-[var(--md-sys-color-surface-container-highest)] font-mono text-[11px]"
+                      />
+                      {detectedDriveId && (
+                        <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-emerald-500">
+                          <Check className="w-4 h-4" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {detectedDriveId && (
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center space-x-1.5">
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Detected Drive Document ID:</span>
+                    <span className="font-mono bg-[var(--md-sys-color-tertiary-container)] text-[var(--md-sys-color-on-tertiary-container)] px-2 py-0.5 rounded-full font-bold text-[10px]">
+                      {detectedDriveId}
+                    </span>
+                    <span>(Direct Sandboxed Embed)</span>
+                  </p>
+                )}
               </div>
 
               {/* Free Demo Toggle */}
@@ -647,88 +902,701 @@ export const BatchAdminStudio: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: MANAGE BATCHES */}
+      {/* TAB: MANAGE BATCHES & IN-SITU AUTHORING CANVAS */}
       {activeTab === 'manage_batches' && (
+        <div className="space-y-6 animate-fade-in">
+          {workspaceBatchId ? (
+            /* LEVEL 2: IN-SITU BATCH WORKSPACE */
+            <InSituBatchWorkspace
+              batchId={workspaceBatchId}
+              onBack={() => setWorkspaceBatchId(null)}
+              onNavigateToTestPublish={() => {
+                setSelectedBatchId(workspaceBatchId);
+                setActiveTab('batch_tests_authoring');
+              }}
+            />
+          ) : (
+            /* LEVEL 1: VISUAL BATCH CATALOG CANVAS */
+            <div className="space-y-6">
+              {/* Studio Canvas Control Bar */}
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-5 rounded-3xl bg-[var(--md-sys-color-surface-container)] shadow-xs">
+                <div>
+                  <h2 className="text-base font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-2">
+                    <Layers className="w-5 h-5 text-[var(--md-sys-color-primary)]" />
+                    <span>Batches & Authoring Studio ({batches.length})</span>
+                  </h2>
+                  <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] mt-0.5">
+                    Live student-fidelity cards with in-situ authoring superpowers, DRM video inspection & instant student enrollment
+                  </p>
+                </div>
+
+                <div className="flex items-center space-x-3 self-stretch md:self-auto justify-between md:justify-end flex-wrap gap-y-2">
+                  {/* View Mode Toggle */}
+                  <div className="flex items-center bg-[var(--md-sys-color-surface-container-high)] p-1 rounded-full text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setCatalogViewMode('studio')}
+                      className={`px-3 py-1.5 rounded-full transition border-none outline-none cursor-pointer flex items-center space-x-1.5 ${
+                        catalogViewMode === 'studio'
+                          ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
+                          : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+                      }`}
+                    >
+                      <Sliders className="w-3.5 h-3.5" />
+                      <span>Studio Mode</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCatalogViewMode('student')}
+                      className={`px-3 py-1.5 rounded-full transition border-none outline-none cursor-pointer flex items-center space-x-1.5 ${
+                        catalogViewMode === 'student'
+                          ? 'bg-emerald-500 text-white shadow-xs'
+                          : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+                      }`}
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Student View</span>
+                    </button>
+                  </div>
+
+                  {/* Create New Batch Action Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditBatchTarget(null);
+                      setIsCreateBatchModalOpen(true);
+                    }}
+                    className="px-4 py-2 m3-btn-filled text-xs font-bold shadow-xs border-none outline-none cursor-pointer flex items-center space-x-1.5"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    <span>+ Create New Batch</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Search & Category Filter Pills */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-[var(--md-sys-color-surface-container)]/70">
+                <div className="flex items-center space-x-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+                  {['all', 'JEE Advanced', 'JEE Main', 'NEET UG', 'Foundation'].map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setCatalogCategoryFilter(cat)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition border-none outline-none cursor-pointer whitespace-nowrap ${
+                        catalogCategoryFilter === cat
+                          ? 'bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] shadow-xs'
+                          : 'text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
+                      }`}
+                    >
+                      {cat === 'all' ? 'All Categories' : cat}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative w-full sm:w-64">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[var(--md-sys-color-on-surface-variant)]" />
+                  <input
+                    type="text"
+                    value={catalogSearchQuery}
+                    onChange={(e) => setCatalogSearchQuery(e.target.value)}
+                    placeholder="Search batches..."
+                    className="w-full pl-8 pr-3 py-1.5 bg-[var(--md-sys-color-surface-container-high)] rounded-xl text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Student-Fidelity Batch Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {batches
+                  .filter((b) => {
+                    if (catalogCategoryFilter !== 'all' && b.category !== catalogCategoryFilter) return false;
+                    if (catalogSearchQuery.trim()) {
+                      const q = catalogSearchQuery.toLowerCase();
+                      return b.title.toLowerCase().includes(q) || b.description.toLowerCase().includes(q);
+                    }
+                    return true;
+                  })
+                  .map((b) => {
+                    const batchEnrollments = getEnrollmentsForBatch(b.id);
+                    const batchTestList = getTestsForBatch(b.id);
+                    const batchLectureList = lectures.filter((l) => l.batchId === b.id);
+                    const batchChapterList = chapters.filter((c) => c.batchId === b.id);
+
+                    return (
+                      <div
+                        key={b.id}
+                        className="rounded-3xl bg-[var(--md-sys-color-surface-container)] overflow-hidden shadow-xs hover:shadow-lg transition flex flex-col justify-between border-none group"
+                      >
+                        <div>
+                          {/* Banner Image with Category & Status Overlay */}
+                          <div className="h-44 w-full relative overflow-hidden bg-black">
+                            <img
+                              src={b.bannerUrl || b.thumbnailUrl}
+                              alt={b.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+                            <div className="absolute top-3 left-3 flex items-center space-x-1.5">
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-black/70 backdrop-blur-md text-white">
+                                {b.category}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${b.isPublished ? 'bg-emerald-500/80' : 'bg-amber-500/80'}`}>
+                                {b.isPublished ? '● Active' : '○ Draft'}
+                              </span>
+                            </div>
+
+                            {/* Price on Image */}
+                            <div className="absolute bottom-3 left-3 flex items-baseline space-x-1.5">
+                              <span className="text-base font-black text-white">
+                                ₹{b.price}
+                              </span>
+                              {b.originalPrice > b.price && (
+                                <span className="text-xs text-white/70 line-through">
+                                  ₹{b.originalPrice}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Validity */}
+                            <span className="absolute bottom-3 right-3 text-[10px] font-bold text-white/80 bg-black/60 px-2 py-0.5 rounded-md backdrop-blur-sm">
+                              {b.validityDays} Days Validity
+                            </span>
+                          </div>
+
+                          {/* Details */}
+                          <div className="p-5 space-y-3">
+                            <div>
+                              <h3 className="text-sm font-bold text-[var(--md-sys-color-on-surface)] line-clamp-1 group-hover:text-[var(--md-sys-color-primary)] transition">
+                                {b.title}
+                              </h3>
+                              <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 mt-1">
+                                {b.tagline || b.description}
+                              </p>
+                            </div>
+
+                            <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                              Instructor: <span className="font-semibold text-[var(--md-sys-color-on-surface)]">{b.instructor?.name || 'Sanju Kumar'}</span>
+                            </p>
+
+                            {/* Live Metrics Row */}
+                            <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+                              <button
+                                type="button"
+                                onClick={() => setQuickEnrollTargetBatch(b)}
+                                className="p-2 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-left hover:bg-[var(--md-sys-color-primary-container)]/30 transition border-none outline-none cursor-pointer flex items-center justify-between"
+                                title="Click to manage student access"
+                              >
+                                <span className="text-[var(--md-sys-color-on-surface-variant)] flex items-center space-x-1">
+                                  <Users className="w-3.5 h-3.5 text-emerald-500" />
+                                  <span>Students</span>
+                                </span>
+                                <span className="font-bold text-[var(--md-sys-color-on-surface)]">
+                                  {batchEnrollments.length}
+                                </span>
+                              </button>
+
+                              <div className="p-2 rounded-xl bg-[var(--md-sys-color-surface-container-high)] flex items-center justify-between">
+                                <span className="text-[var(--md-sys-color-on-surface-variant)] flex items-center space-x-1">
+                                  <Award className="w-3.5 h-3.5 text-amber-500" />
+                                  <span>Tests</span>
+                                </span>
+                                <span className="font-bold text-[var(--md-sys-color-on-surface)]">
+                                  {batchTestList.length}
+                                </span>
+                              </div>
+
+                              <div className="p-2 rounded-xl bg-[var(--md-sys-color-surface-container-high)] flex items-center justify-between">
+                                <span className="text-[var(--md-sys-color-on-surface-variant)] flex items-center space-x-1">
+                                  <Play className="w-3.5 h-3.5 text-indigo-500" />
+                                  <span>Lectures</span>
+                                </span>
+                                <span className="font-bold text-[var(--md-sys-color-on-surface)]">
+                                  {batchLectureList.length}
+                                </span>
+                              </div>
+
+                              <div className="p-2 rounded-xl bg-[var(--md-sys-color-surface-container-high)] flex items-center justify-between">
+                                <span className="text-[var(--md-sys-color-on-surface-variant)] flex items-center space-x-1">
+                                  <BookOpen className="w-3.5 h-3.5 text-purple-500" />
+                                  <span>Chapters</span>
+                                </span>
+                                <span className="font-bold text-[var(--md-sys-color-on-surface)]">
+                                  {batchChapterList.length}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Card Superpower Action Bar */}
+                        <div className="p-4 border-t border-[var(--md-sys-color-outline-variant)]/20 bg-[var(--md-sys-color-surface-container-high)]/30 flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedBatchId(b.id);
+                              setWorkspaceBatchId(b.id);
+                            }}
+                            className="flex-1 py-2 px-3 m3-btn-filled text-xs font-bold shadow-xs border-none outline-none cursor-pointer flex items-center justify-center space-x-1.5"
+                          >
+                            <Sliders className="w-3.5 h-3.5" />
+                            <span>Enter Batch Studio</span>
+                          </button>
+
+                          {catalogViewMode === 'studio' && (
+                            <div className="flex items-center space-x-1">
+                              <button
+                                type="button"
+                                onClick={() => setQuickEnrollTargetBatch(b)}
+                                className="p-2 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25 transition border-none outline-none cursor-pointer"
+                                title="Quick Enroll Student"
+                              >
+                                <UserPlus className="w-4 h-4" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditBatchTarget(b);
+                                  setIsCreateBatchModalOpen(true);
+                                }}
+                                className="p-2 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/25 transition border-none outline-none cursor-pointer"
+                                title="Edit Batch Details"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm(`Are you sure you want to delete batch "${b.title}"?`)) {
+                                    deleteBatch(b.id);
+                                    showSecurityToast(`Batch "${b.title}" deleted.`);
+                                  }
+                                }}
+                                className="p-2 rounded-xl hover:bg-rose-500/15 text-rose-500 transition border-none outline-none cursor-pointer"
+                                title="Delete Batch"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 4: STUDENT BATCH SETTINGS & ENROLLMENTS */}
+      {activeTab === 'student_enrollments' && (
+        <div className="space-y-6">
+          {/* Target Batch Selection Header Banner */}
+          <div className="bg-[var(--md-sys-color-surface-container)] rounded-3xl p-5 shadow-xs border-none flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-2xl bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] flex items-center justify-center font-bold">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-sm sm:text-base font-bold text-[var(--md-sys-color-on-surface)]">
+                  Student Batch Enrollments & Access Control
+                </h2>
+                <p className="text-xs text-[var(--md-sys-color-on-surface-variant)]">
+                  Manage student admissions by Phone Number or Email with custom validity dates.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3 w-full sm:w-auto">
+              <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] whitespace-nowrap">
+                Selected Batch:
+              </label>
+              <select
+                value={selectedBatchId}
+                onChange={(e) => setSelectedBatchId(e.target.value)}
+                className="w-full sm:w-64 p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs font-bold text-[var(--md-sys-color-on-surface)] border-none outline-none"
+              >
+                {batches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.title} (₹{b.price})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left Column: Fast Add/Enroll Student Form (5 cols) */}
+            <div className="lg:col-span-5 space-y-5">
+              <div className="bg-[var(--md-sys-color-surface-container)] rounded-3xl p-6 shadow-xs border-none space-y-4">
+                <div className="flex items-center justify-between border-b border-[var(--md-sys-color-outline-variant)]/20 pb-3">
+                  <h3 className="text-sm font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-2">
+                    <UserPlus className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
+                    <span>Add Student to Batch</span>
+                  </h3>
+                  <span className="text-[10px] bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] px-2.5 py-0.5 rounded-full font-bold">
+                    Fast Admissions
+                  </span>
+                </div>
+
+                <form onSubmit={handleEnrollStudent} className="space-y-3.5">
+                  <div>
+                    <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+                      Target Batch
+                    </label>
+                    <select
+                      value={selectedBatchId}
+                      onChange={(e) => setSelectedBatchId(e.target.value)}
+                      className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none"
+                    >
+                      {batches.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+                      Student Phone Number or Email Address *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={enrollContactInput}
+                        onChange={(e) => setEnrollContactInput(e.target.value)}
+                        placeholder="e.g. +91 98201 11223 or student@gmail.com"
+                        className="w-full pl-3.5 pr-10 py-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] placeholder-[var(--md-sys-color-outline)] border-none outline-none focus:bg-[var(--md-sys-color-surface-container-highest)] font-medium"
+                      />
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--md-sys-color-outline)]">
+                        {enrollContactInput.includes('@') ? (
+                          <Mail className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
+                        ) : enrollContactInput.replace(/\D/g, '').length >= 5 ? (
+                          <Phone className="w-4 h-4 text-emerald-500" />
+                        ) : (
+                          <Search className="w-4 h-4" />
+                        )}
+                      </div>
+                    </div>
+                    {enrollContactInput.trim() && (
+                      <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] mt-1 flex items-center space-x-1">
+                        <span>Recognized format:</span>
+                        <span className="font-bold text-[var(--md-sys-color-primary)]">
+                          {enrollContactInput.includes('@')
+                            ? '✉️ Email Address'
+                            : '📱 Mobile Phone Number'}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+                      Student Full Name (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={enrollNameInput}
+                      onChange={(e) => setEnrollNameInput(e.target.value)}
+                      placeholder="e.g. Aarav Sharma (Auto-generated if blank)"
+                      className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] placeholder-[var(--md-sys-color-outline)] border-none outline-none focus:bg-[var(--md-sys-color-surface-container-highest)]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+                      Batch Validity Duration
+                    </label>
+                    <select
+                      value={enrollValidityDays}
+                      onChange={(e) => setEnrollValidityDays(Number(e.target.value))}
+                      className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none"
+                    >
+                      <option value={30}>1 Month (30 Days)</option>
+                      <option value={90}>3 Months (90 Days)</option>
+                      <option value={180}>6 Months (180 Days)</option>
+                      <option value={365}>1 Year (365 Days) — Standard</option>
+                      <option value={730}>2 Years (730 Days)</option>
+                      <option value={3650}>Lifetime Access</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={!enrollContactInput.trim()}
+                    className="w-full py-3 m3-btn-filled text-xs disabled:opacity-50 flex items-center justify-center space-x-2 shadow-xs border-none outline-none"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Enroll Student into Batch</span>
+                  </button>
+                </form>
+
+                <div className="pt-3 border-t border-[var(--md-sys-color-outline-variant)]/20 text-xs text-[var(--md-sys-color-on-surface-variant)] space-y-1.5">
+                  <span className="font-bold text-[var(--md-sys-color-on-surface)] block">
+                    ⚡ Auto-Provisioning Engine:
+                  </span>
+                  <p className="text-[11px] leading-relaxed">
+                    If this phone or email belongs to an existing user, they receive instant access immediately.
+                    If they are a new student, an account is automatically created so when they log in with that phone/email, the batch is already unlocked!
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Enrolled Students & Platform Directory (7 cols) */}
+            <div className="lg:col-span-7 space-y-6">
+              {/* Active Enrollments in Selected Batch */}
+              <div className="bg-[var(--md-sys-color-surface-container)] rounded-3xl p-6 shadow-xs border-none space-y-4">
+                <div className="flex items-center justify-between border-b border-[var(--md-sys-color-outline-variant)]/20 pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-2">
+                      <Users className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
+                      <span>Enrolled Students in this Batch</span>
+                    </h3>
+                    <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                      {batches.find((b) => b.id === selectedBatchId)?.title || 'Selected Batch'} (
+                      {activeBatchEnrollments.length} active)
+                    </p>
+                  </div>
+                  <span className="text-[11px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold px-2.5 py-0.5 rounded-full">
+                    {activeBatchEnrollments.length} Enrolled
+                  </span>
+                </div>
+
+                {activeBatchEnrollments.length === 0 ? (
+                  <div className="py-10 text-center text-xs text-[var(--md-sys-color-on-surface-variant)] bg-[var(--md-sys-color-surface-container-high)] rounded-2xl p-4">
+                    No students currently enrolled in this batch. Use the form on the left to add by phone or email.
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                    {activeBatchEnrollments.map((enr) => (
+                      <div
+                        key={enr.id}
+                        className="p-3.5 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] flex items-center justify-between gap-3 border-none shadow-xs"
+                      >
+                        <div className="flex items-center space-x-3 min-w-0">
+                          <div className="w-9 h-9 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] flex items-center justify-center font-bold text-xs flex-shrink-0">
+                            {enr.studentName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] truncate">
+                              {enr.studentName}
+                            </h4>
+                            <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] truncate flex items-center space-x-2">
+                              <span>{enr.studentPhone}</span>
+                              <span>•</span>
+                              <span>{enr.studentEmail}</span>
+                            </p>
+                            <div className="flex items-center space-x-2 text-[10px] text-[var(--md-sys-color-outline)] font-mono mt-0.5">
+                              <span>Enrolled: {enr.enrolledAt}</span>
+                              <span>•</span>
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                Valid until: {enr.validUntil}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleRevokeEnrollment(enr.studentEmail || enr.studentPhone || enr.userId || enr.id, enr.studentName)}
+                          className="p-2 rounded-full hover:bg-red-500/15 text-red-500 transition border-none outline-none flex-shrink-0"
+                          title="Revoke Batch Access"
+                        >
+                          <Ban className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* All Platform Students Directory (Fast Quick-Enroll) */}
+              <div className="bg-[var(--md-sys-color-surface-container)] rounded-3xl p-6 shadow-xs border-none space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-[var(--md-sys-color-outline-variant)]/20 pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-2">
+                      <Search className="w-4 h-4 text-[var(--md-sys-color-secondary)]" />
+                      <span>Platform Student Directory</span>
+                    </h3>
+                    <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                      Instant search across all registered users
+                    </p>
+                  </div>
+                  <div className="relative w-full sm:w-56">
+                    <input
+                      type="text"
+                      value={studentSearchQuery}
+                      onChange={(e) => setStudentSearchQuery(e.target.value)}
+                      placeholder="Search name, phone, email..."
+                      className="w-full pl-3 pr-8 py-2 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] placeholder-[var(--md-sys-color-outline)] border-none outline-none"
+                    />
+                    <Search className="w-3.5 h-3.5 absolute right-2.5 top-2.5 text-[var(--md-sys-color-outline)]" />
+                  </div>
+                </div>
+
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {filteredStudents.map((stu: any) => {
+                    const isAlreadyEnrolled =
+                      (Array.isArray(stu.enrolledBatchIds) && stu.enrolledBatchIds.includes(selectedBatchId)) ||
+                      activeBatchEnrollments.some((e) => e.userId === stu.id);
+
+                    const enrolledCount = Array.isArray(stu.enrolledBatchIds)
+                      ? stu.enrolledBatchIds.length
+                      : (stu.id ? 1 : 0);
+
+                    return (
+                      <div
+                        key={stu.id}
+                        className="p-3 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] flex items-center justify-between gap-3 border-none"
+                      >
+                        <div className="flex items-center space-x-3 min-w-0">
+                          {stu.avatarUrl ? (
+                            <img
+                              src={stu.avatarUrl}
+                              alt={stu.name}
+                              className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] flex items-center justify-center text-xs font-bold flex-shrink-0">
+                              {stu.name?.charAt(0) || 'S'}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <h4 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] truncate">
+                              {stu.name}
+                            </h4>
+                            <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate">
+                              {stu.phone || stu.email}
+                            </p>
+                            <div className="flex items-center space-x-1 mt-0.5">
+                              <span className="text-[9px] bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)] px-2 py-0.2 rounded-full font-bold">
+                                {enrolledCount} {enrolledCount === 1 ? 'batch' : 'batches'} enrolled
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {isAlreadyEnrolled ? (
+                          <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold flex items-center space-x-1 flex-shrink-0">
+                            <Check className="w-3 h-3" />
+                            <span>Enrolled</span>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              const result = enrollStudentByContact({
+                                contact: stu.email || stu.phone,
+                                batchId: selectedBatchId,
+                                validityDays: 365,
+                              });
+                              if (result.success) {
+                                showSecurityToast(`Enrolled ${stu.name} into batch!`);
+                              }
+                            }}
+                            className="px-3 py-1.5 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] text-xs font-bold hover:opacity-90 transition border-none outline-none flex items-center space-x-1 flex-shrink-0"
+                          >
+                            <PlusCircle className="w-3.5 h-3.5" />
+                            <span>Quick Enroll</span>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: BATCH TEST CATALOG AUTHORING & 750KB BIN-PACKING */}
+      {activeTab === 'batch_tests_authoring' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Create Batch Form */}
+          {/* Left Form: Test Authoring (5 cols) */}
           <div className="lg:col-span-5 bg-[var(--md-sys-color-surface-container)] rounded-3xl p-6 shadow-xs border-none space-y-4">
-            <h2 className="text-base font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-2">
-              <PlusCircle className="w-5 h-5 text-[var(--md-sys-color-primary)]" />
-              <span>Create New Batch</span>
-            </h2>
+            <div className="flex items-center justify-between border-b border-[var(--md-sys-color-outline-variant)]/20 pb-3">
+              <h2 className="text-base font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-2">
+                <CheckSquare className="w-5 h-5 text-[var(--md-sys-color-primary)]" />
+                <span>Publish Test to Batch Catalog</span>
+              </h2>
+              <span className="text-[10px] bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] px-2.5 py-0.5 rounded-full font-bold">
+                750 KB Bin-Pack
+              </span>
+            </div>
 
-            <form onSubmit={handleCreateBatch} className="space-y-3">
+            <form onSubmit={handlePublishTest} className="space-y-3.5">
               <div>
                 <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
-                  Batch Title
+                  Target Batch
+                </label>
+                <select
+                  value={selectedBatchId}
+                  onChange={(e) => setSelectedBatchId(e.target.value)}
+                  className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none font-bold"
+                >
+                  {batches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+                  Test / Paper Title *
                 </label>
                 <input
                   type="text"
-                  value={newBatchTitle}
-                  onChange={(e) => setNewBatchTitle(e.target.value)}
-                  placeholder="e.g. Elevate Testing Batch 02"
-                  className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none"
+                  value={testTitleInput}
+                  onChange={(e) => setTestTitleInput(e.target.value)}
+                  placeholder="e.g. Full Syllabus Mock Test 03"
+                  className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] placeholder-[var(--md-sys-color-outline)] border-none outline-none focus:bg-[var(--md-sys-color-surface-container-highest)]"
                 />
               </div>
 
               <div>
                 <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
-                  Tagline
+                  Topic / Syllabus Classification
                 </label>
                 <input
                   type="text"
-                  value={newBatchTagline}
-                  onChange={(e) => setNewBatchTagline(e.target.value)}
-                  placeholder="Testing environment"
-                  className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none"
+                  value={testTopicInput}
+                  onChange={(e) => setTestTopicInput(e.target.value)}
+                  placeholder="e.g. Mechanics, Optics, Calculus"
+                  className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] placeholder-[var(--md-sys-color-outline)] border-none outline-none focus:bg-[var(--md-sys-color-surface-container-highest)]"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
-                    Price (₹)
+                    Difficulty Level
                   </label>
-                  <input
-                    type="number"
-                    value={newBatchPrice}
-                    onChange={(e) => setNewBatchPrice(Number(e.target.value))}
+                  <select
+                    value={testDifficultyInput}
+                    onChange={(e) => setTestDifficultyInput(e.target.value as any)}
                     className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none"
-                  />
+                  >
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                    <option value="adaptive">Adaptive</option>
+                  </select>
                 </div>
-                <div>
-                  <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
-                    MRP (₹)
-                  </label>
-                  <input
-                    type="number"
-                    value={newBatchOrigPrice}
-                    onChange={(e) => setNewBatchOrigPrice(Number(e.target.value))}
-                    className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none"
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
-                    Category
+                    Duration (Minutes)
                   </label>
                   <input
-                    type="text"
-                    value={newBatchCategory}
-                    onChange={(e) => setNewBatchCategory(e.target.value)}
-                    className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
-                    Instructor
-                  </label>
-                  <input
-                    type="text"
-                    value={newBatchInstructor}
-                    onChange={(e) => setNewBatchInstructor(e.target.value)}
+                    type="number"
+                    value={testDurationInput}
+                    onChange={(e) => setTestDurationInput(Number(e.target.value))}
                     className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none"
                   />
                 </div>
@@ -736,68 +1604,114 @@ export const BatchAdminStudio: React.FC = () => {
 
               <div>
                 <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
-                  Banner Image URL
+                  Question Count
                 </label>
                 <input
-                  type="text"
-                  value={newBatchBanner}
-                  onChange={(e) => setNewBatchBanner(e.target.value)}
-                  className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none font-mono text-[11px]"
+                  type="number"
+                  value={testQCountInput}
+                  onChange={(e) => setTestQCountInput(Number(e.target.value))}
+                  className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-3 m3-btn-filled text-xs shadow-xs border-none outline-none"
+                disabled={!testTitleInput.trim()}
+                className="w-full py-3 m3-btn-filled text-xs disabled:opacity-50 flex items-center justify-center space-x-2 shadow-xs border-none outline-none cursor-pointer"
               >
-                + Launch Batch
+                <Sparkles className="w-4 h-4" />
+                <span>Publish Test & Bin-Pack into Catalog Chunk</span>
               </button>
             </form>
+
+            <div className="p-3.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-[11px] text-[var(--md-sys-color-on-surface-variant)] space-y-1">
+              <span className="font-bold text-[var(--md-sys-color-on-surface)] block">
+                📦 Multi-Test Bin-Packing Engine:
+              </span>
+              <p>
+                Each test paper consumes ~80-100 KB. We safely store multiple tests inside one 750 KB document.
+                When full, chunk K+1 is auto-allocated. Zero test data is ever lost.
+              </p>
+            </div>
           </div>
 
-          {/* Batches Table: 7 cols */}
+          {/* Right Panel: Current Batch Tests & Chunk Breakdown (7 cols) */}
           <div className="lg:col-span-7 bg-[var(--md-sys-color-surface-container)] rounded-3xl p-6 shadow-xs border-none space-y-4">
-            <h3 className="text-base font-bold text-[var(--md-sys-color-on-surface)]">
-              Active Batches ({batches.length})
-            </h3>
+            <div className="flex items-center justify-between border-b border-[var(--md-sys-color-outline-variant)]/20 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-2">
+                  <Layers className="w-5 h-5 text-[var(--md-sys-color-primary)]" />
+                  <span>Batch Test Catalog Manifest</span>
+                </h3>
+                <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                  {batches.find((b) => b.id === selectedBatchId)?.title || 'Selected Batch'} (
+                  {getTestsForBatch(selectedBatchId).length} tests published)
+                </p>
+              </div>
+              <span className="text-[11px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold px-2.5 py-0.5 rounded-full">
+                1-Read Card Manifest
+              </span>
+            </div>
 
-            <div className="space-y-3">
-              {batches.map((b) => (
-                <div
-                  key={b.id}
-                  className="p-4 rounded-3xl bg-[var(--md-sys-color-surface-container-high)] border-none flex items-center justify-between gap-3 shadow-xs"
-                >
-                  <div className="flex items-center space-x-3 min-w-0">
-                    <img
-                      src={b.thumbnailUrl}
-                      alt={b.title}
-                      className="w-12 h-12 rounded-2xl object-cover flex-shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <h4 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] truncate">
-                        {b.title}
-                      </h4>
-                      <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
-                        ₹{b.price} • {b.enrolledStudentsCount} student enrolled
+            <div className="space-y-3 max-h-[550px] overflow-y-auto pr-1">
+              {getTestsForBatch(selectedBatchId).length === 0 ? (
+                <div className="py-12 text-center text-xs text-[var(--md-sys-color-on-surface-variant)] bg-[var(--md-sys-color-surface-container-high)] rounded-2xl p-4">
+                  No tests published in this batch yet. Use the form on the left to author a test.
+                </div>
+              ) : (
+                getTestsForBatch(selectedBatchId).map((t) => (
+                  <div
+                    key={t.id}
+                    className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] flex items-center justify-between gap-3 border-none shadow-xs"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] font-bold">
+                          {t.chunkId}
+                        </span>
+                        <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] truncate">
+                          {t.title}
+                        </h4>
+                      </div>
+                      <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] truncate">
+                        {t.topic} • {t.questionCount} Questions • {t.timeLimitMinutes} Mins • Passing {t.passingScorePercentage}%
                       </p>
                     </div>
-                  </div>
 
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => deleteBatch(b.id)}
-                      className="p-2.5 rounded-full hover:bg-red-500/15 text-red-500 transition border-none outline-none"
-                      title="Delete Batch"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold uppercase flex-shrink-0">
+                      {t.difficulty}
+                    </span>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>
       )}
+          {/* Modals for Create/Edit Batch & Quick Enroll */}
+      <BatchEditorModal
+        isOpen={isCreateBatchModalOpen || !!editBatchTarget}
+        onClose={() => {
+          setIsCreateBatchModalOpen(false);
+          setEditBatchTarget(null);
+        }}
+        batchToEdit={editBatchTarget}
+        onSave={(data, existingId) => {
+          if (existingId) {
+            updateBatch(existingId, data);
+            showSecurityToast(`Batch "${data.title}" updated.`);
+          } else {
+            addBatch(data);
+            showSecurityToast(`Batch "${data.title}" launched successfully!`);
+          }
+        }}
+      />
+
+      <BatchQuickEnrollModal
+        isOpen={!!quickEnrollTargetBatch}
+        onClose={() => setQuickEnrollTargetBatch(null)}
+        batch={quickEnrollTargetBatch}
+      />
     </div>
   );
 };

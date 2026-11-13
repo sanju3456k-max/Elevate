@@ -48,17 +48,14 @@ export async function requestPlaybackToken(
   // Check 1: Admin bypass
   const isAdmin = user.role === 'admin';
 
-  // Check 2: Free preview lecture
-  const isFreePreview = lecture.isFreePreview === true;
-
-  // Check 3: Student enrolled in target batch
+  // Check 2: Student enrolled in target batch (must be in cloud-verified enrolledBatchIds)
   const isEnrolled = Array.isArray(user.enrolledBatchIds) && user.enrolledBatchIds.includes(batchId);
 
-  if (!isAdmin && !isFreePreview && !isEnrolled) {
+  if (!isAdmin && !isEnrolled) {
     return {
       isAuthorized: false,
       status: 403,
-      errorMessage: `Access Denied (403): Your account (${user.email}) is not enrolled in this batch. Content theft prevention is active.`,
+      errorMessage: `Access Denied (403): Your account (${user.email || 'Guest Mode'}) is not enrolled on the official roster for this batch. Content theft deterrence is active.`,
     };
   }
 

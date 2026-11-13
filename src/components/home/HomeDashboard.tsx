@@ -22,7 +22,8 @@ import {
   FileCode,
   Target,
   Package,
-  ChevronRight
+  ChevronRight,
+  Lock
 } from 'lucide-react';
 import type { MathTest, TestAttempt, UserProfile } from '../../types';
 import type { User } from 'firebase/auth';
@@ -282,10 +283,14 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const handleSelectBatchItem = (batchId: string) => {
     setActiveBatchId(batchId);
     setActiveLectureId(null);
+    if (!isEnrolled(batchId)) {
+      onOpenBatches('all');
+      return;
+    }
     if (onSelectBatch) {
       onSelectBatch(batchId);
     } else {
-      onOpenBatches();
+      onOpenBatches('my-batches');
     }
   };
 
@@ -721,19 +726,27 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
               <span>Full Access</span>
             </div>
           ) : (
-            <div>
-              <span className="text-sm sm:text-lg font-extrabold text-[var(--md-sys-color-on-surface)]">
-                ₹{batch.price}
-              </span>
+            <div className="flex items-center space-x-1 text-[10px] sm:text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full">
+              <Lock className="w-3 h-3" />
+              <span>Roster Only</span>
             </div>
           )}
 
-          <button
-            className="m3-btn-filled px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold flex items-center space-x-1 shadow-sm border-none outline-none cursor-pointer"
-          >
-            <span>View</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          {isEnrolled ? (
+            <button
+              className="m3-btn-filled px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold flex items-center space-x-1 shadow-sm border-none outline-none cursor-pointer"
+            >
+              <span>Continue</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <button
+              className="m3-btn-tonal px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold flex items-center space-x-1 text-slate-500 opacity-80 border-none outline-none cursor-pointer"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Locked</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -16,8 +16,10 @@ export interface PdfNote {
   url: string;
   size: string;
   pages?: number;
-  type?: 'pdf' | 'image' | 'formula_sheet';
+  type?: 'pdf' | 'image' | 'formula_sheet' | 'drive_doc';
   previewImageUrl?: string;
+  driveFileId?: string;
+  drivePreviewUrl?: string;
 }
 
 export interface TimelineMilestone {
@@ -121,4 +123,30 @@ export interface PlaybackSessionToken {
   lectureId: string;
   isAuthorized: boolean;
   clientIp?: string;
+}
+
+export interface BatchEnrollment {
+  id: string;
+  batchId: string;
+  userId: string;
+  studentName: string;
+  studentEmail?: string;
+  studentPhone?: string;
+  enrolledAt: string;
+  expiresAt?: string;
+  status: 'active' | 'expired' | 'revoked';
+}
+
+export interface BatchTestCard {
+  testId: string;
+  batchId: string;
+  title: string;
+  topic: string;
+  questionCount: number;
+  timeLimitMinutes: number;
+  difficulty: 'easy' | 'medium' | 'hard' | 'adaptive';
+  passingScorePercentage: number;
+  catalogChunkId: string;
+  chunkEstimatedBytes: number;
+  publishedAt: string;
 }

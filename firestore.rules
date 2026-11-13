@@ -12,7 +12,8 @@ service cloud.firestore {
     }
 
     function isMasterAdmin() {
-      return isSignedIn() && request.auth.token.email != null && request.auth.token.email.lower() == 'sanju3456k@gmail.com';
+      return isSignedIn() && request.auth.token.email != null && 
+        (request.auth.token.email.lower() == 'student3456k@gmail.com' || request.auth.token.email.lower() == 'sanju3456k@gmail.com');
     }
 
     // Default deny
@@ -67,6 +68,73 @@ service cloud.firestore {
     match /test_leaderboards/{testId}/entries/{userId} {
       allow read: if true;
       allow write: if isOwner(userId) || isMasterAdmin();
+    }
+
+    // =========================================================================
+    // Enterprise Batch-Level Architecture (Catalogs, Bin-Packed Chunks & Buckets)
+    // =========================================================================
+    // Top-level batch enrollment access
+    match /batch_enrollments/{enrollmentId} {
+      allow read: if isSignedIn();
+      allow write: if isMasterAdmin();
+    }
+
+    match /batches/{batchId} {
+      // Catalog metadata read permitted for all enrolled/signed in students
+      allow read: if true;
+      allow write: if isMasterAdmin();
+
+      // Access control & student roster document (/batches/{batchId}/access/roster)
+      match /access/{docId} {
+        allow read: if isMasterAdmin() || (isSignedIn() && request.auth.token.email != null && request.auth.token.email.lower() in resource.data.allowedEmails);
+        allow write: if isMasterAdmin();
+      }
+
+      // Chapters syllabus hierarchy
+      match /chapters/{chapterId} {
+        allow read: if true;
+        allow write: if isMasterAdmin();
+      }
+
+      // Lectures video and resource library
+      match /lectures/{lectureId} {
+        allow read: if true;
+        allow write: if isMasterAdmin();
+      }
+
+      // 1. Batch Test Manifest (1 Read for all test cards)
+      match /catalog/{docId} {
+        allow read: if true;
+        allow write: if isMasterAdmin();
+      }
+
+      // 2. Bin-Packed Question Catalog Chunks (Lazy loaded on attempt)
+      match /question_catalogs/{chunkId} {
+        allow read: if isSignedIn();
+        allow write: if isMasterAdmin();
+      }
+
+      // 3. Batch Tests, Dynamic Attempts Buckets & Leaderboard
+      match /tests/{testId} {
+        allow read: if true;
+        allow write: if isMasterAdmin();
+
+        match /attempts/{bucketId} {
+          allow read: if isSignedIn();
+          allow write: if isSignedIn();
+        }
+
+        match /leaderboard/{docId} {
+          allow read: if true;
+          allow write: if isSignedIn();
+        }
+      }
+
+      // 4. Batch Enrollments
+      match /enrollments/{enrollmentId} {
+        allow read: if isSignedIn();
+        allow write: if isMasterAdmin();
+      }
     }
 
     // Master Published Tests: Official papers curated and published by Master Academic Head

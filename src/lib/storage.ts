@@ -161,6 +161,11 @@ export function setCachedAuthUser(user: CachedAuthUser | null): void {
 /**
  * Returns the storage keys for tests, attempts, active sessions, and deleted items scoped by user account ID or guest mode.
  */
+export function getScopedKey(baseKey: string, userId?: string | null): string {
+  if (!userId || userId === 'guest-user' || userId === 'anonymous') return baseKey;
+  return `${userId}_${baseKey}`;
+}
+
 export function getScopedStorageKeys(userId?: string | null): { 
   testsKey: string; 
   attemptsKey: string; 

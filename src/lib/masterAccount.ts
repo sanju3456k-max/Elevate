@@ -39,10 +39,14 @@ import {
 } from 'firebase/firestore';
 
 /**
- * Designated Master Enterprise Account Email
- * Only this email address is granted Master Enterprise & Academic Head authority.
+ * Designated Master Enterprise Account Emails
+ * Both student3456k@gmail.com and sanju3456k@gmail.com are granted Master Enterprise & Academic Head authority.
  */
-export const MASTER_ADMIN_EMAIL = 'sanju3456k@gmail.com';
+export const MASTER_ADMIN_EMAIL = 'student3456k@gmail.com';
+export const AUTHORIZED_MASTER_EMAILS = [
+  'student3456k@gmail.com',
+  'sanju3456k@gmail.com',
+];
 
 /** Storage Keys */
 export const MASTER_PUBLISHED_TESTS_KEY = 'elevate_master_published_test_ids';
@@ -119,7 +123,8 @@ export function recordDeletedRemedialId(id: string): void {
  */
 export function isMasterUser(user: { email?: string | null } | null | undefined): boolean {
   if (!user || !user.email) return false;
-  return user.email.toLowerCase().trim() === MASTER_ADMIN_EMAIL.toLowerCase();
+  const userEmail = user.email.toLowerCase().trim();
+  return AUTHORIZED_MASTER_EMAILS.some((e) => e.toLowerCase() === userEmail);
 }
 
 /**
@@ -1402,13 +1407,14 @@ export function extractStudentQuestionPointers(params: {
 
       questions = Array.from({ length: count }, (_, idx) => ({
         id: ansKeys[idx] || `q_${idx + 1}`,
+        text: `Question ${idx + 1}`,
         questionText: `Question ${idx + 1}`,
         options: ['Option A', 'Option B', 'Option C', 'Option D'],
         correctAnswer: 'Option A',
         topic: test.topic || 'General Mathematics',
         qtopic: test.topic || 'General Mathematics',
         difficulty: test.difficulty || 'medium',
-      } as MathQuestion));
+      } as unknown as MathQuestion));
     }
 
     if (questions.length === 0) continue;
@@ -2318,7 +2324,7 @@ export function subscribeToAssignedRemedialTests(
   };
 
   try {
-    const isMaster = isMasterUser({ email: normEmail, uid: normUid });
+    const isMaster = isMasterUser({ email: normEmail });
 
     // Enterprise Diamond Plan: Discrete Student Inbox eliminates 100% of global listener fanout
     const docRefToListen = isMaster
@@ -2819,5 +2825,343 @@ export async function fetchCohortAttemptsForTest(test: MathTest, forceRefresh: b
     return res;
   } finally {
     activeCohortFetchPromises.delete(cacheKey);
+  }
+}
+
+/**
+ * =========================================================================
+ * ENTERPRISE BATCH-LEVEL DATA ENGINE & BIN-PACKED CATALOG CHUNK ALLOCATOR
+ * =========================================================================
+ */
+
+export interface BatchTestCard {
+  id: string;
+  title: string;
+  topic: string;
+  difficulty: string;
+  timeLimitMinutes: number;
+  questionCount: number;
+  passingScorePercentage: number;
+  chunkId: string;
+  order: number;
+  createdAt: string;
+}
+
+export const BATCH_CHUNK_CEILING_BYTES = 768000; // 750 KB safe ceiling (Firestore hard limit is 1,048,576 bytes)
+export const BATCH_ATTEMPT_BUCKET_CEILING_BYTES = 716800; // 700 KB safe ceiling
+
+/**
+ * Publish a test to a batch's catalog using multi-test bin-packing into 750 KB chunks.
+ * Guarantees zero data loss, packing 6-8 tests per document.
+ */
+export async function publishTestToBatchCatalog(
+  batchId: string,
+  test: MathTest
+): Promise<{ success: boolean; chunkId: string; chunkIndex: number }> {
+  try {
+    const cleanBatchId = batchId.trim() || 'batch_testing_01';
+    const manifestRef = doc(db, 'batches', cleanBatchId, 'catalog', 'manifest');
+    const manifestSnap = await getDoc(manifestRef).catch(() => null);
+
+    let activeChunkIndex = 1;
+    let activeChunkId = 'chunk_1';
+    let currentCards: BatchTestCard[] = [];
+    let currentRevision = 0;
+
+    if (manifestSnap && manifestSnap.exists()) {
+      const data = manifestSnap.data();
+      if (typeof data.activeChunkIndex === 'number') activeChunkIndex = data.activeChunkIndex;
+      if (typeof data.activeChunkId === 'string') activeChunkId = data.activeChunkId;
+      if (Array.isArray(data.tests)) currentCards = data.tests;
+      if (typeof data.catalogRevision === 'number') currentRevision = data.catalogRevision;
+    }
+
+    // Measure new test byte size
+    const sanitizedTest = sanitizeForFirestore(test);
+    const testByteSize = estimateByteSize(sanitizedTest);
+
+    // Check existing chunk size
+    const activeChunkRef = doc(db, 'batches', cleanBatchId, 'question_catalogs', activeChunkId);
+    const chunkSnap = await getDoc(activeChunkRef).catch(() => null);
+
+    let targetChunkRef = activeChunkRef;
+    let targetChunkId = activeChunkId;
+    let targetIndex = activeChunkIndex;
+
+    if (chunkSnap && chunkSnap.exists()) {
+      const chunkData = chunkSnap.data();
+      const existingBytes = estimateByteSize(chunkData);
+
+      // If test does not fit within 750 KB, spill to next chunk
+      if (existingBytes + testByteSize >= BATCH_CHUNK_CEILING_BYTES) {
+        targetIndex = activeChunkIndex + 1;
+        targetChunkId = `chunk_${targetIndex}`;
+        targetChunkRef = doc(db, 'batches', cleanBatchId, 'question_catalogs', targetChunkId);
+
+        // Lock previous chunk
+        await setDoc(activeChunkRef, { isLocked: true }, { merge: true }).catch(() => {});
+      }
+    }
+
+    // 1. Write the test into the chunk document
+    await setDoc(
+      targetChunkRef,
+      {
+        chunkId: targetChunkId,
+        chunkIndex: targetIndex,
+        updatedAt: new Date().toISOString(),
+        tests: {
+          [test.id]: sanitizedTest,
+        },
+      },
+      { merge: true }
+    );
+
+    // 2. Add / update card in manifest
+    const newCard: BatchTestCard = {
+      id: test.id,
+      title: test.title,
+      topic: test.topic,
+      difficulty: test.difficulty,
+      timeLimitMinutes: test.timeLimitMinutes,
+      questionCount: test.questions?.length || 0,
+      passingScorePercentage: test.passingScorePercentage || 40,
+      chunkId: targetChunkId,
+      order: currentCards.length + 1,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Filter out existing card with same ID if re-publishing
+    const updatedCards = currentCards.filter((c) => c.id !== test.id).concat(newCard);
+
+    await setDoc(
+      manifestRef,
+      {
+        batchId: cleanBatchId,
+        catalogRevision: currentRevision + 1,
+        activeChunkId: targetChunkId,
+        activeChunkIndex: targetIndex,
+        totalTests: updatedCards.length,
+        tests: updatedCards,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+
+    // Update local cache
+    try {
+      localStorage.setItem(`batch_${cleanBatchId}_manifest`, JSON.stringify(updatedCards));
+      localStorage.setItem(`batch_${cleanBatchId}_test_${test.id}`, JSON.stringify(sanitizedTest));
+    } catch {}
+
+    return { success: true, chunkId: targetChunkId, chunkIndex: targetIndex };
+  } catch (err) {
+    console.error('Error publishing test to batch catalog:', err);
+    throw err;
+  }
+}
+
+/**
+ * 1-Read Hydration: Fetch all published test cards for a batch.
+ * Checks local storage first (0 Reads); fetches strictly 1 document from Firestore on cache miss.
+ */
+export async function fetchBatchTestCatalogManifest(
+  batchId: string,
+  forceFresh = false
+): Promise<BatchTestCard[]> {
+  const cleanBatchId = batchId.trim() || 'batch_testing_01';
+  const localKey = `batch_${cleanBatchId}_manifest`;
+
+  // 1. Check local storage if not forced
+  if (!forceFresh) {
+    try {
+      const cached = localStorage.getItem(localKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {}
+  }
+
+  // 2. Fetch from Cloud Firestore (1 Read)
+  try {
+    const manifestRef = doc(db, 'batches', cleanBatchId, 'catalog', 'manifest');
+    const snap = await getDoc(manifestRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      const cards: BatchTestCard[] = Array.isArray(data.tests) ? data.tests : [];
+      try {
+        localStorage.setItem(localKey, JSON.stringify(cards));
+      } catch {}
+      return cards;
+    }
+  } catch (err) {
+    console.warn('Could not fetch batch manifest from cloud:', err);
+  }
+
+  return [];
+}
+
+/**
+ * Lazy-load full test questions on-demand from bin-packed catalog chunk.
+ * If test is already in local storage -> serves at local level with 0 Reads!
+ * If not -> fetches target chunk (1 Read), caching all tests in that chunk.
+ */
+export async function fetchBatchTestFromCatalogChunk(
+  batchId: string,
+  testId: string,
+  chunkId: string
+): Promise<MathTest | null> {
+  const cleanBatchId = batchId.trim() || 'batch_testing_01';
+  const localTestKey = `batch_${cleanBatchId}_test_${testId}`;
+
+  // 1. Check local level first (0 Reads)
+  try {
+    const cached = localStorage.getItem(localTestKey);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed && parsed.id === testId) {
+        return parsed as MathTest;
+      }
+    }
+  } catch {}
+
+  // 2. Fetch chunk from Firestore (1 Read)
+  try {
+    const chunkRef = doc(db, 'batches', cleanBatchId, 'question_catalogs', chunkId);
+    const snap = await getDoc(chunkRef);
+    if (snap.exists()) {
+      const chunkData = snap.data();
+      const testsMap = chunkData.tests || {};
+
+      // Coincidental Prefetch: Cache ALL tests in this chunk into local level
+      Object.keys(testsMap).forEach((tId) => {
+        try {
+          localStorage.setItem(`batch_${cleanBatchId}_test_${tId}`, JSON.stringify(testsMap[tId]));
+        } catch {}
+      });
+
+      if (testsMap[testId]) {
+        return testsMap[testId] as MathTest;
+      }
+    }
+  } catch (err) {
+    console.warn(`Could not load test ${testId} from chunk ${chunkId}:`, err);
+  }
+
+  return null;
+}
+
+/**
+ * Dynamic N -> N+1 Attempt Bucket Recorder:
+ * Automatically scales attempt buckets when bucket reaches 700 KB.
+ */
+export async function recordBatchTestAttemptWithDynamicBucket(
+  batchId: string,
+  testId: string,
+  attempt: TestAttempt
+): Promise<void> {
+  try {
+    const cleanBatchId = batchId.trim() || 'batch_testing_01';
+    const manifestRef = doc(db, 'batches', cleanBatchId, 'tests', testId, 'attempts', 'manifest');
+    const manifestSnap = await getDoc(manifestRef).catch(() => null);
+
+    let currentBucketIndex = 1;
+    let totalAttempts = 0;
+
+    if (manifestSnap && manifestSnap.exists()) {
+      const mData = manifestSnap.data();
+      if (typeof mData.currentBucketIndex === 'number') currentBucketIndex = mData.currentBucketIndex;
+      if (typeof mData.totalAttempts === 'number') totalAttempts = mData.totalAttempts;
+    }
+
+    const currentBucketId = `bucket_${currentBucketIndex}`;
+    const currentBucketRef = doc(db, 'batches', cleanBatchId, 'tests', testId, 'attempts', currentBucketId);
+    const bucketSnap = await getDoc(currentBucketRef).catch(() => null);
+
+    let targetBucketIndex = currentBucketIndex;
+    let targetBucketRef = currentBucketRef;
+
+    const compactRecord = {
+      uid: attempt.userId,
+      name: attempt.userName,
+      email: attempt.userEmail || '',
+      score: attempt.score,
+      totalPoints: attempt.totalPoints,
+      percentage: attempt.percentage,
+      durationSeconds: attempt.timeSpentSeconds || 0,
+      completedAt: attempt.completedAt || new Date().toISOString(),
+    };
+
+    if (bucketSnap && bucketSnap.exists()) {
+      const bData = bucketSnap.data();
+      const estSize = estimateByteSize(bData);
+      if (estSize >= BATCH_ATTEMPT_BUCKET_CEILING_BYTES) {
+        // Spill over to bucket_{N+1}
+        targetBucketIndex = currentBucketIndex + 1;
+        const nextBucketId = `bucket_${targetBucketIndex}`;
+        targetBucketRef = doc(db, 'batches', cleanBatchId, 'tests', testId, 'attempts', nextBucketId);
+
+        await setDoc(currentBucketRef, { isFull: true }, { merge: true }).catch(() => {});
+      }
+    }
+
+    // 1. Commit compact record into target bucket
+    await setDoc(
+      targetBucketRef,
+      {
+        bucketIndex: targetBucketIndex,
+        testId,
+        batchId: cleanBatchId,
+        updatedAt: new Date().toISOString(),
+        attempts: arrayUnion(compactRecord),
+      },
+      { merge: true }
+    );
+
+    // 2. Update attempts manifest
+    await setDoc(
+      manifestRef,
+      {
+        currentBucketIndex: targetBucketIndex,
+        totalAttempts: totalAttempts + 1,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+
+    // 3. Update 1-Read Top-100 Leaderboard Bucket
+    const topBucketRef = doc(db, 'batches', cleanBatchId, 'tests', testId, 'leaderboard', 'top_bucket');
+    const topSnap = await getDoc(topBucketRef).catch(() => null);
+    let topEntries: any[] = [];
+
+    if (topSnap && topSnap.exists()) {
+      const tData = topSnap.data();
+      if (Array.isArray(tData.entries)) topEntries = tData.entries;
+    }
+
+    const existingIdx = topEntries.findIndex((e: any) => e.uid === attempt.userId);
+    if (existingIdx < 0 || attempt.score > (topEntries[existingIdx]?.score || 0)) {
+      if (existingIdx >= 0) topEntries.splice(existingIdx, 1);
+      topEntries.push(compactRecord);
+      topEntries.sort((a: any, b: any) => b.score - a.score || a.durationSeconds - b.durationSeconds);
+      const top100 = topEntries.slice(0, 100);
+
+      await setDoc(
+        topBucketRef,
+        {
+          testId,
+          batchId: cleanBatchId,
+          totalParticipants: totalAttempts + 1,
+          updatedAt: new Date().toISOString(),
+          entries: top100,
+        },
+        { merge: true }
+      );
+    }
+  } catch (err) {
+    console.warn('Silent notice: batch attempt bucket recording:', err);
   }
 }

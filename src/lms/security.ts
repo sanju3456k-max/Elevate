@@ -158,3 +158,33 @@ export function formatDuration(seconds: number): string {
   }
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 }
+
+/**
+ * Extracts Google Drive File ID from any shareable drive link
+ */
+export function extractGoogleDriveId(urlOrId: string): string | null {
+  if (!urlOrId) return null;
+  const trimmed = urlOrId.trim();
+
+  // If it's already an ID
+  if (/^[a-zA-Z0-9_-]{25,50}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  // https://drive.google.com/file/d/FILE_ID/view
+  const fileDMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (fileDMatch && fileDMatch[1]) return fileDMatch[1];
+
+  // https://drive.google.com/open?id=FILE_ID or ?id=FILE_ID
+  const idQueryMatch = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idQueryMatch && idQueryMatch[1]) return idQueryMatch[1];
+
+  return null;
+}
+
+/**
+ * Builds normalized direct preview URL for iframe rendering
+ */
+export function buildGoogleDrivePreviewUrl(fileId: string): string {
+  return `https://drive.google.com/file/d/${fileId}/preview`;
+}

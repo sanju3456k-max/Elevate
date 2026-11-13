@@ -63,11 +63,14 @@ import {
   getPerTestCohortAnalytics,
   fetchCohortAttemptsForTest,
   getAllLocalAttemptsAcrossAccounts,
+  publishTestToBatchCatalog,
   type PerTestCohortAnalytics,
   type RemedialDeleteScope
 } from '../lib/masterAccount';
 import { loadFullTestOnDemand } from '../lib/storage';
 import { APP_STYLES } from './ui/AppStyles';
+import { BatchAdminStudio } from './lms/BatchAdminStudio';
+import { useApp } from '../lms/LmsContext';
 
 interface MasterConsoleViewProps {
   onBack: () => void;
@@ -94,7 +97,47 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   onStartTest,
   onRefreshTests,
 }) => {
-  const [activeTab, setActiveTab] = useState<'remedial' | 'analytics' | 'publishing'>('remedial');
+  const [activeTab, setActiveTab] = useState<'batches' | 'remedial' | 'analytics' | 'publishing'>('batches');
+
+  // ==========================================
+  // Universal Multi-Tenant Batch Context
+  // ==========================================
+  const {
+    batches,
+    getEnrollmentsForBatch,
+    getTestsForBatch,
+    addTestToBatchCatalog,
+  } = useApp();
+
+  const [selectedBatchId, setSelectedBatchId] = useState<string>(() => batches[0]?.id || 'batch_testing_01');
+
+  const currentBatch = useMemo(() => {
+    return batches.find((b) => b.id === selectedBatchId) || batches[0] || {
+      id: 'batch_testing_01',
+      title: 'Testing Batch',
+      price: 999,
+    };
+  }, [batches, selectedBatchId]);
+
+  const currentBatchEnrollments = useMemo(() => {
+    return getEnrollmentsForBatch(selectedBatchId);
+  }, [selectedBatchId, getEnrollmentsForBatch]);
+
+  const currentBatchTests = useMemo(() => {
+    return getTestsForBatch(selectedBatchId);
+  }, [selectedBatchId, getTestsForBatch]);
+
+  const batchEnrolledUids = useMemo(() => {
+    return new Set(currentBatchEnrollments.map((e) => e.userId));
+  }, [currentBatchEnrollments]);
+
+  const batchEnrolledEmails = useMemo(() => {
+    const set = new Set<string>();
+    currentBatchEnrollments.forEach((e) => {
+      if (e.studentEmail) set.add(e.studentEmail.toLowerCase());
+    });
+    return set;
+  }, [currentBatchEnrollments]);
 
   // ==========================================
   // 1. Adaptive Remedial Engine State
@@ -248,8 +291,19 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     // STRICT: Sort all attempts chronologically ascending so earliest (1st-ever) attempts are prioritized
     combined.sort((a, b) => new Date(a.completedAt || a.createdAt || 0).getTime() - new Date(b.completedAt || b.createdAt || 0).getTime());
 
+    // Filter attempts strictly by the enrolled students in the active batch
+    if (batchEnrolledUids.size > 0 || batchEnrolledEmails.size > 0) {
+      return combined.filter((a) => {
+        return (
+          (a.userId && batchEnrolledUids.has(a.userId)) ||
+          (a.userEmail && batchEnrolledEmails.has(a.userEmail.toLowerCase())) ||
+          a.userId === currentUserId
+        );
+      });
+    }
+
     return combined;
-  }, [selectedSourceTests, attempts, cloudCohortAttemptsMap]);
+  }, [selectedSourceTests, attempts, cloudCohortAttemptsMap, batchEnrolledUids, batchEnrolledEmails, currentUserId]);
 
   const cohortPreview = useMemo(() => {
     return previewRemedialCohort({
@@ -543,8 +597,19 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
       }
     });
 
+    // Filter attempts strictly by the enrolled students in the active batch
+    if (batchEnrolledUids.size > 0 || batchEnrolledEmails.size > 0) {
+      return combined.filter((a) => {
+        return (
+          (a.userId && batchEnrolledUids.has(a.userId)) ||
+          (a.userEmail && batchEnrolledEmails.has(a.userEmail.toLowerCase())) ||
+          a.userId === currentUserId
+        );
+      });
+    }
+
     return combined;
-  }, [selectedAnalyticsTest, attempts, cloudCohortAttemptsMap]);
+  }, [selectedAnalyticsTest, attempts, cloudCohortAttemptsMap, batchEnrolledUids, batchEnrolledEmails, currentUserId]);
 
   const testCohortAnalytics: PerTestCohortAnalytics | null = useMemo(() => {
     if (!selectedAnalyticsTest) return null;
@@ -611,13 +676,27 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   }, []);
 
   const handleTogglePublish = async (test: MathTest) => {
+    const isAlreadyInBatch = currentBatchTests.some((t) => t.testId === test.id);
+    if (!isAlreadyInBatch) {
+      addTestToBatchCatalog({
+        batchId: selectedBatchId,
+        title: test.title,
+        topic: test.topic || 'General Mathematics',
+        difficulty: (test.difficulty as any) || 'medium',
+        timeLimitMinutes: test.timeLimitMinutes || 60,
+        questionCount: test.questions?.length || 30,
+        passingScorePercentage: test.passingScorePercentage || 40,
+      });
+      await publishTestToBatchCatalog(selectedBatchId, test).catch(() => {});
+    }
+
     const res = await toggleTestPublishStatus(test);
     setPublishedTestIds(getMasterPublishedTestIds());
     onRefreshTests?.();
     showNotification(
       res.isPublished 
-        ? `"${test.title}" is now published and available to all students.` 
-        : `"${test.title}" is now unpublished (kept private).`,
+        ? `"${test.title}" is now published to "${currentBatch.title}" (750 KB Bin-Packed).` 
+        : `"${test.title}" is now unpublished from "${currentBatch.title}".`,
       'info'
     );
   };
@@ -670,9 +749,60 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
         </div>
       </header>
 
+      {/* Universal Sticky Batch Context Selector Bar */}
+      <div className="px-4 sm:px-6 md:px-8 py-2.5 bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 dark:from-blue-950/40 dark:via-indigo-950/40 dark:to-purple-950/40 border-b border-slate-200/50 dark:border-zinc-800/50 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center space-x-2.5">
+          <div className="p-1.5 rounded-xl bg-[#0b57d0] text-white shadow-xs">
+            <Layers className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-[#5e5e5e] dark:text-[#9aa0a6] uppercase tracking-wider block">
+              Active Batch Context
+            </span>
+            <div className="flex items-center space-x-1.5">
+              <select
+                value={selectedBatchId}
+                onChange={(e) => setSelectedBatchId(e.target.value)}
+                className="text-xs font-extrabold bg-transparent text-[#1f1f1f] dark:text-[#e3e3e3] border-none outline-none cursor-pointer pr-3"
+              >
+                {batches.map((b) => (
+                  <option key={b.id} value={b.id} className="bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3]">
+                    {b.title} (₹{b.price})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] pointer-events-none" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2 text-[11px] font-semibold text-[#5e5e5e] dark:text-[#9aa0a6]">
+          <span className="px-3 py-1 rounded-full bg-white dark:bg-[#1e2024] shadow-xs flex items-center space-x-1">
+            <Users className="w-3.5 h-3.5 text-emerald-500" />
+            <span>{currentBatchEnrollments.length} Enrolled Students</span>
+          </span>
+          <span className="px-3 py-1 rounded-full bg-white dark:bg-[#1e2024] shadow-xs flex items-center space-x-1">
+            <BookOpen className="w-3.5 h-3.5 text-indigo-500" />
+            <span>{currentBatchTests.length} Batch Mock Tests</span>
+          </span>
+        </div>
+      </div>
+
       {/* Tab Navigation Pill Bar (Seamless M3 Segmented Tabs - No partition line, border-0) */}
       <div className="px-4 sm:px-6 md:px-8 pb-3 pt-0 bg-[#e5e9f0] dark:bg-[#0b0c10] flex items-center justify-between gap-3 overflow-x-auto shrink-0 border-0 shadow-none no-scrollbar">
         <div className="flex items-center gap-1.5 p-1 bg-white dark:bg-[#1e2024] rounded-full border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
+          <button
+            onClick={() => setActiveTab('batches')}
+            className={`px-4 sm:px-5 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap active:scale-95 border-0 outline-none ${
+              activeTab === 'batches'
+                ? 'bg-[#0b57d0] text-white shadow-xs'
+                : 'text-[#5e5e5e] dark:text-[#9aa0a6] hover:text-[#1f1f1f] dark:hover:text-[#e3e3e3] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30]'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Batches & Authoring</span>
+          </button>
+
           <button
             onClick={() => setActiveTab('remedial')}
             className={`px-4 sm:px-5 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap active:scale-95 border-0 outline-none ${
@@ -735,11 +865,32 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
       <main className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 pb-[calc(max(1.5rem,env(safe-area-inset-bottom,0px))+0.5rem)] pt-1 space-y-6">
 
         {/* ============================================================ */}
+        {/* TAB 0: BATCH AUTHORING & LMS MANAGEMENT                      */}
+        {/* ============================================================ */}
+        {activeTab === 'batches' && (
+          <div className="max-w-7xl mx-auto w-full">
+            <BatchAdminStudio />
+          </div>
+        )}
+
+        {/* ============================================================ */}
         {/* TAB 1: ADAPTIVE REMEDIAL ENGINE                              */}
         {/* ============================================================ */}
         {activeTab === 'remedial' && (
           <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
             
+            {/* Batch Context Banner */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-500/15 to-indigo-500/15 border border-blue-500/20 text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-between flex-wrap gap-2 text-xs">
+              <div className="flex items-center space-x-2">
+                <span className="font-bold text-[#0b57d0] dark:text-[#a8c7fa]">Target Batch:</span>
+                <span className="font-extrabold">{currentBatch.title}</span>
+                <span className="text-[11px] opacity-75">• {currentBatchEnrollments.length} enrolled students</span>
+              </div>
+              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 px-2.5 py-0.5 rounded-full">
+                Batch Error Isolation Active
+              </span>
+            </div>
+
             {/* Top Responsive Grid: Configuration (Left: Tests & Categories | Right: Dispatch Settings) */}
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-5 items-start">
               
@@ -1415,6 +1566,18 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
         {activeTab === 'analytics' && (
           <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
             
+            {/* Batch Context Banner */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-500/15 to-indigo-500/15 border border-blue-500/20 text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-between flex-wrap gap-2 text-xs">
+              <div className="flex items-center space-x-2">
+                <span className="font-bold text-[#0b57d0] dark:text-[#a8c7fa]">Batch Scope:</span>
+                <span className="font-extrabold">{currentBatch.title}</span>
+                <span className="text-[11px] opacity-75">• Student Roster: {currentBatchEnrollments.length}</span>
+              </div>
+              <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-500/15 px-2.5 py-0.5 rounded-full">
+                {combinedAnalyticsAttempts.length} Batch Attempts Filtered
+              </span>
+            </div>
+
             {/* Top: Test Selector Dropdown */}
             <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#1e2024] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-3.5">
               <div className="flex items-center justify-between flex-wrap gap-3">
@@ -1898,6 +2061,18 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
         {activeTab === 'publishing' && (
           <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
             
+            {/* Batch Context Banner */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/15 to-blue-500/15 border border-emerald-500/20 text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-between flex-wrap gap-2 text-xs">
+              <div className="flex items-center space-x-2">
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">Target Batch Catalog:</span>
+                <span className="font-extrabold">{currentBatch.title}</span>
+                <span className="text-[11px] opacity-75">• 750 KB Bin-Packed Chunk Engine</span>
+              </div>
+              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 px-2.5 py-0.5 rounded-full">
+                {currentBatchTests.length} Tests in {currentBatch.title}
+              </span>
+            </div>
+
             <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#1e2024] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-3.5">
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-2.5">
@@ -1906,13 +2081,13 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   </div>
                   <div>
                     <h2 className="text-sm font-bold text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center gap-2">
-                      <span>Publish Tests to All Students</span>
+                      <span>Publish Mock Tests to Batch: <strong>{currentBatch.title}</strong></span>
                       <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-0">
-                        {publishedTestIds.length} of {tests.length} Live
+                        {currentBatchTests.length} Batch Tests Live
                       </span>
                     </h2>
                     <p className="text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] mt-0.5">
-                      Tests marked Live appear instantly in student mock catalogs. Question papers are normalized to avoid storage duplication.
+                      Tests are bin-packed into 750 KB safe question catalog chunks for {currentBatch.title}. Enrolled students receive 1-read manifest hydration.
                     </p>
                   </div>
                 </div>

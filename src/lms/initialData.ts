@@ -1,13 +1,13 @@
-import type { Batch, Subject, Chapter, Lecture, User, Announcement } from './types';
+import type { Batch, Subject, Chapter, Lecture, User, Announcement, BatchEnrollment, BatchTestCard } from './types';
 import { obfuscateVideoKey } from './security';
 
 export const INITIAL_USER: User = {
   id: 'usr_guest_001',
   name: 'Guest Student',
-  email: 'guest@elevatelabs.in',
-  phone: '+91 98XXX-XXXXX',
+  email: '',
+  phone: '',
   role: 'student',
-  enrolledBatchIds: ['batch_testing_01'],
+  enrolledBatchIds: [],
 };
 
 // ONLY ONE SINGLE TESTING BATCH
@@ -82,7 +82,7 @@ export const INITIAL_LECTURES: Lecture[] = [
     thumbnailUrl:
       'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500&auto=format&fit=crop&q=80',
     order: 1,
-    isFreePreview: true,
+    isFreePreview: false,
     pdfNotes: [
       {
         id: 'pdf_test_01',
@@ -124,7 +124,7 @@ export const INITIAL_LECTURES: Lecture[] = [
     thumbnailUrl:
       'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=500&auto=format&fit=crop&q=80',
     order: 1,
-    isFreePreview: true,
+    isFreePreview: false,
     pdfNotes: [
       {
         id: 'pdf_test_02',
@@ -160,5 +160,44 @@ export const INITIAL_ANNOUNCEMENTS: Announcement[] = [
     message: 'Welcome to the clean testing sandbox. Only the Testing Batch is currently active.',
     date: 'Just now',
     isImportant: true,
+  },
+];
+
+export const INITIAL_STUDENTS = [
+  { id: 'usr_guest_001', name: 'Guest Student', email: 'guest@elevatelabs.in', phone: '9876543210' },
+  { id: 'usr_std_002', name: 'Aarav Sharma', email: 'aarav.sharma@gmail.com', phone: '9812345678' },
+  { id: 'usr_std_003', name: 'Ananya Verma', email: 'ananya.verma@outlook.com', phone: '9823456789' },
+  { id: 'usr_std_004', name: 'Rohan Patel', email: 'rohan.patel@gmail.com', phone: '9834567890' },
+  { id: 'usr_std_005', name: 'Isha Nair', email: 'isha.nair@yahoo.com', phone: '9845678901' },
+];
+
+export const INITIAL_ENROLLMENTS: BatchEnrollment[] = [];
+
+export const INITIAL_BATCH_TESTS: BatchTestCard[] = [
+  {
+    testId: 'test_batch_mock_01',
+    batchId: 'batch_testing_01',
+    title: 'JEE Advanced Full Syllabus Mock 01',
+    topic: 'Mathematics - Calculus, Vectors & 3D Geometry',
+    questionCount: 30,
+    timeLimitMinutes: 60,
+    difficulty: 'hard',
+    passingScorePercentage: 40,
+    catalogChunkId: 'chunk_001',
+    chunkEstimatedBytes: 85000,
+    publishedAt: '2026-11-10',
+  },
+  {
+    testId: 'test_batch_mock_02',
+    batchId: 'batch_testing_01',
+    title: 'Definite Integrals & Area under Curve Sprint',
+    topic: 'Integral Calculus High Weightage',
+    questionCount: 20,
+    timeLimitMinutes: 45,
+    difficulty: 'medium',
+    passingScorePercentage: 50,
+    catalogChunkId: 'chunk_001',
+    chunkEstimatedBytes: 52000,
+    publishedAt: '2026-11-12',
   },
 ];

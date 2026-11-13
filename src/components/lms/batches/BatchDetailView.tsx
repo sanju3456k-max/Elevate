@@ -16,6 +16,8 @@ import {
   Eye,
   Users,
   BookOpen,
+  Lock,
+  ShieldAlert,
 } from 'lucide-react';
 import { useApp, getFacultyAvatarUrl } from '../../../lms/LmsContext';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
@@ -54,7 +56,9 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     personalNotes,
     addPersonalNote,
     deletePersonalNote,
+    loadCurriculumForBatch,
     showSecurityToast,
+    batchTests,
   } = useApp();
 
   // Selected Batch
@@ -97,6 +101,12 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   }, [propBatchId]);
 
   React.useEffect(() => {
+    if (selectedBatchId) {
+      loadCurriculumForBatch(selectedBatchId);
+    }
+  }, [selectedBatchId, loadCurriculumForBatch]);
+
+  React.useEffect(() => {
     if (initialLectureId) {
       const targetLec = lectures.find((l) => l.id === initialLectureId);
       if (targetLec) {
@@ -129,10 +139,32 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   const currentBatch = batches.find((b) => b.id === selectedBatchId) || batches[0];
 
   // Chapters (Folders) in this batch
-  const batchFolders = useMemo(
-    () => chapters.filter((c) => c.batchId === currentBatch.id),
-    [chapters, currentBatch.id]
-  );
+  const batchFolders = useMemo(() => {
+    const chaps = chapters.filter((c) => c.batchId === currentBatch.id);
+    // Auto-map any lectures belonging to this batch whose chapterId is missing from chaps
+    const orphanChapterIds = new Set(
+      lectures
+        .filter((l) => l.batchId === currentBatch.id && l.chapterId && !chaps.some((c) => c.id === l.chapterId))
+        .map((l) => l.chapterId)
+    );
+    if (orphanChapterIds.size > 0) {
+      const synthesized: Chapter[] = Array.from(orphanChapterIds).map((cId, idx) => {
+        const matchingLec = lectures.find((l) => l.chapterId === cId);
+        return {
+          id: cId,
+          batchId: currentBatch.id,
+          subjectId: 'sub_math_01',
+          title: matchingLec?.title
+            ? `Chapter 0${chaps.length + idx + 1}: ${matchingLec.title}`
+            : `Chapter 0${chaps.length + idx + 1}: Core Curriculum & Lectures`,
+          description: `Curriculum module and study materials for ${currentBatch.title}.`,
+          order: chaps.length + idx + 1,
+        };
+      });
+      return [...chaps, ...synthesized];
+    }
+    return chaps;
+  }, [chapters, lectures, currentBatch.id, currentBatch.title]);
 
   // Current selected folder
   const currentFolder = batchFolders.find((f) => f.id === selectedChapterId) || batchFolders[0];
@@ -140,8 +172,16 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   // Lectures in current folder
   const folderLectures = useMemo(() => {
     if (!currentFolder) return [];
-    return lectures.filter((l) => l.chapterId === currentFolder.id);
-  }, [lectures, currentFolder]);
+    return lectures.filter((l) => {
+      if (l.batchId !== currentBatch.id) return false;
+      // Direct folder match
+      if (l.chapterId === currentFolder.id) return true;
+      // If lecture has an orphaned/unknown chapterId and this is the first folder, show it so no content is missed
+      const chapterExists = batchFolders.some((f) => f.id === l.chapterId);
+      if (!chapterExists && currentFolder.id === batchFolders[0]?.id) return true;
+      return false;
+    });
+  }, [lectures, currentFolder, currentBatch.id, batchFolders]);
 
   // Notes & Study Materials in current folder
   const folderNotesContent = useMemo(() => {
@@ -154,12 +194,26 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     return allNotes;
   }, [folderLectures]);
 
-  // Folder Mock Tests (linked to chapter)
+  // Folder Mock Tests (linked to chapter + batch authored tests)
   const folderTests = useMemo(() => {
-    if (!currentFolder) return [];
+    const batchAuthoredTests = (batchTests || []).filter((t) => t.batchId === currentBatch.id);
+    const convertedBatchTests: MathTest[] = batchAuthoredTests.map((bt) => ({
+      id: bt.testId,
+      title: bt.title,
+      topic: bt.topic,
+      questionCount: bt.questionCount,
+      durationMinutes: bt.timeLimitMinutes,
+      questions: [],
+      createdAt: bt.publishedAt,
+      passingScorePercentage: bt.passingScorePercentage,
+      difficulty: bt.difficulty,
+      isPublished: true,
+    }));
+
+    if (!currentFolder) return convertedBatchTests;
     if (currentFolder.testIds && currentFolder.testIds.length > 0) {
       const explicit = availableTests.filter((t) => currentFolder.testIds?.includes(t.id));
-      if (explicit.length > 0) return explicit;
+      if (explicit.length > 0) return [...convertedBatchTests, ...explicit];
     }
     // Fallback: match by chapter keyword or provide sample tests
     const folderKeyword = currentFolder.title.toLowerCase();
@@ -168,8 +222,9 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       t.title.toLowerCase().includes('matrix') ||
       t.title.toLowerCase().includes('practice')
     );
-    return matched.length > 0 ? matched.slice(0, 3) : availableTests.slice(0, 2);
-  }, [currentFolder, availableTests]);
+    const fallback = matched.length > 0 ? matched.slice(0, 3) : availableTests.slice(0, 2);
+    return [...convertedBatchTests, ...fallback];
+  }, [currentFolder, availableTests, batchTests, currentBatch.id]);
 
   // Selected Lecture for viewing
   const activeLecture =
@@ -220,6 +275,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   }, [currentStage, previewImage]);
 
   const goToBatchFolders = (batchId: string) => {
+    if (!isEnrolled(batchId)) {
+      const bTitle = batches.find((b) => b.id === batchId)?.title || 'this batch';
+      showSecurityToast(`Access Denied: You are not enrolled in "${bTitle}". Access is restricted to students on the official roster.`);
+      return;
+    }
     setSelectedBatchId(batchId);
     window.history.pushState({ stage: 'batch_folders', batchId }, '');
     setCurrentStage('batch_folders');
@@ -362,21 +422,29 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                         <span>Full Access</span>
                       </div>
                     ) : (
+                      <div className="flex items-center space-x-1 text-[10px] sm:text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full">
+                        <Lock className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
+                        <span>Roster Only</span>
+                      </div>
+                    )}
+
+                    {isEnrolled(b.id) ? (
+                      <button className="m3-btn-filled px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold flex items-center space-x-1 border-none outline-none cursor-pointer">
+                        <span>Continue</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          enrollInBatch(b.id);
+                          showSecurityToast(`Access Denied: You are not enrolled in "${b.title}". Contact Master Admin to be added to the roster.`);
                         }}
-                        className="m3-btn-tonal px-2.5 sm:px-3 py-1 text-[11px] sm:text-xs font-bold border-none cursor-pointer"
+                        className="m3-btn-tonal px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold flex items-center space-x-1 text-slate-500 opacity-80 border-none outline-none cursor-pointer"
                       >
-                        Enroll (₹{b.price})
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>Locked</span>
                       </button>
                     )}
-
-                    <button className="m3-btn-filled px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold flex items-center space-x-1 border-none outline-none cursor-pointer">
-                      <span>View</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
                   </div>
                 </div>
               </div>
@@ -400,6 +468,62 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             </button>
           </div>
         )}
+      </div>
+    );
+  }
+
+  /* =========================================================================
+     SECURITY ACCESS GUARD: BATCH ENROLLMENT RESTRICTION
+     ========================================================================= */
+  if (currentStage !== 'batch_list' && !isEnrolled(selectedBatchId)) {
+    const targetBatch = batches.find((b) => b.id === selectedBatchId) || batches[0];
+    return (
+      <div className="space-y-6 pb-24 md:pb-16 max-w-2xl mx-auto m3-transition-enter pt-6">
+        <div className="flex items-center pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
+          <button
+            onClick={() => setCurrentStage('batch_list')}
+            className="flex items-center space-x-1 text-xs sm:text-sm font-bold text-[var(--md-sys-color-primary)] hover:underline border-none bg-transparent cursor-pointer p-0"
+          >
+            <ChevronLeft className="w-5 h-5 -ml-1" />
+            <span>Back to Batches Catalog</span>
+          </button>
+        </div>
+
+        <div className="p-8 sm:p-12 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl space-y-5 border border-rose-500/20 shadow-xs">
+          <div className="w-16 h-16 rounded-full bg-rose-500/10 text-rose-500 mx-auto flex items-center justify-center">
+            <Lock className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-[10px] font-extrabold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-500">
+              Access Restricted
+            </span>
+            <h2 className="text-xl sm:text-2xl font-extrabold text-[var(--md-sys-color-on-surface)]">
+              Enrollment Required
+            </h2>
+            <p className="text-xs sm:text-sm text-[var(--md-sys-color-on-surface-variant)] max-w-lg mx-auto leading-relaxed">
+              Curriculum chapters, video lectures, and DPP notes for &quot;{targetBatch?.title}&quot; are protected. Only students enrolled on the official batch roster by the Master Administrator can access this content.
+            </p>
+          </div>
+
+          <div className="p-4 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl max-w-md mx-auto text-xs text-[var(--md-sys-color-on-surface-variant)] space-y-1">
+            <p className="font-semibold text-[var(--md-sys-color-on-surface)]">
+              Current Session: <span className="font-bold text-[var(--md-sys-color-primary)]">{user.email || 'Guest Mode (Unauthenticated)'}</span>
+            </p>
+            <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+              Please contact the Master Academic Head to have your verified email added to this batch roster.
+            </p>
+          </div>
+
+          <div className="pt-2">
+            <button
+              onClick={() => setCurrentStage('batch_list')}
+              className="m3-btn-filled px-6 py-2.5 text-xs font-bold rounded-full border-none cursor-pointer"
+            >
+              Return to Batches
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -462,48 +586,58 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             <span>Batch Folders (Chapters)</span>
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {batchFolders.map((fld) => {
-              const fldLectures = lectures.filter((l) => l.chapterId === fld.id);
-              let notesCount = 0;
-              fldLectures.forEach((l) => (notesCount += l.pdfNotes?.length || 0));
+          {batchFolders.length === 0 ? (
+            <div className="p-8 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl border border-dashed border-[var(--md-sys-color-outline-variant)]">
+              <Folder className="w-10 h-10 mx-auto text-[var(--md-sys-color-primary)] opacity-60 mb-2" />
+              <h3 className="text-sm font-bold text-[var(--md-sys-color-on-surface)]">Curriculum Schedule in Progress</h3>
+              <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] max-w-md mx-auto mt-1">
+                Faculty is actively preparing the curriculum syllabus, video lessons, and DPP notes for this batch. New chapters will be available here soon.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {batchFolders.map((fld) => {
+                const fldLectures = lectures.filter((l) => l.chapterId === fld.id);
+                let notesCount = 0;
+                fldLectures.forEach((l) => (notesCount += l.pdfNotes?.length || 0));
 
-              return (
-                <div
-                  key={fld.id}
-                  onClick={() => goToFolderContent(fld.id)}
-                  className="p-5 rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] cursor-pointer transition shadow-xs flex items-center justify-between group border-none"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 rounded-2xl bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] flex items-center justify-center font-bold group-hover:scale-105 transition">
-                      <Folder className="w-6 h-6 text-[var(--md-sys-color-primary)]" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition">
-                        {fld.title}
-                      </h3>
-                      <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] line-clamp-1 mt-0.5">
-                        {fld.description}
-                      </p>
-                      <div className="flex items-center space-x-3 mt-2 text-[10px] font-bold text-[var(--md-sys-color-on-surface-variant)]">
-                        <span className="flex items-center space-x-1">
-                          <PlayCircle className="w-3.5 h-3.5 text-[var(--md-sys-color-primary)]" />
-                          <span>{fldLectures.length} Videos</span>
-                        </span>
-                        <span>•</span>
-                        <span className="flex items-center space-x-1">
-                          <FileText className="w-3.5 h-3.5 text-amber-500" />
-                          <span>{notesCount} Notes Content</span>
-                        </span>
+                return (
+                  <div
+                    key={fld.id}
+                    onClick={() => goToFolderContent(fld.id)}
+                    className="p-5 rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] cursor-pointer transition shadow-xs flex items-center justify-between group border-none"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 rounded-2xl bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] flex items-center justify-center font-bold group-hover:scale-105 transition">
+                        <Folder className="w-6 h-6 text-[var(--md-sys-color-primary)]" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition">
+                          {fld.title}
+                        </h3>
+                        <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] line-clamp-1 mt-0.5">
+                          {fld.description}
+                        </p>
+                        <div className="flex items-center space-x-3 mt-2 text-[10px] font-bold text-[var(--md-sys-color-on-surface-variant)]">
+                          <span className="flex items-center space-x-1">
+                            <PlayCircle className="w-3.5 h-3.5 text-[var(--md-sys-color-primary)]" />
+                            <span>{fldLectures.length} Videos</span>
+                          </span>
+                          <span>•</span>
+                          <span className="flex items-center space-x-1">
+                            <FileText className="w-3.5 h-3.5 text-amber-500" />
+                            <span>{notesCount} Notes Content</span>
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <ChevronRight className="w-5 h-5 text-[var(--md-sys-color-outline)] group-hover:translate-x-1 transition" />
-                </div>
-              );
-            })}
-          </div>
+                    <ChevronRight className="w-5 h-5 text-[var(--md-sys-color-outline)] group-hover:translate-x-1 transition" />
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     );
