@@ -801,19 +801,6 @@ export const TestList: React.FC<TestListProps> = ({
               <span className="text-[#0b57d0] dark:text-[#a8c7fa] font-bold">{filteredTests.length}</span>
               <span>{filteredTests.length === 1 ? 'Test available' : 'Tests available'}</span>
             </div>
-
-            {/* Quick Batches & LMS Navigation Button */}
-            {onOpenBatches && (
-              <button
-                type="button"
-                onClick={onOpenBatches}
-                className="hidden sm:inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-[#e8ddff] dark:bg-[#381e72] hover:bg-[#d0bcff] dark:hover:bg-[#4f378b] text-[#21005d] dark:text-[#e8ddff] text-xs font-bold border-0 shadow-xs cursor-pointer select-none transition-all active:scale-95 outline-none"
-                title="View Enrolled Batches and Video Classes"
-              >
-                <span className="material-symbols-outlined text-[17px]">layers</span>
-                <span>Batches</span>
-              </button>
-            )}
           </div>
 
           {/* Right: Search Toggle & Grid/List Toggle Button all in one row */}

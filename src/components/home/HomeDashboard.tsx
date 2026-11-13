@@ -70,7 +70,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onOpenOmr,
   onOpenCustomBuilder,
 }) => {
-  const { batches, lectures, watchProgress, isEnrolled, setActiveBatchId, setActiveLectureId } = useApp();
+  const { batches, lectures, watchProgress, isEnrolled, announcements, setActiveBatchId, setActiveLectureId } = useApp();
   
   // Filter state for the 4 core buttons: 'all-batches' | 'my-batches' | 'test-library' | 'activity'
   const [activeView, setActiveView] = useState<'all-batches' | 'my-batches' | 'test-library' | 'activity'>('all-batches');
@@ -84,6 +84,11 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const currentBatch = batches[0]; // Testing Batch
   const freeLectures = lectures.filter((l) => l.isFreePreview);
   const featuredTests = tests.slice(0, 2);
+
+  // Latest updates for batch, video, and tests
+  const latestAnnouncement = announcements && announcements.length > 0 ? announcements[0] : null;
+  const latestLecture = lectures && lectures.length > 0 ? lectures[lectures.length - 1] : null;
+  const latestTest = tests && tests.length > 0 ? tests[0] : null;
 
   // In-progress lectures
   const inProgressLectureIds = Object.keys(watchProgress).filter(
@@ -185,172 +190,127 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-24 md:pb-16 max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-2 sm:py-3">
-      {/* 2. STREAMLINED TOP HERO BANNER (Clean, focused, no duplicate buttons) */}
-      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[var(--md-sys-color-surface-container)] via-[var(--md-sys-color-surface-container)] to-[var(--md-sys-color-surface-container-high)] p-6 sm:p-9 shadow-xs border-none">
-        <div className="absolute -top-16 -right-16 w-96 h-96 bg-[var(--md-sys-color-primary)]/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 max-w-3xl space-y-2">
-          <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-[var(--md-sys-color-on-surface)] tracking-tight leading-tight">
-            Interactive Video Classes & <span className="text-[var(--md-sys-color-primary)]">Mock Assessments</span>
-          </h1>
-
-          <p className="text-[var(--md-sys-color-on-surface-variant)] text-xs sm:text-sm sm:leading-relaxed max-w-2xl">
-            Distraction-free video streaming with timeline milestones, timestamped notes, and computer-based timed tests for focused concept mastery.
-          </p>
-        </div>
-      </div>
-
-      {/* 3. STUDENT ACTIVITY & DAY-WISE GRAPH SECTION (Star Feature) */}
-      <div id="student-activity-section" className="bg-[var(--md-sys-color-surface-container)] rounded-3xl p-5 sm:p-7 border-none shadow-xs hover:shadow-md transition space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
-          <div>
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] flex items-center justify-center font-bold">
-                <BarChart3 className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
-              </div>
-              <h2 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)]">
-                Student Activity & Daily Day-Wise Performance
-              </h2>
-            </div>
-            <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] mt-1">
-              Day-by-day learning tasks, video lecture milestones, and mock test scores
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center space-x-1.5 text-xs text-[var(--md-sys-color-on-surface-variant)] px-3 py-1.5 rounded-full bg-[var(--md-sys-color-surface-container-high)]">
-              <span className="w-2.5 h-2.5 rounded-full bg-[var(--md-sys-color-primary)]" />
-              <span className="font-semibold">Videos Done</span>
-            </div>
-            <div className="flex items-center space-x-1.5 text-xs text-[var(--md-sys-color-on-surface-variant)] px-3 py-1.5 rounded-full bg-[var(--md-sys-color-surface-container-high)]">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span className="font-semibold">Tests Attempted</span>
-            </div>
-            {onOpenAnalytics && (
-              <button
-                type="button"
-                onClick={onOpenAnalytics}
-                className="text-xs font-bold text-[var(--md-sys-color-primary)] hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-0 outline-none"
-              >
-                <span>Analytics →</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* 4 Summary Score Metric Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-          <div className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] border-none space-y-1">
-            <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
-              <span>Videos Completed</span>
-              <Video className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
-            </div>
-            <div className="text-2xl font-black text-[var(--md-sys-color-on-surface)]">
-              {completedVideosCount}
-            </div>
-            <div className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
-              Lectures Watched
-            </div>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] border-none space-y-1">
-            <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
-              <span>Tests Attempted</span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            </div>
-            <div className="text-2xl font-black text-[var(--md-sys-color-on-surface)]">
-              {totalAttempts > 0 ? totalAttempts : 2}
-            </div>
-            <div className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
-              Full Mock Assessments
-            </div>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] border-none space-y-1">
-            <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
-              <span>Avg Performance</span>
-              <Award className="w-4 h-4 text-amber-500" />
-            </div>
-            <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-              {averagePercentage}%
-            </div>
-            <div className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
-              Assessment Accuracy
-            </div>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] border-none space-y-1">
-            <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
-              <span>Active Streak</span>
-              <Flame className="w-4 h-4 text-orange-500 fill-orange-500" />
-            </div>
-            <div className="text-2xl font-black text-orange-500">
-              5 Days
-            </div>
-            <div className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
-              Daily Practice Habit
-            </div>
-          </div>
-        </div>
-
-        {/* Day-Wise Visual Interactive Bar Chart */}
-        <div className="p-5 sm:p-6 rounded-3xl bg-[var(--md-sys-color-surface-container-high)] border-none space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
-              <span>Day-Wise Task Breakdown (Last 7 Days)</span>
-            </h3>
-            <span className="text-[11px] font-semibold text-[var(--md-sys-color-on-surface-variant)]">
-              Total 14 Tasks Accomplished
+      {/* 1. LATEST CURRICULUM & BATCH UPDATES HUB (At the very top) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
             </span>
+            <h2 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] tracking-tight">
+              Latest Curriculum & Batch Updates
+            </h2>
+          </div>
+          <span className="text-[11px] font-semibold text-[var(--md-sys-color-primary)] bg-[var(--md-sys-color-primary-container)]/50 px-2.5 py-0.5 rounded-full">
+            Live Feed
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
+          {/* Card 1: Batch Announcement / Batch Update (Top Priority) */}
+          <div
+            onClick={() => onOpenBatches && onOpenBatches('my-batches')}
+            className="group cursor-pointer p-4 sm:p-5 rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition-all duration-200 border-none shadow-xs hover:shadow-md flex flex-col justify-between"
+          >
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10.5px] font-bold uppercase tracking-wider flex items-center gap-1">
+                  <BookOpen className="w-3 h-3" />
+                  <span>Batch Update</span>
+                </span>
+                <span className="text-[10px] text-[var(--md-sys-color-outline)] font-medium">
+                  {latestAnnouncement ? latestAnnouncement.date : 'Today'}
+                </span>
+              </div>
+              <h3 className="text-sm sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition line-clamp-2">
+                {latestAnnouncement ? latestAnnouncement.title : (currentBatch ? `${currentBatch.title} · Live Enrollment` : 'JEE / CBSE Foundation Batches Active')}
+              </h3>
+              <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
+                {latestAnnouncement ? latestAnnouncement.content : (currentBatch?.description || 'Access video lectures, structured chapter folders, and full revision notes.')}
+              </p>
+            </div>
+            <div className="pt-3 mt-2 border-t border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between text-xs font-bold text-[var(--md-sys-color-primary)]">
+              <span>View Batch Details</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
           </div>
 
-          {/* Bar Chart Grid */}
-          <div className="grid grid-cols-7 gap-2 sm:gap-4 pt-6 pb-2 items-end h-48">
-            {dayWiseActivity.map((day, idx) => {
-              const totalTasks = day.videosCompleted + day.testsAttempted;
-              const videoHeight = Math.round((day.videosCompleted / maxDayTasks) * 110);
-              const testHeight = Math.round((day.testsAttempted / maxDayTasks) * 110);
+          {/* Card 2: New Video Class Update */}
+          <div
+            onClick={() => {
+              if (latestLecture) {
+                handleSelectLectureItem(latestLecture.batchId, latestLecture.id);
+              } else {
+                onOpenBatches && onOpenBatches();
+              }
+            }}
+            className="group cursor-pointer p-4 sm:p-5 rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition-all duration-200 border-none shadow-xs hover:shadow-md flex flex-col justify-between"
+          >
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10.5px] font-bold uppercase tracking-wider flex items-center gap-1">
+                  <Video className="w-3 h-3" />
+                  <span>New Video Class</span>
+                </span>
+                {latestLecture && (
+                  <span className="text-[10px] text-[var(--md-sys-color-outline)] font-medium">
+                    {latestLecture.durationMinutes} min
+                  </span>
+                )}
+              </div>
+              <h3 className="text-sm sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-purple-600 dark:group-hover:text-purple-400 transition line-clamp-2">
+                {latestLecture ? latestLecture.title : 'New interactive video lectures added'}
+              </h3>
+              <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
+                {latestLecture ? (latestLecture.description || 'Watch timestamped video stream with synchronized PDF notes and milestones.') : 'Stream high-clarity video classes with milestone navigation.'}
+              </p>
+            </div>
+            <div className="pt-3 mt-2 border-t border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between text-xs font-bold text-purple-600 dark:text-purple-400">
+              <span>Watch Video Stream</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
 
-              return (
-                <div key={idx} className="flex flex-col items-center justify-end h-full group cursor-pointer space-y-2">
-                  {/* Tooltip on hover */}
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px] font-bold px-2 py-1 rounded-md bg-black/80 text-white whitespace-nowrap shadow-md pointer-events-none mb-1">
-                    {day.videosCompleted} Video · {day.testsAttempted} Test ({day.avgScore}%)
-                  </div>
-
-                  {/* Stacked Vertical Bar */}
-                  <div className="w-7 sm:w-10 flex flex-col justify-end items-center rounded-2xl overflow-hidden bg-[var(--md-sys-color-surface-container-highest)]/60 p-0.5">
-                    {/* Tests Completed (Emerald) */}
-                    <div
-                      style={{ height: `${Math.max(testHeight, 14)}px` }}
-                      className="w-full bg-emerald-500 rounded-t-xl transition-all duration-500 group-hover:brightness-110"
-                      title={`${day.testsAttempted} Tests`}
-                    />
-                    {/* Videos Completed (Primary Blue) */}
-                    <div
-                      style={{ height: `${Math.max(videoHeight, 18)}px` }}
-                      className="w-full bg-[var(--md-sys-color-primary)] rounded-b-xl transition-all duration-500 group-hover:brightness-110 mt-0.5"
-                      title={`${day.videosCompleted} Videos`}
-                    />
-                  </div>
-
-                  {/* Day Label */}
-                  <div className="text-center">
-                    <span className={`text-[11px] font-bold block ${day.isToday ? 'text-[var(--md-sys-color-primary)] font-extrabold' : 'text-[var(--md-sys-color-on-surface-variant)]'}`}>
-                      {day.dayName}
-                    </span>
-                    <span className="text-[9px] text-[var(--md-sys-color-outline)] block">
-                      {totalTasks} tasks
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+          {/* Card 3: New Mock Test Update */}
+          <div
+            onClick={() => {
+              if (latestTest) {
+                onStartTest(latestTest);
+              } else {
+                onOpenAllTests();
+              }
+            }}
+            className="group cursor-pointer p-4 sm:p-5 rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition-all duration-200 border-none shadow-xs hover:shadow-md flex flex-col justify-between"
+          >
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10.5px] font-bold uppercase tracking-wider flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>New Mock Test</span>
+                </span>
+                {latestTest && (
+                  <span className="text-[10px] text-[var(--md-sys-color-outline)] font-medium">
+                    {latestTest.timeLimitMinutes || 45}m
+                  </span>
+                )}
+              </div>
+              <h3 className="text-sm sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition line-clamp-2">
+                {latestTest ? latestTest.title : 'Live CBT Mock Assessment'}
+              </h3>
+              <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
+                {latestTest ? `Timed test on ${latestTest.topic || 'Curriculum'} with instant evaluation and detailed solutions.` : 'Practice computer-based tests with real exam marking.'}
+              </p>
+            </div>
+            <div className="pt-3 mt-2 border-t border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between text-xs font-bold text-emerald-600 dark:text-emerald-400">
+              <span>Start Assessment</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* 4. MAIN CONTENT TABS / MODULES (Dependent on Active Top Buttons) */}
+      {/* 2. MAIN CONTENT TABS / MODULES */}
       <div className="space-y-6 sm:space-y-8">
         
         {/* COACHING BATCHES SECTION (Shown when 'all-batches' or 'my-batches') */}
@@ -551,6 +511,157 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 </div>
               );
             })}
+          </div>
+        </div>
+
+        {/* 3. STUDENT ACTIVITY & DAY-WISE GRAPH SECTION (After Batches & Assessments) */}
+        <div id="student-activity-section" className="bg-[var(--md-sys-color-surface-container)] rounded-3xl p-5 sm:p-7 border-none shadow-xs hover:shadow-md transition space-y-6 pt-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
+            <div>
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] flex items-center justify-center font-bold">
+                  <BarChart3 className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
+                </div>
+                <h2 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)]">
+                  Student Activity & Daily Day-Wise Performance
+                </h2>
+              </div>
+              <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] mt-1">
+                Day-by-day learning tasks, video lecture milestones, and mock test scores
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center space-x-1.5 text-xs text-[var(--md-sys-color-on-surface-variant)] px-3 py-1.5 rounded-full bg-[var(--md-sys-color-surface-container-high)]">
+                <span className="w-2.5 h-2.5 rounded-full bg-[var(--md-sys-color-primary)]" />
+                <span className="font-semibold">Videos Done</span>
+              </div>
+              <div className="flex items-center space-x-1.5 text-xs text-[var(--md-sys-color-on-surface-variant)] px-3 py-1.5 rounded-full bg-[var(--md-sys-color-surface-container-high)]">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <span className="font-semibold">Tests Attempted</span>
+              </div>
+              {onOpenAnalytics && (
+                <button
+                  type="button"
+                  onClick={onOpenAnalytics}
+                  className="text-xs font-bold text-[var(--md-sys-color-primary)] hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-0 outline-none"
+                >
+                  <span>Analytics →</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 4 Summary Score Metric Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+            <div className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] border-none space-y-1">
+              <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
+                <span>Videos Completed</span>
+                <Video className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
+              </div>
+              <div className="text-2xl font-black text-[var(--md-sys-color-on-surface)]">
+                {completedVideosCount}
+              </div>
+              <div className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                Lectures Watched
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] border-none space-y-1">
+              <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
+                <span>Tests Attempted</span>
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              </div>
+              <div className="text-2xl font-black text-[var(--md-sys-color-on-surface)]">
+                {totalAttempts > 0 ? totalAttempts : 2}
+              </div>
+              <div className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                Full Mock Assessments
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] border-none space-y-1">
+              <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
+                <span>Avg Performance</span>
+                <Award className="w-4 h-4 text-amber-500" />
+              </div>
+              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                {averagePercentage}%
+              </div>
+              <div className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                Assessment Accuracy
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] border-none space-y-1">
+              <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
+                <span>Active Streak</span>
+                <Flame className="w-4 h-4 text-orange-500 fill-orange-500" />
+              </div>
+              <div className="text-2xl font-black text-orange-500">
+                5 Days
+              </div>
+              <div className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                Daily Practice Habit
+              </div>
+            </div>
+          </div>
+
+          {/* Day-Wise Visual Interactive Bar Chart */}
+          <div className="p-5 sm:p-6 rounded-3xl bg-[var(--md-sys-color-surface-container-high)] border-none space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
+                <span>Day-Wise Task Breakdown (Last 7 Days)</span>
+              </h3>
+              <span className="text-[11px] font-semibold text-[var(--md-sys-color-on-surface-variant)]">
+                Total 14 Tasks Accomplished
+              </span>
+            </div>
+
+            {/* Bar Chart Grid */}
+            <div className="grid grid-cols-7 gap-2 sm:gap-4 pt-6 pb-2 items-end h-48">
+              {dayWiseActivity.map((day, idx) => {
+                const totalTasks = day.videosCompleted + day.testsAttempted;
+                const videoHeight = Math.round((day.videosCompleted / maxDayTasks) * 110);
+                const testHeight = Math.round((day.testsAttempted / maxDayTasks) * 110);
+
+                return (
+                  <div key={idx} className="flex flex-col items-center justify-end h-full group cursor-pointer space-y-2">
+                    {/* Tooltip on hover */}
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px] font-bold px-2 py-1 rounded-md bg-black/80 text-white whitespace-nowrap shadow-md pointer-events-none mb-1">
+                      {day.videosCompleted} Video · {day.testsAttempted} Test ({day.avgScore}%)
+                    </div>
+
+                    {/* Stacked Vertical Bar */}
+                    <div className="w-7 sm:w-10 flex flex-col justify-end items-center rounded-2xl overflow-hidden bg-[var(--md-sys-color-surface-container-highest)]/60 p-0.5">
+                      {/* Tests Completed (Emerald) */}
+                      <div
+                        style={{ height: `${Math.max(testHeight, 14)}px` }}
+                        className="w-full bg-emerald-500 rounded-t-xl transition-all duration-500 group-hover:brightness-110"
+                        title={`${day.testsAttempted} Tests`}
+                      />
+                      {/* Videos Completed (Primary Blue) */}
+                      <div
+                        style={{ height: `${Math.max(videoHeight, 18)}px` }}
+                        className="w-full bg-[var(--md-sys-color-primary)] rounded-b-xl transition-all duration-500 group-hover:brightness-110 mt-0.5"
+                        title={`${day.videosCompleted} Videos`}
+                      />
+                    </div>
+
+                    {/* Day Label */}
+                    <div className="text-center">
+                      <span className={`text-[11px] font-bold block ${day.isToday ? 'text-[var(--md-sys-color-primary)] font-extrabold' : 'text-[var(--md-sys-color-on-surface-variant)]'}`}>
+                        {day.dayName}
+                      </span>
+                      <span className="text-[9px] text-[var(--md-sys-color-outline)] block">
+                        {totalTasks} tasks
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
