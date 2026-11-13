@@ -211,6 +211,7 @@ export const TestList: React.FC<TestListProps> = ({
   isLoadingMoreTests,
   onLoadMoreTests,
   onOpenBulkPrint,
+  onOpenBatches,
 }) => {
   const [localSearchQuery, setLocalSearchQuery] = useState('');
   const searchQuery = propSearchQuery !== undefined ? propSearchQuery : localSearchQuery;
