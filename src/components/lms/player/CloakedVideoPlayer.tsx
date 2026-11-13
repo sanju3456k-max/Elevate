@@ -651,10 +651,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       </div>
 
-      {/* 3. Top Header Bar (Clean Lecture Title when controls are visible) */}
+      {/* 3. Top Header Bar (Clean Lecture Title when controls are visible, hidden on mobile for clean full view) */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`absolute top-0 inset-x-0 z-30 p-3 sm:p-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-center justify-between transition-opacity duration-300 ${
+        className={`absolute top-0 inset-x-0 z-30 p-3 sm:p-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent hidden sm:flex items-center justify-between transition-opacity duration-300 ${
           isControlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
@@ -708,7 +708,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             }
           }, 3000);
         }}
-        className={`absolute bottom-0 inset-x-0 z-30 px-3 sm:px-4 py-2 sm:py-3 bg-gradient-to-t from-black/95 via-black/80 to-transparent transition-opacity duration-300 flex flex-col space-y-1 ${
+        className={`absolute bottom-0 inset-x-0 z-30 px-3.5 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-t from-black/95 via-black/80 to-transparent transition-opacity duration-300 flex flex-col space-y-1.5 ${
           isControlsVisible || isHoveringControls || optionsMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >

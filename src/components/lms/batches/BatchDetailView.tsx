@@ -818,12 +818,12 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   return (
     <div className="space-y-4 sm:space-y-6 pb-24 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
       {/* Mobile Top Back Bar: Only Back Button (Replaces top header on mobile) */}
-      <div className="flex items-center justify-between sm:hidden px-1 py-1">
+      <div className="flex items-center justify-between sm:hidden px-3.5 py-2">
         <button
           onClick={() => setCurrentStage('folder_content')}
-          className="flex items-center space-x-1 text-xs font-bold text-[var(--md-sys-color-primary)] border-none bg-transparent cursor-pointer p-1"
+          className="flex items-center space-x-1 text-xs font-bold text-[var(--md-sys-color-primary)] border-none bg-transparent cursor-pointer p-0 hover:underline"
         >
-          <ChevronLeft className="w-5 h-5" />
+          <ChevronLeft className="w-5 h-5 -ml-1" />
           <span>Back to {currentFolder?.title || 'Chapter'}</span>
         </button>
 
@@ -851,7 +851,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
         {/* LEFT COLUMN: Full-Width Video Player on Mobile & Lecture Info */}
         <div className="lg:col-span-8 space-y-4">
-          <div className="-mx-3 sm:mx-0 rounded-none sm:rounded-3xl overflow-hidden shadow-2xl border-none">
+          <div className="w-full rounded-none sm:rounded-3xl overflow-hidden shadow-2xl border-none">
             <CloakedVideoPlayer
               encryptedVideoId={activeLecture.encryptedVideoId}
               title={activeLecture.title}
@@ -867,30 +867,32 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             />
           </div>
 
-          {/* Lecture Metadata */}
-          <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-2 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-[var(--md-sys-color-primary)] font-bold">
-                {currentFolder?.title}
-              </span>
+          {/* Lecture Metadata - Mobile padding prevents touching boundary edges */}
+          <div className="px-3.5 sm:px-0">
+            <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-2 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[var(--md-sys-color-primary)] font-bold">
+                  {currentFolder?.title}
+                </span>
+              </div>
+              <h1 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] leading-snug">
+                {activeLecture.title}
+              </h1>
+              <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] leading-relaxed">
+                {activeLecture.description}
+              </p>
             </div>
-            <h1 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] leading-snug">
-              {activeLecture.title}
-            </h1>
-            <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] leading-relaxed">
-              {activeLecture.description}
-            </p>
           </div>
         </div>
 
         {/* RIGHT COLUMN: Interactive Tabs (In-Video Notes / Milestones / Notes Content) */}
-        <div className="lg:col-span-4 space-y-4">
-          <div className="bg-[var(--md-sys-color-surface-container)] rounded-3xl overflow-hidden shadow-xs p-4 space-y-4">
-            {/* Tabs Header */}
-            <div className="flex border-b border-[var(--md-sys-color-outline-variant)]/20 pb-2 space-x-2">
+        <div className="lg:col-span-4 space-y-4 px-3.5 sm:px-0">
+          <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden shadow-xs p-4 space-y-4">
+            {/* Tabs Header - Scrollable without cutting buttons on mobile */}
+            <div className="flex border-b border-[var(--md-sys-color-outline-variant)]/20 pb-2 space-x-1.5 overflow-x-auto scrollbar-none">
               <button
                 onClick={() => setLectureTab('personal_notes')}
-                className={`py-1.5 px-3 rounded-full text-xs font-bold transition border-none outline-none cursor-pointer ${
+                className={`py-1.5 px-3 rounded-full text-xs font-bold transition border-none outline-none cursor-pointer whitespace-nowrap shrink-0 ${
                   lectureTab === 'personal_notes'
                     ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)]'
                     : 'text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
@@ -901,7 +903,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
               <button
                 onClick={() => setLectureTab('milestones')}
-                className={`py-1.5 px-3 rounded-full text-xs font-bold transition border-none outline-none cursor-pointer ${
+                className={`py-1.5 px-3 rounded-full text-xs font-bold transition border-none outline-none cursor-pointer whitespace-nowrap shrink-0 ${
                   lectureTab === 'milestones'
                     ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)]'
                     : 'text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
@@ -912,7 +914,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
               <button
                 onClick={() => setLectureTab('notes_content')}
-                className={`py-1.5 px-3 rounded-full text-xs font-bold transition border-none outline-none cursor-pointer ${
+                className={`py-1.5 px-3 rounded-full text-xs font-bold transition border-none outline-none cursor-pointer whitespace-nowrap shrink-0 ${
                   lectureTab === 'notes_content'
                     ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)]'
                     : 'text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
