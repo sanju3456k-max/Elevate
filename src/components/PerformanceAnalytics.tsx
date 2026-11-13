@@ -617,188 +617,143 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
         </div>
       </div>
 
-      {/* Primary KPI Overview in a Combined Card */}
-      <div className="p-3.5 sm:p-4 bg-white dark:bg-[#1e2024] rounded-[24px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-all duration-200">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
-          {/* Tile 1: Tests Taken */}
-          <div className="p-3.5 sm:p-4 rounded-[20px] sm:rounded-[22px] bg-transparent flex flex-col items-center justify-center text-center transition-all hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
-            <div className="text-[10px] sm:text-xs font-bold tracking-widest text-slate-500 dark:text-zinc-400 uppercase mb-0.5 sm:mb-1 flex items-center justify-center gap-1 sm:gap-1.5">
-              <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
+      {/* Merged Performance Analytics & Student Activity Card */}
+      <div id="analytics-student-activity-section" className="bg-white dark:bg-[#1e2024] rounded-[24px] p-4 sm:p-6 border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-5 transition-all duration-200">
+        
+        {/* Row 1: KPI Metrics Grid (Tests, Accuracy, Precision, Active Time, Videos, Streak) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
+          {/* 1. Tests Taken */}
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 flex flex-col items-center justify-center text-center">
+            <div className="text-[10px] sm:text-xs font-bold tracking-wider text-slate-500 dark:text-zinc-400 uppercase mb-0.5 flex items-center justify-center gap-1">
+              <BookOpen className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
               <span>Tests Taken</span>
             </div>
-            <div className="text-lg sm:text-2xl font-extrabold text-slate-900 dark:text-zinc-100 font-mono">
+            <div className="text-lg sm:text-2xl font-black text-slate-900 dark:text-zinc-100 font-mono">
               {totalAttempts}
             </div>
-            <div className="text-[9.5px] sm:text-xs text-slate-600 dark:text-zinc-400 mt-0.5 font-medium flex items-center justify-center gap-1">
+            <div className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium">
               <span className="text-[#0b57d0] dark:text-[#a8c7fa] font-bold">{passedAttempts} Passed</span> ({passRate}%)
             </div>
           </div>
 
-          {/* Tile 2: Accuracy */}
-          <div className="p-3.5 sm:p-4 rounded-[20px] sm:rounded-[22px] bg-transparent flex flex-col items-center justify-center text-center transition-all hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
-            <div className="text-[10px] sm:text-xs font-bold tracking-widest text-slate-500 dark:text-zinc-400 uppercase mb-0.5 sm:mb-1 flex items-center justify-center gap-1 sm:gap-1.5">
-              <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
+          {/* 2. Accuracy */}
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 flex flex-col items-center justify-center text-center">
+            <div className="text-[10px] sm:text-xs font-bold tracking-wider text-slate-500 dark:text-zinc-400 uppercase mb-0.5 flex items-center justify-center gap-1">
+              <Target className="w-3.5 h-3.5 text-emerald-500" />
               <span>Accuracy</span>
             </div>
-            <div className="text-lg sm:text-2xl font-extrabold text-slate-900 dark:text-zinc-100 font-mono">
+            <div className="text-lg sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
               {aggregatedStats.overallAccuracy}%
             </div>
-            <div className="text-[9.5px] sm:text-xs text-slate-600 dark:text-zinc-400 mt-0.5 font-medium flex items-center justify-center">
-              On {aggregatedStats.totalAttempted} answered Qs
+            <div className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium">
+              {aggregatedStats.totalAttempted} Answered Qs
             </div>
           </div>
 
-          {/* Tile 3: Precision */}
-          <div className="p-3.5 sm:p-4 rounded-[20px] sm:rounded-[22px] bg-transparent flex flex-col items-center justify-center text-center transition-all hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
-            <div className="text-[10px] sm:text-xs font-bold tracking-widest text-slate-500 dark:text-zinc-400 uppercase mb-0.5 sm:mb-1 flex items-center justify-center gap-1 sm:gap-1.5">
-              <Percent className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
+          {/* 3. Precision */}
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 flex flex-col items-center justify-center text-center">
+            <div className="text-[10px] sm:text-xs font-bold tracking-wider text-slate-500 dark:text-zinc-400 uppercase mb-0.5 flex items-center justify-center gap-1">
+              <Percent className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
               <span>Precision</span>
             </div>
-            <div className="text-lg sm:text-2xl font-extrabold text-slate-900 dark:text-zinc-100 font-mono">
+            <div className="text-lg sm:text-2xl font-black text-slate-900 dark:text-zinc-100 font-mono">
               {aggregatedStats.overallPrecision}%
             </div>
-            <div className="text-[9.5px] sm:text-xs text-slate-600 dark:text-zinc-400 mt-0.5 font-medium flex items-center justify-center">
+            <div className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium">
               Across {aggregatedStats.totalQuestionsCount} items
             </div>
           </div>
 
-          {/* Tile 4: Active Time */}
-          <div className="p-3.5 sm:p-4 rounded-[20px] sm:rounded-[22px] bg-transparent flex flex-col items-center justify-center text-center transition-all hover:bg-slate-50/50 dark:hover:bg-white/[0.02]">
-            <div className="text-[10px] sm:text-xs font-bold tracking-widest text-slate-500 dark:text-zinc-400 uppercase mb-0.5 sm:mb-1 flex items-center justify-center gap-1 sm:gap-1.5">
-              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
+          {/* 4. Active Time */}
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 flex flex-col items-center justify-center text-center">
+            <div className="text-[10px] sm:text-xs font-bold tracking-wider text-slate-500 dark:text-zinc-400 uppercase mb-0.5 flex items-center justify-center gap-1">
+              <Clock className="w-3.5 h-3.5 text-purple-500" />
               <span>Active Time</span>
             </div>
-            <div className="text-lg sm:text-2xl font-extrabold text-slate-900 dark:text-zinc-100 font-mono truncate max-w-full">
+            <div className="text-lg sm:text-2xl font-black text-slate-900 dark:text-zinc-100 font-mono truncate max-w-full">
               {formatDuration(aggregatedStats.totalTimeSpentSec)}
             </div>
-            <div className="text-[9.5px] sm:text-xs text-slate-600 dark:text-zinc-400 mt-0.5 font-medium flex items-center justify-center">
-              ~{aggregatedStats.avgSecondsPerQ}s per question
+            <div className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium">
+              ~{aggregatedStats.avgSecondsPerQ}s / question
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Student Activity & Daily Day-Wise Performance Section (Merged into Analytics) */}
-      <div id="analytics-student-activity-section" className="bg-white dark:bg-[#1e2024] rounded-[24px] p-5 sm:p-7 border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100 dark:border-zinc-800">
-          <div>
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-full bg-[#0b57d0]/10 dark:bg-[#a8c7fa]/15 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center font-bold">
-                <BarChart3 className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
-              </div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-zinc-100">
-                Student Activity & Daily Day-Wise Performance
-              </h2>
+          {/* 5. Videos Completed */}
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 flex flex-col items-center justify-center text-center">
+            <div className="text-[10px] sm:text-xs font-bold tracking-wider text-slate-500 dark:text-zinc-400 uppercase mb-0.5 flex items-center justify-center gap-1">
+              <Video className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+              <span>Videos</span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-              Day-by-day learning tasks, video lecture milestones, and mock test scores
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center space-x-1.5 text-xs text-slate-600 dark:text-zinc-300 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-zinc-800/60">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#0b57d0]" />
-              <span className="font-semibold">Videos Done</span>
-            </div>
-            <div className="flex items-center space-x-1.5 text-xs text-slate-600 dark:text-zinc-300 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-zinc-800/60">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span className="font-semibold">Tests Attempted</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 4 Summary Score Metric Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/50 border-0 space-y-1">
-            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-zinc-400">
-              <span>Videos Completed</span>
-              <Video className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
-            </div>
-            <div className="text-2xl font-black text-slate-900 dark:text-zinc-100">
+            <div className="text-lg sm:text-2xl font-black text-slate-900 dark:text-zinc-100 font-mono">
               {completedVideosCount}
             </div>
-            <div className="text-[10px] text-slate-500 dark:text-zinc-400">
-              Lectures Watched
+            <div className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium">
+              Lectures Done
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/50 border-0 space-y-1">
-            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-zinc-400">
-              <span>Tests Attempted</span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+          {/* 6. Active Streak */}
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 flex flex-col items-center justify-center text-center">
+            <div className="text-[10px] sm:text-xs font-bold tracking-wider text-slate-500 dark:text-zinc-400 uppercase mb-0.5 flex items-center justify-center gap-1">
+              <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
+              <span>Streak</span>
             </div>
-            <div className="text-2xl font-black text-slate-900 dark:text-zinc-100">
-              {totalAttempts > 0 ? totalAttempts : 2}
-            </div>
-            <div className="text-[10px] text-slate-500 dark:text-zinc-400">
-              Full Mock Assessments
-            </div>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/50 border-0 space-y-1">
-            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-zinc-400">
-              <span>Avg Performance</span>
-              <Award className="w-4 h-4 text-amber-500" />
-            </div>
-            <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-              {aggregatedStats.overallAccuracy}%
-            </div>
-            <div className="text-[10px] text-slate-500 dark:text-zinc-400">
-              Assessment Accuracy
-            </div>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-800/50 border-0 space-y-1">
-            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-zinc-400">
-              <span>Active Streak</span>
-              <Flame className="w-4 h-4 text-orange-500 fill-orange-500" />
-            </div>
-            <div className="text-2xl font-black text-orange-500">
+            <div className="text-lg sm:text-2xl font-black text-orange-500 font-mono">
               5 Days
             </div>
-            <div className="text-[10px] text-slate-500 dark:text-zinc-400">
+            <div className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium">
               Daily Practice Habit
             </div>
           </div>
         </div>
 
-        {/* Day-Wise Visual Interactive Bar Chart */}
-        <div className="p-5 sm:p-6 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 border-0 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
-              <span>Day-Wise Task Breakdown (Last 7 Days)</span>
-            </h3>
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">
-              Total 14 Tasks Accomplished
-            </span>
+        {/* Row 2: 7-Day Activity & Task Distribution Bar Chart (No extra redundant top headings) */}
+        <div className="pt-2 border-t border-slate-100 dark:border-zinc-800/80">
+          <div className="flex items-center justify-between pb-3">
+            <div className="flex items-center space-x-2">
+              <BarChart3 className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
+              <span className="text-xs sm:text-sm font-bold text-slate-800 dark:text-zinc-200">
+                7-Day Activity & Learning Tasks
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-3 text-[11px]">
+              <div className="flex items-center space-x-1.5 text-slate-600 dark:text-zinc-300">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#0b57d0]" />
+                <span className="font-medium">Videos</span>
+              </div>
+              <div className="flex items-center space-x-1.5 text-slate-600 dark:text-zinc-300">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <span className="font-medium">Tests</span>
+              </div>
+            </div>
           </div>
 
-          {/* Bar Chart Grid */}
-          <div className="grid grid-cols-7 gap-2 sm:gap-4 pt-6 pb-2 items-end h-48">
+          {/* Interactive Stacked Bar Chart */}
+          <div className="grid grid-cols-7 gap-2 sm:gap-4 pt-4 pb-2 items-end h-44">
             {dayWiseActivity.map((day, idx) => {
               const totalTasks = day.videosCompleted + day.testsAttempted;
-              const videoHeight = Math.round((day.videosCompleted / maxDayTasks) * 110);
-              const testHeight = Math.round((day.testsAttempted / maxDayTasks) * 110);
+              const videoHeight = Math.round((day.videosCompleted / maxDayTasks) * 95);
+              const testHeight = Math.round((day.testsAttempted / maxDayTasks) * 95);
 
               return (
-                <div key={idx} className="flex flex-col items-center justify-end h-full group cursor-pointer space-y-2">
+                <div key={idx} className="flex flex-col items-center justify-end h-full group cursor-pointer space-y-1.5">
                   {/* Tooltip on hover */}
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px] font-bold px-2 py-1 rounded-md bg-black/80 text-white whitespace-nowrap shadow-md pointer-events-none mb-1">
                     {day.videosCompleted} Video · {day.testsAttempted} Test ({day.avgScore}%)
                   </div>
 
                   {/* Stacked Vertical Bar */}
-                  <div className="w-7 sm:w-10 flex flex-col justify-end items-center rounded-2xl overflow-hidden bg-slate-200/80 dark:bg-zinc-700/60 p-0.5">
+                  <div className="w-7 sm:w-10 flex flex-col justify-end items-center rounded-2xl overflow-hidden bg-slate-200/70 dark:bg-zinc-700/50 p-0.5">
                     {/* Tests Completed (Emerald) */}
                     <div
-                      style={{ height: `${Math.max(testHeight, 14)}px` }}
+                      style={{ height: `${Math.max(testHeight, 12)}px` }}
                       className="w-full bg-emerald-500 rounded-t-xl transition-all duration-500 group-hover:brightness-110"
                       title={`${day.testsAttempted} Tests`}
                     />
                     {/* Videos Completed (Primary Blue) */}
                     <div
-                      style={{ height: `${Math.max(videoHeight, 18)}px` }}
+                      style={{ height: `${Math.max(videoHeight, 16)}px` }}
                       className="w-full bg-[#0b57d0] dark:bg-[#a8c7fa] rounded-b-xl transition-all duration-500 group-hover:brightness-110 mt-0.5"
                       title={`${day.videosCompleted} Videos`}
                     />

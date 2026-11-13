@@ -210,6 +210,7 @@ export default function App() {
   const [omrInitialTab, setOmrInitialTab] = useState<'print' | 'scan' | 'keys' | 'review'>('print');
   const [omrSessionKey, setOmrSessionKey] = useState<string>(() => `omr_session_${Date.now()}`);
   const [isLectureViewActive, setIsLectureViewActive] = useState<boolean>(false);
+  const [isAppLoaded, setIsAppLoaded] = useState<boolean>(false);
 
   // Instant synchronous auth hydration from local cache to prevent awakening/flickering effect
   const [cachedUser, setCachedUser] = useState<CachedAuthUser | null>(() => getCachedAuthUser());
@@ -1601,7 +1602,7 @@ export default function App() {
     <LmsProvider>
       <div className="min-h-screen bg-[#ededed] dark:bg-[#111318] text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col font-sans antialiased selection:bg-[#0b57d0]/20 selection:text-[#0b57d0] dark:selection:text-[#a8c7fa] transition-colors duration-200">
       {/* Brand Welcome Screen on App Opening */}
-      <WelcomeSplash />
+      <WelcomeSplash onFinish={() => setIsAppLoaded(true)} />
       {/* Toast Notification */}
       {notification && (
         <div 
@@ -1828,8 +1829,8 @@ export default function App() {
             </div>
           )}
 
-          {/* MOBILE BOTTOM NAVIGATION HEADER (Home, Batches, Test Library, Analytics) */}
-          {['home', 'batches', 'tests', 'analytics'].includes(activeTab) && (
+          {/* MOBILE BOTTOM NAVIGATION HEADER (Home, Batches, Test Library, Analytics) - Only show when app is fully loaded */}
+          {isAppLoaded && ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && (
             <nav
               id="mobile-bottom-nav"
               aria-label="Mobile Bottom Navigation"

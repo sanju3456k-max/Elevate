@@ -120,7 +120,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState<boolean>(false);
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState<boolean>(false);
-  const [unreadCount, setUnreadCount] = useState<number>(3);
+  const [unreadCount, setUnreadCount] = useState<number>(2);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
 
@@ -284,73 +284,61 @@ export const Navbar: React.FC<NavbarProps> = ({
                     setIsNotificationOpen(!isNotificationOpen);
                     setUnreadCount(0);
                   }}
-                  title="Theta Reminders & Curriculum Notifications"
+                  title="Notifications & Updates"
                   className="relative w-9 h-9 rounded-full bg-transparent hover:bg-black/8 dark:hover:bg-white/10 text-[#444746] dark:text-[#c4c7c5] hover:text-[#0b57d0] dark:hover:text-[#a8c7fa] border-0 shadow-none flex items-center justify-center cursor-pointer transition-all active:scale-95 outline-none shrink-0"
                 >
                   <Bell className="w-[18px] h-[18px]" />
                   {unreadCount > 0 && (
-                    <>
-                      {/* Animated Notification Ring */}
-                      <span className="absolute -inset-0.5 rounded-full border-2 border-blue-500/60 animate-ping pointer-events-none" />
-                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 text-white font-mono text-[9px] font-bold flex items-center justify-center shadow-xs">
-                        {unreadCount}
-                      </span>
-                    </>
+                    <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 text-white font-mono text-[9px] font-bold flex items-center justify-center shadow-xs">
+                      {unreadCount}
+                    </span>
                   )}
                 </button>
 
-                {/* Notifications & Reminders Dropdown / Popover */}
+                {/* Minimal & Clean Notifications Dropdown */}
                 {isNotificationOpen && (
                   <div
                     id="notifications-popover"
-                    className="absolute right-0 top-11 w-80 sm:w-96 rounded-3xl bg-[var(--md-sys-color-surface-container)] dark:bg-[#1e2024] p-4 shadow-2xl border border-[var(--md-sys-color-outline-variant)]/30 z-50 space-y-3 animate-in fade-in zoom-in-95 duration-150"
+                    className="absolute right-0 top-11 w-72 sm:w-80 rounded-2xl bg-[var(--md-sys-color-surface-container)] dark:bg-[#1e2024] p-3 shadow-xl border border-[var(--md-sys-color-outline-variant)]/30 z-50 space-y-2 animate-in fade-in zoom-in-95 duration-150"
                   >
-                    <div className="flex items-center justify-between pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-7 h-7 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                          <Bell className="w-3.5 h-3.5" />
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">Reminders & Notifications</h4>
-                          <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">Academic alerts & Theta AI study goals</p>
-                        </div>
+                    <div className="flex items-center justify-between pb-1.5 border-b border-[var(--md-sys-color-outline-variant)]/20 px-1">
+                      <div className="flex items-center space-x-1.5">
+                        <Bell className="w-3.5 h-3.5 text-[var(--md-sys-color-primary)]" />
+                        <h4 className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">Notifications</h4>
                       </div>
                       <button
                         type="button"
                         onClick={() => setIsNotificationOpen(false)}
-                        className="text-[11px] font-bold text-[var(--md-sys-color-primary)] hover:underline border-none bg-transparent cursor-pointer"
+                        className="text-[11px] font-semibold text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)] border-none bg-transparent cursor-pointer"
                       >
                         Close
                       </button>
                     </div>
 
-                    {/* Notifications List */}
-                    <div className="space-y-2.5 max-h-[60vh] overflow-y-auto scrollbar-thin pr-0.5">
+                    {/* Clean Notifications List */}
+                    <div className="space-y-1.5 max-h-[50vh] overflow-y-auto pr-0.5">
                       {/* 1. New Lecture Alert */}
                       <div
                         onClick={() => {
                           setIsNotificationOpen(false);
                           handleNavClick('batches');
                         }}
-                        className="p-3 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition cursor-pointer space-y-1.5"
+                        className="p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition cursor-pointer space-y-1"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-[9.5px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider flex items-center gap-1">
+                          <span className="text-[9px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
                             New Video Lecture
                           </span>
-                          <span className="text-[9.5px] text-[var(--md-sys-color-outline)] font-mono">Today</span>
+                          <span className="text-[9px] text-[var(--md-sys-color-outline)] font-mono">Today</span>
                         </div>
-                        <h5 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] line-clamp-1 leading-snug">
+                        <h5 className="text-[11.5px] font-bold text-[var(--md-sys-color-on-surface)] line-clamp-1 leading-snug">
                           Lecture 02: Core Formulas & Derivation Workshop
                         </h5>
-                        <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] line-clamp-1">
-                          Added to curriculum with timestamped notes & milestone navigation.
-                        </p>
-                        <div className="pt-1 flex justify-end">
-                          <span className="text-[10.5px] font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                        <div className="flex justify-end pt-0.5">
+                          <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 flex items-center gap-0.5">
                             <span>Watch</span>
-                            <ArrowRight className="w-3 h-3" />
+                            <ArrowRight className="w-2.5 h-2.5" />
                           </span>
                         </div>
                       </div>
@@ -361,101 +349,25 @@ export const Navbar: React.FC<NavbarProps> = ({
                           setIsNotificationOpen(false);
                           handleNavClick('tests');
                         }}
-                        className="p-3 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition cursor-pointer space-y-1.5"
+                        className="p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition cursor-pointer space-y-1"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-[9.5px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                          <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                             Live CBT Mock Test
                           </span>
-                          <span className="text-[9.5px] text-[var(--md-sys-color-outline)] font-mono">Active</span>
+                          <span className="text-[9px] text-[var(--md-sys-color-outline)] font-mono">Active</span>
                         </div>
-                        <h5 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] line-clamp-1 leading-snug">
+                        <h5 className="text-[11.5px] font-bold text-[var(--md-sys-color-on-surface)] line-clamp-1 leading-snug">
                           Full Mock Assessment (Mathematics)
                         </h5>
-                        <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] line-clamp-1">
-                          50 Questions • 45 Mins • Instant scoring & accuracy analysis.
-                        </p>
-                        <div className="pt-1 flex justify-end">
-                          <span className="text-[10.5px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                            <span>Attempt Test</span>
-                            <ArrowRight className="w-3 h-3" />
+                        <div className="flex justify-end pt-0.5">
+                          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                            <span>Start Test</span>
+                            <ArrowRight className="w-2.5 h-2.5" />
                           </span>
                         </div>
                       </div>
-
-                      {/* 3. Daily Study Streak */}
-                      <div
-                        onClick={() => {
-                          setIsNotificationOpen(false);
-                          handleNavClick('analytics');
-                        }}
-                        className="p-3 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition cursor-pointer space-y-1.5"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9.5px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                            Study Streak Reminder
-                          </span>
-                          <span className="text-[9.5px] text-[var(--md-sys-color-outline)] font-mono">Streak</span>
-                        </div>
-                        <h5 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] line-clamp-1 leading-snug">
-                          Maintain 7-Day Active Practice Streak
-                        </h5>
-                        <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] line-clamp-1">
-                          Complete today's video or mock drill to keep your streak intact.
-                        </p>
-                        <div className="pt-1 flex justify-end">
-                          <span className="text-[10.5px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                            <span>View Analytics</span>
-                            <ArrowRight className="w-3 h-3" />
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 4. Theta AI Study Assistant Suggestion */}
-                      <div
-                        onClick={() => {
-                          setIsNotificationOpen(false);
-                          handleNavClick('chatbot');
-                        }}
-                        className="p-3 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition cursor-pointer space-y-1.5"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9.5px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                            Theta AI Assistant
-                          </span>
-                          <span className="text-[9.5px] text-[var(--md-sys-color-outline)] font-mono">AI</span>
-                        </div>
-                        <h5 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] line-clamp-1 leading-snug">
-                          Ask Theta AI for Doubts & Customized Drills
-                        </h5>
-                        <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] line-clamp-1">
-                          Get instant step-by-step mathematical explanations & formula guides.
-                        </p>
-                        <div className="pt-1 flex justify-end">
-                          <span className="text-[10.5px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                            <span>Ask Theta AI</span>
-                            <ArrowRight className="w-3 h-3" />
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Footer: Ask Theta AI for Study Schedule */}
-                    <div className="pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsNotificationOpen(false);
-                          handleNavClick('chatbot');
-                        }}
-                        className="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm border-none cursor-pointer active:scale-95 transition"
-                      >
-                        <Bot className="w-3.5 h-3.5" />
-                        <span>Chat with Theta AI for Study Plan</span>
-                      </button>
                     </div>
                   </div>
                 )}

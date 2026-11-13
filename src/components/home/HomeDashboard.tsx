@@ -336,47 +336,44 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               className="group cursor-pointer rounded-2xl sm:rounded-3xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-row p-0 justify-between items-stretch"
             >
               {/* Test Header Badge Area (Edge-to-edge flush on left corner) */}
-              <div className="relative w-36 sm:w-48 aspect-video shrink-0 self-stretch overflow-hidden bg-gradient-to-br from-emerald-500/20 via-[var(--md-sys-color-surface-container-highest)] to-teal-500/15 flex flex-col justify-between p-2.5 sm:p-3">
+              <div className="relative w-36 sm:w-48 aspect-video shrink-0 self-stretch overflow-hidden bg-gradient-to-br from-emerald-600/20 via-teal-600/10 to-emerald-500/5 flex flex-col justify-between p-2.5 sm:p-3">
                 <div className="flex items-center justify-between">
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-white font-bold text-[9px] sm:text-[10px] uppercase tracking-wider shadow-xs">
-                    Latest Mock Test
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white font-bold text-[9px] sm:text-[10px] uppercase tracking-wider shadow-xs">
+                    Latest Test
                   </span>
-                  <span className="px-1.5 py-0.5 rounded-md bg-white/80 dark:bg-black/60 font-mono text-[9px] sm:text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300">
+                  <span className="px-1.5 py-0.5 rounded-md bg-black/60 font-mono text-[9px] sm:text-[10px] font-bold text-emerald-300">
                     CBT
                   </span>
                 </div>
                 
-                <div className="space-y-0.5 sm:space-y-1">
-                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 block">
-                    {latestTest?.topic || 'Mathematics'}
+                <div className="flex items-center justify-center my-auto py-1">
+                  <Award className="w-8 h-8 text-emerald-600/60 dark:text-emerald-400/60 group-hover:scale-110 transition-transform duration-300" />
+                </div>
+
+                <div className="flex items-center justify-end">
+                  <span className="px-1.5 py-0.5 rounded-md bg-black/80 font-mono text-[9px] sm:text-[10.5px] text-white">
+                    {latestTestTimeDisplay}
                   </span>
-                  <h4 className="text-xs sm:text-sm font-extrabold text-[var(--md-sys-color-on-surface)] line-clamp-1 leading-tight">
-                    {latestTest ? latestTest.title : 'Full Mock Assessment'}
-                  </h4>
                 </div>
               </div>
 
               {/* Content & Footer */}
               <div className="flex-1 min-w-0 flex flex-col justify-between p-3 sm:p-4 space-y-1.5 sm:space-y-2">
                 <div className="space-y-1">
+                  <span className="text-[9.5px] sm:text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+                    {latestTest?.topic || 'Mock Assessment'}
+                  </span>
+                  <h3 className="text-xs sm:text-sm md:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition leading-snug line-clamp-1 sm:line-clamp-2">
+                    {latestTest ? latestTest.title : 'Full Mock Assessment'}
+                  </h3>
                   <p className="hidden sm:block text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-1 leading-relaxed">
                     Timed computer-based test with immediate evaluation and accuracy tracking.
                   </p>
-                  <div className="flex items-center gap-2.5 text-[10px] sm:text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-medium pt-0.5">
-                    <span className="inline-flex items-center gap-1 text-[#444746] dark:text-[#c4c7c5]">
-                      <Package className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6]" strokeWidth={2.2} />
-                      <span>{latestTestQuestionCount} Qs</span>
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-[#444746] dark:text-[#c4c7c5]">
-                      <Clock className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-[#6750a4] dark:text-[#d0bcff]" strokeWidth={2.2} />
-                      <span>{latestTestTimeDisplay}</span>
-                    </span>
-                  </div>
                 </div>
 
                 <div className="flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)]/20 pt-1.5 sm:pt-2">
-                  <span className="text-[10px] sm:text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
-                    Instant Scoring
+                  <span className="text-[10px] sm:text-[11px] text-[var(--md-sys-color-on-surface-variant)] font-medium truncate max-w-[120px] sm:max-w-none">
+                    {latestTestQuestionCount} Questions
                   </span>
                   <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform shrink-0">
                     <span>Start Test</span>
@@ -632,12 +629,9 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                   <BarChart3 className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
                 </div>
                 <h2 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)]">
-                  Student Activity & Daily Day-Wise Performance
+                  Activity & Performance
                 </h2>
               </div>
-              <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] mt-1">
-                Day-by-day learning tasks, video lecture milestones, and mock test scores
-              </p>
             </div>
 
             <div className="flex items-center gap-3">
