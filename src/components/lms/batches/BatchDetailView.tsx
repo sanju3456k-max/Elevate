@@ -15,6 +15,7 @@ import {
   ArrowRight,
   Eye,
   Users,
+  BookOpen,
 } from 'lucide-react';
 import { useApp } from '../../../lms/LmsContext';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
@@ -338,11 +339,9 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   </div>
 
                   <div className="flex items-center space-x-2 sm:space-x-3 pt-1 sm:pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
-                    <img
-                      src={b.instructor.avatarUrl}
-                      alt={b.instructor.name}
-                      className="w-7 h-7 sm:w-9 sm:h-9 rounded-full object-cover border-none"
-                    />
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-primary)] flex items-center justify-center shrink-0 shadow-2xs">
+                      <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </div>
                     <div className="text-[11px] sm:text-xs min-w-0">
                       <p className="font-bold text-[var(--md-sys-color-on-surface)] truncate">{b.instructor.name}</p>
                       <p className="text-[9px] sm:text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate">
@@ -436,11 +435,9 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           </div>
 
           <div className="flex items-center space-x-3 sm:self-center">
-            <img
-              src={currentBatch.instructor.avatarUrl}
-              alt={currentBatch.instructor.name}
-              className="w-10 h-10 rounded-full object-cover"
-            />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-primary)] flex items-center justify-center shrink-0 shadow-2xs">
+              <BookOpen className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+            </div>
             <div className="text-xs">
               <p className="font-bold text-[var(--md-sys-color-on-surface)]">{currentBatch.instructor.name}</p>
               <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">Instructor</p>

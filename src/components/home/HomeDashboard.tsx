@@ -695,13 +695,11 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
           </h3>
         </div>
 
-        {/* Instructor info */}
+        {/* Instructor info with journal icon */}
         <div className="flex items-center space-x-2 sm:space-x-3 pt-1 sm:pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
-          <img
-            src={batch.instructor?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'}
-            alt={batch.instructor?.name || 'Faculty'}
-            className="w-7 h-7 sm:w-9 sm:h-9 rounded-full object-cover border-none"
-          />
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-primary)] flex items-center justify-center shrink-0 shadow-2xs">
+            <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          </div>
           <div className="text-[11px] sm:text-xs min-w-0">
             <p className="font-bold text-[var(--md-sys-color-on-surface)] truncate">{batch.instructor?.name || 'Elevate Faculty'}</p>
             <p className="text-[9px] sm:text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate">
