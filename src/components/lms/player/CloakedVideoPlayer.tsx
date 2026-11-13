@@ -113,49 +113,46 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   optionsMenuOpenRef.current = optionsMenuOpen;
   selectedQualityRef.current = currentQuality;
 
+  const isControlsVisibleRef = useRef(isControlsVisible);
+  isControlsVisibleRef.current = isControlsVisible;
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
+  const lastControlsRevealedAt = useRef(0);
+
   // Helper: Show streamline and tools controls for a set duration (5s by default)
   const showControlsForDuration = useCallback((duration = 5000) => {
     setIsControlsVisible(true);
+    lastControlsRevealedAt.current = Date.now();
     if (controlsTimeoutRef.current) {
       clearTimeout(controlsTimeoutRef.current);
       controlsTimeoutRef.current = null;
     }
-    if (isPlaying) {
+    if (isPlayingRef.current && duration > 0) {
       controlsTimeoutRef.current = setTimeout(() => {
         if (!isHoveringControlsRef.current && !optionsMenuOpenRef.current) {
           setIsControlsVisible(false);
         }
       }, duration);
     }
-  }, [isPlaying]);
+  }, []);
+
+  // Helper: Hide controls immediately
+  const hideControls = useCallback(() => {
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+      controlsTimeoutRef.current = null;
+    }
+    setIsControlsVisible(false);
+  }, []);
 
   // Helper: Toggle controls visibility on tap (tap to reveal for 5s, re-tap to immediately hide)
   const toggleControls = useCallback(() => {
-    setIsControlsVisible((prev) => {
-      if (prev) {
-        // Re-tap: immediately hide controls and clear any active timer
-        if (controlsTimeoutRef.current) {
-          clearTimeout(controlsTimeoutRef.current);
-          controlsTimeoutRef.current = null;
-        }
-        return false;
-      } else {
-        // Tap to reveal: show controls for 5 seconds
-        if (controlsTimeoutRef.current) {
-          clearTimeout(controlsTimeoutRef.current);
-          controlsTimeoutRef.current = null;
-        }
-        if (isPlaying) {
-          controlsTimeoutRef.current = setTimeout(() => {
-            if (!isHoveringControlsRef.current && !optionsMenuOpenRef.current) {
-              setIsControlsVisible(false);
-            }
-          }, 5000);
-        }
-        return true;
-      }
-    });
-  }, [isPlaying]);
+    if (isControlsVisibleRef.current) {
+      hideControls();
+    } else {
+      showControlsForDuration(5000);
+    }
+  }, [hideControls, showControlsForDuration]);
 
   // Helper: Scientific 5-second decay for in-video note tabs and status notices
   const securityNoticeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -411,7 +408,13 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       }
       tapTimeoutRef.current = setTimeout(() => {
         // Single tap: toggle controls visibility (tap to reveal for 5s, re-tap to immediately hide)
-        toggleControls();
+        if (isControlsVisibleRef.current) {
+          if (Date.now() - lastControlsRevealedAt.current > 400) {
+            hideControls();
+          }
+        } else {
+          showControlsForDuration(5000);
+        }
         lastTapRef.current = { time: 0, side };
       }, DOUBLE_TAP_DELAY);
     }
@@ -703,11 +706,6 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     <div
       ref={containerRef}
       onMouseMove={handleMouseMove}
-      onMouseLeave={() => {
-        if (isPlaying && !speedMenuOpen && !qualityMenuOpen && !isHoveringControls) {
-          setIsControlsVisible(false);
-        }
-      }}
       style={{
         transform: 'translateZ(0)',
         WebkitFontSmoothing: 'antialiased',
@@ -773,7 +771,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       )}
 
       {/* 2. Interaction Layer with Left/Right Double-Tap Seek (YouTube-style 10s Rewind/Skip) */}
-      <div className="absolute top-0 inset-x-0 bottom-24 z-10 flex">
+      <div className="absolute inset-0 z-10 flex">
         {/* Left half: double-tap rewind 10s */}
         <div
           onClick={() => handleTap('left')}
@@ -815,36 +813,27 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 4. Center Play/Pause Large Pulse Button (Shows on tap when controls are visible, or when paused) */}
+      {/* 4. Center Play/Pause Floating Control (Non-blocking: pointer-events-none on backdrop so screen taps always hit interaction layer cleanly) */}
       {(isControlsVisible || !isPlaying) && isPlayerReady && authStatus === 'authorized' && (
-        <div
-          onClick={(e) => {
-            // Re-tap on running video screen: immediately re-hides controls
-            if (isPlaying) {
-              if (controlsTimeoutRef.current) {
-                clearTimeout(controlsTimeoutRef.current);
-                controlsTimeoutRef.current = null;
-              }
-              setIsControlsVisible(false);
-            }
-          }}
-          className={`absolute inset-0 z-20 flex items-center justify-center transition-all ${
-            !isPlaying ? 'bg-black/45 backdrop-blur-xs cursor-pointer' : 'bg-black/25 cursor-pointer'
-          }`}
-        >
+        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none transition-all">
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               togglePlay();
+              if (isPlayingRef.current) {
+                showControlsForDuration(0);
+              } else {
+                showControlsForDuration(5000);
+              }
             }}
-            className="w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition transform border-none cursor-pointer"
+            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-black/55 hover:bg-black/75 backdrop-blur-md text-white border border-white/20 flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition transform border-none cursor-pointer pointer-events-auto"
             title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
           >
             {isPlaying ? (
-              <Pause className="w-8 h-8 fill-current" />
+              <Pause className="w-7 h-7 fill-current" />
             ) : (
-              <Play className="w-8 h-8 fill-current ml-0.5" />
+              <Play className="w-7 h-7 fill-current ml-0.5" />
             )}
           </button>
         </div>
@@ -883,7 +872,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             }
           }, 5000);
         }}
-        className={`absolute bottom-0 inset-x-0 z-30 px-5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-t from-black/95 via-black/80 to-transparent transition-opacity duration-300 flex flex-col space-y-1.5 ${
+        className={`absolute bottom-0 inset-x-0 z-30 px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-t from-black/95 via-black/80 to-transparent transition-opacity duration-300 flex flex-col space-y-1.5 ${
           isControlsVisible || isHoveringControls || optionsMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
@@ -891,7 +880,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         {milestones && milestones.length > 0 && (
           <div
             onClick={(e) => e.stopPropagation()}
-            className="flex items-center space-x-1.5 overflow-x-auto pb-1 scrollbar-none"
+            className={`${isFullscreen ? 'flex' : 'hidden sm:flex'} items-center space-x-1.5 overflow-x-auto pb-1 scrollbar-none`}
           >
             {milestones.map((m) => {
               const isPassed = currentTime >= m.seconds;
@@ -949,7 +938,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                   key={m.id}
                   style={{ left: `${leftPercent}%` }}
                   title={`${m.title} (${formatDuration(m.seconds)})`}
-                  className="absolute top-1/2 -translate-y-1/2 w-1.5 h-3 bg-amber-400/80 rounded-full pointer-events-none z-20 shadow-xs"
+                  className="absolute top-1/2 -translate-y-1/2 w-1 h-2 bg-amber-300/90 rounded-full pointer-events-none z-20 shadow-xs"
                 />
               );
             })}
@@ -962,7 +951,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           className="flex items-center justify-between text-white pt-0.5"
         >
           {/* Left Controls: Play, Skip (Desktop), Volume & Slider, Time */}
-          <div className="flex items-center space-x-1 sm:space-x-2 pl-1 sm:pl-0">
+          <div className="flex items-center space-x-1 sm:space-x-2 pl-2 sm:pl-0">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -1059,7 +1048,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           <div
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
-            className="flex items-center space-x-1.5 sm:space-x-2 pr-1 sm:pr-0"
+            className="flex items-center space-x-1.5 sm:space-x-2 pr-2 sm:pr-0"
           >
             {/* Unified Option / Settings Button */}
             <div className="relative" onClick={(e) => e.stopPropagation()}>
