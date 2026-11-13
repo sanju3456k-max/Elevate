@@ -75,8 +75,25 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   // Filter state for the 4 core buttons: 'all-batches' | 'my-batches' | 'test-library' | 'activity'
   const [activeView, setActiveView] = useState<'all-batches' | 'my-batches' | 'test-library' | 'activity'>('all-batches');
 
-  // Special Top Panel Filter: 'both' | 'lecture' | 'test'
-  const [specialPanelTab, setSpecialPanelTab] = useState<'both' | 'lecture' | 'test'>('both');
+  // Check if test was created within the last 2 days (48 hours) and has not been attempted yet
+  const isTestNew = (test: MathTest | null): boolean => {
+    if (!test) return false;
+    if ((test as any).isNew) return true;
+    const rawDate = test.createdAt || (test as any).timestamp;
+    if (!rawDate) return false;
+    const createdTime = new Date(rawDate).getTime();
+    if (isNaN(createdTime) || createdTime <= 0) return false;
+    const now = Date.now();
+    const diffMs = now - createdTime;
+    const TWO_DAYS = 2 * 24 * 60 * 60 * 1000;
+    if (diffMs < 0 || diffMs > TWO_DAYS) return false;
+
+    const hasAttempted = attempts.some((att) => att.testId === test.id);
+    if (hasAttempted) return false;
+    if (((test as any).attemptCount || 0) > 0) return false;
+
+    return true;
+  };
 
   const enrolledBatches = useMemo(
     () => batches.filter((b) => isEnrolled(b.id)),
@@ -205,283 +222,129 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     <div className="space-y-6 sm:space-y-8 pb-24 md:pb-16 max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-2 sm:py-3">
       {/* 1. TOP PANEL FOR LATEST CURRICULUM UPDATES */}
       <div className="space-y-3.5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div className="flex items-center space-x-2">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-            </span>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] tracking-tight">
-                Latest Curriculum Updates
-              </h2>
-              <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] hidden sm:block">
-                Featured interactive video lectures & live CBT mock assessments
-              </p>
-            </div>
-          </div>
-
-          {/* Interactive Switcher Pills: All Updates | Latest Lecture | Latest Mock Test */}
-          <div className="flex items-center space-x-1.5 self-start sm:self-auto bg-[var(--md-sys-color-surface-container-high)] p-1 rounded-full text-xs font-bold">
-            <button
-              id="top-panel-all-btn"
-              type="button"
-              onClick={() => setSpecialPanelTab('both')}
-              className={`px-3 py-1.5 rounded-full transition border-none cursor-pointer text-[11px] ${
-                specialPanelTab === 'both'
-                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
-                  : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
-              }`}
-            >
-              All Updates
-            </button>
-            <button
-              id="top-panel-lecture-btn"
-              type="button"
-              onClick={() => setSpecialPanelTab('lecture')}
-              className={`px-3 py-1.5 rounded-full transition border-none cursor-pointer text-[11px] flex items-center gap-1 ${
-                specialPanelTab === 'lecture'
-                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
-                  : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
-              }`}
-            >
-              <Play className="w-3 h-3 fill-current" />
-              <span>Latest Lecture</span>
-            </button>
-            <button
-              id="top-panel-test-btn"
-              type="button"
-              onClick={() => setSpecialPanelTab('test')}
-              className={`px-3 py-1.5 rounded-full transition border-none cursor-pointer text-[11px] flex items-center gap-1 ${
-                specialPanelTab === 'test'
-                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
-                  : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
-              }`}
-            >
-              <CheckCircle2 className="w-3 h-3" />
-              <span>Latest Mock Test</span>
-            </button>
+        <div className="flex items-center space-x-2">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          </span>
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] tracking-tight">
+              Latest Curriculum Updates
+            </h2>
+            <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] hidden sm:block">
+              Featured video lecture & live CBT mock assessment
+            </p>
           </div>
         </div>
 
-        {/* Panel Content based on selected tab */}
-        {specialPanelTab === 'both' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Card 1: Latest Featured Lecture */}
-            <div
-              onClick={() => {
-                if (latestLecture) {
-                  handleSelectLectureItem(latestLecture.batchId, latestLecture.id);
-                } else {
-                  onOpenBatches && onOpenBatches();
-                }
-              }}
-              className="group cursor-pointer rounded-2xl sm:rounded-3xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-row p-0 justify-between items-stretch"
-            >
-              {/* Video Thumbnail (Edge-to-edge flush on left corner) */}
-              <div className="relative w-36 sm:w-48 aspect-video shrink-0 self-stretch overflow-hidden bg-slate-900/10 dark:bg-black/30">
-                <img
-                  src={latestLecture?.thumbnailUrl || 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=800&auto=format&fit=crop&q=80'}
-                  alt={latestLecture?.title || 'Video Class'}
-                  className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                />
-                <span className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 px-2 py-0.5 rounded-full bg-purple-600/90 text-white font-bold text-[9px] sm:text-[10px] uppercase tracking-wider backdrop-blur-xs">
-                  Latest Lecture
-                </span>
-                <span className="absolute bottom-1.5 right-1.5 sm:bottom-2 sm:right-2 px-1.5 py-0.5 rounded-md bg-black/80 font-mono text-[9px] sm:text-[10.5px] text-white">
-                  {latestLecture ? `${latestLecture.durationMinutes}:00` : '45:00'}
-                </span>
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300 bg-black/30">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[var(--md-sys-color-primary)] text-white flex items-center justify-center shadow-lg">
-                    <Play className="w-3.5 h-3.5 md:w-4 md:h-4 fill-current ml-0.5" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Content & Footer */}
-              <div className="flex-1 min-w-0 flex flex-col justify-between p-3 sm:p-4 space-y-1.5 sm:space-y-2">
-                <div className="space-y-1">
-                  <span className="text-[9.5px] sm:text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider block">
-                    Interactive Video
-                  </span>
-                  <h3 className="text-xs sm:text-sm md:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-purple-600 dark:group-hover:text-purple-400 transition leading-snug line-clamp-1 sm:line-clamp-2">
-                    {latestLecture ? latestLecture.title : 'New interactive video lectures added'}
-                  </h3>
-                  <p className="hidden sm:block text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-1 leading-relaxed">
-                    {latestLecture?.description || 'Stream high-clarity video classes with milestone navigation.'}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)]/20 pt-1.5 sm:pt-2">
-                  <span className="text-[10px] sm:text-[11px] text-[var(--md-sys-color-on-surface-variant)] font-medium truncate max-w-[120px] sm:max-w-none">
-                    {latestLecture?.pdfNotes?.length || 0} Notes attached
-                  </span>
-                  <span className="text-xs font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform shrink-0">
-                    <span>Watch</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Card 2: Latest Featured Mock Test */}
-            <div
-              onClick={() => {
-                if (latestTest) {
-                  onStartTest(latestTest);
-                } else {
-                  onOpenAllTests();
-                }
-              }}
-              className="group cursor-pointer rounded-2xl sm:rounded-3xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-row p-0 justify-between items-stretch"
-            >
-              {/* Test Header Badge Area (Edge-to-edge flush on left corner) */}
-              <div className="relative w-36 sm:w-48 aspect-video shrink-0 self-stretch overflow-hidden bg-gradient-to-br from-emerald-600/20 via-teal-600/10 to-emerald-500/5 flex flex-col justify-between p-2.5 sm:p-3">
-                <div className="flex items-center justify-between">
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white font-bold text-[9px] sm:text-[10px] uppercase tracking-wider shadow-xs">
-                    Latest Test
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded-md bg-black/60 font-mono text-[9px] sm:text-[10px] font-bold text-emerald-300">
-                    CBT
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-center my-auto py-1">
-                  <Award className="w-8 h-8 text-emerald-600/60 dark:text-emerald-400/60 group-hover:scale-110 transition-transform duration-300" />
-                </div>
-
-                <div className="flex items-center justify-end">
-                  <span className="px-1.5 py-0.5 rounded-md bg-black/80 font-mono text-[9px] sm:text-[10.5px] text-white">
-                    {latestTestTimeDisplay}
-                  </span>
-                </div>
-              </div>
-
-              {/* Content & Footer */}
-              <div className="flex-1 min-w-0 flex flex-col justify-between p-3 sm:p-4 space-y-1.5 sm:space-y-2">
-                <div className="space-y-1">
-                  <span className="text-[9.5px] sm:text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
-                    {latestTest?.topic || 'Mock Assessment'}
-                  </span>
-                  <h3 className="text-xs sm:text-sm md:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition leading-snug line-clamp-1 sm:line-clamp-2">
-                    {latestTest ? latestTest.title : 'Full Mock Assessment'}
-                  </h3>
-                  <p className="hidden sm:block text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-1 leading-relaxed">
-                    Timed computer-based test with immediate evaluation and accuracy tracking.
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between border-t border-[var(--md-sys-color-outline-variant)]/20 pt-1.5 sm:pt-2">
-                  <span className="text-[10px] sm:text-[11px] text-[var(--md-sys-color-on-surface-variant)] font-medium truncate max-w-[120px] sm:max-w-none">
-                    {latestTestQuestionCount} Questions
-                  </span>
-                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform shrink-0">
-                    <span>Start Test</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {specialPanelTab === 'lecture' && latestLecture && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Card 1: Clean Video Card */}
           <div
-            onClick={() => handleSelectLectureItem(latestLecture.batchId, latestLecture.id)}
-            className="group cursor-pointer rounded-2xl sm:rounded-3xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-col md:flex-row p-0 items-stretch"
+            onClick={() => {
+              if (latestLecture) {
+                handleSelectLectureItem(latestLecture.batchId, latestLecture.id);
+              } else {
+                onOpenBatches && onOpenBatches();
+              }
+            }}
+            className="p-3.5 sm:p-4 rounded-[24px] bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 cursor-pointer group flex flex-row items-center gap-3 sm:gap-4 overflow-hidden relative"
           >
-            <div className="relative w-full md:w-80 aspect-video shrink-0 self-stretch overflow-hidden bg-slate-900/10 dark:bg-black/30">
+            <md-ripple />
+            {/* Video Thumbnail */}
+            <div className="relative w-32 sm:w-44 aspect-video shrink-0 rounded-2xl overflow-hidden bg-slate-900/10 dark:bg-black/30">
               <img
-                src={latestLecture.thumbnailUrl}
-                alt={latestLecture.title}
+                src={latestLecture?.thumbnailUrl || 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=800&auto=format&fit=crop&q=80'}
+                alt={latestLecture?.title || 'Video Class'}
                 className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
               />
-              <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-purple-600 text-white font-bold text-[10px] uppercase tracking-wider">
-                Featured Class
+              <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full bg-pink-100 text-pink-700 dark:bg-purple-900/60 dark:text-purple-300 font-bold text-[8.5px] sm:text-[9.5px] uppercase tracking-wider">
+                Latest Class
               </span>
-              <span className="absolute bottom-2.5 right-2.5 px-2.5 py-0.5 rounded-md bg-black/80 font-mono text-xs text-white">
-                {latestLecture.durationMinutes}:00
+              <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-md bg-black/80 font-mono text-[9px] sm:text-[10px] text-white">
+                {latestLecture ? `${latestLecture.durationMinutes}:00` : '18:00'}
               </span>
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/30">
-                <div className="w-12 h-12 rounded-full bg-[var(--md-sys-color-primary)] text-white flex items-center justify-center shadow-lg">
-                  <Play className="w-5 h-5 fill-current ml-0.5" />
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300 bg-black/30">
+                <div className="w-8 h-8 rounded-full bg-[#0b57d0] text-white flex items-center justify-center shadow-md">
+                  <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
                 </div>
               </div>
             </div>
-            <div className="flex-1 min-w-0 p-4 sm:p-5 space-y-2.5 flex flex-col justify-between">
-              <div className="space-y-1.5">
-                <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider block">
-                  Latest Curriculum Lecture
-                </span>
-                <h3 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-purple-600 dark:group-hover:text-purple-400 transition leading-snug">
-                  {latestLecture.title}
-                </h3>
-                <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
-                  {latestLecture.description}
-                </p>
-              </div>
-              <div className="flex items-center justify-between pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
-                <span className="text-xs text-[var(--md-sys-color-on-surface-variant)] font-medium">
-                  {latestLecture.pdfNotes?.length || 0} Study Notes attached • {currentBatch?.instructor?.name || 'Master Educator'}
-                </span>
-                <button className="m3-btn-filled px-4 py-2 text-xs font-bold flex items-center space-x-1.5 border-none outline-none cursor-pointer">
-                  <span>Watch Lecture</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {specialPanelTab === 'test' && latestTest && (
-          <div
-            onClick={() => onStartTest(latestTest)}
-            className="group cursor-pointer rounded-2xl sm:rounded-3xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition-all duration-200 border-none shadow-xs hover:shadow-md overflow-hidden flex flex-col md:flex-row p-0 items-stretch"
-          >
-            <div className="relative w-full md:w-80 aspect-video shrink-0 self-stretch overflow-hidden bg-gradient-to-br from-emerald-500/25 via-[var(--md-sys-color-surface-container-highest)] to-teal-500/20 flex flex-col justify-between p-4">
-              <div className="flex items-center justify-between">
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500 text-white font-bold text-[10px] uppercase tracking-wider shadow-xs">
-                  Featured Mock Test
+            {/* Content & Details */}
+            <div className="flex-1 min-w-0 flex flex-col justify-between self-stretch py-0.5 space-y-1">
+              <div className="space-y-0.5">
+                <span className="text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider block truncate text-[#0b57d0] dark:text-[#a8c7fa]">
+                  Video Lecture
                 </span>
-                <span className="px-2 py-0.5 rounded-md bg-white/80 dark:bg-black/60 font-mono text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300">
-                  Live CBT
-                </span>
+                <h3 className="text-sm sm:text-[15px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors leading-snug line-clamp-2">
+                  {latestLecture ? latestLecture.title : 'New interactive video lectures added'}
+                </h3>
               </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 block">
-                  {latestTest.topic || 'Mathematics'}
+
+              <div className="flex items-center justify-between pt-1 border-t border-[var(--md-sys-color-outline-variant)]/20">
+                <span className="text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-medium truncate">
+                  {latestLecture?.pdfNotes?.length || 0} Notes attached
                 </span>
-                <h4 className="text-base sm:text-lg font-extrabold text-[var(--md-sys-color-on-surface)] leading-tight">
-                  {latestTest.title}
-                </h4>
-              </div>
-            </div>
-            <div className="flex-1 min-w-0 p-4 sm:p-5 space-y-2.5 flex flex-col justify-between">
-              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
-                Timed Assessment
-              </span>
-              <h3 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition leading-snug">
-                {latestTest.title}
-              </h3>
-              <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
-                {latestTest.description || 'Full syllabus practice test designed according to latest exam pattern with instant scoring and solutions.'}
-              </p>
-              <div className="flex items-center justify-between pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
-                <div className="flex items-center space-x-3 text-xs text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">
-                  <span>{latestTestQuestionCount} Questions</span>
-                  <span>•</span>
-                  <span>{latestTestTimeDisplay}</span>
-                  <span>•</span>
-                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">Instant Evaluation</span>
-                </div>
-                <button className="m3-btn-filled px-4 py-2 text-xs font-bold flex items-center space-x-1.5 border-none outline-none cursor-pointer">
-                  <span>Start Mock Test</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
+                <span className="text-xs font-bold text-[#0b57d0] dark:text-[#a8c7fa] flex items-center gap-1 group-hover:translate-x-0.5 transition-transform shrink-0">
+                  <span>Watch</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </span>
               </div>
             </div>
           </div>
-        )}
+
+          {/* Card 2: Clean Test Card (Matches TestCard from Test Library) */}
+          <div
+            onClick={() => {
+              if (latestTest) {
+                onStartTest(latestTest);
+              } else {
+                onOpenAllTests();
+              }
+            }}
+            className="p-3.5 sm:p-4 rounded-[24px] bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 relative overflow-hidden cursor-pointer group flex flex-col justify-between gap-2.5"
+          >
+            <md-ripple />
+            {/* Row 1: Topic tag above title & Title */}
+            <div className="w-full pointer-events-none space-y-0.5">
+              {latestTest?.topic && (
+                <span className="text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider block truncate text-[#0b57d0] dark:text-[#a8c7fa]">
+                  {latestTest.topic}
+                </span>
+              )}
+              <h3 className="text-[16px] sm:text-[17px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors leading-snug break-words">
+                {latestTest ? latestTest.title : 'Full Mock Assessment'}
+              </h3>
+            </div>
+
+            {/* Row 2: Question count & time (Left), Minimal 'New' badge & Chevron (Bottom Right) */}
+            <div className="flex items-center justify-between w-full pt-1 border-t border-[var(--md-sys-color-outline-variant)]/20 pointer-events-none">
+              <div className="flex items-center gap-2 text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-medium leading-none">
+                <span className="inline-flex items-center gap-1 text-[11px] text-[#444746] dark:text-[#c4c7c5] px-1 py-0.5 leading-none">
+                  <Package className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] shrink-0" strokeWidth={2.2} />
+                  <span className="leading-none">{latestTestQuestionCount} Qs</span>
+                </span>
+                <span className="inline-flex items-center gap-1 text-[11px] text-[#444746] dark:text-[#c4c7c5] px-1 py-0.5 leading-none">
+                  <Clock className="w-3.5 h-3.5 text-[#6750a4] dark:text-[#d0bcff] shrink-0" strokeWidth={2.2} />
+                  <span className="leading-none">{latestTestTimeDisplay}</span>
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                {isTestNew(latestTest) ? (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold tracking-wide uppercase bg-orange-500/15 dark:bg-orange-500/25 text-orange-600 dark:text-orange-400 border-0 shadow-none shrink-0"
+                    title="New test created within the last 2 days"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500 dark:orange-400 shrink-0 inline-block" />
+                    <span>New</span>
+                  </span>
+                ) : null}
+                <ChevronRight className="w-3.5 h-3.5 text-[#747775] dark:text-[#8e918f] group-hover:translate-x-0.5 transition-transform shrink-0" />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* 2. MAIN CONTENT TABS / MODULES */}

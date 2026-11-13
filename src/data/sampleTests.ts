@@ -17,8 +17,8 @@ export const SAMPLE_MATH_TESTS: MathTest[] = [
     authorId: 'system',
     authorName: 'Math Mastery Team',
     isPublic: true,
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    updatedAt: new Date().toISOString(),
     questionCount: 5,
     questions: [
       {
@@ -126,8 +126,8 @@ export const SAMPLE_MATH_TESTS: MathTest[] = [
     authorId: 'system',
     authorName: 'Math Mastery Team',
     isPublic: true,
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    updatedAt: new Date().toISOString(),
     questionCount: 20,
     questions: [
       {

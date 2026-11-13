@@ -641,18 +641,19 @@ export const TestList: React.FC<TestListProps> = ({
     return pruned;
   };
 
-  // Check if test was created within the last 24 hours and has not been attempted yet
+  // Check if test was created within the last 2 days (48 hours) and has not been attempted yet
   const isTestNew = (test: MathTest): boolean => {
     if (!test) return false;
+    if ((test as any).isNew) return true;
     const rawDate = test.createdAt || (test as any).timestamp;
     if (!rawDate) return false;
     const createdTime = new Date(rawDate).getTime();
     if (isNaN(createdTime) || createdTime <= 0) return false;
     const now = Date.now();
     const diffMs = now - createdTime;
-    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-    // Must be created within the past 24 hours
-    if (diffMs < 0 || diffMs > TWENTY_FOUR_HOURS) return false;
+    const TWO_DAYS = 2 * 24 * 60 * 60 * 1000;
+    // Must be created within the past 2 days (48 hours)
+    if (diffMs < 0 || diffMs > TWO_DAYS) return false;
 
     // If user has already attempted this test, do not show 'New' banner
     const testAttempts = getTestAttempts(test);
@@ -987,7 +988,7 @@ export const TestList: React.FC<TestListProps> = ({
                     ) : isNew ? (
                       <span
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold tracking-wide uppercase bg-orange-500/15 dark:bg-orange-500/25 text-orange-600 dark:text-orange-400 border-0 shadow-none shrink-0"
-                        title="New test created within the last 24 hours"
+                        title="New test created within the last 2 days"
                       >
                         <span className="w-1.5 h-1.5 rounded-full bg-orange-500 dark:bg-orange-400 shrink-0 inline-block" />
                         <span>New</span>
