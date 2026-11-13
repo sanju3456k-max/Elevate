@@ -711,50 +711,66 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 No mock tests linked to this folder yet.
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
                 {folderTests.map((t) => (
                   <div
                     key={t.id}
-                    className="p-5 rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition shadow-xs flex flex-col justify-between space-y-4 border-none"
+                    onClick={() => {
+                      if (onStartTest) {
+                        onStartTest(t);
+                      } else {
+                        showSecurityToast('Opening test runner...');
+                      }
+                    }}
+                    className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-2.5 sm:p-0 gap-3 sm:gap-0 items-center sm:items-stretch border-none shadow-xs hover:shadow-md"
                   >
-                    <div className="space-y-2">
+                    {/* Corner Test Clip / Banner */}
+                    <div className="relative w-32 sm:w-full aspect-video shrink-0 rounded-xl sm:rounded-none overflow-hidden bg-gradient-to-br from-emerald-500/20 via-[var(--md-sys-color-surface-container-high)] to-teal-500/15 flex flex-col justify-between p-2.5 sm:p-4">
                       <div className="flex items-center justify-between">
-                        <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)]">
+                        <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-wider bg-emerald-500 text-white shadow-xs">
                           {t.difficulty || 'Medium'}
                         </span>
-                        <div className="flex items-center space-x-1.5 text-xs text-[var(--md-sys-color-outline)] font-mono">
-                          <Timer className="w-3.5 h-3.5" />
-                          <span>{t.timeLimitMinutes || 25} Mins</span>
-                        </div>
+                        <span className="px-1.5 py-0.5 rounded-md bg-white/80 dark:bg-black/60 font-mono text-[9px] sm:text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300">
+                          CBT
+                        </span>
                       </div>
-
-                      <h4 className="text-sm sm:text-base font-bold text-[var(--md-sys-color-on-surface)] line-clamp-2">
-                        {t.title}
-                      </h4>
-                      <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2">
-                        {t.description || 'Test your conceptual understanding of this chapter.'}
-                      </p>
+                      <div className="flex items-center space-x-1.5 text-[10px] sm:text-xs text-emerald-700 dark:text-emerald-300 font-mono font-bold">
+                        <Timer className="w-3.5 h-3.5" />
+                        <span>{t.timeLimitMinutes || 25} Mins</span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
-                      <div className="flex items-center space-x-1.5 text-xs text-[var(--md-sys-color-on-surface-variant)]">
-                        <HelpCircle className="w-3.5 h-3.5" />
-                        <span>{t.questions?.length || 10} Questions</span>
+                    {/* Test Details */}
+                    <div className="p-1 sm:p-4 flex-1 min-w-0 flex flex-col justify-between space-y-1.5 sm:space-y-3">
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition line-clamp-1 sm:line-clamp-2 leading-snug">
+                          {t.title}
+                        </h4>
+                        <p className="hidden sm:block text-[11px] text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 mt-1">
+                          {t.description || 'Test your conceptual understanding of this chapter.'}
+                        </p>
                       </div>
 
-                      <button
-                        onClick={() => {
-                          if (onStartTest) {
-                            onStartTest(t);
-                          } else {
-                            showSecurityToast('Opening test runner...');
-                          }
-                        }}
-                        className="px-4 py-2 rounded-full text-xs font-bold bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] hover:opacity-90 active:scale-95 transition flex items-center space-x-1.5 border-none outline-none cursor-pointer"
-                      >
-                        <Play className="w-3.5 h-3.5 fill-current" />
-                        <span>Start Test</span>
-                      </button>
+                      <div className="flex items-center justify-between text-[10px] sm:text-[11px] pt-1 border-t border-[var(--md-sys-color-outline-variant)]/20 mt-auto">
+                        <div className="flex items-center space-x-1 text-[var(--md-sys-color-on-surface-variant)] truncate max-w-[120px] sm:max-w-none">
+                          <HelpCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          <span>{t.questions?.length || 10} Questions</span>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onStartTest) {
+                              onStartTest(t);
+                            } else {
+                              showSecurityToast('Opening test runner...');
+                            }
+                          }}
+                          className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center space-x-1 border-none bg-transparent cursor-pointer shrink-0"
+                        >
+                          <span>Start</span>
+                          <ChevronRight className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
