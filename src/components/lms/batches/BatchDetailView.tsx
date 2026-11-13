@@ -30,6 +30,7 @@ interface BatchDetailViewProps {
   availableTests?: MathTest[];
   onStartTest?: (test: MathTest) => void;
   initialFilter?: 'all' | 'my-batches';
+  onStageChange?: (stage: 'batch_list' | 'folder_list' | 'folder_content' | 'lecture_view') => void;
 }
 
 export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
@@ -39,6 +40,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   availableTests = [],
   onStartTest,
   initialFilter = 'all',
+  onStageChange,
 }) => {
   const {
     batches,
@@ -76,6 +78,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
   // Filter state for All Batches vs My Batches
   const [batchFilter, setBatchFilter] = useState<'all' | 'my-batches'>(initialFilter || 'all');
+
+  useEffect(() => {
+    onStageChange?.(currentStage as any);
+  }, [currentStage, onStageChange]);
 
   React.useEffect(() => {
     if (initialFilter) {
@@ -810,9 +816,24 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
      STAGE 4: LECTURE VIEW (Full Cloaked Video Player with Notes & Milestones)
      ========================================================================= */
   return (
-    <div className="space-y-6 pb-24 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
-      {/* Navigation Breadcrumbs */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 pb-24 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
+      {/* Mobile Top Back Bar: Only Back Button (Replaces top header on mobile) */}
+      <div className="flex items-center justify-between sm:hidden px-1 py-1">
+        <button
+          onClick={() => setCurrentStage('folder_content')}
+          className="flex items-center space-x-1 text-xs font-bold text-[var(--md-sys-color-primary)] border-none bg-transparent cursor-pointer p-1"
+        >
+          <ChevronLeft className="w-5 h-5" />
+          <span>Back to {currentFolder?.title || 'Chapter'}</span>
+        </button>
+
+        <span className="text-[11px] font-mono text-[var(--md-sys-color-on-surface-variant)]">
+          {activeLecture?.durationMinutes} Mins
+        </span>
+      </div>
+
+      {/* Desktop Navigation Breadcrumbs */}
+      <div className="hidden sm:flex items-center justify-between">
         <button
           onClick={() => setCurrentStage('folder_content')}
           className="flex items-center space-x-1.5 text-xs sm:text-sm font-bold text-[var(--md-sys-color-primary)] hover:underline border-none bg-transparent cursor-pointer"
@@ -827,10 +848,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       </div>
 
       {/* Main Grid: Player on Left, In-Video Notes & Chapters on Right */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT COLUMN: Video Player & Lecture Info */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
+        {/* LEFT COLUMN: Full-Width Video Player on Mobile & Lecture Info */}
         <div className="lg:col-span-8 space-y-4">
-          <div className="rounded-3xl overflow-hidden shadow-2xl border-none">
+          <div className="-mx-3 sm:mx-0 rounded-none sm:rounded-3xl overflow-hidden shadow-2xl border-none">
             <CloakedVideoPlayer
               encryptedVideoId={activeLecture.encryptedVideoId}
               title={activeLecture.title}
@@ -847,13 +868,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           </div>
 
           {/* Lecture Metadata */}
-          <div className="bg-[var(--md-sys-color-surface-container)] rounded-3xl p-5 space-y-2 shadow-xs">
+          <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-2 shadow-xs">
             <div className="flex items-center justify-between">
               <span className="text-xs text-[var(--md-sys-color-primary)] font-bold">
                 {currentFolder?.title}
-              </span>
-              <span className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
-                Forensic Watermark Protected
               </span>
             </div>
             <h1 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] leading-snug">

@@ -17,6 +17,9 @@ import {
   SlidersHorizontal,
   Check,
   Flag,
+  Settings,
+  ChevronRight,
+  ChevronLeft,
 } from 'lucide-react';
 import { deobfuscateVideoKey, formatDuration, initDevToolsDetector } from '../../../lms/security';
 import { requestPlaybackToken } from '../../../lms/playbackTokenService';
@@ -78,18 +81,24 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(100);
   const [isMuted, setIsMuted] = useState(false);
+  const [isVolumeSliderOpen, setIsVolumeSliderOpen] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isControlsVisible, setIsControlsVisible] = useState(true);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
-  const [speedMenuOpen, setSpeedMenuOpen] = useState(false);
-  const [qualityMenuOpen, setQualityMenuOpen] = useState(false);
+  
+  // Options (Settings) Menu State: Unified Quality, Speed & Captions
+  const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
+  const [optionsView, setOptionsView] = useState<'main' | 'speed' | 'quality'>('main');
   const [currentQuality, setCurrentQuality] = useState('Auto');
   const [captionsEnabled, setCaptionsEnabled] = useState(false);
   const [securityNotice, setSecurityNotice] = useState<string | null>(null);
 
-  // Encrypted badge label visibility: shows "Encrypted" for first 6 seconds, then hides to show only the logo
-  const [showEncryptedLabel, setShowEncryptedLabel] = useState(true);
+  // Double-tap seek gesture state (10s Rewind/Forward)
+  const lastTapRef = useRef<{ time: number; side: 'left' | 'right' }>({ time: 0, side: 'left' });
+  const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [seekFeedback, setSeekFeedback] = useState<{ side: 'left' | 'right'; seconds: number } | null>(null);
+  const seekFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Track whether mouse/pointer is hovering over the bottom control bar
   const [isHoveringControls, setIsHoveringControls] = useState(false);
@@ -97,15 +106,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   isHoveringControlsRef.current = isHoveringControls;
 
   // Refs to allow event listeners and timers to read current open state without stale closures
-  const speedMenuOpenRef = useRef(false);
-  const qualityMenuOpenRef = useRef(false);
+  const optionsMenuOpenRef = useRef(false);
   const selectedQualityRef = useRef('Auto');
-  speedMenuOpenRef.current = speedMenuOpen;
-  qualityMenuOpenRef.current = qualityMenuOpen;
+  optionsMenuOpenRef.current = optionsMenuOpen;
   selectedQualityRef.current = currentQuality;
-
-  // Dynamic Floating Watermark state (moves around screen randomly every few seconds)
-  const [watermarkPos, setWatermarkPos] = useState({ top: '25%', left: '20%' });
 
   const rawVideoId = deobfuscateVideoKey(encryptedVideoId);
 
@@ -331,15 +335,42 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     return () => clearInterval(timer);
   }, [isPlaying, duration, onProgress]);
 
-  // Dynamic Watermark Mover: shifts coordinates every 7 seconds
-  useEffect(() => {
-    const watermarkInterval = setInterval(() => {
-      const randomTop = Math.floor(Math.random() * 65 + 15); // 15% to 80%
-      const randomLeft = Math.floor(Math.random() * 60 + 10); // 10% to 70%
-      setWatermarkPos({ top: `${randomTop}%`, left: `${randomLeft}%` });
-    }, 7000);
-    return () => clearInterval(watermarkInterval);
-  }, []);
+  // YouTube-style Double-tap to seek (10s Rewind on Left, 10s Forward on Right)
+  const handleTap = (side: 'left' | 'right') => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300;
+
+    if (now - lastTapRef.current.time < DOUBLE_TAP_DELAY && lastTapRef.current.side === side) {
+      // Double tap recognized!
+      if (tapTimeoutRef.current) {
+        clearTimeout(tapTimeoutRef.current);
+        tapTimeoutRef.current = null;
+      }
+      const delta = side === 'left' ? -10 : 10;
+      handleSkip(delta);
+
+      setSeekFeedback({ side, seconds: 10 });
+      if (seekFeedbackTimeoutRef.current) {
+        clearTimeout(seekFeedbackTimeoutRef.current);
+      }
+      seekFeedbackTimeoutRef.current = setTimeout(() => {
+        setSeekFeedback(null);
+      }, 700);
+
+      lastTapRef.current = { time: 0, side };
+    } else {
+      // First tap
+      lastTapRef.current = { time: now, side };
+      if (tapTimeoutRef.current) {
+        clearTimeout(tapTimeoutRef.current);
+      }
+      tapTimeoutRef.current = setTimeout(() => {
+        // Single tap: toggle controls visibility
+        setIsControlsVisible((prev) => !prev);
+        lastTapRef.current = { time: 0, side };
+      }, DOUBLE_TAP_DELAY);
+    }
+  };
 
   // Screen Security & Focus Listener (Pause if student switches tab / minimises)
   useEffect(() => {
@@ -592,8 +623,6 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             Video playback and streaming are securely halted to protect educator copyright. Please close Developer Tools or inspection windows to resume watching.
           </p>
           <div className="flex items-center space-x-2 text-[10px] font-mono text-slate-400 bg-slate-900/90 px-3 py-1 rounded-full border border-slate-800 mb-4">
-            <span>Forensic Ticket: {playbackToken?.ticketId || 'TK-LIVE'}</span>
-            <span>•</span>
             <span>Security Shield: Active</span>
           </div>
 
@@ -606,69 +635,48 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 2. Transparent Shield Overlay (Restricted to upper viewport, leaving bottom controls completely free) */}
-      <div
-        onClick={togglePlay}
-        className="absolute top-0 inset-x-0 bottom-28 z-10 cursor-pointer bg-transparent"
-        title="Click to Play / Pause"
-      />
-
-      {/* 3. DYNAMIC FORENSIC WATERMARK (Anti-Piracy Deterrent with Phone, Email & Session Ticket) */}
-      <div
-        style={{
-          top: watermarkPos.top,
-          left: watermarkPos.left,
-          transition: 'top 3s ease-in-out, left 3s ease-in-out',
-        }}
-        className="absolute z-20 pointer-events-none select-none opacity-20 hover:opacity-10 transition-opacity duration-300"
-      >
-        <div className="bg-slate-900/65 backdrop-blur-xs px-2.5 py-1 rounded-full text-[10px] font-mono tracking-wider text-white border-none shadow-sm flex items-center space-x-1.5">
-          <ShieldCheck className="w-3 h-3 text-emerald-400" />
-          <span>{user.phone || '+91 98XXX-XXXXX'}</span>
-          <span>•</span>
-          <span>{user.email || 'guest@elevatelabs.in'}</span>
-          <span>•</span>
-          <span className="text-emerald-300 font-bold">{playbackToken?.ticketId || 'TK-ACTIVE'}</span>
-        </div>
-      </div>
-
-      {/* 4. Top Header Bar (Title & Adaptive Security Logo) - NO BLINKING DOTS */}
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className={`absolute top-0 inset-x-0 z-30 p-4 bg-gradient-to-b from-black/85 via-black/40 to-transparent flex items-center justify-between transition-opacity duration-500 ${
-          isControlsVisible || showEncryptedLabel ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
-      >
-        <div className="flex items-center space-x-2.5">
-          <h2 className="text-white text-xs sm:text-sm font-semibold truncate max-w-xs sm:max-w-md drop-shadow">
-            {title}
-          </h2>
-        </div>
-
-        {/* Adaptive Encrypted Badge:
-            Initially: Shows Shield Logo + "Encrypted" (Clean, NO blinking dot)
-            After a few seconds: "Encrypted" hides and ONLY the Shield logo shows in the corner */}
-        <div>
-          {showEncryptedLabel ? (
-            <div className="flex items-center space-x-1.5 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-full border-none text-xs text-emerald-300 font-bold shadow-md transition-all duration-500 animate-in fade-in">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Encrypted</span>
+      {/* 2. Interaction Layer with Left/Right Double-Tap Seek (YouTube-style 10s Rewind/Skip) */}
+      <div className="absolute top-0 inset-x-0 bottom-24 z-10 flex">
+        {/* Left half: double-tap rewind 10s */}
+        <div
+          onClick={() => handleTap('left')}
+          className="relative w-1/2 h-full cursor-pointer flex items-center justify-center select-none"
+        >
+          {seekFeedback?.side === 'left' && (
+            <div className="flex flex-col items-center justify-center bg-black/75 backdrop-blur-xs rounded-full w-20 h-20 text-white animate-in zoom-in-75 duration-200 border border-white/20 shadow-2xl">
+              <RotateCcw className="w-6 h-6 mb-1 text-white" />
+              <span className="text-[10px] font-bold tracking-tight">10 seconds</span>
             </div>
-          ) : (
-            <div
-              className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-900/80 backdrop-blur-md border-none text-emerald-400 shadow-md group/badge cursor-pointer transition-all duration-500 hover:w-auto hover:px-3 hover:space-x-1.5"
-              title="Encrypted Stream Active"
-            >
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span className="hidden group-hover/badge:inline text-[11px] font-bold text-emerald-300">
-                Encrypted
-              </span>
+          )}
+        </div>
+
+        {/* Right half: double-tap forward 10s */}
+        <div
+          onClick={() => handleTap('right')}
+          className="relative w-1/2 h-full cursor-pointer flex items-center justify-center select-none"
+        >
+          {seekFeedback?.side === 'right' && (
+            <div className="flex flex-col items-center justify-center bg-black/75 backdrop-blur-xs rounded-full w-20 h-20 text-white animate-in zoom-in-75 duration-200 border border-white/20 shadow-2xl">
+              <RotateCw className="w-6 h-6 mb-1 text-white" />
+              <span className="text-[10px] font-bold tracking-tight">10 seconds</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* 5. Center Play/Pause Large Pulse Button (When Paused) */}
+      {/* 3. Top Header Bar (Clean Lecture Title when controls are visible) */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className={`absolute top-0 inset-x-0 z-30 p-3 sm:p-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-center justify-between transition-opacity duration-300 ${
+          isControlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <h2 className="text-white text-xs sm:text-sm font-semibold truncate max-w-sm sm:max-w-md drop-shadow">
+          {title}
+        </h2>
+      </div>
+
+      {/* 4. Center Play/Pause Large Pulse Button (When Paused) */}
       {!isPlaying && isPlayerReady && (
         <div
           onClick={togglePlay}
@@ -680,7 +688,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 6. Security & Status Toast Notification */}
+      {/* 5. Status Toast Notification */}
       {securityNotice && (
         <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-40 bg-[var(--md-sys-color-inverse-surface)] text-[var(--md-sys-color-inverse-on-surface)] font-semibold px-4 py-2 rounded-full shadow-2xl flex items-center space-x-2 text-xs animate-in fade-in zoom-in-95 border-none">
           <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
@@ -688,7 +696,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 7. CUSTOM BOTTOM CONTROL BAR */}
+      {/* 6. CUSTOM BOTTOM CONTROL BAR */}
       <div
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
@@ -701,22 +709,20 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         }}
         onMouseLeave={() => {
           setIsHoveringControls(false);
-          // When pointer leaves the bottom bar, start standard hide countdown
           if (controlsTimeoutRef.current) {
             clearTimeout(controlsTimeoutRef.current);
           }
           controlsTimeoutRef.current = setTimeout(() => {
             if (
               isPlaying &&
-              !speedMenuOpenRef.current &&
-              !qualityMenuOpenRef.current
+              !optionsMenuOpenRef.current
             ) {
               setIsControlsVisible(false);
             }
           }, 3000);
         }}
-        className={`absolute bottom-0 inset-x-0 z-30 px-4 py-3 bg-gradient-to-t from-black/95 via-black/80 to-transparent transition-opacity duration-300 flex flex-col space-y-1.5 ${
-          isControlsVisible || isHoveringControls || speedMenuOpen || qualityMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        className={`absolute bottom-0 inset-x-0 z-30 px-3 sm:px-4 py-2 sm:py-3 bg-gradient-to-t from-black/95 via-black/80 to-transparent transition-opacity duration-300 flex flex-col space-y-1 ${
+          isControlsVisible || isHoveringControls || optionsMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
         {/* TIMELINE MILESTONES (Topic Breakpoints) STRIP */}
@@ -793,25 +799,26 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           onMouseDown={(e) => e.stopPropagation()}
           className="flex items-center justify-between text-white pt-0.5"
         >
-          {/* Left Controls: Play, Skip, Volume, Time */}
-          <div className="flex items-center space-x-1.5 sm:space-x-2.5">
+          {/* Left Controls: Play, Skip (Desktop), Volume & Slider, Time */}
+          <div className="flex items-center space-x-1 sm:space-x-2">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 togglePlay();
               }}
-              className="p-2 rounded-full hover:bg-white/15 active:scale-90 transition border-none outline-none cursor-pointer"
+              className="p-1.5 sm:p-2 rounded-full hover:bg-white/15 active:scale-90 transition border-none outline-none cursor-pointer"
               title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
             >
               {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
             </button>
 
+            {/* Desktop-only 10s skip buttons (on mobile, double-tap is used so buttons don't get cut) */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 handleSkip(-10);
               }}
-              className="p-2 rounded-full hover:bg-white/15 active:scale-90 transition text-slate-300 hover:text-white border-none outline-none cursor-pointer"
+              className="hidden sm:inline-flex p-2 rounded-full hover:bg-white/15 active:scale-90 transition text-slate-300 hover:text-white border-none outline-none cursor-pointer"
               title="Rewind 10s"
             >
               <RotateCcw className="w-4 h-4" />
@@ -822,47 +829,63 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                 e.stopPropagation();
                 handleSkip(10);
               }}
-              className="p-2 rounded-full hover:bg-white/15 active:scale-90 transition text-slate-300 hover:text-white border-none outline-none cursor-pointer"
+              className="hidden sm:inline-flex p-2 rounded-full hover:bg-white/15 active:scale-90 transition text-slate-300 hover:text-white border-none outline-none cursor-pointer"
               title="Skip 10s"
             >
               <RotateCw className="w-4 h-4" />
             </button>
 
-            {/* Volume Slider */}
+            {/* Volume Button & Expandable Slider */}
             <div
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
-              className="flex items-center space-x-1.5 group/volume px-1"
+              className="relative flex items-center"
             >
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  toggleMute();
+                  setIsVolumeSliderOpen((prev) => !prev);
                 }}
-                className="p-1.5 rounded-full hover:bg-white/15 text-slate-300 hover:text-white transition border-none outline-none cursor-pointer"
+                className="p-1.5 sm:p-2 rounded-full hover:bg-white/15 text-slate-300 hover:text-white transition border-none outline-none cursor-pointer"
+                title="Toggle Volume Slider"
               >
                 {isMuted || volume === 0 ? (
-                  <VolumeX className="w-4 h-4 text-red-400" />
+                  <VolumeX className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-red-400" />
                 ) : (
-                  <Volume2 className="w-4 h-4" />
+                  <Volume2 className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                 )}
               </button>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={isMuted ? 0 : volume}
-                onChange={handleVolumeChange}
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-                className="w-14 sm:w-20 h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-[var(--md-sys-color-primary)]"
-              />
+
+              {/* Volume Slider: Smoothly appears when clicked */}
+              {isVolumeSliderOpen && (
+                <div className="flex items-center space-x-1.5 bg-black/85 backdrop-blur-md px-2 py-1 rounded-full animate-in fade-in zoom-in-95 border border-white/10 shadow-lg ml-0.5">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={isMuted ? 0 : volume}
+                    onChange={handleVolumeChange}
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="w-14 sm:w-20 h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-[var(--md-sys-color-primary)]"
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleMute();
+                    }}
+                    className="text-[10px] font-mono text-slate-300 hover:text-white bg-transparent border-none cursor-pointer px-1"
+                  >
+                    {isMuted ? '0%' : `${volume}%`}
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Time Stamp */}
             <div
               onClick={(e) => e.stopPropagation()}
-              className="text-[11px] sm:text-xs font-mono text-slate-300 select-none px-1 cursor-default"
+              className="text-[10.5px] sm:text-xs font-mono text-slate-300 select-none px-1 cursor-default whitespace-nowrap"
             >
               <span>{formatDuration(currentTime)}</span>
               <span className="mx-1 text-slate-500">/</span>
@@ -870,138 +893,177 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             </div>
           </div>
 
-          {/* Right Controls: Captions (CC), Quality Selector, Speed, Fullscreen */}
+          {/* Right Controls: Unified Option / Settings Menu & Fullscreen */}
           <div
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
-            className="flex items-center space-x-1.5 sm:space-x-2"
+            className="flex items-center space-x-1 sm:space-x-2"
           >
-            {/* 1. Captions (CC) Toggle Button */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleCaptions();
-              }}
-              className={`p-2 rounded-full text-xs font-bold flex items-center justify-center transition border-none outline-none cursor-pointer ${
-                captionsEnabled
-                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-sm'
-                  : 'hover:bg-white/15 text-slate-300 hover:text-white'
-              }`}
-              title={captionsEnabled ? 'Turn Off Captions (CC)' : 'Turn On Captions (CC)'}
-            >
-              <Captions className="w-4 h-4" />
-            </button>
-
-            {/* 2. Video Quality Control Button & Minimal Panel */}
+            {/* Unified Option / Settings Button */}
             <div className="relative" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setQualityMenuOpen((prev) => !prev);
-                  setSpeedMenuOpen(false);
+                  setOptionsMenuOpen((prev) => !prev);
+                  setOptionsView('main');
                 }}
-                className={`flex items-center space-x-1 px-3 py-1.5 rounded-full text-xs font-bold transition border-none outline-none cursor-pointer ${
-                  qualityMenuOpen || currentQuality !== 'Auto'
-                    ? 'bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)]'
-                    : 'bg-white/10 hover:bg-white/20 text-slate-200'
+                className={`p-1.5 sm:p-2 rounded-full transition border-none outline-none cursor-pointer ${
+                  optionsMenuOpen
+                    ? 'bg-white/25 text-white'
+                    : 'hover:bg-white/15 text-slate-300 hover:text-white'
                 }`}
-                title="Video Quality Settings"
+                title="Options (Quality, Speed, Captions)"
               >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span>{currentQuality}</span>
+                <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
 
-              {qualityMenuOpen && (
+              {/* Options Popup / Menu */}
+              {optionsMenuOpen && (
                 <div
                   onClick={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
-                  className="absolute bottom-11 right-0 bg-slate-900/98 backdrop-blur-md rounded-2xl shadow-2xl py-1.5 w-32 z-50 animate-in fade-in zoom-in-95 border border-slate-700/80"
+                  className="absolute bottom-11 right-0 bg-slate-900/98 backdrop-blur-md rounded-2xl shadow-2xl p-2 w-52 sm:w-56 z-50 animate-in fade-in zoom-in-95 border border-slate-700/80 text-white"
                 >
-                  <div className="px-3.5 py-1.5 text-[10px] uppercase font-bold tracking-wider text-slate-400 border-b border-slate-800 flex items-center justify-between">
-                    <span>Quality</span>
-                    <span className="text-[9px] text-slate-500 font-normal">Re-click</span>
-                  </div>
-                  {QUALITY_OPTIONS.map((q) => (
-                    <button
-                      key={q.value}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleQualityChange(q);
-                      }}
-                      className={`w-full text-left px-3.5 py-2 text-xs transition flex items-center justify-between border-none outline-none cursor-pointer ${
-                        currentQuality === q.label
-                          ? 'bg-[var(--md-sys-color-primary)]/20 text-[var(--md-sys-color-primary)] font-bold'
-                          : 'text-slate-300 hover:bg-slate-800/80'
-                      }`}
-                    >
-                      <span>{q.label}</span>
-                      {currentQuality === q.label && <Check className="w-3.5 h-3.5" />}
-                    </button>
-                  ))}
+                  {/* MAIN VIEW */}
+                  {optionsView === 'main' && (
+                    <div className="space-y-1">
+                      <div className="px-3 py-1.5 text-[10px] uppercase font-bold tracking-wider text-slate-400 border-b border-slate-800 flex items-center justify-between">
+                        <span>Playback Options</span>
+                        <button
+                          onClick={() => setOptionsMenuOpen(false)}
+                          className="text-slate-400 hover:text-white bg-transparent border-none cursor-pointer text-xs"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {/* Option 1: Playback Speed */}
+                      <button
+                        onClick={() => setOptionsView('speed')}
+                        className="w-full text-left px-3 py-2 rounded-xl text-xs transition flex items-center justify-between hover:bg-slate-800/80 border-none outline-none cursor-pointer text-slate-200"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <Gauge className="w-4 h-4 text-purple-400" />
+                          <span>Playback Speed</span>
+                        </div>
+                        <div className="flex items-center space-x-1 text-slate-400 font-mono text-[11px]">
+                          <span>{playbackSpeed}x</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </div>
+                      </button>
+
+                      {/* Option 2: Quality */}
+                      <button
+                        onClick={() => setOptionsView('quality')}
+                        className="w-full text-left px-3 py-2 rounded-xl text-xs transition flex items-center justify-between hover:bg-slate-800/80 border-none outline-none cursor-pointer text-slate-200"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <SlidersHorizontal className="w-4 h-4 text-emerald-400" />
+                          <span>Quality</span>
+                        </div>
+                        <div className="flex items-center space-x-1 text-slate-400 text-[11px]">
+                          <span>{currentQuality}</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </div>
+                      </button>
+
+                      {/* Option 3: Captions */}
+                      <button
+                        onClick={toggleCaptions}
+                        className="w-full text-left px-3 py-2 rounded-xl text-xs transition flex items-center justify-between hover:bg-slate-800/80 border-none outline-none cursor-pointer text-slate-200"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <Captions className="w-4 h-4 text-sky-400" />
+                          <span>Captions (CC)</span>
+                        </div>
+                        <span className={`text-[11px] font-bold ${captionsEnabled ? 'text-emerald-400' : 'text-slate-500'}`}>
+                          {captionsEnabled ? 'On' : 'Off'}
+                        </span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* SPEED SUB-MENU */}
+                  {optionsView === 'speed' && (
+                    <div className="space-y-1">
+                      <div className="px-2 py-1.5 text-xs font-bold text-slate-200 border-b border-slate-800 flex items-center space-x-1">
+                        <button
+                          onClick={() => setOptionsView('main')}
+                          className="p-1 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white bg-transparent border-none cursor-pointer"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <span>Playback Speed</span>
+                      </div>
+                      <div className="max-h-52 overflow-y-auto space-y-0.5 pt-1">
+                        {availableSpeeds.map((spd) => (
+                          <button
+                            key={spd}
+                            onClick={() => {
+                              handleSpeedChange(spd);
+                              setOptionsMenuOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-xs rounded-lg transition flex items-center justify-between border-none outline-none cursor-pointer ${
+                              playbackSpeed === spd
+                                ? 'bg-[var(--md-sys-color-primary)]/20 text-[var(--md-sys-color-primary)] font-bold'
+                                : 'text-slate-300 hover:bg-slate-800/80'
+                            }`}
+                          >
+                            <span>{spd}x {spd === 1 && '(Normal)'}</span>
+                            {playbackSpeed === spd && <Check className="w-3.5 h-3.5" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* QUALITY SUB-MENU */}
+                  {optionsView === 'quality' && (
+                    <div className="space-y-1">
+                      <div className="px-2 py-1.5 text-xs font-bold text-slate-200 border-b border-slate-800 flex items-center space-x-1">
+                        <button
+                          onClick={() => setOptionsView('main')}
+                          className="p-1 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white bg-transparent border-none cursor-pointer"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <span>Video Quality</span>
+                      </div>
+                      <div className="max-h-52 overflow-y-auto space-y-0.5 pt-1">
+                        {QUALITY_OPTIONS.map((q) => (
+                          <button
+                            key={q.value}
+                            onClick={() => {
+                              handleQualityChange(q);
+                              setOptionsMenuOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-1.5 text-xs rounded-lg transition flex items-center justify-between border-none outline-none cursor-pointer ${
+                              currentQuality === q.label
+                                ? 'bg-[var(--md-sys-color-primary)]/20 text-[var(--md-sys-color-primary)] font-bold'
+                                : 'text-slate-300 hover:bg-slate-800/80'
+                            }`}
+                          >
+                            <span>{q.label}</span>
+                            {currentQuality === q.label && <Check className="w-3.5 h-3.5" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* 3. Speed Selector Button & Menu */}
-            <div className="relative" onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSpeedMenuOpen((prev) => !prev);
-                  setQualityMenuOpen(false);
-                }}
-                className={`flex items-center space-x-1 px-3 py-1.5 rounded-full text-xs font-bold transition border-none outline-none cursor-pointer ${
-                  speedMenuOpen
-                    ? 'bg-[var(--md-sys-color-secondary-container)] text-[var(--md-sys-color-on-secondary-container)]'
-                    : 'bg-white/10 hover:bg-white/20 text-slate-200'
-                }`}
-                title="Playback Speed"
-              >
-                <Gauge className="w-3.5 h-3.5" />
-                <span>{playbackSpeed}x</span>
-              </button>
-
-              {speedMenuOpen && (
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  className="absolute bottom-11 right-0 bg-slate-900/98 backdrop-blur-md rounded-2xl shadow-2xl py-1.5 w-32 z-50 animate-in fade-in zoom-in-95 border border-slate-700/80"
-                >
-                  <div className="px-3.5 py-1.5 text-[10px] uppercase font-bold tracking-wider text-slate-400 border-b border-slate-800 flex items-center justify-between">
-                    <span>Speed</span>
-                    <span className="text-[9px] text-slate-500 font-normal">Re-click</span>
-                  </div>
-                  {availableSpeeds.map((spd) => (
-                    <button
-                      key={spd}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSpeedChange(spd);
-                      }}
-                      className={`w-full text-left px-3.5 py-2 text-xs transition flex items-center justify-between border-none outline-none cursor-pointer ${
-                        playbackSpeed === spd
-                          ? 'bg-[var(--md-sys-color-primary)]/20 text-[var(--md-sys-color-primary)] font-bold'
-                          : 'text-slate-300 hover:bg-slate-800/80'
-                      }`}
-                    >
-                      <span>{spd}x</span>
-                      {spd === 1 && <span className="text-[10px] text-slate-500 font-normal">Norm</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* 4. Fullscreen Button */}
+            {/* Fullscreen Button */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 toggleFullscreen();
               }}
-              className="p-2 rounded-full hover:bg-white/15 text-slate-300 hover:text-white transition border-none outline-none cursor-pointer"
+              className="p-1.5 sm:p-2 rounded-full hover:bg-white/15 text-slate-300 hover:text-white transition border-none outline-none cursor-pointer"
               title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
             >
-              {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+              {isFullscreen ? <Minimize2 className="w-4 h-4 sm:w-5 sm:h-5" /> : <Maximize2 className="w-4 h-4 sm:w-5 sm:h-5" />}
             </button>
           </div>
         </div>

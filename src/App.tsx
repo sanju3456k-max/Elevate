@@ -209,6 +209,7 @@ export default function App() {
   const [returnTabAfterResults, setReturnTabAfterResults] = useState<ActiveTab>('tests');
   const [omrInitialTab, setOmrInitialTab] = useState<'print' | 'scan' | 'keys' | 'review'>('print');
   const [omrSessionKey, setOmrSessionKey] = useState<string>(() => `omr_session_${Date.now()}`);
+  const [isLectureViewActive, setIsLectureViewActive] = useState<boolean>(false);
 
   // Instant synchronous auth hydration from local cache to prevent awakening/flickering effect
   const [cachedUser, setCachedUser] = useState<CachedAuthUser | null>(() => getCachedAuthUser());
@@ -1623,24 +1624,26 @@ export default function App() {
         </div>
       )}
 
-      {/* Navigation Header - Hidden during active test attempts, test creator, review solution mode, custom builder, performance analytics, notes repository, html notes studio, bulk print, and master console */}
+      {/* Navigation Header - Hidden during active test attempts, test creator, review solution mode, custom builder, performance analytics, notes repository, html notes studio, bulk print, and master console. On mobile, also hidden during lecture video viewing */}
       {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'create' && activeTab !== 'results' && activeTab !== 'custom-builder' && activeTab !== 'chatbot' && activeTab !== 'analytics' && activeTab !== 'notes-repository' && activeTab !== 'bulk-print' && activeTab !== 'html-notes' && activeTab !== 'master-console' && (
-        <Navbar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          currentUser={currentUser}
-          cachedUser={cachedUser}
-          isAuthLoading={isAuthLoading}
-          onSignIn={handleSignIn}
-          onSignOut={handleSignOut}
-          isDarkMode={isDarkMode}
-          onToggleTheme={toggleTheme}
-          onCreateNewTest={handleCreateNew}
-          onDrawerOpenChange={setIsNavDrawerOpen}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          onOpenSettings={() => setIsSettingsModalOpen(true)}
-        />
+        <div className={activeTab === 'batches' && isLectureViewActive ? 'hidden sm:block' : ''}>
+          <Navbar
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            currentUser={currentUser}
+            cachedUser={cachedUser}
+            isAuthLoading={isAuthLoading}
+            onSignIn={handleSignIn}
+            onSignOut={handleSignOut}
+            isDarkMode={isDarkMode}
+            onToggleTheme={toggleTheme}
+            onCreateNewTest={handleCreateNew}
+            onDrawerOpenChange={setIsNavDrawerOpen}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onOpenSettings={() => setIsSettingsModalOpen(true)}
+          />
+        </div>
       )}
 
       {/* Main App Bar / Navigation Header */}
@@ -1947,12 +1950,13 @@ export default function App() {
 
           {/* Video Batches & LMS Suite (Elevate Integrated Curriculum) */}
           {activeTab === 'batches' && (
-            <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
+            <div className={`max-w-7xl mx-auto ${isLectureViewActive ? 'px-0 sm:px-6 py-0 sm:py-6' : 'px-3 sm:px-6 py-4 sm:py-6'}`}>
               <BatchDetailView
                 availableTests={tests}
                 initialFilter={batchesFilter}
                 onStartTest={(test) => handleStartTest(test, 'timed')}
                 onBack={() => setActiveTab('home')}
+                onStageChange={(stage) => setIsLectureViewActive(stage === 'lecture_view')}
               />
             </div>
           )}

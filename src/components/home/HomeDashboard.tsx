@@ -203,23 +203,18 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-24 md:pb-16 max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-2 sm:py-3">
-      {/* 1. SPECIAL TOP PANEL FOR LATEST CURRICULUM & BATCH UPDATES */}
-      <div className="space-y-3.5 bg-[var(--md-sys-color-surface-container)] rounded-3xl p-3.5 sm:p-5 shadow-xs border-none">
+      {/* 1. TOP PANEL FOR LATEST CURRICULUM UPDATES */}
+      <div className="space-y-3.5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex items-center space-x-2">
-            <span className="relative flex h-3 w-3">
+            <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
             </span>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] tracking-tight">
-                  Latest Curriculum & Batch Updates
-                </h2>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] uppercase tracking-wider">
-                  Special Live Panel
-                </span>
-              </div>
+              <h2 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] tracking-tight">
+                Latest Curriculum Updates
+              </h2>
               <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] hidden sm:block">
                 Featured interactive video lectures & live CBT mock assessments
               </p>
@@ -490,26 +485,6 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             </div>
           </div>
         )}
-
-        {/* Live Batch Update Bar at bottom of Special Panel */}
-        <div className="flex items-center justify-between pt-2 px-1 text-xs border-t border-[var(--md-sys-color-outline-variant)]/20">
-          <div className="flex items-center space-x-2 truncate">
-            <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold text-[10px] uppercase shrink-0">
-              Batch Update
-            </span>
-            <span className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] truncate">
-              {latestAnnouncement ? `${latestAnnouncement.title} (${latestAnnouncement.date})` : (currentBatch?.title || 'JEE / CBSE Foundation Batch is active')}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => onOpenBatches && onOpenBatches('my-batches')}
-            className="text-xs font-bold text-[var(--md-sys-color-primary)] hover:underline flex items-center gap-1 shrink-0 bg-transparent border-0 outline-none cursor-pointer ml-2"
-          >
-            <span>View Batch</span>
-            <ArrowRight className="w-3 h-3" />
-          </button>
-        </div>
       </div>
 
       {/* 2. MAIN CONTENT TABS / MODULES */}
