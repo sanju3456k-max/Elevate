@@ -466,11 +466,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     if (!noteInputText.trim() || !activeLecture) return;
     addPersonalNote({
       lectureId: activeLecture.id,
-      seconds: currentPlaybackSec,
+      seconds: 0,
       text: noteInputText.trim(),
     });
     setNoteInputText('');
-    showSecurityToast(`Note saved at ${formatDuration(currentPlaybackSec)}`);
+    showSecurityToast('Study note saved successfully');
   };
 
   /* =========================================================================
@@ -1542,10 +1542,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Lecture Notes (Type & Save Notes with Video Timestamp) */}
+        {/* RIGHT COLUMN: Lecture Notes (Free-form study notes without timing stamps) */}
         <div className="lg:col-span-4 px-3.5 sm:px-0 space-y-4">
           <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs space-y-4">
-            {/* Header: Title, Count, & Live Timestamp */}
+            {/* Header: Title */}
             <div className="flex items-center justify-between pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] flex items-center justify-center">
@@ -1556,30 +1556,22 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                     Lecture Notes
                   </h2>
                   <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
-                    Save key takeaways at timestamps
+                    Write and save your personal study notes freely
                   </p>
                 </div>
-              </div>
-
-              <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-primary)] font-mono text-xs font-bold">
-                <Clock className="w-3.5 h-3.5" />
-                <span>{formatDuration(currentPlaybackSec)}</span>
               </div>
             </div>
 
             {/* Note Input Box & Save Button */}
             <form onSubmit={handleCreateNote} className="space-y-2">
               <textarea
-                rows={2}
+                rows={3}
                 value={noteInputText}
                 onChange={(e) => setNoteInputText(e.target.value)}
-                placeholder={`Type your note here at ${formatDuration(currentPlaybackSec)}...`}
+                placeholder="Write your study notes, formulas, or key concepts freely..."
                 className="w-full px-3 py-2.5 rounded-xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs text-[var(--md-sys-color-on-surface)] placeholder:text-[var(--md-sys-color-on-surface-variant)]/60 resize-none focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition"
               />
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
-                  Click timestamp to seek video
-                </span>
+              <div className="flex items-center justify-end">
                 <button
                   type="submit"
                   disabled={!noteInputText.trim()}
@@ -1591,7 +1583,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               </div>
             </form>
 
-            {/* Saved Notes List */}
+            {/* Saved Notes List (Clean typography without timing stamps) */}
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
               {personalNotes.filter((n) => n.lectureId === activeLecture.id).length === 0 ? (
                 <div className="p-6 text-center rounded-2xl bg-[var(--md-sys-color-surface)]/60 border border-[var(--md-sys-color-outline-variant)]/10 space-y-1.5">
@@ -1600,7 +1592,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                     No notes yet
                   </p>
                   <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] max-w-xs mx-auto">
-                    Type your thoughts or key concepts above and save them at any video timestamp.
+                    Type your thoughts or key concepts above and save them freely.
                   </p>
                 </div>
               ) : (
@@ -1609,19 +1601,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   .map((note) => (
                     <div
                       key={note.id}
-                      className="p-3 rounded-2xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/20 flex items-start justify-between gap-2.5 transition hover:shadow-xs"
+                      className="p-3 rounded-2xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/20 flex items-start justify-between gap-2.5 transition hover:shadow-xs group"
                     >
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <button
-                          type="button"
-                          onClick={() => setActiveSeekSeconds(note.seconds)}
-                          className="inline-flex items-center space-x-1 font-mono font-bold text-[11px] px-2 py-0.5 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] hover:opacity-85 border-none cursor-pointer"
-                          title="Seek video to this timestamp"
-                        >
-                          <Play className="w-2.5 h-2.5 fill-current" />
-                          <span>{formatDuration(note.seconds)}</span>
-                        </button>
-                        <p className="text-xs text-[var(--md-sys-color-on-surface)] break-words leading-relaxed">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs sm:text-sm text-[var(--md-sys-color-on-surface)] break-words leading-relaxed whitespace-pre-wrap">
                           {note.text}
                         </p>
                       </div>

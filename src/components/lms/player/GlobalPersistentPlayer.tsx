@@ -103,7 +103,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
     if (!noteInputText.trim() || !playback) return;
     addPersonalNote({
       lectureId: playback.lectureId,
-      seconds: currentPlaybackSec,
+      seconds: 0,
       text: noteInputText.trim(),
     });
     setNoteInputText('');
@@ -155,9 +155,9 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
       }
       onClick={isMinimized ? handleExpand : undefined}
     >
-      {/* 1. In Expanded View: Top Bar with Minimize button */}
+      {/* 1. In Expanded View: Top Bar on Desktop */}
       {!isMinimized && (
-        <div className="h-14 sm:h-16 px-4 sm:px-6 border-b border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between shrink-0 bg-[var(--md-sys-color-surface)] sticky top-0 z-50 backdrop-blur-md">
+        <div className="hidden sm:flex h-14 sm:h-16 px-4 sm:px-6 border-b border-[var(--md-sys-color-outline-variant)]/20 items-center justify-between shrink-0 bg-[var(--md-sys-color-surface)] sticky top-0 z-50 backdrop-blur-md">
           <div className="flex items-center space-x-3 min-w-0">
             <button
               type="button"
@@ -189,12 +189,12 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
         </div>
       )}
 
-      {/* 2. THE PERSISTENT VIDEO PLAYER FRAME (EXACT SAME DOM NODE - NEVER UNMOUNTS) */}
+      {/* 2. THE PERSISTENT VIDEO PLAYER FRAME (Sticky on Mobile, NEVER UNMOUNTS) */}
       <div
         className={
           isMinimized
             ? 'w-24 sm:w-28 h-14 sm:h-16 aspect-video rounded-xl overflow-hidden relative shrink-0 bg-black pointer-events-none'
-            : 'w-full max-w-5xl mx-auto px-0 sm:px-4 pt-0 sm:pt-4 shrink-0'
+            : 'sticky top-0 z-40 sm:static w-full sm:max-w-5xl sm:mx-auto px-0 sm:px-4 pt-0 sm:pt-4 shrink-0 bg-black'
         }
       >
         <div
@@ -209,7 +209,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             <button
               type="button"
               onClick={handleMinimize}
-              className="sm:hidden absolute top-2.5 left-2.5 z-30 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition border-none cursor-pointer shadow-md select-none"
+              className="absolute top-2.5 left-2.5 z-30 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition border-none cursor-pointer shadow-md select-none"
               title="Minimize to bottom strip"
             >
               <ChevronDown className="w-5 h-5 stroke-[2.5]" />
@@ -341,7 +341,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             )}
           </div>
 
-          {/* Lecture Notes on Right */}
+          {/* Lecture Notes on Right (Free-form without timing stamps) */}
           <div className="lg:col-span-5 space-y-4">
             <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
@@ -354,30 +354,22 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                       Lecture Notes
                     </h2>
                     <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
-                      Save key takeaways at timestamps
+                      Write and save your personal study notes freely
                     </p>
                   </div>
                 </div>
-
-                <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-primary)] font-mono text-xs font-bold">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>{formatDuration(currentPlaybackSec)}</span>
-                </div>
               </div>
 
-              {/* Note input */}
+              {/* Note input form */}
               <form onSubmit={handleCreateNote} className="space-y-2">
                 <textarea
-                  rows={2}
+                  rows={3}
                   value={noteInputText}
                   onChange={(e) => setNoteInputText(e.target.value)}
-                  placeholder={`Type your note here at ${formatDuration(currentPlaybackSec)}...`}
+                  placeholder="Write your study notes, formulas, or key concepts freely..."
                   className="w-full px-3 py-2.5 rounded-xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs text-[var(--md-sys-color-on-surface)] placeholder:text-[var(--md-sys-color-on-surface-variant)]/60 resize-none focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition"
                 />
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
-                    Click timestamp to seek video
-                  </span>
+                <div className="flex items-center justify-end">
                   <button
                     type="submit"
                     disabled={!noteInputText.trim()}
@@ -389,7 +381,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 </div>
               </form>
 
-              {/* Saved Notes List */}
+              {/* Saved Notes List (Clean typography without timing stamps) */}
               <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                 {currentLectureNotes.length === 0 ? (
                   <div className="p-4 text-center rounded-2xl bg-[var(--md-sys-color-surface)]/60 border border-[var(--md-sys-color-outline-variant)]/10 space-y-1">
@@ -397,26 +389,17 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                       No notes yet
                     </p>
                     <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
-                      Type your thoughts or key concepts above and save them at any video timestamp.
+                      Write your notes, formulas, or insights above and save them freely.
                     </p>
                   </div>
                 ) : (
                   currentLectureNotes.map((note) => (
                     <div
                       key={note.id}
-                      className="p-3 rounded-2xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/20 flex items-start justify-between gap-2.5 transition hover:shadow-xs"
+                      className="p-3 rounded-2xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/20 flex items-start justify-between gap-2.5 transition hover:shadow-xs group"
                     >
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <button
-                          type="button"
-                          onClick={() => setSeekSeconds(note.seconds)}
-                          className="inline-flex items-center space-x-1 font-mono font-bold text-[11px] px-2 py-0.5 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] hover:opacity-85 border-none cursor-pointer"
-                          title="Seek video to this timestamp"
-                        >
-                          <Play className="w-2.5 h-2.5 fill-current" />
-                          <span>{formatDuration(note.seconds)}</span>
-                        </button>
-                        <p className="text-xs text-[var(--md-sys-color-on-surface)] break-words leading-relaxed">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs sm:text-sm text-[var(--md-sys-color-on-surface)] break-words leading-relaxed whitespace-pre-wrap">
                           {note.text}
                         </p>
                       </div>

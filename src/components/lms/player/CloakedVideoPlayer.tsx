@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   Play,
   Pause,
@@ -189,8 +189,20 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   const safeVideoId =
     extractYouTubeId(rawVideoId) ||
     (/^[a-zA-Z0-9_-]{11}$/.test(rawVideoId) ? rawVideoId : 'WUvTyaaNkzM');
-  const posterImage =
-    posterUrl || thumbnailUrl || (safeVideoId ? `https://img.youtube.com/vi/${safeVideoId}/hqdefault.jpg` : '');
+
+  // Multi-tier HD thumbnail resolution (maxresdefault 1280x720 -> sddefault 640x480 -> hqdefault 480x360)
+  const initialPoster = useMemo(() => {
+    if (posterUrl) return posterUrl;
+    if (thumbnailUrl && !thumbnailUrl.includes('hqdefault.jpg')) return thumbnailUrl;
+    if (safeVideoId) return `https://img.youtube.com/vi/${safeVideoId}/maxresdefault.jpg`;
+    return thumbnailUrl || '';
+  }, [posterUrl, thumbnailUrl, safeVideoId]);
+
+  const [activePosterImage, setActivePosterImage] = useState<string>(initialPoster);
+
+  useEffect(() => {
+    setActivePosterImage(initialPoster);
+  }, [initialPoster]);
 
   // Dynamic Moving DRM Watermark Position (drifts across screen every 7s to deter screen recording)
   useEffect(() => {
@@ -872,13 +884,13 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             : 'aspect-video rounded-none sm:rounded-3xl shadow-2xl group'
       }`}
     >
-      {/* 1. Scaled & Cropped YouTube Iframe Engine (136% Center Crop to mask YouTube title/avatar & 'Watch on YouTube' watermark) */}
+      {/* 1. HD Scaled YouTube Iframe Engine (Adapts cleanly to UI & device width without artificial zoom distortion) */}
       {authStatus === 'authorized' && (
         <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none flex items-center justify-center select-none bg-black">
           <div
             className="w-full h-full relative pointer-events-none"
             style={{
-              transform: 'scale(1.36)',
+              transform: isMini ? 'scale(1.15)' : 'none',
               transformOrigin: 'center center',
               width: '100%',
               height: '100%',
@@ -886,7 +898,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           >
             <div
               id={playerContainerId.current}
-              className="w-full h-full [&>iframe]:w-full [&>iframe]:h-full [&>iframe]:object-cover [&>iframe]:pointer-events-none"
+              className="w-full h-full [&>iframe]:w-full [&>iframe]:h-full [&>iframe]:object-contain sm:[&>iframe]:object-cover [&>iframe]:pointer-events-none"
             />
           </div>
         </div>
@@ -903,12 +915,20 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       {/* 1c. High-Fidelity Pre-Playback Poster Curtain (Eliminates YouTube unstarted title, channel avatar, and red play button) */}
       {authStatus === 'authorized' && !hasEverPlayed && (
         <div className="absolute inset-0 z-25 bg-slate-950 flex flex-col items-center justify-center overflow-hidden select-none">
-          {/* Poster Image / Backdrop */}
-          {posterImage && (
+          {/* High Definition Crystal Clear Poster Image / Backdrop */}
+          {activePosterImage && (
             <img
-              src={posterImage}
+              src={activePosterImage}
               alt={title}
-              className="absolute inset-0 w-full h-full object-cover opacity-40 filter blur-[1px] brightness-75 scale-105 transition-transform duration-700 pointer-events-none"
+              onError={(e) => {
+                const cur = e.currentTarget.src;
+                if (cur.includes('maxresdefault.jpg') && safeVideoId) {
+                  e.currentTarget.src = `https://img.youtube.com/vi/${safeVideoId}/sddefault.jpg`;
+                } else if (cur.includes('sddefault.jpg') && safeVideoId) {
+                  e.currentTarget.src = `https://img.youtube.com/vi/${safeVideoId}/hqdefault.jpg`;
+                }
+              }}
+              className="absolute inset-0 w-full h-full object-cover sm:object-contain bg-black brightness-95 transition-opacity duration-300 pointer-events-none"
             />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/40 pointer-events-none" />
