@@ -1234,7 +1234,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
   }, [attempt]);
 
   return (
-    <div className={`fixed inset-0 z-50 ${APP_STYLES.page} overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin]`}>
+    <div className={`fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] z-30 ${APP_STYLES.page} overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin]`}>
       {/* Transparent Clean Header Banner (Minimal, No Subtopic Tags at Top) */}
       <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)]">
         <div className="flex items-center justify-between gap-3 px-0.5 py-1">
