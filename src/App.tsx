@@ -2132,6 +2132,7 @@ export default function App() {
               setTests(merged);
             }
           }}
+          onSignIn={handleSignIn}
         />
       )}
 

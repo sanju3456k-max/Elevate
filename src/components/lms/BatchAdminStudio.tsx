@@ -1081,9 +1081,9 @@ export const BatchAdminStudio: React.FC = () => {
                               alt={b.title}
                               className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
 
-                            <div className="absolute top-3 left-3 flex items-center space-x-1.5 flex-wrap gap-y-1">
+                            <div className="absolute top-3 left-3 z-20 flex items-center space-x-1.5 flex-wrap gap-y-1">
                               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-black/70 backdrop-blur-md text-white">
                                 {b.category}
                               </span>
@@ -1094,11 +1094,12 @@ export const BatchAdminStudio: React.FC = () => {
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  e.preventDefault();
                                   toggleBatchGuestAccess(b.id);
                                 }}
                                 title="Click to toggle Guest Access for this batch"
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white transition cursor-pointer border-none outline-none ${
-                                  b.allowGuestAccess ? 'bg-indigo-600/90 hover:bg-indigo-500' : 'bg-black/60 hover:bg-black/80'
+                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white transition cursor-pointer border-none outline-none shadow-xs hover:scale-105 active:scale-95 ${
+                                  b.allowGuestAccess ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-black/70 hover:bg-black/90'
                                 }`}
                               >
                                 {b.allowGuestAccess ? '👥 Guests Open' : '🔒 Roster Only'}
@@ -1184,6 +1185,30 @@ export const BatchAdminStudio: React.FC = () => {
                                   {batchChapterList.length}
                                 </span>
                               </div>
+                            </div>
+
+                            {/* Guest Access Mode Quick Switch Row */}
+                            <div className="pt-2.5 border-t border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between text-xs">
+                              <span className="text-[11px] font-semibold text-[var(--md-sys-color-on-surface-variant)] flex items-center space-x-1">
+                                <Users className="w-3.5 h-3.5 text-indigo-500" />
+                                <span>Guest Policy:</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  toggleBatchGuestAccess(b.id);
+                                }}
+                                title="Click to toggle between Guest Open and Roster Only"
+                                className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold transition cursor-pointer border-none outline-none flex items-center space-x-1 shadow-xs active:scale-95 ${
+                                  b.allowGuestAccess
+                                    ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                    : 'bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+                                }`}
+                              >
+                                <span>{b.allowGuestAccess ? '👥 Guests Open' : '🔒 Roster Only'}</span>
+                              </button>
                             </div>
                           </div>
                         </div>

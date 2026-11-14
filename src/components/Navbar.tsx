@@ -890,6 +890,23 @@ export const Navbar: React.FC<NavbarProps> = ({
                   )}
                 </div>
 
+                {/* Guest Mode: Google Sign In in Drawer */}
+                {!currentUser && (
+                  <div className="p-4 bg-slate-50 dark:bg-[#141619] border-t border-slate-100 dark:border-zinc-800/80 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        toggleDrawer(false);
+                        onSignIn();
+                      }}
+                      className="w-full py-2.5 px-4 rounded-full bg-white dark:bg-[#282a30] hover:bg-slate-100 dark:hover:bg-[#32353c] text-[#1f1f1f] dark:text-[#e3e3e3] border border-[#e1e3e1] dark:border-[#44474f]/50 shadow-xs flex items-center justify-center gap-2.5 text-xs font-bold cursor-pointer transition-all active:scale-95 outline-none"
+                    >
+                      <GoogleLogoIcon />
+                      <span>Sign In with Google</span>
+                    </button>
+                  </div>
+                )}
+
                 {/* Drawer Bottom Bar: Theme Switcher */}
                 <div className="p-4 bg-white dark:bg-[#1e2024] flex items-center justify-between text-xs font-bold text-[#1f1f1f] dark:text-[#e3e3e3] shrink-0 border-t border-slate-100 dark:border-zinc-800/80 rounded-br-[24px]">
                   <div className="flex items-center gap-1.5">

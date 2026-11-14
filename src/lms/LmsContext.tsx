@@ -15,6 +15,7 @@ import { enableContentSecurityDeterrence, obfuscateVideoKey } from './security';
 import { auth, db } from '../lib/firebase';
 import { isMasterUser } from '../lib/masterAccount';
 import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import {
   syncBatchToFirestore,
   deleteBatchFromFirestore,
@@ -246,13 +247,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [securityToast, setSecurityToast] = useState<string | null>(null);
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 1. Initial Load: Fetch all active published batches from Cloud Firestore
+  // 1. Initial Load: Fetch all active published batches and global guest access policy from Cloud Firestore
   useEffect(() => {
     fetchBatchesFromFirestore().then((cloudBatches) => {
       if (cloudBatches && cloudBatches.length > 0) {
         setBatches(cloudBatches);
       }
     });
+
+    // Real-time live listener for global guest policy across Master and Guest browsers
+    const policyRef = doc(db, 'system', 'lms_policy');
+    const unsubPolicy = onSnapshot(policyRef, (snap) => {
+      if (snap.exists()) {
+        const val = snap.data()?.globalGuestAccessMode;
+        if (val === 'specific_batches' || val === 'all_batches' || val === 'none') {
+          setGlobalGuestAccessModeState(val);
+          try {
+            localStorage.setItem(STORAGE_KEYS.GUEST_ACCESS_MODE, val);
+          } catch {}
+        }
+      }
+    }, (err) => {
+      console.warn('LMS policy live listener notice:', err);
+    });
+
+    return () => {
+      unsubPolicy();
+    };
   }, []);
 
   // 2. Live Auth State & Cloud Firestore Student Enrollment Synchronization (Zero-Leakage Session Lifecycle)
@@ -633,10 +654,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return 'specific_batches';
   });
 
-  const setGlobalGuestAccessMode = (mode: 'specific_batches' | 'all_batches' | 'none') => {
+  const setGlobalGuestAccessMode = async (mode: 'specific_batches' | 'all_batches' | 'none') => {
     setGlobalGuestAccessModeState(mode);
     try {
       localStorage.setItem('ELEVATE_GUEST_ACCESS_MODE', mode);
+      localStorage.setItem(STORAGE_KEYS.GUEST_ACCESS_MODE, mode);
     } catch {}
     showSecurityToast(
       mode === 'all_batches'
@@ -645,6 +667,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? 'Selective Guest Access: Guests can enroll only in specific batches designated by Master Admin.'
         : 'Strict Roster Mode: Guest enrollment disabled. All batches require Master Admin admission.'
     );
+    try {
+      const policyRef = doc(db, 'system', 'lms_policy');
+      await setDoc(policyRef, { globalGuestAccessMode: mode, updatedAt: new Date().toISOString() }, { merge: true });
+    } catch (policyErr) {
+      console.warn('Failed to sync global guest mode to Firestore:', policyErr);
+    }
   };
 
   const isGuestAllowedForBatch = (batchId: string): boolean => {
@@ -665,7 +693,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? `Guest access enabled for "${targetBatch.title}". Open to all visitors.`
         : `Guest access restricted for "${targetBatch.title}". Roster admission required.`
     );
-    await syncBatchToFirestore(updated).catch(() => {});
+    try {
+      const batchRef = doc(db, 'batches', batchId);
+      await updateDoc(batchRef, { allowGuestAccess: nextState });
+    } catch {
+      await syncBatchToFirestore(updated).catch(() => {});
+    }
   };
 
   // 4. Multi-Factor Batch Enrollment Check (Supports Master Admin, Enrolled Students, and Active Guest Sessions)

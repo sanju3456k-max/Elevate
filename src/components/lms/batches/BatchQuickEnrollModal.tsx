@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, Users, UserPlus, Search, CheckCircle2, ShieldAlert, Phone, Mail, Calendar, UserX } from 'lucide-react';
+import { X, Users, UserPlus, Search, CheckCircle2, ShieldAlert, Phone, Mail, Calendar, UserX, Sparkles, Lock } from 'lucide-react';
 import { useApp } from '../../../lms/LmsContext';
 import type { Batch } from '../../../lms/types';
 
@@ -16,12 +16,19 @@ export const BatchQuickEnrollModal: React.FC<BatchQuickEnrollModalProps> = ({
 }) => {
   const {
     students,
+    batches,
+    toggleBatchGuestAccess,
     getEnrollmentsForBatch,
     loadRosterForBatch,
     enrollStudentByContact,
     revokeStudentEnrollment,
     showSecurityToast,
   } = useApp();
+
+  const currentBatch = useMemo(() => {
+    if (!batch) return null;
+    return batches.find((b) => b.id === batch.id) || batch;
+  }, [batch, batches]);
 
   const [contactInput, setContactInput] = useState('');
   const [studentNameInput, setStudentNameInput] = useState('');
@@ -151,6 +158,50 @@ export const BatchQuickEnrollModal: React.FC<BatchQuickEnrollModalProps> = ({
         )}
 
         <div className="p-6 space-y-6">
+          {/* Section 0: Guest Mode / Roster Policy Switch */}
+          <div className="p-4 rounded-3xl bg-[var(--md-sys-color-surface-container-high)] flex items-center justify-between flex-wrap gap-3 border border-[var(--md-sys-color-outline-variant)]/30">
+            <div className="flex items-center space-x-3">
+              <div className={`w-9 h-9 rounded-2xl flex items-center justify-center ${currentBatch?.allowGuestAccess ? 'bg-indigo-500/15 text-indigo-500' : 'bg-amber-500/15 text-amber-500'}`}>
+                {currentBatch?.allowGuestAccess ? <Sparkles className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+              </div>
+              <div>
+                <p className="text-xs font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-1.5">
+                  <span>Guest Access Policy:</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${currentBatch?.allowGuestAccess ? 'bg-indigo-500/15 text-indigo-500' : 'bg-amber-500/15 text-amber-500'}`}>
+                    {currentBatch?.allowGuestAccess ? '👥 Guests Open' : '🔒 Roster Only'}
+                  </span>
+                </p>
+                <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                  {currentBatch?.allowGuestAccess
+                    ? 'Free self-enrollment enabled. Unregistered and guest visitors can access this batch.'
+                    : 'Strict roster mode. Only students enrolled on the roster below can access content.'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => toggleBatchGuestAccess(batch.id)}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition cursor-pointer border-none outline-none shadow-xs flex items-center space-x-1.5 active:scale-95 ${
+                currentBatch?.allowGuestAccess
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  : 'bg-amber-600 text-white hover:bg-amber-700'
+              }`}
+            >
+              {currentBatch?.allowGuestAccess ? (
+                <>
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Switch to Roster Only</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Open for Guests</span>
+                </>
+              )}
+            </button>
+          </div>
+
           {/* Section 1: Enroll by Phone / Email */}
           <div className="p-4 rounded-3xl bg-[var(--md-sys-color-surface-container-high)] space-y-3">
             <h3 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-1.5">
