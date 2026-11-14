@@ -23,6 +23,7 @@ import {
   Bot,
   Bell,
   ArrowRight,
+  ArrowLeft,
   Play,
   Share2,
   ExternalLink,
@@ -629,9 +630,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <md-icon-button
                     id="close-nav-drawer-btn"
                     onClick={() => toggleDrawer(false)}
-                    title="Close navigation drawer"
+                    title="Back"
                   >
-                    <X className="w-5 h-5 text-[#1f1f1f] dark:text-[#e3e3e3]" />
+                    <ArrowLeft className="w-5 h-5 text-[#1f1f1f] dark:text-[#e3e3e3]" />
                   </md-icon-button>
                 </div>
 

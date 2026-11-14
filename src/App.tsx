@@ -1913,104 +1913,7 @@ export default function App() {
 
       {/* Main Content Area */}
       {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'results' && activeTab !== 'create' && activeTab !== 'custom-builder' && activeTab !== 'master-console' && (
-        <main className="flex-1 min-w-0 bg-[#e5e9f0] dark:bg-[#0b0c10] pb-24 md:pb-8">
-
-          {/* MOBILE BOTTOM NAVIGATION HEADER (Home, Batches, Test Library, Analytics) - Only show when app is fully loaded */}
-          {isAppLoaded && ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && (
-            <nav
-              id="mobile-bottom-nav"
-              aria-label="Mobile Bottom Navigation"
-              className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-[#e5e9f0]/95 dark:bg-[#0b0c10]/95 backdrop-blur-lg border-t border-[var(--md-sys-color-outline-variant)]/20 px-2 py-1.5 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_24px_rgba(0,0,0,0.5)]"
-            >
-              <div className="grid grid-cols-4 items-center justify-around max-w-md mx-auto">
-                {/* 1. Home */}
-                <button
-                  id="mobile-nav-home"
-                  type="button"
-                  onClick={() => {
-                    setSelectedLectureId(null);
-                    setActiveTab('home');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className={`flex flex-col items-center justify-center py-1 px-1 rounded-2xl transition active:scale-95 border-none outline-none cursor-pointer ${
-                    activeTab === 'home'
-                      ? 'text-[var(--md-sys-color-primary)] font-bold'
-                      : 'text-[var(--md-sys-color-on-surface-variant)] font-medium hover:text-[var(--md-sys-color-on-surface)]'
-                  }`}
-                >
-                  <div className={`px-3 py-1 rounded-full transition-colors ${activeTab === 'home' ? 'bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)]' : 'bg-transparent'}`}>
-                    <Home className="w-5 h-5" />
-                  </div>
-                  <span className="text-[10.5px] tracking-tight mt-0.5 font-semibold">Home</span>
-                </button>
-
-                {/* 2. Batches */}
-                <button
-                  id="mobile-nav-batches"
-                  type="button"
-                  onClick={() => {
-                    setSelectedBatchId(null);
-                    setSelectedChapterId(null);
-                    setSelectedLectureId(null);
-                    setSelectedFolderTab('videos');
-                    setBatchesFilter('all');
-                    setActiveTab('batches');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className={`flex flex-col items-center justify-center py-1 px-1 rounded-2xl transition active:scale-95 border-none outline-none cursor-pointer ${
-                    activeTab === 'batches'
-                      ? 'text-[var(--md-sys-color-primary)] font-bold'
-                      : 'text-[var(--md-sys-color-on-surface-variant)] font-medium hover:text-[var(--md-sys-color-on-surface)]'
-                  }`}
-                >
-                  <div className={`px-3 py-1 rounded-full transition-colors ${activeTab === 'batches' ? 'bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)]' : 'bg-transparent'}`}>
-                    <Layers className="w-5 h-5" />
-                  </div>
-                  <span className="text-[10.5px] tracking-tight mt-0.5 font-semibold">Batches</span>
-                </button>
-
-                {/* 3. Test Library */}
-                <button
-                  id="mobile-nav-test-library"
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('tests');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className={`flex flex-col items-center justify-center py-1 px-1 rounded-2xl transition active:scale-95 border-none outline-none cursor-pointer ${
-                    activeTab === 'tests'
-                      ? 'text-[var(--md-sys-color-primary)] font-bold'
-                      : 'text-[var(--md-sys-color-on-surface-variant)] font-medium hover:text-[var(--md-sys-color-on-surface)]'
-                  }`}
-                >
-                  <div className={`px-3 py-1 rounded-full transition-colors ${activeTab === 'tests' ? 'bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)]' : 'bg-transparent'}`}>
-                    <CheckCircle2 className="w-5 h-5" />
-                  </div>
-                  <span className="text-[10.5px] tracking-tight mt-0.5 font-semibold">Tests</span>
-                </button>
-
-                {/* 4. Analytics & Activity */}
-                <button
-                  id="mobile-nav-analytics"
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('analytics');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className={`flex flex-col items-center justify-center py-1 px-1 rounded-2xl transition active:scale-95 border-none outline-none cursor-pointer ${
-                    activeTab === 'analytics'
-                      ? 'text-[var(--md-sys-color-primary)] font-bold'
-                      : 'text-[var(--md-sys-color-on-surface-variant)] font-medium hover:text-[var(--md-sys-color-on-surface)]'
-                  }`}
-                >
-                  <div className={`px-3 py-1 rounded-full transition-colors ${activeTab === 'analytics' ? 'bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)]' : 'bg-transparent'}`}>
-                    <BarChart3 className="w-5 h-5" />
-                  </div>
-                  <span className="text-[10.5px] tracking-tight mt-0.5 font-semibold">Analytics</span>
-                </button>
-              </div>
-            </nav>
-          )}
+        <main className="flex-1 min-w-0 bg-[#e5e9f0] dark:bg-[#0b0c10] pb-6 sm:pb-8">
 
           {/* Home Dashboard (Elevate Unified Coaching & Assessment Feed) */}
           {activeTab === 'home' && (
@@ -2417,11 +2320,7 @@ export default function App() {
       {activeMiniPlayer && activeTab !== 'take-test' && activeTab !== 'omr-test' && (
         <div
           id="youtube-miniplayer-strip"
-          className={`fixed left-2 right-2 md:left-auto md:right-4 md:w-[380px] z-50 transition-all duration-200 bg-[var(--md-sys-color-surface-container-high)]/95 dark:bg-[#1e2024]/95 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.32)] border border-[var(--md-sys-color-outline-variant)]/25 p-2 flex items-center justify-between gap-3 animate-in slide-in-from-bottom-5 duration-200 select-none cursor-pointer ${
-            ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && !isInsideBatch
-              ? 'bottom-[64px] md:bottom-4'
-              : 'bottom-2 md:bottom-4'
-          }`}
+          className="fixed left-2 right-2 md:left-auto md:right-4 md:w-[380px] z-50 transition-all duration-200 bg-[var(--md-sys-color-surface-container-high)]/95 dark:bg-[#1e2024]/95 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.32)] border border-[var(--md-sys-color-outline-variant)]/25 p-2 flex items-center justify-between gap-3 animate-in slide-in-from-bottom-5 duration-200 select-none cursor-pointer bottom-3 md:bottom-4"
           onClick={() => {
             const mp = activeMiniPlayer;
             setActiveMiniPlayer(null);

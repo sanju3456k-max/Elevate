@@ -3830,10 +3830,10 @@ MANDATORY INSTRUCTIONS:
                   id="close-chat-history-drawer-btn"
                   onClick={() => setIsSidebarOpen(false)}
                   className="w-9 h-9 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] hover:bg-[#e2e8f0] dark:hover:bg-[#32363d] text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all cursor-pointer active:scale-95 border-0 shadow-none"
-                  title="Close chat history (Esc)"
-                  aria-label="Close chat history"
+                  title="Back to chat (Esc)"
+                  aria-label="Back to chat"
                 >
-                  <X className="w-4.5 h-4.5" />
+                  <ArrowLeft className="w-4.5 h-4.5" />
                 </button>
               </div>
 

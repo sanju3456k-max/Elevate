@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
+  ArrowLeft,
   Plus,
   Pencil,
   Paperclip,
@@ -163,9 +164,9 @@ export const CreateRevisionNoteModal: React.FC<CreateRevisionNoteModalProps> = (
               type="button"
               onClick={onClose}
               className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-500 dark:text-zinc-400 flex items-center justify-center transition-colors cursor-pointer border-0 shrink-0 select-none"
-              title="Close modal"
+              title="Back"
             >
-              <X className="w-4 h-4" />
+              <ArrowLeft className="w-4 h-4" />
             </button>
           </div>
 

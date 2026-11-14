@@ -1674,9 +1674,9 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                         type="button"
                         onClick={() => setSolutionModalQIndex(null)}
                         className="w-9 h-9 rounded-full bg-[#f0f4f9] hover:bg-slate-200 dark:bg-[#141619] dark:hover:bg-[#282a30] text-slate-700 dark:text-zinc-300 flex items-center justify-center transition-all cursor-pointer shrink-0 border-0 outline-none"
-                        title="Close"
+                        title="Back"
                       >
-                        <X className="w-4 h-4" />
+                        <ArrowLeft className="w-4 h-4" />
                       </button>
                     </div>
 
@@ -1839,9 +1839,10 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsImageFullscreen(false)}
+                  title="Back"
                   className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition-all cursor-pointer border-0 ring-0 shadow-none"
                 >
-                  <X className="w-4 h-4" />
+                  <ArrowLeft className="w-4 h-4" />
                 </button>
               </div>
 

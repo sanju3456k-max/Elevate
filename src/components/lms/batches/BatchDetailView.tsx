@@ -463,16 +463,9 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
      ========================================================================= */
   if (currentStage === 'batch_list') {
     return (
-      <div className="space-y-6 pb-24 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
-          <div className="flex items-center space-x-2">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-extrabold text-[var(--md-sys-color-on-surface)] tracking-tight">
-                {batchFilter === 'my-batches' ? 'My Enrolled Courses' : 'Courses'}
-              </h1>
-            </div>
-          </div>
-
+      <div className="space-y-6 pb-8 max-w-7xl mx-auto m3-transition-enter">
+        {/* Course Filter Toggle: All Courses vs My Courses */}
+        <div className="flex items-center justify-start sm:justify-end pb-1">
           <div className="flex items-center space-x-2 p-1 bg-[var(--md-sys-color-surface-container)] rounded-full self-start sm:self-auto">
             <button
               onClick={() => setBatchFilter('all')}

@@ -2847,15 +2847,15 @@ export const TestEditor: React.FC<TestEditorProps> = ({
               </button>
             </div>
 
-            {/* Close Button (Clean White Round Button) */}
+            {/* Back Arrow Button (Smartly replaced close button with back arrow) */}
             <button
               type="button"
               id="test-editor-close-btn"
               onClick={onCancel}
-              title="Close Test Creator"
+              title="Back to Tests"
               className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0"
             >
-              <X className="w-4.5 h-4.5" />
+              <ArrowLeft className="w-5 h-5" />
             </button>
           </div>
         </div>
