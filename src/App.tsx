@@ -173,21 +173,45 @@ export default function App() {
   const [selectedFolderTab, setSelectedFolderTab] = useState<'videos' | 'notes_content' | 'tests'>('videos');
   const [testOriginContext, setTestOriginContext] = useState<NavigationOriginContext | null>(null);
 
-  const captureOriginContext = useCallback(() => {
-    setActiveTabState((currentTab) => {
-      if (currentTab !== 'take-test' && currentTab !== 'omr-test' && currentTab !== 'results') {
-        setTestOriginContext({
-          tab: currentTab,
-          batchId: selectedBatchId,
-          chapterId: selectedChapterId,
-          lectureId: selectedLectureId,
-          folderTab: currentTab === 'batches' ? (selectedFolderTab || 'tests') : null,
-        });
-        setReturnTabAfterResults(currentTab);
-      }
-      return currentTab;
-    });
-  }, [selectedBatchId, selectedChapterId, selectedLectureId, selectedFolderTab]);
+  // Track reactive navigation state in refs for synchronous, rock-solid context capture
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+  const selectedBatchIdRef = useRef(selectedBatchId);
+  selectedBatchIdRef.current = selectedBatchId;
+  const selectedChapterIdRef = useRef(selectedChapterId);
+  selectedChapterIdRef.current = selectedChapterId;
+  const selectedLectureIdRef = useRef(selectedLectureId);
+  selectedLectureIdRef.current = selectedLectureId;
+  const selectedFolderTabRef = useRef(selectedFolderTab);
+  selectedFolderTabRef.current = selectedFolderTab;
+
+  const captureOriginContext = useCallback((explicitOrigin?: Partial<NavigationOriginContext>) => {
+    const currentTab = activeTabRef.current;
+    if (explicitOrigin) {
+      const origin: NavigationOriginContext = {
+        tab: explicitOrigin.tab || currentTab,
+        batchId: explicitOrigin.batchId !== undefined ? explicitOrigin.batchId : selectedBatchIdRef.current,
+        chapterId: explicitOrigin.chapterId !== undefined ? explicitOrigin.chapterId : selectedChapterIdRef.current,
+        lectureId: explicitOrigin.lectureId !== undefined ? explicitOrigin.lectureId : selectedLectureIdRef.current,
+        folderTab: explicitOrigin.folderTab !== undefined ? explicitOrigin.folderTab : (currentTab === 'batches' ? (selectedFolderTabRef.current || 'tests') : null),
+      };
+      setTestOriginContext(origin);
+      setReturnTabAfterResults(origin.tab);
+      return;
+    }
+
+    if (currentTab !== 'take-test' && currentTab !== 'omr-test' && currentTab !== 'results') {
+      const origin: NavigationOriginContext = {
+        tab: currentTab,
+        batchId: selectedBatchIdRef.current,
+        chapterId: selectedChapterIdRef.current,
+        lectureId: selectedLectureIdRef.current,
+        folderTab: currentTab === 'batches' ? (selectedFolderTabRef.current || 'tests') : null,
+      };
+      setTestOriginContext(origin);
+      setReturnTabAfterResults(currentTab);
+    }
+  }, []);
 
   const {
     deferredPrompt,
@@ -415,7 +439,7 @@ export default function App() {
   // Guard Master Console route strictly to sanju3456k@gmail.com
   useEffect(() => {
     if (activeTab === 'master-console' && !isMasterUser(currentUser || cachedUser)) {
-      setActiveTab('tests');
+      setActiveTab('home');
     }
   }, [activeTab, currentUser, cachedUser, setActiveTab]);
   
@@ -1101,8 +1125,12 @@ export default function App() {
   };
 
   // Test Runner Handlers
-  const handleStartTest = async (test: MathTest, mode: 'timed' | 'practice') => {
-    captureOriginContext();
+  const handleStartTest = async (
+    test: MathTest, 
+    mode: 'timed' | 'practice', 
+    explicitOrigin?: Partial<NavigationOriginContext>
+  ) => {
+    captureOriginContext(explicitOrigin);
     const isGuest = isGuestUser(currentUser || cachedUser);
     if (isGuest && (isMasterTest(test) || isRemedialTest(test))) {
       showToast('Sign in required to access tests published by Master Academic Head.', 'warning');
@@ -1359,6 +1387,8 @@ export default function App() {
     if (testOriginContext) {
       setReturnTabAfterResults(testOriginContext.tab);
     }
+    // Clean 'take-test' and 'results' from tab history so user cannot navigate back into an already completed test
+    setTabHistory((prev) => prev.filter((t) => t !== 'take-test' && t !== 'results'));
     setActiveTab('results');
     showToast(`Test completed! Your score: ${attempt.percentage}%`, attempt.passed ? 'success' : 'info');
   };
@@ -1370,6 +1400,9 @@ export default function App() {
     setActiveTestSession(loadScopedActiveSession(targetUid));
     setResumedSession(null);
     setCurrentTest(null);
+
+    // Clean 'take-test' and 'results' from tab history so user cannot navigate back into an already exited test
+    setTabHistory((prev) => prev.filter((t) => t !== 'take-test' && t !== 'results'));
 
     if (testOriginContext) {
       if (testOriginContext.batchId !== undefined) {
@@ -2052,14 +2085,30 @@ export default function App() {
                 initialLectureId={selectedLectureId}
                 initialChapterId={selectedChapterId}
                 initialFolderTab={selectedFolderTab}
+                onBatchChange={setSelectedBatchId}
                 onChapterChange={setSelectedChapterId}
                 onFolderTabChange={setSelectedFolderTab}
                 availableTests={tests}
                 initialFilter={batchesFilter}
-                onStartTest={(test) => handleStartTest(test, 'timed')}
+                onStartTest={(test, batchContext) => {
+                  if (batchContext?.batchId) setSelectedBatchId(batchContext.batchId);
+                  if (batchContext?.chapterId) setSelectedChapterId(batchContext.chapterId);
+                  if (batchContext?.folderTab) setSelectedFolderTab(batchContext.folderTab);
+                  handleStartTest(
+                    test,
+                    'timed',
+                    batchContext ? {
+                      tab: 'batches',
+                      batchId: batchContext.batchId,
+                      chapterId: batchContext.chapterId,
+                      folderTab: batchContext.folderTab || 'tests',
+                    } : undefined
+                  );
+                }}
                 onBack={() => {
                   setSelectedLectureId(null);
                   setSelectedChapterId(null);
+                  setSelectedBatchId(null);
                   setSelectedFolderTab('videos');
                   setActiveTab('home');
                 }}
@@ -2148,6 +2197,7 @@ export default function App() {
                 onStartTest={handleStartTest}
                 onEditTest={handleEditTest}
                 onNavigateTab={(tab) => setActiveTab(tab as ActiveTab)}
+                onBack={() => goBack()}
               />
             </div>
           )}

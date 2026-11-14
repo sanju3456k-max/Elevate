@@ -34,9 +34,13 @@ interface BatchDetailViewProps {
   initialFolderTab?: 'videos' | 'notes_content' | 'tests' | null;
   onBack?: () => void;
   availableTests?: MathTest[];
-  onStartTest?: (test: MathTest) => void;
+  onStartTest?: (
+    test: MathTest,
+    context?: { batchId: string; chapterId?: string | null; folderTab: 'videos' | 'notes_content' | 'tests' }
+  ) => void;
   initialFilter?: 'all' | 'my-batches';
   onStageChange?: (stage: 'batch_list' | 'folder_list' | 'folder_content' | 'lecture_view') => void;
+  onBatchChange?: (batchId: string | null) => void;
   onChapterChange?: (chapterId: string | null) => void;
   onFolderTabChange?: (tab: 'videos' | 'notes_content' | 'tests') => void;
 }
@@ -51,6 +55,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   onStartTest,
   initialFilter = 'all',
   onStageChange,
+  onBatchChange,
   onChapterChange,
   onFolderTabChange,
 }) => {
@@ -295,6 +300,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         return;
       }
       if (currentStage === 'batch_folders') {
+        setSelectedBatchId('');
+        onBatchChange?.(null);
         setCurrentStage('batch_list');
         return;
       }
@@ -309,6 +316,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       if (isGuestAllowedForBatch(batchId)) {
         enrollAsGuest(batchId);
         setSelectedBatchId(batchId);
+        onBatchChange?.(batchId);
         setSelectedChapterId(null);
         onChapterChange?.(null);
         setFolderActiveTab('videos');
@@ -322,6 +330,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       return;
     }
     setSelectedBatchId(batchId);
+    onBatchChange?.(batchId);
     setSelectedChapterId(null);
     onChapterChange?.(null);
     setFolderActiveTab('videos');
@@ -608,7 +617,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       <div className="space-y-6 pb-24 md:pb-16 max-w-2xl mx-auto m3-transition-enter pt-6">
         <div className="flex items-center pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
           <button
-            onClick={() => setCurrentStage('batch_list')}
+            onClick={() => {
+              setSelectedBatchId('');
+              onBatchChange?.(null);
+              setCurrentStage('batch_list');
+            }}
             className="flex items-center space-x-1 text-xs sm:text-sm font-bold text-[var(--md-sys-color-primary)] hover:underline border-none bg-transparent cursor-pointer p-0"
           >
             <ChevronLeft className="w-5 h-5 -ml-1" />
@@ -664,7 +677,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         {/* Top Back Navigation */}
         <div className="flex items-center justify-between pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
           <button
-            onClick={() => setCurrentStage('batch_list')}
+            onClick={() => {
+              setSelectedBatchId('');
+              onBatchChange?.(null);
+              setCurrentStage('batch_list');
+            }}
             className="flex items-center space-x-1 text-xs sm:text-sm font-bold text-[var(--md-sys-color-primary)] hover:underline border-none bg-transparent cursor-pointer p-0"
           >
             <ChevronLeft className="w-5 h-5 -ml-1" />
@@ -1021,7 +1038,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                     key={t.id}
                     onClick={() => {
                       if (onStartTest) {
-                        onStartTest(t);
+                        onStartTest(t, {
+                          batchId: selectedBatchId,
+                          chapterId: currentFolder?.id || selectedChapterId,
+                          folderTab: 'tests',
+                        });
                       } else {
                         showSecurityToast('Opening test runner...');
                       }
@@ -1064,7 +1085,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                           onClick={(e) => {
                             e.stopPropagation();
                             if (onStartTest) {
-                              onStartTest(t);
+                              onStartTest(t, {
+                                batchId: selectedBatchId,
+                                chapterId: currentFolder?.id || selectedChapterId,
+                                folderTab: 'tests',
+                              });
                             } else {
                               showSecurityToast('Opening test runner...');
                             }

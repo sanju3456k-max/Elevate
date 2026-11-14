@@ -24,6 +24,7 @@ interface GeminiChatHeaderProps {
   showRolePickerModal: boolean;
   setShowRolePickerModal: (show: boolean) => void;
   onNavigateTab?: (tab: string) => void;
+  onBack?: () => void;
   onToggleSidebar: () => void;
   updateActiveSessionModel: (model: GeminiModelTier) => void;
 }
@@ -38,6 +39,7 @@ export const GeminiChatHeader: React.FC<GeminiChatHeaderProps> = ({
   showRolePickerModal,
   setShowRolePickerModal,
   onNavigateTab,
+  onBack,
   onToggleSidebar,
   updateActiveSessionModel
 }) => {
@@ -48,16 +50,20 @@ export const GeminiChatHeader: React.FC<GeminiChatHeaderProps> = ({
   return (
     <header className="relative z-30 flex items-center justify-between gap-1 sm:gap-2 px-3 sm:px-6 md:px-8 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] pb-2 bg-white dark:bg-[#131314] shrink-0 border-0 shadow-none">
       <div className="flex items-center gap-1 sm:gap-2 min-w-0 shrink-0">
-        {onNavigateTab && (
+        {(onBack || onNavigateTab) && (
           <button
             onClick={() => {
               if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
               }
-              onNavigateTab('tests');
+              if (onBack) {
+                onBack();
+              } else if (onNavigateTab) {
+                onNavigateTab('home');
+              }
             }}
             className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[#1f1f1f] dark:text-[#e3e3e3] bg-transparent hover:bg-slate-100 dark:hover:bg-[#282a30] border-0 shadow-none transition-all cursor-pointer active:scale-95 shrink-0"
-            title="Back to Tests Dashboard"
+            title="Back"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>

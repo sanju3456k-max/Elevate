@@ -211,6 +211,7 @@ export interface GeminiChatbotViewProps {
   onStartTest?: (test: MathTest, mode?: 'timed' | 'practice') => void;
   onEditTest?: (test: MathTest, options?: { openAiPrompt?: boolean }) => void;
   onNavigateTab?: (tab: string) => void;
+  onBack?: () => void;
 }
 
 const PRESET_ROLES = [
@@ -1385,7 +1386,8 @@ export const GeminiChatbotView: React.FC<GeminiChatbotViewProps> = ({
   onDeleteTest,
   onStartTest,
   onEditTest,
-  onNavigateTab
+  onNavigateTab,
+  onBack,
 }) => {
   const [localNotes, setLocalNotes] = useState<any[]>([]);
   useEffect(() => {
@@ -1738,8 +1740,10 @@ export const GeminiChatbotView: React.FC<GeminiChatbotViewProps> = ({
           flushChatArchiveOnExit(effectiveUid, sessionsRef.current).catch(() => {});
         }
       }
-      if (onNavigateTab) {
-        onNavigateTab('tests');
+      if (onBack) {
+        onBack();
+      } else if (onNavigateTab) {
+        onNavigateTab('home');
       }
     },
     priority: 1,
@@ -3995,10 +3999,14 @@ MANDATORY INSTRUCTIONS:
                       flushChatArchiveOnExit(effectiveUid, sessionsRef.current).catch(() => {});
                     }
                   }
-                  onNavigateTab('tests');
+                  if (onBack) {
+                    onBack();
+                  } else if (onNavigateTab) {
+                    onNavigateTab('home');
+                  }
                 }}
                 className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-[#1f1f1f] dark:text-[#e3e3e3] bg-transparent hover:bg-slate-100 dark:hover:bg-[#282a30] border-0 shadow-none transition-all cursor-pointer active:scale-95 shrink-0"
-                title="Back to Tests Dashboard"
+                title="Back"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
