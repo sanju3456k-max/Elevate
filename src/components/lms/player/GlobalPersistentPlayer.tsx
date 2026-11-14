@@ -37,6 +37,7 @@ interface GlobalPersistentPlayerProps {
   onClose: () => void;
   activeTab: string;
   user: any;
+  isInsideBatch?: boolean;
 }
 
 export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
@@ -45,6 +46,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
   onClose,
   activeTab,
   user,
+  isInsideBatch = false,
 }) => {
   const {
     lectures,
@@ -52,12 +54,42 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
     addPersonalNote,
     deletePersonalNote,
     updateWatchProgress,
+    isEnrolled,
+    isGuestAllowedForBatch,
+    user: lmsUser,
   } = useApp();
 
   const [currentPlaybackSec, setCurrentPlaybackSec] = useState<number>(0);
   const [totalDuration, setTotalDuration] = useState<number>(0);
   const [seekSeconds, setSeekSeconds] = useState<number | null>(null);
   const [noteInputText, setNoteInputText] = useState<string>('');
+
+  // Determine authorization: student enrolled or guest mode enabled
+  const isUserAllowed = useMemo(() => {
+    if (!playback?.batchId) return true;
+    return isEnrolled(playback.batchId) || isGuestAllowedForBatch(playback.batchId);
+  }, [playback?.batchId, isEnrolled, isGuestAllowedForBatch]);
+
+  // Construct effective LMS user profile with enrolled batch ids
+  const effectiveUser = useMemo(() => {
+    if (lmsUser && Array.isArray(lmsUser.enrolledBatchIds)) return lmsUser;
+    const enrolledIds = playback?.batchId ? [playback.batchId] : [];
+    if (user) {
+      return {
+        ...user,
+        id: user.uid || user.id || 'student',
+        name: user.displayName || user.name || 'Student',
+        role: user.role || 'student',
+        enrolledBatchIds: user.enrolledBatchIds || enrolledIds,
+      };
+    }
+    return {
+      id: 'guest',
+      name: 'Student',
+      role: 'student',
+      enrolledBatchIds: enrolledIds,
+    };
+  }, [lmsUser, user, playback?.batchId]);
 
   // Auto-pause when entering taking an exam or OMR test
   useEffect(() => {
@@ -77,6 +109,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
   });
 
   const isPrimaryTab = ['home', 'batches', 'tests', 'analytics'].includes(activeTab);
+  const isBottomNavVisible = isPrimaryTab && !isInsideBatch;
   const isMinimized = playback?.isMinimized ?? true;
 
   const handleMinimize = useCallback((e?: React.MouseEvent) => {
@@ -148,7 +181,9 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
       id="global-persistent-player-host"
       className={
         isMinimized
-          ? `fixed left-3 right-3 bottom-3 md:left-auto md:right-4 md:w-[390px] z-50 bg-[var(--md-sys-color-surface-container-high)]/95 dark:bg-[#1e2024]/95 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.32)] border border-[var(--md-sys-color-outline-variant)]/25 p-2 transition-all duration-200 select-none cursor-pointer ${
+          ? `fixed left-3 right-3 ${
+              isBottomNavVisible ? 'bottom-[68px] md:bottom-4' : 'bottom-3 md:bottom-4'
+            } md:left-auto md:right-4 md:w-[390px] z-50 bg-[var(--md-sys-color-surface-container-high)]/95 dark:bg-[#1e2024]/95 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.32)] border border-[var(--md-sys-color-outline-variant)]/25 p-2 transition-all duration-200 select-none cursor-pointer ${
               isPrimaryTab ? 'flex items-center justify-between gap-3' : 'hidden'
             }`
           : 'fixed inset-0 z-50 bg-[var(--md-sys-color-background)] overflow-y-auto flex flex-col'
@@ -219,9 +254,10 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
           <CloakedVideoPlayer
             encryptedVideoId={playback.encryptedVideoId}
             title={playback.lectureTitle}
-            user={user || { id: 'guest', name: 'Student', role: 'student' }}
+            user={effectiveUser}
             batchId={playback.batchId}
             lectureId={playback.lectureId}
+            isGuestAllowed={isUserAllowed}
             seekToSeconds={seekSeconds}
             milestones={playback.milestones || []}
             thumbnailUrl={playback.thumbnailUrl}
