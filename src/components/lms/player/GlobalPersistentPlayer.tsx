@@ -183,18 +183,18 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
         isMinimized
           ? `fixed left-3 right-3 ${
               isBottomNavVisible ? 'bottom-[68px] md:bottom-4' : 'bottom-3 md:bottom-4'
-            } md:left-auto md:right-4 md:w-[390px] z-50 bg-[var(--md-sys-color-surface-container-high)]/95 dark:bg-[#1e2024]/95 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.32)] border border-[var(--md-sys-color-outline-variant)]/25 p-2 transition-all duration-200 select-none cursor-pointer overflow-hidden ${
-              isPrimaryTab ? 'flex items-center justify-between gap-3' : 'hidden'
+            } md:left-auto md:right-4 md:w-[410px] h-14 sm:h-16 z-50 bg-[var(--md-sys-color-surface-container-high)]/95 dark:bg-[#1e2024]/95 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.32)] border border-[var(--md-sys-color-outline-variant)]/25 p-0 transition-all duration-200 select-none cursor-pointer overflow-hidden ${
+              isPrimaryTab ? 'flex items-center justify-between' : 'hidden'
             }`
           : 'fixed inset-0 z-50 bg-[var(--md-sys-color-background)] overflow-y-auto flex flex-col'
       }
       onClick={isMinimized ? handleExpand : undefined}
     >
-      {/* 1. THE PERSISTENT VIDEO PLAYER FRAME (Sticky on Mobile, Clean Top on Desktop, NEVER UNMOUNTS) */}
+      {/* 1. THE PERSISTENT VIDEO PLAYER FRAME (Full Screen At Left End of Strip When Minimized, Clean Top on Desktop, NEVER UNMOUNTS) */}
       <div
         className={
           isMinimized
-            ? 'w-24 sm:w-28 h-14 sm:h-16 aspect-video rounded-xl overflow-hidden relative shrink-0 bg-black pointer-events-none'
+            ? 'h-full aspect-video rounded-l-2xl overflow-hidden relative shrink-0 bg-black pointer-events-none'
             : 'sticky top-0 z-40 sm:static w-full sm:max-w-5xl sm:mx-auto px-0 sm:px-4 pt-0 sm:pt-4 shrink-0 bg-black'
         }
       >
@@ -242,7 +242,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
       {/* 2. In Minimized View: Strip Content (Title, Batch, Length Count, Play/Pause, Close) */}
       {isMinimized && (
         <>
-          <div className="flex-1 min-w-0 pr-1 flex flex-col justify-center">
+          <div className="flex-1 min-w-0 pl-3 pr-1 py-1 flex flex-col justify-center">
             <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] truncate leading-snug">
               {playback.lectureTitle}
             </h4>
@@ -259,7 +259,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1 pr-2 shrink-0" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
               id="miniplayer-toggle-play-btn"

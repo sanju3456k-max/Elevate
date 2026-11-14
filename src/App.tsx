@@ -1943,12 +1943,12 @@ export default function App() {
             : (persistentPlayback?.isMinimized ? 'pb-24 sm:pb-28' : 'pb-6 sm:pb-8')
         }`}>
 
-          {/* MOBILE BOTTOM NAVIGATION HEADER (Home, Courses, Tests, Analytics) - Plain to background, no border */}
+          {/* MOBILE BOTTOM NAVIGATION HEADER (Home, Courses, Tests, Analytics) - Clean pure white, no partition lines */}
           {isAppLoaded && ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && !isInsideBatch && (
             <nav
               id="mobile-bottom-nav"
               aria-label="Mobile Bottom Navigation"
-              className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-[#e5e9f0] dark:bg-[#0b0c10] border-none border-0 shadow-none px-2 py-1 pb-[calc(0.25rem+env(safe-area-inset-bottom,0px))]"
+              className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white dark:bg-[#1e2024] border-0 border-none shadow-none px-2 py-1 pb-[calc(0.25rem+env(safe-area-inset-bottom,0px))]"
             >
               <div className="grid grid-cols-4 items-center justify-around max-w-md mx-auto">
                 {/* 1. Home */}

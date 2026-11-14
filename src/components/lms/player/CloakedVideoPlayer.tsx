@@ -932,7 +932,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           >
             <div
               id={playerContainerId.current}
-              className="w-full h-full [&>iframe]:w-full [&>iframe]:h-full [&>iframe]:object-contain sm:[&>iframe]:object-cover [&>iframe]:pointer-events-none"
+              className={`w-full h-full [&>iframe]:w-full [&>iframe]:h-full ${
+                isMini ? '[&>iframe]:object-cover' : '[&>iframe]:object-contain sm:[&>iframe]:object-cover'
+              } [&>iframe]:pointer-events-none`}
             />
           </div>
         </div>
