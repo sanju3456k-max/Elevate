@@ -43,6 +43,8 @@ interface CloakedVideoPlayerProps {
   milestones?: TimelineMilestone[];
   onProgress?: (seconds: number, totalSeconds: number) => void;
   onComplete?: () => void;
+  thumbnailUrl?: string;
+  posterUrl?: string;
 }
 
 const QUALITY_OPTIONS = [
@@ -65,6 +67,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   milestones = [],
   onProgress,
   onComplete,
+  thumbnailUrl,
+  posterUrl,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
@@ -78,6 +82,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   // 2. Active DevTools / Screen Inspection Detection State
   const [isDevToolsOpen, setIsDevToolsOpen] = useState(false);
 
+  // 3. Playback lifecycle states & Cloaking Curtain
+  const [hasEverPlayed, setHasEverPlayed] = useState(false);
+  const [isBufferingOrStarting, setIsBufferingOrStarting] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -88,6 +95,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isControlsVisible, setIsControlsVisible] = useState(true);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
+
+  // 4. Dynamic Moving DRM Watermark Coordinates (drift every 7s)
+  const [watermarkPos, setWatermarkPos] = useState({ top: 22, left: 18 });
   
   // Options (Settings) Menu State: Unified Quality, Speed & Captions
   const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
@@ -170,6 +180,22 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   }, []);
 
   const rawVideoId = deobfuscateVideoKey(encryptedVideoId);
+  const safeVideoId =
+    extractYouTubeId(rawVideoId) ||
+    (/^[a-zA-Z0-9_-]{11}$/.test(rawVideoId) ? rawVideoId : 'WUvTyaaNkzM');
+  const posterImage =
+    posterUrl || thumbnailUrl || (safeVideoId ? `https://img.youtube.com/vi/${safeVideoId}/hqdefault.jpg` : '');
+
+  // Dynamic Moving DRM Watermark Position (drifts across screen every 7s to deter screen recording)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Keep safely within the visible player area (top 15%..75%, left 10%..70%)
+      const nextTop = Math.floor(15 + Math.random() * 60);
+      const nextLeft = Math.floor(10 + Math.random() * 60);
+      setWatermarkPos({ top: nextTop, left: nextLeft });
+    }, 7000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Ephemeral Batch Token Verification Gateway
   useEffect(() => {
@@ -334,10 +360,14 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
               // YT.PlayerState: -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering)
               if (event.data === 1) {
                 setIsPlaying(true);
+                setHasEverPlayed(true);
+                setIsBufferingOrStarting(false);
               } else if (event.data === 2) {
                 setIsPlaying(false);
+                setIsBufferingOrStarting(false);
               } else if (event.data === 0) {
                 setIsPlaying(false);
+                setIsBufferingOrStarting(false);
                 if (onComplete) onComplete();
               }
             },
@@ -452,7 +482,19 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   }, [isPlaying]);
 
   // Control Handlers
+  const handleStartPlayback = () => {
+    setIsBufferingOrStarting(true);
+    showControlsForDuration(5000);
+    if (playerRef.current && playerRef.current.playVideo) {
+      playerRef.current.playVideo();
+    }
+  };
+
   const handlePlay = () => {
+    if (!hasEverPlayed) {
+      handleStartPlayback();
+      return;
+    }
     if (playerRef.current && playerRef.current.playVideo) {
       playerRef.current.playVideo();
       setIsPlaying(true);
@@ -473,6 +515,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   };
 
   const togglePlay = () => {
+    if (!hasEverPlayed) {
+      handleStartPlayback();
+      return;
+    }
     if (isPlaying) {
       handlePause();
     } else {
@@ -718,6 +764,60 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     }
   };
 
+  // Keyboard Shortcuts for enterprise player navigation (Space, J/K/L, Arrows, F, M)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // If user is focused on an input or textarea, don't intercept
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || (activeEl as HTMLElement).isContentEditable)) {
+        return;
+      }
+
+      if (e.code === 'Space' || e.key === 'k' || e.key === 'K') {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.key === 'ArrowLeft' || e.key === 'j' || e.key === 'J') {
+        e.preventDefault();
+        handleSkip(-10);
+        showNoticeWithDecay('Rewind 10s', 2000);
+      } else if (e.key === 'ArrowRight' || e.key === 'l' || e.key === 'L') {
+        e.preventDefault();
+        handleSkip(10);
+        showNoticeWithDecay('Skip 10s', 2000);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setVolume((prev) => {
+          const next = Math.min(100, prev + 10);
+          if (playerRef.current?.setVolume) playerRef.current.setVolume(next);
+          if (isMuted) {
+            setIsMuted(false);
+            playerRef.current?.unMute();
+          }
+          return next;
+        });
+        showNoticeWithDecay('Volume Up', 2000);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setVolume((prev) => {
+          const next = Math.max(0, prev - 10);
+          if (playerRef.current?.setVolume) playerRef.current.setVolume(next);
+          return next;
+        });
+        showNoticeWithDecay('Volume Down', 2000);
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleFullscreen();
+      } else if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        toggleMute();
+        showNoticeWithDecay(isMuted ? 'Audio Unmuted' : 'Audio Muted', 2000);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [togglePlay, handleSkip, toggleFullscreen, toggleMute, isMuted, showNoticeWithDecay]);
+
   const availableSpeeds = [0.75, 1, 1.25, 1.5, 1.75, 2];
 
   return (
@@ -734,10 +834,95 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           : 'aspect-video rounded-none sm:rounded-3xl shadow-2xl'
       }`}
     >
-      {/* 1. Underlying YouTube Iframe Container - active only when authorized */}
+      {/* 1. Scaled & Cropped YouTube Iframe Engine (136% Center Crop to mask YouTube title/avatar & 'Watch on YouTube' watermark) */}
       {authStatus === 'authorized' && (
-        <div className="absolute inset-0 w-full h-full pointer-events-none [&>iframe]:w-full [&>iframe]:h-full [&>iframe]:object-cover">
-          <div id={playerContainerId.current} className="w-full h-full" />
+        <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none flex items-center justify-center select-none bg-black">
+          <div
+            className="w-full h-full relative pointer-events-none"
+            style={{
+              transform: 'scale(1.36)',
+              transformOrigin: 'center center',
+              width: '100%',
+              height: '100%',
+            }}
+          >
+            <div
+              id={playerContainerId.current}
+              className="w-full h-full [&>iframe]:w-full [&>iframe]:h-full [&>iframe]:object-cover [&>iframe]:pointer-events-none"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 1a. Top Cloaking Security Guard (Masks any edge title/channel overlay bleed) */}
+      <div className="absolute top-0 inset-x-0 h-14 bg-gradient-to-b from-black/95 via-black/50 to-transparent pointer-events-none z-15" />
+
+      {/* 1b. Bottom Cloaking Security Guard (Masks any YouTube watermark/logo bleed) */}
+      <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-black/95 via-black/50 to-transparent pointer-events-none z-15" />
+
+      {/* 1c. High-Fidelity Pre-Playback Poster Curtain (Eliminates YouTube unstarted title, channel avatar, and red play button) */}
+      {authStatus === 'authorized' && !hasEverPlayed && (
+        <div className="absolute inset-0 z-25 bg-slate-950 flex flex-col items-center justify-center overflow-hidden select-none">
+          {/* Poster Image / Backdrop */}
+          {posterImage && (
+            <img
+              src={posterImage}
+              alt={title}
+              className="absolute inset-0 w-full h-full object-cover opacity-40 filter blur-[1px] brightness-75 scale-105 transition-transform duration-700 pointer-events-none"
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/40 pointer-events-none" />
+
+          {/* Top DRM Badge */}
+          <div className="absolute top-3.5 left-4 z-10 flex items-center space-x-1.5 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 text-white text-[11px] font-semibold">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>DRM Cloaked Stream</span>
+          </div>
+
+          {/* Center Play Button & Spinner */}
+          <div className="relative z-10 flex flex-col items-center text-center px-4 max-w-md">
+            {isBufferingOrStarting ? (
+              <div className="flex flex-col items-center space-y-3">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-4 border-[var(--md-sys-color-primary)]/20 border-t-[var(--md-sys-color-primary)] animate-spin" />
+                <p className="text-xs sm:text-sm font-semibold text-white drop-shadow">
+                  Connecting to secure stream...
+                </p>
+              </div>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handleStartPlayback}
+                  className="group relative flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[var(--md-sys-color-primary)] hover:bg-[var(--md-sys-color-primary)]/90 text-[var(--md-sys-color-on-primary)] shadow-2xl hover:scale-110 active:scale-95 transition-all cursor-pointer border-none"
+                  title="Start Lecture"
+                >
+                  <Play className="w-8 h-8 sm:w-10 sm:h-10 fill-current ml-1" />
+                </button>
+                <h3 className="mt-4 text-sm sm:text-base font-bold text-white drop-shadow line-clamp-2">
+                  {title}
+                </h3>
+                <p className="mt-1 text-[11px] text-slate-300 drop-shadow">
+                  Tap to begin encrypted video playback
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 1d. Dynamic Moving DRM Watermark Overlay (Anti-Piracy Screen Recording Deterrent) */}
+      {authStatus === 'authorized' && (
+        <div
+          className="absolute pointer-events-none select-none z-22 transition-all duration-1000 ease-in-out opacity-25 hover:opacity-10 font-mono text-[10px] sm:text-xs text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] flex flex-col items-start bg-black/40 px-2 py-0.5 rounded backdrop-blur-xs border border-white/10"
+          style={{
+            top: `${watermarkPos.top}%`,
+            left: `${watermarkPos.left}%`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
+          <span className="font-semibold tracking-wider">{user.name || 'Student'}</span>
+          <span className="text-[9px] opacity-80">{user.email || user.phone || `UID: ${user.id.slice(0, 8)}`}</span>
+          <span className="text-[8px] opacity-60">ID: {playbackToken?.token ? playbackToken.token.slice(0, 8).toUpperCase() : user.id.slice(0, 8).toUpperCase()}</span>
         </div>
       )}
 
@@ -824,8 +1009,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       )}
 
       {/* 4. Center Play/Pause Floating Control (Non-blocking: pointer-events-none on backdrop so screen taps always hit interaction layer cleanly) */}
-      {(isControlsVisible || !isPlaying) && isPlayerReady && authStatus === 'authorized' && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none transition-all">
+      {(isControlsVisible || !isPlaying) && isPlayerReady && authStatus === 'authorized' && hasEverPlayed && (
+        <div className={`absolute inset-0 z-20 flex items-center justify-center pointer-events-none transition-all ${!isPlaying ? 'bg-black/20' : ''}`}>
           <button
             type="button"
             onClick={(e) => {

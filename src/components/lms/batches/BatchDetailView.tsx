@@ -1385,6 +1385,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               isGuestAllowed={isGuestAllowedForBatch(currentBatch.id)}
               seekToSeconds={activeSeekSeconds}
               milestones={activeLecture.milestones || []}
+              thumbnailUrl={activeLecture.thumbnailUrl}
               onProgress={(sec, total) => {
                 setCurrentPlaybackSec(sec);
                 updateWatchProgress(activeLecture.id, sec, total);
