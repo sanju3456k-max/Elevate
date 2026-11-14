@@ -159,7 +159,32 @@ export default function App() {
   const [chatbotInitialPrompt, setChatbotInitialPrompt] = useState<string | null>(null);
   const [batchesFilter, setBatchesFilter] = useState<'all' | 'my-batches'>('all');
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   const [selectedLectureId, setSelectedLectureId] = useState<string | null>(null);
+
+  // Enterprise Omni-Channel Origin Context Engine (Guarantees seamless back navigation to exact origin)
+  interface NavigationOriginContext {
+    tab: ActiveTab;
+    batchId?: string | null;
+    chapterId?: string | null;
+    lectureId?: string | null;
+  }
+  const [testOriginContext, setTestOriginContext] = useState<NavigationOriginContext | null>(null);
+
+  const captureOriginContext = useCallback(() => {
+    setActiveTabState((currentTab) => {
+      if (currentTab !== 'take-test' && currentTab !== 'omr-test' && currentTab !== 'results') {
+        setTestOriginContext({
+          tab: currentTab,
+          batchId: selectedBatchId,
+          chapterId: selectedChapterId,
+          lectureId: selectedLectureId,
+        });
+        setReturnTabAfterResults(currentTab);
+      }
+      return currentTab;
+    });
+  }, [selectedBatchId, selectedChapterId, selectedLectureId]);
 
   const {
     deferredPrompt,
@@ -198,7 +223,7 @@ export default function App() {
     }
     setTabHistory((history) => {
       if (history.length === 0) {
-        setTimeout(() => setActiveTabState('tests'), 0);
+        setTimeout(() => setActiveTabState('home'), 0);
         return [];
       }
       const newHistory = [...history];
@@ -208,7 +233,7 @@ export default function App() {
     });
   }, []);
 
-  const [returnTabAfterResults, setReturnTabAfterResults] = useState<ActiveTab>('tests');
+  const [returnTabAfterResults, setReturnTabAfterResults] = useState<ActiveTab>('home');
   const [omrInitialTab, setOmrInitialTab] = useState<'print' | 'scan' | 'keys' | 'review'>('print');
   const [omrSessionKey, setOmrSessionKey] = useState<string>(() => `omr_session_${Date.now()}`);
   const [isLectureViewActive, setIsLectureViewActive] = useState<boolean>(false);
@@ -1074,6 +1099,7 @@ export default function App() {
 
   // Test Runner Handlers
   const handleStartTest = async (test: MathTest, mode: 'timed' | 'practice') => {
+    captureOriginContext();
     const isGuest = isGuestUser(currentUser || cachedUser);
     if (isGuest && (isMasterTest(test) || isRemedialTest(test))) {
       showToast('Sign in required to access tests published by Master Academic Head.', 'warning');
@@ -1129,6 +1155,7 @@ export default function App() {
   };
 
   const handleStartOmrTest = async (test: MathTest, initialTab: 'print' | 'scan' | 'keys' | 'review' = 'print') => {
+    captureOriginContext();
     const isGuest = isGuestUser(currentUser || cachedUser);
     if (isGuest && (isMasterTest(test) || isRemedialTest(test))) {
       showToast('Sign in required to access tests published by Master Academic Head.', 'warning');
@@ -1155,6 +1182,7 @@ export default function App() {
   };
 
   const handleResumeSession = async (specificTestId?: string) => {
+    captureOriginContext();
     const isGuest = isGuestUser(currentUser || cachedUser);
     const targetUid = currentUser?.uid || cachedUser?.uid || null;
     const targetTestId = specificTestId || pendingStartTest?.test.id || activeTestSession?.testId;
@@ -1206,6 +1234,7 @@ export default function App() {
   };
 
   const handleStartNewTest = () => {
+    captureOriginContext();
     const targetUid = currentUser?.uid || cachedUser?.uid || null;
     if (pendingStartTest) {
       clearScopedActiveSession(targetUid, pendingStartTest.test.id);
@@ -1324,7 +1353,9 @@ export default function App() {
       return;
     }
 
-    setReturnTabAfterResults('tests');
+    if (testOriginContext) {
+      setReturnTabAfterResults(testOriginContext.tab);
+    }
     setActiveTab('results');
     showToast(`Test completed! Your score: ${attempt.percentage}%`, attempt.passed ? 'success' : 'info');
   };
@@ -1336,7 +1367,21 @@ export default function App() {
     setActiveTestSession(loadScopedActiveSession(targetUid));
     setResumedSession(null);
     setCurrentTest(null);
-    setActiveTab('tests');
+
+    if (testOriginContext) {
+      if (testOriginContext.batchId !== undefined) {
+        setSelectedBatchId(testOriginContext.batchId);
+      }
+      if (testOriginContext.chapterId !== undefined) {
+        setSelectedChapterId(testOriginContext.chapterId);
+      }
+      if (testOriginContext.lectureId !== undefined) {
+        setSelectedLectureId(testOriginContext.lectureId);
+      }
+      setActiveTab(testOriginContext.tab);
+    } else {
+      goBack();
+    }
   };
 
   // Test Editor Handlers
@@ -1545,7 +1590,7 @@ export default function App() {
 
   // Analytics View Action
   const handleViewAttemptResult = (attempt: TestAttempt) => {
-    setReturnTabAfterResults(activeTab === 'analytics' ? 'analytics' : 'tests');
+    captureOriginContext();
     const foundTest = tests.find((t) => t.id === attempt.testId);
     let targetTest = foundTest;
     if (!targetTest) {
@@ -1677,7 +1722,14 @@ export default function App() {
           initialTab={omrInitialTab}
           onFinishTest={handleFinishTest}
           onExit={() => {
-            goBack();
+            if (testOriginContext) {
+              if (testOriginContext.batchId !== undefined) setSelectedBatchId(testOriginContext.batchId);
+              if (testOriginContext.chapterId !== undefined) setSelectedChapterId(testOriginContext.chapterId);
+              if (testOriginContext.lectureId !== undefined) setSelectedLectureId(testOriginContext.lectureId);
+              setActiveTab(testOriginContext.tab);
+            } else {
+              goBack();
+            }
           }}
         />
       )}
@@ -1704,7 +1756,16 @@ export default function App() {
             const t = currentTest || tests.find((t) => t.id === lastAttempt.testId);
             if (t) handleStartTest(t, 'timed');
           }}
-          onBackToDashboard={() => setActiveTab(returnTabAfterResults)}
+          onBackToDashboard={() => {
+            if (testOriginContext) {
+              if (testOriginContext.batchId !== undefined) setSelectedBatchId(testOriginContext.batchId);
+              if (testOriginContext.chapterId !== undefined) setSelectedChapterId(testOriginContext.chapterId);
+              if (testOriginContext.lectureId !== undefined) setSelectedLectureId(testOriginContext.lectureId);
+              setActiveTab(testOriginContext.tab);
+            } else {
+              setActiveTab(returnTabAfterResults || 'home');
+            }
+          }}
           onCreateNew={() => {
             setEditingTest(null);
             setActiveTab('create');
@@ -1789,6 +1850,7 @@ export default function App() {
                   type="button"
                   onClick={() => {
                     setSelectedBatchId(null);
+                    setSelectedChapterId(null);
                     setSelectedLectureId(null);
                     setBatchesFilter('all');
                     setActiveTab('batches');
@@ -1868,6 +1930,7 @@ export default function App() {
                   type="button"
                   onClick={() => {
                     setSelectedBatchId(null);
+                    setSelectedChapterId(null);
                     setSelectedLectureId(null);
                     setBatchesFilter('all');
                     setActiveTab('batches');
@@ -1941,6 +2004,8 @@ export default function App() {
               userProfile={userProfile}
               onStartTest={(test) => handleStartTest(test, 'timed')}
               onOpenBatches={(filter) => {
+                setSelectedBatchId(null);
+                setSelectedChapterId(null);
                 setSelectedLectureId(null);
                 setBatchesFilter(filter || 'all');
                 setActiveTab('batches');
@@ -1971,11 +2036,14 @@ export default function App() {
               <BatchDetailView
                 batchId={selectedBatchId || undefined}
                 initialLectureId={selectedLectureId}
+                initialChapterId={selectedChapterId}
+                onChapterChange={setSelectedChapterId}
                 availableTests={tests}
                 initialFilter={batchesFilter}
                 onStartTest={(test) => handleStartTest(test, 'timed')}
                 onBack={() => {
                   setSelectedLectureId(null);
+                  setSelectedChapterId(null);
                   setActiveTab('home');
                 }}
                 onStageChange={(stage) => setIsLectureViewActive(stage === 'lecture_view')}
@@ -2013,6 +2081,7 @@ export default function App() {
               onOpenBulkPrint={() => setActiveTab('bulk-print')}
               onOpenBatches={() => {
                 setSelectedBatchId(null);
+                setSelectedChapterId(null);
                 setSelectedLectureId(null);
                 setBatchesFilter('all');
                 setActiveTab('batches');

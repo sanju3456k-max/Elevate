@@ -30,21 +30,25 @@ import { Award, Timer, HelpCircle } from 'lucide-react';
 interface BatchDetailViewProps {
   batchId?: string;
   initialLectureId?: string | null;
+  initialChapterId?: string | null;
   onBack?: () => void;
   availableTests?: MathTest[];
   onStartTest?: (test: MathTest) => void;
   initialFilter?: 'all' | 'my-batches';
   onStageChange?: (stage: 'batch_list' | 'folder_list' | 'folder_content' | 'lecture_view') => void;
+  onChapterChange?: (chapterId: string | null) => void;
 }
 
 export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   batchId: propBatchId,
   initialLectureId,
+  initialChapterId,
   onBack,
   availableTests = [],
   onStartTest,
   initialFilter = 'all',
   onStageChange,
+  onChapterChange,
 }) => {
   const {
     batches,
@@ -70,7 +74,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   });
 
   // Selected Folder (Chapter)
-  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
+  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(initialChapterId || null);
 
   // Selected Lecture
   const [selectedLectureId, setSelectedLectureId] = useState<string | null>(initialLectureId || null);
@@ -78,6 +82,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   // Stage Navigation: 'batch_list' | 'batch_folders' | 'folder_content' | 'lecture_view'
   const [currentStage, setCurrentStage] = useState<'batch_list' | 'batch_folders' | 'folder_content' | 'lecture_view'>(() => {
     if (initialLectureId) return 'lecture_view';
+    if (initialChapterId && propBatchId) return 'folder_content';
     if (propBatchId) return 'batch_folders';
     return 'batch_list'; // Start with only batch list when no specific batch is selected
   });
@@ -101,13 +106,19 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   React.useEffect(() => {
     if (propBatchId) {
       setSelectedBatchId(propBatchId);
-      if (!initialLectureId) {
+      if (initialChapterId) {
+        setSelectedChapterId(initialChapterId);
+        setFolderActiveTab('tests');
+        if (!initialLectureId) {
+          setCurrentStage('folder_content');
+        }
+      } else if (!initialLectureId) {
         setCurrentStage('batch_folders');
       }
     } else {
       setCurrentStage('batch_list');
     }
-  }, [propBatchId, initialLectureId]);
+  }, [propBatchId, initialChapterId, initialLectureId]);
 
   React.useEffect(() => {
     if (selectedBatchId) {
@@ -270,6 +281,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         return;
       }
       if (currentStage === 'folder_content') {
+        setSelectedChapterId(null);
+        onChapterChange?.(null);
         setCurrentStage('batch_folders');
         return;
       }
@@ -303,6 +316,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
   const goToFolderContent = (chapterId: string) => {
     setSelectedChapterId(chapterId);
+    onChapterChange?.(chapterId);
     window.history.pushState({ stage: 'folder_content', chapterId }, '');
     setCurrentStage('folder_content');
   };
@@ -748,7 +762,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--md-sys-color-outline-variant)]/20">
           <div className="flex items-center space-x-2">
             <button
-              onClick={() => setCurrentStage('batch_folders')}
+              onClick={() => {
+                setSelectedChapterId(null);
+                onChapterChange?.(null);
+                setCurrentStage('batch_folders');
+              }}
               className="p-1.5 rounded-full hover:bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface)] border-none bg-transparent cursor-pointer flex items-center justify-center transition"
               title="Back to folders"
             >
