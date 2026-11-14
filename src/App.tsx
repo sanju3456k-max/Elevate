@@ -168,7 +168,9 @@ export default function App() {
     batchId?: string | null;
     chapterId?: string | null;
     lectureId?: string | null;
+    folderTab?: 'videos' | 'notes_content' | 'tests' | null;
   }
+  const [selectedFolderTab, setSelectedFolderTab] = useState<'videos' | 'notes_content' | 'tests'>('videos');
   const [testOriginContext, setTestOriginContext] = useState<NavigationOriginContext | null>(null);
 
   const captureOriginContext = useCallback(() => {
@@ -179,12 +181,13 @@ export default function App() {
           batchId: selectedBatchId,
           chapterId: selectedChapterId,
           lectureId: selectedLectureId,
+          folderTab: currentTab === 'batches' ? (selectedFolderTab || 'tests') : null,
         });
         setReturnTabAfterResults(currentTab);
       }
       return currentTab;
     });
-  }, [selectedBatchId, selectedChapterId, selectedLectureId]);
+  }, [selectedBatchId, selectedChapterId, selectedLectureId, selectedFolderTab]);
 
   const {
     deferredPrompt,
@@ -310,7 +313,7 @@ export default function App() {
   const hasCalculatedRollupRef = useRef(false);
 
   // System navigation back gestures and browser history tracking across all devices
-  const { navigateBack } = useViewHistory<ActiveTab>(activeTab, setActiveTab, 'tests');
+  const { navigateBack } = useViewHistory<ActiveTab>(activeTab, setActiveTab, 'home');
 
   // Guarantee clean scroll behavior and instant scroll refresh across all top-level tab transitions
   useEffect(() => {
@@ -1378,6 +1381,9 @@ export default function App() {
       if (testOriginContext.lectureId !== undefined) {
         setSelectedLectureId(testOriginContext.lectureId);
       }
+      if (testOriginContext.folderTab) {
+        setSelectedFolderTab(testOriginContext.folderTab);
+      }
       setActiveTab(testOriginContext.tab);
     } else {
       goBack();
@@ -1726,6 +1732,7 @@ export default function App() {
               if (testOriginContext.batchId !== undefined) setSelectedBatchId(testOriginContext.batchId);
               if (testOriginContext.chapterId !== undefined) setSelectedChapterId(testOriginContext.chapterId);
               if (testOriginContext.lectureId !== undefined) setSelectedLectureId(testOriginContext.lectureId);
+              if (testOriginContext.folderTab) setSelectedFolderTab(testOriginContext.folderTab);
               setActiveTab(testOriginContext.tab);
             } else {
               goBack();
@@ -1761,6 +1768,7 @@ export default function App() {
               if (testOriginContext.batchId !== undefined) setSelectedBatchId(testOriginContext.batchId);
               if (testOriginContext.chapterId !== undefined) setSelectedChapterId(testOriginContext.chapterId);
               if (testOriginContext.lectureId !== undefined) setSelectedLectureId(testOriginContext.lectureId);
+              if (testOriginContext.folderTab) setSelectedFolderTab(testOriginContext.folderTab);
               setActiveTab(testOriginContext.tab);
             } else {
               setActiveTab(returnTabAfterResults || 'home');
@@ -1852,6 +1860,7 @@ export default function App() {
                     setSelectedBatchId(null);
                     setSelectedChapterId(null);
                     setSelectedLectureId(null);
+                    setSelectedFolderTab('videos');
                     setBatchesFilter('all');
                     setActiveTab('batches');
                   }}
@@ -1932,6 +1941,7 @@ export default function App() {
                     setSelectedBatchId(null);
                     setSelectedChapterId(null);
                     setSelectedLectureId(null);
+                    setSelectedFolderTab('videos');
                     setBatchesFilter('all');
                     setActiveTab('batches');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2007,18 +2017,22 @@ export default function App() {
                 setSelectedBatchId(null);
                 setSelectedChapterId(null);
                 setSelectedLectureId(null);
+                setSelectedFolderTab('videos');
                 setBatchesFilter(filter || 'all');
                 setActiveTab('batches');
               }}
               onSelectBatch={(batchId) => {
                 setSelectedBatchId(batchId);
+                setSelectedChapterId(null);
                 setSelectedLectureId(null);
+                setSelectedFolderTab('videos');
                 setBatchesFilter('all');
                 setActiveTab('batches');
               }}
               onSelectLecture={(batchId, lectureId) => {
                 setSelectedBatchId(batchId);
                 setSelectedLectureId(lectureId);
+                setSelectedFolderTab('videos');
                 setActiveTab('batches');
               }}
               onOpenAllTests={() => setActiveTab('tests')}
@@ -2037,13 +2051,16 @@ export default function App() {
                 batchId={selectedBatchId || undefined}
                 initialLectureId={selectedLectureId}
                 initialChapterId={selectedChapterId}
+                initialFolderTab={selectedFolderTab}
                 onChapterChange={setSelectedChapterId}
+                onFolderTabChange={setSelectedFolderTab}
                 availableTests={tests}
                 initialFilter={batchesFilter}
                 onStartTest={(test) => handleStartTest(test, 'timed')}
                 onBack={() => {
                   setSelectedLectureId(null);
                   setSelectedChapterId(null);
+                  setSelectedFolderTab('videos');
                   setActiveTab('home');
                 }}
                 onStageChange={(stage) => setIsLectureViewActive(stage === 'lecture_view')}
@@ -2083,6 +2100,7 @@ export default function App() {
                 setSelectedBatchId(null);
                 setSelectedChapterId(null);
                 setSelectedLectureId(null);
+                setSelectedFolderTab('videos');
                 setBatchesFilter('all');
                 setActiveTab('batches');
               }}

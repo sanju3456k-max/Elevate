@@ -31,24 +31,28 @@ interface BatchDetailViewProps {
   batchId?: string;
   initialLectureId?: string | null;
   initialChapterId?: string | null;
+  initialFolderTab?: 'videos' | 'notes_content' | 'tests' | null;
   onBack?: () => void;
   availableTests?: MathTest[];
   onStartTest?: (test: MathTest) => void;
   initialFilter?: 'all' | 'my-batches';
   onStageChange?: (stage: 'batch_list' | 'folder_list' | 'folder_content' | 'lecture_view') => void;
   onChapterChange?: (chapterId: string | null) => void;
+  onFolderTabChange?: (tab: 'videos' | 'notes_content' | 'tests') => void;
 }
 
 export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   batchId: propBatchId,
   initialLectureId,
   initialChapterId,
+  initialFolderTab,
   onBack,
   availableTests = [],
   onStartTest,
   initialFilter = 'all',
   onStageChange,
   onChapterChange,
+  onFolderTabChange,
 }) => {
   const {
     batches,
@@ -87,8 +91,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     return 'batch_list'; // Start with only batch list when no specific batch is selected
   });
 
-  // Inside Folder Tab: 'videos' | 'notes_content'
-  const [folderActiveTab, setFolderActiveTab] = useState<'videos' | 'notes_content' | 'tests'>('videos');
+  // Inside Folder Tab: 'videos' | 'notes_content' | 'tests'
+  const [folderActiveTab, setFolderActiveTab] = useState<'videos' | 'notes_content' | 'tests'>(
+    initialFolderTab || 'videos'
+  );
 
   // Filter state for All Batches vs My Batches
   const [batchFilter, setBatchFilter] = useState<'all' | 'my-batches'>(initialFilter || 'all');
@@ -108,7 +114,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       setSelectedBatchId(propBatchId);
       if (initialChapterId) {
         setSelectedChapterId(initialChapterId);
-        setFolderActiveTab('tests');
+        setFolderActiveTab(initialFolderTab || 'videos');
         if (!initialLectureId) {
           setCurrentStage('folder_content');
         }
@@ -118,7 +124,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     } else {
       setCurrentStage('batch_list');
     }
-  }, [propBatchId, initialChapterId, initialLectureId]);
+  }, [propBatchId, initialChapterId, initialLectureId, initialFolderTab]);
 
   React.useEffect(() => {
     if (selectedBatchId) {
@@ -283,6 +289,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       if (currentStage === 'folder_content') {
         setSelectedChapterId(null);
         onChapterChange?.(null);
+        setFolderActiveTab('videos');
+        onFolderTabChange?.('videos');
         setCurrentStage('batch_folders');
         return;
       }
@@ -301,6 +309,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       if (isGuestAllowedForBatch(batchId)) {
         enrollAsGuest(batchId);
         setSelectedBatchId(batchId);
+        setSelectedChapterId(null);
+        onChapterChange?.(null);
+        setFolderActiveTab('videos');
+        onFolderTabChange?.('videos');
         window.history.pushState({ stage: 'batch_folders', batchId }, '');
         setCurrentStage('batch_folders');
         return;
@@ -310,6 +322,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       return;
     }
     setSelectedBatchId(batchId);
+    setSelectedChapterId(null);
+    onChapterChange?.(null);
+    setFolderActiveTab('videos');
+    onFolderTabChange?.('videos');
     window.history.pushState({ stage: 'batch_folders', batchId }, '');
     setCurrentStage('batch_folders');
   };
@@ -317,6 +333,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   const goToFolderContent = (chapterId: string) => {
     setSelectedChapterId(chapterId);
     onChapterChange?.(chapterId);
+    setFolderActiveTab('videos');
+    onFolderTabChange?.('videos');
     window.history.pushState({ stage: 'folder_content', chapterId }, '');
     setCurrentStage('folder_content');
   };
@@ -765,6 +783,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               onClick={() => {
                 setSelectedChapterId(null);
                 onChapterChange?.(null);
+                setFolderActiveTab('videos');
+                onFolderTabChange?.('videos');
                 setCurrentStage('batch_folders');
               }}
               className="p-1.5 rounded-full hover:bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface)] border-none bg-transparent cursor-pointer flex items-center justify-center transition"
@@ -792,7 +812,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         {/* THREE SECTIONS TABS: 'Videos' | 'Notes Content' | 'Tests' */}
         <div className="flex items-center space-x-2 p-1 bg-[var(--md-sys-color-surface-container)] rounded-full max-w-md">
           <button
-            onClick={() => setFolderActiveTab('videos')}
+            onClick={() => {
+              setFolderActiveTab('videos');
+              onFolderTabChange?.('videos');
+            }}
             className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
               folderActiveTab === 'videos'
                 ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
@@ -804,7 +827,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           </button>
 
           <button
-            onClick={() => setFolderActiveTab('notes_content')}
+            onClick={() => {
+              setFolderActiveTab('notes_content');
+              onFolderTabChange?.('notes_content');
+            }}
             className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
               folderActiveTab === 'notes_content'
                 ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
@@ -816,7 +842,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           </button>
 
           <button
-            onClick={() => setFolderActiveTab('tests')}
+            onClick={() => {
+              setFolderActiveTab('tests');
+              onFolderTabChange?.('tests');
+            }}
             className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
               folderActiveTab === 'tests'
                 ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
