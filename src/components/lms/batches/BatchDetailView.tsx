@@ -113,7 +113,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     batchTests,
   } = useApp();
 
-  const isMaster = Boolean(isMasterEditMode || user?.role === 'admin');
+  const isMaster = Boolean(isMasterEditMode);
 
   // Selected Batch
   const [selectedBatchId, setSelectedBatchId] = useState<string>(() => {
@@ -263,6 +263,23 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     });
   }, [lectures, currentBatch, selectedChapterId]);
 
+  // Total videos count (all batch videos if at root, or chapter videos if inside a chapter)
+  const totalFolderVideosCount = useMemo(() => {
+    if (!currentBatch) return 0;
+    if (!selectedChapterId) {
+      return lectures.filter((l) => l.batchId === currentBatch.id).length;
+    }
+    const chapterIds = new Set<string>([selectedChapterId]);
+    const addDescendants = (parentId: string) => {
+      chapters.filter((c) => c.parentId === parentId).forEach((c) => {
+        chapterIds.add(c.id);
+        addDescendants(c.id);
+      });
+    };
+    addDescendants(selectedChapterId);
+    return lectures.filter((l) => l.batchId === currentBatch.id && l.chapterId && chapterIds.has(l.chapterId)).length;
+  }, [lectures, currentBatch, selectedChapterId, chapters]);
+
   // Notes directly at the current level (folder direct attachments + lecture notes)
   const folderNotesContent = useMemo(() => {
     const directNotes = currentFolder?.pdfNotes || [];
@@ -277,6 +294,19 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     return Array.from(map.values());
   }, [currentFolder, folderLectures]);
 
+  // Total notes count
+  const totalFolderNotesCount = useMemo(() => {
+    if (!currentBatch) return 0;
+    if (!selectedChapterId) {
+      let count = 0;
+      const batchLectures = lectures.filter((l) => l.batchId === currentBatch.id);
+      batchLectures.forEach((l) => (count += l.pdfNotes?.length || 0));
+      chapters.filter((c) => c.batchId === currentBatch.id).forEach((c) => (count += c.pdfNotes?.length || 0));
+      return count;
+    }
+    return folderNotesContent.length;
+  }, [currentBatch, selectedChapterId, lectures, chapters, folderNotesContent]);
+
   // Tests linked to the current folder or batch root
   const folderTests = useMemo(() => {
     const folderTestIds = new Set(currentFolder?.testIds || []);
@@ -286,6 +316,15 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     }
     return matchingTests;
   }, [availableTests, currentFolder, selectedChapterId, batchTests]);
+
+  // Total tests count
+  const totalFolderTestsCount = useMemo(() => {
+    if (!currentBatch) return 0;
+    if (!selectedChapterId) {
+      return batchTests.length || folderTests.length;
+    }
+    return folderTests.length;
+  }, [currentBatch, selectedChapterId, batchTests, folderTests]);
 
   // Active Lecture for Player
   const activeLecture = useMemo(() => {
@@ -619,7 +658,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             </div>
           </div>
 
-          {/* Master Admin Contextual Action Bar */}
+          {/* Master Admin Contextual Action Bar (Only visible in Master Console View) */}
           {isMaster && (
             <div className="flex items-center space-x-2 shrink-0 self-start md:self-auto">
               <button
@@ -630,10 +669,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 }}
                 className="p-2 sm:px-3.5 sm:py-1.5 rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs hover:opacity-95 transition border-none cursor-pointer shrink-0"
                 title={selectedChapterId ? "Add Subfolder" : "Add Chapter Folder"}
-                aria-label="Add Chapter Folder"
+                aria-label="Add Subfolder"
               >
                 <Plus className="w-4 h-4 sm:w-3.5 sm:h-3.5 stroke-[2.5]" />
-                <span className="hidden sm:inline">New</span>
+                <span className="hidden sm:inline">Add Subfolder</span>
               </button>
 
               <button
@@ -643,10 +682,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   setIsVideoModalOpen(true);
                 }}
                 className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs hover:bg-indigo-700 transition border-none cursor-pointer shrink-0"
-                title="Add Video Lecture"
+                title="Add Lecture"
               >
                 <Video className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                <span className="hidden sm:inline">+ Video</span>
+                <span className="hidden sm:inline">Add Lecture</span>
               </button>
 
               <button
@@ -656,23 +695,71 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   setIsNoteModalOpen(true);
                 }}
                 className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs hover:bg-emerald-700 transition border-none cursor-pointer shrink-0"
-                title="Add PDF Note"
+                title="Add Notes or Document Files"
               >
                 <FilePlus className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                <span className="hidden sm:inline">+ Note</span>
+                <span className="hidden sm:inline">Add Notes</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setIsLinkTestModalOpen(true)}
                 className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-amber-500 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs hover:bg-amber-600 transition border-none cursor-pointer shrink-0"
-                title="Link Test"
+                title="Link Mock Test"
               >
                 <Award className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                <span className="hidden sm:inline">+ Test</span>
+                <span className="hidden sm:inline">Link Mock Test</span>
               </button>
             </div>
           )}
+        </div>
+
+        {/* TOP TOGGLE BAR: VIDEOS | NOTES | TESTS (Positioned at the top, above the folders) */}
+        <div className="flex items-center space-x-2 p-1 bg-[var(--md-sys-color-surface-container)] rounded-full max-w-md shadow-xs">
+          <button
+            onClick={() => {
+              setFolderActiveTab('videos');
+              onFolderTabChange?.('videos');
+            }}
+            className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
+              folderActiveTab === 'videos'
+                ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
+                : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+            }`}
+          >
+            <PlayCircle className="w-3.5 h-3.5" />
+            <span>Videos ({totalFolderVideosCount})</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setFolderActiveTab('notes_content');
+              onFolderTabChange?.('notes_content');
+            }}
+            className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
+              folderActiveTab === 'notes_content'
+                ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
+                : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Notes ({totalFolderNotesCount})</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setFolderActiveTab('tests');
+              onFolderTabChange?.('tests');
+            }}
+            className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
+              folderActiveTab === 'tests'
+                ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
+                : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+            }`}
+          >
+            <Award className="w-3.5 h-3.5" />
+            <span>Tests ({totalFolderTestsCount})</span>
+          </button>
         </div>
 
         {/* SECTION 1: SUBFOLDERS GRID (Google Drive Folder Cards) */}
@@ -787,81 +874,54 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         )}
 
         {/* SECTION 2: CONTENT (VIDEOS, NOTES & TESTS) */}
-        <div className="space-y-4 pt-2">
-          {/* Sub-Tabs: Videos | Notes | Tests */}
-          <div className="flex items-center space-x-2 p-1 bg-[var(--md-sys-color-surface-container)] rounded-full max-w-md">
-            <button
-              onClick={() => {
-                setFolderActiveTab('videos');
-                onFolderTabChange?.('videos');
-              }}
-              className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
-                folderActiveTab === 'videos'
-                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
-                  : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
-              }`}
-            >
-              <PlayCircle className="w-3.5 h-3.5" />
-              <span>Videos ({folderLectures.length})</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setFolderActiveTab('notes_content');
-                onFolderTabChange?.('notes_content');
-              }}
-              className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
-                folderActiveTab === 'notes_content'
-                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
-                  : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>Notes ({folderNotesContent.length})</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setFolderActiveTab('tests');
-                onFolderTabChange?.('tests');
-              }}
-              className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
-                folderActiveTab === 'tests'
-                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
-                  : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
-              }`}
-            >
-              <Award className="w-3.5 h-3.5" />
-              <span>Tests ({folderTests.length})</span>
-            </button>
-          </div>
+        <div className="space-y-4 pt-1">
 
           {/* TAB 1: VIDEOS */}
           {folderActiveTab === 'videos' && (
             <div>
               {folderLectures.length === 0 ? (
-                <div className="p-8 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl border border-dashed border-[var(--md-sys-color-outline-variant)]/40 space-y-2">
-                  <Video className="w-8 h-8 mx-auto text-indigo-500 opacity-60" />
-                  <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)]">
-                    No Video Lectures in this folder yet
-                  </h4>
-                  {isMaster ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingLecture(null);
-                        setIsVideoModalOpen(true);
-                      }}
-                      className="px-4 py-1.5 rounded-full bg-indigo-600 text-white text-xs font-bold border-none cursor-pointer shadow-xs"
-                    >
-                      + Add First Lecture
-                    </button>
-                  ) : (
-                    <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
-                      Faculty will upload video lectures and recorded sessions for this section soon.
+                currentSubfolders.length > 0 ? (
+                  <div className="p-4 sm:p-5 text-center bg-[var(--md-sys-color-surface-container)]/60 rounded-2xl border border-dashed border-[var(--md-sys-color-outline-variant)]/30 space-y-1">
+                    <p className="text-xs font-semibold text-[var(--md-sys-color-on-surface-variant)]">
+                      Select a subfolder above to view chapter video lectures
                     </p>
-                  )}
-                </div>
+                    {isMaster && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingLecture(null);
+                          setIsVideoModalOpen(true);
+                        }}
+                        className="mt-1 px-3 py-1 rounded-full bg-indigo-600 text-white text-xs font-bold border-none cursor-pointer shadow-xs"
+                      >
+                        + Add Lecture Directly Here
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl border border-dashed border-[var(--md-sys-color-outline-variant)]/40 space-y-2">
+                    <Video className="w-8 h-8 mx-auto text-indigo-500 opacity-60" />
+                    <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)]">
+                      No Video Lectures in this folder yet
+                    </h4>
+                    {isMaster ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingLecture(null);
+                          setIsVideoModalOpen(true);
+                        }}
+                        className="px-4 py-1.5 rounded-full bg-indigo-600 text-white text-xs font-bold border-none cursor-pointer shadow-xs"
+                      >
+                        + Add First Lecture
+                      </button>
+                    ) : (
+                      <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                        Faculty will upload video lectures and recorded sessions for this section soon.
+                      </p>
+                    )}
+                  </div>
+                )
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
                   {folderLectures.map((lec) => (
@@ -983,28 +1043,48 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           {folderActiveTab === 'notes_content' && (
             <div>
               {folderNotesContent.length === 0 ? (
-                <div className="p-8 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl border border-dashed border-[var(--md-sys-color-outline-variant)]/40 space-y-2">
-                  <FileText className="w-8 h-8 mx-auto text-emerald-500 opacity-60" />
-                  <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)]">
-                    No PDF Notes in this folder yet
-                  </h4>
-                  {isMaster ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingNote(null);
-                        setIsNoteModalOpen(true);
-                      }}
-                      className="px-4 py-1.5 rounded-full bg-emerald-600 text-white text-xs font-bold border-none cursor-pointer shadow-xs"
-                    >
-                      + Add PDF Note
-                    </button>
-                  ) : (
-                    <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
-                      Faculty will upload chapter cheat sheets and DPP notes here soon.
+                currentSubfolders.length > 0 ? (
+                  <div className="p-4 sm:p-5 text-center bg-[var(--md-sys-color-surface-container)]/60 rounded-2xl border border-dashed border-[var(--md-sys-color-outline-variant)]/30 space-y-1">
+                    <p className="text-xs font-semibold text-[var(--md-sys-color-on-surface-variant)]">
+                      Select a subfolder above to view chapter notes & documents
                     </p>
-                  )}
-                </div>
+                    {isMaster && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingNote(null);
+                          setIsNoteModalOpen(true);
+                        }}
+                        className="mt-1 px-3 py-1 rounded-full bg-emerald-600 text-white text-xs font-bold border-none cursor-pointer shadow-xs"
+                      >
+                        + Add Note Directly Here
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl border border-dashed border-[var(--md-sys-color-outline-variant)]/40 space-y-2">
+                    <FileText className="w-8 h-8 mx-auto text-emerald-500 opacity-60" />
+                    <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)]">
+                      No PDF Notes in this folder yet
+                    </h4>
+                    {isMaster ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingNote(null);
+                          setIsNoteModalOpen(true);
+                        }}
+                        className="px-4 py-1.5 rounded-full bg-emerald-600 text-white text-xs font-bold border-none cursor-pointer shadow-xs"
+                      >
+                        + Add PDF Note
+                      </button>
+                    ) : (
+                      <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                        Faculty will upload chapter cheat sheets and DPP notes here soon.
+                      </p>
+                    )}
+                  </div>
+                )
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   {folderNotesContent.map((note) => (
@@ -1071,25 +1151,42 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           {folderActiveTab === 'tests' && (
             <div>
               {folderTests.length === 0 ? (
-                <div className="p-8 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl border border-dashed border-[var(--md-sys-color-outline-variant)]/40 space-y-2">
-                  <Award className="w-8 h-8 mx-auto text-amber-500 opacity-60" />
-                  <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)]">
-                    No Mock Tests in this folder yet
-                  </h4>
-                  {isMaster ? (
-                    <button
-                      type="button"
-                      onClick={() => setIsLinkTestModalOpen(true)}
-                      className="px-4 py-1.5 rounded-full bg-amber-500 text-white text-xs font-bold border-none cursor-pointer shadow-xs"
-                    >
-                      + Link CBT Test
-                    </button>
-                  ) : (
-                    <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
-                      Faculty will schedule and publish chapter mock exams here soon.
+                currentSubfolders.length > 0 ? (
+                  <div className="p-4 sm:p-5 text-center bg-[var(--md-sys-color-surface-container)]/60 rounded-2xl border border-dashed border-[var(--md-sys-color-outline-variant)]/30 space-y-1">
+                    <p className="text-xs font-semibold text-[var(--md-sys-color-on-surface-variant)]">
+                      Select a subfolder above to take chapter mock tests
                     </p>
-                  )}
-                </div>
+                    {isMaster && (
+                      <button
+                        type="button"
+                        onClick={() => setIsLinkTestModalOpen(true)}
+                        className="mt-1 px-3 py-1 rounded-full bg-amber-500 text-white text-xs font-bold border-none cursor-pointer shadow-xs"
+                      >
+                        + Link CBT Test Directly Here
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl border border-dashed border-[var(--md-sys-color-outline-variant)]/40 space-y-2">
+                    <Award className="w-8 h-8 mx-auto text-amber-500 opacity-60" />
+                    <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)]">
+                      No Mock Tests in this folder yet
+                    </h4>
+                    {isMaster ? (
+                      <button
+                        type="button"
+                        onClick={() => setIsLinkTestModalOpen(true)}
+                        className="px-4 py-1.5 rounded-full bg-amber-500 text-white text-xs font-bold border-none cursor-pointer shadow-xs"
+                      >
+                        + Link CBT Test
+                      </button>
+                    ) : (
+                      <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                        Faculty will schedule and publish chapter mock exams here soon.
+                      </p>
+                    )}
+                  </div>
+                )
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
                   {folderTests.map((t) => (
