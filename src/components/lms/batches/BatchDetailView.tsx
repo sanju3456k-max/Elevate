@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -65,6 +65,7 @@ interface BatchDetailViewProps {
   onStageChange?: (stage: 'batch_list' | 'folder_list' | 'folder_content' | 'lecture_view') => void;
   onBatchChange?: (batchId: string | null) => void;
   onChapterChange?: (chapterId: string | null) => void;
+  onLectureChange?: (lectureId: string | null) => void;
   onFolderTabChange?: (tab: 'videos' | 'notes_content' | 'tests') => void;
   isMasterEditMode?: boolean;
 }
@@ -81,6 +82,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   onStageChange,
   onBatchChange,
   onChapterChange,
+  onLectureChange,
   onFolderTabChange,
   isMasterEditMode = false,
 }) => {
@@ -186,6 +188,9 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     }
   }, [initialFilter]);
 
+  // Track consumed initialLectureId to prevent navigation bounce loops
+  const consumedLectureIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (propBatchId) {
       setSelectedBatchId(propBatchId);
@@ -195,16 +200,19 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       if (initialFolderTab) {
         setFolderActiveTab(initialFolderTab);
       }
-      if (initialLectureId) {
+      if (initialLectureId && consumedLectureIdRef.current !== initialLectureId) {
+        consumedLectureIdRef.current = initialLectureId;
         setSelectedLectureId(initialLectureId);
         setCurrentStage('lecture_view');
-      } else {
+        onStageChange?.('lecture_view');
+      } else if (!initialLectureId && currentStage === 'batch_list') {
         setCurrentStage('folder_content');
       }
     } else {
+      consumedLectureIdRef.current = null;
       setCurrentStage('batch_list');
     }
-  }, [propBatchId, initialChapterId, initialLectureId, initialFolderTab]);
+  }, [propBatchId, initialChapterId, initialLectureId, initialFolderTab, onStageChange]);
 
   useEffect(() => {
     if (selectedBatchId) {
@@ -212,19 +220,16 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     }
   }, [selectedBatchId, loadCurriculumForBatch]);
 
+  // When lectures are loaded, if we have an active initial lecture, ensure its chapter/batch are aligned without re-triggering stage changes
   useEffect(() => {
-    if (initialLectureId) {
+    if (initialLectureId && consumedLectureIdRef.current === initialLectureId && selectedLectureId === initialLectureId) {
       const targetLec = lectures.find((l) => l.id === initialLectureId);
       if (targetLec) {
-        setSelectedLectureId(targetLec.id);
-        if (targetLec.chapterId) setSelectedChapterId(targetLec.chapterId);
-        if (targetLec.batchId) setSelectedBatchId(targetLec.batchId);
-      } else {
-        setSelectedLectureId(initialLectureId);
+        if (targetLec.chapterId && !selectedChapterId) setSelectedChapterId(targetLec.chapterId);
+        if (targetLec.batchId && !selectedBatchId) setSelectedBatchId(targetLec.batchId);
       }
-      setCurrentStage('lecture_view');
     }
-  }, [initialLectureId, lectures]);
+  }, [initialLectureId, lectures, selectedLectureId, selectedChapterId, selectedBatchId]);
 
   const enrolledBatches = useMemo(
     () => batches.filter((b) => isEnrolled(b.id)),
@@ -331,6 +336,15 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     return lectures.find((l) => l.id === selectedLectureId) || folderLectures[0] || lectures[0];
   }, [lectures, selectedLectureId, folderLectures]);
 
+  // Dedicated exit handler from lecture view that safely clears all parent tracking
+  const handleExitLectureView = useCallback(() => {
+    setSelectedLectureId(null);
+    consumedLectureIdRef.current = null;
+    onLectureChange?.(null);
+    setCurrentStage('folder_content');
+    onStageChange?.('folder_content');
+  }, [onLectureChange, onStageChange]);
+
   // Centralized Back Navigation Stack Integration
   useBackHandler({
     isOpen: currentStage !== 'batch_list' || Boolean(previewImage),
@@ -342,8 +356,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         return;
       }
       if (currentStage === 'lecture_view') {
-        setSelectedLectureId(null);
-        setCurrentStage('folder_content');
+        handleExitLectureView();
         return;
       }
       if (selectedChapterId) {
@@ -397,7 +410,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
   const goToLectureView = (lectureId: string) => {
     setSelectedLectureId(lectureId);
+    consumedLectureIdRef.current = lectureId;
+    onLectureChange?.(lectureId);
     setCurrentStage('lecture_view');
+    onStageChange?.('lecture_view');
   };
 
   const handleCreateNote = (e: React.FormEvent) => {
@@ -1441,7 +1457,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       {/* Mobile Top Back Bar */}
       <div className="flex items-center justify-between sm:hidden px-3.5 py-2">
         <button
-          onClick={() => setCurrentStage('folder_content')}
+          onClick={handleExitLectureView}
           className="flex items-center space-x-1 text-xs font-bold text-[var(--md-sys-color-primary)] border-none bg-transparent cursor-pointer p-0 hover:underline"
         >
           <ChevronLeft className="w-5 h-5 -ml-1" />
@@ -1456,7 +1472,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       {/* Desktop Navigation Breadcrumbs */}
       <div className="hidden sm:flex items-center justify-between">
         <button
-          onClick={() => setCurrentStage('folder_content')}
+          onClick={handleExitLectureView}
           className="flex items-center space-x-1.5 text-xs sm:text-sm font-bold text-[var(--md-sys-color-primary)] hover:underline border-none bg-transparent cursor-pointer"
         >
           <ChevronLeft className="w-4 h-4" />

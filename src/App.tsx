@@ -350,6 +350,12 @@ export default function App() {
       if (document.documentElement) document.documentElement.scrollTop = 0;
       if (document.body) document.body.scrollTop = 0;
     }
+    if (activeTab === 'home') {
+      setSelectedLectureId(null);
+      setIsLectureViewActive(false);
+    } else if (activeTab !== 'batches') {
+      setIsLectureViewActive(false);
+    }
   }, [activeTab]);
 
   // UI Scale & Font Resolution management
@@ -1890,6 +1896,7 @@ export default function App() {
                   id="mobile-nav-home"
                   type="button"
                   onClick={() => {
+                    setSelectedLectureId(null);
                     setActiveTab('home');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
@@ -2026,6 +2033,7 @@ export default function App() {
                 initialFolderTab={selectedFolderTab}
                 onBatchChange={setSelectedBatchId}
                 onChapterChange={setSelectedChapterId}
+                onLectureChange={setSelectedLectureId}
                 onFolderTabChange={setSelectedFolderTab}
                 availableTests={tests}
                 initialFilter={batchesFilter}
