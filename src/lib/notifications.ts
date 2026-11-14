@@ -1,4 +1,5 @@
-import { type ActiveTab } from '../types';
+import { type ActiveTab, type MathTest } from '../types';
+import type { Batch, Chapter, Lecture, Announcement, BatchTestCard } from '../lms/types';
 
 export interface AppNotification {
   id: string;
@@ -9,117 +10,204 @@ export interface AppNotification {
   read: boolean;
   actionTab?: ActiveTab;
   actionLabel?: string;
-  metadata?: Record<string, any>;
+  targetBatchId?: string;
+  targetChapterId?: string | null;
+  targetLectureId?: string;
+  targetTestId?: string;
 }
 
-const STORAGE_KEY = 'elevate_user_notifications_v1';
-const NOTIFICATIONS_EVENT = 'elevate-notifications-updated';
+const READ_STORAGE_KEY = 'elevate_read_notification_ids_v2';
+const DISMISSED_STORAGE_KEY = 'elevate_dismissed_notification_ids_v2';
+export const NOTIFICATIONS_EVENT = 'elevate-notifications-updated';
 
-const DEFAULT_NOTIFICATIONS: AppNotification[] = [
-  {
-    id: 'notif-1',
-    title: 'New Video Lecture Available',
-    message: 'Lecture 02: Core Formulas & Derivation Workshop is now live in your curriculum batch.',
-    category: 'lecture',
-    timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(), // 45m ago
-    read: false,
-    actionTab: 'batches',
-    actionLabel: 'Watch Lecture',
-  },
-  {
-    id: 'notif-2',
-    title: 'Live CBT Mock Assessment Active',
-    message: 'JEE Advanced Full Mock Assessment (Mathematics) is ready. Timed mode and auto-analysis enabled.',
-    category: 'test',
-    timestamp: new Date(Date.now() - 1000 * 60 * 180).toISOString(), // 3h ago
-    read: false,
-    actionTab: 'tests',
-    actionLabel: 'Start Mock Test',
-  },
-  {
-    id: 'notif-3',
-    title: 'Formula Study Repository Synced',
-    message: 'Calculus and Coordinate Geometry quick-revision formula sheets synced to your Notes Studio.',
-    category: 'notes',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 18).toISOString(), // 18h ago
-    read: true,
-    actionTab: 'notes-repository',
-    actionLabel: 'Open Notes Studio',
-  },
-  {
-    id: 'notif-4',
-    title: 'Theta AI Concept Recommendation',
-    message: 'Strengthen Integration by Parts! Ask Theta AI to generate step-by-step practice variations.',
-    category: 'ai',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 28).toISOString(), // Yesterday
-    read: true,
-    actionTab: 'chatbot',
-    actionLabel: 'Ask Theta AI',
-  },
-  {
-    id: 'notif-5',
-    title: 'Offline OMR & Print Studio Upgrade',
-    message: 'New high-contrast printable bubble sheets and instant camera grading available in OMR Studio.',
-    category: 'system',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(), // 2 days ago
-    read: true,
-    actionTab: 'bulk-print',
-    actionLabel: 'Explore OMR Studio',
-  },
-];
-
-export function getStoredNotifications(): AppNotification[] {
+function getStoredIdSet(key: string): Set<string> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_NOTIFICATIONS));
-      return DEFAULT_NOTIFICATIONS;
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : DEFAULT_NOTIFICATIONS;
+    const raw = localStorage.getItem(key);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
   } catch {
-    return DEFAULT_NOTIFICATIONS;
+    return new Set();
   }
 }
 
-export function saveNotifications(notifications: AppNotification[]): void {
+function saveStoredIdSet(key: string, set: Set<string>): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(notifications));
+    localStorage.setItem(key, JSON.stringify(Array.from(set)));
     window.dispatchEvent(new CustomEvent(NOTIFICATIONS_EVENT));
   } catch (err) {
-    console.warn('Failed to save notifications to storage:', err);
+    console.warn('Failed to persist notification state:', err);
   }
 }
 
-export function markNotificationAsRead(id: string): void {
-  const current = getStoredNotifications();
-  const updated = current.map((n) => (n.id === id ? { ...n, read: true } : n));
-  saveNotifications(updated);
+export function getReadNotificationIds(): Set<string> {
+  return getStoredIdSet(READ_STORAGE_KEY);
 }
 
-export function markAllNotificationsAsRead(): void {
-  const current = getStoredNotifications();
-  const updated = current.map((n) => ({ ...n, read: true }));
-  saveNotifications(updated);
+export function getDismissedNotificationIds(): Set<string> {
+  return getStoredIdSet(DISMISSED_STORAGE_KEY);
 }
 
-export function deleteNotification(id: string): void {
-  const current = getStoredNotifications();
-  const updated = current.filter((n) => n.id !== id);
-  saveNotifications(updated);
+export function markNotificationIdAsRead(id: string): void {
+  const readSet = getReadNotificationIds();
+  readSet.add(id);
+  saveStoredIdSet(READ_STORAGE_KEY, readSet);
 }
 
-export function clearAllNotifications(): void {
-  saveNotifications([]);
+export function markAllNotificationIdsAsRead(ids: string[]): void {
+  const readSet = getReadNotificationIds();
+  ids.forEach((id) => readSet.add(id));
+  saveStoredIdSet(READ_STORAGE_KEY, readSet);
 }
 
-export function resetDefaultNotifications(): void {
-  saveNotifications(DEFAULT_NOTIFICATIONS);
+export function dismissNotificationId(id: string): void {
+  const dismissedSet = getDismissedNotificationIds();
+  dismissedSet.add(id);
+  saveStoredIdSet(DISMISSED_STORAGE_KEY, dismissedSet);
 }
 
-export function getUnreadNotificationsCount(): number {
-  const current = getStoredNotifications();
-  return current.filter((n) => !n.read).length;
+export function clearAllNotificationIds(ids: string[]): void {
+  const dismissedSet = getDismissedNotificationIds();
+  ids.forEach((id) => dismissedSet.add(id));
+  saveStoredIdSet(DISMISSED_STORAGE_KEY, dismissedSet);
 }
 
-export { NOTIFICATIONS_EVENT };
+export function resetDismissedNotifications(): void {
+  try {
+    localStorage.removeItem(DISMISSED_STORAGE_KEY);
+    localStorage.removeItem(READ_STORAGE_KEY);
+    window.dispatchEvent(new CustomEvent(NOTIFICATIONS_EVENT));
+  } catch {}
+}
+
+/**
+ * Derives REAL, authentic notifications from actual LMS Batches, Lectures, Chapters, Announcements & Tests.
+ * Zero duplicate IDs and zero fake dummy data.
+ */
+export function deriveRealBatchNotifications(params: {
+  batches: Batch[];
+  lectures: Lecture[];
+  chapters?: Chapter[];
+  announcements?: Announcement[];
+  batchTests?: BatchTestCard[];
+  availableTests?: MathTest[];
+}): AppNotification[] {
+  const {
+    batches = [],
+    lectures = [],
+    chapters = [],
+    announcements = [],
+    batchTests = [],
+  } = params;
+
+  const readSet = getReadNotificationIds();
+  const dismissedSet = getDismissedNotificationIds();
+  const notifs: AppNotification[] = [];
+  const seenIds = new Set<string>();
+
+  // 1. REAL BATCH LECTURE UPDATES
+  lectures.forEach((lec) => {
+    const notifId = `notif-lec-${lec.id}`;
+    if (seenIds.has(notifId) || dismissedSet.has(notifId)) return;
+    seenIds.add(notifId);
+
+    const parentBatch = batches.find((b) => b.id === lec.batchId);
+    const parentChapter = chapters.find((c) => c.id === lec.chapterId);
+    const batchTitle = parentBatch?.title || 'Curriculum Batch';
+    const chapterTitle = parentChapter?.title ? ` • ${parentChapter.title}` : '';
+    const durationText = lec.durationMinutes ? ` (${lec.durationMinutes} mins)` : '';
+
+    notifs.push({
+      id: notifId,
+      title: lec.title || 'New Video Lecture',
+      message: `Available in ${batchTitle}${chapterTitle}${durationText}`,
+      category: 'lecture',
+      timestamp: lec.createdAt || new Date().toISOString(),
+      read: readSet.has(notifId),
+      actionTab: 'batches',
+      actionLabel: 'Watch Lecture',
+      targetBatchId: lec.batchId,
+      targetChapterId: lec.chapterId || null,
+      targetLectureId: lec.id,
+    });
+  });
+
+  // 2. REAL BATCH ANNOUNCEMENTS
+  announcements.forEach((ann) => {
+    const notifId = `notif-ann-${ann.id}`;
+    if (seenIds.has(notifId) || dismissedSet.has(notifId)) return;
+    seenIds.add(notifId);
+
+    const parentBatch = batches.find((b) => b.id === ann.batchId);
+    const batchPrefix = parentBatch?.title ? `[${parentBatch.title}] ` : '';
+
+    notifs.push({
+      id: notifId,
+      title: `${batchPrefix}${ann.title}`,
+      message: ann.message || '',
+      category: 'system',
+      timestamp: ann.date ? new Date(ann.date).toISOString() : new Date().toISOString(),
+      read: readSet.has(notifId),
+      actionTab: 'batches',
+      actionLabel: 'Open Batch',
+      targetBatchId: ann.batchId,
+    });
+  });
+
+  // 3. REAL BATCH TESTS & DPP ASSIGNMENTS
+  batchTests.forEach((bTest) => {
+    const testKey = bTest.testId || bTest.id || '';
+    const notifId = `notif-btest-${testKey}`;
+    if (seenIds.has(notifId) || dismissedSet.has(notifId)) return;
+    seenIds.add(notifId);
+
+    const parentBatch = batches.find((b) => b.id === bTest.batchId);
+    const batchTitle = parentBatch?.title || 'Batch';
+    const testDetails = [
+      bTest.topic,
+      bTest.questionCount ? `${bTest.questionCount} Questions` : '',
+      bTest.timeLimitMinutes ? `${bTest.timeLimitMinutes}m` : ''
+    ].filter(Boolean).join(' • ');
+
+    notifs.push({
+      id: notifId,
+      title: `Mock Test: ${bTest.title}`,
+      message: `Scheduled in ${batchTitle}${testDetails ? ` • ${testDetails}` : ''}`,
+      category: 'test',
+      timestamp: bTest.publishedAt || new Date().toISOString(),
+      read: readSet.has(notifId),
+      actionTab: 'batches',
+      actionLabel: 'Take Test',
+      targetBatchId: bTest.batchId,
+      targetTestId: bTest.testId || bTest.id,
+    });
+  });
+
+  // 4. REAL NEW BATCHES PUBLISHED
+  batches.forEach((b) => {
+    const notifId = `notif-batch-${b.id}`;
+    if (seenIds.has(notifId) || dismissedSet.has(notifId)) return;
+    seenIds.add(notifId);
+
+    notifs.push({
+      id: notifId,
+      title: `Course: ${b.title}`,
+      message: b.tagline || b.description || 'Full curriculum module available for enrollment.',
+      category: 'lecture',
+      timestamp: b.startDate && !isNaN(new Date(b.startDate).getTime())
+        ? new Date(b.startDate).toISOString()
+        : new Date().toISOString(),
+      read: readSet.has(notifId),
+      actionTab: 'batches',
+      actionLabel: 'View Course',
+      targetBatchId: b.id,
+    });
+  });
+
+  // Sort by latest timestamp first
+  return notifs.sort((a, b) => {
+    const tA = new Date(a.timestamp).getTime() || 0;
+    const tB = new Date(b.timestamp).getTime() || 0;
+    return tB - tA;
+  });
+}

@@ -2257,11 +2257,33 @@ export default function App() {
             />
           )}
 
-          {/* Full-Screen Material 3 Notifications & Updates Page */}
+          {/* Full-Screen Material 3 Real Batch Notifications & Updates Page */}
           {activeTab === 'notifications' && (
             <NotificationsView
               onBack={() => goBack()}
               onNavigateTab={(tab) => setActiveTab(tab)}
+              onOpenBatchLecture={(batchId, chapterId, lectureId) => {
+                setSelectedBatchId(batchId);
+                setSelectedChapterId(chapterId);
+                setSelectedLectureId(lectureId);
+                setSelectedFolderTab('videos');
+                setActiveTab('batches');
+              }}
+              onOpenBatch={(batchId) => {
+                setSelectedBatchId(batchId);
+                setSelectedChapterId(null);
+                setSelectedLectureId(null);
+                setSelectedFolderTab('videos');
+                setActiveTab('batches');
+              }}
+              onOpenTest={(testId) => {
+                const found = tests.find((t) => t.id === testId);
+                if (found) {
+                  handleStartTest(found, 'timed');
+                } else {
+                  setActiveTab('tests');
+                }
+              }}
               isDarkMode={isDarkMode}
             />
           )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -54,7 +54,8 @@ import type { User } from 'firebase/auth';
 import type { ActiveTab } from '../types';
 import { type CachedAuthUser, isOfflineLocalOnlyMode } from '../lib/storage';
 import { isMasterUser } from '../lib/masterAccount';
-import { getUnreadNotificationsCount, NOTIFICATIONS_EVENT } from '../lib/notifications';
+import { deriveRealBatchNotifications, NOTIFICATIONS_EVENT } from '../lib/notifications';
+import { useApp } from '../lms/LmsContext';
 
 interface NavbarProps {
   activeTab: ActiveTab;
@@ -122,13 +123,14 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState<boolean>(false);
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
-  const [unreadCount, setUnreadCount] = useState<number>(getUnreadNotificationsCount);
+  const { batches, lectures, chapters, announcements, batchTests } = useApp();
+  const [readVersion, setReadVersion] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Sync real-time notification badge counts
   useEffect(() => {
     const handleUpdate = () => {
-      setUnreadCount(getUnreadNotificationsCount());
+      setReadVersion((v) => v + 1);
     };
     window.addEventListener(NOTIFICATIONS_EVENT, handleUpdate);
     window.addEventListener('storage', handleUpdate);
@@ -137,6 +139,17 @@ export const Navbar: React.FC<NavbarProps> = ({
       window.removeEventListener('storage', handleUpdate);
     };
   }, []);
+
+  const unreadCount = useMemo(() => {
+    const notifs = deriveRealBatchNotifications({
+      batches,
+      lectures,
+      chapters,
+      announcements,
+      batchTests,
+    });
+    return notifs.filter((n) => !n.read).length;
+  }, [batches, lectures, chapters, announcements, batchTests, readVersion]);
 
   // Lock body & document scrolling while side drawer is open to prevent background scroll
   useScrollLock(isDrawerOpen);
