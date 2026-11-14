@@ -922,29 +922,42 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       {authStatus === 'authorized' && (
         <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none flex items-center justify-center select-none bg-black">
           <div
-            className="w-full h-full relative pointer-events-none"
+            className="relative pointer-events-none flex items-center justify-center"
             style={{
-              transform: isMini ? 'scale(1.15)' : 'none',
+              width: isMini ? '180%' : '100%',
+              height: isMini ? '180%' : '100%',
+              minWidth: isMini ? '180%' : '100%',
+              minHeight: isMini ? '180%' : '100%',
+              transform: isMini ? 'scale(1.1)' : 'none',
               transformOrigin: 'center center',
-              width: '100%',
-              height: '100%',
             }}
           >
             <div
               id={playerContainerId.current}
-              className={`w-full h-full [&>iframe]:w-full [&>iframe]:h-full ${
-                isMini ? '[&>iframe]:object-cover' : '[&>iframe]:object-contain sm:[&>iframe]:object-cover'
-              } [&>iframe]:pointer-events-none`}
+              className="w-full h-full [&>iframe]:w-full [&>iframe]:h-full [&>iframe]:pointer-events-none"
             />
           </div>
         </div>
       )}
 
-      {/* 1a. Top Cloaking Security Guard (Masks any edge title/channel overlay bleed) */}
-      <div className={`absolute top-0 inset-x-0 ${isMini ? 'h-3' : 'h-14'} bg-gradient-to-b from-black/95 via-black/50 to-transparent pointer-events-none z-15`} />
+      {/* 1a. Miniplayer Pre-playback Clean Poster Cover (Eliminates YouTube raw embed UI, play button & clock icon) */}
+      {isMini && authStatus === 'authorized' && !hasEverPlayed && (
+        <div className="absolute inset-0 z-20 bg-black flex items-center justify-center overflow-hidden pointer-events-none">
+          {activePosterImage && (
+            <img
+              src={activePosterImage}
+              alt={title}
+              className="w-full h-full object-cover"
+            />
+          )}
+        </div>
+      )}
 
-      {/* 1b. Bottom Cloaking Security Guard (Masks any YouTube watermark/logo bleed) */}
-      <div className={`absolute bottom-0 inset-x-0 ${isMini ? 'h-3' : 'h-16'} bg-gradient-to-t from-black/95 via-black/50 to-transparent pointer-events-none z-15`} />
+      {/* 1b. Top Cloaking Security Guard (Masks any edge title/channel overlay bleed) */}
+      <div className={`absolute top-0 inset-x-0 ${isMini ? 'h-4' : 'h-14'} bg-gradient-to-b from-black/95 via-black/50 to-transparent pointer-events-none z-15`} />
+
+      {/* 1c. Bottom Cloaking Security Guard (Masks any YouTube watermark/logo bleed) */}
+      <div className={`absolute bottom-0 inset-x-0 ${isMini ? 'h-4' : 'h-16'} bg-gradient-to-t from-black/95 via-black/50 to-transparent pointer-events-none z-15`} />
 
       {!isMini && (
         <>

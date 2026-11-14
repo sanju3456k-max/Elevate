@@ -183,18 +183,18 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
         isMinimized
           ? `fixed left-3 right-3 ${
               isBottomNavVisible ? 'bottom-[68px] md:bottom-4' : 'bottom-3 md:bottom-4'
-            } md:left-auto md:right-4 md:w-[410px] h-14 sm:h-16 z-50 bg-[var(--md-sys-color-surface-container-high)]/95 dark:bg-[#1e2024]/95 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.32)] border border-[var(--md-sys-color-outline-variant)]/25 p-0 transition-all duration-200 select-none cursor-pointer overflow-hidden ${
+            } md:left-auto md:right-4 md:w-[410px] h-14 sm:h-16 z-50 bg-white/95 dark:bg-[#1e2024]/95 backdrop-blur-2xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.16),0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.55)] border border-slate-200/90 dark:border-zinc-800/90 p-0 transition-all duration-200 select-none cursor-pointer overflow-hidden ${
               isPrimaryTab ? 'flex items-center justify-between' : 'hidden'
             }`
           : 'fixed inset-0 z-50 bg-[var(--md-sys-color-background)] overflow-y-auto flex flex-col'
       }
       onClick={isMinimized ? handleExpand : undefined}
     >
-      {/* 1. THE PERSISTENT VIDEO PLAYER FRAME (Full Screen At Left End of Strip When Minimized, Clean Top on Desktop, NEVER UNMOUNTS) */}
+      {/* 1. THE PERSISTENT VIDEO PLAYER FRAME (Full Bleed At Left End of Strip When Minimized, Clean Top on Desktop, NEVER UNMOUNTS) */}
       <div
         className={
           isMinimized
-            ? 'h-full aspect-video rounded-l-2xl overflow-hidden relative shrink-0 bg-black pointer-events-none'
+            ? 'w-24 sm:w-28 h-14 sm:h-16 shrink-0 rounded-l-2xl overflow-hidden relative bg-black pointer-events-none border-r border-slate-200/50 dark:border-zinc-800/50'
             : 'sticky top-0 z-40 sm:static w-full sm:max-w-5xl sm:mx-auto px-0 sm:px-4 pt-0 sm:pt-4 shrink-0 bg-black'
         }
       >
@@ -242,16 +242,16 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
       {/* 2. In Minimized View: Strip Content (Title, Batch, Length Count, Play/Pause, Close) */}
       {isMinimized && (
         <>
-          <div className="flex-1 min-w-0 pl-3 pr-1 py-1 flex flex-col justify-center">
-            <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] truncate leading-snug">
+          <div className="flex-1 min-w-0 pl-3 sm:pl-3.5 pr-2 py-1 flex flex-col justify-center">
+            <h4 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-zinc-100 truncate leading-snug tracking-tight">
               {playback.lectureTitle}
             </h4>
-            <div className="flex items-center gap-1.5 text-[10.5px] text-[var(--md-sys-color-on-surface-variant)] truncate mt-0.5">
-              <span className="truncate max-w-[110px] sm:max-w-[150px]">{playback.batchTitle}</span>
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-zinc-400 truncate mt-0.5">
+              <span className="truncate max-w-[120px] sm:max-w-[170px] font-medium">{playback.batchTitle}</span>
               {totalDuration > 0 && (
                 <>
-                  <span className="opacity-40">•</span>
-                  <span className="font-mono font-semibold text-[10px] text-[#0b57d0] dark:text-[#a8c7fa]">
+                  <span className="text-slate-300 dark:text-zinc-600 font-bold">•</span>
+                  <span className="font-mono font-semibold text-[10px] text-slate-600 dark:text-zinc-400">
                     {formatDuration(currentPlaybackSec)} / {formatDuration(totalDuration)}
                   </span>
                 </>
@@ -259,12 +259,12 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-1 pr-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1 pr-2.5 sm:pr-3 shrink-0" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
               id="miniplayer-toggle-play-btn"
               onClick={handleTogglePlay}
-              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-black/10 dark:hover:bg-white/10 text-[var(--md-sys-color-on-surface)] border-none bg-transparent cursor-pointer transition active:scale-90"
+              className="w-8 sm:w-8.5 h-8 sm:h-8.5 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 border-none bg-transparent cursor-pointer transition active:scale-90"
               title={playback.isPlaying ? 'Pause' : 'Play'}
             >
               {playback.isPlaying ? (
@@ -277,17 +277,17 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
               type="button"
               id="miniplayer-close-strip-btn"
               onClick={handleClose}
-              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-black/10 dark:hover:bg-white/10 text-[var(--md-sys-color-on-surface-variant)] hover:text-rose-500 border-none bg-transparent cursor-pointer transition active:scale-90"
+              className="w-8 sm:w-8.5 h-8 sm:h-8.5 rounded-full flex items-center justify-center hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 dark:text-zinc-500 dark:hover:text-rose-400 border-none bg-transparent cursor-pointer transition active:scale-90"
               title="Close video"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4 stroke-[2.2]" />
             </button>
           </div>
 
           {/* Sleek linear progress bar embedded strictly inside the card */}
-          <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-black/10 dark:bg-white/10 overflow-hidden rounded-b-2xl pointer-events-none">
+          <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-slate-100 dark:bg-zinc-800/80 overflow-hidden rounded-b-2xl pointer-events-none">
             <div
-              className="h-full bg-[#0b57d0] dark:bg-[#a8c7fa] transition-all duration-300 rounded-r-full"
+              className="h-full bg-[#0b57d0] dark:bg-[#a8c7fa] transition-all duration-200 rounded-r-full"
               style={{
                 width: `${totalDuration > 0 ? Math.min(100, Math.max(0, (currentPlaybackSec / totalDuration) * 100)) : 0}%`,
               }}
