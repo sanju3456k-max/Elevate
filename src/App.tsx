@@ -38,7 +38,7 @@ import {
 import type { User } from 'firebase/auth';
 import { normalizeQuestions, type ActiveTab, type MathTest, type TestAttempt, type ActiveTestSession, type UserProfile, type TestHistoryEntry } from './types';
 import { triggerBlobDownload } from './lib/omrPrintDownload';
-import { Bot, Sparkles, Share2, Play, X, Layers, BookOpen, CheckCircle2, BarChart3, Home, TrendingUp } from 'lucide-react';
+import { Bot, Sparkles, Share2, Play, Pause, X, Layers, BookOpen, CheckCircle2, BarChart3, Home, TrendingUp } from 'lucide-react';
 import { decodeTestFromShareUrl } from './utils/shareUtils';
 import { parseTestFromText, formatTestToText, isJsonFormat } from './utils/testFormatConverter';
 import { 
@@ -161,6 +161,24 @@ export default function App() {
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   const [selectedLectureId, setSelectedLectureId] = useState<string | null>(null);
+  const [batchesStage, setBatchesStage] = useState<'batch_list' | 'folder_list' | 'folder_content' | 'lecture_view'>('batch_list');
+
+  // YouTube-style Floating Miniplayer Video State
+  interface MiniPlayerVideo {
+    lectureId: string;
+    lectureTitle: string;
+    batchId: string;
+    batchTitle: string;
+    chapterId?: string | null;
+    thumbnailUrl?: string;
+    durationMinutes?: number;
+    encryptedVideoId?: string;
+    isPlaying?: boolean;
+  }
+  const [activeMiniPlayer, setActiveMiniPlayer] = useState<MiniPlayerVideo | null>(null);
+
+  // In batches section, user is "inside" a batch when viewing folders, chapter contents, or lecture player
+  const isInsideBatch = activeTab === 'batches' && (Boolean(selectedBatchId) || batchesStage !== 'batch_list');
 
   // Enterprise Omni-Channel Origin Context Engine (Guarantees seamless back navigation to exact origin)
   interface NavigationOriginContext {
@@ -1730,14 +1748,14 @@ export default function App() {
       {/* Navigation Header:
           - Active Test Runners (take-test, omr-test) run in full-screen distraction-free examination chrome.
           - Desktop Viewing Experience (lg:): Header is visible across all standard pages.
-          - Mobile & Tablet Apps (< lg): Top Header is EXCLUSIVELY displayed on the 4 primary tabs: Home, Batches, Tests, and Analytics.
-          - In Batches, when a video lecture is actively playing (isLectureViewActive), header is hidden on mobile & tablet for full immersive playback. */}
+          - Mobile & Tablet Apps (< lg): Top Header is EXCLUSIVELY displayed on the 4 primary tabs: Home, Batches (courses directory only), Tests, and Analytics.
+          - When inside a batch (viewing folders, contents, or video), top header is hidden on mobile & tablet to maximize workspace focus. */}
       {activeTab !== 'take-test' && activeTab !== 'omr-test' && (
         <div
           id="app-navbar-wrapper"
           className={`transition-all duration-200 shrink-0 ${
             ['home', 'batches', 'tests', 'analytics'].includes(activeTab)
-              ? (activeTab === 'batches' && isLectureViewActive ? 'hidden lg:block' : 'block')
+              ? (activeTab === 'batches' && isInsideBatch ? 'hidden lg:block' : 'block')
               : 'hidden lg:block'
           }`}
         >
@@ -2042,7 +2060,10 @@ export default function App() {
                 initialLectureId={selectedLectureId}
                 initialChapterId={selectedChapterId}
                 initialFolderTab={selectedFolderTab}
-                onBatchChange={setSelectedBatchId}
+                onBatchChange={(batchId) => {
+                  setSelectedBatchId(batchId);
+                  if (!batchId) setBatchesStage('batch_list');
+                }}
                 onChapterChange={setSelectedChapterId}
                 onLectureChange={setSelectedLectureId}
                 onFolderTabChange={setSelectedFolderTab}
@@ -2068,9 +2089,14 @@ export default function App() {
                   setSelectedChapterId(null);
                   setSelectedBatchId(null);
                   setSelectedFolderTab('videos');
+                  setBatchesStage('batch_list');
                   setActiveTab('home');
                 }}
-                onStageChange={(stage) => setIsLectureViewActive(stage === 'lecture_view')}
+                onStageChange={(stage) => {
+                  setBatchesStage(stage);
+                  setIsLectureViewActive(stage === 'lecture_view');
+                }}
+                onSetMiniPlayer={setActiveMiniPlayer}
               />
             </div>
           )}
@@ -2383,6 +2409,87 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+      {/* YouTube-Style Floating Bottom Miniplayer Strip */}
+      {activeMiniPlayer && activeTab !== 'take-test' && activeTab !== 'omr-test' && (
+        <div
+          id="youtube-miniplayer-strip"
+          className={`fixed left-2 right-2 md:left-auto md:right-4 md:w-[380px] z-50 transition-all duration-200 bg-[var(--md-sys-color-surface-container-high)]/95 dark:bg-[#1e2024]/95 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.32)] border border-[var(--md-sys-color-outline-variant)]/25 p-2 flex items-center justify-between gap-3 animate-in slide-in-from-bottom-5 duration-200 select-none cursor-pointer ${
+            ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && !isInsideBatch
+              ? 'bottom-[64px] md:bottom-4'
+              : 'bottom-2 md:bottom-4'
+          }`}
+          onClick={() => {
+            const mp = activeMiniPlayer;
+            setActiveMiniPlayer(null);
+            setSelectedBatchId(mp.batchId);
+            setSelectedChapterId(mp.chapterId || null);
+            setSelectedFolderTab('videos');
+            setSelectedLectureId(mp.lectureId);
+            setIsLectureViewActive(true);
+            setBatchesStage('lecture_view');
+            setActiveTab('batches');
+          }}
+        >
+          {/* Left: Thumbnail & Animated Playback Indicator */}
+          <div className="w-16 h-11 sm:w-20 sm:h-12 aspect-video rounded-xl overflow-hidden relative shrink-0 bg-black shadow-xs">
+            <img
+              src={activeMiniPlayer.thumbnailUrl || '/assets/default-course-banner.png'}
+              alt={activeMiniPlayer.lectureTitle}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = '/assets/default-course-banner.png';
+              }}
+            />
+            {activeMiniPlayer.isPlaying && (
+              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                <span className="flex items-end gap-0.5 h-3">
+                  <span className="w-1 bg-red-500 rounded-full animate-pulse h-2" />
+                  <span className="w-1 bg-red-500 rounded-full animate-pulse h-3.5 delay-100" />
+                  <span className="w-1 bg-red-500 rounded-full animate-pulse h-2.5 delay-200" />
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Center: Title & Batch Subtitle */}
+          <div className="flex-1 min-w-0 pr-1">
+            <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] truncate leading-snug">
+              {activeMiniPlayer.lectureTitle}
+            </h4>
+            <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate mt-0.5">
+              {activeMiniPlayer.batchTitle}
+            </p>
+          </div>
+
+          {/* Right Action Controls: Play/Pause & Close (X) */}
+          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              id="miniplayer-toggle-play-btn"
+              onClick={() => {
+                setActiveMiniPlayer((prev) => (prev ? { ...prev, isPlaying: !prev.isPlaying } : null));
+              }}
+              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-black/10 dark:hover:bg-white/10 text-[var(--md-sys-color-on-surface)] border-none bg-transparent cursor-pointer transition active:scale-90"
+              title={activeMiniPlayer.isPlaying ? 'Pause' : 'Play'}
+            >
+              {activeMiniPlayer.isPlaying ? (
+                <Pause className="w-4 h-4 fill-current" />
+              ) : (
+                <Play className="w-4 h-4 fill-current ml-0.5" />
+              )}
+            </button>
+            <button
+              type="button"
+              id="miniplayer-close-strip-btn"
+              onClick={() => setActiveMiniPlayer(null)}
+              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-black/10 dark:hover:bg-white/10 text-[var(--md-sys-color-on-surface-variant)] hover:text-rose-500 border-none bg-transparent cursor-pointer transition active:scale-90"
+              title="Close video"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
     </LmsProvider>
   );

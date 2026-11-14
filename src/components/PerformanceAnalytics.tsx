@@ -584,35 +584,14 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
 
   return (
     <div className={APP_STYLES.analytics.container}>
-      {/* Header Banner with Back Button & Action Controls */}
-      <div className="sticky top-0 z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-3 sm:px-6 py-2.5 -mx-3 sm:-mx-6 shadow-none border-0 mb-3">
-        <div className="space-y-0.5">
-          <div className="flex items-center gap-2">
-            {handleBack && (
-              <button
-                id="back-to-home-btn"
-                onClick={handleBack}
-                className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all active:scale-95 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] border-0 ring-0 cursor-pointer shrink-0 outline-none"
-                title="Back to Home"
-              >
-                <ArrowLeft className="w-4 h-4 text-[#1f1f1f] dark:text-[#e3e3e3]" />
-              </button>
-            )}
-            <h1 className="text-xl sm:text-2xl font-bold text-[#1f1f1f] dark:text-[#e3e3e3] tracking-tight">
-              Performance Analytics
-            </h1>
-          </div>
-          <p className="text-xs text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">
-            Real-time mastery curves, topic accuracy, time efficiency, and attempt history.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
+      {/* Top Action Controls */}
+      {(onOpenCustomBuilder || onNavigateToTests) && (
+        <div className="flex items-center justify-end gap-2 -mb-2">
           {onOpenCustomBuilder && (
             <button
               id="analytics-custom-builder-btn"
               onClick={onOpenCustomBuilder}
-              className="h-9 px-4 rounded-full bg-white hover:bg-[#f0f4f9] dark:bg-[#1e2024] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] border-0 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer outline-none shrink-0"
+              className="h-8 px-3.5 rounded-full bg-white hover:bg-[#f0f4f9] dark:bg-[#1e2024] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] border-0 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer outline-none shrink-0"
             >
               <Zap className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] fill-[#0b57d0]/20 dark:fill-[#a8c7fa]/20" />
               <span>Custom Test Builder</span>
@@ -630,13 +609,13 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                 handleBack();
               }
             }}
-            className="h-9 px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold shadow-[0_2px_6px_rgba(11,87,208,0.25)] border-0 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer outline-none shrink-0"
+            className="h-8 px-3.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold shadow-[0_2px_6px_rgba(11,87,208,0.25)] border-0 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer outline-none shrink-0"
           >
             <BookOpen className="w-3.5 h-3.5" />
             <span>Practice Tests</span>
           </button>
         </div>
-      </div>
+      )}
 
       {/* Merged Performance Analytics & Student Activity Card */}
       <div id="analytics-student-activity-section" className="bg-white dark:bg-[#1e2024] rounded-[24px] p-4 sm:p-6 border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-5 transition-all duration-200">

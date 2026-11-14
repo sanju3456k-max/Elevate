@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Folder,
   FolderOpen,
   FolderPlus,
@@ -68,6 +69,7 @@ interface BatchDetailViewProps {
   onLectureChange?: (lectureId: string | null) => void;
   onFolderTabChange?: (tab: 'videos' | 'notes_content' | 'tests') => void;
   isMasterEditMode?: boolean;
+  onSetMiniPlayer?: (video: any) => void;
 }
 
 export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
@@ -85,6 +87,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   onLectureChange,
   onFolderTabChange,
   isMasterEditMode = false,
+  onSetMiniPlayer,
 }) => {
   const {
     batches,
@@ -256,6 +259,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     return getSubfolders(currentBatch.id, selectedChapterId);
   }, [getSubfolders, currentBatch, selectedChapterId]);
 
+  // Only show the Videos / Notes / Tests toggle bar and contents inside a specific folder
+  // On the batch's root folder page, only display the subfolders
+  const shouldShowContentTabs = Boolean(selectedChapterId) || currentSubfolders.length === 0;
+
   // Lectures directly at the current level
   const folderLectures = useMemo(() => {
     if (!currentBatch) return [];
@@ -336,14 +343,27 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     return lectures.find((l) => l.id === selectedLectureId) || folderLectures[0] || lectures[0];
   }, [lectures, selectedLectureId, folderLectures]);
 
-  // Dedicated exit handler from lecture view that safely clears all parent tracking
+  // Dedicated collapse/exit handler from lecture view that passes video into YouTube-style bottom strip
   const handleExitLectureView = useCallback(() => {
+    if (activeLecture && onSetMiniPlayer && currentBatch) {
+      onSetMiniPlayer({
+        lectureId: activeLecture.id,
+        lectureTitle: activeLecture.title,
+        batchId: currentBatch.id,
+        batchTitle: currentBatch.title,
+        chapterId: selectedChapterId,
+        thumbnailUrl: activeLecture.thumbnailUrl || currentBatch.thumbnailUrl,
+        durationMinutes: activeLecture.durationMinutes,
+        encryptedVideoId: activeLecture.encryptedVideoId,
+        isPlaying: true,
+      });
+    }
     setSelectedLectureId(null);
     consumedLectureIdRef.current = null;
     onLectureChange?.(null);
     setCurrentStage('folder_content');
     onStageChange?.('folder_content');
-  }, [onLectureChange, onStageChange]);
+  }, [activeLecture, currentBatch, selectedChapterId, onSetMiniPlayer, onLectureChange, onStageChange]);
 
   // Centralized Back Navigation Stack Integration
   useBackHandler({
@@ -409,6 +429,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   };
 
   const goToLectureView = (lectureId: string) => {
+    onSetMiniPlayer?.(null);
     setSelectedLectureId(lectureId);
     consumedLectureIdRef.current = lectureId;
     onLectureChange?.(lectureId);
@@ -447,11 +468,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             )}
             <div>
               <h1 className="text-xl sm:text-2xl font-extrabold text-[var(--md-sys-color-on-surface)] tracking-tight">
-                {batchFilter === 'my-batches' ? 'My Enrolled Batches' : 'Coaching Batches'}
+                {batchFilter === 'my-batches' ? 'My Enrolled Courses' : 'Courses'}
               </h1>
               <p className="text-xs sm:text-sm text-[var(--md-sys-color-on-surface-variant)]">
                 {batchFilter === 'my-batches'
-                  ? 'Batches you are actively enrolled in with complete curriculum access'
+                  ? 'Courses you are actively enrolled in with complete curriculum access'
                   : 'Explore available courses, lecture series & test series'}
               </p>
             </div>
@@ -466,7 +487,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
               }`}
             >
-              All Batches ({batches.length})
+              All Courses ({batches.length})
             </button>
             <button
               onClick={() => setBatchFilter('my-batches')}
@@ -476,7 +497,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
               }`}
             >
-              My Batches ({enrolledBatches.length})
+              My Courses ({enrolledBatches.length})
             </button>
           </div>
         </div>
@@ -571,17 +592,17 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           <div className="p-12 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl space-y-4 max-w-lg mx-auto my-8">
             <BookOpen className="w-12 h-12 text-[var(--md-sys-color-outline)] mx-auto opacity-50" />
             <h3 className="text-lg font-bold text-[var(--md-sys-color-on-surface)]">
-              No Enrolled Batches
+              No Enrolled Courses
             </h3>
             <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] leading-relaxed">
-              You are not currently enrolled in any coaching batches. Explore our available coaching batches to get started.
+              You are not currently enrolled in any courses. Explore our available courses to get started.
             </p>
             <button
               type="button"
               onClick={() => setBatchFilter('all')}
               className="m3-btn-filled px-5 py-2.5 text-xs font-bold rounded-full cursor-pointer border-none"
             >
-              Explore All Batches
+              Explore All Courses
             </button>
           </div>
         )}
@@ -628,7 +649,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 }}
                 className="px-2 py-1 rounded-lg hover:bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] border-none bg-transparent cursor-pointer shrink-0"
               >
-                All Batches
+                All Courses
               </button>
 
               <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -730,53 +751,55 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           )}
         </div>
 
-        {/* TOP TOGGLE BAR: VIDEOS | NOTES | TESTS (Positioned at the top, above the folders) */}
-        <div className="flex items-center space-x-2 p-1 bg-[var(--md-sys-color-surface-container)] rounded-full max-w-md shadow-xs">
-          <button
-            onClick={() => {
-              setFolderActiveTab('videos');
-              onFolderTabChange?.('videos');
-            }}
-            className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
-              folderActiveTab === 'videos'
-                ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
-                : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
-            }`}
-          >
-            <PlayCircle className="w-3.5 h-3.5" />
-            <span>Videos ({totalFolderVideosCount})</span>
-          </button>
+        {/* TOP TOGGLE BAR: VIDEOS | NOTES | TESTS (Only displayed inside subfolders; hidden on batch root folder listing) */}
+        {shouldShowContentTabs && (
+          <div className="flex items-center space-x-2 p-1 bg-[var(--md-sys-color-surface-container)] rounded-full max-w-md shadow-xs">
+            <button
+              onClick={() => {
+                setFolderActiveTab('videos');
+                onFolderTabChange?.('videos');
+              }}
+              className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
+                folderActiveTab === 'videos'
+                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
+                  : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+              }`}
+            >
+              <PlayCircle className="w-3.5 h-3.5" />
+              <span>Videos ({totalFolderVideosCount})</span>
+            </button>
 
-          <button
-            onClick={() => {
-              setFolderActiveTab('notes_content');
-              onFolderTabChange?.('notes_content');
-            }}
-            className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
-              folderActiveTab === 'notes_content'
-                ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
-                : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Notes ({totalFolderNotesCount})</span>
-          </button>
+            <button
+              onClick={() => {
+                setFolderActiveTab('notes_content');
+                onFolderTabChange?.('notes_content');
+              }}
+              className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
+                folderActiveTab === 'notes_content'
+                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
+                  : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Notes ({totalFolderNotesCount})</span>
+            </button>
 
-          <button
-            onClick={() => {
-              setFolderActiveTab('tests');
-              onFolderTabChange?.('tests');
-            }}
-            className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
-              folderActiveTab === 'tests'
-                ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
-                : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
-            }`}
-          >
-            <Award className="w-3.5 h-3.5" />
-            <span>Tests ({totalFolderTestsCount})</span>
-          </button>
-        </div>
+            <button
+              onClick={() => {
+                setFolderActiveTab('tests');
+                onFolderTabChange?.('tests');
+              }}
+              className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
+                folderActiveTab === 'tests'
+                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
+                  : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+              }`}
+            >
+              <Award className="w-3.5 h-3.5" />
+              <span>Tests ({totalFolderTestsCount})</span>
+            </button>
+          </div>
+        )}
 
         {/* SECTION 1: SUBFOLDERS GRID (Google Drive Folder Cards) */}
         {currentSubfolders.length > 0 && (
@@ -889,8 +912,9 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           </div>
         )}
 
-        {/* SECTION 2: CONTENT (VIDEOS, NOTES & TESTS) */}
-        <div className="space-y-4 pt-1">
+        {/* SECTION 2: CONTENT (VIDEOS, NOTES & TESTS - Scoped inside specific folders) */}
+        {shouldShowContentTabs && (
+          <div className="space-y-4 pt-1">
 
           {/* TAB 1: VIDEOS */}
           {folderActiveTab === 'videos' && (
@@ -1298,6 +1322,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             </div>
           )}
         </div>
+        )}
 
         {/* Image Preview Modal */}
         {previewImage && (
@@ -1454,29 +1479,14 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
      ========================================================================= */
   return (
     <div className="space-y-4 sm:space-y-6 pb-24 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
-      {/* Mobile Top Back Bar */}
-      <div className="flex items-center justify-between sm:hidden px-3.5 py-2">
-        <button
-          onClick={handleExitLectureView}
-          className="flex items-center space-x-1 text-xs font-bold text-[var(--md-sys-color-primary)] border-none bg-transparent cursor-pointer p-0 hover:underline"
-        >
-          <ChevronLeft className="w-5 h-5 -ml-1" />
-          <span>Back to {currentFolder?.title || currentBatch?.title || 'Batch'}</span>
-        </button>
-
-        <span className="text-[11px] font-mono text-[var(--md-sys-color-on-surface-variant)]">
-          {activeLecture?.durationMinutes} Mins
-        </span>
-      </div>
-
       {/* Desktop Navigation Breadcrumbs */}
       <div className="hidden sm:flex items-center justify-between">
         <button
           onClick={handleExitLectureView}
           className="flex items-center space-x-1.5 text-xs sm:text-sm font-bold text-[var(--md-sys-color-primary)] hover:underline border-none bg-transparent cursor-pointer"
         >
-          <ChevronLeft className="w-4 h-4" />
-          <span>Back to {currentFolder?.title || currentBatch?.title || 'Batch'}</span>
+          <ChevronDown className="w-4 h-4" />
+          <span>Minimize Video ({currentFolder?.title || currentBatch?.title || 'Batch'})</span>
         </button>
 
         <span className="text-xs font-mono text-[var(--md-sys-color-on-surface-variant)]">
@@ -1488,7 +1498,18 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
         {/* LEFT COLUMN: Full-Width Video Player on Mobile & Lecture Info */}
         <div className="lg:col-span-8 space-y-4">
-          <div className="-mx-3.5 sm:mx-0 w-[calc(100%+1.75rem)] sm:w-full rounded-none sm:rounded-3xl overflow-hidden shadow-2xl border-none">
+          <div className="-mx-3.5 sm:mx-0 -mt-4 sm:mt-0 w-[calc(100%+1.75rem)] sm:w-full rounded-none sm:rounded-3xl overflow-hidden shadow-2xl border-none relative group">
+            {/* YouTube-style Top-Left Collapse Down-Chevron Button */}
+            <button
+              type="button"
+              id="video-player-collapse-btn"
+              onClick={handleExitLectureView}
+              className="absolute top-2.5 left-2.5 z-30 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition border-none cursor-pointer shadow-md select-none"
+              title="Minimize to bottom strip"
+              aria-label="Collapse video"
+            >
+              <ChevronDown className="w-5 h-5 stroke-[2.5]" />
+            </button>
             <CloakedVideoPlayer
               encryptedVideoId={activeLecture.encryptedVideoId}
               title={activeLecture.title}

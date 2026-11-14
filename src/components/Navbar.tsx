@@ -663,63 +663,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                       </div>
                       <ChevronRight className="w-4 h-4 opacity-70" />
                     </button>
-                    
-                    <button
-                      id="drawer-item-batches"
-                      onClick={() => handleNavClick('batches')}
-                      className={`${activeTab === 'batches' ? APP_STYLES.nav.itemActive : APP_STYLES.nav.item} relative overflow-hidden`}
-                    >
-                      <md-ripple />
-                      <div className="flex items-center gap-3">
-                        <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
-                          activeTab === 'batches'
-                            ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
-                            : 'text-[#444746] dark:text-[#c4c7c5]'
-                        }`}>
-                          <Layers className="w-5 h-5 stroke-[2.2]" />
-                        </div>
-                        <span className="text-[17px] font-semibold">Video Batches & LMS</span>
-                      </div>
-                      <ChevronRight className="w-4 h-4 opacity-70" />
-                    </button>
-
-                    <button
-                      id="drawer-item-tests"
-                      onClick={() => handleNavClick('tests')}
-                      className={`${activeTab === 'tests' ? APP_STYLES.nav.itemActive : APP_STYLES.nav.item} relative overflow-hidden`}
-                    >
-                      <md-ripple />
-                      <div className="flex items-center gap-3">
-                        <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
-                          activeTab === 'tests'
-                            ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
-                            : 'text-[#444746] dark:text-[#c4c7c5]'
-                        }`}>
-                          <BookOpen className="w-5 h-5 stroke-[2.2]" />
-                        </div>
-                        <span className="text-[17px] font-semibold">Mock Tests Library</span>
-                      </div>
-                      <ChevronRight className="w-4 h-4 opacity-70" />
-                    </button>
-
-                    <button
-                      id="drawer-item-analytics"
-                      onClick={() => handleNavClick('analytics')}
-                      className={`${activeTab === 'analytics' ? APP_STYLES.nav.itemActive : APP_STYLES.nav.item} relative overflow-hidden`}
-                    >
-                      <md-ripple />
-                      <div className="flex items-center gap-3">
-                        <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
-                          activeTab === 'analytics'
-                            ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
-                            : 'text-[#444746] dark:text-[#c4c7c5]'
-                        }`}>
-                          <BarChart3 className="w-5 h-5 stroke-[2.2]" />
-                        </div>
-                        <span className="text-[17px] font-semibold">Performance Analytics</span>
-                      </div>
-                      <ChevronRight className="w-4 h-4 opacity-70" />
-                    </button>
 
                     <button
                       id="drawer-item-notes-studio"
