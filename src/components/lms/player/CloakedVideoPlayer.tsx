@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Play,
   Pause,
@@ -191,18 +191,18 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     (/^[a-zA-Z0-9_-]{11}$/.test(rawVideoId) ? rawVideoId : 'WUvTyaaNkzM');
 
   // Multi-tier HD thumbnail resolution (maxresdefault 1280x720 -> sddefault 640x480 -> hqdefault 480x360)
-  const initialPoster = useMemo(() => {
-    if (posterUrl) return posterUrl;
-    if (thumbnailUrl && !thumbnailUrl.includes('hqdefault.jpg')) return thumbnailUrl;
-    if (safeVideoId) return `https://img.youtube.com/vi/${safeVideoId}/maxresdefault.jpg`;
-    return thumbnailUrl || '';
-  }, [posterUrl, thumbnailUrl, safeVideoId]);
+  const posterSource =
+    posterUrl ||
+    (thumbnailUrl && !thumbnailUrl.includes('hqdefault.jpg') ? thumbnailUrl : null) ||
+    (safeVideoId ? `https://img.youtube.com/vi/${safeVideoId}/maxresdefault.jpg` : '') ||
+    thumbnailUrl ||
+    '';
 
-  const [activePosterImage, setActivePosterImage] = useState<string>(initialPoster);
+  const [activePosterImage, setActivePosterImage] = useState<string>(posterSource);
 
   useEffect(() => {
-    setActivePosterImage(initialPoster);
-  }, [initialPoster]);
+    setActivePosterImage(posterSource);
+  }, [posterSource]);
 
   // Dynamic Moving DRM Watermark Position (drifts across screen every 7s to deter screen recording)
   useEffect(() => {
