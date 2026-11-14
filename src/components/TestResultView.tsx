@@ -1140,7 +1140,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
     const isAiLoading = currentQ ? loadingAi[currentQ.id] : false;
 
     return (
-      <div className="fixed inset-0 z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col h-[100dvh] max-h-screen overflow-hidden transition-colors duration-200">
+      <div className="fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col h-[100dvh] max-h-screen overflow-hidden transition-colors duration-200">
         <header className="shrink-0 z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] px-3 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.35rem)] pb-2 transition-colors border-0">
           <div className="max-w-6xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
             <div className="flex items-center gap-2">
@@ -1685,7 +1685,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] overflow-y-auto">
+    <div className="fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] overflow-y-auto">
       <div className="max-w-5xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-5 pb-36 sm:pb-32">
       {/* Header Bar with Clean Icon Badge matching CustomTestBuilder */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2">

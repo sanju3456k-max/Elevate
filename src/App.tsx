@@ -1727,9 +1727,20 @@ export default function App() {
         </div>
       )}
 
-      {/* Navigation Header - Hidden during active test attempts, test creator, review solution mode, custom builder, performance analytics, notes repository, html notes studio, bulk print, and master console. In batches section, hidden on mobile only when video lecture is playing */}
-      {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'create' && activeTab !== 'results' && activeTab !== 'custom-builder' && activeTab !== 'chatbot' && activeTab !== 'analytics' && activeTab !== 'notes-repository' && activeTab !== 'bulk-print' && activeTab !== 'html-notes' && activeTab !== 'master-console' && (
-        <div className={activeTab === 'batches' && isLectureViewActive ? 'hidden sm:block' : ''}>
+      {/* Navigation Header:
+          - Active Test Runners (take-test, omr-test) run in full-screen distraction-free examination chrome.
+          - Desktop Viewing Experience (lg:): Header is visible across all standard pages.
+          - Mobile & Tablet Apps (< lg): Top Header is EXCLUSIVELY displayed on the 4 primary tabs: Home, Batches, Tests, and Analytics.
+          - In Batches, when a video lecture is actively playing (isLectureViewActive), header is hidden on mobile & tablet for full immersive playback. */}
+      {activeTab !== 'take-test' && activeTab !== 'omr-test' && (
+        <div
+          id="app-navbar-wrapper"
+          className={`transition-all duration-200 shrink-0 ${
+            ['home', 'batches', 'tests', 'analytics'].includes(activeTab)
+              ? (activeTab === 'batches' && isLectureViewActive ? 'hidden lg:block' : 'block')
+              : 'hidden lg:block'
+          }`}
+        >
           <Navbar
             activeTab={activeTab}
             setActiveTab={setActiveTab}
@@ -1858,7 +1869,7 @@ export default function App() {
       )}
 
       {activeTab === 'custom-builder' && (
-        <div className="fixed inset-0 bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
+        <div className="fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
           <CustomTestBuilder
             tests={tests}
             attempts={attempts}
@@ -2105,33 +2116,31 @@ export default function App() {
 
       {/* Performance Analytics */}
       {activeTab === 'analytics' && (
-        <div className="fixed inset-0 bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-y-auto flex flex-col z-30">
-          <PerformanceAnalytics
-            tests={tests}
-            attempts={attempts}
-            currentUser={currentUser}
-            userProfile={userProfile}
-            onLoadMoreAttempts={handleLoadMoreAttempts}
-            hasMoreAttempts={hasMoreAttempts}
-            isLoadingMoreAttempts={isLoadingMoreAttempts}
-            onViewAttemptResult={handleViewAttemptResult}
-            onRetakeTest={handleRetakeTestFromId}
-            onNavigateToTests={() => setActiveTab('tests')}
-            onBack={() => setActiveTab('home')}
-            onOpenCustomBuilder={() => setActiveTab('custom-builder')}
-            onSignIn={handleSignIn}
-            onGenerateThetaCourse={(prompt) => {
-              setChatbotInitialPrompt(prompt);
-              setActiveTab('chatbot');
-            }}
-            onNavigateTab={(tab) => setActiveTab(tab as ActiveTab)}
-          />
-        </div>
+        <PerformanceAnalytics
+          tests={tests}
+          attempts={attempts}
+          currentUser={currentUser}
+          userProfile={userProfile}
+          onLoadMoreAttempts={handleLoadMoreAttempts}
+          hasMoreAttempts={hasMoreAttempts}
+          isLoadingMoreAttempts={isLoadingMoreAttempts}
+          onViewAttemptResult={handleViewAttemptResult}
+          onRetakeTest={handleRetakeTestFromId}
+          onNavigateToTests={() => setActiveTab('tests')}
+          onBack={() => setActiveTab('home')}
+          onOpenCustomBuilder={() => setActiveTab('custom-builder')}
+          onSignIn={handleSignIn}
+          onGenerateThetaCourse={(prompt) => {
+            setChatbotInitialPrompt(prompt);
+            setActiveTab('chatbot');
+          }}
+          onNavigateTab={(tab) => setActiveTab(tab as ActiveTab)}
+        />
       )}
 
           {/* Dedicated Gemini Multi-Turn Chatbot */}
           {activeTab === 'chatbot' && (
-            <div className="fixed inset-0 bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
+            <div className="fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
               <GeminiChatbotView 
                 isDarkMode={isDarkMode} 
                 tests={tests}
@@ -2151,7 +2160,7 @@ export default function App() {
 
           {/* Unified Notes Studio (Formula Notes, Study Repository & HTML Notes with Google Drive Sync) */}
           {activeTab === 'notes-repository' && (
-            <div className="fixed inset-0 bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
+            <div className="fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
               <NotesStudio
                 tests={tests}
                 currentUser={currentUser}
@@ -2166,7 +2175,7 @@ export default function App() {
 
           {/* Unified Notes Studio - HTML Projects & Code Mode */}
           {activeTab === 'html-notes' && (
-            <div className="fixed inset-0 bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
+            <div className="fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
               <NotesStudio
                 tests={tests}
                 currentUser={currentUser}

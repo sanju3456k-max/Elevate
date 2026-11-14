@@ -705,7 +705,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30 select-none">
+    <div className="fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30 select-none">
       
       {/* Top App Bar (Google Material 3 Seamless Header - Color-matched to mobile status bar with 0 border line) */}
       <header className="px-4 sm:px-6 md:px-8 pt-[calc(env(safe-area-inset-top,0px)+0.45rem)] pb-2 bg-[#e5e9f0] dark:bg-[#0b0c10] shrink-0 flex items-center justify-between gap-3 z-10 border-0 shadow-none">

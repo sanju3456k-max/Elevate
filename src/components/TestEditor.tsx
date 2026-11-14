@@ -2741,7 +2741,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
 
   return (
     <div 
-      className={`h-[100dvh] max-h-screen w-full flex flex-col bg-[#e5e9f0] dark:bg-[#0b0c10] text-slate-900 dark:text-zinc-100 p-2 sm:p-3 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] pb-[calc(max(0.5rem,env(safe-area-inset-bottom,0px))+0.25rem)] overflow-hidden font-sans relative transition-colors ${
+      className={`h-[100dvh] lg:h-[calc(100dvh-58px)] max-h-screen w-full flex flex-col bg-[#e5e9f0] dark:bg-[#0b0c10] text-slate-900 dark:text-zinc-100 p-2 sm:p-3 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] pb-[calc(max(0.5rem,env(safe-area-inset-bottom,0px))+0.25rem)] overflow-hidden font-sans relative transition-colors ${
         isDraggingImport ? 'ring-4 ring-[#0b57d0] ring-inset bg-blue-50/40 dark:bg-blue-950/20' : ''
       }`}
       onDragOver={handleImportDragOver}

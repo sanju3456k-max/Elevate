@@ -221,7 +221,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-      <header className="bg-[#e5e9f0] dark:bg-[#0b0c10] sticky top-0 z-40 transition-colors duration-200 pt-[calc(env(safe-area-inset-top,0px)+0.4rem)] pb-2">
+      <header className="bg-[#e5e9f0] dark:bg-[#0b0c10] sticky top-0 z-40 transition-colors duration-200 pt-[calc(env(safe-area-inset-top,0px)+0.4rem)] pb-2 lg:h-[58px] lg:flex lg:items-center">
         <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-10 sm:h-11">
             {/* Left: Drawer Hamburger Button & Brand Logo */}
