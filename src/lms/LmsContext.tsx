@@ -11,7 +11,7 @@ import {
   INITIAL_ENROLLMENTS,
   INITIAL_BATCH_TESTS,
 } from './initialData';
-import { enableContentSecurityDeterrence } from './security';
+import { enableContentSecurityDeterrence, obfuscateVideoKey } from './security';
 import { auth, db } from '../lib/firebase';
 import { isMasterUser } from '../lib/masterAccount';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -540,7 +540,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           description: 'Comprehensive coaching lecture covering foundational derivations, problem-solving shortcuts, and formula charts.',
           durationMinutes: 45,
           videoSourceType: 'youtube',
-          encryptedVideoId: 'V1VWVE5hYU5remM=', // Sample unlisted video key
+          encryptedVideoId: obfuscateVideoKey('WUvTyaaNkzM'), // High quality visual sample video key
           thumbnailUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500&auto=format&fit=crop&q=80',
           order: 1,
           isFreePreview: false,

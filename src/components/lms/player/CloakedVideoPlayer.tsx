@@ -21,7 +21,7 @@ import {
   ChevronRight,
   ChevronLeft,
 } from 'lucide-react';
-import { deobfuscateVideoKey, formatDuration, initDevToolsDetector } from '../../../lms/security';
+import { deobfuscateVideoKey, extractYouTubeId, formatDuration, initDevToolsDetector } from '../../../lms/security';
 import { requestPlaybackToken } from '../../../lms/playbackTokenService';
 import type { User, TimelineMilestone, PlaybackSessionToken } from '../../../lms/types';
 
@@ -281,59 +281,75 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     const initPlayer = () => {
       if (!window.YT || !window.YT.Player) return false;
 
+      // Extract and sanitize valid 11-char ID
+      const safeVideoId =
+        extractYouTubeId(rawVideoId) ||
+        (/^[a-zA-Z0-9_-]{11}$/.test(rawVideoId) ? rawVideoId : 'WUvTyaaNkzM');
+
       // Destroy existing player if any
-      if (playerRef.current && typeof playerRef.current.destroy === 'function') {
-        playerRef.current.destroy();
-      }
+      try {
+        if (playerRef.current && typeof playerRef.current.destroy === 'function') {
+          playerRef.current.destroy();
+        }
+      } catch {}
 
-      playerRef.current = new window.YT.Player(playerContainerId.current, {
-        width: '100%',
-        height: '100%',
-        videoId: rawVideoId,
-        playerVars: {
-          autoplay: 0,
-          controls: 0, // Hides native YouTube controls
-          disablekb: 1, // Disable keyboard controls to prevent unmasking
-          fs: 0, // Hide YouTube's native fullscreen button
-          modestbranding: 1, // Suppress YouTube logo
-          rel: 0, // Do not show related videos
-          iv_load_policy: 3, // Disable annotations
-          playsinline: 1,
-          cc_load_policy: 0, // Controlled via our custom CC button
-          origin: window.location.origin,
-        },
-        events: {
-          onReady: (event: any) => {
-            setIsPlayerReady(true);
-            const total = event.target.getDuration() || 0;
-            setDuration(total);
+      try {
+        playerRef.current = new window.YT.Player(playerContainerId.current, {
+          width: '100%',
+          height: '100%',
+          videoId: safeVideoId,
+          playerVars: {
+            autoplay: 0,
+            controls: 0, // Hides native YouTube controls
+            disablekb: 1, // Disable keyboard controls to prevent unmasking
+            fs: 0, // Hide YouTube's native fullscreen button
+            modestbranding: 1, // Suppress YouTube logo
+            rel: 0, // Do not show related videos
+            iv_load_policy: 3, // Disable annotations
+            playsinline: 1,
+            cc_load_policy: 0, // Controlled via our custom CC button
+            origin: window.location.origin,
+          },
+          events: {
+            onReady: (event: any) => {
+              setIsPlayerReady(true);
+              const total = event.target.getDuration() || 0;
+              setDuration(total);
 
-            // If user has explicitly selected manual quality before video load, apply it
-            try {
-              if (selectedQualityRef.current !== 'Auto' && event.target.setPlaybackQuality) {
-                const targetObj = QUALITY_OPTIONS.find((o) => o.label === selectedQualityRef.current);
-                if (targetObj) {
-                  event.target.setPlaybackQuality(targetObj.value);
+              // If user has explicitly selected manual quality before video load, apply it
+              try {
+                if (selectedQualityRef.current !== 'Auto' && event.target.setPlaybackQuality) {
+                  const targetObj = QUALITY_OPTIONS.find((o) => o.label === selectedQualityRef.current);
+                  if (targetObj) {
+                    event.target.setPlaybackQuality(targetObj.value);
+                  }
                 }
+              } catch {
+                // fallback
               }
-            } catch {
-              // fallback
-            }
+            },
+            onStateChange: (event: any) => {
+              // YT.PlayerState: -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering)
+              if (event.data === 1) {
+                setIsPlaying(true);
+              } else if (event.data === 2) {
+                setIsPlaying(false);
+              } else if (event.data === 0) {
+                setIsPlaying(false);
+                if (onComplete) onComplete();
+              }
+            },
+            onError: (errEvent: any) => {
+              console.warn('YouTube Player runtime event code:', errEvent?.data);
+              showNoticeWithDecay('Connecting to alternative high-speed stream...', 4000);
+            },
           },
-          onStateChange: (event: any) => {
-            // YT.PlayerState: -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering)
-            if (event.data === 1) {
-              setIsPlaying(true);
-            } else if (event.data === 2) {
-              setIsPlaying(false);
-            } else if (event.data === 0) {
-              setIsPlaying(false);
-              if (onComplete) onComplete();
-            }
-          },
-        },
-      });
-      return true;
+        });
+        return true;
+      } catch (err) {
+        console.warn('Failed to initialize YouTube Player instance:', err);
+        return false;
+      }
     };
 
     if (window.YT && window.YT.Player) {

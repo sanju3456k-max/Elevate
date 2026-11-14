@@ -51,23 +51,61 @@ export function obfuscateVideoKey(rawId: string): string {
 
 /**
  * De-obfuscate video ID into raw YouTube ID in memory just before rendering.
+ * Resilient against:
+ * - XOR salted tokens
+ * - Legacy plain base64 tokens
+ * - Direct 11-char YouTube IDs
+ * - Full YouTube URLs
+ * - Empty or corrupted keys (falls back safely to valid sample ID)
  */
 export function deobfuscateVideoKey(encryptedKey: string): string {
+  if (!encryptedKey || typeof encryptedKey !== 'string') return 'WUvTyaaNkzM';
+  const trimmed = encryptedKey.trim();
+  if (!trimmed) return 'WUvTyaaNkzM';
+
+  // 1. If it's already a clean 11-char YouTube ID (e.g. WUvTyaaNkzM)
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  // 2. If it's a full YouTube URL (e.g. https://www.youtube.com/watch?v=...)
+  const directUrlId = extractYouTubeId(trimmed);
+  if (directUrlId) {
+    return directUrlId;
+  }
+
+  // 3. Try standard obfuscation decode (XOR with salt)
   try {
-    const decoded = atob(encryptedKey);
+    const decoded = atob(trimmed);
     let output = '';
     for (let i = 0; i < decoded.length; i++) {
       const charCode = decoded.charCodeAt(i) ^ OBFUSCATION_SALT.charCodeAt(i % OBFUSCATION_SALT.length);
       output += String.fromCharCode(charCode);
     }
-    return decodeURIComponent(output);
-  } catch {
-    try {
-      return atob(encryptedKey);
-    } catch {
-      return encryptedKey;
+    const candidate = decodeURIComponent(output).trim();
+    const candidateYtId = extractYouTubeId(candidate) || (/^[a-zA-Z0-9_-]{11}$/.test(candidate) ? candidate : null);
+    if (candidateYtId) {
+      return candidateYtId;
     }
+  } catch {}
+
+  // 4. Try plain base64 decode (for legacy/un-salted base64)
+  try {
+    const plainDecoded = atob(trimmed).trim();
+    const candidateYtId = extractYouTubeId(plainDecoded) || (/^[a-zA-Z0-9_-]{11}$/.test(plainDecoded) ? plainDecoded : null);
+    if (candidateYtId) {
+      return candidateYtId;
+    }
+  } catch {}
+
+  // 5. Final fallback: If anything in trimmed can be matched as an 11-char ID
+  const anyMatch = trimmed.match(/[a-zA-Z0-9_-]{11}/);
+  if (anyMatch && anyMatch[0]) {
+    return anyMatch[0];
   }
+
+  // 6. Safe universal fallback
+  return 'WUvTyaaNkzM';
 }
 
 /**

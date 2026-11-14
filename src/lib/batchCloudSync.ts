@@ -14,6 +14,7 @@ import {
 import { db, sanitizeForFirestore } from './firebase';
 import type { Batch, BatchEnrollment, Chapter, Lecture } from '../lms/types';
 import { INITIAL_BATCHES } from '../lms/initialData';
+import { obfuscateVideoKey } from '../lms/security';
 
 export const cleanKeyForFirestore = (str: string): string => {
   return str.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
@@ -80,7 +81,7 @@ export async function syncBatchToFirestore(batch: Batch): Promise<{ success: boo
           description: 'Comprehensive coaching lecture covering foundational derivations, problem-solving shortcuts, and formula charts.',
           durationMinutes: 45,
           videoSourceType: 'youtube',
-          encryptedVideoId: 'V1VWVE5hYU5remM=', // Sample unlisted video key
+          encryptedVideoId: obfuscateVideoKey('WUvTyaaNkzM'), // High quality visual sample video key
           thumbnailUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500&auto=format&fit=crop&q=80',
           order: 1,
           isFreePreview: false,
