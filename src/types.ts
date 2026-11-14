@@ -464,7 +464,7 @@ export interface ActiveTestSession {
   updatedAt: string;
 }
 
-export type ActiveTab = 'home' | 'tests' | 'create' | 'custom-builder' | 'take-test' | 'omr-test' | 'results' | 'analytics' | 'chatbot' | 'notes-repository' | 'bulk-print' | 'html-notes' | 'master-console' | 'batches';
+export type ActiveTab = 'home' | 'tests' | 'create' | 'custom-builder' | 'take-test' | 'omr-test' | 'results' | 'analytics' | 'chatbot' | 'notes-repository' | 'bulk-print' | 'html-notes' | 'master-console' | 'batches' | 'notifications';
 
 export type RemedialFilterType = 'wrong' | 'unattempted' | 'marked' | 'unmarked' | 'all_errors' | string;
 

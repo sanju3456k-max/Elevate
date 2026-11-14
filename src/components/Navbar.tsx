@@ -54,6 +54,7 @@ import type { User } from 'firebase/auth';
 import type { ActiveTab } from '../types';
 import { type CachedAuthUser, isOfflineLocalOnlyMode } from '../lib/storage';
 import { isMasterUser } from '../lib/masterAccount';
+import { getUnreadNotificationsCount, NOTIFICATIONS_EVENT } from '../lib/notifications';
 
 interface NavbarProps {
   activeTab: ActiveTab;
@@ -121,22 +122,21 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState<boolean>(false);
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
-  const [isNotificationOpen, setIsNotificationOpen] = useState<boolean>(false);
-  const [unreadCount, setUnreadCount] = useState<number>(2);
+  const [unreadCount, setUnreadCount] = useState<number>(getUnreadNotificationsCount);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const notificationRef = useRef<HTMLDivElement>(null);
 
+  // Sync real-time notification badge counts
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (notificationRef.current && !notificationRef.current.contains(e.target as Node)) {
-        setIsNotificationOpen(false);
-      }
+    const handleUpdate = () => {
+      setUnreadCount(getUnreadNotificationsCount());
     };
-    if (isNotificationOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [isNotificationOpen]);
+    window.addEventListener(NOTIFICATIONS_EVENT, handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener(NOTIFICATIONS_EVENT, handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
 
   // Lock body & document scrolling while side drawer is open to prevent background scroll
   useScrollLock(isDrawerOpen);
@@ -336,102 +336,26 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               )}
 
-              {/* Notification Ring & Reminders Center (with Theta Chatbot AI) */}
-              <div className="relative" ref={notificationRef}>
+              {/* Notification Full View Page Button */}
+              <div className="relative">
                 <button
                   id="header-notifications-ring-btn"
                   type="button"
-                  onClick={() => {
-                    setIsNotificationOpen(!isNotificationOpen);
-                    setUnreadCount(0);
-                  }}
+                  onClick={() => handleNavClick('notifications')}
                   title="Notifications & Updates"
-                  className="relative w-9 h-9 rounded-full bg-transparent hover:bg-black/8 dark:hover:bg-white/10 text-[#444746] dark:text-[#c4c7c5] hover:text-[#0b57d0] dark:hover:text-[#a8c7fa] border-0 shadow-none flex items-center justify-center cursor-pointer transition-all active:scale-95 outline-none shrink-0"
+                  className={`relative w-9 h-9 rounded-full bg-transparent hover:bg-black/8 dark:hover:bg-white/10 ${
+                    activeTab === 'notifications'
+                      ? 'text-[#0b57d0] dark:text-[#a8c7fa] bg-black/5 dark:bg-white/5'
+                      : 'text-[#444746] dark:text-[#c4c7c5] hover:text-[#0b57d0] dark:hover:text-[#a8c7fa]'
+                  } border-0 shadow-none flex items-center justify-center cursor-pointer transition-all active:scale-95 outline-none shrink-0`}
                 >
                   <Bell className="w-[18px] h-[18px]" />
-                  {unreadCount > 0 && (
+                  {unreadCount > 0 && activeTab !== 'notifications' && (
                     <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 text-white font-mono text-[9px] font-bold flex items-center justify-center shadow-xs">
                       {unreadCount}
                     </span>
                   )}
                 </button>
-
-                {/* Minimal & Clean Notifications Dropdown */}
-                {isNotificationOpen && (
-                  <div
-                    id="notifications-popover"
-                    className="absolute right-0 top-11 w-72 sm:w-80 rounded-2xl bg-[var(--md-sys-color-surface-container)] dark:bg-[#1e2024] p-3 shadow-xl border border-[var(--md-sys-color-outline-variant)]/30 z-50 space-y-2 animate-in fade-in zoom-in-95 duration-150"
-                  >
-                    <div className="flex items-center justify-between pb-1.5 border-b border-[var(--md-sys-color-outline-variant)]/20 px-1">
-                      <div className="flex items-center space-x-1.5">
-                        <Bell className="w-3.5 h-3.5 text-[var(--md-sys-color-primary)]" />
-                        <h4 className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">Notifications</h4>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setIsNotificationOpen(false)}
-                        className="text-[11px] font-semibold text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)] border-none bg-transparent cursor-pointer"
-                      >
-                        Close
-                      </button>
-                    </div>
-
-                    {/* Clean Notifications List */}
-                    <div className="space-y-1.5 max-h-[50vh] overflow-y-auto pr-0.5">
-                      {/* 1. New Lecture Alert */}
-                      <div
-                        onClick={() => {
-                          setIsNotificationOpen(false);
-                          handleNavClick('batches');
-                        }}
-                        className="p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition cursor-pointer space-y-1"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-                            New Video Lecture
-                          </span>
-                          <span className="text-[9px] text-[var(--md-sys-color-outline)] font-mono">Today</span>
-                        </div>
-                        <h5 className="text-[11.5px] font-bold text-[var(--md-sys-color-on-surface)] line-clamp-1 leading-snug">
-                          Lecture 02: Core Formulas & Derivation Workshop
-                        </h5>
-                        <div className="flex justify-end pt-0.5">
-                          <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 flex items-center gap-0.5">
-                            <span>Watch</span>
-                            <ArrowRight className="w-2.5 h-2.5" />
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 2. Mock Test Scheduled */}
-                      <div
-                        onClick={() => {
-                          setIsNotificationOpen(false);
-                          handleNavClick('tests');
-                        }}
-                        className="p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] transition cursor-pointer space-y-1"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            Live CBT Mock Test
-                          </span>
-                          <span className="text-[9px] text-[var(--md-sys-color-outline)] font-mono">Active</span>
-                        </div>
-                        <h5 className="text-[11.5px] font-bold text-[var(--md-sys-color-on-surface)] line-clamp-1 leading-snug">
-                          Full Mock Assessment (Mathematics)
-                        </h5>
-                        <div className="flex justify-end pt-0.5">
-                          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
-                            <span>Start Test</span>
-                            <ArrowRight className="w-2.5 h-2.5" />
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Bot Icon Button */}
@@ -711,35 +635,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </div>
                       </div>
                       <ChevronRight className="w-4 h-4 opacity-70" />
-                    </button>
-
-                    <button
-                      id="drawer-item-notifications"
-                      onClick={() => {
-                        setIsDrawerOpen(false);
-                        setIsNotificationOpen(true);
-                      }}
-                      className={`${APP_STYLES.nav.item} relative overflow-hidden`}
-                    >
-                      <md-ripple />
-                      <div className="flex items-center gap-3">
-                        <div className="w-7 h-7 flex items-center justify-center shrink-0 text-[#444746] dark:text-[#c4c7c5]">
-                          <Bell className="w-5 h-5 stroke-[2.2]" />
-                        </div>
-                        <div className="flex flex-col items-start text-left leading-tight">
-                          <span className="font-semibold text-[17px]">
-                            Notifications
-                          </span>
-                          <span className="text-[11px] font-medium text-[#5e5e5e] dark:text-[#9aa0a6]">
-                            Reminders & Alerts
-                          </span>
-                        </div>
-                      </div>
-                      {unreadCount > 0 && (
-                        <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold font-mono">
-                          {unreadCount}
-                        </span>
-                      )}
                     </button>
                   </div>
 

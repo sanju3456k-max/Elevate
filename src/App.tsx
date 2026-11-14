@@ -94,6 +94,7 @@ import { CloakedVideoPlayer } from './components/lms/player/CloakedVideoPlayer';
 import { GlobalPersistentPlayer, type PersistentPlaybackData } from './components/lms/player/GlobalPersistentPlayer';
 import { BatchAdminStudio } from './components/lms/BatchAdminStudio';
 import { HomeDashboard } from './components/home/HomeDashboard';
+import { NotificationsView } from './components/notifications/NotificationsView';
 import { LmsProvider } from './lms/LmsContext';
 import { usePWAInstall } from './hooks/usePWAInstall';
 import { useUIScale } from './hooks/useUIScale';
@@ -2296,6 +2297,15 @@ export default function App() {
             }
           }}
           onSignIn={handleSignIn}
+        />
+      )}
+
+      {/* Full-Screen Material 3 Notifications & Updates Page */}
+      {activeTab === 'notifications' && (
+        <NotificationsView
+          onBack={() => goBack()}
+          onNavigateTab={(tab) => setActiveTab(tab)}
+          isDarkMode={isDarkMode}
         />
       )}
 
