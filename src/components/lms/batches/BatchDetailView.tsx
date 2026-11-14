@@ -40,7 +40,7 @@ import {
 import { useApp, getFacultyAvatarUrl } from '../../../lms/LmsContext';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
 import { formatDuration, extractYouTubeId, obfuscateVideoKey } from '../../../lms/security';
-import type { PdfNote, Chapter, Lecture } from '../../../lms/types';
+import type { PdfNote, Chapter, Lecture, Batch } from '../../../lms/types';
 import type { MathTest } from '../../../types';
 import { useBackHandler } from '../../../hooks/useBackNavigation';
 import {
@@ -70,6 +70,7 @@ interface BatchDetailViewProps {
   onFolderTabChange?: (tab: 'videos' | 'notes_content' | 'tests') => void;
   isMasterEditMode?: boolean;
   onSetMiniPlayer?: (video: any) => void;
+  onPlayLecture?: (lecture: Lecture, batch: Batch) => void;
   initialSeekSeconds?: number | null;
 }
 
@@ -89,6 +90,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   onFolderTabChange,
   isMasterEditMode = false,
   onSetMiniPlayer,
+  onPlayLecture,
   initialSeekSeconds = null,
 }) => {
   const {
@@ -214,8 +216,13 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       if (initialLectureId && consumedLectureIdRef.current !== initialLectureId) {
         consumedLectureIdRef.current = initialLectureId;
         setSelectedLectureId(initialLectureId);
-        setCurrentStage('lecture_view');
-        onStageChange?.('lecture_view');
+        const targetLec = lectures.find((l) => l.id === initialLectureId);
+        if (targetLec && currentBatch && onPlayLecture) {
+          onPlayLecture(targetLec, currentBatch);
+        } else {
+          setCurrentStage('lecture_view');
+          onStageChange?.('lecture_view');
+        }
       } else if (!initialLectureId && currentStage === 'batch_list') {
         setCurrentStage('folder_content');
       }
@@ -438,6 +445,14 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   };
 
   const goToLectureView = (lectureId: string) => {
+    const targetLecture = lectures.find((l) => l.id === lectureId) || folderLectures.find((l) => l.id === lectureId);
+    if (targetLecture && currentBatch && onPlayLecture) {
+      onPlayLecture(targetLecture, currentBatch);
+      setSelectedLectureId(lectureId);
+      consumedLectureIdRef.current = lectureId;
+      onLectureChange?.(lectureId);
+      return;
+    }
     onSetMiniPlayer?.(null);
     setSelectedLectureId(lectureId);
     consumedLectureIdRef.current = lectureId;

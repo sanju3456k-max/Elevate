@@ -91,6 +91,7 @@ import { GuestMigrationModal } from './components/auth/GuestMigrationModal';
 import { WelcomeSplash } from './components/WelcomeSplash';
 import { BatchDetailView } from './components/lms/batches/BatchDetailView';
 import { CloakedVideoPlayer } from './components/lms/player/CloakedVideoPlayer';
+import { GlobalPersistentPlayer, type PersistentPlaybackData } from './components/lms/player/GlobalPersistentPlayer';
 import { BatchAdminStudio } from './components/lms/BatchAdminStudio';
 import { HomeDashboard } from './components/home/HomeDashboard';
 import { LmsProvider } from './lms/LmsContext';
@@ -164,20 +165,43 @@ export default function App() {
   const [selectedLectureId, setSelectedLectureId] = useState<string | null>(null);
   const [batchesStage, setBatchesStage] = useState<'batch_list' | 'folder_list' | 'folder_content' | 'lecture_view'>('batch_list');
 
-  // YouTube-style Floating Miniplayer Video State
-  interface MiniPlayerVideo {
-    lectureId: string;
-    lectureTitle: string;
-    batchId: string;
-    batchTitle: string;
-    chapterId?: string | null;
-    thumbnailUrl?: string;
-    durationMinutes?: number;
-    encryptedVideoId?: string;
-    playbackSeconds?: number;
-    isPlaying?: boolean;
-  }
-  const [activeMiniPlayer, setActiveMiniPlayer] = useState<MiniPlayerVideo | null>(null);
+  // YouTube-style Persistent Live Playback Engine
+  const [persistentPlayback, setPersistentPlayback] = useState<PersistentPlaybackData | null>(null);
+
+  const handlePlayLecture = useCallback(
+    (
+      lecture: {
+        id: string;
+        title: string;
+        description?: string;
+        encryptedVideoId: string;
+        thumbnailUrl?: string;
+        durationMinutes?: number;
+        milestones?: any[];
+      },
+      batch: {
+        id: string;
+        title: string;
+      },
+      chapterId?: string | null
+    ) => {
+      setPersistentPlayback({
+        lectureId: lecture.id,
+        lectureTitle: lecture.title,
+        lectureDescription: lecture.description,
+        batchId: batch.id,
+        batchTitle: batch.title,
+        chapterId: chapterId || null,
+        thumbnailUrl: lecture.thumbnailUrl,
+        durationMinutes: lecture.durationMinutes,
+        encryptedVideoId: lecture.encryptedVideoId,
+        milestones: lecture.milestones,
+        isMinimized: false,
+        isPlaying: true,
+      });
+    },
+    []
+  );
   const [initialSeekSeconds, setInitialSeekSeconds] = useState<number | null>(null);
 
   // In batches section, user is "inside" a batch when viewing folders, chapter contents, or lecture player
@@ -1913,7 +1937,7 @@ export default function App() {
 
       {/* Main Content Area */}
       {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'results' && activeTab !== 'create' && activeTab !== 'custom-builder' && activeTab !== 'master-console' && (
-        <main className="flex-1 min-w-0 bg-[#e5e9f0] dark:bg-[#0b0c10] pb-6 sm:pb-8">
+        <main className={`flex-1 min-w-0 bg-[#e5e9f0] dark:bg-[#0b0c10] pb-6 sm:pb-8 ${persistentPlayback?.isMinimized ? 'pb-24 sm:pb-28' : ''}`}>
 
           {/* Home Dashboard (Elevate Unified Coaching & Assessment Feed) */}
           {activeTab === 'home' && (
@@ -1943,6 +1967,7 @@ export default function App() {
                 setBatchesFilter('all');
                 setActiveTab('batches');
               }}
+              onPlayLecture={handlePlayLecture}
               onSelectLecture={(batchId, lectureId) => {
                 setSelectedBatchId(batchId);
                 setSelectedLectureId(lectureId);
@@ -2003,7 +2028,7 @@ export default function App() {
                   setBatchesStage(stage);
                   setIsLectureViewActive(stage === 'lecture_view');
                 }}
-                onSetMiniPlayer={setActiveMiniPlayer}
+                onPlayLecture={handlePlayLecture}
               />
             </div>
           )}
@@ -2316,84 +2341,14 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
-      {/* YouTube-Style Floating Bottom Miniplayer Strip */}
-      {activeMiniPlayer && activeTab !== 'take-test' && activeTab !== 'omr-test' && (
-        <div
-          id="youtube-miniplayer-strip"
-          className="fixed left-2 right-2 md:left-auto md:right-4 md:w-[380px] z-50 transition-all duration-200 bg-[var(--md-sys-color-surface-container-high)]/95 dark:bg-[#1e2024]/95 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.32)] border border-[var(--md-sys-color-outline-variant)]/25 p-2 flex items-center justify-between gap-3 animate-in slide-in-from-bottom-5 duration-200 select-none cursor-pointer bottom-3 md:bottom-4"
-          onClick={() => {
-            const mp = activeMiniPlayer;
-            setActiveMiniPlayer(null);
-            setSelectedBatchId(mp.batchId);
-            setSelectedChapterId(mp.chapterId || null);
-            setSelectedFolderTab('videos');
-            setSelectedLectureId(mp.lectureId);
-            setInitialSeekSeconds(mp.playbackSeconds || 0);
-            setIsLectureViewActive(true);
-            setBatchesStage('lecture_view');
-            setActiveTab('batches');
-          }}
-        >
-          {/* Left: Live Running Cloaked Video Player in Mini Mode */}
-          <div className="w-24 sm:w-28 h-14 sm:h-16 aspect-video rounded-xl overflow-hidden relative shrink-0 bg-black shadow-xs pointer-events-none">
-            {activeMiniPlayer.encryptedVideoId && (
-              <CloakedVideoPlayer
-                encryptedVideoId={activeMiniPlayer.encryptedVideoId}
-                title={activeMiniPlayer.lectureTitle}
-                user={(currentUser as any) || { id: 'guest', name: 'Student', role: 'student' }}
-                batchId={activeMiniPlayer.batchId}
-                lectureId={activeMiniPlayer.lectureId}
-                seekToSeconds={activeMiniPlayer.playbackSeconds}
-                isGuestAllowed={true}
-                isMini={true}
-                autoPlay={true}
-                isPlayingProp={activeMiniPlayer.isPlaying}
-                onProgress={(sec) => {
-                  setActiveMiniPlayer((prev) => (prev ? { ...prev, playbackSeconds: sec } : null));
-                }}
-              />
-            )}
-          </div>
-
-          {/* Center: Title & Batch Subtitle */}
-          <div className="flex-1 min-w-0 pr-1">
-            <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] truncate leading-snug">
-              {activeMiniPlayer.lectureTitle}
-            </h4>
-            <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate mt-0.5">
-              {activeMiniPlayer.batchTitle}
-            </p>
-          </div>
-
-          {/* Right Action Controls: Play/Pause & Close (X) */}
-          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              id="miniplayer-toggle-play-btn"
-              onClick={() => {
-                setActiveMiniPlayer((prev) => (prev ? { ...prev, isPlaying: !prev.isPlaying } : null));
-              }}
-              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-black/10 dark:hover:bg-white/10 text-[var(--md-sys-color-on-surface)] border-none bg-transparent cursor-pointer transition active:scale-90"
-              title={activeMiniPlayer.isPlaying ? 'Pause' : 'Play'}
-            >
-              {activeMiniPlayer.isPlaying ? (
-                <Pause className="w-4 h-4 fill-current" />
-              ) : (
-                <Play className="w-4 h-4 fill-current ml-0.5" />
-              )}
-            </button>
-            <button
-              type="button"
-              id="miniplayer-close-strip-btn"
-              onClick={() => setActiveMiniPlayer(null)}
-              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-black/10 dark:hover:bg-white/10 text-[var(--md-sys-color-on-surface-variant)] hover:text-rose-500 border-none bg-transparent cursor-pointer transition active:scale-90"
-              title="Close video"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Persistent Single-Instance YouTube-Style Video Player (Never unmounts across Mini/Expanded transitions) */}
+      <GlobalPersistentPlayer
+        playback={persistentPlayback}
+        onUpdatePlayback={setPersistentPlayback}
+        onClose={() => setPersistentPlayback(null)}
+        activeTab={activeTab}
+        user={currentUser || cachedUser || { id: 'guest', name: 'Student', role: 'student' }}
+      />
     </div>
     </LmsProvider>
   );

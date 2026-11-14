@@ -39,6 +39,7 @@ interface HomeDashboardProps {
   onOpenBatches: (filter?: 'all' | 'my-batches') => void;
   onSelectBatch?: (batchId: string) => void;
   onSelectLecture?: (batchId: string, lectureId: string) => void;
+  onPlayLecture?: (lecture: any, batch: any) => void;
   onOpenAllTests: () => void;
   onOpenAnalytics?: () => void;
   onOpenNotes?: () => void;
@@ -66,6 +67,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onOpenBatches,
   onSelectBatch,
   onSelectLecture,
+  onPlayLecture,
   onOpenAllTests,
   onOpenAnalytics,
   onOpenNotes,
@@ -293,6 +295,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const handleSelectLectureItem = (batchId: string, lectureId: string) => {
     setActiveBatchId(batchId);
     setActiveLectureId(lectureId);
+    const targetLec = lectures.find((l) => l.id === lectureId);
+    const targetBatch = batches.find((b) => b.id === batchId);
+    if (targetLec && targetBatch && onPlayLecture) {
+      onPlayLecture(targetLec, targetBatch);
+      return;
+    }
     if (onSelectLecture) {
       onSelectLecture(batchId, lectureId);
     } else if (onSelectBatch) {

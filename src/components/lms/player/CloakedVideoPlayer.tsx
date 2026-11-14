@@ -855,50 +855,21 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
   const availableSpeeds = [0.75, 1, 1.25, 1.5, 1.75, 2];
 
-  // Lightweight YouTube-Style MiniPlayer View (Streamlined video frame with no overlays/watermarks)
-  if (isMini) {
-    return (
-      <div
-        ref={containerRef}
-        className="relative w-full h-full bg-black overflow-hidden border-none select-none"
-      >
-        {authStatus === 'authorized' && (
-          <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none flex items-center justify-center select-none bg-black">
-            <div
-              className="w-full h-full relative pointer-events-none"
-              style={{
-                transform: 'scale(1.36)',
-                transformOrigin: 'center center',
-                width: '100%',
-                height: '100%',
-              }}
-            >
-              <div
-                id={playerContainerId.current}
-                className="w-full h-full [&>iframe]:w-full [&>iframe]:h-full [&>iframe]:object-cover [&>iframe]:pointer-events-none"
-              />
-            </div>
-          </div>
-        )}
-        {/* Subtle cloaking security guards */}
-        <div className="absolute top-0 inset-x-0 h-3 bg-gradient-to-b from-black/90 to-transparent pointer-events-none z-10" />
-        <div className="absolute bottom-0 inset-x-0 h-3 bg-gradient-to-t from-black/90 to-transparent pointer-events-none z-10" />
-      </div>
-    );
-  }
-
+  // Persistent Single-Instance YouTube Engine (DOM element & iframe NEVER unmount during mini/expanded transitions)
   return (
     <div
       ref={containerRef}
-      onMouseMove={handleMouseMove}
+      onMouseMove={isMini ? undefined : handleMouseMove}
       style={{
         transform: 'translateZ(0)',
         WebkitFontSmoothing: 'antialiased',
       }}
-      className={`relative w-full bg-black overflow-hidden border-none select-none group transition-all duration-200 ${
-        isFullscreen
-          ? 'h-full w-full aspect-auto rounded-none flex items-center justify-center'
-          : 'aspect-video rounded-none sm:rounded-3xl shadow-2xl'
+      className={`relative w-full bg-black overflow-hidden border-none select-none transition-all duration-200 ${
+        isMini
+          ? 'h-full w-full rounded-none'
+          : isFullscreen
+            ? 'h-full w-full aspect-auto rounded-none flex items-center justify-center'
+            : 'aspect-video rounded-none sm:rounded-3xl shadow-2xl group'
       }`}
     >
       {/* 1. Scaled & Cropped YouTube Iframe Engine (136% Center Crop to mask YouTube title/avatar & 'Watch on YouTube' watermark) */}
@@ -922,11 +893,13 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       )}
 
       {/* 1a. Top Cloaking Security Guard (Masks any edge title/channel overlay bleed) */}
-      <div className="absolute top-0 inset-x-0 h-14 bg-gradient-to-b from-black/95 via-black/50 to-transparent pointer-events-none z-15" />
+      <div className={`absolute top-0 inset-x-0 ${isMini ? 'h-3' : 'h-14'} bg-gradient-to-b from-black/95 via-black/50 to-transparent pointer-events-none z-15`} />
 
       {/* 1b. Bottom Cloaking Security Guard (Masks any YouTube watermark/logo bleed) */}
-      <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-black/95 via-black/50 to-transparent pointer-events-none z-15" />
+      <div className={`absolute bottom-0 inset-x-0 ${isMini ? 'h-3' : 'h-16'} bg-gradient-to-t from-black/95 via-black/50 to-transparent pointer-events-none z-15`} />
 
+      {!isMini && (
+        <>
       {/* 1c. High-Fidelity Pre-Playback Poster Curtain (Eliminates YouTube unstarted title, channel avatar, and red play button) */}
       {authStatus === 'authorized' && !hasEverPlayed && (
         <div className="absolute inset-0 z-25 bg-slate-950 flex flex-col items-center justify-center overflow-hidden select-none">
@@ -1481,6 +1454,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };
