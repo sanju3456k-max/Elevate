@@ -14,12 +14,14 @@ import {
 import { enableContentSecurityDeterrence, obfuscateVideoKey } from './security';
 import { auth, db } from '../lib/firebase';
 import { isMasterUser } from '../lib/masterAccount';
+import { listenerManager } from '../lib/listenerManager';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import {
   syncBatchToFirestore,
   deleteBatchFromFirestore,
   fetchBatchesFromFirestore,
+  touchBatchCatalogBeacon,
   enrollStudentInFirestore,
   revokeStudentInFirestore,
   fetchStudentEnrollmentsFromFirestore,
@@ -256,20 +258,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     // Real-time live listener for global guest policy across Master and Guest browsers
-    const policyRef = doc(db, 'master_catalog', 'lms_guest_policy');
-    const unsubPolicy = onSnapshot(policyRef, (snap) => {
-      if (snap.exists()) {
-        const val = snap.data()?.globalGuestAccessMode;
-        if (val === 'specific_batches' || val === 'all_batches' || val === 'none') {
-          setGlobalGuestAccessModeState(val);
-          try {
-            localStorage.setItem(STORAGE_KEYS.GUEST_ACCESS_MODE, val);
-          } catch {}
+    // Equipped with singleton deduplication & visibility-aware background pausing
+    const unsubPolicy = listenerManager.subscribeDocument(
+      'master_catalog/lms_guest_policy',
+      () => doc(db, 'master_catalog', 'lms_guest_policy'),
+      (snap) => {
+        if (snap.exists()) {
+          const val = snap.data()?.globalGuestAccessMode;
+          if (val === 'specific_batches' || val === 'all_batches' || val === 'none') {
+            setGlobalGuestAccessModeState(val);
+            try {
+              localStorage.setItem(STORAGE_KEYS.GUEST_ACCESS_MODE, val);
+            } catch {}
+          }
         }
+      },
+      (err) => {
+        console.warn('LMS policy live listener notice:', err);
       }
-    }, (err) => {
-      console.warn('LMS policy live listener notice:', err);
-    });
+    );
 
     return () => {
       unsubPolicy();
@@ -471,6 +478,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...updated,
         updatedAt: new Date().toISOString(),
       });
+      touchBatchCatalogBeacon().catch(() => {});
     } catch {
       if (targetToSync) {
         await syncBatchToFirestore(targetToSync).catch(() => {});
@@ -724,6 +732,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const batchRef = doc(db, 'batches', batchId);
       await updateDoc(batchRef, { allowGuestAccess: nextState });
+      touchBatchCatalogBeacon().catch(() => {});
     } catch {
       await syncBatchToFirestore(updated).catch(() => {});
     }

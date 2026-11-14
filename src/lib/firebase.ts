@@ -68,6 +68,7 @@ import {
   getAllDeletedTestIds
 } from './storage';
 import { deleteTestFromIndexedDB } from './indexedDbStorage';
+import { listenerManager } from './listenerManager';
 import { toCompactChatSession, smartCoordinator } from './smartLocalCoordinator';
 import { optimizeTestForFirestore } from './imageOptimization';
 
@@ -1280,64 +1281,69 @@ export async function saveUserProfileToFirestore(userId: string, profile: Partia
 }
 
 export function subscribeUserProfile(userId: string, onProfileChange: (data: UserProfile | null) => void): Unsubscribe {
-  if (isOfflineLocalOnlyMode() || !userId || userId === 'anonymous' || userId === 'guest-user') {
+  if (isOfflineLocalOnlyMode() || isGlobalQuotaExceeded() || !userId || userId === 'anonymous' || userId === 'guest-user') {
     onProfileChange(null);
     return () => {};
   }
 
   try {
-    const userDocRef = doc(db, 'users', userId);
-    return onSnapshot(userDocRef, (snap) => {
-      if (snap.exists()) {
-        const raw = snap.data() as any;
-        const normalizedChatSessions: Record<string, any> = { ...(raw.chatSessions || {}) };
-        const normalizedNotes: Record<string, any> = { ...(raw.notes || {}) };
-        const normalizedBookmarks: Record<string, any> = { ...(raw.bookmarks || {}) };
-        const normalizedTestHistories: Record<string, any> = { ...(raw.testHistories || {}) };
+    const path = `users/${userId}`;
+    return listenerManager.subscribeDocument(
+      path,
+      () => doc(db, 'users', userId),
+      (snap) => {
+        if (snap.exists()) {
+          const raw = snap.data() as any;
+          const normalizedChatSessions: Record<string, any> = { ...(raw.chatSessions || {}) };
+          const normalizedNotes: Record<string, any> = { ...(raw.notes || {}) };
+          const normalizedBookmarks: Record<string, any> = { ...(raw.bookmarks || {}) };
+          const normalizedTestHistories: Record<string, any> = { ...(raw.testHistories || {}) };
 
-        // Normalize any dot-flattened keys that might have been saved in earlier versions
-        Object.keys(raw).forEach((k) => {
-          if (k.startsWith('chatSessions.') && raw[k]) {
-            const key = k.replace('chatSessions.', '');
-            normalizedChatSessions[key] = raw[k];
-          } else if (k.startsWith('notes.') && raw[k]) {
-            const key = k.replace('notes.', '');
-            normalizedNotes[key] = raw[k];
-          } else if (k.startsWith('bookmarks.') && raw[k]) {
-            const key = k.replace('bookmarks.', '');
-            normalizedBookmarks[key] = raw[k];
-          } else if (k.startsWith('testHistories.') && raw[k]) {
-            const key = k.replace('testHistories.', '');
-            normalizedTestHistories[key] = raw[k];
-          }
-        });
+          // Normalize any dot-flattened keys that might have been saved in earlier versions
+          Object.keys(raw).forEach((k) => {
+            if (k.startsWith('chatSessions.') && raw[k]) {
+              const key = k.replace('chatSessions.', '');
+              normalizedChatSessions[key] = raw[k];
+            } else if (k.startsWith('notes.') && raw[k]) {
+              const key = k.replace('notes.', '');
+              normalizedNotes[key] = raw[k];
+            } else if (k.startsWith('bookmarks.') && raw[k]) {
+              const key = k.replace('bookmarks.', '');
+              normalizedBookmarks[key] = raw[k];
+            } else if (k.startsWith('testHistories.') && raw[k]) {
+              const key = k.replace('testHistories.', '');
+              normalizedTestHistories[key] = raw[k];
+            }
+          });
 
-        const profile: UserProfile = {
-          ...raw,
-          id: userId,
-          chatSessions: normalizedChatSessions,
-          notes: normalizedNotes,
-          bookmarks: normalizedBookmarks,
-          testHistories: normalizedTestHistories,
-        };
+          const profile: UserProfile = {
+            ...raw,
+            id: userId,
+            chatSessions: normalizedChatSessions,
+            notes: normalizedNotes,
+            bookmarks: normalizedBookmarks,
+            testHistories: normalizedTestHistories,
+          };
 
-        firestoreTelemetry.record({
-          type: 'STREAM_DELTA',
-          collection: 'users',
-          path: `users/${userId}`,
-          operation: 'onSnapshot',
-          docCount: 1,
-          data: { email: raw.email, displayName: raw.displayName, statsRollup: raw.statsRollup },
-          caller: 'User Profile Real-time Stream',
-        });
-        onProfileChange(profile);
-      } else {
-        onProfileChange(null);
+          firestoreTelemetry.record({
+            type: 'STREAM_DELTA',
+            collection: 'users',
+            path: `users/${userId}`,
+            operation: 'onSnapshot',
+            docCount: 1,
+            data: { email: raw.email, displayName: raw.displayName, statsRollup: raw.statsRollup },
+            caller: 'User Profile Real-time Stream',
+          });
+          onProfileChange(profile);
+        } else {
+          onProfileChange(null);
+        }
+      },
+      (error) => {
+        console.warn(`User profile listener notice for ${userId}:`, error?.message);
+        handleFirestoreError(error, OperationType.GET, `users/${userId}`);
       }
-    }, (error) => {
-      console.warn(`User profile listener notice for ${userId}:`, error?.message);
-      handleFirestoreError(error, OperationType.GET, `users/${userId}`);
-    });
+    );
   } catch (err) {
     console.warn(`Failed to attach user profile listener for ${userId}:`, err);
     return () => {};
@@ -1394,24 +1400,29 @@ export function subscribeUserSyncBeacon(
   }
 
   try {
-    const beaconRef = getUserSyncBeaconDocRef(userId);
-    return onSnapshot(beaconRef, (snap) => {
-      firestoreTelemetry.record({
-        type: 'STREAM_DELTA',
-        collection: 'users',
-        path: `users/${userId}/sync_beacon/status`,
-        operation: 'onSnapshot',
-        docCount: snap.exists() ? 1 : 0,
-        caller: 'Live User Sync Beacon Stream',
-      });
-      if (snap.exists()) {
-        onUpdate(snap.data() as UserSyncBeacon);
-      } else {
-        onUpdate(null);
+    const path = `users/${userId}/sync_beacon/status`;
+    return listenerManager.subscribeDocument(
+      path,
+      () => getUserSyncBeaconDocRef(userId),
+      (snap) => {
+        firestoreTelemetry.record({
+          type: 'STREAM_DELTA',
+          collection: 'users',
+          path: `users/${userId}/sync_beacon/status`,
+          operation: 'onSnapshot',
+          docCount: snap.exists() ? 1 : 0,
+          caller: 'Live User Sync Beacon Stream',
+        });
+        if (snap.exists()) {
+          onUpdate(snap.data() as UserSyncBeacon);
+        } else {
+          onUpdate(null);
+        }
+      },
+      (err) => {
+        console.warn('Sync beacon listener notice:', err?.message);
       }
-    }, (err) => {
-      console.warn('Sync beacon listener notice:', err?.message);
-    });
+    );
   } catch (err) {
     console.warn('Failed to attach sync beacon listener:', err);
     return () => {};
@@ -2428,11 +2439,12 @@ export function subscribeToTestLeaderboard(
   }
 
   const canonicalId = getCanonicalLeaderboardId(testId, testTitle);
-  const cohortBucketDocRef = doc(db, 'test_leaderboards', canonicalId, 'summary', 'cohort_bucket_1');
+  const path = `test_leaderboards/${canonicalId}/summary/cohort_bucket_1`;
 
   try {
-    const unsub = onSnapshot(
-      cohortBucketDocRef,
+    const unsub = listenerManager.subscribeDocument(
+      path,
+      () => doc(db, 'test_leaderboards', canonicalId, 'summary', 'cohort_bucket_1'),
       (snap) => {
         firestoreTelemetry.record({
           type: 'READ',

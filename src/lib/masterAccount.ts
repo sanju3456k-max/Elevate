@@ -37,6 +37,7 @@ import {
   writeBatch,
   type Unsubscribe 
 } from 'firebase/firestore';
+import { listenerManager } from './listenerManager';
 
 /**
  * Designated Master Enterprise Account Emails
@@ -532,9 +533,10 @@ export function subscribeToPublishedMasterTests(
   }
 
   try {
-    const catalogDocRef = doc(db, 'test_leaderboards', 'MASTER_CATALOG', 'summary', 'published_tests');
-    const unsubscribe = onSnapshot(
-      catalogDocRef,
+    const catalogPath = 'test_leaderboards/MASTER_CATALOG/summary/published_tests';
+    const unsubscribe = listenerManager.subscribeDocument(
+      catalogPath,
+      () => doc(db, 'test_leaderboards', 'MASTER_CATALOG', 'summary', 'published_tests'),
       (snap) => {
         if (snap.exists()) {
           const data = snap.data();
@@ -2360,7 +2362,12 @@ export function subscribeToAssignedRemedialTests(
       }
     };
 
-    const unsub = onSnapshot(docRefToListen, isMaster ? handleSnap : handleStudentInboxSnap, () => {});
+    const unsub = listenerManager.subscribeDocument(
+      docRefToListen.path,
+      () => docRefToListen,
+      isMaster ? handleSnap : handleStudentInboxSnap,
+      (err) => console.warn('Remedial subscription notice:', err)
+    );
     return unsub;
   } catch (err) {
     console.warn('Could not subscribe to student remedial tests:', err);

@@ -8,6 +8,7 @@ import {
   updateDoc,
   query,
   where,
+  limit,
   arrayUnion,
   arrayRemove,
 } from 'firebase/firestore';
@@ -19,6 +20,42 @@ import { obfuscateVideoKey } from '../lms/security';
 export const cleanKeyForFirestore = (str: string): string => {
   return str.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
 };
+
+// -------------------------------------------------------------
+// Enterprise Multi-Tier Caching & Beacon Constants
+// -------------------------------------------------------------
+export const BATCH_CACHE_KEY = 'math_mock_batches_cache';
+export const BATCH_CACHE_TIME_KEY = 'math_mock_batches_cache_time';
+export const BATCH_CACHE_BEACON_KEY = 'math_mock_batches_beacon';
+export const BATCH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes fresh L1 TTL
+
+export const ALL_ENROLLMENTS_CACHE_KEY = 'math_mock_all_enrollments_cache';
+export const ALL_ENROLLMENTS_CACHE_TIME_KEY = 'math_mock_all_enrollments_time';
+export const ALL_ENROLLMENTS_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes fresh L1 TTL
+
+/**
+ * Updates the lightweight 1-document catalog beacon to signal changes to all clients
+ * without forcing them to poll or scan the whole collection.
+ */
+export async function touchBatchCatalogBeacon(): Promise<void> {
+  try {
+    const metaRef = doc(db, 'master_catalog', 'batch_catalog_meta');
+    const nowIso = new Date().toISOString();
+    await setDoc(metaRef, {
+      lastUpdatedAt: nowIso,
+      updatedAt: Date.now(),
+    }, { merge: true });
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        localStorage.removeItem(BATCH_CACHE_KEY);
+        localStorage.removeItem(BATCH_CACHE_TIME_KEY);
+      } catch {}
+    }
+  } catch (e) {
+    console.warn('Silent notice: batch catalog beacon touch:', e);
+  }
+}
 
 /**
  * 1. Sync a batch to Cloud Firestore: /batches/{batchId}
@@ -114,6 +151,8 @@ export async function syncBatchToFirestore(batch: Batch): Promise<{ success: boo
       console.warn('Starter curriculum initialization notice:', curricErr);
     }
 
+    // Invalidate local batch cache and update catalog beacon in background
+    touchBatchCatalogBeacon().catch(() => {});
     return { success: true };
   } catch (error: any) {
     console.error('Failed to sync batch to Firestore:', error);
@@ -129,6 +168,7 @@ export async function deleteBatchFromFirestore(batchId: string): Promise<void> {
   try {
     const batchRef = doc(db, 'batches', batchId);
     await deleteDoc(batchRef);
+    touchBatchCatalogBeacon().catch(() => {});
   } catch (error) {
     console.warn('Failed to delete batch from Firestore:', error);
   }
@@ -136,8 +176,52 @@ export async function deleteBatchFromFirestore(batchId: string): Promise<void> {
 
 /**
  * 3. Fetch all active published batches from Cloud Firestore
+ * Enterprise Multi-Tier Caching (L1 LocalStorage TTL -> 1-doc Beacon Check -> Full collection scan only on change)
  */
-export async function fetchBatchesFromFirestore(): Promise<Batch[]> {
+export async function fetchBatchesFromFirestore(options?: { forceRefresh?: boolean }): Promise<Batch[]> {
+  const now = Date.now();
+
+  // Tier 1: Fresh in-memory / local storage check (< 5 minutes TTL)
+  if (!options?.forceRefresh && typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const cachedStr = localStorage.getItem(BATCH_CACHE_KEY);
+      const cacheTimeStr = localStorage.getItem(BATCH_CACHE_TIME_KEY);
+      if (cachedStr && cacheTimeStr) {
+        const age = now - Number(cacheTimeStr);
+        if (age < BATCH_CACHE_TTL_MS) {
+          const parsed = JSON.parse(cachedStr);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed; // 0 Firestore reads!
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // Tier 2: Check 1-Document Revision Beacon before reading entire collection
+  if (!options?.forceRefresh && typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const cachedStr = localStorage.getItem(BATCH_CACHE_KEY);
+      const cachedBeacon = localStorage.getItem(BATCH_CACHE_BEACON_KEY);
+      if (cachedStr && cachedBeacon) {
+        const metaRef = doc(db, 'master_catalog', 'batch_catalog_meta');
+        const metaSnap = await getDoc(metaRef).catch(() => null);
+        if (metaSnap && metaSnap.exists()) {
+          const serverBeacon = metaSnap.data()?.lastUpdatedAt || '';
+          if (serverBeacon && serverBeacon === cachedBeacon) {
+            // Server catalog hasn't changed! Re-stamp TTL and return cached (1 read instead of N reads)
+            localStorage.setItem(BATCH_CACHE_TIME_KEY, String(now));
+            const parsed = JSON.parse(cachedStr);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              return parsed;
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // Tier 3: Fetch full collection when cache is missing, expired, or forced
   try {
     const batchesCol = collection(db, 'batches');
     const snap = await getDocs(batchesCol);
@@ -168,11 +252,34 @@ export async function fetchBatchesFromFirestore(): Promise<Batch[]> {
           allowGuestAccess: !!data.allowGuestAccess,
         });
       });
+
+      // Update multi-tier cache
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+          localStorage.setItem(BATCH_CACHE_KEY, JSON.stringify(cloudBatches));
+          localStorage.setItem(BATCH_CACHE_TIME_KEY, String(now));
+          const latestBatchTime = cloudBatches.reduce((acc, b: any) => (b.updatedAt && b.updatedAt > acc ? b.updatedAt : acc), '');
+          localStorage.setItem(BATCH_CACHE_BEACON_KEY, latestBatchTime || new Date().toISOString());
+        } catch {}
+      }
+
       return cloudBatches;
     }
   } catch (error) {
     console.warn('Failed to fetch batches from Firestore, using initial fallback:', error);
   }
+
+  // Fallback to cache if available on network error
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const cachedStr = localStorage.getItem(BATCH_CACHE_KEY);
+      if (cachedStr) {
+        const parsed = JSON.parse(cachedStr);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+  }
+
   return INITIAL_BATCHES;
 }
 
@@ -219,10 +326,7 @@ export async function enrollStudentInFirestore(params: {
     // 1. Fast Global Index: /batch_enrollments/{batchId}__{studentEmailSafe}
     await setDoc(doc(db, 'batch_enrollments', enrollmentKey), firestoreData, { merge: true });
 
-    // 2. Batch-scoped Roster: /batches/{batchId}/enrollments/{studentEmailSafe}
-    await setDoc(doc(db, 'batches', batchId, 'enrollments', cleanContactKey), firestoreData, { merge: true });
-
-    // 3. Authoritative Batch Roster Manifest Document: /batches/{batchId}/access/roster
+    // 2. Authoritative Batch Roster Manifest Document: /batches/{batchId}/access/roster (Single-Doc Source of Truth)
     try {
       const rosterRef = doc(db, 'batches', batchId, 'access', 'roster');
       const rosterSnap = await getDoc(rosterRef).catch(() => null);
@@ -267,7 +371,7 @@ export async function enrollStudentInFirestore(params: {
       console.warn('Batch access roster update notice:', rosterErr);
     }
 
-    // 4. Increment batch student count in Firestore
+    // 3. Increment batch student count in Firestore
     try {
       const batchRef = doc(db, 'batches', batchId);
       const batchSnap = await getDoc(batchRef);
@@ -288,7 +392,7 @@ export async function enrollStudentInFirestore(params: {
       console.warn('Batch student count update notice:', countErr);
     }
 
-    // 5. Update student's user profile if registered
+    // 4. Update student's user profile if registered
     if (isEmail) {
       try {
         const userQ = query(collection(db, 'users'), where('email', '==', cleanedContact));
@@ -298,6 +402,16 @@ export async function enrollStudentInFirestore(params: {
             enrolledBatchIds: arrayUnion(batchId),
           }).catch(() => {});
         });
+      } catch {}
+    }
+
+    // Invalidate local enrollment caches
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        localStorage.removeItem(ALL_ENROLLMENTS_CACHE_KEY);
+        localStorage.removeItem(ALL_ENROLLMENTS_CACHE_TIME_KEY);
+        localStorage.removeItem(`math_mock_student_enrollments_${cleanedContact}`);
+        localStorage.removeItem(`math_mock_student_enrollments_${cleanedContact}_time`);
       } catch {}
     }
 
@@ -338,7 +452,7 @@ export async function revokeStudentInFirestore(batchId: string, contact: string)
       console.warn('batch_enrollments secondary purge notice:', cleanErr);
     }
 
-    // 2. Delete from batch subcollection (/batches/{batchId}/enrollments)
+    // 2. Delete from batch subcollection (/batches/{batchId}/enrollments) if lingering
     await deleteDoc(doc(db, 'batches', batchId, 'enrollments', cleanContactKey)).catch(() => {});
 
     // 3. Update authoritative batch roster manifest (/batches/{batchId}/access/roster)
@@ -417,6 +531,16 @@ export async function revokeStudentInFirestore(batchId: string, contact: string)
     } catch (userErr) {
       console.warn('Student user doc batch revocation notice:', userErr);
     }
+
+    // Invalidate local enrollment caches
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        localStorage.removeItem(ALL_ENROLLMENTS_CACHE_KEY);
+        localStorage.removeItem(ALL_ENROLLMENTS_CACHE_TIME_KEY);
+        localStorage.removeItem(`math_mock_student_enrollments_${cleanedContact}`);
+        localStorage.removeItem(`math_mock_student_enrollments_${cleanedContact}_time`);
+      } catch {}
+    }
   } catch (error) {
     console.warn('Failed to revoke enrollment in Firestore:', error);
   }
@@ -424,16 +548,33 @@ export async function revokeStudentInFirestore(batchId: string, contact: string)
 
 /**
  * 6. Fetch student enrollments from Cloud Firestore by email or phone (1 Read Query)
+ * Equipped with 3-minute L1 cache and strict limit(50) bounding.
  */
 export async function fetchStudentEnrollmentsFromFirestore(
   email?: string | null,
-  phone?: string | null
+  phone?: string | null,
+  options?: { forceRefresh?: boolean }
 ): Promise<{ batchIds: string[]; enrollments: BatchEnrollment[] }> {
   const cleanEmail = email ? email.toLowerCase().trim() : null;
   const cleanPhone = phone ? phone.trim() : null;
 
   if (!cleanEmail && !cleanPhone) {
     return { batchIds: [], enrollments: [] };
+  }
+
+  const cacheKey = `math_mock_student_enrollments_${cleanEmail || cleanPhone}`;
+  const cacheTimeKey = `${cacheKey}_time`;
+  const now = Date.now();
+
+  // Tier 1: Fresh in-memory / local storage check (< 3 mins)
+  if (!options?.forceRefresh && typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const cachedStr = localStorage.getItem(cacheKey);
+      const cacheTimeStr = localStorage.getItem(cacheTimeKey);
+      if (cachedStr && cacheTimeStr && (now - Number(cacheTimeStr) < 3 * 60 * 1000)) {
+        return JSON.parse(cachedStr);
+      }
+    } catch {}
   }
 
   try {
@@ -445,7 +586,8 @@ export async function fetchStudentEnrollmentsFromFirestore(
       const qEmail = query(
         batchEnrollmentsCol,
         where('studentEmail', '==', cleanEmail),
-        where('status', '==', 'active')
+        where('status', '==', 'active'),
+        limit(50)
       );
       const snap = await getDocs(qEmail);
       snap.forEach((d) => {
@@ -469,7 +611,8 @@ export async function fetchStudentEnrollmentsFromFirestore(
       const qPhone = query(
         batchEnrollmentsCol,
         where('studentPhone', '==', cleanPhone),
-        where('status', '==', 'active')
+        where('status', '==', 'active'),
+        limit(50)
       );
       const snap = await getDocs(qPhone);
       snap.forEach((d) => {
@@ -489,20 +632,45 @@ export async function fetchStudentEnrollmentsFromFirestore(
       });
     }
 
-    return {
+    const result = {
       batchIds: Array.from(matchedBatchIds),
       enrollments: matchedEnrollments,
     };
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(result));
+        localStorage.setItem(cacheTimeKey, String(now));
+      } catch {}
+    }
+
+    return result;
   } catch (error) {
     console.warn('Error reading student enrollments from Firestore:', error);
+    try {
+      const cachedStr = localStorage.getItem(cacheKey);
+      if (cachedStr) return JSON.parse(cachedStr);
+    } catch {}
     return { batchIds: [], enrollments: [] };
   }
 }
 
 /**
  * 6b. Fetch ALL active enrollments across all batches for Master Admin
+ * Equipped with 3-minute L1 cache.
  */
-export async function fetchAllEnrollmentsFromFirestore(): Promise<BatchEnrollment[]> {
+export async function fetchAllEnrollmentsFromFirestore(options?: { forceRefresh?: boolean }): Promise<BatchEnrollment[]> {
+  const now = Date.now();
+  if (!options?.forceRefresh && typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const cached = localStorage.getItem(ALL_ENROLLMENTS_CACHE_KEY);
+      const cacheTime = localStorage.getItem(ALL_ENROLLMENTS_CACHE_TIME_KEY);
+      if (cached && cacheTime && (now - Number(cacheTime) < ALL_ENROLLMENTS_CACHE_TTL_MS)) {
+        return JSON.parse(cached);
+      }
+    } catch {}
+  }
+
   try {
     const snap = await getDocs(collection(db, 'batch_enrollments'));
     const result: BatchEnrollment[] = [];
@@ -522,9 +690,21 @@ export async function fetchAllEnrollmentsFromFirestore(): Promise<BatchEnrollmen
         });
       }
     });
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        localStorage.setItem(ALL_ENROLLMENTS_CACHE_KEY, JSON.stringify(result));
+        localStorage.setItem(ALL_ENROLLMENTS_CACHE_TIME_KEY, String(now));
+      } catch {}
+    }
+
     return result;
   } catch (err) {
     console.warn('Failed to fetch all enrollments from Firestore:', err);
+    try {
+      const cached = localStorage.getItem(ALL_ENROLLMENTS_CACHE_KEY);
+      if (cached) return JSON.parse(cached);
+    } catch {}
     return [];
   }
 }
