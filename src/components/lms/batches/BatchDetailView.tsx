@@ -1103,6 +1103,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               user={user}
               batchId={currentBatch.id}
               lectureId={activeLecture.id}
+              isGuestAllowed={isGuestAllowedForBatch(currentBatch.id)}
               seekToSeconds={activeSeekSeconds}
               milestones={activeLecture.milestones || []}
               onProgress={(sec, total) => {

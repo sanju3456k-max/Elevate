@@ -358,6 +358,7 @@ export const InSituBatchWorkspace: React.FC<InSituBatchWorkspaceProps> = ({
               user={user}
               batchId={batch.id}
               lectureId={inspectedLecture.id}
+              isGuestAllowed={true}
             />
           </div>
           <p className="text-[11px] text-center text-[var(--md-sys-color-on-surface-variant)]">

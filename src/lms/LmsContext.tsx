@@ -256,7 +256,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     // Real-time live listener for global guest policy across Master and Guest browsers
-    const policyRef = doc(db, 'system', 'lms_policy');
+    const policyRef = doc(db, 'master_catalog', 'lms_guest_policy');
     const unsubPolicy = onSnapshot(policyRef, (snap) => {
       if (snap.exists()) {
         const val = snap.data()?.globalGuestAccessMode;
@@ -318,14 +318,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setEnrollments(cloudEnrollments);
         }
       } else {
-        // User logged out or unauthenticated: Flush session tokens and wipe local enrollment state
+        // User logged out or unauthenticated: Check if a local guest session exists
+        let guestUser: User | null = null;
         try {
-          localStorage.removeItem(STORAGE_KEYS.USER);
+          const saved = localStorage.getItem(STORAGE_KEYS.USER);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed && parsed.role !== 'admin') {
+              guestUser = parsed;
+            }
+          }
         } catch {}
-        setUser({
-          ...INITIAL_USER,
-          enrolledBatchIds: [],
-        });
+
+        if (guestUser) {
+          setUser(guestUser);
+        } else {
+          setUser({
+            ...INITIAL_USER,
+            enrolledBatchIds: [],
+          });
+        }
         setEnrollments([]);
       }
     });
@@ -684,7 +696,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         : 'Strict Roster Mode: Guest enrollment disabled. All batches require Master Admin admission.'
     );
     try {
-      const policyRef = doc(db, 'system', 'lms_policy');
+      const policyRef = doc(db, 'master_catalog', 'lms_guest_policy');
       await setDoc(policyRef, { globalGuestAccessMode: mode, updatedAt: new Date().toISOString() }, { merge: true });
     } catch (policyErr) {
       console.warn('Failed to sync global guest mode to Firestore:', policyErr);
@@ -725,7 +737,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 2. User has an active enrollment ID in state / localStorage (Authenticated student or guest who enrolled)
     if (Array.isArray(user.enrolledBatchIds) && user.enrolledBatchIds.includes(batchId)) return true;
 
-    // 3. Unauthenticated visitors & Guest mode sessions that haven't enrolled yet
+    // 3. Batches open to guests: If this batch allows guest access (or global policy allows all), it is open to all visitor & guest accounts!
+    if (isGuestAllowedForBatch(batchId)) return true;
+
+    // 4. Authenticated students checked against Firestore roster
     if (!auth.currentUser) return false;
 
     const uEmail = (auth.currentUser.email || '').toLowerCase().trim();

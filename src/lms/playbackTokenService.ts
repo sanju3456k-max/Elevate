@@ -40,15 +40,16 @@ export interface PlaybackVerificationResult {
 export async function requestPlaybackToken(
   user: User,
   batchId: string,
-  lecture: Lecture
+  lecture: Lecture,
+  isGuestAllowed?: boolean
 ): Promise<PlaybackVerificationResult> {
   // Instantaneous verification check
   const isAdmin = user.role === 'admin';
 
-  // Check 2: Student enrolled in target batch (must be in cloud-verified enrolledBatchIds)
-  const isEnrolled = Array.isArray(user.enrolledBatchIds) && user.enrolledBatchIds.includes(batchId);
+  // Check 2: Student enrolled in target batch (must be in cloud-verified enrolledBatchIds or guest-open batch)
+  const isEnrolled = (Array.isArray(user.enrolledBatchIds) && user.enrolledBatchIds.includes(batchId)) || !!isGuestAllowed;
 
-  if (!isAdmin && !isEnrolled) {
+  if (!isAdmin && !isEnrolled && !lecture.isFreePreview) {
     return {
       isAuthorized: false,
       status: 403,

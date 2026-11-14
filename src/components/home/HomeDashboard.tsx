@@ -726,10 +726,7 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
               <span>Full Access</span>
             </div>
           ) : (
-            <div className="flex items-center space-x-1 text-[10px] sm:text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full">
-              <Lock className="w-3 h-3" />
-              <span>Roster Only</span>
-            </div>
+            <div />
           )}
 
           {isEnrolled ? (

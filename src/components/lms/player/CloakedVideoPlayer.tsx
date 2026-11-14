@@ -38,6 +38,7 @@ interface CloakedVideoPlayerProps {
   user: User;
   batchId?: string;
   lectureId?: string;
+  isGuestAllowed?: boolean;
   seekToSeconds?: number | null;
   milestones?: TimelineMilestone[];
   onProgress?: (seconds: number, totalSeconds: number) => void;
@@ -59,6 +60,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   user,
   batchId = 'batch-01',
   lectureId = 'lec-01',
+  isGuestAllowed = false,
   seekToSeconds,
   milestones = [],
   onProgress,
@@ -189,7 +191,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       isFreePreview: false,
       pdfNotes: [],
       createdAt: new Date().toISOString(),
-    }).then((res) => {
+    }, isGuestAllowed).then((res) => {
       if (isCancelled) return;
       if (res.isAuthorized && res.token) {
         setAuthStatus('authorized');
@@ -203,7 +205,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [user, batchId, lectureId, encryptedVideoId]);
+  }, [user, batchId, lectureId, encryptedVideoId, isGuestAllowed]);
 
   // Seamless 45-second background token renewal
   useEffect(() => {
@@ -224,14 +226,14 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         isFreePreview: false,
         pdfNotes: [],
         createdAt: new Date().toISOString(),
-      }).then((res) => {
+      }, isGuestAllowed).then((res) => {
         if (res.isAuthorized && res.token) {
           setPlaybackToken(res.token);
         }
       });
     }, 45000);
     return () => clearInterval(renewTimer);
-  }, [authStatus, user, batchId, lectureId]);
+  }, [authStatus, user, batchId, lectureId, isGuestAllowed]);
 
   // Real-time Developer Tools Active Tamper Protection
   useEffect(() => {
