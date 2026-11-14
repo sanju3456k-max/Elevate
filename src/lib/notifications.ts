@@ -81,6 +81,22 @@ export function resetDismissedNotifications(): void {
 }
 
 /**
+ * Safely parses any date string, timestamp number, or date object to ISO string
+ * without ever throwing a RangeError: Invalid time value.
+ */
+export function safeDateToISO(dateVal?: unknown): string {
+  if (!dateVal) return new Date().toISOString();
+  try {
+    const d = new Date(dateVal as any);
+    const time = d.getTime();
+    if (!isNaN(time) && isFinite(time)) {
+      return d.toISOString();
+    }
+  } catch {}
+  return new Date().toISOString();
+}
+
+/**
  * Derives REAL, authentic notifications from actual LMS Batches, Lectures, Chapters, Announcements & Tests.
  * Zero duplicate IDs and zero fake dummy data.
  */
@@ -122,7 +138,7 @@ export function deriveRealBatchNotifications(params: {
       title: lec.title || 'New Video Lecture',
       message: `Available in ${batchTitle}${chapterTitle}${durationText}`,
       category: 'lecture',
-      timestamp: lec.createdAt || new Date().toISOString(),
+      timestamp: safeDateToISO(lec.createdAt),
       read: readSet.has(notifId),
       actionTab: 'batches',
       actionLabel: 'Watch Lecture',
@@ -146,7 +162,7 @@ export function deriveRealBatchNotifications(params: {
       title: `${batchPrefix}${ann.title}`,
       message: ann.message || '',
       category: 'system',
-      timestamp: ann.date ? new Date(ann.date).toISOString() : new Date().toISOString(),
+      timestamp: safeDateToISO(ann.date),
       read: readSet.has(notifId),
       actionTab: 'batches',
       actionLabel: 'Open Batch',
@@ -174,7 +190,7 @@ export function deriveRealBatchNotifications(params: {
       title: `Mock Test: ${bTest.title}`,
       message: `Scheduled in ${batchTitle}${testDetails ? ` • ${testDetails}` : ''}`,
       category: 'test',
-      timestamp: bTest.publishedAt || new Date().toISOString(),
+      timestamp: safeDateToISO(bTest.publishedAt),
       read: readSet.has(notifId),
       actionTab: 'batches',
       actionLabel: 'Take Test',
@@ -194,9 +210,7 @@ export function deriveRealBatchNotifications(params: {
       title: `Course: ${b.title}`,
       message: b.tagline || b.description || 'Full curriculum module available for enrollment.',
       category: 'lecture',
-      timestamp: b.startDate && !isNaN(new Date(b.startDate).getTime())
-        ? new Date(b.startDate).toISOString()
-        : new Date().toISOString(),
+      timestamp: safeDateToISO(b.startDate),
       read: readSet.has(notifId),
       actionTab: 'batches',
       actionLabel: 'View Course',
@@ -206,8 +220,8 @@ export function deriveRealBatchNotifications(params: {
 
   // Sort by latest timestamp first
   return notifs.sort((a, b) => {
-    const tA = new Date(a.timestamp).getTime() || 0;
-    const tB = new Date(b.timestamp).getTime() || 0;
+    const tA = !isNaN(new Date(a.timestamp).getTime()) ? new Date(a.timestamp).getTime() : 0;
+    const tB = !isNaN(new Date(b.timestamp).getTime()) ? new Date(b.timestamp).getTime() : 0;
     return tB - tA;
   });
 }
