@@ -26,6 +26,7 @@ import { formatDuration } from '../../../lms/security';
 import type { PdfNote } from '../../../lms/types';
 import type { MathTest } from '../../../types';
 import { Award, Timer, HelpCircle } from 'lucide-react';
+import { useBackHandler } from '../../../hooks/useBackNavigation';
 
 interface BatchDetailViewProps {
   batchId?: string;
@@ -280,14 +281,18 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     showSecurityToast(`Bookmark saved at ${formatDuration(currentPlaybackSec)}`);
   };
 
-  // Hardware Back Button Integration for Batch Stages (Android / Browser Back Button)
-  React.useEffect(() => {
-    const handleBatchPopState = () => {
+  // Centralized Back Navigation Integration for Batch Nested Stages
+  useBackHandler({
+    isOpen: currentStage !== 'batch_list' || Boolean(previewImage),
+    priority: 25,
+    id: 'batch_detail_stage_back',
+    onBack: () => {
       if (previewImage) {
         setPreviewImage(null);
         return;
       }
       if (currentStage === 'lecture_view') {
+        setSelectedLectureId(null);
         setCurrentStage('folder_content');
         return;
       }
@@ -305,11 +310,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         setCurrentStage('batch_list');
         return;
       }
-    };
-
-    window.addEventListener('popstate', handleBatchPopState);
-    return () => window.removeEventListener('popstate', handleBatchPopState);
-  }, [currentStage, previewImage]);
+    },
+  });
 
   const goToBatchFolders = (batchId: string) => {
     if (!isEnrolled(batchId)) {
@@ -321,7 +323,6 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         onChapterChange?.(null);
         setFolderActiveTab('videos');
         onFolderTabChange?.('videos');
-        window.history.pushState({ stage: 'batch_folders', batchId }, '');
         setCurrentStage('batch_folders');
         return;
       }
@@ -335,7 +336,6 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     onChapterChange?.(null);
     setFolderActiveTab('videos');
     onFolderTabChange?.('videos');
-    window.history.pushState({ stage: 'batch_folders', batchId }, '');
     setCurrentStage('batch_folders');
   };
 
@@ -344,13 +344,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     onChapterChange?.(chapterId);
     setFolderActiveTab('videos');
     onFolderTabChange?.('videos');
-    window.history.pushState({ stage: 'folder_content', chapterId }, '');
     setCurrentStage('folder_content');
   };
 
   const goToLectureView = (lectureId: string) => {
     setSelectedLectureId(lectureId);
-    window.history.pushState({ stage: 'lecture_view', lectureId }, '');
     setCurrentStage('lecture_view');
   };
 

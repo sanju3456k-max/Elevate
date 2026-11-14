@@ -172,6 +172,7 @@ export default function App() {
   }
   const [selectedFolderTab, setSelectedFolderTab] = useState<'videos' | 'notes_content' | 'tests'>('videos');
   const [testOriginContext, setTestOriginContext] = useState<NavigationOriginContext | null>(null);
+  const testOriginContextRef = useRef<NavigationOriginContext | null>(null);
 
   // Track reactive navigation state in refs for synchronous, rock-solid context capture
   const activeTabRef = useRef(activeTab);
@@ -195,6 +196,7 @@ export default function App() {
         lectureId: explicitOrigin.lectureId !== undefined ? explicitOrigin.lectureId : selectedLectureIdRef.current,
         folderTab: explicitOrigin.folderTab !== undefined ? explicitOrigin.folderTab : (currentTab === 'batches' ? (selectedFolderTabRef.current || 'tests') : null),
       };
+      testOriginContextRef.current = origin;
       setTestOriginContext(origin);
       setReturnTabAfterResults(origin.tab);
       return;
@@ -208,6 +210,7 @@ export default function App() {
         lectureId: selectedLectureIdRef.current,
         folderTab: currentTab === 'batches' ? (selectedFolderTabRef.current || 'tests') : null,
       };
+      testOriginContextRef.current = origin;
       setTestOriginContext(origin);
       setReturnTabAfterResults(currentTab);
     }
@@ -1213,7 +1216,9 @@ export default function App() {
   };
 
   const handleResumeSession = async (specificTestId?: string) => {
-    captureOriginContext();
+    if (!testOriginContextRef.current) {
+      captureOriginContext();
+    }
     const isGuest = isGuestUser(currentUser || cachedUser);
     const targetUid = currentUser?.uid || cachedUser?.uid || null;
     const targetTestId = specificTestId || pendingStartTest?.test.id || activeTestSession?.testId;
@@ -1265,7 +1270,9 @@ export default function App() {
   };
 
   const handleStartNewTest = () => {
-    captureOriginContext();
+    if (!testOriginContextRef.current) {
+      captureOriginContext();
+    }
     const targetUid = currentUser?.uid || cachedUser?.uid || null;
     if (pendingStartTest) {
       clearScopedActiveSession(targetUid, pendingStartTest.test.id);
@@ -1404,20 +1411,21 @@ export default function App() {
     // Clean 'take-test' and 'results' from tab history so user cannot navigate back into an already exited test
     setTabHistory((prev) => prev.filter((t) => t !== 'take-test' && t !== 'results'));
 
-    if (testOriginContext) {
-      if (testOriginContext.batchId !== undefined) {
-        setSelectedBatchId(testOriginContext.batchId);
+    const origin = testOriginContextRef.current || testOriginContext;
+    if (origin) {
+      if (origin.batchId !== undefined) {
+        setSelectedBatchId(origin.batchId);
       }
-      if (testOriginContext.chapterId !== undefined) {
-        setSelectedChapterId(testOriginContext.chapterId);
+      if (origin.chapterId !== undefined) {
+        setSelectedChapterId(origin.chapterId);
       }
-      if (testOriginContext.lectureId !== undefined) {
-        setSelectedLectureId(testOriginContext.lectureId);
+      if (origin.lectureId !== undefined) {
+        setSelectedLectureId(origin.lectureId);
       }
-      if (testOriginContext.folderTab) {
-        setSelectedFolderTab(testOriginContext.folderTab);
+      if (origin.folderTab) {
+        setSelectedFolderTab(origin.folderTab);
       }
-      setActiveTab(testOriginContext.tab);
+      setActiveTab(origin.tab);
     } else {
       goBack();
     }
@@ -1797,12 +1805,13 @@ export default function App() {
             if (t) handleStartTest(t, 'timed');
           }}
           onBackToDashboard={() => {
-            if (testOriginContext) {
-              if (testOriginContext.batchId !== undefined) setSelectedBatchId(testOriginContext.batchId);
-              if (testOriginContext.chapterId !== undefined) setSelectedChapterId(testOriginContext.chapterId);
-              if (testOriginContext.lectureId !== undefined) setSelectedLectureId(testOriginContext.lectureId);
-              if (testOriginContext.folderTab) setSelectedFolderTab(testOriginContext.folderTab);
-              setActiveTab(testOriginContext.tab);
+            const origin = testOriginContextRef.current || testOriginContext;
+            if (origin) {
+              if (origin.batchId !== undefined) setSelectedBatchId(origin.batchId);
+              if (origin.chapterId !== undefined) setSelectedChapterId(origin.chapterId);
+              if (origin.lectureId !== undefined) setSelectedLectureId(origin.lectureId);
+              if (origin.folderTab) setSelectedFolderTab(origin.folderTab);
+              setActiveTab(origin.tab);
             } else {
               setActiveTab(returnTabAfterResults || 'home');
             }
