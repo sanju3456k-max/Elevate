@@ -183,48 +183,14 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
         isMinimized
           ? `fixed left-3 right-3 ${
               isBottomNavVisible ? 'bottom-[68px] md:bottom-4' : 'bottom-3 md:bottom-4'
-            } md:left-auto md:right-4 md:w-[390px] z-50 bg-[var(--md-sys-color-surface-container-high)]/95 dark:bg-[#1e2024]/95 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.32)] border border-[var(--md-sys-color-outline-variant)]/25 p-2 transition-all duration-200 select-none cursor-pointer ${
+            } md:left-auto md:right-4 md:w-[390px] z-50 bg-[var(--md-sys-color-surface-container-high)]/95 dark:bg-[#1e2024]/95 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.32)] border border-[var(--md-sys-color-outline-variant)]/25 p-2 transition-all duration-200 select-none cursor-pointer overflow-hidden ${
               isPrimaryTab ? 'flex items-center justify-between gap-3' : 'hidden'
             }`
           : 'fixed inset-0 z-50 bg-[var(--md-sys-color-background)] overflow-y-auto flex flex-col'
       }
       onClick={isMinimized ? handleExpand : undefined}
     >
-      {/* 1. In Expanded View: Top Bar on Desktop */}
-      {!isMinimized && (
-        <div className="hidden sm:flex h-14 sm:h-16 px-4 sm:px-6 border-b border-[var(--md-sys-color-outline-variant)]/20 items-center justify-between shrink-0 bg-[var(--md-sys-color-surface)] sticky top-0 z-50 backdrop-blur-md">
-          <div className="flex items-center space-x-3 min-w-0">
-            <button
-              type="button"
-              id="watch-minimize-btn"
-              onClick={handleMinimize}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] text-xs font-bold text-[var(--md-sys-color-on-surface)] transition cursor-pointer border-none active:scale-95 shrink-0"
-              title="Minimize to miniplayer strip"
-            >
-              <ChevronDown className="w-4 h-4 stroke-[2.5]" />
-              <span className="hidden sm:inline">Minimize</span>
-            </button>
-            <div className="min-w-0">
-              <h3 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] truncate">
-                {playback.lectureTitle}
-              </h3>
-              <p className="text-[10px] sm:text-xs text-[var(--md-sys-color-on-surface-variant)] truncate">
-                {playback.batchTitle}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--md-sys-color-on-surface-variant)] hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition cursor-pointer border-none bg-transparent shrink-0"
-            title="Close video"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-      )}
-
-      {/* 2. THE PERSISTENT VIDEO PLAYER FRAME (Sticky on Mobile, NEVER UNMOUNTS) */}
+      {/* 1. THE PERSISTENT VIDEO PLAYER FRAME (Sticky on Mobile, Clean Top on Desktop, NEVER UNMOUNTS) */}
       <div
         className={
           isMinimized
@@ -239,7 +205,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
               : 'aspect-video w-full rounded-none sm:rounded-3xl overflow-hidden shadow-2xl relative group bg-black'
           }
         >
-          {/* Top-left minimize button on video for mobile when expanded */}
+          {/* Top-left minimize button on video when expanded */}
           {!isMinimized && (
             <button
               type="button"
@@ -273,16 +239,24 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
         </div>
       </div>
 
-      {/* 3. In Minimized View: Strip Content (Title, Play/Pause, Close) */}
+      {/* 2. In Minimized View: Strip Content (Title, Batch, Length Count, Play/Pause, Close) */}
       {isMinimized && (
         <>
-          <div className="flex-1 min-w-0 pr-1">
+          <div className="flex-1 min-w-0 pr-1 flex flex-col justify-center">
             <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] truncate leading-snug">
               {playback.lectureTitle}
             </h4>
-            <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate mt-0.5">
-              {playback.batchTitle}
-            </p>
+            <div className="flex items-center gap-1.5 text-[10.5px] text-[var(--md-sys-color-on-surface-variant)] truncate mt-0.5">
+              <span className="truncate max-w-[110px] sm:max-w-[150px]">{playback.batchTitle}</span>
+              {totalDuration > 0 && (
+                <>
+                  <span className="opacity-40">•</span>
+                  <span className="font-mono font-semibold text-[10px] text-[#0b57d0] dark:text-[#a8c7fa]">
+                    {formatDuration(currentPlaybackSec)} / {formatDuration(totalDuration)}
+                  </span>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -310,27 +284,42 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             </button>
           </div>
 
-          {/* YouTube-style linear progress bar at bottom of mini strip */}
-          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black/20 overflow-hidden rounded-b-2xl">
+          {/* Sleek linear progress bar embedded strictly inside the card */}
+          <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-black/10 dark:bg-white/10 overflow-hidden rounded-b-2xl pointer-events-none">
             <div
-              className="h-full bg-[var(--md-sys-color-primary)] transition-all duration-300"
+              className="h-full bg-[#0b57d0] dark:bg-[#a8c7fa] transition-all duration-300 rounded-r-full"
               style={{
-                width: `${totalDuration > 0 ? (currentPlaybackSec / totalDuration) * 100 : 0}%`,
+                width: `${totalDuration > 0 ? Math.min(100, Math.max(0, (currentPlaybackSec / totalDuration) * 100)) : 0}%`,
               }}
             />
           </div>
         </>
       )}
 
-      {/* 4. In Expanded View: Watch Details & Lecture Notes */}
+      {/* 3. In Expanded View: Watch Details & Lecture Notes */}
       {!isMinimized && (
         <div className="max-w-5xl mx-auto w-full px-4 sm:px-4 py-4 sm:py-6 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Lecture Info on Left */}
           <div className="lg:col-span-7 space-y-4">
             <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-2 shadow-xs">
-              <h1 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] leading-snug">
-                {playback.lectureTitle}
-              </h1>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h1 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] leading-snug">
+                    {playback.lectureTitle}
+                  </h1>
+                  <p className="text-xs font-semibold text-[var(--md-sys-color-primary)] mt-0.5">
+                    {playback.batchTitle}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--md-sys-color-on-surface-variant)] hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition cursor-pointer border-none bg-transparent shrink-0"
+                  title="Close video"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
               <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] leading-relaxed">
                 {playback.lectureDescription || 'Comprehensive recorded session and conceptual curriculum module.'}
               </p>

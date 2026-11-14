@@ -1482,21 +1482,6 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
      ========================================================================= */
   return (
     <div className="space-y-4 sm:space-y-6 pb-24 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
-      {/* Desktop Navigation Breadcrumbs */}
-      <div className="hidden sm:flex items-center justify-between">
-        <button
-          onClick={handleExitLectureView}
-          className="flex items-center space-x-1.5 text-xs sm:text-sm font-bold text-[var(--md-sys-color-primary)] hover:underline border-none bg-transparent cursor-pointer"
-        >
-          <ChevronDown className="w-4 h-4" />
-          <span>Minimize Video ({currentFolder?.title || currentBatch?.title || 'Batch'})</span>
-        </button>
-
-        <span className="text-xs font-mono text-[var(--md-sys-color-on-surface-variant)]">
-          {activeLecture?.durationMinutes} Mins Lecture
-        </span>
-      </div>
-
       {/* Main Grid: Player on Left, In-Video Notes & Chapters on Right */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
         {/* LEFT COLUMN: Full-Width Video Player on Mobile & Lecture Info */}
