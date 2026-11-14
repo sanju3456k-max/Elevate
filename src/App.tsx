@@ -90,6 +90,7 @@ import { InstallAppModal } from './components/InstallAppModal';
 import { GuestMigrationModal } from './components/auth/GuestMigrationModal';
 import { WelcomeSplash } from './components/WelcomeSplash';
 import { BatchDetailView } from './components/lms/batches/BatchDetailView';
+import { CloakedVideoPlayer } from './components/lms/player/CloakedVideoPlayer';
 import { BatchAdminStudio } from './components/lms/BatchAdminStudio';
 import { HomeDashboard } from './components/home/HomeDashboard';
 import { LmsProvider } from './lms/LmsContext';
@@ -173,9 +174,11 @@ export default function App() {
     thumbnailUrl?: string;
     durationMinutes?: number;
     encryptedVideoId?: string;
+    playbackSeconds?: number;
     isPlaying?: boolean;
   }
   const [activeMiniPlayer, setActiveMiniPlayer] = useState<MiniPlayerVideo | null>(null);
+  const [initialSeekSeconds, setInitialSeekSeconds] = useState<number | null>(null);
 
   // In batches section, user is "inside" a batch when viewing folders, chapter contents, or lecture player
   const isInsideBatch = activeTab === 'batches' && (Boolean(selectedBatchId) || batchesStage !== 'batch_list');
@@ -1753,7 +1756,7 @@ export default function App() {
       {activeTab !== 'take-test' && activeTab !== 'omr-test' && (
         <div
           id="app-navbar-wrapper"
-          className={`transition-all duration-200 shrink-0 ${
+          className={`sticky top-0 z-40 transition-all duration-200 shrink-0 ${
             ['home', 'batches', 'tests', 'analytics'].includes(activeTab)
               ? (activeTab === 'batches' && isInsideBatch ? 'hidden lg:block' : 'block')
               : 'hidden lg:block'
@@ -1917,7 +1920,7 @@ export default function App() {
             <nav
               id="mobile-bottom-nav"
               aria-label="Mobile Bottom Navigation"
-              className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-[var(--md-sys-color-surface-container)]/95 backdrop-blur-lg border-t border-[var(--md-sys-color-outline-variant)]/20 px-2 py-1.5 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_24px_rgba(0,0,0,0.5)]"
+              className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-[#e5e9f0]/95 dark:bg-[#0b0c10]/95 backdrop-blur-lg border-t border-[var(--md-sys-color-outline-variant)]/20 px-2 py-1.5 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_24px_rgba(0,0,0,0.5)]"
             >
               <div className="grid grid-cols-4 items-center justify-around max-w-md mx-auto">
                 {/* 1. Home */}
@@ -2060,6 +2063,7 @@ export default function App() {
                 initialLectureId={selectedLectureId}
                 initialChapterId={selectedChapterId}
                 initialFolderTab={selectedFolderTab}
+                initialSeekSeconds={initialSeekSeconds}
                 onBatchChange={(batchId) => {
                   setSelectedBatchId(batchId);
                   if (!batchId) setBatchesStage('batch_list');
@@ -2425,29 +2429,30 @@ export default function App() {
             setSelectedChapterId(mp.chapterId || null);
             setSelectedFolderTab('videos');
             setSelectedLectureId(mp.lectureId);
+            setInitialSeekSeconds(mp.playbackSeconds || 0);
             setIsLectureViewActive(true);
             setBatchesStage('lecture_view');
             setActiveTab('batches');
           }}
         >
-          {/* Left: Thumbnail & Animated Playback Indicator */}
-          <div className="w-16 h-11 sm:w-20 sm:h-12 aspect-video rounded-xl overflow-hidden relative shrink-0 bg-black shadow-xs">
-            <img
-              src={activeMiniPlayer.thumbnailUrl || '/assets/default-course-banner.png'}
-              alt={activeMiniPlayer.lectureTitle}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = '/assets/default-course-banner.png';
-              }}
-            />
-            {activeMiniPlayer.isPlaying && (
-              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                <span className="flex items-end gap-0.5 h-3">
-                  <span className="w-1 bg-red-500 rounded-full animate-pulse h-2" />
-                  <span className="w-1 bg-red-500 rounded-full animate-pulse h-3.5 delay-100" />
-                  <span className="w-1 bg-red-500 rounded-full animate-pulse h-2.5 delay-200" />
-                </span>
-              </div>
+          {/* Left: Live Running Cloaked Video Player in Mini Mode */}
+          <div className="w-24 sm:w-28 h-14 sm:h-16 aspect-video rounded-xl overflow-hidden relative shrink-0 bg-black shadow-xs pointer-events-none">
+            {activeMiniPlayer.encryptedVideoId && (
+              <CloakedVideoPlayer
+                encryptedVideoId={activeMiniPlayer.encryptedVideoId}
+                title={activeMiniPlayer.lectureTitle}
+                user={(currentUser as any) || { id: 'guest', name: 'Student', role: 'student' }}
+                batchId={activeMiniPlayer.batchId}
+                lectureId={activeMiniPlayer.lectureId}
+                seekToSeconds={activeMiniPlayer.playbackSeconds}
+                isGuestAllowed={true}
+                isMini={true}
+                autoPlay={true}
+                isPlayingProp={activeMiniPlayer.isPlaying}
+                onProgress={(sec) => {
+                  setActiveMiniPlayer((prev) => (prev ? { ...prev, playbackSeconds: sec } : null));
+                }}
+              />
             )}
           </div>
 

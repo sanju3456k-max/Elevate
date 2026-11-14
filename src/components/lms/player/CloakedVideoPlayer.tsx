@@ -45,6 +45,9 @@ interface CloakedVideoPlayerProps {
   onComplete?: () => void;
   thumbnailUrl?: string;
   posterUrl?: string;
+  isMini?: boolean;
+  autoPlay?: boolean;
+  isPlayingProp?: boolean;
 }
 
 const QUALITY_OPTIONS = [
@@ -69,6 +72,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   onComplete,
   thumbnailUrl,
   posterUrl,
+  isMini = false,
+  autoPlay = false,
+  isPlayingProp,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
@@ -298,6 +304,21 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     }
   }, [seekToSeconds]);
 
+  // Synchronize external play/pause state (e.g. from YouTube MiniPlayer controls)
+  useEffect(() => {
+    if (isPlayingProp !== undefined && playerRef.current) {
+      try {
+        if (isPlayingProp && playerRef.current.playVideo) {
+          playerRef.current.playVideo();
+          setIsPlaying(true);
+        } else if (!isPlayingProp && playerRef.current.pauseVideo) {
+          playerRef.current.pauseVideo();
+          setIsPlaying(false);
+        }
+      } catch {}
+    }
+  }, [isPlayingProp]);
+
   // Initialize or re-create player with high definition rendering
   useEffect(() => {
     let checkInterval: any = null;
@@ -327,7 +348,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           height: '100%',
           videoId: safeVideoId,
           playerVars: {
-            autoplay: 0,
+            autoplay: (autoPlay || isMini) ? 1 : 0,
             controls: 0, // Hides native YouTube controls
             disablekb: 1, // Disable keyboard controls to prevent unmasking
             fs: 0, // Hide YouTube's native fullscreen button
@@ -343,6 +364,20 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
               setIsPlayerReady(true);
               const total = event.target.getDuration() || 0;
               setDuration(total);
+
+              if (seekToSeconds !== undefined && seekToSeconds !== null && seekToSeconds > 0) {
+                try {
+                  event.target.seekTo(seekToSeconds, true);
+                } catch {}
+              }
+
+              if (autoPlay || isMini) {
+                try {
+                  event.target.playVideo();
+                  setIsPlaying(true);
+                  setHasEverPlayed(true);
+                } catch {}
+              }
 
               // If user has explicitly selected manual quality before video load, apply it
               try {
@@ -819,6 +854,38 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   }, [togglePlay, handleSkip, toggleFullscreen, toggleMute, isMuted, showNoticeWithDecay]);
 
   const availableSpeeds = [0.75, 1, 1.25, 1.5, 1.75, 2];
+
+  // Lightweight YouTube-Style MiniPlayer View (Streamlined video frame with no overlays/watermarks)
+  if (isMini) {
+    return (
+      <div
+        ref={containerRef}
+        className="relative w-full h-full bg-black overflow-hidden border-none select-none"
+      >
+        {authStatus === 'authorized' && (
+          <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none flex items-center justify-center select-none bg-black">
+            <div
+              className="w-full h-full relative pointer-events-none"
+              style={{
+                transform: 'scale(1.36)',
+                transformOrigin: 'center center',
+                width: '100%',
+                height: '100%',
+              }}
+            >
+              <div
+                id={playerContainerId.current}
+                className="w-full h-full [&>iframe]:w-full [&>iframe]:h-full [&>iframe]:object-cover [&>iframe]:pointer-events-none"
+              />
+            </div>
+          </div>
+        )}
+        {/* Subtle cloaking security guards */}
+        <div className="absolute top-0 inset-x-0 h-3 bg-gradient-to-b from-black/90 to-transparent pointer-events-none z-10" />
+        <div className="absolute bottom-0 inset-x-0 h-3 bg-gradient-to-t from-black/90 to-transparent pointer-events-none z-10" />
+      </div>
+    );
+  }
 
   return (
     <div

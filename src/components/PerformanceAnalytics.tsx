@@ -584,36 +584,41 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
 
   return (
     <div className={APP_STYLES.analytics.container}>
-      {/* Top Action Controls */}
+      {/* Top Action Controls: Clean layout with proper spacing and no card overlapping */}
       {(onOpenCustomBuilder || onNavigateToTests) && (
-        <div className="flex items-center justify-end gap-2 -mb-2">
-          {onOpenCustomBuilder && (
-            <button
-              id="analytics-custom-builder-btn"
-              onClick={onOpenCustomBuilder}
-              className="h-8 px-3.5 rounded-full bg-white hover:bg-[#f0f4f9] dark:bg-[#1e2024] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] border-0 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer outline-none shrink-0"
-            >
-              <Zap className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] fill-[#0b57d0]/20 dark:fill-[#a8c7fa]/20" />
-              <span>Custom Test Builder</span>
-            </button>
-          )}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pb-1">
+          <div className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider hidden sm:block">
+            Student Performance Overview
+          </div>
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+            {onOpenCustomBuilder && (
+              <button
+                id="analytics-custom-builder-btn"
+                onClick={onOpenCustomBuilder}
+                className="h-9 px-3 sm:px-4 rounded-full bg-white hover:bg-[#f0f4f9] dark:bg-[#1e2024] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] border border-slate-200/80 dark:border-zinc-700/80 flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer outline-none shrink-0"
+              >
+                <Zap className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] fill-[#0b57d0]/20 dark:fill-[#a8c7fa]/20 shrink-0" />
+                <span className="truncate">Custom Test</span>
+              </button>
+            )}
 
-          <button
-            id="analytics-take-test-btn"
-            onClick={() => {
-              if (onNavigateTab) {
-                onNavigateTab('tests');
-              } else if (onNavigateToTests) {
-                onNavigateToTests();
-              } else if (handleBack) {
-                handleBack();
-              }
-            }}
-            className="h-8 px-3.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold shadow-[0_2px_6px_rgba(11,87,208,0.25)] border-0 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer outline-none shrink-0"
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>Practice Tests</span>
-          </button>
+            <button
+              id="analytics-take-test-btn"
+              onClick={() => {
+                if (onNavigateTab) {
+                  onNavigateTab('tests');
+                } else if (onNavigateToTests) {
+                  onNavigateToTests();
+                } else if (handleBack) {
+                  handleBack();
+                }
+              }}
+              className="h-9 px-3 sm:px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold shadow-[0_2px_6px_rgba(11,87,208,0.25)] border-0 flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer outline-none shrink-0"
+            >
+              <BookOpen className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Practice Tests</span>
+            </button>
+          </div>
         </div>
       )}
 

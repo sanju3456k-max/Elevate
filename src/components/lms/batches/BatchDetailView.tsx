@@ -70,6 +70,7 @@ interface BatchDetailViewProps {
   onFolderTabChange?: (tab: 'videos' | 'notes_content' | 'tests') => void;
   isMasterEditMode?: boolean;
   onSetMiniPlayer?: (video: any) => void;
+  initialSeekSeconds?: number | null;
 }
 
 export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
@@ -88,6 +89,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   onFolderTabChange,
   isMasterEditMode = false,
   onSetMiniPlayer,
+  initialSeekSeconds = null,
 }) => {
   const {
     batches,
@@ -178,8 +180,14 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
   // Live video player notes
   const [currentPlaybackSec, setCurrentPlaybackSec] = useState<number>(0);
-  const [activeSeekSeconds, setActiveSeekSeconds] = useState<number | null>(null);
+  const [activeSeekSeconds, setActiveSeekSeconds] = useState<number | null>(initialSeekSeconds || null);
   const [noteInputText, setNoteInputText] = useState('');
+
+  useEffect(() => {
+    if (initialSeekSeconds !== undefined && initialSeekSeconds !== null) {
+      setActiveSeekSeconds(initialSeekSeconds);
+    }
+  }, [initialSeekSeconds]);
 
   useEffect(() => {
     onStageChange?.(currentStage as any);
@@ -355,6 +363,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         thumbnailUrl: activeLecture.thumbnailUrl || currentBatch.thumbnailUrl,
         durationMinutes: activeLecture.durationMinutes,
         encryptedVideoId: activeLecture.encryptedVideoId,
+        playbackSeconds: currentPlaybackSec,
         isPlaying: true,
       });
     }
@@ -363,7 +372,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     onLectureChange?.(null);
     setCurrentStage('folder_content');
     onStageChange?.('folder_content');
-  }, [activeLecture, currentBatch, selectedChapterId, onSetMiniPlayer, onLectureChange, onStageChange]);
+  }, [activeLecture, currentBatch, selectedChapterId, currentPlaybackSec, onSetMiniPlayer, onLectureChange, onStageChange]);
 
   // Centralized Back Navigation Stack Integration
   useBackHandler({
@@ -457,24 +466,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       <div className="space-y-6 pb-24 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
           <div className="flex items-center space-x-2">
-            {onBack && (
-              <button
-                onClick={onBack}
-                className="p-1.5 rounded-full hover:bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface)] border-none bg-transparent cursor-pointer"
-                title="Go back"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-            )}
             <div>
               <h1 className="text-xl sm:text-2xl font-extrabold text-[var(--md-sys-color-on-surface)] tracking-tight">
                 {batchFilter === 'my-batches' ? 'My Enrolled Courses' : 'Courses'}
               </h1>
-              <p className="text-xs sm:text-sm text-[var(--md-sys-color-on-surface-variant)]">
-                {batchFilter === 'my-batches'
-                  ? 'Courses you are actively enrolled in with complete curriculum access'
-                  : 'Explore available courses, lecture series & test series'}
-              </p>
             </div>
           </div>
 
