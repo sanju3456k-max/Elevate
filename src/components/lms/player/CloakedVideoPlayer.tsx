@@ -1219,7 +1219,14 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             onChange={handleSeek}
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
-            className="w-full h-1.5 bg-white/25 rounded-lg appearance-none cursor-pointer accent-[var(--md-sys-color-primary)] hover:h-2.5 transition-all relative z-10"
+            style={{
+              background: `linear-gradient(to right, #0b57d0 0%, #0b57d0 ${
+                duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0
+              }%, rgba(255, 255, 255, 0.28) ${
+                duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0
+              }%, rgba(255, 255, 255, 0.28) 100%)`,
+            }}
+            className="w-full h-1.5 rounded-lg appearance-none cursor-pointer accent-[#0b57d0] hover:h-2.5 transition-all relative z-10"
           />
 
           {/* Notch dots for milestones along the timeline */}
@@ -1311,7 +1318,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                     onChange={handleVolumeChange}
                     onClick={(e) => e.stopPropagation()}
                     onMouseDown={(e) => e.stopPropagation()}
-                    className="w-14 sm:w-20 h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-[var(--md-sys-color-primary)]"
+                    style={{
+                      background: `linear-gradient(to right, #0b57d0 0%, #0b57d0 ${isMuted ? 0 : volume}%, rgba(255, 255, 255, 0.28) ${isMuted ? 0 : volume}%, rgba(255, 255, 255, 0.28) 100%)`,
+                    }}
+                    className="w-14 sm:w-20 h-1 rounded-lg appearance-none cursor-pointer accent-[#0b57d0]"
                   />
                   <button
                     onClick={(e) => {
