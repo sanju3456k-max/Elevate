@@ -437,10 +437,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                         <span>Guest Open</span>
                       </div>
                     ) : (
-                      <div className="flex items-center space-x-1 text-[10px] sm:text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full">
-                        <Lock className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
-                        <span>Roster Only</span>
-                      </div>
+                      <div />
                     )}
 
                     {isEnrolled(b.id) ? (
