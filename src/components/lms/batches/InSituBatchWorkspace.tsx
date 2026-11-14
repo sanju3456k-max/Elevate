@@ -28,6 +28,7 @@ import { extractYouTubeId, obfuscateVideoKey, buildGoogleDrivePreviewUrl, extrac
 import type { Batch, Chapter, Lecture, BatchTestCard } from '../../../lms/types';
 import { BatchEditorModal } from './BatchEditorModal';
 import { BatchQuickEnrollModal } from './BatchQuickEnrollModal';
+import { BatchDetailView } from './BatchDetailView';
 
 interface InSituBatchWorkspaceProps {
   batchId: string;
@@ -418,125 +419,13 @@ export const InSituBatchWorkspace: React.FC<InSituBatchWorkspaceProps> = ({
         </button>
       </div>
 
-      {/* TAB CONTENT: CURRICULUM & CHAPTERS */}
+      {/* TAB CONTENT: CURRICULUM & HIERARCHICAL FOLDERS (Google Drive-Style Explorer) */}
       {activeTab === 'curriculum' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-[var(--md-sys-color-on-surface)]">
-                Structured Chapter Curriculum
-              </h3>
-              <p className="text-xs text-[var(--md-sys-color-on-surface-variant)]">
-                Hierarchical folders containing video lessons and study materials
-              </p>
-            </div>
-
-            {viewMode === 'studio' && (
-              <button
-                onClick={() => setIsAddingChapter(true)}
-                className="px-3.5 py-2 m3-btn-filled text-xs font-bold shadow-xs border-none outline-none cursor-pointer flex items-center space-x-1.5"
-              >
-                <FolderPlus className="w-3.5 h-3.5" />
-                <span>+ Add Chapter Folder</span>
-              </button>
-            )}
-          </div>
-
-          {/* In-Situ Add Chapter Form (Studio Mode) */}
-          {isAddingChapter && viewMode === 'studio' && (
-            <form onSubmit={handleCreateChapter} className="p-4 rounded-3xl bg-[var(--md-sys-color-surface-container-high)] space-y-3 animate-fade-in">
-              <h4 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-1.5">
-                <FolderPlus className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
-                <span>Create New Chapter Module</span>
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  required
-                  value={newChapterTitle}
-                  onChange={(e) => setNewChapterTitle(e.target.value)}
-                  placeholder="Chapter Title (e.g. Limits, Continuity & Differentiability)"
-                  className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-highest)] rounded-xl text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none font-semibold"
-                />
-                <input
-                  type="text"
-                  value={newChapterDesc}
-                  onChange={(e) => setNewChapterDesc(e.target.value)}
-                  placeholder="Chapter overview or key concepts..."
-                  className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-highest)] rounded-xl text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none"
-                />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddingChapter(false)}
-                  className="px-3 py-1.5 rounded-full text-xs font-bold bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface)] border-none outline-none cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 m3-btn-filled text-xs font-bold shadow-xs border-none outline-none cursor-pointer"
-                >
-                  Save Chapter
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Chapters Grid */}
-          <div className="space-y-3">
-            {batchChapters.length === 0 ? (
-              <div className="p-8 text-center rounded-3xl bg-[var(--md-sys-color-surface-container)] text-xs text-[var(--md-sys-color-on-surface-variant)]">
-                No chapters created in this batch yet. Click "+ Add Chapter Folder" to organize the syllabus.
-              </div>
-            ) : (
-              batchChapters.map((chap, idx) => {
-                const chapLectures = batchLectures.filter((l) => l.chapterId === chap.id);
-                return (
-                  <div
-                    key={chap.id}
-                    className="p-4 rounded-3xl bg-[var(--md-sys-color-surface-container)] flex items-center justify-between gap-4 shadow-xs"
-                  >
-                    <div className="flex items-center space-x-3 min-w-0">
-                      <div className="w-10 h-10 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] flex items-center justify-center text-xs font-black text-[var(--md-sys-color-primary)] flex-shrink-0">
-                        {String(idx + 1).padStart(2, '0')}
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] truncate">
-                          {chap.title}
-                        </h4>
-                        <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] truncate">
-                          {chap.description}
-                        </p>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--md-sys-color-surface-container-high)] font-semibold text-[var(--md-sys-color-on-surface)]">
-                            🎥 {chapLectures.length} Lectures
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {viewMode === 'studio' && (
-                      <div className="flex items-center space-x-2 flex-shrink-0">
-                        <button
-                          onClick={() => {
-                            setNewLectureChapterId(chap.id);
-                            setIsAddingLecture(true);
-                            setActiveTab('lectures');
-                          }}
-                          className="px-2.5 py-1.5 rounded-xl bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] text-xs font-bold hover:opacity-90 transition border-none outline-none cursor-pointer flex items-center space-x-1"
-                        >
-                          <Video className="w-3.5 h-3.5" />
-                          <span>+ Add Lecture</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
+          <BatchDetailView
+            batchId={batch.id}
+            isMasterEditMode={viewMode === 'studio'}
+          />
         </div>
       )}
 

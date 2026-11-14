@@ -63,6 +63,14 @@ interface AppContextType {
   addSubject: (subject: Omit<Subject, 'id'>) => void;
   chapters: Chapter[];
   addChapter: (chapter: Omit<Chapter, 'id'>) => void;
+  updateChapter: (id: string, updated: Partial<Chapter>) => void;
+  deleteChapter: (id: string) => void;
+  addFolder: (folderData: { batchId: string; title: string; parentId?: string | null; subjectId?: string; color?: string; description?: string }) => Chapter;
+  addPdfNoteToChapter: (chapterId: string, note: Omit<PdfNote, 'id'>) => void;
+  deletePdfNoteFromChapter: (chapterId: string, noteId: string) => void;
+  toggleTestInChapter: (chapterId: string, testId: string) => void;
+  getBreadcrumbs: (chapterId: string | null, batchId: string) => Array<{ id: string | null; title: string }>;
+  getSubfolders: (batchId: string, parentId?: string | null) => Chapter[];
   lectures: Lecture[];
   addLecture: (lecture: Omit<Lecture, 'id' | 'createdAt'>) => void;
   updateLecture: (id: string, updated: Partial<Lecture>) => void;
@@ -507,6 +515,158 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setChapters((prev) => [...prev, newChapter]);
     syncChapterToFirestore(newChapter.batchId, newChapter).catch(() => {});
   };
+
+  const addFolder = useCallback((folderData: { batchId: string; title: string; parentId?: string | null; subjectId?: string; color?: string; description?: string }): Chapter => {
+    const parent = folderData.parentId ? chapters.find((c) => c.id === folderData.parentId) : null;
+    const siblingCount = chapters.filter((c) => c.batchId === folderData.batchId && (c.parentId || null) === (folderData.parentId || null)).length;
+    const newFolder: Chapter = {
+      id: `folder_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      batchId: folderData.batchId,
+      subjectId: folderData.subjectId || parent?.subjectId || 'sub_general',
+      title: folderData.title.trim(),
+      description: folderData.description || '',
+      parentId: folderData.parentId || null,
+      folderType: 'folder',
+      color: folderData.color || '#0b57d0',
+      order: siblingCount + 1,
+      testIds: [],
+      pdfNotes: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setChapters((prev) => [...prev, newFolder]);
+    syncChapterToFirestore(newFolder.batchId, newFolder).catch(() => {});
+    return newFolder;
+  }, [chapters]);
+
+  const updateChapter = useCallback((id: string, updated: Partial<Chapter>) => {
+    setChapters((prev) => {
+      const next = prev.map((c) => (c.id === id ? { ...c, ...updated, updatedAt: new Date().toISOString() } : c));
+      const target = next.find((c) => c.id === id);
+      if (target) {
+        syncChapterToFirestore(target.batchId, target).catch(() => {});
+      }
+      return next;
+    });
+  }, []);
+
+  const deleteChapter = useCallback((id: string) => {
+    const target = chapters.find((c) => c.id === id);
+    if (!target) return;
+
+    // Recursively collect all descendant folder ids
+    const idsToDelete = new Set<string>([id]);
+    let added = true;
+    while (added) {
+      added = false;
+      chapters.forEach((c) => {
+        if (c.parentId && idsToDelete.has(c.parentId) && !idsToDelete.has(c.id)) {
+          idsToDelete.add(c.id);
+          added = true;
+        }
+      });
+    }
+
+    setChapters((prev) => prev.filter((c) => !idsToDelete.has(c.id)));
+    setLectures((prev) => prev.filter((l) => !idsToDelete.has(l.chapterId)));
+
+    idsToDelete.forEach((delId) => {
+      deleteChapterFromFirestore(target.batchId, delId).catch(() => {});
+    });
+  }, [chapters]);
+
+  const addPdfNoteToChapter = useCallback((chapterId: string, noteData: Omit<PdfNote, 'id'>) => {
+    const newNote: PdfNote = {
+      ...noteData,
+      id: `pdf_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    };
+    setChapters((prev) => {
+      const next = prev.map((c) => {
+        if (c.id !== chapterId) return c;
+        const existingNotes = c.pdfNotes || [];
+        return {
+          ...c,
+          pdfNotes: [...existingNotes, newNote],
+          updatedAt: new Date().toISOString(),
+        };
+      });
+      const target = next.find((c) => c.id === chapterId);
+      if (target) {
+        syncChapterToFirestore(target.batchId, target).catch(() => {});
+      }
+      return next;
+    });
+  }, []);
+
+  const deletePdfNoteFromChapter = useCallback((chapterId: string, noteId: string) => {
+    setChapters((prev) => {
+      const next = prev.map((c) => {
+        if (c.id !== chapterId) return c;
+        return {
+          ...c,
+          pdfNotes: (c.pdfNotes || []).filter((n) => n.id !== noteId),
+          updatedAt: new Date().toISOString(),
+        };
+      });
+      const target = next.find((c) => c.id === chapterId);
+      if (target) {
+        syncChapterToFirestore(target.batchId, target).catch(() => {});
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleTestInChapter = useCallback((chapterId: string, testId: string) => {
+    setChapters((prev) => {
+      const next = prev.map((c) => {
+        if (c.id !== chapterId) return c;
+        const currentTests = c.testIds || [];
+        const exists = currentTests.includes(testId);
+        const newTestIds = exists ? currentTests.filter((t) => t !== testId) : [...currentTests, testId];
+        return {
+          ...c,
+          testIds: newTestIds,
+          updatedAt: new Date().toISOString(),
+        };
+      });
+      const target = next.find((c) => c.id === chapterId);
+      if (target) {
+        syncChapterToFirestore(target.batchId, target).catch(() => {});
+      }
+      return next;
+    });
+  }, []);
+
+  const getBreadcrumbs = useCallback((chapterId: string | null, batchId: string) => {
+    const crumbs: Array<{ id: string | null; title: string }> = [
+      { id: null, title: 'All Folders' }
+    ];
+    if (!chapterId) return crumbs;
+
+    const path: Array<{ id: string; title: string }> = [];
+    let currentId: string | null = chapterId;
+    const visited = new Set<string>();
+
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId);
+      const node = chapters.find((c) => c.id === currentId && c.batchId === batchId);
+      if (!node) break;
+      path.unshift({ id: node.id, title: node.title });
+      currentId = node.parentId || null;
+    }
+
+    return [...crumbs, ...path];
+  }, [chapters]);
+
+  const getSubfolders = useCallback((batchId: string, parentId: string | null = null) => {
+    return chapters.filter((c) => {
+      if (c.batchId !== batchId) return false;
+      if (!parentId) {
+        return !c.parentId; // null or undefined means root
+      }
+      return c.parentId === parentId;
+    }).sort((a, b) => (a.order || 0) - (b.order || 0));
+  }, [chapters]);
 
   const addLecture = (lectureData: Omit<Lecture, 'id' | 'createdAt'>) => {
     const newLecture: Lecture = {
@@ -1067,6 +1227,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addSubject,
         chapters,
         addChapter,
+        updateChapter,
+        deleteChapter,
+        addFolder,
+        addPdfNoteToChapter,
+        deletePdfNoteFromChapter,
+        toggleTestInChapter,
+        getBreadcrumbs,
+        getSubfolders,
         lectures,
         addLecture,
         updateLecture,

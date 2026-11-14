@@ -4,6 +4,7 @@ import {
   ChevronRight,
   Folder,
   FolderOpen,
+  FolderPlus,
   PlayCircle,
   FileText,
   Download,
@@ -19,14 +20,34 @@ import {
   Lock,
   ShieldAlert,
   Sparkles,
+  Award,
+  Timer,
+  HelpCircle,
+  MoreVertical,
+  MoreHorizontal,
+  Edit3,
+  Plus,
+  ExternalLink,
+  Video,
+  Layers,
+  FilePlus,
+  Grid,
+  List,
+  Home,
 } from 'lucide-react';
 import { useApp, getFacultyAvatarUrl } from '../../../lms/LmsContext';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
-import { formatDuration } from '../../../lms/security';
-import type { PdfNote } from '../../../lms/types';
+import { formatDuration, extractYouTubeId, obfuscateVideoKey } from '../../../lms/security';
+import type { PdfNote, Chapter, Lecture } from '../../../lms/types';
 import type { MathTest } from '../../../types';
-import { Award, Timer, HelpCircle } from 'lucide-react';
 import { useBackHandler } from '../../../hooks/useBackNavigation';
+import {
+  CreateOrEditFolderModal,
+  AddOrEditVideoModal,
+  AddOrEditNoteModal,
+  LinkTestModal,
+  ConfirmDeleteModal,
+} from './FolderEditorModals';
 
 interface BatchDetailViewProps {
   batchId?: string;
@@ -44,6 +65,7 @@ interface BatchDetailViewProps {
   onBatchChange?: (batchId: string | null) => void;
   onChapterChange?: (chapterId: string | null) => void;
   onFolderTabChange?: (tab: 'videos' | 'notes_content' | 'tests') => void;
+  isMasterEditMode?: boolean;
 }
 
 export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
@@ -59,11 +81,23 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   onBatchChange,
   onChapterChange,
   onFolderTabChange,
+  isMasterEditMode = false,
 }) => {
   const {
     batches,
     chapters,
+    updateChapter,
+    deleteChapter,
+    addFolder,
+    addPdfNoteToChapter,
+    deletePdfNoteFromChapter,
+    toggleTestInChapter,
+    getBreadcrumbs,
+    getSubfolders,
     lectures,
+    addLecture,
+    updateLecture,
+    deleteLecture,
     user,
     updateWatchProgress,
     isEnrolled,
@@ -78,23 +112,24 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     batchTests,
   } = useApp();
 
+  const isMaster = Boolean(isMasterEditMode || user?.role === 'admin');
+
   // Selected Batch
   const [selectedBatchId, setSelectedBatchId] = useState<string>(() => {
     return propBatchId || batches[0]?.id || 'batch_testing_01';
   });
 
-  // Selected Folder (Chapter)
+  // Selected Folder (null = Root level of the batch)
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(initialChapterId || null);
 
-  // Selected Lecture
+  // Selected Lecture (for video player)
   const [selectedLectureId, setSelectedLectureId] = useState<string | null>(initialLectureId || null);
 
-  // Stage Navigation: 'batch_list' | 'batch_folders' | 'folder_content' | 'lecture_view'
-  const [currentStage, setCurrentStage] = useState<'batch_list' | 'batch_folders' | 'folder_content' | 'lecture_view'>(() => {
+  // Stage Navigation: 'batch_list' | 'folder_content' | 'lecture_view'
+  const [currentStage, setCurrentStage] = useState<'batch_list' | 'folder_content' | 'lecture_view'>(() => {
     if (initialLectureId) return 'lecture_view';
-    if (initialChapterId && propBatchId) return 'folder_content';
-    if (propBatchId) return 'batch_folders';
-    return 'batch_list'; // Start with only batch list when no specific batch is selected
+    if (propBatchId) return 'folder_content';
+    return 'batch_list';
   });
 
   // Inside Folder Tab: 'videos' | 'notes_content' | 'tests'
@@ -105,40 +140,79 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   // Filter state for All Batches vs My Batches
   const [batchFilter, setBatchFilter] = useState<'all' | 'my-batches'>(initialFilter || 'all');
 
+  // Modals state for Master Editing
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<Chapter | null>(null);
+
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [editingLecture, setEditingLecture] = useState<Lecture | null>(null);
+
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState<PdfNote | null>(null);
+
+  const [isLinkTestModalOpen, setIsLinkTestModalOpen] = useState(false);
+
+  const [deleteModalConfig, setDeleteModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  // Active contextual menu dropdown
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  // Image preview modal state
+  const [previewImage, setPreviewImage] = useState<{ title: string; url: string } | null>(null);
+
+  // Live video player bookmarking
+  const [currentPlaybackSec, setCurrentPlaybackSec] = useState<number>(0);
+  const [activeSeekSeconds, setActiveSeekSeconds] = useState<number | null>(null);
+  const [noteInputText, setNoteInputText] = useState('');
+  const [lectureTab, setLectureTab] = useState<'personal_notes' | 'milestones' | 'notes_content'>('personal_notes');
+
   useEffect(() => {
     onStageChange?.(currentStage as any);
   }, [currentStage, onStageChange]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (initialFilter) {
       setBatchFilter(initialFilter);
     }
   }, [initialFilter]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (propBatchId) {
       setSelectedBatchId(propBatchId);
       if (initialChapterId) {
         setSelectedChapterId(initialChapterId);
-        setFolderActiveTab(initialFolderTab || 'videos');
-        if (!initialLectureId) {
-          setCurrentStage('folder_content');
-        }
-      } else if (!initialLectureId) {
-        setCurrentStage('batch_folders');
+      }
+      if (initialFolderTab) {
+        setFolderActiveTab(initialFolderTab);
+      }
+      if (initialLectureId) {
+        setSelectedLectureId(initialLectureId);
+        setCurrentStage('lecture_view');
+      } else {
+        setCurrentStage('folder_content');
       }
     } else {
       setCurrentStage('batch_list');
     }
   }, [propBatchId, initialChapterId, initialLectureId, initialFolderTab]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (selectedBatchId) {
       loadCurriculumForBatch(selectedBatchId);
     }
   }, [selectedBatchId, loadCurriculumForBatch]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (initialLectureId) {
       const targetLec = lectures.find((l) => l.id === initialLectureId);
       if (targetLec) {
@@ -158,130 +232,66 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   );
 
   const displayedBatches = batchFilter === 'my-batches' ? enrolledBatches : batches;
-
-  // Image preview modal state
-  const [previewImage, setPreviewImage] = useState<{ title: string; url: string } | null>(null);
-
-  // Track live playback position for timestamped bookmarks
-  const [currentPlaybackSec, setCurrentPlaybackSec] = useState<number>(0);
-  const [activeSeekSeconds, setActiveSeekSeconds] = useState<number | null>(null);
-  const [noteInputText, setNoteInputText] = useState('');
-  const [lectureTab, setLectureTab] = useState<'personal_notes' | 'milestones' | 'notes_content'>('personal_notes');
-
   const currentBatch = batches.find((b) => b.id === selectedBatchId) || batches[0];
 
-  // Chapters (Folders) in this batch
-  const batchFolders = useMemo(() => {
-    const chaps = chapters.filter((c) => c.batchId === currentBatch.id);
-    // Auto-map any lectures belonging to this batch whose chapterId is missing from chaps
-    const orphanChapterIds = new Set(
-      lectures
-        .filter((l) => l.batchId === currentBatch.id && l.chapterId && !chaps.some((c) => c.id === l.chapterId))
-        .map((l) => l.chapterId)
-    );
-    if (orphanChapterIds.size > 0) {
-      const synthesized: Chapter[] = Array.from(orphanChapterIds).map((cId, idx) => {
-        const matchingLec = lectures.find((l) => l.chapterId === cId);
-        return {
-          id: cId,
-          batchId: currentBatch.id,
-          subjectId: 'sub_math_01',
-          title: matchingLec?.title
-            ? `Chapter 0${chaps.length + idx + 1}: ${matchingLec.title}`
-            : `Chapter 0${chaps.length + idx + 1}: Core Curriculum & Lectures`,
-          description: `Curriculum module and study materials for ${currentBatch.title}.`,
-          order: chaps.length + idx + 1,
-        };
-      });
-      return [...chaps, ...synthesized];
-    }
-    return chaps;
-  }, [chapters, lectures, currentBatch.id, currentBatch.title]);
+  // Dynamic Google Drive Breadcrumb Path
+  const breadcrumbPath = useMemo(() => {
+    if (!currentBatch) return [];
+    return getBreadcrumbs(selectedChapterId, currentBatch.id);
+  }, [getBreadcrumbs, selectedChapterId, currentBatch]);
 
-  // Current selected folder
-  const currentFolder = batchFolders.find((f) => f.id === selectedChapterId) || batchFolders[0];
+  // Current Folder Node (if inside a subfolder)
+  const currentFolder = useMemo(() => {
+    return selectedChapterId ? chapters.find((c) => c.id === selectedChapterId) : null;
+  }, [chapters, selectedChapterId]);
 
-  // Lectures in current folder
+  // Subfolders at the current level
+  const currentSubfolders = useMemo(() => {
+    if (!currentBatch) return [];
+    return getSubfolders(currentBatch.id, selectedChapterId);
+  }, [getSubfolders, currentBatch, selectedChapterId]);
+
+  // Lectures directly at the current level
   const folderLectures = useMemo(() => {
-    if (!currentFolder) return [];
+    if (!currentBatch) return [];
     return lectures.filter((l) => {
       if (l.batchId !== currentBatch.id) return false;
-      // Direct folder match
-      if (l.chapterId === currentFolder.id) return true;
-      // If lecture has an orphaned/unknown chapterId and this is the first folder, show it so no content is missed
-      const chapterExists = batchFolders.some((f) => f.id === l.chapterId);
-      if (!chapterExists && currentFolder.id === batchFolders[0]?.id) return true;
-      return false;
+      if (selectedChapterId) {
+        return l.chapterId === selectedChapterId;
+      }
+      return !l.chapterId || l.chapterId === 'root';
     });
-  }, [lectures, currentFolder, currentBatch.id, batchFolders]);
+  }, [lectures, currentBatch, selectedChapterId]);
 
-  // Notes & Study Materials in current folder
+  // Notes directly at the current level (folder direct attachments + lecture notes)
   const folderNotesContent = useMemo(() => {
-    const allNotes: { note: PdfNote; lectureTitle: string }[] = [];
-    folderLectures.forEach((lec) => {
-      (lec.pdfNotes || []).forEach((n) => {
-        allNotes.push({ note: n, lectureTitle: lec.title });
-      });
+    const directNotes = currentFolder?.pdfNotes || [];
+    const lectureNotes = folderLectures.flatMap((l) => l.pdfNotes || []);
+    const map = new Map<string, PdfNote>();
+    [...directNotes, ...lectureNotes].forEach((n) => {
+      if (!map.has(n.id || n.fileUrl)) {
+        map.set(n.id || n.fileUrl, n);
+      }
     });
-    return allNotes;
-  }, [folderLectures]);
+    return Array.from(map.values());
+  }, [currentFolder, folderLectures]);
 
-  // Folder Mock Tests (linked to chapter + batch authored tests)
+  // Tests linked to the current folder or batch root
   const folderTests = useMemo(() => {
-    const batchAuthoredTests = (batchTests || []).filter((t) => t.batchId === currentBatch.id);
-    const convertedBatchTests: MathTest[] = batchAuthoredTests.map((bt) => ({
-      id: bt.testId,
-      title: bt.title,
-      topic: bt.topic,
-      questionCount: bt.questionCount,
-      durationMinutes: bt.timeLimitMinutes,
-      questions: [],
-      createdAt: bt.publishedAt,
-      passingScorePercentage: bt.passingScorePercentage,
-      difficulty: bt.difficulty,
-      isPublished: true,
-    }));
-
-    if (!currentFolder) return convertedBatchTests;
-    if (currentFolder.testIds && currentFolder.testIds.length > 0) {
-      const explicit = availableTests.filter((t) => currentFolder.testIds?.includes(t.id));
-      if (explicit.length > 0) return [...convertedBatchTests, ...explicit];
+    const folderTestIds = new Set(currentFolder?.testIds || []);
+    const matchingTests = availableTests.filter((t) => folderTestIds.has(t.id));
+    if (!selectedChapterId && matchingTests.length === 0) {
+      return batchTests.map((bt) => availableTests.find((t) => t.id === bt.testId)).filter(Boolean) as MathTest[];
     }
-    // Fallback: match by chapter keyword or provide sample tests
-    const folderKeyword = currentFolder.title.toLowerCase();
-    const matched = availableTests.filter((t) =>
-      folderKeyword.includes(t.title.toLowerCase()) ||
-      t.title.toLowerCase().includes('matrix') ||
-      t.title.toLowerCase().includes('practice')
-    );
-    const fallback = matched.length > 0 ? matched.slice(0, 3) : availableTests.slice(0, 2);
-    return [...convertedBatchTests, ...fallback];
-  }, [currentFolder, availableTests, batchTests, currentBatch.id]);
+    return matchingTests;
+  }, [availableTests, currentFolder, selectedChapterId, batchTests]);
 
-  // Selected Lecture for viewing
-  const activeLecture =
-    folderLectures.find((l) => l.id === selectedLectureId) ||
-    lectures.find((l) => l.id === selectedLectureId) ||
-    folderLectures[0] ||
-    lectures[0];
+  // Active Lecture for Player
+  const activeLecture = useMemo(() => {
+    return lectures.find((l) => l.id === selectedLectureId) || folderLectures[0] || lectures[0];
+  }, [lectures, selectedLectureId, folderLectures]);
 
-  const lecturePersonalNotes = personalNotes.filter(
-    (n) => n.lectureId === (activeLecture?.id || '')
-  );
-
-  const handleCreateNote = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!noteInputText.trim() || !activeLecture) return;
-    addPersonalNote({
-      lectureId: activeLecture.id,
-      seconds: currentPlaybackSec,
-      text: noteInputText.trim(),
-    });
-    setNoteInputText('');
-    showSecurityToast(`Bookmark saved at ${formatDuration(currentPlaybackSec)}`);
-  };
-
-  // Centralized Back Navigation Integration for Batch Nested Stages
+  // Centralized Back Navigation Stack Integration
   useBackHandler({
     isOpen: currentStage !== 'batch_list' || Boolean(previewImage),
     priority: 25,
@@ -296,20 +306,18 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         setCurrentStage('folder_content');
         return;
       }
-      if (currentStage === 'folder_content') {
-        setSelectedChapterId(null);
-        onChapterChange?.(null);
-        setFolderActiveTab('videos');
-        onFolderTabChange?.('videos');
-        setCurrentStage('batch_folders');
+      if (selectedChapterId) {
+        // Step up to parent folder in Google Drive hierarchy
+        const cur = chapters.find((c) => c.id === selectedChapterId);
+        const parentId = cur?.parentId || null;
+        setSelectedChapterId(parentId);
+        onChapterChange?.(parentId);
         return;
       }
-      if (currentStage === 'batch_folders') {
-        setSelectedBatchId('');
-        onBatchChange?.(null);
-        setCurrentStage('batch_list');
-        return;
-      }
+      // If at batch root, step back to batch list
+      setSelectedBatchId('');
+      onBatchChange?.(null);
+      setCurrentStage('batch_list');
     },
   });
 
@@ -323,7 +331,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         onChapterChange?.(null);
         setFolderActiveTab('videos');
         onFolderTabChange?.('videos');
-        setCurrentStage('batch_folders');
+        setCurrentStage('folder_content');
         return;
       }
       const bTitle = batches.find((b) => b.id === batchId)?.title || 'this batch';
@@ -336,7 +344,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     onChapterChange?.(null);
     setFolderActiveTab('videos');
     onFolderTabChange?.('videos');
-    setCurrentStage('batch_folders');
+    setCurrentStage('folder_content');
   };
 
   const goToFolderContent = (chapterId: string) => {
@@ -352,8 +360,20 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     setCurrentStage('lecture_view');
   };
 
+  const handleCreateNote = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!noteInputText.trim() || !activeLecture) return;
+    addPersonalNote({
+      lectureId: activeLecture.id,
+      seconds: currentPlaybackSec,
+      text: noteInputText.trim(),
+    });
+    setNoteInputText('');
+    showSecurityToast(`Bookmark saved at ${formatDuration(currentPlaybackSec)}`);
+  };
+
   /* =========================================================================
-     STAGE 1: BATCH LIST (Shows only the batch list with All / My Batches filters)
+     STAGE 1: BATCH LIST (Shows the list of batches with All / My Batches filters)
      ========================================================================= */
   if (currentStage === 'batch_list') {
     return (
@@ -376,127 +396,98 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               <p className="text-xs sm:text-sm text-[var(--md-sys-color-on-surface-variant)]">
                 {batchFilter === 'my-batches'
                   ? 'Batches you are actively enrolled in with complete curriculum access'
-                  : 'Select a batch to explore its folders, video classes, and study materials'}
+                  : 'Explore available courses, lecture series & test series'}
               </p>
             </div>
           </div>
 
-          {/* Filter Pills: All Batches vs My Batches */}
-          <div className="flex items-center space-x-2 self-start sm:self-auto">
+          <div className="flex items-center space-x-2 p-1 bg-[var(--md-sys-color-surface-container)] rounded-full self-start sm:self-auto">
             <button
-              id="batch-filter-all-btn"
-              type="button"
               onClick={() => setBatchFilter('all')}
-              className={`px-4 py-2 rounded-full text-xs font-bold transition flex items-center space-x-1.5 border-none cursor-pointer active:scale-95 ${
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition border-none outline-none cursor-pointer ${
                 batchFilter === 'all'
-                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-sm'
-                  : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
+                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
+                  : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
               }`}
             >
-              <span>All Batches</span>
-              <span className="opacity-80 text-[11px]">({batches.length})</span>
+              All Batches ({batches.length})
             </button>
-
             <button
-              id="batch-filter-my-btn"
-              type="button"
               onClick={() => setBatchFilter('my-batches')}
-              className={`px-4 py-2 rounded-full text-xs font-bold transition flex items-center space-x-1.5 border-none cursor-pointer active:scale-95 ${
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition border-none outline-none cursor-pointer ${
                 batchFilter === 'my-batches'
-                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-sm'
-                  : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
+                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
+                  : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
               }`}
             >
-              <span>My Batches</span>
-              <span className="opacity-80 text-[11px]">({enrolledBatches.length})</span>
+              My Batches ({enrolledBatches.length})
             </button>
           </div>
         </div>
 
-        {/* Batches Grid or Empty State */}
         {displayedBatches.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {displayedBatches.map((b) => (
               <div
                 key={b.id}
                 onClick={() => goToBatchFolders(b.id)}
-                className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-0 border-none shadow-xs hover:shadow-md items-stretch"
+                className="bg-[var(--md-sys-color-surface-container)] rounded-3xl overflow-hidden shadow-xs hover:shadow-md transition group cursor-pointer border-none flex flex-col justify-between"
               >
-                <div className="relative w-36 sm:w-full aspect-video shrink-0 self-stretch overflow-hidden">
+                <div className="relative aspect-video w-full overflow-hidden bg-slate-900">
                   <img
-                    src={b.thumbnailUrl}
+                    src={b.bannerUrl || b.thumbnailUrl}
                     alt={b.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = '/assets/default-course-banner.png';
+                    }}
                   />
-                  <span className="absolute top-1.5 left-1.5 sm:top-3 sm:left-3 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-[var(--md-sys-color-surface-container-highest)]/90 backdrop-blur-md text-[var(--md-sys-color-on-surface)] text-[9px] sm:text-xs font-semibold">
+                  <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-white font-bold text-[10px] tracking-wider uppercase">
                     {b.category}
                   </span>
-                  <div className="absolute bottom-1.5 left-1.5 right-1.5 sm:bottom-3 sm:left-3 sm:right-3 flex items-center justify-between text-[9px] sm:text-xs text-white">
-                    <span className="flex items-center space-x-1 bg-black/60 backdrop-blur-xs px-1.5 sm:px-2.5 py-0.5 rounded-full">
-                      <Star className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-amber-400 fill-current" />
-                      <span className="font-bold">{b.rating}</span>
+                  {b.allowGuestAccess && (
+                    <span className="absolute top-3 right-3 px-2.5 py-0.5 rounded-full bg-emerald-600/90 text-white font-bold text-[9px] uppercase tracking-wider flex items-center space-x-1 shadow-xs">
+                      <Sparkles className="w-3 h-3" />
+                      <span>Guest Pass</span>
                     </span>
-                    <span className="hidden sm:flex items-center space-x-1 bg-black/60 backdrop-blur-xs px-2.5 py-0.5 rounded-full">
-                      <Users className="w-3.5 h-3.5 text-slate-300" />
-                      <span>Interactive Batch</span>
-                    </span>
-                  </div>
+                  )}
                 </div>
 
-                <div className="p-3 sm:p-5 flex-1 min-w-0 flex flex-col justify-between space-y-2 sm:space-y-4">
-                  <div className="space-y-1">
-                    <h3 className="text-xs sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition leading-snug line-clamp-1 sm:line-clamp-2">
+                <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
+                  <div className="space-y-1.5">
+                    <h3 className="text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition line-clamp-1">
                       {b.title}
                     </h3>
-                    <p className="hidden sm:block text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 leading-relaxed">
-                      {b.tagline}
+                    <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2">
+                      {b.description}
                     </p>
                   </div>
 
-                  <div className="flex items-center space-x-2 sm:space-x-3 pt-1 sm:pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
-                    <img
-                      src={getFacultyAvatarUrl(b.instructor?.avatarUrl)}
-                      alt={b.instructor?.name || 'Faculty'}
-                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover shrink-0 border-none"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).src = '/assets/default-profile.png';
-                      }}
-                    />
-                    <div className="text-[11px] sm:text-xs min-w-0">
-                      <p className="font-bold text-[var(--md-sys-color-on-surface)] truncate">{b.instructor?.name || 'Elevate Faculty'}</p>
-                      <p className="text-[9px] sm:text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate">
-                        {b.instructor?.designation || 'Master Educator'}
-                      </p>
+                  <div className="flex items-center justify-between pt-3 border-t border-[var(--md-sys-color-outline-variant)]/20 text-xs text-[var(--md-sys-color-on-surface-variant)] mt-auto">
+                    <div className="flex items-center space-x-2">
+                      <img
+                        src={getFacultyAvatarUrl(b.instructor?.avatarUrl)}
+                        alt={b.instructor?.name || 'Instructor'}
+                        className="w-6 h-6 rounded-full object-cover shrink-0"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = '/assets/default-profile.png';
+                        }}
+                      />
+                      <span className="truncate max-w-[120px] font-medium">{b.instructor?.name || 'Elevate Faculty'}</span>
                     </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1">
-                    {isEnrolled(b.id) ? (
-                      <div className="flex items-center space-x-1 sm:space-x-1.5 text-[10px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full">
-                        <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
-                        <span>Full Access</span>
-                      </div>
-                    ) : isGuestAllowedForBatch(b.id) ? (
-                      <div className="flex items-center space-x-1 text-[10px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full">
-                        <Sparkles className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
-                        <span>Guest Open</span>
-                      </div>
-                    ) : (
-                      <div />
-                    )}
 
                     {isEnrolled(b.id) ? (
-                      <button className="m3-btn-filled px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold flex items-center space-x-1 border-none outline-none cursor-pointer">
-                        <span>Continue</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    ) : isGuestAllowedForBatch(b.id) ? (
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center space-x-1">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Enrolled</span>
+                      </span>
+                    ) : b.allowGuestAccess ? (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           enrollAsGuest(b.id);
                           setSelectedBatchId(b.id);
-                          setCurrentStage('batch_folders');
+                          setCurrentStage('folder_content');
                         }}
                         className="m3-btn-filled px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold flex items-center space-x-1 bg-indigo-600 text-white border-none outline-none cursor-pointer shadow-xs hover:opacity-95"
                       >
@@ -543,570 +534,655 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   }
 
   /* =========================================================================
-     SECURITY ACCESS GUARD: BATCH ENROLLMENT RESTRICTION
+     STAGE 2 & 3: GOOGLE DRIVE-STYLE HIERARCHICAL FOLDER & CONTENT EXPLORER
      ========================================================================= */
-  if (currentStage !== 'batch_list' && !isEnrolled(selectedBatchId)) {
-    const targetBatch = batches.find((b) => b.id === selectedBatchId) || batches[0];
-    const isGuestOpen = isGuestAllowedForBatch(selectedBatchId);
-
-    if (isGuestOpen) {
-      return (
-        <div className="space-y-6 pb-24 md:pb-16 max-w-2xl mx-auto m3-transition-enter pt-6">
-          <div className="flex items-center pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
+  if (currentStage === 'folder_content') {
+    return (
+      <div className="space-y-5 pb-24 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
+        {/* Top Header: Back Button & Dynamic Google Drive Breadcrumbs */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-[var(--md-sys-color-outline-variant)]/20">
+          <div className="flex items-center space-x-2 flex-wrap gap-y-1.5">
+            {/* Direct Step-Back Button */}
             <button
-              onClick={() => setCurrentStage('batch_list')}
-              className="flex items-center space-x-1 text-xs sm:text-sm font-bold text-[var(--md-sys-color-primary)] hover:underline border-none bg-transparent cursor-pointer p-0"
+              onClick={() => {
+                if (selectedChapterId) {
+                  const cur = chapters.find((c) => c.id === selectedChapterId);
+                  const parentId = cur?.parentId || null;
+                  setSelectedChapterId(parentId);
+                  onChapterChange?.(parentId);
+                } else {
+                  setSelectedBatchId('');
+                  onBatchChange?.(null);
+                  setCurrentStage('batch_list');
+                }
+              }}
+              className="p-1.5 rounded-full hover:bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface)] border-none bg-transparent cursor-pointer flex items-center justify-center transition shrink-0"
+              title="Up one level"
             >
-              <ChevronLeft className="w-5 h-5 -ml-1" />
-              <span>Back to Batches Catalog</span>
+              <ChevronLeft className="w-5 h-5" />
             </button>
-          </div>
 
-          <div className="p-8 sm:p-12 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl space-y-5 border border-indigo-500/20 shadow-xs">
-            <div className="w-16 h-16 rounded-full bg-indigo-500/10 text-indigo-500 mx-auto flex items-center justify-center">
-              <Sparkles className="w-8 h-8" />
-            </div>
-
-            <div className="space-y-2">
-              <span className="text-[10px] font-extrabold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500">
-                Guest Access Open
-              </span>
-              <h2 className="text-xl sm:text-2xl font-extrabold text-[var(--md-sys-color-on-surface)]">
-                Unlock {targetBatch?.title || 'Batch'}
-              </h2>
-              <p className="text-xs sm:text-sm text-[var(--md-sys-color-on-surface-variant)] max-w-lg mx-auto leading-relaxed">
-                This batch has been supplemented with free guest access. You can immediately access all video lectures, chapter notes, and mock tests with one click.
-              </p>
-            </div>
-
-            <div className="p-4 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl max-w-md mx-auto text-xs text-[var(--md-sys-color-on-surface-variant)] space-y-1">
-              <p className="font-semibold text-[var(--md-sys-color-on-surface)]">
-                Current Session: <span className="font-bold text-[var(--md-sys-color-primary)]">{user.email || 'Guest Mode (Unauthenticated)'}</span>
-              </p>
-              <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
-                No credit card or formal admission required. Your learning progress is saved locally.
-              </p>
-            </div>
-
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            {/* Google Drive Breadcrumbs Trail */}
+            <div className="flex items-center space-x-1.5 text-xs font-semibold overflow-x-auto py-1 scrollbar-none">
               <button
                 onClick={() => {
-                  enrollAsGuest(selectedBatchId);
-                  setCurrentStage('batch_folders');
+                  setSelectedBatchId('');
+                  onBatchChange?.(null);
+                  setCurrentStage('batch_list');
                 }}
-                className="m3-btn-filled px-6 py-2.5 text-xs font-bold rounded-full border-none cursor-pointer flex items-center space-x-1.5 bg-indigo-600 text-white shadow-md hover:bg-indigo-700"
+                className="px-2 py-1 rounded-lg hover:bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] border-none bg-transparent cursor-pointer shrink-0"
               >
-                <Sparkles className="w-4 h-4" />
-                <span>Start Learning (Free Guest Access)</span>
+                All Batches
               </button>
+
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+
               <button
-                onClick={() => setCurrentStage('batch_list')}
-                className="m3-btn-tonal px-5 py-2.5 text-xs font-bold rounded-full border-none cursor-pointer"
+                onClick={() => {
+                  setSelectedChapterId(null);
+                  onChapterChange?.(null);
+                }}
+                className={`px-2.5 py-1 rounded-lg border-none bg-transparent cursor-pointer shrink-0 truncate max-w-[140px] sm:max-w-xs ${
+                  !selectedChapterId
+                    ? 'font-bold text-[var(--md-sys-color-primary)] bg-[var(--md-sys-color-surface-container)]'
+                    : 'text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container)]'
+                }`}
+                title={currentBatch.title}
               >
-                Return to Batches
+                {currentBatch.title}
+              </button>
+
+              {breadcrumbPath.map((crumb, idx) => {
+                if (!crumb.id) return null; // skip root label already rendered above
+                const isCurrent = crumb.id === selectedChapterId;
+                return (
+                  <React.Fragment key={crumb.id}>
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <button
+                      onClick={() => {
+                        setSelectedChapterId(crumb.id);
+                        onChapterChange?.(crumb.id);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg border-none bg-transparent cursor-pointer shrink-0 truncate max-w-[130px] sm:max-w-xs ${
+                        isCurrent
+                          ? 'font-bold text-[var(--md-sys-color-primary)] bg-[var(--md-sys-color-surface-container)]'
+                          : 'text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container)]'
+                      }`}
+                      title={crumb.title}
+                    >
+                      {crumb.title}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Master Admin Contextual Action Bar */}
+          {isMaster && (
+            <div className="flex items-center space-x-2 shrink-0 self-start md:self-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingFolder(null);
+                  setIsFolderModalOpen(true);
+                }}
+                className="px-3.5 py-1.5 rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] font-bold text-xs flex items-center space-x-1.5 shadow-xs hover:opacity-95 transition border-none cursor-pointer"
+              >
+                <FolderPlus className="w-3.5 h-3.5" />
+                <span>+ New Subfolder</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingLecture(null);
+                  setIsVideoModalOpen(true);
+                }}
+                className="px-3 py-1.5 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center space-x-1.5 shadow-xs hover:bg-indigo-700 transition border-none cursor-pointer"
+              >
+                <Video className="w-3.5 h-3.5" />
+                <span>+ Video</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingNote(null);
+                  setIsNoteModalOpen(true);
+                }}
+                className="px-3 py-1.5 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center space-x-1.5 shadow-xs hover:bg-emerald-700 transition border-none cursor-pointer"
+              >
+                <FilePlus className="w-3.5 h-3.5" />
+                <span>+ Note</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsLinkTestModalOpen(true)}
+                className="px-3 py-1.5 rounded-full bg-amber-500 text-white font-bold text-xs flex items-center space-x-1.5 shadow-xs hover:bg-amber-600 transition border-none cursor-pointer"
+              >
+                <Award className="w-3.5 h-3.5" />
+                <span>+ Test</span>
               </button>
             </div>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-6 pb-24 md:pb-16 max-w-2xl mx-auto m3-transition-enter pt-6">
-        <div className="flex items-center pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
-          <button
-            onClick={() => {
-              setSelectedBatchId('');
-              onBatchChange?.(null);
-              setCurrentStage('batch_list');
-            }}
-            className="flex items-center space-x-1 text-xs sm:text-sm font-bold text-[var(--md-sys-color-primary)] hover:underline border-none bg-transparent cursor-pointer p-0"
-          >
-            <ChevronLeft className="w-5 h-5 -ml-1" />
-            <span>Back to Batches Catalog</span>
-          </button>
+          )}
         </div>
 
-        <div className="p-8 sm:p-12 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl space-y-5 border border-rose-500/20 shadow-xs">
-          <div className="w-16 h-16 rounded-full bg-rose-500/10 text-rose-500 mx-auto flex items-center justify-center">
-            <Lock className="w-8 h-8" />
-          </div>
-
-          <div className="space-y-2">
-            <span className="text-[10px] font-extrabold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-500">
-              Access Restricted
-            </span>
-            <h2 className="text-xl sm:text-2xl font-extrabold text-[var(--md-sys-color-on-surface)]">
-              Enrollment Required
-            </h2>
-            <p className="text-xs sm:text-sm text-[var(--md-sys-color-on-surface-variant)] max-w-lg mx-auto leading-relaxed">
-              Curriculum chapters, video lectures, and DPP notes for &quot;{targetBatch?.title}&quot; are protected. Only students enrolled on the official batch roster by the Master Administrator can access this content.
-            </p>
-          </div>
-
-          <div className="p-4 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl max-w-md mx-auto text-xs text-[var(--md-sys-color-on-surface-variant)] space-y-1">
-            <p className="font-semibold text-[var(--md-sys-color-on-surface)]">
-              Current Session: <span className="font-bold text-[var(--md-sys-color-primary)]">{user.email || 'Guest Mode (Unauthenticated)'}</span>
-            </p>
-            <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
-              Please contact the Master Academic Head to have your verified email added to this batch roster.
-            </p>
-          </div>
-
-          <div className="pt-2">
-            <button
-              onClick={() => setCurrentStage('batch_list')}
-              className="m3-btn-filled px-6 py-2.5 text-xs font-bold rounded-full border-none cursor-pointer"
-            >
-              Return to Batches
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  /* =========================================================================
-     STAGE 2: BATCH FOLDERS (Shows the folders/chapters of the selected batch)
-     ========================================================================= */
-  if (currentStage === 'batch_folders') {
-    return (
-      <div className="space-y-6 pb-24 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
-        {/* Top Back Navigation */}
-        <div className="flex items-center justify-between pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
-          <button
-            onClick={() => {
-              setSelectedBatchId('');
-              onBatchChange?.(null);
-              setCurrentStage('batch_list');
-            }}
-            className="flex items-center space-x-1 text-xs sm:text-sm font-bold text-[var(--md-sys-color-primary)] hover:underline border-none bg-transparent cursor-pointer p-0"
-          >
-            <ChevronLeft className="w-5 h-5 -ml-1" />
-            <span>Back to Batches</span>
-          </button>
-
-          <span className="text-xs text-[var(--md-sys-color-on-surface-variant)]">
-            {batchFolders.length} Folders Available
-          </span>
-        </div>
-
-        {/* Batch Banner Summary */}
-        <div className="bg-[var(--md-sys-color-surface-container)] rounded-3xl p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-[var(--md-sys-color-secondary-container)] text-[var(--md-sys-color-on-secondary-container)]">
-              {currentBatch.category}
-            </span>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-[var(--md-sys-color-on-surface)]">
-              {currentBatch.title}
-            </h1>
-            <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] max-w-xl">
-              {currentBatch.description}
-            </p>
-          </div>
-
-          <div className="flex items-center space-x-3 sm:self-center">
-            <img
-              src={getFacultyAvatarUrl(currentBatch.instructor?.avatarUrl)}
-              alt={currentBatch.instructor?.name || 'Faculty'}
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 border-none"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = '/assets/default-profile.png';
-              }}
-            />
-            <div className="text-xs">
-              <p className="font-bold text-[var(--md-sys-color-on-surface)]">{currentBatch.instructor?.name || 'Elevate Faculty'}</p>
-              <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">Instructor</p>
+        {/* SECTION 1: SUBFOLDERS GRID (Google Drive Folder Cards) */}
+        {currentSubfolders.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-2">
+                <Folder className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
+                <span>Subfolders ({currentSubfolders.length})</span>
+              </h2>
             </div>
-          </div>
-        </div>
 
-        {/* Folders List */}
-        <div className="space-y-3">
-          <h2 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-2">
-            <Folder className="w-5 h-5 text-[var(--md-sys-color-primary)]" />
-            <span>Batch Folders (Chapters)</span>
-          </h2>
-
-          {batchFolders.length === 0 ? (
-            <div className="p-8 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl border border-dashed border-[var(--md-sys-color-outline-variant)]">
-              <Folder className="w-10 h-10 mx-auto text-[var(--md-sys-color-primary)] opacity-60 mb-2" />
-              <h3 className="text-sm font-bold text-[var(--md-sys-color-on-surface)]">Curriculum Schedule in Progress</h3>
-              <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] max-w-md mx-auto mt-1">
-                Faculty is actively preparing the curriculum syllabus, video lessons, and DPP notes for this batch. New chapters will be available here soon.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {batchFolders.map((fld) => {
-                const fldLectures = lectures.filter((l) => l.chapterId === fld.id);
-                let notesCount = 0;
-                fldLectures.forEach((l) => (notesCount += l.pdfNotes?.length || 0));
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+              {currentSubfolders.map((fld) => {
+                const subLectures = lectures.filter((l) => l.chapterId === fld.id && l.batchId === currentBatch.id);
+                let notesCount = (fld.pdfNotes?.length || 0);
+                subLectures.forEach((l) => (notesCount += l.pdfNotes?.length || 0));
+                const subTestsCount = fld.testIds?.length || 0;
+                const nestedChildFolders = chapters.filter((c) => c.parentId === fld.id);
 
                 return (
                   <div
                     key={fld.id}
                     onClick={() => goToFolderContent(fld.id)}
-                    className="p-5 rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] cursor-pointer transition shadow-xs flex items-center justify-between group border-none"
+                    className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] cursor-pointer transition shadow-xs flex items-center justify-between group border-none relative"
                   >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 rounded-2xl bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] flex items-center justify-center font-bold group-hover:scale-105 transition">
-                        <Folder className="w-6 h-6 text-[var(--md-sys-color-primary)]" />
+                    <div className="flex items-center space-x-3 min-w-0 flex-1">
+                      <div
+                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs"
+                        style={{ backgroundColor: fld.color ? `${fld.color}20` : '#0b57d020' }}
+                      >
+                        <Folder
+                          className="w-5 h-5"
+                          style={{ color: fld.color || '#0b57d0' }}
+                        />
                       </div>
-                      <div>
-                        <h3 className="text-sm sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition truncate">
                           {fld.title}
-                        </h3>
-                        <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] line-clamp-1 mt-0.5">
-                          {fld.description}
+                        </h4>
+                        <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate">
+                          {nestedChildFolders.length > 0 && `${nestedChildFolders.length} Folders • `}
+                          {subLectures.length} Videos • {notesCount} Notes • {subTestsCount} Tests
                         </p>
-                        <div className="flex items-center space-x-3 mt-2 text-[10px] font-bold text-[var(--md-sys-color-on-surface-variant)]">
-                          <span className="flex items-center space-x-1">
-                            <PlayCircle className="w-3.5 h-3.5 text-[var(--md-sys-color-primary)]" />
-                            <span>{fldLectures.length} Videos</span>
-                          </span>
-                          <span>•</span>
-                          <span className="flex items-center space-x-1">
-                            <FileText className="w-3.5 h-3.5 text-amber-500" />
-                            <span>{notesCount} Notes Content</span>
-                          </span>
-                        </div>
                       </div>
                     </div>
 
-                    <ChevronRight className="w-5 h-5 text-[var(--md-sys-color-outline)] group-hover:translate-x-1 transition" />
+                    {/* Master Contextual Corner Menu */}
+                    {isMaster ? (
+                      <div 
+                        className="relative shrink-0 ml-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setActiveMenuId(activeMenuId === `folder_${fld.id}` ? null : `folder_${fld.id}`)}
+                          className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-black/10 dark:hover:bg-white/10 text-[var(--md-sys-color-on-surface-variant)] transition border-none bg-transparent cursor-pointer"
+                          title="Folder options"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+                        {activeMenuId === `folder_${fld.id}` && (
+                          <>
+                            <div 
+                              className="fixed inset-0 z-40" 
+                              onClick={() => setActiveMenuId(null)} 
+                            />
+                            <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-[#1e2024] rounded-2xl shadow-xl border border-[var(--md-sys-color-outline-variant)]/20 py-1.5 z-50 text-xs">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveMenuId(null);
+                                  setEditingFolder(fld);
+                                  setIsFolderModalOpen(true);
+                                }}
+                                className="w-full px-3 py-2 flex items-center space-x-2 text-left hover:bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface)] border-none bg-transparent cursor-pointer font-medium"
+                              >
+                                <Edit3 className="w-3.5 h-3.5 text-blue-500" />
+                                <span>Rename</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveMenuId(null);
+                                  setDeleteModalConfig({
+                                    isOpen: true,
+                                    title: `Delete "${fld.title}"?`,
+                                    message: 'This will delete this subfolder and any lessons or documents inside it.',
+                                    onConfirm: () => {
+                                      deleteChapter(fld.id);
+                                      showSecurityToast(`Folder "${fld.title}" deleted.`);
+                                    },
+                                  });
+                                }}
+                                className="w-full px-3 py-2 flex items-center space-x-2 text-left hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 border-none bg-transparent cursor-pointer font-medium"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Delete</span>
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[var(--md-sys-color-primary)] transition shrink-0 ml-1" />
+                    )}
                   </div>
                 );
               })}
             </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  /* =========================================================================
-     STAGE 3: FOLDER CONTENT (Inside a folder: Videos & Notes Content)
-     ========================================================================= */
-  if (currentStage === 'folder_content') {
-    return (
-      <div className="space-y-6 pb-24 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
-        {/* Clean Top Header: Back Button on Left Corner & Single Chapter Title */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--md-sys-color-outline-variant)]/20">
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => {
-                setSelectedChapterId(null);
-                onChapterChange?.(null);
-                setFolderActiveTab('videos');
-                onFolderTabChange?.('videos');
-                setCurrentStage('batch_folders');
-              }}
-              className="p-1.5 rounded-full hover:bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface)] border-none bg-transparent cursor-pointer flex items-center justify-center transition"
-              title="Back to folders"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <div className="flex items-center space-x-2 min-w-0">
-              <FolderOpen className="w-5 h-5 text-[var(--md-sys-color-primary)] shrink-0" />
-              <h1 className="text-lg sm:text-xl font-bold text-[var(--md-sys-color-on-surface)] tracking-tight truncate">
-                {currentFolder?.title}
-              </h1>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2 text-xs font-semibold px-3 py-1.5 rounded-full bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] self-start sm:self-auto">
-            <span>{folderLectures.length} Videos</span>
-            <span>•</span>
-            <span>{folderNotesContent.length} Notes</span>
-            <span>•</span>
-            <span>{folderTests.length} Tests</span>
-          </div>
-        </div>
-
-        {/* THREE SECTIONS TABS: 'Videos' | 'Notes Content' | 'Tests' */}
-        <div className="flex items-center space-x-2 p-1 bg-[var(--md-sys-color-surface-container)] rounded-full max-w-md">
-          <button
-            onClick={() => {
-              setFolderActiveTab('videos');
-              onFolderTabChange?.('videos');
-            }}
-            className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
-              folderActiveTab === 'videos'
-                ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
-                : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
-            }`}
-          >
-            <PlayCircle className="w-3.5 h-3.5" />
-            <span>Videos ({folderLectures.length})</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setFolderActiveTab('notes_content');
-              onFolderTabChange?.('notes_content');
-            }}
-            className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
-              folderActiveTab === 'notes_content'
-                ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
-                : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Notes ({folderNotesContent.length})</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setFolderActiveTab('tests');
-              onFolderTabChange?.('tests');
-            }}
-            className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
-              folderActiveTab === 'tests'
-                ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
-                : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
-            }`}
-          >
-            <Award className="w-3.5 h-3.5" />
-            <span>Tests ({folderTests.length})</span>
-          </button>
-        </div>
-
-        {/* SECTION 1: VIDEOS */}
-        {folderActiveTab === 'videos' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
-            {folderLectures.map((lec) => (
-              <div
-                key={lec.id}
-                onClick={() => goToLectureView(lec.id)}
-                className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-0 border-none shadow-xs hover:shadow-md items-stretch"
-              >
-                <div className="relative w-36 sm:w-full aspect-video shrink-0 self-stretch overflow-hidden">
-                  <img
-                    src={lec.thumbnailUrl}
-                    alt={lec.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                  />
-                  {lec.isFreePreview && (
-                    <span className="absolute top-1.5 left-1.5 sm:top-2.5 sm:left-2.5 px-2 sm:px-2.5 py-0.5 rounded-full bg-[var(--md-sys-color-tertiary-container)] text-[var(--md-sys-color-on-tertiary-container)] font-bold text-[9px] sm:text-[10px] uppercase">
-                      Free
-                    </span>
-                  )}
-                  <span className="absolute bottom-1.5 right-1.5 sm:bottom-2.5 sm:right-2.5 px-1.5 sm:px-2 py-0.5 rounded-md bg-black/75 font-mono text-[9px] sm:text-[11px] text-white">
-                    {lec.durationMinutes}:00
-                  </span>
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/30">
-                    <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] flex items-center justify-center shadow-lg">
-                      <Play className="w-3.5 h-3.5 sm:w-6 sm:h-6 fill-current ml-0.5" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-3 sm:p-4 flex-1 min-w-0 flex flex-col justify-between space-y-1.5 sm:space-y-3">
-                  <div>
-                    <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition line-clamp-1 sm:line-clamp-2 leading-snug">
-                      {lec.title}
-                    </h4>
-                    <p className="hidden sm:block text-[11px] text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 mt-1">
-                      {lec.description}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between text-[10px] sm:text-[11px] pt-1 border-t border-[var(--md-sys-color-outline-variant)]/20 mt-auto">
-                    <span className="text-[var(--md-sys-color-on-surface-variant)] truncate max-w-[120px] sm:max-w-none">
-                      {lec.pdfNotes?.length || 0} Notes Content
-                    </span>
-                    <button className="text-[var(--md-sys-color-primary)] font-bold flex items-center space-x-1 border-none bg-transparent cursor-pointer shrink-0">
-                      <span>Watch</span>
-                      <ArrowRight className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
         )}
 
-        {/* SECTION 2: NOTES CONTENT (PDFs, Images, Formula Sheets) */}
-        {folderActiveTab === 'notes_content' && (
-          <div className="space-y-4">
-            {folderNotesContent.length === 0 ? (
-              <div className="text-center py-16 bg-[var(--md-sys-color-surface-container)] rounded-3xl p-6 text-xs text-[var(--md-sys-color-on-surface-variant)]">
-                No study material or notes added to this folder yet.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {folderNotesContent.map(({ note, lectureTitle }, idx) => {
-                  const isImage = note.type === 'image' || note.title.endsWith('.png') || note.title.endsWith('.jpg');
+        {/* SECTION 2: CONTENT (VIDEOS, NOTES & TESTS) */}
+        <div className="space-y-4 pt-2">
+          {/* Sub-Tabs: Videos | Notes | Tests */}
+          <div className="flex items-center space-x-2 p-1 bg-[var(--md-sys-color-surface-container)] rounded-full max-w-md">
+            <button
+              onClick={() => {
+                setFolderActiveTab('videos');
+                onFolderTabChange?.('videos');
+              }}
+              className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
+                folderActiveTab === 'videos'
+                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
+                  : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+              }`}
+            >
+              <PlayCircle className="w-3.5 h-3.5" />
+              <span>Videos ({folderLectures.length})</span>
+            </button>
 
-                  return (
-                    <div
-                      key={note.id || idx}
-                      className="p-4 rounded-3xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition shadow-xs flex items-center justify-between gap-3 border-none"
+            <button
+              onClick={() => {
+                setFolderActiveTab('notes_content');
+                onFolderTabChange?.('notes_content');
+              }}
+              className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
+                folderActiveTab === 'notes_content'
+                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
+                  : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Notes ({folderNotesContent.length})</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setFolderActiveTab('tests');
+                onFolderTabChange?.('tests');
+              }}
+              className={`flex-1 py-2 px-3 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-none outline-none cursor-pointer ${
+                folderActiveTab === 'tests'
+                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
+                  : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+              }`}
+            >
+              <Award className="w-3.5 h-3.5" />
+              <span>Tests ({folderTests.length})</span>
+            </button>
+          </div>
+
+          {/* TAB 1: VIDEOS */}
+          {folderActiveTab === 'videos' && (
+            <div>
+              {folderLectures.length === 0 ? (
+                <div className="p-8 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl border border-dashed border-[var(--md-sys-color-outline-variant)]/40 space-y-2">
+                  <Video className="w-8 h-8 mx-auto text-indigo-500 opacity-60" />
+                  <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)]">
+                    No Video Lectures in this folder yet
+                  </h4>
+                  {isMaster ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingLecture(null);
+                        setIsVideoModalOpen(true);
+                      }}
+                      className="px-4 py-1.5 rounded-full bg-indigo-600 text-white text-xs font-bold border-none cursor-pointer shadow-xs"
                     >
-                      <div className="flex items-center space-x-3.5 min-w-0">
-                        {isImage ? (
-                          <div
-                            onClick={() =>
-                              setPreviewImage({
-                                title: note.title,
-                                url: note.previewImageUrl || note.url,
-                              })
-                            }
-                            className="w-12 h-12 rounded-2xl overflow-hidden bg-slate-900 flex-shrink-0 cursor-pointer group"
-                            title="Click to preview image"
-                          >
-                            <img
-                              src={note.previewImageUrl || note.url}
-                              alt={note.title}
-                              className="w-full h-full object-cover group-hover:scale-110 transition"
-                            />
+                      + Add First Lecture
+                    </button>
+                  ) : (
+                    <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                      Faculty will upload video lectures and recorded sessions for this section soon.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+                  {folderLectures.map((lec) => (
+                    <div
+                      key={lec.id}
+                      onClick={() => goToLectureView(lec.id)}
+                      className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-0 border-none shadow-xs hover:shadow-md items-stretch relative"
+                    >
+                      <div className="relative w-36 sm:w-full aspect-video shrink-0 self-stretch overflow-hidden bg-slate-900">
+                        <img
+                          src={lec.thumbnailUrl || '/assets/default-course-banner.png'}
+                          alt={lec.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = '/assets/default-course-banner.png';
+                          }}
+                        />
+                        {lec.isFreePreview && (
+                          <span className="absolute top-1.5 left-1.5 sm:top-2.5 sm:left-2.5 px-2 sm:px-2.5 py-0.5 rounded-full bg-emerald-600 text-white font-bold text-[9px] sm:text-[10px] uppercase shadow-xs">
+                            Free
+                          </span>
+                        )}
+                        <span className="absolute bottom-1.5 right-1.5 sm:bottom-2.5 sm:right-2.5 px-1.5 sm:px-2 py-0.5 rounded-md bg-black/75 font-mono text-[9px] sm:text-[11px] text-white">
+                          {lec.durationMinutes}:00
+                        </span>
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/30">
+                          <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] flex items-center justify-center shadow-lg">
+                            <Play className="w-3.5 h-3.5 sm:w-6 sm:h-6 fill-current ml-0.5" />
                           </div>
-                        ) : (
-                          <div className="w-12 h-12 rounded-2xl bg-[var(--md-sys-color-tertiary-container)] text-[var(--md-sys-color-on-tertiary-container)] flex items-center justify-center flex-shrink-0 font-bold">
-                            <FileText className="w-6 h-6" />
+                        </div>
+
+                        {/* Master Corner Menu */}
+                        {isMaster && (
+                          <div
+                            className="absolute top-2 right-2 z-10"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setActiveMenuId(activeMenuId === `lec_${lec.id}` ? null : `lec_${lec.id}`)}
+                              className="w-7 h-7 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition border-none cursor-pointer shadow-md"
+                              title="Lecture Options"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+                            {activeMenuId === `lec_${lec.id}` && (
+                              <>
+                                <div 
+                                  className="fixed inset-0 z-40" 
+                                  onClick={() => setActiveMenuId(null)} 
+                                />
+                                <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-[#1e2024] rounded-2xl shadow-xl border border-[var(--md-sys-color-outline-variant)]/20 py-1.5 z-50 text-xs">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveMenuId(null);
+                                      setEditingLecture(lec);
+                                      setIsVideoModalOpen(true);
+                                    }}
+                                    className="w-full px-3 py-2 flex items-center space-x-2 text-left hover:bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface)] border-none bg-transparent cursor-pointer font-medium"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5 text-blue-500" />
+                                    <span>Edit</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveMenuId(null);
+                                      setDeleteModalConfig({
+                                        isOpen: true,
+                                        title: `Delete "${lec.title}"?`,
+                                        message: 'Are you sure you want to remove this video lecture?',
+                                        onConfirm: () => {
+                                          deleteLecture(lec.id);
+                                          showSecurityToast(`Lecture removed.`);
+                                        },
+                                      });
+                                    }}
+                                    className="w-full px-3 py-2 flex items-center space-x-2 text-left hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 border-none bg-transparent cursor-pointer font-medium"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>Delete</span>
+                                  </button>
+                                </div>
+                              </>
+                            )}
                           </div>
                         )}
+                      </div>
 
-                        <div className="min-w-0">
+                      <div className="p-3 sm:p-4 flex-1 min-w-0 flex flex-col justify-between space-y-1.5 sm:space-y-3">
+                        <div>
+                          <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition line-clamp-1 sm:line-clamp-2 leading-snug">
+                            {lec.title}
+                          </h4>
+                          <p className="hidden sm:block text-[11px] text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 mt-1">
+                            {lec.description || 'Watch concept masterclass with bookmarkable milestones.'}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[10px] sm:text-[11px] pt-1 border-t border-[var(--md-sys-color-outline-variant)]/20 mt-auto">
+                          <span className="text-[var(--md-sys-color-on-surface-variant)] truncate max-w-[120px] sm:max-w-none">
+                            {lec.pdfNotes?.length || 0} Attached Notes
+                          </span>
+                          <button className="text-[var(--md-sys-color-primary)] font-bold flex items-center space-x-1 border-none bg-transparent cursor-pointer shrink-0">
+                            <span>Watch</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 2: NOTES */}
+          {folderActiveTab === 'notes_content' && (
+            <div>
+              {folderNotesContent.length === 0 ? (
+                <div className="p-8 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl border border-dashed border-[var(--md-sys-color-outline-variant)]/40 space-y-2">
+                  <FileText className="w-8 h-8 mx-auto text-emerald-500 opacity-60" />
+                  <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)]">
+                    No PDF Notes in this folder yet
+                  </h4>
+                  {isMaster ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingNote(null);
+                        setIsNoteModalOpen(true);
+                      }}
+                      className="px-4 py-1.5 rounded-full bg-emerald-600 text-white text-xs font-bold border-none cursor-pointer shadow-xs"
+                    >
+                      + Add PDF Note
+                    </button>
+                  ) : (
+                    <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                      Faculty will upload chapter cheat sheets and DPP notes here soon.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {folderNotesContent.map((note) => (
+                    <div
+                      key={note.id || note.fileUrl}
+                      className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition shadow-xs flex items-center justify-between group border-none"
+                    >
+                      <div className="flex items-center space-x-3 min-w-0 flex-1">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
                           <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] truncate">
                             {note.title}
                           </h4>
-                          <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate mt-0.5">
-                            Attached to: {lectureTitle}
+                          <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                            PDF Document
                           </p>
-                          <div className="flex items-center space-x-2 text-[10px] text-[var(--md-sys-color-outline)] font-mono mt-1">
-                            <span>{note.size}</span>
-                            {note.pages && <span>• {note.pages} Pages</span>}
-                            <span>• {isImage ? 'Diagram / Image' : 'PDF Document'}</span>
-                          </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center space-x-2 flex-shrink-0">
-                        {isImage && (
+                      <div className="flex items-center space-x-1 shrink-0 ml-2">
+                        {note.previewImageUrl && (
                           <button
-                            onClick={() =>
-                              setPreviewImage({
-                                title: note.title,
-                                url: note.previewImageUrl || note.url,
-                              })
-                            }
-                            className="p-2 rounded-full hover:bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-primary)] transition border-none outline-none cursor-pointer"
-                            title="Preview Image"
+                            type="button"
+                            onClick={() => setPreviewImage({ title: note.title, url: note.previewImageUrl! })}
+                            className="p-1.5 rounded-full hover:bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] border-none bg-transparent cursor-pointer"
+                            title="Preview Note"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                         )}
-
                         <a
-                          href={note.url}
-                          download={note.title}
-                          onClick={(e) => {
-                            if (note.url === '#') {
-                              e.preventDefault();
-                              showSecurityToast('Simulated Download: ' + note.title);
-                            }
-                          }}
-                          className="p-2 rounded-full hover:bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-primary)] transition border-none outline-none cursor-pointer"
-                          title="Download Material"
+                          href={note.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-full hover:bg-[var(--md-sys-color-surface-container)] text-emerald-600 dark:text-emerald-400 border-none bg-transparent cursor-pointer"
+                          title="Open PDF"
                         >
-                          <Download className="w-4 h-4" />
+                          <ExternalLink className="w-4 h-4" />
                         </a>
+                        {isMaster && selectedChapterId && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              deletePdfNoteFromChapter(selectedChapterId, note.id);
+                              showSecurityToast('Document removed.');
+                            }}
+                            className="p-1.5 rounded-full hover:bg-rose-500/10 text-rose-500 border-none bg-transparent cursor-pointer"
+                            title="Delete Note"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
-        {/* SECTION 3: TESTS (Integrated with Elevate Test Runner) */}
-        {folderActiveTab === 'tests' && (
-          <div className="space-y-4">
-            {folderTests.length === 0 ? (
-              <div className="text-center py-16 bg-[var(--md-sys-color-surface-container)] rounded-3xl p-6 text-xs text-[var(--md-sys-color-on-surface-variant)]">
-                No mock tests linked to this folder yet.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
-                {folderTests.map((t) => (
-                  <div
-                    key={t.id}
-                    onClick={() => {
-                      if (onStartTest) {
-                        onStartTest(t, {
-                          batchId: selectedBatchId,
-                          chapterId: currentFolder?.id || selectedChapterId,
-                          folderTab: 'tests',
-                        });
-                      } else {
-                        showSecurityToast('Opening test runner...');
-                      }
-                    }}
-                    className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-0 border-none shadow-xs hover:shadow-md items-stretch"
-                  >
-                    {/* Corner Test Clip / Banner */}
-                    <div className="relative w-36 sm:w-full aspect-video shrink-0 self-stretch overflow-hidden bg-gradient-to-br from-emerald-500/20 via-[var(--md-sys-color-surface-container-high)] to-teal-500/15 flex flex-col justify-between p-2.5 sm:p-4">
-                      <div className="flex items-center justify-between">
-                        <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-wider bg-emerald-500 text-white shadow-xs">
-                          {t.difficulty || 'Medium'}
-                        </span>
-                        <span className="px-1.5 py-0.5 rounded-md bg-white/80 dark:bg-black/60 font-mono text-[9px] sm:text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300">
-                          CBT
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-1.5 text-[10px] sm:text-xs text-emerald-700 dark:text-emerald-300 font-mono font-bold">
-                        <Timer className="w-3.5 h-3.5" />
-                        <span>{t.timeLimitMinutes || 25} Mins</span>
-                      </div>
-                    </div>
-
-                    {/* Test Details */}
-                    <div className="p-3 sm:p-4 flex-1 min-w-0 flex flex-col justify-between space-y-1.5 sm:space-y-3">
-                      <div>
-                        <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition line-clamp-1 sm:line-clamp-2 leading-snug">
-                          {t.title}
-                        </h4>
-                        <p className="hidden sm:block text-[11px] text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 mt-1">
-                          {t.description || 'Test your conceptual understanding of this chapter.'}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center justify-between text-[10px] sm:text-[11px] pt-1 border-t border-[var(--md-sys-color-outline-variant)]/20 mt-auto">
-                        <div className="flex items-center space-x-1 text-[var(--md-sys-color-on-surface-variant)] truncate max-w-[120px] sm:max-w-none">
-                          <HelpCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                          <span>{t.questions?.length || 10} Questions</span>
+          {/* TAB 3: TESTS */}
+          {folderActiveTab === 'tests' && (
+            <div>
+              {folderTests.length === 0 ? (
+                <div className="p-8 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl border border-dashed border-[var(--md-sys-color-outline-variant)]/40 space-y-2">
+                  <Award className="w-8 h-8 mx-auto text-amber-500 opacity-60" />
+                  <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)]">
+                    No Mock Tests in this folder yet
+                  </h4>
+                  {isMaster ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsLinkTestModalOpen(true)}
+                      className="px-4 py-1.5 rounded-full bg-amber-500 text-white text-xs font-bold border-none cursor-pointer shadow-xs"
+                    >
+                      + Link CBT Test
+                    </button>
+                  ) : (
+                    <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                      Faculty will schedule and publish chapter mock exams here soon.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+                  {folderTests.map((t) => (
+                    <div
+                      key={t.id}
+                      onClick={() => {
+                        if (onStartTest) {
+                          onStartTest(t, {
+                            batchId: selectedBatchId,
+                            chapterId: selectedChapterId,
+                            folderTab: 'tests',
+                          });
+                        } else {
+                          showSecurityToast('Opening test runner...');
+                        }
+                      }}
+                      className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-0 border-none shadow-xs hover:shadow-md items-stretch relative"
+                    >
+                      <div className="relative w-36 sm:w-full aspect-video shrink-0 self-stretch overflow-hidden bg-gradient-to-br from-emerald-500/20 via-[var(--md-sys-color-surface-container-high)] to-teal-500/15 flex flex-col justify-between p-2.5 sm:p-4">
+                        <div className="flex items-center justify-between">
+                          <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-wider bg-emerald-500 text-white shadow-xs">
+                            {t.difficulty || 'Medium'}
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded-md bg-white/80 dark:bg-black/60 font-mono text-[9px] sm:text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300">
+                            CBT
+                          </span>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onStartTest) {
-                              onStartTest(t, {
-                                batchId: selectedBatchId,
-                                chapterId: currentFolder?.id || selectedChapterId,
-                                folderTab: 'tests',
-                              });
-                            } else {
-                              showSecurityToast('Opening test runner...');
-                            }
-                          }}
-                          className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center space-x-1 border-none bg-transparent cursor-pointer shrink-0"
-                        >
-                          <span>Start</span>
-                          <ChevronRight className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
-                        </button>
+                        <div className="flex items-center space-x-1.5 text-[10px] sm:text-xs text-emerald-700 dark:text-emerald-300 font-mono font-bold">
+                          <Timer className="w-3.5 h-3.5" />
+                          <span>{t.timeLimitMinutes || 25} Mins</span>
+                        </div>
+
+                        {/* Master Unlink Test Button */}
+                        {isMaster && selectedChapterId && (
+                          <div 
+                            className="absolute top-2 right-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                toggleTestInChapter(selectedChapterId, t.id);
+                                showSecurityToast(`Test unlinked from folder.`);
+                              }}
+                              className="p-1 rounded-full bg-black/60 hover:bg-rose-600 text-white transition border-none cursor-pointer"
+                              title="Unlink Test"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-3 sm:p-4 flex-1 min-w-0 flex flex-col justify-between space-y-1.5 sm:space-y-3">
+                        <div>
+                          <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition line-clamp-1 sm:line-clamp-2 leading-snug">
+                            {t.title}
+                          </h4>
+                          <p className="hidden sm:block text-[11px] text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 mt-1">
+                            {t.description || 'Test your conceptual understanding of this chapter.'}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[10px] sm:text-[11px] pt-1 border-t border-[var(--md-sys-color-outline-variant)]/20 mt-auto">
+                          <div className="flex items-center space-x-1 text-[var(--md-sys-color-on-surface-variant)] truncate max-w-[120px] sm:max-w-none">
+                            <HelpCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                            <span>{t.questions?.length || 10} Questions</span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onStartTest) {
+                                onStartTest(t, {
+                                  batchId: selectedBatchId,
+                                  chapterId: selectedChapterId,
+                                  folderTab: 'tests',
+                                });
+                              } else {
+                                showSecurityToast('Opening test runner...');
+                              }
+                            }}
+                            className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center space-x-1 border-none bg-transparent cursor-pointer shrink-0"
+                          >
+                            <span>Start</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Image Preview Modal */}
         {previewImage && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
             <div className="bg-[var(--md-sys-color-surface-container)] rounded-3xl max-w-2xl w-full p-5 space-y-4 shadow-2xl relative">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-[var(--md-sys-color-on-surface)] truncate">
@@ -1129,6 +1205,124 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             </div>
           </div>
         )}
+
+        {/* MODAL 1: CREATE OR EDIT FOLDER */}
+        <CreateOrEditFolderModal
+          isOpen={isFolderModalOpen}
+          onClose={() => {
+            setIsFolderModalOpen(false);
+            setEditingFolder(null);
+          }}
+          onSave={({ title, description, color }) => {
+            if (editingFolder) {
+              updateChapter(editingFolder.id, { title, description, color });
+              showSecurityToast(`Folder "${title}" updated.`);
+            } else {
+              const newF = addFolder({
+                batchId: selectedBatchId,
+                title,
+                description,
+                color,
+                parentId: selectedChapterId,
+              });
+              showSecurityToast(`Subfolder "${title}" created.`);
+            }
+          }}
+          initialTitle={editingFolder?.title}
+          initialDescription={editingFolder?.description}
+          initialColor={editingFolder?.color}
+          parentFolderName={currentFolder?.title || currentBatch?.title}
+          isEdit={Boolean(editingFolder)}
+        />
+
+        {/* MODAL 2: ADD OR EDIT VIDEO LECTURE */}
+        <AddOrEditVideoModal
+          isOpen={isVideoModalOpen}
+          onClose={() => {
+            setIsVideoModalOpen(false);
+            setEditingLecture(null);
+          }}
+          onSave={({ title, description, videoUrl, durationMinutes, isFreePreview, pdfNoteTitle, pdfNoteUrl }) => {
+            const rawYtId = extractYouTubeId(videoUrl) || videoUrl;
+            const obfuscated = obfuscateVideoKey(rawYtId);
+            const notes: PdfNote[] = pdfNoteTitle && pdfNoteUrl ? [{
+              id: `pdf_${Date.now()}`,
+              title: pdfNoteTitle,
+              fileUrl: pdfNoteUrl,
+            }] : [];
+
+            if (editingLecture) {
+              updateLecture(editingLecture.id, {
+                title,
+                description,
+                encryptedVideoId: obfuscated,
+                durationMinutes,
+                isFreePreview,
+                thumbnailUrl: `https://img.youtube.com/vi/${rawYtId}/hqdefault.jpg`,
+                pdfNotes: notes.length > 0 ? notes : editingLecture.pdfNotes,
+              });
+              showSecurityToast(`Lecture "${title}" updated.`);
+            } else {
+              addLecture({
+                batchId: selectedBatchId,
+                subjectId: currentFolder?.subjectId || 'sub_general',
+                chapterId: selectedChapterId || 'root',
+                title,
+                description,
+                encryptedVideoId: obfuscated,
+                videoSourceType: 'youtube',
+                durationMinutes,
+                isFreePreview,
+                order: folderLectures.length + 1,
+                thumbnailUrl: `https://img.youtube.com/vi/${rawYtId}/hqdefault.jpg`,
+                pdfNotes: notes,
+              });
+              showSecurityToast(`Lecture "${title}" added.`);
+            }
+          }}
+          initialData={editingLecture}
+          folderName={currentFolder?.title || currentBatch?.title}
+        />
+
+        {/* MODAL 3: ADD OR EDIT PDF NOTE */}
+        <AddOrEditNoteModal
+          isOpen={isNoteModalOpen}
+          onClose={() => {
+            setIsNoteModalOpen(false);
+            setEditingNote(null);
+          }}
+          onSave={({ title, fileUrl }) => {
+            if (selectedChapterId) {
+              addPdfNoteToChapter(selectedChapterId, { title, fileUrl });
+              showSecurityToast(`Note "${title}" added.`);
+            }
+          }}
+          initialData={editingNote}
+          folderName={currentFolder?.title || currentBatch?.title}
+        />
+
+        {/* MODAL 4: LINK MOCK TESTS */}
+        <LinkTestModal
+          isOpen={isLinkTestModalOpen}
+          onClose={() => setIsLinkTestModalOpen(false)}
+          availableTests={availableTests}
+          linkedTestIds={currentFolder?.testIds || []}
+          onToggleTest={(testId) => {
+            if (selectedChapterId) {
+              toggleTestInChapter(selectedChapterId, testId);
+            }
+          }}
+          folderName={currentFolder?.title || currentBatch?.title}
+        />
+
+        {/* MODAL 5: CONFIRM DELETE */}
+        <ConfirmDeleteModal
+          isOpen={deleteModalConfig.isOpen}
+          onClose={() => setDeleteModalConfig((prev) => ({ ...prev, isOpen: false }))}
+          onConfirm={deleteModalConfig.onConfirm}
+          title={deleteModalConfig.title}
+          message={deleteModalConfig.message}
+        />
       </div>
     );
   }
@@ -1138,14 +1332,14 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
      ========================================================================= */
   return (
     <div className="space-y-4 sm:space-y-6 pb-24 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
-      {/* Mobile Top Back Bar: Only Back Button (Replaces top header on mobile) */}
+      {/* Mobile Top Back Bar */}
       <div className="flex items-center justify-between sm:hidden px-3.5 py-2">
         <button
           onClick={() => setCurrentStage('folder_content')}
           className="flex items-center space-x-1 text-xs font-bold text-[var(--md-sys-color-primary)] border-none bg-transparent cursor-pointer p-0 hover:underline"
         >
           <ChevronLeft className="w-5 h-5 -ml-1" />
-          <span>Back to {currentFolder?.title || 'Chapter'}</span>
+          <span>Back to {currentFolder?.title || currentBatch?.title || 'Batch'}</span>
         </button>
 
         <span className="text-[11px] font-mono text-[var(--md-sys-color-on-surface-variant)]">
@@ -1160,7 +1354,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           className="flex items-center space-x-1.5 text-xs sm:text-sm font-bold text-[var(--md-sys-color-primary)] hover:underline border-none bg-transparent cursor-pointer"
         >
           <ChevronLeft className="w-4 h-4" />
-          <span>Back to {currentFolder?.title || 'Folder'}</span>
+          <span>Back to {currentFolder?.title || currentBatch?.title || 'Batch'}</span>
         </button>
 
         <span className="text-xs font-mono text-[var(--md-sys-color-on-surface-variant)]">
@@ -1189,7 +1383,6 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             />
           </div>
 
-          {/* Lecture Metadata - Clean & minimal without duplicate chapter title */}
           <div className="px-3.5 sm:px-0">
             <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-2 shadow-xs">
               <h1 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] leading-snug">
@@ -1202,151 +1395,171 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Interactive Tabs (In-Video Notes / Milestones / Notes Content) */}
-        <div className="lg:col-span-4 space-y-4 px-3.5 sm:px-0">
-          <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden shadow-xs p-4 space-y-4">
-            {/* Tabs Header - Scrollable without cutting buttons on mobile */}
-            <div className="flex border-b border-[var(--md-sys-color-outline-variant)]/20 pb-2 space-x-1.5 overflow-x-auto scrollbar-none">
+        {/* RIGHT COLUMN: Interactive Tabs (Bookmarks, Milestones, Notes) */}
+        <div className="lg:col-span-4 px-3.5 sm:px-0 space-y-4">
+          <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs space-y-4">
+            <div className="flex items-center space-x-1 p-1 bg-[var(--md-sys-color-surface-container-high)] rounded-full text-xs font-bold">
               <button
+                type="button"
                 onClick={() => setLectureTab('personal_notes')}
-                className={`py-1.5 px-3 rounded-full text-xs font-bold transition border-none outline-none cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`flex-1 py-1.5 rounded-full transition border-none cursor-pointer ${
                   lectureTab === 'personal_notes'
-                    ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)]'
-                    : 'text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
+                    ? 'bg-[var(--md-sys-color-surface)] text-[var(--md-sys-color-primary)] shadow-xs'
+                    : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)] bg-transparent'
                 }`}
               >
-                In-Video Notes ({lecturePersonalNotes.length})
+                Bookmarks
               </button>
-
               <button
+                type="button"
                 onClick={() => setLectureTab('milestones')}
-                className={`py-1.5 px-3 rounded-full text-xs font-bold transition border-none outline-none cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`flex-1 py-1.5 rounded-full transition border-none cursor-pointer ${
                   lectureTab === 'milestones'
-                    ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)]'
-                    : 'text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
+                    ? 'bg-[var(--md-sys-color-surface)] text-[var(--md-sys-color-primary)] shadow-xs'
+                    : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)] bg-transparent'
                 }`}
               >
-                Milestones ({activeLecture.milestones?.length || 0})
+                Timelines
               </button>
-
               <button
+                type="button"
                 onClick={() => setLectureTab('notes_content')}
-                className={`py-1.5 px-3 rounded-full text-xs font-bold transition border-none outline-none cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`flex-1 py-1.5 rounded-full transition border-none cursor-pointer ${
                   lectureTab === 'notes_content'
-                    ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)]'
-                    : 'text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
+                    ? 'bg-[var(--md-sys-color-surface)] text-[var(--md-sys-color-primary)] shadow-xs'
+                    : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)] bg-transparent'
                 }`}
               >
-                Notes Content
+                DPP ({activeLecture.pdfNotes?.length || 0})
               </button>
             </div>
 
-            {/* TAB 1: IN-VIDEO NOTES */}
+            {/* Bookmarks Tab */}
             {lectureTab === 'personal_notes' && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <form onSubmit={handleCreateNote} className="space-y-2">
-                  <div className="flex items-center justify-between text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
-                    <span>Pin Note at Current Video Clock:</span>
-                    <span className="font-mono font-bold text-[var(--md-sys-color-primary)]">
-                      ⏱️ {formatDuration(currentPlaybackSec)}
-                    </span>
-                  </div>
-                  <div className="flex space-x-2">
+                  <div className="flex items-center space-x-2">
                     <input
                       type="text"
                       value={noteInputText}
                       onChange={(e) => setNoteInputText(e.target.value)}
-                      placeholder="Add key formula or concept bookmark..."
-                      className="flex-1 px-3 py-2 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none"
+                      placeholder={`Add bookmark at ${formatDuration(currentPlaybackSec)}...`}
+                      className="flex-1 px-3 py-2 rounded-xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs text-[var(--md-sys-color-on-surface)] focus:outline-hidden"
                     />
                     <button
                       type="submit"
-                      className="m3-btn-filled px-3 py-2 text-xs font-bold border-none outline-none cursor-pointer"
+                      disabled={!noteInputText.trim()}
+                      className="px-3.5 py-2 rounded-xl bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] text-xs font-bold border-none cursor-pointer disabled:opacity-50 shrink-0"
                     >
                       Save
                     </button>
                   </div>
                 </form>
 
-                {/* Notes List */}
-                <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                  {lecturePersonalNotes.length === 0 ? (
-                    <div className="text-center py-8 text-xs text-[var(--md-sys-color-on-surface-variant)]">
-                      No notes created yet. Play the video and bookmark timestamps above!
-                    </div>
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {personalNotes.filter((n) => n.lectureId === activeLecture.id).length === 0 ? (
+                    <p className="text-center text-xs text-[var(--md-sys-color-on-surface-variant)] py-4">
+                      No bookmarks saved yet. Use the input above to capture timestamps.
+                    </p>
                   ) : (
-                    lecturePersonalNotes.map((pn) => (
-                      <div
-                        key={pn.id}
-                        className="p-3 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] space-y-1.5"
-                      >
-                        <div className="flex items-center justify-between">
+                    personalNotes
+                      .filter((n) => n.lectureId === activeLecture.id)
+                      .map((note) => (
+                        <div
+                          key={note.id}
+                          className="p-2.5 rounded-xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/20 flex items-start justify-between gap-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <button
+                              type="button"
+                              onClick={() => setActiveSeekSeconds(note.seconds)}
+                              className="font-mono font-bold text-[11px] text-[var(--md-sys-color-primary)] hover:underline border-none bg-transparent cursor-pointer p-0"
+                            >
+                              {formatDuration(note.seconds)}
+                            </button>
+                            <p className="text-xs text-[var(--md-sys-color-on-surface)] break-words mt-0.5">
+                              {note.text}
+                            </p>
+                          </div>
                           <button
-                            onClick={() => setActiveSeekSeconds(pn.seconds)}
-                            className="px-2.5 py-0.5 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] font-mono text-[10px] font-bold flex items-center space-x-1 border-none cursor-pointer"
-                          >
-                            <Play className="w-2.5 h-2.5 fill-current" />
-                            <span>{formatDuration(pn.seconds)}</span>
-                          </button>
-                          <button
-                            onClick={() => deletePersonalNote(pn.id)}
-                            className="text-[var(--md-sys-color-outline)] hover:text-red-400 p-1 border-none bg-transparent cursor-pointer"
+                            type="button"
+                            onClick={() => deletePersonalNote(note.id)}
+                            className="p-1 text-slate-400 hover:text-rose-500 border-none bg-transparent cursor-pointer shrink-0"
+                            title="Delete Bookmark"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                        <p className="text-xs text-[var(--md-sys-color-on-surface)] leading-relaxed">
-                          {pn.text}
-                        </p>
-                      </div>
-                    ))
+                      ))
                   )}
                 </div>
               </div>
             )}
 
-            {/* TAB 2: MILESTONES */}
+            {/* Milestones Tab */}
             {lectureTab === 'milestones' && (
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {activeLecture.milestones?.map((m) => (
-                  <div
-                    key={m.id}
-                    onClick={() => setActiveSeekSeconds(m.seconds)}
-                    className="p-3 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] cursor-pointer transition flex items-center justify-between text-xs"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <Flag className="w-3.5 h-3.5 text-amber-500" />
-                      <span className="font-semibold text-[var(--md-sys-color-on-surface)]">
-                        {m.title}
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                {(activeLecture.milestones || []).length === 0 ? (
+                  <p className="text-center text-xs text-[var(--md-sys-color-on-surface-variant)] py-4">
+                    No milestone chapters tagged for this lecture.
+                  </p>
+                ) : (
+                  (activeLecture.milestones || []).map((m) => (
+                    <div
+                      key={m.id}
+                      onClick={() => setActiveSeekSeconds(m.seconds)}
+                      className="p-2.5 rounded-xl bg-[var(--md-sys-color-surface)] hover:bg-[var(--md-sys-color-surface-container-high)] cursor-pointer transition border border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between"
+                    >
+                      <div className="min-w-0 flex-1 pr-2">
+                        <p className="text-xs font-bold text-[var(--md-sys-color-on-surface)] truncate">
+                          {m.title}
+                        </p>
+                        {m.description && (
+                          <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate">
+                            {m.description}
+                          </p>
+                        )}
+                      </div>
+                      <span className="font-mono text-xs font-bold text-[var(--md-sys-color-primary)] shrink-0">
+                        {formatDuration(m.seconds)}
                       </span>
                     </div>
-                    <span className="font-mono text-[11px] text-[var(--md-sys-color-primary)] font-bold">
-                      {formatDuration(m.seconds)}
-                    </span>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             )}
 
-            {/* TAB 3: NOTES CONTENT */}
+            {/* Attached DPP / Notes Tab */}
             {lectureTab === 'notes_content' && (
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {activeLecture.pdfNotes?.map((pn) => (
-                  <div
-                    key={pn.id}
-                    className="p-3 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] flex items-center justify-between text-xs"
-                  >
-                    <div className="flex items-center space-x-2 truncate">
-                      <FileText className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                      <span className="truncate font-semibold text-[var(--md-sys-color-on-surface)]">
-                        {pn.title}
-                      </span>
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                {(activeLecture.pdfNotes || []).length === 0 ? (
+                  <p className="text-center text-xs text-[var(--md-sys-color-on-surface-variant)] py-4">
+                    No PDF handouts directly attached to this video.
+                  </p>
+                ) : (
+                  (activeLecture.pdfNotes || []).map((note) => (
+                    <div
+                      key={note.id}
+                      className="p-2.5 rounded-xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between gap-2"
+                    >
+                      <div className="flex items-center space-x-2 min-w-0 flex-1">
+                        <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)] truncate">
+                          {note.title}
+                        </span>
+                      </div>
+                      <a
+                        href={note.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1 text-emerald-600 dark:text-emerald-400 hover:opacity-80 border-none bg-transparent cursor-pointer shrink-0"
+                        title="Download Note"
+                      >
+                        <Download className="w-4 h-4" />
+                      </a>
                     </div>
-                    <span className="font-mono text-[10px] text-[var(--md-sys-color-outline)] flex-shrink-0">
-                      {pn.size}
-                    </span>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             )}
           </div>

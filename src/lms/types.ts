@@ -63,6 +63,13 @@ export interface Chapter {
   description?: string;
   order: number;
   testIds?: string[]; // Elevate mock test IDs linked to this chapter
+  parentId?: string | null; // null/undefined = Root level folder in Batch
+  folderType?: 'folder' | 'chapter'; // Nested folder container or chapter
+  color?: string; // Optional folder color accent (hex or css class)
+  icon?: string; // Optional custom folder icon identifier
+  pdfNotes?: PdfNote[]; // Direct PDF attachments / formula sheets attached to this folder
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Subject {
