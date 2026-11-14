@@ -867,7 +867,7 @@ export const TestList: React.FC<TestListProps> = ({
       {/* Tests Grid/List: Minor Tone Effect Google Material 3 Cards */}
       {filteredTests.length === 0 ? (
         isSearchingCloud ? (
-          <div className="text-center py-20 px-4 bg-[#f8fafd] dark:bg-[#1a1d22] rounded-[24px] space-y-3.5 border border-[#dce3ee] dark:border-[#383b42] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="text-center py-20 px-4 bg-[#f8fafd] dark:bg-[#1a1d22] rounded-[24px] space-y-3.5 border-0 shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
             <div className="w-12 h-12 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center mx-auto border-0 shadow-none">
               <Loader2 className="w-6 h-6 animate-spin" />
             </div>
@@ -877,7 +877,7 @@ export const TestList: React.FC<TestListProps> = ({
             </p>
           </div>
         ) : (
-          <div className="text-center py-20 px-4 bg-[#f8fafd] dark:bg-[#1a1d22] rounded-[24px] space-y-3.5 border border-[#dce3ee] dark:border-[#383b42] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="text-center py-20 px-4 bg-[#f8fafd] dark:bg-[#1a1d22] rounded-[24px] space-y-3.5 border-0 shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
             <div className="w-12 h-12 rounded-full bg-[#edf2f8] dark:bg-[#25282f] text-[#5e5e5e] dark:text-[#9aa0a6] flex items-center justify-center mx-auto border-0 shadow-none">
               <BookOpen className="w-5 h-5 stroke-[2.2]" />
             </div>

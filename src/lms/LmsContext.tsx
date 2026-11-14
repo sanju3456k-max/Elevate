@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import type { User, Batch, Subject, Chapter, Lecture, WatchProgress, Announcement, PersonalNote, BatchEnrollment, BatchTestCard } from './types';
 import {
   INITIAL_USER,

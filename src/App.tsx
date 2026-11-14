@@ -1719,9 +1719,9 @@ export default function App() {
         </div>
       )}
 
-      {/* Navigation Header - Hidden during active test attempts, test creator, review solution mode, custom builder, performance analytics, notes repository, html notes studio, bulk print, and master console. In batches section, hidden on mobile only */}
+      {/* Navigation Header - Hidden during active test attempts, test creator, review solution mode, custom builder, performance analytics, notes repository, html notes studio, bulk print, and master console. In batches section, hidden on mobile only when video lecture is playing */}
       {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'create' && activeTab !== 'results' && activeTab !== 'custom-builder' && activeTab !== 'chatbot' && activeTab !== 'analytics' && activeTab !== 'notes-repository' && activeTab !== 'bulk-print' && activeTab !== 'html-notes' && activeTab !== 'master-console' && (
-        <div className={activeTab === 'batches' ? 'hidden sm:block' : ''}>
+        <div className={activeTab === 'batches' && isLectureViewActive ? 'hidden sm:block' : ''}>
           <Navbar
             activeTab={activeTab}
             setActiveTab={setActiveTab}
@@ -1874,78 +1874,6 @@ export default function App() {
       {/* Main Content Area */}
       {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'results' && activeTab !== 'create' && activeTab !== 'custom-builder' && activeTab !== 'master-console' && (
         <main className="flex-1 min-w-0 bg-[#e5e9f0] dark:bg-[#0b0c10] pb-24 md:pb-8">
-          
-          {/* PERSISTENT DESKTOP NAVIGATION BAR (Home, Batches, Test Library, Analytics) */}
-          {['home', 'batches', 'tests', 'analytics'].includes(activeTab) && (
-            <div className="hidden md:block max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-4 pb-1">
-              <div className="flex items-center space-x-2.5 overflow-x-auto pb-1 scrollbar-none">
-                <button
-                  id="persistent-nav-home"
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('home');
-                  }}
-                  className={`px-4.5 py-2.5 rounded-full text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap border-none outline-none cursor-pointer active:scale-98 ${
-                    activeTab === 'home'
-                      ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-sm'
-                      : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
-                  }`}
-                >
-                  <Home className="w-4 h-4" />
-                  <span>Home</span>
-                </button>
-
-                <button
-                  id="persistent-nav-batches"
-                  type="button"
-                  onClick={() => {
-                    setSelectedBatchId(null);
-                    setSelectedChapterId(null);
-                    setSelectedLectureId(null);
-                    setSelectedFolderTab('videos');
-                    setBatchesFilter('all');
-                    setActiveTab('batches');
-                  }}
-                  className={`px-4.5 py-2.5 rounded-full text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap border-none outline-none cursor-pointer active:scale-98 ${
-                    activeTab === 'batches'
-                      ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-sm'
-                      : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
-                  }`}
-                >
-                  <Layers className="w-4 h-4" />
-                  <span>Batches</span>
-                </button>
-
-                <button
-                  id="persistent-nav-test-library"
-                  type="button"
-                  onClick={() => setActiveTab('tests')}
-                  className={`px-4.5 py-2.5 rounded-full text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap border-none outline-none cursor-pointer active:scale-98 ${
-                    activeTab === 'tests'
-                      ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-sm'
-                      : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
-                  }`}
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Test Library</span>
-                </button>
-
-                <button
-                  id="persistent-nav-analytics"
-                  type="button"
-                  onClick={() => setActiveTab('analytics')}
-                  className={`px-4.5 py-2.5 rounded-full text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap border-none outline-none cursor-pointer active:scale-98 ${
-                    activeTab === 'analytics'
-                      ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-sm'
-                      : 'bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
-                  }`}
-                >
-                  <BarChart3 className="w-4 h-4" />
-                  <span>Analytics & Activity</span>
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* MOBILE BOTTOM NAVIGATION HEADER (Home, Batches, Test Library, Analytics) - Only show when app is fully loaded */}
           {isAppLoaded && ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && (

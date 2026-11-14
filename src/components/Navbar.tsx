@@ -35,7 +35,8 @@ import {
   Code,
   FileCode,
   Crown,
-  ShieldCheck
+  ShieldCheck,
+  Home
 } from 'lucide-react';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { useScrollLock } from '../hooks/useScrollLock';
@@ -258,6 +259,67 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Center: Desktop Segmented Navigation (Home, Batches, Tests, Analytics) */}
+            {['home', 'batches', 'tests', 'analytics'].includes(activeTab) && (
+              <div className="hidden md:flex items-center space-x-1 p-1 bg-white/80 dark:bg-[#1e2024]/80 backdrop-blur-md rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.4)] border-none">
+                <button
+                  type="button"
+                  id="header-nav-home"
+                  onClick={() => handleNavClick('home')}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center space-x-1.5 border-none outline-none cursor-pointer active:scale-95 ${
+                    activeTab === 'home'
+                      ? 'bg-[#0b57d0] text-white shadow-xs'
+                      : 'bg-transparent text-[#5e5e5e] dark:text-[#9aa0a6] hover:text-[#1f1f1f] dark:hover:text-[#e3e3e3] hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <Home className="w-3.5 h-3.5" />
+                  <span>Home</span>
+                </button>
+
+                <button
+                  type="button"
+                  id="header-nav-batches"
+                  onClick={() => handleNavClick('batches')}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center space-x-1.5 border-none outline-none cursor-pointer active:scale-95 ${
+                    activeTab === 'batches'
+                      ? 'bg-[#0b57d0] text-white shadow-xs'
+                      : 'bg-transparent text-[#5e5e5e] dark:text-[#9aa0a6] hover:text-[#1f1f1f] dark:hover:text-[#e3e3e3] hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Batches</span>
+                </button>
+
+                <button
+                  type="button"
+                  id="header-nav-tests"
+                  onClick={() => handleNavClick('tests')}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center space-x-1.5 border-none outline-none cursor-pointer active:scale-95 ${
+                    activeTab === 'tests'
+                      ? 'bg-[#0b57d0] text-white shadow-xs'
+                      : 'bg-transparent text-[#5e5e5e] dark:text-[#9aa0a6] hover:text-[#1f1f1f] dark:hover:text-[#e3e3e3] hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Test Library</span>
+                </button>
+
+                <button
+                  type="button"
+                  id="header-nav-analytics"
+                  onClick={() => handleNavClick('analytics')}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center space-x-1.5 border-none outline-none cursor-pointer active:scale-95 ${
+                    activeTab === 'analytics'
+                      ? 'bg-[#0b57d0] text-white shadow-xs'
+                      : 'bg-transparent text-[#5e5e5e] dark:text-[#9aa0a6] hover:text-[#1f1f1f] dark:hover:text-[#e3e3e3] hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  <span>Analytics</span>
+                </button>
+              </div>
+            )}
 
             {/* Right Controls: Master Console, Chatbot & Google Login/Profile */}
             <div className="flex items-center gap-1.5 sm:gap-2">
