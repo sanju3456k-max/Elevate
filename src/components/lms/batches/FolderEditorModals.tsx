@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, 
   FolderPlus, 
@@ -56,12 +56,18 @@ export const CreateOrEditFolderModal: React.FC<CreateOrEditFolderModalProps> = (
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription);
   const [color, setColor] = useState(initialColor);
+  const isInitializedRef = useRef(false);
 
   useEffect(() => {
     if (isOpen) {
-      setTitle(initialTitle);
-      setDescription(initialDescription);
-      setColor(initialColor);
+      if (!isInitializedRef.current) {
+        isInitializedRef.current = true;
+        setTitle(initialTitle);
+        setDescription(initialDescription);
+        setColor(initialColor);
+      }
+    } else {
+      isInitializedRef.current = false;
     }
   }, [isOpen, initialTitle, initialDescription, initialColor]);
 
@@ -214,27 +220,39 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
   const [isFreePreview, setIsFreePreview] = useState(false);
   const [pdfNoteTitle, setPdfNoteTitle] = useState('');
   const [pdfNoteUrl, setPdfNoteUrl] = useState('');
+  const isInitializedRef = useRef(false);
+  const activeVideoIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (isOpen && initialData) {
-      setTitle(initialData.title || '');
-      setDescription(initialData.description || '');
-      setVideoUrl(initialData.encryptedVideoId || '');
-      setDurationMinutes(initialData.durationMinutes || 30);
-      setIsFreePreview(Boolean(initialData.isFreePreview));
-      const firstNote = initialData.pdfNotes?.[0];
-      setPdfNoteTitle(firstNote?.title || '');
-      setPdfNoteUrl(firstNote?.fileUrl || '');
-    } else if (isOpen) {
-      setTitle('');
-      setDescription('');
-      setVideoUrl('');
-      setDurationMinutes(30);
-      setIsFreePreview(false);
-      setPdfNoteTitle('');
-      setPdfNoteUrl('');
+    if (isOpen) {
+      const currentId = initialData?.id || '__new_video__';
+      if (!isInitializedRef.current || activeVideoIdRef.current !== currentId) {
+        isInitializedRef.current = true;
+        activeVideoIdRef.current = currentId;
+        if (initialData) {
+          setTitle(initialData.title || '');
+          setDescription(initialData.description || '');
+          setVideoUrl(initialData.encryptedVideoId || '');
+          setDurationMinutes(initialData.durationMinutes || 30);
+          setIsFreePreview(Boolean(initialData.isFreePreview));
+          const firstNote = initialData.pdfNotes?.[0];
+          setPdfNoteTitle(firstNote?.title || '');
+          setPdfNoteUrl(firstNote?.fileUrl || '');
+        } else {
+          setTitle('');
+          setDescription('');
+          setVideoUrl('');
+          setDurationMinutes(30);
+          setIsFreePreview(false);
+          setPdfNoteTitle('');
+          setPdfNoteUrl('');
+        }
+      }
+    } else {
+      isInitializedRef.current = false;
+      activeVideoIdRef.current = null;
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData?.id]);
 
   if (!isOpen) return null;
 
@@ -425,16 +443,28 @@ export const AddOrEditNoteModal: React.FC<AddOrEditNoteModalProps> = ({
 }) => {
   const [title, setTitle] = useState('');
   const [fileUrl, setFileUrl] = useState('');
+  const isInitializedRef = useRef(false);
+  const activeNoteIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (isOpen && initialData) {
-      setTitle(initialData.title || '');
-      setFileUrl(initialData.fileUrl || '');
-    } else if (isOpen) {
-      setTitle('');
-      setFileUrl('');
+    if (isOpen) {
+      const currentId = initialData?.id || '__new_note__';
+      if (!isInitializedRef.current || activeNoteIdRef.current !== currentId) {
+        isInitializedRef.current = true;
+        activeNoteIdRef.current = currentId;
+        if (initialData) {
+          setTitle(initialData.title || '');
+          setFileUrl(initialData.fileUrl || '');
+        } else {
+          setTitle('');
+          setFileUrl('');
+        }
+      }
+    } else {
+      isInitializedRef.current = false;
+      activeNoteIdRef.current = null;
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData?.id]);
 
   if (!isOpen) return null;
 

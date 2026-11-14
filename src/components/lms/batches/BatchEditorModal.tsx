@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Layers, Sparkles, Image as ImageIcon, IndianRupee, Calendar, UserCheck, CheckCircle, Users } from 'lucide-react';
 import type { Batch } from '../../../lms/types';
 
@@ -36,37 +36,53 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
   const [isPublished, setIsPublished] = useState(true);
   const [allowGuestAccess, setAllowGuestAccess] = useState(false);
 
+  // Protection against live Firestore background sync & parent re-renders clearing user edits
+  const isInitializedRef = useRef(false);
+  const activeBatchIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (batchToEdit) {
-      setTitle(batchToEdit.title || '');
-      setTagline(batchToEdit.tagline || '');
-      setDescription(batchToEdit.description || '');
-      setCategory(batchToEdit.category || 'JEE Advanced');
-      setPrice(String(batchToEdit.price ?? 999));
-      setOriginalPrice(String(batchToEdit.originalPrice ?? 4999));
-      setValidityDays(String(batchToEdit.validityDays ?? 365));
-      setInstructorName(batchToEdit.instructor?.name || 'Sanju Kumar');
-      setInstructorDesignation(batchToEdit.instructor?.designation || 'Senior Mathematics Faculty');
-      setBannerUrl(batchToEdit.bannerUrl || '');
-      setThumbnailUrl(batchToEdit.thumbnailUrl || '');
-      setIsPublished(batchToEdit.isPublished ?? true);
-      setAllowGuestAccess(batchToEdit.allowGuestAccess ?? false);
+    if (isOpen) {
+      const currentBatchId = batchToEdit?.id || '__new_batch__';
+      // Only populate on initial open or when the active batch ID switches
+      if (!isInitializedRef.current || activeBatchIdRef.current !== currentBatchId) {
+        isInitializedRef.current = true;
+        activeBatchIdRef.current = currentBatchId;
+
+        if (batchToEdit) {
+          setTitle(batchToEdit.title || '');
+          setTagline(batchToEdit.tagline || '');
+          setDescription(batchToEdit.description || '');
+          setCategory(batchToEdit.category || 'JEE Advanced');
+          setPrice(String(batchToEdit.price ?? 999));
+          setOriginalPrice(String(batchToEdit.originalPrice ?? 4999));
+          setValidityDays(String(batchToEdit.validityDays ?? 365));
+          setInstructorName(batchToEdit.instructor?.name || 'Sanju Kumar');
+          setInstructorDesignation(batchToEdit.instructor?.designation || 'Senior Mathematics Faculty');
+          setBannerUrl(batchToEdit.bannerUrl || '');
+          setThumbnailUrl(batchToEdit.thumbnailUrl || '');
+          setIsPublished(batchToEdit.isPublished ?? true);
+          setAllowGuestAccess(batchToEdit.allowGuestAccess ?? false);
+        } else {
+          setTitle('');
+          setTagline('Comprehensive Test & Coaching Masterclass');
+          setDescription('');
+          setCategory('JEE Advanced');
+          setPrice('999');
+          setOriginalPrice('4999');
+          setValidityDays('365');
+          setInstructorName('Sanju Kumar');
+          setInstructorDesignation('Senior Mathematics Faculty');
+          setBannerUrl(PRESET_BANNERS[0]);
+          setThumbnailUrl(PRESET_BANNERS[0]);
+          setIsPublished(true);
+          setAllowGuestAccess(false);
+        }
+      }
     } else {
-      setTitle('');
-      setTagline('Comprehensive Test & Coaching Masterclass');
-      setDescription('');
-      setCategory('JEE Advanced');
-      setPrice('999');
-      setOriginalPrice('4999');
-      setValidityDays('365');
-      setInstructorName('Sanju Kumar');
-      setInstructorDesignation('Senior Mathematics Faculty');
-      setBannerUrl(PRESET_BANNERS[0]);
-      setThumbnailUrl(PRESET_BANNERS[0]);
-      setIsPublished(true);
-      setAllowGuestAccess(false);
+      isInitializedRef.current = false;
+      activeBatchIdRef.current = null;
     }
-  }, [batchToEdit, isOpen]);
+  }, [isOpen, batchToEdit?.id]);
 
   if (!isOpen) return null;
 

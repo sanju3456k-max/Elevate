@@ -627,10 +627,12 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   setEditingFolder(null);
                   setIsFolderModalOpen(true);
                 }}
-                className="px-3.5 py-1.5 rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] font-bold text-xs flex items-center space-x-1.5 shadow-xs hover:opacity-95 transition border-none cursor-pointer"
+                className="p-2 sm:px-3.5 sm:py-1.5 rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs hover:opacity-95 transition border-none cursor-pointer shrink-0"
+                title={selectedChapterId ? "Add Subfolder" : "Add Chapter Folder"}
+                aria-label="Add Chapter Folder"
               >
-                <FolderPlus className="w-3.5 h-3.5" />
-                <span>+ New Subfolder</span>
+                <Plus className="w-4 h-4 sm:w-3.5 sm:h-3.5 stroke-[2.5]" />
+                <span className="hidden sm:inline">New</span>
               </button>
 
               <button
@@ -639,10 +641,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   setEditingLecture(null);
                   setIsVideoModalOpen(true);
                 }}
-                className="px-3 py-1.5 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center space-x-1.5 shadow-xs hover:bg-indigo-700 transition border-none cursor-pointer"
+                className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs hover:bg-indigo-700 transition border-none cursor-pointer shrink-0"
+                title="Add Video Lecture"
               >
-                <Video className="w-3.5 h-3.5" />
-                <span>+ Video</span>
+                <Video className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                <span className="hidden sm:inline">+ Video</span>
               </button>
 
               <button
@@ -651,19 +654,21 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   setEditingNote(null);
                   setIsNoteModalOpen(true);
                 }}
-                className="px-3 py-1.5 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center space-x-1.5 shadow-xs hover:bg-emerald-700 transition border-none cursor-pointer"
+                className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs hover:bg-emerald-700 transition border-none cursor-pointer shrink-0"
+                title="Add PDF Note"
               >
-                <FilePlus className="w-3.5 h-3.5" />
-                <span>+ Note</span>
+                <FilePlus className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                <span className="hidden sm:inline">+ Note</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setIsLinkTestModalOpen(true)}
-                className="px-3 py-1.5 rounded-full bg-amber-500 text-white font-bold text-xs flex items-center space-x-1.5 shadow-xs hover:bg-amber-600 transition border-none cursor-pointer"
+                className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-amber-500 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs hover:bg-amber-600 transition border-none cursor-pointer shrink-0"
+                title="Link Test"
               >
-                <Award className="w-3.5 h-3.5" />
-                <span>+ Test</span>
+                <Award className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                <span className="hidden sm:inline">+ Test</span>
               </button>
             </div>
           )}

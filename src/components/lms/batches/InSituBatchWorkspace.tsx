@@ -109,9 +109,10 @@ export const InSituBatchWorkspace: React.FC<InSituBatchWorkspaceProps> = ({
     );
   }
 
-  const handleSaveBatchEdit = (updatedData: any) => {
-    updateBatch(batch.id, updatedData);
-    showSecurityToast(`Batch "${batch.title}" updated successfully.`);
+  const handleSaveBatchEdit = (updatedData: any, existingId?: string) => {
+    const targetId = existingId || batch.id;
+    updateBatch(targetId, updatedData);
+    showSecurityToast(`Batch "${updatedData.title || batch.title}" updated successfully.`);
   };
 
   const handleCreateChapter = (e: React.FormEvent) => {
