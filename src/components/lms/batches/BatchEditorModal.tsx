@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Layers, Sparkles, Image as ImageIcon, IndianRupee, Calendar, UserCheck, CheckCircle } from 'lucide-react';
+import { X, Layers, Sparkles, Image as ImageIcon, IndianRupee, Calendar, UserCheck, CheckCircle, Users } from 'lucide-react';
 import type { Batch } from '../../../lms/types';
 
 interface BatchEditorModalProps {
@@ -34,6 +34,7 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
   const [bannerUrl, setBannerUrl] = useState('');
   const [thumbnailUrl, setThumbnailUrl] = useState('');
   const [isPublished, setIsPublished] = useState(true);
+  const [allowGuestAccess, setAllowGuestAccess] = useState(false);
 
   useEffect(() => {
     if (batchToEdit) {
@@ -49,6 +50,7 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
       setBannerUrl(batchToEdit.bannerUrl || '');
       setThumbnailUrl(batchToEdit.thumbnailUrl || '');
       setIsPublished(batchToEdit.isPublished ?? true);
+      setAllowGuestAccess(batchToEdit.allowGuestAccess ?? false);
     } else {
       setTitle('');
       setTagline('Comprehensive Test & Coaching Masterclass');
@@ -62,6 +64,7 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
       setBannerUrl(PRESET_BANNERS[0]);
       setThumbnailUrl(PRESET_BANNERS[0]);
       setIsPublished(true);
+      setAllowGuestAccess(false);
     }
   }, [batchToEdit, isOpen]);
 
@@ -88,6 +91,7 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
         avatarUrl: batchToEdit?.instructor?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
       },
       isPublished,
+      allowGuestAccess,
     };
 
     onSave(payload, batchToEdit?.id);
@@ -317,6 +321,34 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
               }`}
             >
               {isPublished ? 'Active' : 'Draft'}
+            </button>
+          </div>
+
+          {/* Guest Access Option Toggle */}
+          <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[var(--md-sys-color-surface-container-high)]">
+            <div className="flex items-center space-x-2.5">
+              <Users className={`w-4 h-4 ${allowGuestAccess ? 'text-indigo-500' : 'text-slate-400'}`} />
+              <div>
+                <p className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">
+                  {allowGuestAccess ? 'Guest Access Enabled (Open Free Enrollment)' : 'Restricted Roster Only (Master Admission Required)'}
+                </p>
+                <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                  {allowGuestAccess
+                    ? 'Visitors and guest users can freely enroll and access curriculum, video streams, and tests'
+                    : 'Strict roster mode: only students admitted by Master Admin have access'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAllowGuestAccess(!allowGuestAccess)}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer border-none outline-none ${
+                allowGuestAccess
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)]'
+              }`}
+            >
+              {allowGuestAccess ? 'Guests Allowed' : 'Roster Only'}
             </button>
           </div>
 

@@ -62,6 +62,9 @@ export const BatchAdminStudio: React.FC = () => {
     batchTests,
     addTestToBatchCatalog,
     getTestsForBatch,
+    globalGuestAccessMode,
+    setGlobalGuestAccessMode,
+    toggleBatchGuestAccess,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'manage_batches' | 'student_enrollments' | 'add_lecture' | 'curriculum' | 'batch_tests_authoring'>('manage_batches');
@@ -931,6 +934,49 @@ export const BatchAdminStudio: React.FC = () => {
                 </div>
 
                 <div className="flex items-center space-x-3 self-stretch md:self-auto justify-between md:justify-end flex-wrap gap-y-2">
+                  {/* Minimal Guest Access Mode Option */}
+                  <div className="flex items-center bg-[var(--md-sys-color-surface-container-high)] p-1 rounded-full text-xs font-bold">
+                    <span className="px-2 text-[10px] text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-wider hidden sm:inline">
+                      Guests:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setGlobalGuestAccessMode('specific_batches')}
+                      className={`px-2.5 py-1 rounded-full transition border-none outline-none cursor-pointer text-[10.5px] ${
+                        globalGuestAccessMode === 'specific_batches'
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+                      }`}
+                      title="Only batches specifically enabled for guests are open"
+                    >
+                      Specific Batches
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGlobalGuestAccessMode('all_batches')}
+                      className={`px-2.5 py-1 rounded-full transition border-none outline-none cursor-pointer text-[10.5px] ${
+                        globalGuestAccessMode === 'all_batches'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+                      }`}
+                      title="All active batches are open for free guest enrollment"
+                    >
+                      All Batches
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGlobalGuestAccessMode('none')}
+                      className={`px-2.5 py-1 rounded-full transition border-none outline-none cursor-pointer text-[10.5px] ${
+                        globalGuestAccessMode === 'none'
+                          ? 'bg-amber-600 text-white shadow-xs'
+                          : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+                      }`}
+                      title="Strict roster mode: no guest access"
+                    >
+                      Roster Only
+                    </button>
+                  </div>
+
                   {/* View Mode Toggle */}
                   <div className="flex items-center bg-[var(--md-sys-color-surface-container-high)] p-1 rounded-full text-xs font-bold">
                     <button
@@ -1037,13 +1083,26 @@ export const BatchAdminStudio: React.FC = () => {
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
-                            <div className="absolute top-3 left-3 flex items-center space-x-1.5">
+                            <div className="absolute top-3 left-3 flex items-center space-x-1.5 flex-wrap gap-y-1">
                               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-black/70 backdrop-blur-md text-white">
                                 {b.category}
                               </span>
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${b.isPublished ? 'bg-emerald-500/80' : 'bg-amber-500/80'}`}>
                                 {b.isPublished ? '● Active' : '○ Draft'}
                               </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleBatchGuestAccess(b.id);
+                                }}
+                                title="Click to toggle Guest Access for this batch"
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-white transition cursor-pointer border-none outline-none ${
+                                  b.allowGuestAccess ? 'bg-indigo-600/90 hover:bg-indigo-500' : 'bg-black/60 hover:bg-black/80'
+                                }`}
+                              >
+                                {b.allowGuestAccess ? '👥 Guests Open' : '🔒 Roster Only'}
+                              </button>
                             </div>
 
                             {/* Price on Image */}

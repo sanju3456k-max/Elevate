@@ -79,6 +79,11 @@ interface AppContextType {
   showSecurityToast: (msg: string) => void;
   isEnrolled: (batchId: string) => boolean;
   enrollInBatch: (batchId: string) => void;
+  enrollAsGuest: (batchId: string) => { success: boolean; message: string };
+  isGuestAllowedForBatch: (batchId: string) => boolean;
+  toggleBatchGuestAccess: (batchId: string) => Promise<void>;
+  globalGuestAccessMode: 'specific_batches' | 'all_batches' | 'none';
+  setGlobalGuestAccessMode: (mode: 'specific_batches' | 'all_batches' | 'none') => void;
   students: { id: string; name: string; email?: string; phone?: string }[];
   enrollments: BatchEnrollment[];
   batchTests: BatchTestCard[];
@@ -617,20 +622,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPersonalNotes((prev) => prev.filter((n) => n.id !== id));
   };
 
-  // 4. Bulletproof Multi-Factor Batch Enrollment Check (Zero-Leakage & Ironclad Privilege Boundary)
+  // Global Guest Access Configuration (persisted across sessions)
+  const [globalGuestAccessMode, setGlobalGuestAccessModeState] = useState<'specific_batches' | 'all_batches' | 'none'>(() => {
+    try {
+      const saved = localStorage.getItem('ELEVATE_GUEST_ACCESS_MODE');
+      if (saved === 'all_batches' || saved === 'none' || saved === 'specific_batches') {
+        return saved;
+      }
+    } catch {}
+    return 'specific_batches';
+  });
+
+  const setGlobalGuestAccessMode = (mode: 'specific_batches' | 'all_batches' | 'none') => {
+    setGlobalGuestAccessModeState(mode);
+    try {
+      localStorage.setItem('ELEVATE_GUEST_ACCESS_MODE', mode);
+    } catch {}
+    showSecurityToast(
+      mode === 'all_batches'
+        ? 'Universal Guest Access: All active batches are now open for free guest enrollment.'
+        : mode === 'specific_batches'
+        ? 'Selective Guest Access: Guests can enroll only in specific batches designated by Master Admin.'
+        : 'Strict Roster Mode: Guest enrollment disabled. All batches require Master Admin admission.'
+    );
+  };
+
+  const isGuestAllowedForBatch = (batchId: string): boolean => {
+    if (globalGuestAccessMode === 'all_batches') return true;
+    if (globalGuestAccessMode === 'none') return false;
+    const b = batches.find((x) => x.id === batchId);
+    return !!b?.allowGuestAccess;
+  };
+
+  const toggleBatchGuestAccess = async (batchId: string) => {
+    const targetBatch = batches.find((b) => b.id === batchId);
+    if (!targetBatch) return;
+    const nextState = !targetBatch.allowGuestAccess;
+    const updated = { ...targetBatch, allowGuestAccess: nextState };
+    setBatches((prev) => prev.map((b) => (b.id === batchId ? updated : b)));
+    showSecurityToast(
+      nextState
+        ? `Guest access enabled for "${targetBatch.title}". Open to all visitors.`
+        : `Guest access restricted for "${targetBatch.title}". Roster admission required.`
+    );
+    await syncBatchToFirestore(updated).catch(() => {});
+  };
+
+  // 4. Multi-Factor Batch Enrollment Check (Supports Master Admin, Enrolled Students, and Active Guest Sessions)
   const isEnrolled = (batchId: string): boolean => {
     // 1. Authenticated Master Admin always has preview and authoring rights
     if (isMasterUser(auth.currentUser) || user.role === 'admin') return true;
 
-    // 2. Unauthenticated visitors & Guest mode sessions NEVER have enrolled access to any batch
+    // 2. User has an active enrollment ID in state / localStorage (Authenticated student or guest who enrolled)
+    if (Array.isArray(user.enrolledBatchIds) && user.enrolledBatchIds.includes(batchId)) return true;
+
+    // 3. Unauthenticated visitors & Guest mode sessions that haven't enrolled yet
     if (!auth.currentUser) return false;
 
     const uEmail = (auth.currentUser.email || '').toLowerCase().trim();
     const uPhone = (auth.currentUser.phoneNumber || '').trim();
     const uUid = auth.currentUser.uid;
-
-    // 3. User must have an active cloud-synchronized enrollment
-    if (Array.isArray(user.enrolledBatchIds) && user.enrolledBatchIds.includes(batchId)) return true;
 
     return enrollments.some(
       (e) =>
@@ -642,8 +693,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const enrollAsGuest = (batchId: string) => {
+    const targetBatch = batches.find((b) => b.id === batchId);
+    if (!targetBatch) return { success: false, message: 'Batch not found' };
+
+    if (!isGuestAllowedForBatch(batchId)) {
+      showSecurityToast(`Access Denied: "${targetBatch.title}" requires Master Admin enrollment.`);
+      return { success: false, message: 'Batch requires Master Console roster admission.' };
+    }
+
+    const updatedBatchIds = Array.from(new Set([...(user.enrolledBatchIds || []), batchId]));
+    const updatedUser: User = {
+      ...user,
+      enrolledBatchIds: updatedBatchIds,
+    };
+    setUser(updatedUser);
+    try {
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
+    } catch {}
+
+    const guestId = user.id || `guest_${Date.now()}`;
+    const guestEnrollment: BatchEnrollment = {
+      id: `enr_guest_${batchId}_${guestId}`,
+      batchId,
+      userId: guestId,
+      studentName: user.name && user.name !== 'Master Admin' ? user.name : 'Guest Student',
+      studentEmail: user.email || 'guest@elevate.internal',
+      enrolledAt: new Date().toISOString().split('T')[0],
+      expiresAt: new Date(Date.now() + (targetBatch.validityDays || 365) * 86400000).toISOString().split('T')[0],
+      status: 'active',
+    };
+
+    setEnrollments((prev) => {
+      const exists = prev.some((e) => e.batchId === batchId && e.userId === guestEnrollment.userId);
+      return exists ? prev : [...prev, guestEnrollment];
+    });
+
+    showSecurityToast(`🎉 Free Guest Access Activated for "${targetBatch.title}"!`);
+    return { success: true, message: `Successfully enrolled in ${targetBatch.title} as guest.` };
+  };
+
   const enrollInBatch = (batchId: string) => {
-    showSecurityToast('Direct self-enrollment is locked. Access is strictly managed by Master Console on the official batch roster.');
+    if (isGuestAllowedForBatch(batchId)) {
+      enrollAsGuest(batchId);
+    } else {
+      showSecurityToast('Direct self-enrollment is locked. Access is strictly managed by Master Console on the official batch roster.');
+    }
   };
 
   // 5. Cloud Firestore Backed Student Enrollment
@@ -918,6 +1013,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showSecurityToast,
         isEnrolled,
         enrollInBatch,
+        enrollAsGuest,
+        isGuestAllowedForBatch,
+        toggleBatchGuestAccess,
+        globalGuestAccessMode,
+        setGlobalGuestAccessMode,
         students,
         enrollments,
         batchTests,

@@ -18,6 +18,7 @@ import {
   BookOpen,
   Lock,
   ShieldAlert,
+  Sparkles,
 } from 'lucide-react';
 import { useApp, getFacultyAvatarUrl } from '../../../lms/LmsContext';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
@@ -53,6 +54,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     updateWatchProgress,
     isEnrolled,
     enrollInBatch,
+    enrollAsGuest,
+    isGuestAllowedForBatch,
     personalNotes,
     addPersonalNote,
     deletePersonalNote,
@@ -276,6 +279,13 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
   const goToBatchFolders = (batchId: string) => {
     if (!isEnrolled(batchId)) {
+      if (isGuestAllowedForBatch(batchId)) {
+        enrollAsGuest(batchId);
+        setSelectedBatchId(batchId);
+        window.history.pushState({ stage: 'batch_folders', batchId }, '');
+        setCurrentStage('batch_folders');
+        return;
+      }
       const bTitle = batches.find((b) => b.id === batchId)?.title || 'this batch';
       showSecurityToast(`Access Denied: You are not enrolled in "${bTitle}". Access is restricted to students on the official roster.`);
       return;
@@ -421,6 +431,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                         <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
                         <span>Full Access</span>
                       </div>
+                    ) : isGuestAllowedForBatch(b.id) ? (
+                      <div className="flex items-center space-x-1 text-[10px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full">
+                        <Sparkles className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
+                        <span>Guest Open</span>
+                      </div>
                     ) : (
                       <div className="flex items-center space-x-1 text-[10px] sm:text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full">
                         <Lock className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
@@ -432,6 +447,19 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                       <button className="m3-btn-filled px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold flex items-center space-x-1 border-none outline-none cursor-pointer">
                         <span>Continue</span>
                         <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    ) : isGuestAllowedForBatch(b.id) ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          enrollAsGuest(b.id);
+                          setSelectedBatchId(b.id);
+                          setCurrentStage('batch_folders');
+                        }}
+                        className="m3-btn-filled px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold flex items-center space-x-1 bg-indigo-600 text-white border-none outline-none cursor-pointer shadow-xs hover:opacity-95"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Free Access</span>
                       </button>
                     ) : (
                       <button
@@ -477,6 +505,70 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
      ========================================================================= */
   if (currentStage !== 'batch_list' && !isEnrolled(selectedBatchId)) {
     const targetBatch = batches.find((b) => b.id === selectedBatchId) || batches[0];
+    const isGuestOpen = isGuestAllowedForBatch(selectedBatchId);
+
+    if (isGuestOpen) {
+      return (
+        <div className="space-y-6 pb-24 md:pb-16 max-w-2xl mx-auto m3-transition-enter pt-6">
+          <div className="flex items-center pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
+            <button
+              onClick={() => setCurrentStage('batch_list')}
+              className="flex items-center space-x-1 text-xs sm:text-sm font-bold text-[var(--md-sys-color-primary)] hover:underline border-none bg-transparent cursor-pointer p-0"
+            >
+              <ChevronLeft className="w-5 h-5 -ml-1" />
+              <span>Back to Batches Catalog</span>
+            </button>
+          </div>
+
+          <div className="p-8 sm:p-12 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl space-y-5 border border-indigo-500/20 shadow-xs">
+            <div className="w-16 h-16 rounded-full bg-indigo-500/10 text-indigo-500 mx-auto flex items-center justify-center">
+              <Sparkles className="w-8 h-8" />
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-extrabold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500">
+                Guest Access Open
+              </span>
+              <h2 className="text-xl sm:text-2xl font-extrabold text-[var(--md-sys-color-on-surface)]">
+                Unlock {targetBatch?.title || 'Batch'}
+              </h2>
+              <p className="text-xs sm:text-sm text-[var(--md-sys-color-on-surface-variant)] max-w-lg mx-auto leading-relaxed">
+                This batch has been supplemented with free guest access. You can immediately access all video lectures, chapter notes, and mock tests with one click.
+              </p>
+            </div>
+
+            <div className="p-4 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl max-w-md mx-auto text-xs text-[var(--md-sys-color-on-surface-variant)] space-y-1">
+              <p className="font-semibold text-[var(--md-sys-color-on-surface)]">
+                Current Session: <span className="font-bold text-[var(--md-sys-color-primary)]">{user.email || 'Guest Mode (Unauthenticated)'}</span>
+              </p>
+              <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                No credit card or formal admission required. Your learning progress is saved locally.
+              </p>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                onClick={() => {
+                  enrollAsGuest(selectedBatchId);
+                  setCurrentStage('batch_folders');
+                }}
+                className="m3-btn-filled px-6 py-2.5 text-xs font-bold rounded-full border-none cursor-pointer flex items-center space-x-1.5 bg-indigo-600 text-white shadow-md hover:bg-indigo-700"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Start Learning (Free Guest Access)</span>
+              </button>
+              <button
+                onClick={() => setCurrentStage('batch_list')}
+                className="m3-btn-tonal px-5 py-2.5 text-xs font-bold rounded-full border-none cursor-pointer"
+              >
+                Return to Batches
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-6 pb-24 md:pb-16 max-w-2xl mx-auto m3-transition-enter pt-6">
         <div className="flex items-center pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">

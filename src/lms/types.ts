@@ -94,6 +94,7 @@ export interface Batch {
   rating: number;
   enrolledStudentsCount: number;
   isPublished: boolean;
+  allowGuestAccess?: boolean; // When true, guest visitors can access and self-enroll in this batch
 }
 
 export interface WatchProgress {

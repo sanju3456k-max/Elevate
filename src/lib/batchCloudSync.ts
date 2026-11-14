@@ -165,6 +165,7 @@ export async function fetchBatchesFromFirestore(): Promise<Batch[]> {
           rating: Number(data.rating) || 5.0,
           enrolledStudentsCount: Number(data.enrolledStudentsCount) || 0,
           isPublished: data.isPublished !== false,
+          allowGuestAccess: !!data.allowGuestAccess,
         });
       });
       return cloudBatches;
