@@ -185,6 +185,21 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     }, duration);
   }, []);
 
+  // Safe helper to interact with YouTube player instance without risking widgetapi postMessage / unmounted iframe crashes
+  const safeCallPlayer = useCallback((action: (player: any) => void) => {
+    try {
+      const p = playerRef.current;
+      if (!p) return;
+      if (typeof p.getIframe === 'function') {
+        const iframe = p.getIframe();
+        if (!iframe || !iframe.src) return;
+      }
+      action(p);
+    } catch {
+      // Safely swallow any widgetapi postMessage / unmounted iframe errors
+    }
+  }, []);
+
   const rawVideoId = deobfuscateVideoKey(encryptedVideoId);
   const safeVideoId =
     extractYouTubeId(rawVideoId) ||
@@ -284,16 +299,16 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     const cleanup = initDevToolsDetector((isOpen) => {
       setIsDevToolsOpen(isOpen);
       if (isOpen) {
-        if (playerRef.current && playerRef.current.pauseVideo) {
-          playerRef.current.pauseVideo();
-          setIsPlaying(false);
-        }
+        safeCallPlayer((p) => {
+          if (p.pauseVideo) {
+            p.pauseVideo();
+            setIsPlaying(false);
+          }
+        });
       }
     });
     return cleanup;
-  }, []);
-
-
+  }, [safeCallPlayer]);
 
   // Load YouTube IFrame API once
   useEffect(() => {
@@ -307,29 +322,33 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
   // Handle external seek requests (e.g. clicking a timestamped personal note or milestone)
   useEffect(() => {
-    if (seekToSeconds !== undefined && seekToSeconds !== null && playerRef.current && playerRef.current.seekTo) {
-      playerRef.current.seekTo(seekToSeconds, true);
-      playerRef.current.playVideo();
-      setIsPlaying(true);
-      setCurrentTime(seekToSeconds);
-      showNoticeWithDecay(`Jumped to ${formatDuration(seekToSeconds)}`, 5000);
+    if (seekToSeconds !== undefined && seekToSeconds !== null && isPlayerReady) {
+      safeCallPlayer((p) => {
+        if (typeof p.seekTo === 'function') {
+          p.seekTo(seekToSeconds, true);
+          p.playVideo?.();
+          setIsPlaying(true);
+          setCurrentTime(seekToSeconds);
+          showNoticeWithDecay(`Jumped to ${formatDuration(seekToSeconds)}`, 5000);
+        }
+      });
     }
-  }, [seekToSeconds]);
+  }, [seekToSeconds, isPlayerReady, safeCallPlayer, showNoticeWithDecay]);
 
   // Synchronize external play/pause state (e.g. from YouTube MiniPlayer controls)
   useEffect(() => {
-    if (isPlayingProp !== undefined && playerRef.current) {
-      try {
-        if (isPlayingProp && playerRef.current.playVideo) {
-          playerRef.current.playVideo();
+    if (isPlayingProp !== undefined) {
+      safeCallPlayer((p) => {
+        if (isPlayingProp && p.playVideo) {
+          p.playVideo();
           setIsPlaying(true);
-        } else if (!isPlayingProp && playerRef.current.pauseVideo) {
-          playerRef.current.pauseVideo();
+        } else if (!isPlayingProp && p.pauseVideo) {
+          p.pauseVideo();
           setIsPlaying(false);
         }
-      } catch {}
+      });
     }
-  }, [isPlayingProp]);
+  }, [isPlayingProp, safeCallPlayer]);
 
   // Initialize or re-create player with high definition rendering
   useEffect(() => {
@@ -353,6 +372,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           playerRef.current.destroy();
         }
       } catch {}
+      playerRef.current = null;
+      setIsPlayerReady(false);
 
       try {
         playerRef.current = new window.YT.Player(playerContainerId.current, {
@@ -445,32 +466,34 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
     return () => {
       if (checkInterval) clearInterval(checkInterval);
-      if (playerRef.current && typeof playerRef.current.destroy === 'function') {
-        playerRef.current.destroy();
-      }
+      setIsPlayerReady(false);
+      try {
+        if (playerRef.current && typeof playerRef.current.destroy === 'function') {
+          playerRef.current.destroy();
+        }
+      } catch {}
+      playerRef.current = null;
     };
   }, [rawVideoId, authStatus]);
 
   // Update current time every 500ms when playing
   useEffect(() => {
     let timer: any = null;
-    if (isPlaying && playerRef.current) {
+    if (isPlaying) {
       timer = setInterval(() => {
-        try {
-          if (playerRef.current.getCurrentTime) {
-            const curr = playerRef.current.getCurrentTime() || 0;
-            const dur = playerRef.current.getDuration() || duration;
+        safeCallPlayer((p) => {
+          if (p.getCurrentTime) {
+            const curr = p.getCurrentTime() || 0;
+            const dur = p.getDuration ? (p.getDuration() || duration) : duration;
             setCurrentTime(curr);
             if (dur && dur !== duration) setDuration(dur);
             if (onProgress) onProgress(curr, dur);
           }
-        } catch {
-          // ignore transient API errors
-        }
+        });
       }, 500);
     }
     return () => clearInterval(timer);
-  }, [isPlaying, duration, onProgress]);
+  }, [isPlaying, duration, onProgress, safeCallPlayer]);
 
   // YouTube-style Double-tap to seek (10s Rewind on Left, 10s Forward on Right)
   const handleTap = (side: 'left' | 'right') => {
@@ -532,9 +555,11 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   const handleStartPlayback = () => {
     setIsBufferingOrStarting(true);
     showControlsForDuration(5000);
-    if (playerRef.current && playerRef.current.playVideo) {
-      playerRef.current.playVideo();
-    }
+    safeCallPlayer((p) => {
+      if (p.playVideo) {
+        p.playVideo();
+      }
+    });
   };
 
   const handlePlay = () => {
@@ -542,23 +567,27 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       handleStartPlayback();
       return;
     }
-    if (playerRef.current && playerRef.current.playVideo) {
-      playerRef.current.playVideo();
-      setIsPlaying(true);
-      showControlsForDuration(5000);
-    }
+    safeCallPlayer((p) => {
+      if (p.playVideo) {
+        p.playVideo();
+        setIsPlaying(true);
+        showControlsForDuration(5000);
+      }
+    });
   };
 
   const handlePause = () => {
-    if (playerRef.current && playerRef.current.pauseVideo) {
-      playerRef.current.pauseVideo();
-      setIsPlaying(false);
-      if (controlsTimeoutRef.current) {
-        clearTimeout(controlsTimeoutRef.current);
-        controlsTimeoutRef.current = null;
+    safeCallPlayer((p) => {
+      if (p.pauseVideo) {
+        p.pauseVideo();
+        setIsPlaying(false);
+        if (controlsTimeoutRef.current) {
+          clearTimeout(controlsTimeoutRef.current);
+          controlsTimeoutRef.current = null;
+        }
+        setIsControlsVisible(true);
       }
-      setIsControlsVisible(true);
-    }
+    });
   };
 
   const togglePlay = () => {
@@ -576,24 +605,30 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const targetTime = parseFloat(e.target.value);
     setCurrentTime(targetTime);
-    if (playerRef.current && playerRef.current.seekTo) {
-      playerRef.current.seekTo(targetTime, true);
-    }
+    safeCallPlayer((p) => {
+      if (p.seekTo) {
+        p.seekTo(targetTime, true);
+      }
+    });
   };
 
   const handleSkip = (seconds: number) => {
-    if (playerRef.current && playerRef.current.getCurrentTime) {
-      const nextTime = Math.min(Math.max(0, playerRef.current.getCurrentTime() + seconds), duration);
-      playerRef.current.seekTo(nextTime, true);
-      setCurrentTime(nextTime);
-    }
+    safeCallPlayer((p) => {
+      if (p.getCurrentTime && p.seekTo) {
+        const nextTime = Math.min(Math.max(0, p.getCurrentTime() + seconds), duration);
+        p.seekTo(nextTime, true);
+        setCurrentTime(nextTime);
+      }
+    });
   };
 
   const handleSpeedChange = (speed: number) => {
     setPlaybackSpeed(speed);
-    if (playerRef.current && playerRef.current.setPlaybackRate) {
-      playerRef.current.setPlaybackRate(speed);
-    }
+    safeCallPlayer((p) => {
+      if (p.setPlaybackRate) {
+        p.setPlaybackRate(speed);
+      }
+    });
     setOptionsMenuOpen(false);
   };
 
@@ -602,38 +637,34 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     setCurrentQuality(q.label);
     selectedQualityRef.current = q.label;
 
-    if (playerRef.current) {
-      try {
-        const p = playerRef.current;
-        if (q.label === 'Auto') {
-          // Reset to YouTube's automatic adaptive network streaming
-          if (p.setPlaybackQuality) {
-            p.setPlaybackQuality('default');
-          }
-          if (p.setPlaybackQualityRange) {
-            p.setPlaybackQualityRange('default', 'highres');
-          }
-        } else {
-          // Manually enforce selected target resolution
-          if (p.setPlaybackQualityRange) {
-            p.setPlaybackQualityRange(q.value, q.value);
-          }
-          if (p.setPlaybackQuality) {
-            p.setPlaybackQuality(q.value);
-          }
+    safeCallPlayer((p) => {
+      if (q.label === 'Auto') {
+        // Reset to YouTube's automatic adaptive network streaming
+        if (p.setPlaybackQuality) {
+          p.setPlaybackQuality('default');
         }
-
-        // Trigger YouTube DASH engine to flush buffer and re-fetch chunks immediately in new quality
-        if (p.getCurrentTime && p.seekTo) {
-          const curr = p.getCurrentTime();
-          if (curr > 0) {
-            p.seekTo(curr, true);
-          }
+        if (p.setPlaybackQualityRange) {
+          p.setPlaybackQualityRange('default', 'highres');
         }
-      } catch (err) {
-        console.warn('Quality switch error:', err);
+      } else {
+        // Manually enforce selected target resolution
+        if (p.setPlaybackQualityRange) {
+          p.setPlaybackQualityRange(q.value, q.value);
+        }
+        if (p.setPlaybackQuality) {
+          p.setPlaybackQuality(q.value);
+        }
       }
-    }
+
+      // Trigger YouTube DASH engine to flush buffer and re-fetch chunks immediately in new quality
+      if (p.getCurrentTime && p.seekTo) {
+        const curr = p.getCurrentTime();
+        if (curr > 0) {
+          p.seekTo(curr, true);
+        }
+      }
+    });
+
     setOptionsMenuOpen(false);
     setSecurityNotice(q.label === 'Auto' ? 'Quality: Auto (Network)' : `Quality: ${q.label}`);
     setTimeout(() => setSecurityNotice(null), 2500);
@@ -644,28 +675,24 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     const nextState = !captionsEnabled;
     setCaptionsEnabled(nextState);
 
-    if (playerRef.current) {
-      try {
-        if (nextState) {
-          if (playerRef.current.loadModule) {
-            playerRef.current.loadModule('captions');
-          }
-          if (playerRef.current.setOption) {
-            playerRef.current.setOption('captions', 'track', { languageCode: 'en' });
-            playerRef.current.setOption('captions', 'reload', true);
-          }
-        } else {
-          if (playerRef.current.unloadModule) {
-            playerRef.current.unloadModule('captions');
-          }
-          if (playerRef.current.setOption) {
-            playerRef.current.setOption('captions', 'track', {});
-          }
+    safeCallPlayer((p) => {
+      if (nextState) {
+        if (p.loadModule) {
+          p.loadModule('captions');
         }
-      } catch {
-        // ignore iframe restriction
+        if (p.setOption) {
+          p.setOption('captions', 'track', { languageCode: 'en' });
+          p.setOption('captions', 'reload', true);
+        }
+      } else {
+        if (p.unloadModule) {
+          p.unloadModule('captions');
+        }
+        if (p.setOption) {
+          p.setOption('captions', 'track', {});
+        }
       }
-    }
+    });
 
     showNoticeWithDecay(nextState ? 'Subtitles / Captions Enabled' : 'Subtitles Disabled', 5000);
   };
@@ -673,28 +700,31 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseInt(e.target.value, 10);
     setVolume(val);
-    if (playerRef.current && playerRef.current.setVolume) {
-      playerRef.current.setVolume(val);
-      if (val === 0) {
-        setIsMuted(true);
-        playerRef.current.mute();
-      } else if (isMuted) {
-        setIsMuted(false);
-        playerRef.current.unMute();
+    safeCallPlayer((p) => {
+      if (p.setVolume) {
+        p.setVolume(val);
+        if (val === 0) {
+          setIsMuted(true);
+          p.mute?.();
+        } else if (isMuted) {
+          setIsMuted(false);
+          p.unMute?.();
+        }
       }
-    }
+    });
   };
 
   const toggleMute = () => {
-    if (!playerRef.current) return;
-    if (isMuted) {
-      playerRef.current.unMute();
-      setIsMuted(false);
-      playerRef.current.setVolume(volume || 50);
-    } else {
-      playerRef.current.mute();
-      setIsMuted(true);
-    }
+    safeCallPlayer((p) => {
+      if (isMuted) {
+        p.unMute?.();
+        setIsMuted(false);
+        p.setVolume?.(volume || 50);
+      } else {
+        p.mute?.();
+        setIsMuted(true);
+      }
+    });
   };
 
   // Fullscreen & Screen Orientation Management (Auto landscape in fullscreen)
@@ -835,11 +865,13 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         e.preventDefault();
         setVolume((prev) => {
           const next = Math.min(100, prev + 10);
-          if (playerRef.current?.setVolume) playerRef.current.setVolume(next);
-          if (isMuted) {
-            setIsMuted(false);
-            playerRef.current?.unMute();
-          }
+          safeCallPlayer((p) => {
+            if (p.setVolume) p.setVolume(next);
+            if (isMuted) {
+              setIsMuted(false);
+              p.unMute?.();
+            }
+          });
           return next;
         });
         showNoticeWithDecay('Volume Up', 2000);
@@ -847,7 +879,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         e.preventDefault();
         setVolume((prev) => {
           const next = Math.max(0, prev - 10);
-          if (playerRef.current?.setVolume) playerRef.current.setVolume(next);
+          safeCallPlayer((p) => {
+            if (p.setVolume) p.setVolume(next);
+          });
           return next;
         });
         showNoticeWithDecay('Volume Down', 2000);
@@ -1144,12 +1178,14 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                   key={m.id}
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (playerRef.current?.seekTo) {
-                      playerRef.current.seekTo(m.seconds, true);
-                      playerRef.current.playVideo();
-                      setIsPlaying(true);
-                      setCurrentTime(m.seconds);
-                    }
+                    safeCallPlayer((p) => {
+                      if (p.seekTo) {
+                        p.seekTo(m.seconds, true);
+                        p.playVideo?.();
+                        setIsPlaying(true);
+                        setCurrentTime(m.seconds);
+                      }
+                    });
                   }}
                   className={`px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap transition flex items-center space-x-1 border-none outline-none cursor-pointer ${
                     isPassed
