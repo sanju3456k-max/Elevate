@@ -1788,6 +1788,9 @@ export default function App() {
                   id="persistent-nav-batches"
                   type="button"
                   onClick={() => {
+                    setSelectedBatchId(null);
+                    setSelectedLectureId(null);
+                    setBatchesFilter('all');
                     setActiveTab('batches');
                   }}
                   className={`px-4.5 py-2.5 rounded-full text-xs font-bold transition flex items-center space-x-2 whitespace-nowrap border-none outline-none cursor-pointer active:scale-98 ${
@@ -1864,6 +1867,9 @@ export default function App() {
                   id="mobile-nav-batches"
                   type="button"
                   onClick={() => {
+                    setSelectedBatchId(null);
+                    setSelectedLectureId(null);
+                    setBatchesFilter('all');
                     setActiveTab('batches');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
@@ -2005,7 +2011,12 @@ export default function App() {
               isLoadingMoreTests={isLoadingMoreTests}
               onLoadMoreTests={handleLoadMoreTests}
               onOpenBulkPrint={() => setActiveTab('bulk-print')}
-              onOpenBatches={() => setActiveTab('batches')}
+              onOpenBatches={() => {
+                setSelectedBatchId(null);
+                setSelectedLectureId(null);
+                setBatchesFilter('all');
+                setActiveTab('batches');
+              }}
             />
           )}
 

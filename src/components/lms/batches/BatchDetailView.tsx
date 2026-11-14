@@ -78,7 +78,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   // Stage Navigation: 'batch_list' | 'batch_folders' | 'folder_content' | 'lecture_view'
   const [currentStage, setCurrentStage] = useState<'batch_list' | 'batch_folders' | 'folder_content' | 'lecture_view'>(() => {
     if (initialLectureId) return 'lecture_view';
-    return 'batch_list'; // Start with only batch list as requested
+    if (propBatchId) return 'batch_folders';
+    return 'batch_list'; // Start with only batch list when no specific batch is selected
   });
 
   // Inside Folder Tab: 'videos' | 'notes_content'
@@ -100,8 +101,13 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   React.useEffect(() => {
     if (propBatchId) {
       setSelectedBatchId(propBatchId);
+      if (!initialLectureId) {
+        setCurrentStage('batch_folders');
+      }
+    } else {
+      setCurrentStage('batch_list');
     }
-  }, [propBatchId]);
+  }, [propBatchId, initialLectureId]);
 
   React.useEffect(() => {
     if (selectedBatchId) {

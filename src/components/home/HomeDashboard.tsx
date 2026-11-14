@@ -283,14 +283,10 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const handleSelectBatchItem = (batchId: string) => {
     setActiveBatchId(batchId);
     setActiveLectureId(null);
-    if (!isEnrolled(batchId)) {
-      onOpenBatches('all');
-      return;
-    }
     if (onSelectBatch) {
       onSelectBatch(batchId);
     } else {
-      onOpenBatches('my-batches');
+      onOpenBatches('all');
     }
   };
 
