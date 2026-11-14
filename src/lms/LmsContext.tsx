@@ -440,14 +440,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateBatch = async (id: string, updated: Partial<Batch>) => {
+    let targetToSync: Batch | null = null;
     setBatches((prev) => {
-      const next = prev.map((b) => (b.id === id ? { ...b, ...updated } : b));
-      const target = next.find((b) => b.id === id);
-      if (target) {
-        syncBatchToFirestore(target).catch(() => {});
-      }
+      const next = prev.map((b) => {
+        if (b.id === id) {
+          const merged = { ...b, ...updated };
+          targetToSync = merged;
+          return merged;
+        }
+        return b;
+      });
       return next;
     });
+
+    try {
+      const batchRef = doc(db, 'batches', id);
+      await updateDoc(batchRef, {
+        ...updated,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch {
+      if (targetToSync) {
+        await syncBatchToFirestore(targetToSync).catch(() => {});
+      }
+    }
   };
 
   const deleteBatch = async (id: string) => {

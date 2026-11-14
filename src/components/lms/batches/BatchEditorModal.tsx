@@ -325,7 +325,10 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
           </div>
 
           {/* Guest Access Option Toggle */}
-          <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[var(--md-sys-color-surface-container-high)]">
+          <div 
+            onClick={() => setAllowGuestAccess(!allowGuestAccess)}
+            className="flex items-center justify-between p-3.5 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] cursor-pointer hover:bg-[var(--md-sys-color-surface-container-highest)]/80 transition select-none"
+          >
             <div className="flex items-center space-x-2.5">
               <Users className={`w-4 h-4 ${allowGuestAccess ? 'text-indigo-500' : 'text-slate-400'}`} />
               <div>
@@ -341,14 +344,17 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
             </div>
             <button
               type="button"
-              onClick={() => setAllowGuestAccess(!allowGuestAccess)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer border-none outline-none ${
+              onClick={(e) => {
+                e.stopPropagation();
+                setAllowGuestAccess(!allowGuestAccess);
+              }}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer border-none outline-none shadow-xs active:scale-95 flex items-center space-x-1 ${
                 allowGuestAccess
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)]'
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  : 'bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
               }`}
             >
-              {allowGuestAccess ? 'Guests Allowed' : 'Roster Only'}
+              <span>{allowGuestAccess ? '👥 Guests Allowed' : '🔒 Roster Only'}</span>
             </button>
           </div>
 
