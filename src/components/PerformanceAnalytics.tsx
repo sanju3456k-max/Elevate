@@ -47,6 +47,7 @@ import { getLocalLeaderboardEntries, fetchTestLeaderboard } from '../lib/firebas
 import { TestReportAnalysisView } from './TestReportAnalysisView';
 import { APP_STYLES } from './ui/AppStyles';
 import { useApp } from '../lms/LmsContext';
+import { useBackHandler } from '../hooks/useBackNavigation';
 
 export interface PerformanceAnalyticsProps {
   attempts: TestAttempt[];
@@ -535,7 +536,21 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
     return Object.keys(aggregatedStats.topicStats);
   }, [aggregatedStats.topicStats]);
 
-  const handleBack = onNavigateToTests || onBack;
+  const handleBack = onBack || onNavigateToTests;
+
+  // Intercept browser and system back gestures to return to Home
+  useBackHandler({
+    isOpen: Boolean(handleBack),
+    priority: 10,
+    id: 'performance_analytics_back',
+    onBack: () => {
+      if (onBack) {
+        onBack();
+      } else if (onNavigateToTests) {
+        onNavigateToTests();
+      }
+    }
+  });
 
   // Ensure view resets scroll position to top on mount
   React.useEffect(() => {
@@ -575,10 +590,10 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
           <div className="flex items-center gap-2">
             {handleBack && (
               <button
-                id="back-to-tests-btn"
+                id="back-to-home-btn"
                 onClick={handleBack}
                 className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all active:scale-95 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] border-0 ring-0 cursor-pointer shrink-0 outline-none"
-                title="Back to Tests Library"
+                title="Back to Home"
               >
                 <ArrowLeft className="w-4 h-4 text-[#1f1f1f] dark:text-[#e3e3e3]" />
               </button>
@@ -604,16 +619,22 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
             </button>
           )}
 
-          {handleBack && (
-            <button
-              id="analytics-take-test-btn"
-              onClick={handleBack}
-              className="h-9 px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold shadow-[0_2px_6px_rgba(11,87,208,0.25)] border-0 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer outline-none shrink-0"
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>Practice Tests</span>
-            </button>
-          )}
+          <button
+            id="analytics-take-test-btn"
+            onClick={() => {
+              if (onNavigateTab) {
+                onNavigateTab('tests');
+              } else if (onNavigateToTests) {
+                onNavigateToTests();
+              } else if (handleBack) {
+                handleBack();
+              }
+            }}
+            className="h-9 px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold shadow-[0_2px_6px_rgba(11,87,208,0.25)] border-0 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer outline-none shrink-0"
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Practice Tests</span>
+          </button>
         </div>
       </div>
 

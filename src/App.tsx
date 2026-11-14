@@ -2178,8 +2178,8 @@ export default function App() {
             isLoadingMoreAttempts={isLoadingMoreAttempts}
             onViewAttemptResult={handleViewAttemptResult}
             onRetakeTest={handleRetakeTestFromId}
-            onNavigateToTests={() => goBack()}
-            onBack={() => goBack()}
+            onNavigateToTests={() => setActiveTab('tests')}
+            onBack={() => setActiveTab('home')}
             onOpenCustomBuilder={() => setActiveTab('custom-builder')}
             onSignIn={handleSignIn}
             onGenerateThetaCourse={(prompt) => {
@@ -2205,8 +2205,8 @@ export default function App() {
                 onDeleteTest={handleDeleteTest}
                 onStartTest={handleStartTest}
                 onEditTest={handleEditTest}
-                onNavigateTab={(tab) => setActiveTab(tab as ActiveTab)}
-                onBack={() => goBack()}
+                onNavigateTab={(tab) => setActiveTab((tab as ActiveTab) || 'home')}
+                onBack={() => setActiveTab('home')}
               />
             </div>
           )}

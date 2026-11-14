@@ -34,6 +34,7 @@ import {
   Grid,
   List,
   Home,
+  Clock,
 } from 'lucide-react';
 import { useApp, getFacultyAvatarUrl } from '../../../lms/LmsContext';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
@@ -170,11 +171,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   // Image preview modal state
   const [previewImage, setPreviewImage] = useState<{ title: string; url: string } | null>(null);
 
-  // Live video player bookmarking
+  // Live video player notes
   const [currentPlaybackSec, setCurrentPlaybackSec] = useState<number>(0);
   const [activeSeekSeconds, setActiveSeekSeconds] = useState<number | null>(null);
   const [noteInputText, setNoteInputText] = useState('');
-  const [lectureTab, setLectureTab] = useState<'personal_notes' | 'milestones' | 'notes_content'>('personal_notes');
 
   useEffect(() => {
     onStageChange?.(currentStage as any);
@@ -369,7 +369,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       text: noteInputText.trim(),
     });
     setNoteInputText('');
-    showSecurityToast(`Bookmark saved at ${formatDuration(currentPlaybackSec)}`);
+    showSecurityToast(`Note saved at ${formatDuration(currentPlaybackSec)}`);
   };
 
   /* =========================================================================
@@ -1395,173 +1395,101 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Interactive Tabs (Bookmarks, Milestones, Notes) */}
+        {/* RIGHT COLUMN: Lecture Notes (Type & Save Notes with Video Timestamp) */}
         <div className="lg:col-span-4 px-3.5 sm:px-0 space-y-4">
           <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs space-y-4">
-            <div className="flex items-center space-x-1 p-1 bg-[var(--md-sys-color-surface-container-high)] rounded-full text-xs font-bold">
-              <button
-                type="button"
-                onClick={() => setLectureTab('personal_notes')}
-                className={`flex-1 py-1.5 rounded-full transition border-none cursor-pointer ${
-                  lectureTab === 'personal_notes'
-                    ? 'bg-[var(--md-sys-color-surface)] text-[var(--md-sys-color-primary)] shadow-xs'
-                    : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)] bg-transparent'
-                }`}
-              >
-                Bookmarks
-              </button>
-              <button
-                type="button"
-                onClick={() => setLectureTab('milestones')}
-                className={`flex-1 py-1.5 rounded-full transition border-none cursor-pointer ${
-                  lectureTab === 'milestones'
-                    ? 'bg-[var(--md-sys-color-surface)] text-[var(--md-sys-color-primary)] shadow-xs'
-                    : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)] bg-transparent'
-                }`}
-              >
-                Timelines
-              </button>
-              <button
-                type="button"
-                onClick={() => setLectureTab('notes_content')}
-                className={`flex-1 py-1.5 rounded-full transition border-none cursor-pointer ${
-                  lectureTab === 'notes_content'
-                    ? 'bg-[var(--md-sys-color-surface)] text-[var(--md-sys-color-primary)] shadow-xs'
-                    : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)] bg-transparent'
-                }`}
-              >
-                DPP ({activeLecture.pdfNotes?.length || 0})
-              </button>
-            </div>
-
-            {/* Bookmarks Tab */}
-            {lectureTab === 'personal_notes' && (
-              <div className="space-y-3">
-                <form onSubmit={handleCreateNote} className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      value={noteInputText}
-                      onChange={(e) => setNoteInputText(e.target.value)}
-                      placeholder={`Add bookmark at ${formatDuration(currentPlaybackSec)}...`}
-                      className="flex-1 px-3 py-2 rounded-xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs text-[var(--md-sys-color-on-surface)] focus:outline-hidden"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!noteInputText.trim()}
-                      className="px-3.5 py-2 rounded-xl bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] text-xs font-bold border-none cursor-pointer disabled:opacity-50 shrink-0"
-                    >
-                      Save
-                    </button>
-                  </div>
-                </form>
-
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                  {personalNotes.filter((n) => n.lectureId === activeLecture.id).length === 0 ? (
-                    <p className="text-center text-xs text-[var(--md-sys-color-on-surface-variant)] py-4">
-                      No bookmarks saved yet. Use the input above to capture timestamps.
-                    </p>
-                  ) : (
-                    personalNotes
-                      .filter((n) => n.lectureId === activeLecture.id)
-                      .map((note) => (
-                        <div
-                          key={note.id}
-                          className="p-2.5 rounded-xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/20 flex items-start justify-between gap-2"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <button
-                              type="button"
-                              onClick={() => setActiveSeekSeconds(note.seconds)}
-                              className="font-mono font-bold text-[11px] text-[var(--md-sys-color-primary)] hover:underline border-none bg-transparent cursor-pointer p-0"
-                            >
-                              {formatDuration(note.seconds)}
-                            </button>
-                            <p className="text-xs text-[var(--md-sys-color-on-surface)] break-words mt-0.5">
-                              {note.text}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => deletePersonalNote(note.id)}
-                            className="p-1 text-slate-400 hover:text-rose-500 border-none bg-transparent cursor-pointer shrink-0"
-                            title="Delete Bookmark"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))
-                  )}
+            {/* Header: Title, Count, & Live Timestamp */}
+            <div className="flex items-center justify-between pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] flex items-center justify-center">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] leading-tight">
+                    Lecture Notes
+                  </h2>
+                  <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                    Save key takeaways at timestamps
+                  </p>
                 </div>
               </div>
-            )}
 
-            {/* Milestones Tab */}
-            {lectureTab === 'milestones' && (
-              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                {(activeLecture.milestones || []).length === 0 ? (
-                  <p className="text-center text-xs text-[var(--md-sys-color-on-surface-variant)] py-4">
-                    No milestone chapters tagged for this lecture.
-                  </p>
-                ) : (
-                  (activeLecture.milestones || []).map((m) => (
-                    <div
-                      key={m.id}
-                      onClick={() => setActiveSeekSeconds(m.seconds)}
-                      className="p-2.5 rounded-xl bg-[var(--md-sys-color-surface)] hover:bg-[var(--md-sys-color-surface-container-high)] cursor-pointer transition border border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between"
-                    >
-                      <div className="min-w-0 flex-1 pr-2">
-                        <p className="text-xs font-bold text-[var(--md-sys-color-on-surface)] truncate">
-                          {m.title}
-                        </p>
-                        {m.description && (
-                          <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate">
-                            {m.description}
-                          </p>
-                        )}
-                      </div>
-                      <span className="font-mono text-xs font-bold text-[var(--md-sys-color-primary)] shrink-0">
-                        {formatDuration(m.seconds)}
-                      </span>
-                    </div>
-                  ))
-                )}
+              <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-primary)] font-mono text-xs font-bold">
+                <Clock className="w-3.5 h-3.5" />
+                <span>{formatDuration(currentPlaybackSec)}</span>
               </div>
-            )}
+            </div>
 
-            {/* Attached DPP / Notes Tab */}
-            {lectureTab === 'notes_content' && (
-              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                {(activeLecture.pdfNotes || []).length === 0 ? (
-                  <p className="text-center text-xs text-[var(--md-sys-color-on-surface-variant)] py-4">
-                    No PDF handouts directly attached to this video.
+            {/* Note Input Box & Save Button */}
+            <form onSubmit={handleCreateNote} className="space-y-2">
+              <textarea
+                rows={2}
+                value={noteInputText}
+                onChange={(e) => setNoteInputText(e.target.value)}
+                placeholder={`Type your note here at ${formatDuration(currentPlaybackSec)}...`}
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs text-[var(--md-sys-color-on-surface)] placeholder:text-[var(--md-sys-color-on-surface-variant)]/60 resize-none focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition"
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                  Click timestamp to seek video
+                </span>
+                <button
+                  type="submit"
+                  disabled={!noteInputText.trim()}
+                  className="px-4 py-2 rounded-xl bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] text-xs font-bold border-none cursor-pointer disabled:opacity-50 flex items-center space-x-1.5 hover:opacity-95 active:scale-95 transition shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Save Note</span>
+                </button>
+              </div>
+            </form>
+
+            {/* Saved Notes List */}
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {personalNotes.filter((n) => n.lectureId === activeLecture.id).length === 0 ? (
+                <div className="p-6 text-center rounded-2xl bg-[var(--md-sys-color-surface)]/60 border border-[var(--md-sys-color-outline-variant)]/10 space-y-1.5">
+                  <FileText className="w-6 h-6 mx-auto text-[var(--md-sys-color-outline)] opacity-50" />
+                  <p className="text-xs font-semibold text-[var(--md-sys-color-on-surface)]">
+                    No notes yet
                   </p>
-                ) : (
-                  (activeLecture.pdfNotes || []).map((note) => (
+                  <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] max-w-xs mx-auto">
+                    Type your thoughts or key concepts above and save them at any video timestamp.
+                  </p>
+                </div>
+              ) : (
+                personalNotes
+                  .filter((n) => n.lectureId === activeLecture.id)
+                  .map((note) => (
                     <div
                       key={note.id}
-                      className="p-2.5 rounded-xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between gap-2"
+                      className="p-3 rounded-2xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/20 flex items-start justify-between gap-2.5 transition hover:shadow-xs"
                     >
-                      <div className="flex items-center space-x-2 min-w-0 flex-1">
-                        <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)] truncate">
-                          {note.title}
-                        </span>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <button
+                          type="button"
+                          onClick={() => setActiveSeekSeconds(note.seconds)}
+                          className="inline-flex items-center space-x-1 font-mono font-bold text-[11px] px-2 py-0.5 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] hover:opacity-85 border-none cursor-pointer"
+                          title="Seek video to this timestamp"
+                        >
+                          <Play className="w-2.5 h-2.5 fill-current" />
+                          <span>{formatDuration(note.seconds)}</span>
+                        </button>
+                        <p className="text-xs text-[var(--md-sys-color-on-surface)] break-words leading-relaxed">
+                          {note.text}
+                        </p>
                       </div>
-                      <a
-                        href={note.fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-1 text-emerald-600 dark:text-emerald-400 hover:opacity-80 border-none bg-transparent cursor-pointer shrink-0"
-                        title="Download Note"
+                      <button
+                        type="button"
+                        onClick={() => deletePersonalNote(note.id)}
+                        className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/20 border-none bg-transparent cursor-pointer shrink-0 transition"
+                        title="Delete Note"
                       >
-                        <Download className="w-4 h-4" />
-                      </a>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   ))
-                )}
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
