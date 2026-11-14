@@ -739,14 +739,6 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 1b. Batch Token Verifying Spinner Screen */}
-      {authStatus === 'verifying' && (
-        <div className="absolute inset-0 z-30 bg-black/95 flex flex-col items-center justify-center text-white space-y-3">
-          <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs font-mono text-emerald-400 tracking-wider">Verifying Batch Access & Ephemeral Token...</span>
-        </div>
-      )}
-
       {/* 1c. Access Denied (403 Forbidden) Theft Deterrent Screen */}
       {authStatus === 'denied' && (
         <div className="absolute inset-0 z-40 bg-slate-950 flex flex-col items-center justify-center p-6 text-center text-white select-none">

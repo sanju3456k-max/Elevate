@@ -42,10 +42,7 @@ export async function requestPlaybackToken(
   batchId: string,
   lecture: Lecture
 ): Promise<PlaybackVerificationResult> {
-  // Simulate rapid backend network verification (~120ms)
-  await new Promise((res) => setTimeout(res, 120));
-
-  // Check 1: Admin bypass
+  // Instantaneous verification check
   const isAdmin = user.role === 'admin';
 
   // Check 2: Student enrolled in target batch (must be in cloud-verified enrolledBatchIds)
