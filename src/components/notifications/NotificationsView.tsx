@@ -113,40 +113,42 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-transparent text-[#1f1f1f] dark:text-[#e3e3e3] pb-24 md:pb-16 select-none">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4">
+    <div className="w-full min-h-full bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] select-none">
+      <div className="max-w-3xl mx-auto px-3.5 sm:px-6 py-3 sm:py-5 space-y-3.5">
         
-        {/* Top Minimal Transparent Header */}
-        <div className="flex items-center justify-between gap-3 pt-1 pb-1">
-          <div className="flex items-center space-x-2">
+        {/* Top Header Matching App UI */}
+        <div className="flex items-center justify-between gap-3 pt-0.5">
+          <div className="flex items-center space-x-2.5">
             <button
               id="notifications-back-btn"
               type="button"
               onClick={onBack}
               title="Back"
               aria-label="Back"
-              className="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all active:scale-95 border-none bg-transparent cursor-pointer shrink-0 outline-none"
+              className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-slate-100 dark:hover:bg-zinc-800 text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all active:scale-95 shadow-xs border border-slate-200/80 dark:border-zinc-800 cursor-pointer shrink-0 outline-none"
             >
-              <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
+              <ArrowLeft className="w-4.5 h-4.5 stroke-[2.2]" />
             </button>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1f1f1f] dark:text-[#e3e3e3]">
                 Notifications
               </h1>
               {unreadCount > 0 && (
-                <span className="w-2 h-2 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa]" />
+                <span className="px-2 py-0.5 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#041e49] text-[11px] font-mono font-bold shadow-xs">
+                  {unreadCount}
+                </span>
               )}
             </div>
           </div>
 
-          {/* Clean Action Shortcuts */}
-          <div className="flex items-center gap-1">
+          {/* Action Shortcuts */}
+          <div className="flex items-center gap-1.5">
             {unreadCount > 0 && (
               <button
                 type="button"
                 id="notifications-mark-all-read-btn"
                 onClick={markAllNotificationsAsRead}
-                className="text-xs font-semibold text-[#0b57d0] dark:text-[#a8c7fa] hover:underline px-2.5 py-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition border-none bg-transparent cursor-pointer outline-none"
+                className="h-8 px-3 rounded-full bg-white hover:bg-slate-50 dark:bg-[#1e2024] dark:hover:bg-zinc-800 text-xs font-bold text-[#0b57d0] dark:text-[#a8c7fa] shadow-2xs border border-slate-200/80 dark:border-zinc-800 transition active:scale-95 cursor-pointer outline-none"
               >
                 Mark all read
               </button>
@@ -158,9 +160,9 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                 id="notifications-clear-all-btn"
                 onClick={clearAllNotifications}
                 title="Clear all notifications"
-                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-black/5 dark:hover:bg-white/10 transition border-none bg-transparent cursor-pointer outline-none"
+                className="w-8 h-8 rounded-full bg-white hover:bg-rose-50 dark:bg-[#1e2024] dark:hover:bg-rose-950/20 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 flex items-center justify-center transition active:scale-95 shadow-2xs border border-slate-200/80 dark:border-zinc-800 cursor-pointer outline-none"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             ) : (
               <button
@@ -168,16 +170,16 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                 id="notifications-reset-defaults-btn"
                 onClick={resetDefaultNotifications}
                 title="Restore default feed"
-                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-[#0b57d0] hover:bg-black/5 dark:hover:bg-white/10 transition border-none bg-transparent cursor-pointer outline-none"
+                className="w-8 h-8 rounded-full bg-white hover:bg-slate-50 dark:bg-[#1e2024] dark:hover:bg-zinc-800 text-slate-500 hover:text-[#0b57d0] flex items-center justify-center transition active:scale-95 shadow-2xs border border-slate-200/80 dark:border-zinc-800 cursor-pointer outline-none"
               >
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
         </div>
 
-        {/* Minimal Transparent Filter Segment */}
-        <div className="flex items-center space-x-1 border-none pb-1">
+        {/* Minimal Segmented Filter Tabs */}
+        <div className="flex items-center space-x-1.5 border-none pb-0.5">
           {[
             { id: 'all', label: 'All' },
             { id: 'unread', label: 'Unread', count: unreadCount },
@@ -190,24 +192,32 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                 key={tab.id}
                 type="button"
                 onClick={() => setSelectedFilter(tab.id as any)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all flex items-center space-x-1.5 border-none outline-none cursor-pointer active:scale-95 ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all flex items-center space-x-1.5 outline-none cursor-pointer active:scale-95 ${
                   isSelected
-                    ? 'bg-black/8 dark:bg-white/15 text-[#1f1f1f] dark:text-[#e3e3e3] font-bold'
-                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-black/4 dark:hover:bg-white/5 bg-transparent'
+                    ? 'bg-[#0b57d0] text-white font-bold shadow-xs border-0'
+                    : 'bg-white/80 dark:bg-[#1e2024]/80 hover:bg-white dark:hover:bg-[#1e2024] text-slate-600 dark:text-zinc-300 border border-slate-200/60 dark:border-zinc-800/60 shadow-2xs'
                 }`}
               >
                 <span>{tab.label}</span>
                 {tab.count !== undefined && tab.count > 0 && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa]" />
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                      isSelected
+                        ? 'bg-white/20 text-white'
+                        : 'bg-slate-100 dark:bg-zinc-800 text-[#0b57d0] dark:text-[#a8c7fa]'
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
                 )}
               </button>
             );
           })}
         </div>
 
-        {/* Pure Minimal Plain Notifications List */}
+        {/* Consistent Material 3 Cards Feed */}
         {filteredNotifications.length > 0 ? (
-          <div className="space-y-1.5 pt-1">
+          <div className="space-y-2 pt-0.5">
             {filteredNotifications.map((notif) => {
               const meta = getCategoryMeta(notif.category);
               const IconComp = meta.icon;
@@ -216,21 +226,19 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                 <div
                   key={notif.id}
                   onClick={() => handleItemClick(notif)}
-                  className={`group relative p-3 sm:p-3.5 rounded-2xl transition-all duration-150 cursor-pointer border-none flex items-start gap-3 ${
-                    !notif.read
-                      ? 'bg-white/80 dark:bg-white/[0.06] hover:bg-white dark:hover:bg-white/[0.09] shadow-[0_1px_4px_rgba(0,0,0,0.04)]'
-                      : 'bg-transparent hover:bg-black/4 dark:hover:bg-white/[0.04]'
+                  className={`group relative p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-[#1e2024] shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] border border-slate-200/80 dark:border-zinc-800/80 hover:shadow-md transition-all cursor-pointer flex items-start gap-3.5 ${
+                    !notif.read ? 'ring-1 ring-[#0b57d0]/30 dark:ring-[#a8c7fa]/30' : ''
                   }`}
                 >
-                  {/* Subtle Monochrome Icon */}
-                  <div className="w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 flex items-center justify-center text-slate-700 dark:text-zinc-300 shrink-0 mt-0.5">
-                    <IconComp className="w-4 h-4 stroke-[2]" />
+                  {/* Subtle Icon Badge */}
+                  <div className="w-9 h-9 rounded-xl bg-[#e5e9f0] dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 flex items-center justify-center shrink-0 mt-0.5">
+                    <IconComp className="w-4.5 h-4.5 stroke-[2]" />
                   </div>
 
                   {/* Middle Content */}
                   <div className="flex-1 min-w-0 pr-1">
-                    <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-zinc-500 font-medium">
-                      <span>{meta.label}</span>
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-zinc-400 font-medium">
+                      <span className="font-semibold text-slate-500 dark:text-zinc-300">{meta.label}</span>
                       <span>•</span>
                       <span>{formatRelativeTime(notif.timestamp)}</span>
                       {!notif.read && (
@@ -238,13 +246,13 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                       )}
                     </div>
 
-                    <h3 className={`text-[13px] sm:text-sm font-semibold tracking-tight leading-snug mt-0.5 ${
-                      !notif.read ? 'text-slate-900 dark:text-zinc-100 font-bold' : 'text-slate-700 dark:text-zinc-300'
+                    <h3 className={`text-sm sm:text-[14.5px] font-bold tracking-tight leading-snug mt-0.5 ${
+                      !notif.read ? 'text-slate-900 dark:text-zinc-100' : 'text-slate-700 dark:text-zinc-300 font-semibold'
                     }`}>
                       {notif.title}
                     </h3>
 
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed mt-0.5 font-normal line-clamp-2">
+                    <p className="text-xs sm:text-[12.5px] text-slate-600 dark:text-zinc-400 leading-relaxed mt-0.5 font-normal line-clamp-2">
                       {notif.message}
                     </p>
                   </div>
@@ -257,7 +265,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                         e.stopPropagation();
                         deleteNotification(notif.id);
                       }}
-                      className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-black/5 dark:hover:bg-white/10 transition border-none bg-transparent cursor-pointer"
+                      className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition border-none bg-transparent cursor-pointer"
                       title="Dismiss"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -269,7 +277,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
             })}
           </div>
         ) : (
-          /* Pure Minimal Empty State */
+          /* Clean Empty State */
           <div className="py-20 text-center space-y-2 border-none">
             <Bell className="w-8 h-8 text-slate-300 dark:text-zinc-600 mx-auto stroke-[1.5]" />
             <p className="text-sm font-medium text-slate-500 dark:text-zinc-400">

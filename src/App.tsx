@@ -2256,6 +2256,15 @@ export default function App() {
               onLaunchOmrScan={(test, tab) => handleStartOmrTest(test, tab || 'scan')}
             />
           )}
+
+          {/* Full-Screen Material 3 Notifications & Updates Page */}
+          {activeTab === 'notifications' && (
+            <NotificationsView
+              onBack={() => goBack()}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+              isDarkMode={isDarkMode}
+            />
+          )}
         </main>
       )}
 
@@ -2297,15 +2306,6 @@ export default function App() {
             }
           }}
           onSignIn={handleSignIn}
-        />
-      )}
-
-      {/* Full-Screen Material 3 Notifications & Updates Page */}
-      {activeTab === 'notifications' && (
-        <NotificationsView
-          onBack={() => goBack()}
-          onNavigateTab={(tab) => setActiveTab(tab)}
-          isDarkMode={isDarkMode}
         />
       )}
 
