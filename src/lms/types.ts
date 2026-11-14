@@ -14,7 +14,8 @@ export interface PdfNote {
   id: string;
   title: string;
   url: string;
-  size: string;
+  fileUrl?: string; // Optional alias for url compatibility
+  size?: string;
   pages?: number;
   type?: 'pdf' | 'image' | 'formula_sheet' | 'drive_doc';
   previewImageUrl?: string;
@@ -51,7 +52,13 @@ export interface Lecture {
   order: number;
   isFreePreview: boolean;
   pdfNotes: PdfNote[];
+  notes?: PdfNote[]; // Optional alias for pdfNotes
   milestones?: TimelineMilestone[];
+  faculty?: {
+    name: string;
+    designation: string;
+    avatarUrl: string;
+  };
   createdAt: string;
 }
 
@@ -142,11 +149,13 @@ export interface BatchEnrollment {
   studentPhone?: string;
   enrolledAt: string;
   expiresAt?: string;
+  validUntil?: string; // Optional alias for expiresAt
   status: 'active' | 'expired' | 'revoked';
 }
 
 export interface BatchTestCard {
   testId: string;
+  id?: string; // Optional alias for testId
   batchId: string;
   title: string;
   topic: string;
@@ -155,6 +164,7 @@ export interface BatchTestCard {
   difficulty: 'easy' | 'medium' | 'hard' | 'adaptive';
   passingScorePercentage: number;
   catalogChunkId: string;
+  chunkId?: string; // Optional alias for catalogChunkId
   chunkEstimatedBytes: number;
   publishedAt: string;
 }

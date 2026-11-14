@@ -710,7 +710,7 @@ export const GeminiStudioPromptBar: React.FC<GeminiStudioPromptBarProps> = ({
                 if (currentModel === 'gemini-flash-latest') return 'Flash Latest';
                 if (currentModel === 'gemini-3.8-flash') return '3.8 Flash';
                 if (currentModel === 'gemini-3.1-pro-preview') return '3.1 Pro';
-                return currentModel.replace(/^gemini-/, '').replace(/-/g, ' ');
+                return String(currentModel).replace(/^gemini-/, '').replace(/-/g, ' ');
               })()}</span>
             </div>
 

@@ -1,6 +1,6 @@
 import { SessionStagedQuestion } from '../types';
 import { ParsedTestAction } from '../../GeminiTestActionCard';
-import { ParsedAppAction, normalizeQuestions } from '../../../types';
+import { ParsedAppAction, normalizeQuestions, MathTest } from '../../../types';
 import { formatTestToText, parseTestFromText } from '../../../utils/testFormatConverter';
 
 export function extractTestAction(content: string): { cleanContent: string; testAction: ParsedTestAction | null } {
@@ -157,7 +157,7 @@ export function extractTestAction(content: string): { cleanContent: string; test
   
   // Handle direct MathTest object { title, topic, questions: [...] }
   if (Array.isArray(parsed.questions) && parsed.questions.length > 0) {
-    const normTest = {
+    const normTest: MathTest = {
       id: parsed.id || `test_${Date.now()}`,
       title: parsed.title || 'Session Practice Test',
       topic: parsed.topic || 'General Mathematics',

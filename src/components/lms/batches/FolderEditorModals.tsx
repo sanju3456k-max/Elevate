@@ -237,7 +237,7 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
           setIsFreePreview(Boolean(initialData.isFreePreview));
           const firstNote = initialData.pdfNotes?.[0];
           setPdfNoteTitle(firstNote?.title || '');
-          setPdfNoteUrl(firstNote?.fileUrl || '');
+          setPdfNoteUrl(firstNote?.fileUrl || firstNote?.url || '');
         } else {
           setTitle('');
           setDescription('');
@@ -454,7 +454,7 @@ export const AddOrEditNoteModal: React.FC<AddOrEditNoteModalProps> = ({
         activeNoteIdRef.current = currentId;
         if (initialData) {
           setTitle(initialData.title || '');
-          setFileUrl(initialData.fileUrl || '');
+          setFileUrl(initialData.fileUrl || initialData.url || '');
         } else {
           setTitle('');
           setFileUrl('');

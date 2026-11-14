@@ -269,8 +269,9 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     const lectureNotes = folderLectures.flatMap((l) => l.pdfNotes || []);
     const map = new Map<string, PdfNote>();
     [...directNotes, ...lectureNotes].forEach((n) => {
-      if (!map.has(n.id || n.fileUrl)) {
-        map.set(n.id || n.fileUrl, n);
+      const key = n.id || n.fileUrl || n.url;
+      if (key && !map.has(key)) {
+        map.set(key, n);
       }
     });
     return Array.from(map.values());
@@ -1008,7 +1009,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   {folderNotesContent.map((note) => (
                     <div
-                      key={note.id || note.fileUrl}
+                      key={note.id || note.fileUrl || note.url}
                       className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition shadow-xs flex items-center justify-between group border-none"
                     >
                       <div className="flex items-center space-x-3 min-w-0 flex-1">
@@ -1037,7 +1038,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                           </button>
                         )}
                         <a
-                          href={note.fileUrl}
+                          href={note.fileUrl || note.url || '#'}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="p-1.5 rounded-full hover:bg-[var(--md-sys-color-surface-container)] text-emerald-600 dark:text-emerald-400 border-none bg-transparent cursor-pointer"
@@ -1253,7 +1254,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             const notes: PdfNote[] = pdfNoteTitle && pdfNoteUrl ? [{
               id: `pdf_${Date.now()}`,
               title: pdfNoteTitle,
+              url: pdfNoteUrl,
               fileUrl: pdfNoteUrl,
+              size: '1.2 MB',
+              type: 'pdf',
             }] : [];
 
             if (editingLecture) {
@@ -1298,7 +1302,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           }}
           onSave={({ title, fileUrl }) => {
             if (selectedChapterId) {
-              addPdfNoteToChapter(selectedChapterId, { title, fileUrl });
+              addPdfNoteToChapter(selectedChapterId, { title, fileUrl, url: fileUrl });
               showSecurityToast(`Note "${title}" added.`);
             }
           }}

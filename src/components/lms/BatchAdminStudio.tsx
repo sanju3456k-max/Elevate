@@ -1479,7 +1479,7 @@ export const BatchAdminStudio: React.FC = () => {
                               <span>Enrolled: {enr.enrolledAt}</span>
                               <span>•</span>
                               <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                                Valid until: {enr.validUntil}
+                                Valid until: {enr.validUntil || enr.expiresAt || 'Active'}
                               </span>
                             </div>
                           </div>
@@ -1745,13 +1745,13 @@ export const BatchAdminStudio: React.FC = () => {
               ) : (
                 getTestsForBatch(selectedBatchId).map((t) => (
                   <div
-                    key={t.id}
+                    key={t.testId || t.id}
                     className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] flex items-center justify-between gap-3 border-none shadow-xs"
                   >
                     <div className="min-w-0 space-y-1">
                       <div className="flex items-center space-x-2">
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] font-bold">
-                          {t.chunkId}
+                          {t.catalogChunkId || t.chunkId || t.testId}
                         </span>
                         <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] truncate">
                           {t.title}

@@ -534,7 +534,7 @@ export default function App() {
   const [editingTest, setEditingTest] = useState<MathTest | null>(null);
   const [editorAiPromptOpen, setEditorAiPromptOpen] = useState<boolean>(false);
   const [lastAttempt, setLastAttempt] = useState<TestAttempt | null>(null);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'error' | 'warning' } | null>(null);
   const [isFirestoreQuotaExceeded, setIsFirestoreQuotaExceeded] = useState<boolean>(false);
   const [hasDismissedQuotaBanner, setHasDismissedQuotaBanner] = useState<boolean>(() => {
     try {
@@ -552,7 +552,7 @@ export default function App() {
   }, []);
 
   // Show temporary toast notification
-  const showToast = useCallback((message: string, type: 'success' | 'info' | 'error' = 'success') => {
+  const showToast = useCallback((message: string, type: 'success' | 'info' | 'error' | 'warning' = 'success') => {
     setNotification({ message, type });
     setTimeout(() => {
       setNotification((prev) => (prev?.message === message ? null : prev));
@@ -1137,7 +1137,7 @@ export default function App() {
     const isGuest = isGuestUser(currentUser || cachedUser);
     if (isGuest && (isMasterTest(test) || isRemedialTest(test))) {
       showToast('Sign in required to access tests published by Master Academic Head.', 'warning');
-      setIsAuthModalOpen(true);
+      handleSignIn();
       return;
     }
 
@@ -1148,7 +1148,7 @@ export default function App() {
 
     if (isGuest && (isMasterTest(fullTest) || isRemedialTest(fullTest))) {
       showToast('Sign in required to access tests published by Master Academic Head.', 'warning');
-      setIsAuthModalOpen(true);
+      handleSignIn();
       return;
     }
 
@@ -1193,7 +1193,7 @@ export default function App() {
     const isGuest = isGuestUser(currentUser || cachedUser);
     if (isGuest && (isMasterTest(test) || isRemedialTest(test))) {
       showToast('Sign in required to access tests published by Master Academic Head.', 'warning');
-      setIsAuthModalOpen(true);
+      handleSignIn();
       return;
     }
 
@@ -1204,7 +1204,7 @@ export default function App() {
 
     if (isGuest && (isMasterTest(fullTest) || isRemedialTest(fullTest))) {
       showToast('Sign in required to access tests published by Master Academic Head.', 'warning');
-      setIsAuthModalOpen(true);
+      handleSignIn();
       return;
     }
 
@@ -1226,7 +1226,7 @@ export default function App() {
 
     if (isGuest && session?.test && (isMasterTest(session.test) || isRemedialTest(session.test))) {
       showToast('Sign in required to access tests published by Master Academic Head.', 'warning');
-      setIsAuthModalOpen(true);
+      handleSignIn();
       setShowResumeModal(false);
       setPendingStartTest(null);
       return;
@@ -1704,6 +1704,8 @@ export default function App() {
           className={`fixed bottom-5 right-5 z-50 px-4 py-3 rounded-2xl shadow-xl border flex items-center gap-3 text-xs sm:text-sm font-medium animate-in slide-in-from-bottom-5 duration-200 ${
             notification.type === 'error'
               ? 'bg-rose-900 text-rose-50 border-rose-700'
+              : notification.type === 'warning'
+              ? 'bg-amber-900 text-amber-50 border-amber-700'
               : notification.type === 'info'
               ? 'bg-slate-900 text-slate-50 border-slate-700'
               : 'bg-emerald-900 text-emerald-50 border-emerald-700'

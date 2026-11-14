@@ -501,7 +501,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     if (playerRef.current && playerRef.current.setPlaybackRate) {
       playerRef.current.setPlaybackRate(speed);
     }
-    setSpeedMenuOpen(false);
+    setOptionsMenuOpen(false);
   };
 
   // Video Quality Handler - minimal, clean, and responsive
@@ -541,7 +541,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         console.warn('Quality switch error:', err);
       }
     }
-    setQualityMenuOpen(false);
+    setOptionsMenuOpen(false);
     setSecurityNotice(q.label === 'Auto' ? 'Quality: Auto (Network)' : `Quality: ${q.label}`);
     setTimeout(() => setSecurityNotice(null), 2500);
   };

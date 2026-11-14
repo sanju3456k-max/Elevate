@@ -1,4 +1,4 @@
-import type { User, Lecture, PlaybackSessionToken } from '../types';
+import type { User, Lecture, PlaybackSessionToken } from './types';
 
 /**
  * Ephemeral Batch Playback Token Gateway (Classplus / Enterprise Security)

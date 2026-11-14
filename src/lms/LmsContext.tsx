@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import type { User, Batch, Subject, Chapter, Lecture, WatchProgress, Announcement, PersonalNote, BatchEnrollment, BatchTestCard } from './types';
+import type { User, Batch, Subject, Chapter, Lecture, WatchProgress, Announcement, PersonalNote, BatchEnrollment, BatchTestCard, PdfNote } from './types';
 import {
   INITIAL_USER,
   INITIAL_BATCHES,
@@ -131,6 +131,7 @@ const STORAGE_KEYS = {
   STUDENTS: 'elevatelabs_students_v2',
   ENROLLMENTS: 'elevatelabs_enrollments_v2',
   BATCH_TESTS: 'elevatelabs_batch_tests_v2',
+  GUEST_ACCESS_MODE: 'elevatelabs_guest_access_mode_v2',
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -808,12 +809,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateWatchProgress = (lectureId: string, currentSeconds: number, totalSeconds: number) => {
+    const isCompleted = totalSeconds > 0 && currentSeconds >= totalSeconds * 0.9;
     setWatchProgress((prev) => ({
       ...prev,
       [lectureId]: {
         lectureId,
         watchedSeconds: currentSeconds,
         totalSeconds,
+        isCompleted: prev[lectureId]?.isCompleted || isCompleted,
+        lastWatchedAt: new Date().toISOString(),
       },
     }));
   };

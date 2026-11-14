@@ -111,7 +111,6 @@ import { SessionTableGeneratorModal } from '../SessionTableGeneratorModal';
 import { useBackHandler } from '../../hooks/useBackNavigation';
 import {
   studioTabVariants,
-  gpuAcceleratedStyle,
 } from '../../lib/animationConfig';
 import { APP_STYLES } from '../ui/AppStyles';
 
@@ -442,7 +441,7 @@ export function extractTestAction(content: string): { cleanContent: string; test
   
   // Handle direct MathTest object { title, topic, questions: [...] }
   if (Array.isArray(parsed.questions) && parsed.questions.length > 0) {
-    const normTest = {
+    const normTest: MathTest = {
       id: parsed.id || `test_${Date.now()}`,
       title: parsed.title || 'Session Practice Test',
       topic: parsed.topic || 'General Mathematics',

@@ -2185,7 +2185,7 @@ export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?
     unattemptedQuestionIndices: unattemptedQuestionIndices.length > 0 ? unattemptedQuestionIndices : undefined,
     flaggedQuestionIndices: flaggedQuestionIndices.length > 0 ? flaggedQuestionIndices : undefined,
     userAnswers: attempt.userAnswers || undefined,
-    questionsCount: attempt.answers ? Object.keys(attempt.answers).length : (Array.isArray(attempt.questions) ? attempt.questions.length : undefined),
+    questionsCount: attempt.answers ? Object.keys(attempt.answers).length : (Array.isArray((attempt as any).questions) ? (attempt as any).questions.length : undefined),
   };
 
   // 1. Cache locally. If already exists, saveLocalLeaderboardEntry returns false.

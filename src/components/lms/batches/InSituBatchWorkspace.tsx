@@ -163,6 +163,8 @@ export const InSituBatchWorkspace: React.FC<InSituBatchWorkspaceProps> = ({
       encryptedVideoId: encryptedKey,
       thumbnailUrl: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`,
       order: batchLectures.length + 1,
+      isFreePreview: false,
+      pdfNotes: notesList,
       notes: notesList,
       faculty: {
         name: batch.instructor?.name || 'Sanju Kumar',
