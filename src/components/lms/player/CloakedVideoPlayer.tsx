@@ -48,6 +48,7 @@ interface CloakedVideoPlayerProps {
   isMini?: boolean;
   autoPlay?: boolean;
   isPlayingProp?: boolean;
+  onPlayStateChange?: (isPlaying: boolean) => void;
 }
 
 const QUALITY_OPTIONS = [
@@ -75,6 +76,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   isMini = false,
   autoPlay = false,
   isPlayingProp,
+  onPlayStateChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
@@ -350,6 +352,11 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     }
   }, [isPlayingProp, safeCallPlayer]);
 
+  // Synchronize internal playback state changes back to parent
+  useEffect(() => {
+    onPlayStateChange?.(isPlaying);
+  }, [isPlaying, onPlayStateChange]);
+
   // Initialize or re-create player with high definition rendering
   useEffect(() => {
     let checkInterval: any = null;
@@ -397,6 +404,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
               setIsPlayerReady(true);
               const total = event.target.getDuration() || 0;
               setDuration(total);
+              if (onProgress) onProgress(seekToSeconds || 0, total);
 
               if (seekToSeconds !== undefined && seekToSeconds !== null && seekToSeconds > 0) {
                 try {
@@ -1117,9 +1125,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 4. Center Play/Pause Floating Control (Non-blocking: pointer-events-none on backdrop so screen taps always hit interaction layer cleanly) */}
-      {(isControlsVisible || !isPlaying) && isPlayerReady && authStatus === 'authorized' && hasEverPlayed && (
-        <div className={`absolute inset-0 z-20 flex items-center justify-center pointer-events-none transition-all ${!isPlaying ? 'bg-black/20' : ''}`}>
+      {/* 4. Center Play/Pause Floating Control (Compact & subtle in miniplayer preview, prominent in expanded player) */}
+      {(isMini ? !isPlaying : (isControlsVisible || !isPlaying)) && isPlayerReady && authStatus === 'authorized' && hasEverPlayed && (
+        <div className={`absolute inset-0 z-20 flex items-center justify-center pointer-events-none transition-all ${!isPlaying ? 'bg-black/25' : ''}`}>
           <button
             type="button"
             onClick={(e) => {
@@ -1131,13 +1139,17 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                 showControlsForDuration(5000);
               }
             }}
-            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-black/55 hover:bg-black/75 backdrop-blur-md text-white border border-white/20 flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition transform border-none cursor-pointer pointer-events-auto"
+            className={
+              isMini
+                ? "w-7 h-7 rounded-full bg-black/75 hover:bg-black/90 backdrop-blur-xs text-white border border-white/30 flex items-center justify-center shadow-md pointer-events-auto cursor-pointer transition transform active:scale-90"
+                : "w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-black/55 hover:bg-black/75 backdrop-blur-md text-white border border-white/20 flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition transform border-none cursor-pointer pointer-events-auto"
+            }
             title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
           >
             {isPlaying ? (
-              <Pause className="w-7 h-7 fill-current" />
+              <Pause className={isMini ? "w-3.5 h-3.5 fill-current" : "w-7 h-7 fill-current"} />
             ) : (
-              <Play className="w-7 h-7 fill-current ml-0.5" />
+              <Play className={isMini ? "w-3.5 h-3.5 fill-current ml-0.5" : "w-7 h-7 fill-current ml-0.5"} />
             )}
           </button>
         </div>

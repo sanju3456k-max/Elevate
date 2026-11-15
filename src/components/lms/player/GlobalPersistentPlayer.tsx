@@ -230,9 +230,12 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             isMini={isMinimized}
             autoPlay={true}
             isPlayingProp={playback.isPlaying}
+            onPlayStateChange={(playing) => {
+              onUpdatePlayback((prev) => (prev && prev.isPlaying !== playing ? { ...prev, isPlaying: playing } : prev));
+            }}
             onProgress={(sec, total) => {
               setCurrentPlaybackSec(sec);
-              setTotalDuration(total);
+              if (total > 0) setTotalDuration(total);
               updateWatchProgress(playback.lectureId, sec, total);
             }}
           />
@@ -248,14 +251,17 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             </h4>
             <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-zinc-400 truncate mt-0.5">
               <span className="truncate max-w-[120px] sm:max-w-[170px] font-medium">{playback.batchTitle}</span>
-              {totalDuration > 0 && (
-                <>
-                  <span className="text-slate-300 dark:text-zinc-600 font-bold">•</span>
-                  <span className="font-mono font-semibold text-[10px] text-slate-600 dark:text-zinc-400">
-                    {formatDuration(currentPlaybackSec)} / {formatDuration(totalDuration)}
-                  </span>
-                </>
-              )}
+              {(() => {
+                const effectiveDur = totalDuration > 0 ? totalDuration : ((playback.durationMinutes || 0) * 60);
+                return effectiveDur > 0 ? (
+                  <>
+                    <span className="text-slate-300 dark:text-zinc-600 font-bold">•</span>
+                    <span className="font-mono font-semibold text-[10px] text-slate-600 dark:text-zinc-400">
+                      {formatDuration(currentPlaybackSec)} / {formatDuration(effectiveDur)}
+                    </span>
+                  </>
+                ) : null;
+              })()}
             </div>
           </div>
 
@@ -289,7 +295,10 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             <div
               className="h-full bg-[#0b57d0] dark:bg-[#a8c7fa] transition-all duration-200 rounded-r-full"
               style={{
-                width: `${totalDuration > 0 ? Math.min(100, Math.max(0, (currentPlaybackSec / totalDuration) * 100)) : 0}%`,
+                width: `${(() => {
+                  const effectiveDur = totalDuration > 0 ? totalDuration : ((playback.durationMinutes || 0) * 60);
+                  return effectiveDur > 0 ? Math.min(100, Math.max(0, (currentPlaybackSec / effectiveDur) * 100)) : 0;
+                })()}%`,
               }}
             />
           </div>

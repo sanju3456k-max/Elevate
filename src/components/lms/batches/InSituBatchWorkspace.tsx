@@ -202,31 +202,11 @@ export const InSituBatchWorkspace: React.FC<InSituBatchWorkspaceProps> = ({
           </div>
         </div>
 
-        {/* Studio vs Student View Toggle */}
+        {/* Studio Mode Admin Active Badge */}
         <div className="flex items-center space-x-2 self-end sm:self-center">
-          <div className="flex items-center bg-[var(--md-sys-color-surface-container-high)] p-1 rounded-full text-xs font-bold">
-            <button
-              onClick={() => setViewMode('studio')}
-              className={`px-3 py-1.5 rounded-full transition border-none outline-none cursor-pointer flex items-center space-x-1.5 ${
-                viewMode === 'studio'
-                  ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
-                  : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
-              }`}
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>Studio Mode (Admin)</span>
-            </button>
-            <button
-              onClick={() => setViewMode('student')}
-              className={`px-3 py-1.5 rounded-full transition border-none outline-none cursor-pointer flex items-center space-x-1.5 ${
-                viewMode === 'student'
-                  ? 'bg-emerald-500 text-white shadow-xs'
-                  : 'text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
-              }`}
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span>Student Preview</span>
-            </button>
+          <div className="flex items-center bg-[var(--md-sys-color-surface-container-high)] px-3.5 py-1.5 rounded-full text-xs font-bold text-[var(--md-sys-color-primary)] shadow-xs">
+            <Sliders className="w-3.5 h-3.5 mr-1.5" />
+            <span>Studio Mode (Admin)</span>
           </div>
         </div>
       </div>

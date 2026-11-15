@@ -134,6 +134,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
   // Selected Lecture (for video player)
   const [selectedLectureId, setSelectedLectureId] = useState<string | null>(initialLectureId || null);
+  const [isCurrentLecturePlaying, setIsCurrentLecturePlaying] = useState(true);
 
   // Stage Navigation: 'batch_list' | 'folder_content' | 'lecture_view'
   const [currentStage, setCurrentStage] = useState<'batch_list' | 'folder_content' | 'lecture_view'>(() => {
@@ -371,7 +372,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         durationMinutes: activeLecture.durationMinutes,
         encryptedVideoId: activeLecture.encryptedVideoId,
         playbackSeconds: currentPlaybackSec,
-        isPlaying: true,
+        isPlaying: isCurrentLecturePlaying,
       });
     }
     setSelectedLectureId(null);
@@ -379,7 +380,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     onLectureChange?.(null);
     setCurrentStage('folder_content');
     onStageChange?.('folder_content');
-  }, [activeLecture, currentBatch, selectedChapterId, currentPlaybackSec, onSetMiniPlayer, onLectureChange, onStageChange]);
+  }, [activeLecture, currentBatch, selectedChapterId, currentPlaybackSec, isCurrentLecturePlaying, onSetMiniPlayer, onLectureChange, onStageChange]);
 
   // Centralized Back Navigation Stack Integration
   useBackHandler({
@@ -698,21 +699,21 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             </div>
           </div>
 
-          {/* Master Admin Contextual Action Bar (Only visible in Master Console View) */}
+          {/* Master Admin Contextual Action Bar (Shifted rightwards with dedicated crisp icons) */}
           {isMaster && (
-            <div className="flex items-center space-x-2 shrink-0 self-start md:self-auto">
+            <div className="ml-auto flex items-center justify-end space-x-2 shrink-0 flex-wrap gap-y-2">
               <button
                 type="button"
                 onClick={() => {
                   setEditingFolder(null);
                   setIsFolderModalOpen(true);
                 }}
-                className="p-2 sm:px-3.5 sm:py-1.5 rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs hover:opacity-95 transition border-none cursor-pointer shrink-0"
+                className="px-3 py-1.5 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#041e49] font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs hover:opacity-90 active:scale-95 transition border-none cursor-pointer shrink-0"
                 title={selectedChapterId ? "Add Subfolder" : "Add Chapter Folder"}
-                aria-label="Add Subfolder"
+                aria-label={selectedChapterId ? "Add Subfolder" : "Add Folder"}
               >
-                <Plus className="w-4 h-4 sm:w-3.5 sm:h-3.5 stroke-[2.5]" />
-                <span className="hidden sm:inline">Add Subfolder</span>
+                <FolderPlus className="w-3.5 h-3.5 shrink-0" />
+                <span>{selectedChapterId ? "+ Subfolder" : "+ Folder"}</span>
               </button>
 
               <button
@@ -721,11 +722,12 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   setEditingLecture(null);
                   setIsVideoModalOpen(true);
                 }}
-                className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs hover:bg-indigo-700 transition border-none cursor-pointer shrink-0"
-                title="Add Lecture"
+                className="px-3 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
+                title="Add Video Lecture"
+                aria-label="Add Lecture"
               >
-                <Video className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                <span className="hidden sm:inline">Add Lecture</span>
+                <Video className="w-3.5 h-3.5 shrink-0" />
+                <span>+ Lecture</span>
               </button>
 
               <button
@@ -734,21 +736,23 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   setEditingNote(null);
                   setIsNoteModalOpen(true);
                 }}
-                className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs hover:bg-emerald-700 transition border-none cursor-pointer shrink-0"
+                className="px-3 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
                 title="Add Notes or Document Files"
+                aria-label="Add File"
               >
-                <FilePlus className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                <span className="hidden sm:inline">Add Notes</span>
+                <FilePlus className="w-3.5 h-3.5 shrink-0" />
+                <span>+ File</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setIsLinkTestModalOpen(true)}
-                className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-amber-500 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs hover:bg-amber-600 transition border-none cursor-pointer shrink-0"
+                className="px-3 py-1.5 rounded-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
                 title="Link Mock Test"
+                aria-label="Link Test"
               >
-                <Award className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                <span className="hidden sm:inline">Link Mock Test</span>
+                <Award className="w-3.5 h-3.5 shrink-0" />
+                <span>+ Test</span>
               </button>
             </div>
           )}
@@ -1508,6 +1512,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               seekToSeconds={activeSeekSeconds}
               milestones={activeLecture.milestones || []}
               thumbnailUrl={activeLecture.thumbnailUrl}
+              onPlayStateChange={setIsCurrentLecturePlaying}
               onProgress={(sec, total) => {
                 setCurrentPlaybackSec(sec);
                 updateWatchProgress(activeLecture.id, sec, total);
