@@ -47,7 +47,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   const [readVersion, setReadVersion] = useState(0);
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'unread' | 'lecture' | 'test'>('all');
 
-  const isMaster = user?.role === 'admin' || user?.role === 'superadmin' || isMasterUser(user);
+  const isMaster = user?.role === 'admin' || (user?.role as string) === 'superadmin' || isMasterUser(user);
   const enrolledBatches = useMemo(() => batches.filter((b) => isEnrolled(b.id)), [batches, isEnrolled]);
   const enrolledBatchIds = useMemo(() => enrolledBatches.map((b) => b.id), [enrolledBatches]);
 

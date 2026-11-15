@@ -133,6 +133,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
       id: 'batch_testing_01',
       title: 'Testing Batch',
       price: 999,
+      isPublished: true,
     };
   }, [batches, selectedBatchId]);
 

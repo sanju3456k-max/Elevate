@@ -288,15 +288,14 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                     <BookOpen className="w-3.5 h-3.5" />
                     <span className="truncate max-w-[200px]">{playback.batchTitle}</span>
                   </span>
-                  {Boolean(playback.durationMinutes) && (
+                  {(totalDuration > 0 || Boolean(playback.durationMinutes)) && (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] text-xs font-medium">
                       <Clock className="w-3.5 h-3.5" />
-                      <span>{playback.durationMinutes} mins</span>
-                    </span>
-                  )}
-                  {totalDuration > 0 && (
-                    <span className="text-[11px] font-mono text-[var(--md-sys-color-on-surface-variant)] font-semibold">
-                      {formatDuration(currentPlaybackSec)} / {formatDuration(totalDuration)}
+                      <span>
+                        {totalDuration > 0
+                          ? formatDuration(totalDuration)
+                          : `${playback.durationMinutes} mins`}
+                      </span>
                     </span>
                   )}
                 </div>
