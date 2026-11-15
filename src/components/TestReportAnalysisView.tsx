@@ -1234,9 +1234,9 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
   }, [attempt]);
 
   return (
-    <div className={`fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] z-30 ${APP_STYLES.page} overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin]`}>
+    <div className={`fixed inset-0 md:top-[58px] md:h-[calc(100dvh-58px)] z-30 ${APP_STYLES.page} overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin]`}>
       {/* Transparent Clean Header Banner (Minimal, No Subtopic Tags at Top) */}
-      <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)]">
+      <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] md:pt-3">
         <div className="flex items-center justify-between gap-3 px-0.5 py-1">
           {/* Left: Icon-Only Back Button & Test Title */}
           <div className="flex items-center gap-2.5 min-w-0">
@@ -1244,7 +1244,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
               id="report-back-btn"
               type="button"
               onClick={onClose}
-              className={APP_STYLES.button.icon}
+              className={`${APP_STYLES.button.icon} md:hidden desktop-hide-back-btn`}
               title="Back to History"
               aria-label="Back to History"
             >
@@ -2147,11 +2147,11 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
         <div
           role="region"
           aria-label={`Full Page Analysis for ${fullScreenChapter.topic}`}
-          className="fixed inset-0 z-50 bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150"
+          className="fixed inset-0 md:top-[58px] md:h-[calc(100dvh-58px)] z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150"
         >
           {/* Transparent Clean Header Banner - Seamless with Page Body */}
           <header className="sticky top-0 z-30 bg-[#e5e9f0]/95 dark:bg-[#0b0c10]/95 backdrop-blur-md border-b-0 shrink-0">
-            <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)]">
+            <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] md:pt-3 md:pb-3">
               <div className="flex items-center justify-between gap-3 px-0.5 py-1">
                 {/* Left: Adjusted Back Button for White Surface & Chapter Title */}
                 <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
@@ -2192,6 +2192,17 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                     </div>
                   </div>
                 </div>
+
+                {/* Right: Close button */}
+                <button
+                  type="button"
+                  onClick={() => setFullScreenChapterId(null)}
+                  className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-slate-50 dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-100 border-0 ring-0 shadow-none flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 outline-none"
+                  title="Close Chapter View"
+                  aria-label="Close"
+                >
+                  <X className="w-4 h-4 text-slate-800 dark:text-zinc-100 stroke-[2.2]" />
+                </button>
               </div>
             </div>
           </header>
@@ -2420,11 +2431,11 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
         <div
           role="dialog"
           aria-label={`Questions & Solutions for ${selectedSubtopicQuestionsModal.subtopic}`}
-          className="fixed inset-0 z-[60] bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150"
+          className="fixed inset-0 md:top-[58px] md:h-[calc(100dvh-58px)] z-40 bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150"
         >
           {/* Header Bar - Seamless with Page Body */}
           <header className="sticky top-0 z-30 bg-[#e5e9f0]/95 dark:bg-[#0b0c10]/95 backdrop-blur-md border-b-0 shrink-0">
-            <div className="max-w-5xl w-full mx-auto px-3 sm:px-6 py-2.5 sm:py-3.5 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)]">
+            <div className="max-w-5xl w-full mx-auto px-3 sm:px-6 py-2.5 sm:py-3.5 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] md:pt-3 md:pb-3">
               <div className="flex items-center justify-between gap-3 px-0.5 py-1">
                 {/* Subtopic Title & Badges */}
                 <div className="min-w-0">
