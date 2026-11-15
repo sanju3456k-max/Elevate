@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Play,
   Pause,
@@ -9,6 +9,8 @@ import {
   Plus,
   Trash2,
   ChevronRight,
+  BookOpen,
+  ListVideo,
 } from 'lucide-react';
 import { CloakedVideoPlayer } from './CloakedVideoPlayer';
 import { useApp } from '../../../lms/LmsContext';
@@ -98,6 +100,17 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
     }
   }, [activeTab, onUpdatePlayback]);
 
+  // Auto-dock to MiniPlayer if user navigates away to another main tab (Home, Batches, Tests, Analytics)
+  const prevActiveTabRef = useRef(activeTab);
+  useEffect(() => {
+    if (prevActiveTabRef.current !== activeTab) {
+      prevActiveTabRef.current = activeTab;
+      if (playback && !playback.isMinimized) {
+        onUpdatePlayback((prev) => (prev ? { ...prev, isMinimized: true } : null));
+      }
+    }
+  }, [activeTab, playback, onUpdatePlayback]);
+
   // Back handler when expanded: Minimize to strip on back press (YouTube style)
   useBackHandler({
     isOpen: Boolean(playback && !playback.isMinimized),
@@ -160,10 +173,10 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
     setNoteInputText('');
   };
 
-  // Other lectures in the same batch for quick playlist switching
-  const otherLectures = useMemo(() => {
+  // All lectures in the same batch for YouTube-style playlist queue
+  const batchLectures = useMemo(() => {
     if (!playback) return [];
-    return lectures.filter((l) => l.batchId === playback.batchId && l.id !== playback.lectureId);
+    return lectures.filter((l) => l.batchId === playback.batchId);
   }, [lectures, playback]);
 
   const currentLectureNotes = useMemo(() => {
@@ -202,7 +215,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
           ? `fixed left-3 right-3 md:left-auto md:right-5 md:w-[420px] h-15 sm:h-16 z-50 bg-white/95 dark:bg-[#1e2024]/95 backdrop-blur-2xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.18),0_2px_8px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.65)] border border-slate-200/90 dark:border-zinc-800/90 p-0 transition-all duration-200 select-none cursor-pointer overflow-hidden md:!bottom-5 ${
               !isTestMode ? 'flex items-center justify-between' : 'hidden'
             }`
-          : 'fixed inset-0 z-50 bg-[var(--md-sys-color-background)] overflow-y-auto flex flex-col'
+          : 'fixed inset-x-0 bottom-0 top-0 md:top-[58px] z-40 bg-[var(--md-sys-color-background)] overflow-y-auto px-0 sm:px-6 lg:px-8 py-0 sm:py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-[1720px] mx-auto w-full items-start'
       }
       style={
         isMinimized
@@ -215,19 +228,19 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
       }
       onClick={isMinimized ? handleExpand : undefined}
     >
-      {/* 1. THE PERSISTENT VIDEO PLAYER FRAME (Full Bleed At Left End of Strip When Minimized, Clean Top on Desktop, NEVER UNMOUNTS) */}
+      {/* 1. THE PERSISTENT VIDEO PLAYER FRAME & WATCH INFO (Left 8 cols on desktop, NEVER UNMOUNTS) */}
       <div
         className={
           isMinimized
             ? 'w-24 sm:w-28 h-full shrink-0 rounded-l-2xl overflow-hidden relative bg-black pointer-events-none border-r border-slate-200/50 dark:border-zinc-800/50'
-            : 'sticky top-0 z-40 sm:static w-full sm:max-w-5xl sm:mx-auto px-0 sm:px-4 pt-0 sm:pt-4 shrink-0 bg-black'
+            : 'lg:col-span-8 space-y-4 w-full'
         }
       >
         <div
           className={
             isMinimized
               ? 'w-full h-full'
-              : 'aspect-video w-full rounded-none sm:rounded-3xl overflow-hidden shadow-2xl relative group bg-black'
+              : 'aspect-video w-full rounded-none sm:rounded-2xl lg:rounded-3xl overflow-hidden shadow-2xl relative group bg-black'
           }
         >
           {/* Top-left minimize button on video when expanded */}
@@ -235,8 +248,8 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             <button
               type="button"
               onClick={handleMinimize}
-              className="absolute top-2.5 left-2.5 z-30 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition border-none cursor-pointer shadow-md select-none"
-              title="Minimize to bottom strip"
+              className="absolute top-3 left-3 z-30 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition border-none cursor-pointer shadow-md select-none"
+              title="Minimize to MiniPlayer"
             >
               <ChevronDown className="w-5 h-5 stroke-[2.5]" />
             </button>
@@ -259,6 +272,81 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             onProgress={handleProgress}
           />
         </div>
+
+        {/* When Expanded: Lecture Title, Badge, Duration, and YouTube-style Description Card */}
+        {!isMinimized && (
+          <div className="space-y-4 px-3 sm:px-0">
+            {/* Title & Actions row */}
+            <div className="space-y-2 pt-1">
+              <h1 className="text-base sm:text-xl md:text-2xl font-bold text-[var(--md-sys-color-on-surface)] leading-snug tracking-tight">
+                {playback.lectureTitle}
+              </h1>
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
+                <div className="flex items-center flex-wrap gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] text-xs font-bold shadow-2xs">
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span className="truncate max-w-[200px]">{playback.batchTitle}</span>
+                  </span>
+                  {Boolean(playback.durationMinutes) && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] text-xs font-medium">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>{playback.durationMinutes} mins</span>
+                    </span>
+                  )}
+                  {totalDuration > 0 && (
+                    <span className="text-[11px] font-mono text-[var(--md-sys-color-on-surface-variant)] font-semibold">
+                      {formatDuration(currentPlaybackSec)} / {formatDuration(totalDuration)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleMinimize}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface)] text-xs font-semibold cursor-pointer border-none transition active:scale-95 shadow-2xs"
+                    title="Minimize to MiniPlayer"
+                  >
+                    <ChevronDown className="w-4 h-4 stroke-[2.2]" />
+                    <span>MiniPlayer</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* YouTube-style Description Card */}
+            <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-2 border border-[var(--md-sys-color-outline-variant)]/10 shadow-xs">
+              <div className="flex items-center justify-between text-xs font-bold text-[var(--md-sys-color-on-surface-variant)]">
+                <span>Lecture Overview</span>
+                <span className="text-[11px] font-medium opacity-80">{playback.batchTitle}</span>
+              </div>
+              <p className="text-xs sm:text-[13px] text-[var(--md-sys-color-on-surface)] leading-relaxed whitespace-pre-wrap">
+                {playback.lectureDescription || 'Comprehensive recorded session and conceptual curriculum module with practice problems, real-time study notes, and chapter milestones.'}
+              </p>
+
+              {playback.milestones && playback.milestones.length > 0 && (
+                <div className="pt-2 border-t border-[var(--md-sys-color-outline-variant)]/15">
+                  <p className="text-[11px] font-bold text-[var(--md-sys-color-on-surface-variant)] mb-1.5 uppercase tracking-wider">
+                    Chapters & Milestones
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {playback.milestones.map((m, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSeekSeconds(m.seconds)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-primary-container)] hover:text-[var(--md-sys-color-on-primary-container)] text-[11px] font-medium text-[var(--md-sys-color-on-surface)] border-none cursor-pointer transition"
+                      >
+                        <span className="font-mono text-[var(--md-sys-color-primary)] font-bold">{formatDuration(m.seconds)}</span>
+                        <span>{m.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 2. In Minimized View: Strip Content (Title, Batch, Length Count, Play/Pause, Close) */}
@@ -324,142 +412,170 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
         </>
       )}
 
-      {/* 3. In Expanded View: Watch Details & Lecture Notes */}
+      {/* 3. In Expanded View: Right Sidebar (Lecture Notes + Course Playlist Queue) */}
       {!isMinimized && (
-        <div className="max-w-5xl mx-auto w-full px-4 sm:px-4 py-4 sm:py-6 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Lecture Info on Left */}
-          <div className="lg:col-span-7 space-y-4">
-            <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-2 shadow-xs">
-              <div className="min-w-0">
-                <h1 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] leading-snug">
-                  {playback.lectureTitle}
-                </h1>
-                <p className="text-xs font-semibold text-[var(--md-sys-color-primary)] mt-0.5">
-                  {playback.batchTitle}
-                </p>
+        <div className="lg:col-span-4 space-y-5 w-full px-3 sm:px-0">
+          {/* Lecture Notes Card */}
+          <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs space-y-4 border border-[var(--md-sys-color-outline-variant)]/10">
+            <div className="flex items-center justify-between pb-2 border-b border-[var(--md-sys-color-outline-variant)]/15">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] flex items-center justify-center shrink-0">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] leading-tight">
+                    Lecture Notes
+                  </h2>
+                  <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                    Personal study notes & key takeaways
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] leading-relaxed">
-                {playback.lectureDescription || 'Comprehensive recorded session and conceptual curriculum module.'}
-              </p>
+              {currentLectureNotes.length > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-[var(--md-sys-color-surface-container-high)] text-[10px] font-bold text-[var(--md-sys-color-on-surface-variant)]">
+                  {currentLectureNotes.length} saved
+                </span>
+              )}
             </div>
 
-            {/* Up Next in Batch */}
-            {otherLectures.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] uppercase tracking-wider">
-                  More in this Course
-                </h3>
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                  {otherLectures.map((lec) => (
+            {/* Note input form */}
+            <form onSubmit={handleCreateNote} className="space-y-2">
+              <textarea
+                rows={3}
+                value={noteInputText}
+                onChange={(e) => setNoteInputText(e.target.value)}
+                placeholder="Write your study notes, formulas, or key concepts freely..."
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs text-[var(--md-sys-color-on-surface)] placeholder:text-[var(--md-sys-color-on-surface-variant)]/60 resize-none focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition"
+              />
+              <div className="flex items-center justify-end">
+                <button
+                  type="submit"
+                  disabled={!noteInputText.trim()}
+                  className="px-4 py-2 rounded-xl bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] text-xs font-bold border-none cursor-pointer disabled:opacity-50 flex items-center space-x-1.5 hover:opacity-95 active:scale-95 transition shrink-0 shadow-2xs"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Save Note</span>
+                </button>
+              </div>
+            </form>
+
+            {/* Saved Notes List */}
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+              {currentLectureNotes.length === 0 ? (
+                <div className="p-4 text-center rounded-2xl bg-[var(--md-sys-color-surface)]/60 border border-[var(--md-sys-color-outline-variant)]/10 space-y-1">
+                  <p className="text-xs font-semibold text-[var(--md-sys-color-on-surface)]">
+                    No notes saved yet
+                  </p>
+                  <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                    Write key concepts or formulas above to review them anytime.
+                  </p>
+                </div>
+              ) : (
+                currentLectureNotes.map((note) => (
+                  <div
+                    key={note.id}
+                    className="p-3 rounded-2xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/20 flex items-start justify-between gap-2.5 transition hover:shadow-xs group"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-[13px] text-[var(--md-sys-color-on-surface)] break-words leading-relaxed whitespace-pre-wrap">
+                        {note.text}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => deletePersonalNote(note.id)}
+                      className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/20 border-none bg-transparent cursor-pointer shrink-0 transition opacity-80 group-hover:opacity-100"
+                      title="Delete Note"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* YouTube-style Course Playlist Queue */}
+          {batchLectures.length > 0 && (
+            <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs space-y-3 border border-[var(--md-sys-color-outline-variant)]/10">
+              <div className="flex items-center justify-between pb-2 border-b border-[var(--md-sys-color-outline-variant)]/15">
+                <div className="flex items-center space-x-2">
+                  <ListVideo className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
+                  <h3 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)]">
+                    More in this Course
+                  </h3>
+                </div>
+                <span className="text-[11px] font-semibold text-[var(--md-sys-color-on-surface-variant)]">
+                  {batchLectures.length} Lectures
+                </span>
+              </div>
+
+              <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                {batchLectures.map((lec) => {
+                  const isCurrent = lec.id === playback.lectureId;
+                  return (
                     <div
                       key={lec.id}
-                      onClick={() => switchLecture(lec)}
-                      className="p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] flex items-center justify-between gap-3 cursor-pointer transition group"
+                      onClick={() => {
+                        if (!isCurrent) switchLecture(lec);
+                      }}
+                      className={`p-2.5 rounded-2xl flex items-center justify-between gap-3 transition cursor-pointer group ${
+                        isCurrent
+                          ? 'bg-[var(--md-sys-color-primary-container)]/30 border border-[var(--md-sys-color-primary)]/40 shadow-2xs'
+                          : 'bg-[var(--md-sys-color-surface)] hover:bg-[var(--md-sys-color-surface-container-high)] border border-[var(--md-sys-color-outline-variant)]/15'
+                      }`}
                     >
-                      <div className="flex items-center space-x-2.5 min-w-0">
-                        <div className="w-16 h-10 aspect-video rounded-lg overflow-hidden bg-black shrink-0 relative">
+                      <div className="flex items-center space-x-3 min-w-0 flex-1">
+                        <div className="w-20 h-12 aspect-video rounded-xl overflow-hidden bg-black shrink-0 relative shadow-2xs">
                           <img
                             src={lec.thumbnailUrl || '/assets/default-course-banner.png'}
                             alt={lec.title}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             onError={(e) => {
                               (e.currentTarget as HTMLImageElement).src = '/assets/default-course-banner.png';
                             }}
                           />
+                          {isCurrent ? (
+                            <div className="absolute inset-0 bg-black/40 backdrop-blur-2xs flex items-center justify-center">
+                              <span className="w-2 h-2 rounded-full bg-[var(--md-sys-color-primary)] animate-ping" />
+                            </div>
+                          ) : (
+                            <span className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-black/75 text-[9px] font-mono font-medium text-white">
+                              {lec.durationMinutes || 0}m
+                            </span>
+                          )}
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-[var(--md-sys-color-on-surface)] truncate group-hover:text-[var(--md-sys-color-primary)]">
-                            {lec.title}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            {isCurrent && (
+                              <span className="text-[10px] font-bold text-[var(--md-sys-color-primary)] tracking-wide uppercase">
+                                Playing
+                              </span>
+                            )}
+                            <p
+                              className={`text-xs font-bold truncate leading-snug ${
+                                isCurrent
+                                  ? 'text-[var(--md-sys-color-primary)]'
+                                  : 'text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)]'
+                              }`}
+                            >
+                              {lec.title}
+                            </p>
+                          </div>
+                          <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate mt-0.5">
+                            {playback.batchTitle}
                           </p>
-                          <span className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
-                            {lec.durationMinutes} mins
-                          </span>
                         </div>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-[var(--md-sys-color-on-surface-variant)] group-hover:translate-x-0.5 transition" />
+                      {!isCurrent && (
+                        <ChevronRight className="w-4 h-4 text-[var(--md-sys-color-on-surface-variant)] group-hover:translate-x-0.5 transition shrink-0" />
+                      )}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Lecture Notes on Right (Free-form without timing stamps) */}
-          <div className="lg:col-span-5 space-y-4">
-            <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] flex items-center justify-center">
-                    <FileText className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] leading-tight">
-                      Lecture Notes
-                    </h2>
-                    <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
-                      Write and save your personal study notes freely
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Note input form */}
-              <form onSubmit={handleCreateNote} className="space-y-2">
-                <textarea
-                  rows={3}
-                  value={noteInputText}
-                  onChange={(e) => setNoteInputText(e.target.value)}
-                  placeholder="Write your study notes, formulas, or key concepts freely..."
-                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs text-[var(--md-sys-color-on-surface)] placeholder:text-[var(--md-sys-color-on-surface-variant)]/60 resize-none focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition"
-                />
-                <div className="flex items-center justify-end">
-                  <button
-                    type="submit"
-                    disabled={!noteInputText.trim()}
-                    className="px-4 py-2 rounded-xl bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] text-xs font-bold border-none cursor-pointer disabled:opacity-50 flex items-center space-x-1.5 hover:opacity-95 active:scale-95 transition shrink-0"
-                  >
-                    <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                    <span>Save Note</span>
-                  </button>
-                </div>
-              </form>
-
-              {/* Saved Notes List (Clean typography without timing stamps) */}
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                {currentLectureNotes.length === 0 ? (
-                  <div className="p-4 text-center rounded-2xl bg-[var(--md-sys-color-surface)]/60 border border-[var(--md-sys-color-outline-variant)]/10 space-y-1">
-                    <p className="text-xs font-semibold text-[var(--md-sys-color-on-surface)]">
-                      No notes yet
-                    </p>
-                    <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
-                      Write your notes, formulas, or insights above and save them freely.
-                    </p>
-                  </div>
-                ) : (
-                  currentLectureNotes.map((note) => (
-                    <div
-                      key={note.id}
-                      className="p-3 rounded-2xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/20 flex items-start justify-between gap-2.5 transition hover:shadow-xs group"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs sm:text-sm text-[var(--md-sys-color-on-surface)] break-words leading-relaxed whitespace-pre-wrap">
-                          {note.text}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => deletePersonalNote(note.id)}
-                        className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/20 border-none bg-transparent cursor-pointer shrink-0 transition"
-                        title="Delete Note"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))
-                )}
+                  );
+                })}
               </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>
