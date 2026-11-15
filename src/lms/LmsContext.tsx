@@ -11,7 +11,8 @@ import {
   INITIAL_ENROLLMENTS,
   INITIAL_BATCH_TESTS,
 } from './initialData';
-import { enableContentSecurityDeterrence, obfuscateVideoKey } from './security';
+import { enableContentSecurityDeterrence, obfuscateVideoKey, initConsoleSecurityNotice } from './security';
+import { secureStorage } from '../lib/secureStorage';
 import { auth, db } from '../lib/firebase';
 import { isMasterUser } from '../lib/masterAccount';
 import { listenerManager } from '../lib/listenerManager';
@@ -139,13 +140,13 @@ const STORAGE_KEYS = {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.THEME);
+    const saved = secureStorage.getItem(STORAGE_KEYS.THEME);
     if (saved === 'light' || saved === 'dark') return saved;
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
   const [user, setUser] = useState<User>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.USER);
+    const saved = secureStorage.getItem(STORAGE_KEYS.USER);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -165,7 +166,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [batches, setBatches] = useState<Batch[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.BATCHES);
+    const saved = secureStorage.getItem(STORAGE_KEYS.BATCHES);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -184,7 +185,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [subjects, setSubjects] = useState<Subject[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.SUBJECTS);
+    const saved = secureStorage.getItem(STORAGE_KEYS.SUBJECTS);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -195,7 +196,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [chapters, setChapters] = useState<Chapter[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.CHAPTERS);
+    const saved = secureStorage.getItem(STORAGE_KEYS.CHAPTERS);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -206,7 +207,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [lectures, setLectures] = useState<Lecture[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.LECTURES);
+    const saved = secureStorage.getItem(STORAGE_KEYS.LECTURES);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -217,17 +218,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [watchProgress, setWatchProgress] = useState<Record<string, WatchProgress>>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PROGRESS);
+    const saved = secureStorage.getItem(STORAGE_KEYS.PROGRESS);
     return saved ? JSON.parse(saved) : {};
   });
 
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.ANNOUNCEMENTS);
+    const saved = secureStorage.getItem(STORAGE_KEYS.ANNOUNCEMENTS);
     return saved ? JSON.parse(saved) : INITIAL_ANNOUNCEMENTS;
   });
 
   const [personalNotes, setPersonalNotes] = useState<PersonalNote[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.NOTES);
+    const saved = secureStorage.getItem(STORAGE_KEYS.NOTES);
     return saved
       ? JSON.parse(saved)
       : [
@@ -242,17 +243,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [students, setStudents] = useState<{ id: string; name: string; email?: string; phone?: string }[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.STUDENTS);
+    const saved = secureStorage.getItem(STORAGE_KEYS.STUDENTS);
     return saved ? JSON.parse(saved) : INITIAL_STUDENTS;
   });
 
   const [enrollments, setEnrollments] = useState<BatchEnrollment[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.ENROLLMENTS);
+    const saved = secureStorage.getItem(STORAGE_KEYS.ENROLLMENTS);
     return saved ? JSON.parse(saved) : INITIAL_ENROLLMENTS;
   });
 
   const [batchTests, setBatchTests] = useState<BatchTestCard[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.BATCH_TESTS);
+    const saved = secureStorage.getItem(STORAGE_KEYS.BATCH_TESTS);
     return saved ? JSON.parse(saved) : INITIAL_BATCH_TESTS;
   });
 
@@ -262,7 +263,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [securitySettings, setSecuritySettings] = useState<SecuritySettingsConfig>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.SECURITY_SETTINGS);
+    const saved = secureStorage.getItem(STORAGE_KEYS.SECURITY_SETTINGS);
     if (saved) {
       try {
         return {
@@ -270,6 +271,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           enableDynamicWatermark: true,
           enableExamAnswerMasking: true,
           enableDevToolsDeterrence: true,
+          enableStorageEncryption: true,
           ...JSON.parse(saved),
         };
       } catch {}
@@ -279,6 +281,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       enableDynamicWatermark: true,
       enableExamAnswerMasking: true,
       enableDevToolsDeterrence: true,
+      enableStorageEncryption: true,
     };
   });
 
@@ -286,7 +289,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSecuritySettings((prev) => {
       const next = { ...prev, ...newSettings };
       try {
-        localStorage.setItem(STORAGE_KEYS.SECURITY_SETTINGS, JSON.stringify(next));
+        secureStorage.setItem(STORAGE_KEYS.SECURITY_SETTINGS, JSON.stringify(next));
       } catch {}
       setDoc(doc(db, 'master_catalog', 'lms_security_config'), next, { merge: true }).catch(() => {});
       return next;
@@ -296,6 +299,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // 1. Initial Load: Fetch all active published batches and global guest access policy from Cloud Firestore
   useEffect(() => {
+    // Inject legal and compliance notice into DevTools console (DPDP Act 2023 & IT Act 2000)
+    initConsoleSecurityNotice();
+    // Seamless automatic migration of legacy plaintext storage keys to encrypted cipher format
+    secureStorage.migrateLegacyKeys(Object.values(STORAGE_KEYS));
+
     fetchBatchesFromFirestore().then((cloudBatches) => {
       if (cloudBatches && cloudBatches.length > 0) {
         setBatches(cloudBatches);
@@ -313,7 +321,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (val === 'specific_batches' || val === 'all_batches' || val === 'none') {
             setGlobalGuestAccessModeState(val);
             try {
-              localStorage.setItem(STORAGE_KEYS.GUEST_ACCESS_MODE, val);
+              secureStorage.setItem(STORAGE_KEYS.GUEST_ACCESS_MODE, val);
             } catch {}
           }
         }
@@ -333,7 +341,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (val) {
             setSecuritySettings((prev) => ({ ...prev, ...val }));
             try {
-              localStorage.setItem(STORAGE_KEYS.SECURITY_SETTINGS, JSON.stringify(val));
+              secureStorage.setItem(STORAGE_KEYS.SECURITY_SETTINGS, JSON.stringify(val));
             } catch {}
           }
         }
@@ -394,7 +402,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // User logged out or unauthenticated: Check if a local guest session exists
         let guestUser: User | null = null;
         try {
-          const saved = localStorage.getItem(STORAGE_KEYS.USER);
+          const saved = secureStorage.getItem(STORAGE_KEYS.USER);
           if (saved) {
             const parsed = JSON.parse(saved);
             if (parsed && parsed.role !== 'admin') {
@@ -418,49 +426,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribe();
   }, []);
 
-  // Sync state to LocalStorage as zero-latency cache
+  // Sync state to SecureStorage Vault as zero-latency encrypted cache (enc_v2_...)
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+    secureStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
   }, [user]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(batches));
+    secureStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(batches));
   }, [batches]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SUBJECTS, JSON.stringify(subjects));
+    secureStorage.setItem(STORAGE_KEYS.SUBJECTS, JSON.stringify(subjects));
   }, [subjects]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.CHAPTERS, JSON.stringify(chapters));
+    secureStorage.setItem(STORAGE_KEYS.CHAPTERS, JSON.stringify(chapters));
   }, [chapters]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.LECTURES, JSON.stringify(lectures));
+    secureStorage.setItem(STORAGE_KEYS.LECTURES, JSON.stringify(lectures));
   }, [lectures]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PROGRESS, JSON.stringify(watchProgress));
+    secureStorage.setItem(STORAGE_KEYS.PROGRESS, JSON.stringify(watchProgress));
   }, [watchProgress]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(announcements));
+    secureStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(announcements));
   }, [announcements]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(personalNotes));
+    secureStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(personalNotes));
   }, [personalNotes]);
 
+  // Role-based student roster data protection (DPDP Act 2023 compliance):
+  // Never expose all students' PII (phone/email) in a non-admin student's browser storage
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
-  }, [students]);
+    if (user.role === 'admin' || (user as any).isMaster) {
+      secureStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
+    } else {
+      secureStorage.removeItem(STORAGE_KEYS.STUDENTS);
+    }
+  }, [students, user.role]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.ENROLLMENTS, JSON.stringify(enrollments));
+    secureStorage.setItem(STORAGE_KEYS.ENROLLMENTS, JSON.stringify(enrollments));
   }, [enrollments]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(batchTests));
+    secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(batchTests));
   }, [batchTests]);
 
   // Apply theme class to HTML root element
@@ -492,16 +506,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   useEffect(() => {
-    // Content security deterrence only engages when an active lecture is playing
-    // and security settings allow it, preventing interference on normal browsing pages
-    if (!securitySettings.enableDevToolsDeterrence || !activeLectureId) {
+    // Global DevTools & Inspection Deterrence across all pages (Home, Batches, Tests, Curriculum)
+    if (!securitySettings.enableDevToolsDeterrence) {
       return;
     }
+    const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const isAdmin = user.role === 'admin' || (user as any).isMaster;
+
+    // Preserve full developer tooling on localhost for admin, enforce globally in production & for students
+    if (isLocal && isAdmin) {
+      return;
+    }
+
     const cleanup = enableContentSecurityDeterrence((reason) => {
       showSecurityToast(`🛡️ Security Shield: ${reason}`);
     });
     return cleanup;
-  }, [securitySettings.enableDevToolsDeterrence, activeLectureId]);
+  }, [securitySettings.enableDevToolsDeterrence, user.role]);
 
   const toggleRole = () => {
     setUser((prev) => ({
@@ -542,8 +563,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return b;
       });
       try {
-        localStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(next));
-        localStorage.setItem('elevatelabs_cloud_batches_cache', JSON.stringify(next));
+        secureStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(next));
+        secureStorage.setItem('elevatelabs_cloud_batches_cache', JSON.stringify(next));
       } catch {}
       return next;
     });
@@ -774,7 +795,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       const next = prev.filter((l) => l.id !== id);
       try {
-        localStorage.setItem(STORAGE_KEYS.LECTURES, JSON.stringify(next));
+        secureStorage.setItem(STORAGE_KEYS.LECTURES, JSON.stringify(next));
       } catch {}
       return next;
     });
@@ -793,7 +814,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const otherBatchChaps = prev.filter((c) => c.batchId !== batchId);
           const next = [...otherBatchChaps, ...cloudChaps];
           try {
-            localStorage.setItem(STORAGE_KEYS.CHAPTERS, JSON.stringify(next));
+            secureStorage.setItem(STORAGE_KEYS.CHAPTERS, JSON.stringify(next));
           } catch {}
           return next;
         }
@@ -807,7 +828,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const otherBatchLecs = prev.filter((l) => l.batchId !== batchId);
         const next = [...otherBatchLecs, ...cloudLecs];
         try {
-          localStorage.setItem(STORAGE_KEYS.LECTURES, JSON.stringify(next));
+          secureStorage.setItem(STORAGE_KEYS.LECTURES, JSON.stringify(next));
         } catch {}
         return next;
       });
@@ -1013,7 +1034,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setUser(updatedUser);
     try {
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
+      secureStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
     } catch {}
 
     const guestId = user.id || `guest_${Date.now()}`;

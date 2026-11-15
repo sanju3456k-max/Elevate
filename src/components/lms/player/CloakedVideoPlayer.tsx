@@ -555,6 +555,16 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     return () => clearInterval(timer);
   }, [isPlaying, duration, onProgress, safeCallPlayer]);
 
+  const handleSkip = useCallback((seconds: number) => {
+    safeCallPlayer((p) => {
+      if (p.getCurrentTime && p.seekTo) {
+        const nextTime = Math.min(Math.max(0, p.getCurrentTime() + seconds), duration);
+        p.seekTo(nextTime, true);
+        setCurrentTime(nextTime);
+      }
+    });
+  }, [safeCallPlayer, duration]);
+
   // Touch & Tap gesture tracking for mobile & desktop
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const lastTouchHandledTimeRef = useRef<number>(0);
@@ -734,16 +744,6 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     safeCallPlayer((p) => {
       if (p.seekTo) {
         p.seekTo(targetTime, true);
-      }
-    });
-  };
-
-  const handleSkip = (seconds: number) => {
-    safeCallPlayer((p) => {
-      if (p.getCurrentTime && p.seekTo) {
-        const nextTime = Math.min(Math.max(0, p.getCurrentTime() + seconds), duration);
-        p.seekTo(nextTime, true);
-        setCurrentTime(nextTime);
       }
     });
   };

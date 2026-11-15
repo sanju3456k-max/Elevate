@@ -129,6 +129,19 @@ export function getLectureThumbnailUrl(lecture: { encryptedVideoId?: string; thu
 }
 
 /**
+ * Injects security warning banner into browser console to deter scraping/dumping.
+ */
+export function initConsoleSecurityNotice() {
+  if (typeof window === 'undefined') return;
+  try {
+    const title = '🔒 ELEVATE LABS — SECURE LEARNING ENVIRONMENT';
+    const msg = 'Protected educational content & proprietary assessment assets. Unauthorized scraping, dumping, or reverse engineering of application assets is strictly prohibited under IT Act 2000 & Copyright Act 1957.';
+    console.log(`%c${title}`, 'color: #3b82f6; font-size: 14px; font-weight: bold; background: #0f172a; padding: 4px 8px; border-radius: 4px;');
+    console.log(`%c${msg}`, 'color: #ef4444; font-size: 11px; font-weight: 500;');
+  } catch {}
+}
+
+/**
  * Initializes screen protection listeners:
  * - Disables right-click context menu on video player
  * - Blocks common DevTools inspection keys (F12, Ctrl+Shift+I, Ctrl+U, etc.)

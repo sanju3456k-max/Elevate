@@ -1526,7 +1526,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                           </span>
                         </div>
                         <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] leading-normal">
-                          Blocks F12, Ctrl+Shift+I, Ctrl+U, and right-click during video playback and live tests with deterrence warning notices.
+                          Blocks F12, Ctrl+Shift+I, Ctrl+U, and inspection attempts with instant deterrence warning toasts across application pages.
                         </p>
                       </div>
                       <M3Switch
@@ -1534,6 +1534,32 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                         onChange={() => {
                           const next = !securitySettings?.enableDevToolsDeterrence;
                           updateSecuritySettings({ enableDevToolsDeterrence: next });
+                        }}
+                      />
+                    </div>
+
+                    {/* Security Toggle 5: Cryptographic Client Storage Vault */}
+                    <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)]/60 border border-[var(--md-sys-color-outline-variant)]/10">
+                      <div className="space-y-0.5 flex-1 pr-2">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">
+                            Cryptographic Client Storage Vault (DPDP Act & Anti-Dumping)
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            securitySettings?.enableStorageEncryption !== false ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-500/15 text-slate-500'
+                          }`}>
+                            {securitySettings?.enableStorageEncryption !== false ? 'Encrypted (AES)' : 'Disabled'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] leading-normal">
+                          Transforms all client-side storage (batches, lectures, tests, and student PII) into encrypted binary cipher blobs (enc_v2_...). Prevents scraping even if DevTools is opened on any page.
+                        </p>
+                      </div>
+                      <M3Switch
+                        checked={securitySettings?.enableStorageEncryption !== false}
+                        onChange={() => {
+                          const next = securitySettings?.enableStorageEncryption === false;
+                          updateSecuritySettings({ enableStorageEncryption: next });
                         }}
                       />
                     </div>
