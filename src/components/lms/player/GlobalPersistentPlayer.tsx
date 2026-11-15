@@ -302,23 +302,13 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
           {/* Lecture Info on Left */}
           <div className="lg:col-span-7 space-y-4">
             <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-2 shadow-xs">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h1 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] leading-snug">
-                    {playback.lectureTitle}
-                  </h1>
-                  <p className="text-xs font-semibold text-[var(--md-sys-color-primary)] mt-0.5">
-                    {playback.batchTitle}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--md-sys-color-on-surface-variant)] hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition cursor-pointer border-none bg-transparent shrink-0"
-                  title="Close video"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] leading-snug">
+                  {playback.lectureTitle}
+                </h1>
+                <p className="text-xs font-semibold text-[var(--md-sys-color-primary)] mt-0.5">
+                  {playback.batchTitle}
+                </p>
               </div>
               <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] leading-relaxed">
                 {playback.lectureDescription || 'Comprehensive recorded session and conceptual curriculum module.'}
