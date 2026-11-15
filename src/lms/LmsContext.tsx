@@ -710,60 +710,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (target?.batchId) {
         deleteLectureFromFirestore(target.batchId, id).catch(() => {});
       }
-      return prev.filter((l) => l.id !== id);
+      const next = prev.filter((l) => l.id !== id);
+      try {
+        localStorage.setItem(STORAGE_KEYS.LECTURES, JSON.stringify(next));
+      } catch {}
+      return next;
     });
+    window.dispatchEvent(new CustomEvent('lecture-deleted', { detail: { id } }));
   }, []);
 
   const loadCurriculumForBatch = useCallback(async (batchId: string) => {
     if (!batchId) return;
     try {
       const { chapters: cloudChaps, lectures: cloudLecs } = await fetchBatchCurriculumFromFirestore(batchId);
-      if (cloudChaps.length > 0) {
-        setChapters((prev) => {
-          // Reconcile: If local state has chapters authored here that aren't in cloud yet, push to cloud
-          prev.filter((c) => c.batchId === batchId).forEach((lc) => {
-            if (!cloudChaps.some((cc) => cc.id === lc.id)) {
-              syncChapterToFirestore(batchId, lc).catch(() => {});
-            }
-          });
-          const map = new Map(prev.map((c) => [c.id, c]));
-          cloudChaps.forEach((cc) => {
-            const existing = map.get(cc.id);
-            // Protect local edits: only overwrite if cloud version is explicitly newer or local has no timestamp
-            if (!existing || !existing.updatedAt || new Date(cc.updatedAt || 0) >= new Date(existing.updatedAt)) {
-              map.set(cc.id, cc);
-            }
-          });
-          return Array.from(map.values());
-        });
-      }
-      if (cloudLecs.length > 0) {
-        setLectures((prev) => {
-          // Reconcile: If local state has lectures authored here that aren't in cloud yet, push to cloud
-          prev.filter((l) => l.batchId === batchId).forEach((ll) => {
-            if (!cloudLecs.some((cl) => cl.id === ll.id)) {
-              syncLectureToFirestore(batchId, ll).catch(() => {});
-            }
-          });
-          const map = new Map(prev.map((l) => [l.id, l]));
-          cloudLecs.forEach((cl) => {
-            const existing = map.get(cl.id);
-            // Protect local edits: only overwrite if cloud version is explicitly newer or local has no timestamp
-            if (!existing || !existing.updatedAt || new Date(cl.updatedAt || 0) >= new Date(existing.updatedAt)) {
-              map.set(cl.id, cl);
-            }
-          });
-          return Array.from(map.values());
-        });
-      }
 
-      // Also fetch batch-authored tests from Cloud Firestore
+      // 1. Authoritative Chapter Reconciliation:
+      // Replace chapters for batchId with cloud chapters (purging deleted ones)
+      setChapters((prev) => {
+        if (cloudChaps.length > 0) {
+          const otherBatchChaps = prev.filter((c) => c.batchId !== batchId);
+          const next = [...otherBatchChaps, ...cloudChaps];
+          try {
+            localStorage.setItem(STORAGE_KEYS.CHAPTERS, JSON.stringify(next));
+          } catch {}
+          return next;
+        }
+        return prev;
+      });
+
+      // 2. Authoritative Lecture Reconciliation:
+      // Cloud is the single source of truth for batchId.
+      // Replace batchId lectures with cloudLecs (purging deleted ones completely!)
+      setLectures((prev) => {
+        const otherBatchLecs = prev.filter((l) => l.batchId !== batchId);
+        const next = [...otherBatchLecs, ...cloudLecs];
+        try {
+          localStorage.setItem(STORAGE_KEYS.LECTURES, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+
+      // 3. Batch Tests
       fetchBatchTestsFromFirestore(batchId).then((cloudTests) => {
         if (cloudTests.length > 0) {
           setBatchTests((prev) => {
-            const map = new Map(prev.map((t) => [t.testId, t]));
-            cloudTests.forEach((ct) => map.set(ct.testId, ct));
-            return Array.from(map.values());
+            const otherBatchTests = prev.filter((t) => t.batchId !== batchId);
+            return [...otherBatchTests, ...cloudTests];
           });
         }
       }).catch(() => {});

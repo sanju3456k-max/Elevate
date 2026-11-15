@@ -171,3 +171,10 @@ export interface BatchTestCard {
   chunkEstimatedBytes: number;
   publishedAt: string;
 }
+
+export interface SecuritySettingsConfig {
+  enableDrmScreenProtection: boolean; // Active only during Video & Tests (focus loss blackout, clipboard clean)
+  enableDynamicWatermark: boolean; // Drifting student identity watermark during Video & Tests
+  enableExamAnswerMasking: boolean; // Mask answers/solutions until test submission
+  enableDevToolsDeterrence: boolean; // Auto-pause/detect inspect shortcuts
+}

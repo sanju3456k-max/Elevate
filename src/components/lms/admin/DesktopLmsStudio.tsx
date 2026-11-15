@@ -48,6 +48,8 @@ import {
 } from 'lucide-react';
 import { fetchVideoMetadata, extractYouTubeVideoId } from '../../../lms/videoMetadataService';
 import { useApp } from '../../../lms/LmsContext';
+import { db } from '../../../lib/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 import {
   extractYouTubeId,
   obfuscateVideoKey,
@@ -206,14 +208,29 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
     return batches.find((b) => b.id === selectedBatchId) || batches[0] || null;
   }, [batches, selectedBatchId]);
 
-  // Auto load batch curriculum and roster ONLY when selectedBatchId actually changes
-  const loadedBatchIdRef = useRef<string | null>(null);
+  // Auto load batch curriculum and roster with real-time live synchronization
   useEffect(() => {
-    if (selectedBatchId && loadedBatchIdRef.current !== selectedBatchId) {
-      loadedBatchIdRef.current = selectedBatchId;
-      loadCurriculumForBatch(selectedBatchId);
-      loadRosterForBatch(selectedBatchId);
-    }
+    if (!selectedBatchId) return;
+    loadCurriculumForBatch(selectedBatchId);
+    loadRosterForBatch(selectedBatchId);
+
+    let unsubLectures: (() => void) | null = null;
+    try {
+      const lecsCol = collection(db, 'batches', selectedBatchId, 'lectures');
+      unsubLectures = onSnapshot(
+        lecsCol,
+        () => {
+          loadCurriculumForBatch(selectedBatchId);
+        },
+        (err) => {
+          console.warn('Admin studio live lecs notice:', err);
+        }
+      );
+    } catch {}
+
+    return () => {
+      if (unsubLectures) unsubLectures();
+    };
   }, [selectedBatchId, loadCurriculumForBatch, loadRosterForBatch]);
 
   // Hierarchical chapters and lectures for the current batch

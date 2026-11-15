@@ -38,7 +38,8 @@ import {
   Clock,
 } from 'lucide-react';
 import { useApp, getFacultyAvatarUrl } from '../../../lms/LmsContext';
-import { auth } from '../../../lib/firebase';
+import { auth, db } from '../../../lib/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { isMasterUser } from '../../../lib/masterAccount';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
 import { formatDuration, extractYouTubeId, obfuscateVideoKey, getLectureThumbnailUrl, deobfuscateVideoKey } from '../../../lms/security';
@@ -237,11 +238,59 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     }
   }, [propBatchId, initialChapterId, initialLectureId, initialFolderTab, onStageChange]);
 
+  // Real-time bidirectional synchronization for lectures & chapters (Instant deletions & additions)
   useEffect(() => {
-    if (selectedBatchId) {
-      loadCurriculumForBatch(selectedBatchId);
-    }
+    if (!selectedBatchId) return;
+
+    // 1. Initial authoritative load
+    loadCurriculumForBatch(selectedBatchId);
+
+    // 2. Real-time collection listener for instant deletions & additions
+    let unsubLectures: (() => void) | null = null;
+    try {
+      const lecsCol = collection(db, 'batches', selectedBatchId, 'lectures');
+      unsubLectures = onSnapshot(
+        lecsCol,
+        () => {
+          loadCurriculumForBatch(selectedBatchId);
+        },
+        (err) => {
+          console.warn('Lectures live stream notice:', err);
+        }
+      );
+    } catch {}
+
+    let unsubChapters: (() => void) | null = null;
+    try {
+      const chapsCol = collection(db, 'batches', selectedBatchId, 'chapters');
+      unsubChapters = onSnapshot(
+        chapsCol,
+        () => {
+          loadCurriculumForBatch(selectedBatchId);
+        },
+        (err) => {
+          console.warn('Chapters live stream notice:', err);
+        }
+      );
+    } catch {}
+
+    return () => {
+      if (unsubLectures) unsubLectures();
+      if (unsubChapters) unsubChapters();
+    };
   }, [selectedBatchId, loadCurriculumForBatch]);
+
+  // Gracefully handle if current lecture was deleted by instructor in real time
+  useEffect(() => {
+    if (selectedLectureId) {
+      const exists = lectures.some((l) => l.id === selectedLectureId);
+      if (!exists && currentStage === 'lecture_view') {
+        showSecurityToast('This lecture has been removed by the instructor.');
+        setSelectedLectureId(null);
+        setCurrentStage('folder_content');
+      }
+    }
+  }, [selectedLectureId, lectures, currentStage, showSecurityToast]);
 
   // One-time initial deep-link alignment when opening a lecture via direct link
   const hasAlignedInitialDeepLinkRef = useRef(false);

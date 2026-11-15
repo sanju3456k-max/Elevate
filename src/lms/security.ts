@@ -162,9 +162,14 @@ export function enableContentSecurityDeterrence(onViolation?: (reason: string) =
       return;
     }
 
-    // PrintScreen deterrence
+    // PrintScreen deterrence & clipboard sanitization
     if (e.key === 'PrintScreen') {
-      if (onViolation) onViolation('Screenshots are discouraged.');
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText('').catch(() => {});
+        }
+      } catch {}
+      if (onViolation) onViolation('Screen capture is restricted on protected assessments.');
     }
   };
 
@@ -174,6 +179,39 @@ export function enableContentSecurityDeterrence(onViolation?: (reason: string) =
   return () => {
     window.removeEventListener('contextmenu', handleContextMenu);
     window.removeEventListener('keydown', handleKeyDown);
+  };
+}
+
+/**
+ * Focus-Loss & Screen Recording / Snipping Tool Protector
+ * Detects when the window loses focus (e.g. Snipping Tool Win+Shift+S, OBS recording, or background alt-tab)
+ * and notifies subscribers so the video player or active test can obscure/blackout content.
+ */
+export function initFocusLossProtector(onObscuredChange: (isObscured: boolean) => void): () => void {
+  const handleBlur = () => {
+    onObscuredChange(true);
+  };
+
+  const handleFocus = () => {
+    onObscuredChange(false);
+  };
+
+  const handleVisibility = () => {
+    if (document.visibilityState === 'hidden') {
+      onObscuredChange(true);
+    } else if (document.hasFocus()) {
+      onObscuredChange(false);
+    }
+  };
+
+  window.addEventListener('blur', handleBlur);
+  window.addEventListener('focus', handleFocus);
+  document.addEventListener('visibilitychange', handleVisibility);
+
+  return () => {
+    window.removeEventListener('blur', handleBlur);
+    window.removeEventListener('focus', handleFocus);
+    document.removeEventListener('visibilitychange', handleVisibility);
   };
 }
 

@@ -791,6 +791,9 @@ export async function deleteChapterFromFirestore(batchId: string, chapterId: str
   if (!batchId || !chapterId) return;
   try {
     await deleteDoc(doc(db, 'batches', batchId, 'chapters', chapterId));
+    const nowIso = new Date().toISOString();
+    await updateDoc(doc(db, 'batches', batchId), { updatedAt: nowIso }).catch(() => {});
+    touchBatchCatalogBeacon().catch(() => {});
   } catch (error) {
     console.warn(`Failed to delete chapter ${chapterId} for batch ${batchId}:`, error);
   }
@@ -809,6 +812,9 @@ export async function deleteLectureFromFirestore(batchId: string, lectureId: str
   if (!batchId || !lectureId) return;
   try {
     await deleteDoc(doc(db, 'batches', batchId, 'lectures', lectureId));
+    const nowIso = new Date().toISOString();
+    await updateDoc(doc(db, 'batches', batchId), { updatedAt: nowIso }).catch(() => {});
+    touchBatchCatalogBeacon().catch(() => {});
   } catch (error) {
     console.warn(`Failed to delete lecture ${lectureId} for batch ${batchId}:`, error);
   }

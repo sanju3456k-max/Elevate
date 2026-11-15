@@ -102,6 +102,20 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
     }
   }, [activeTab, onUpdatePlayback]);
 
+  // Cleanly close player if currently playing lecture was deleted
+  useEffect(() => {
+    const handleLectureDeleted = (e: any) => {
+      const deletedId = e.detail?.id;
+      if (playback && playback.lectureId === deletedId) {
+        onClose();
+      }
+    };
+    window.addEventListener('lecture-deleted', handleLectureDeleted);
+    return () => {
+      window.removeEventListener('lecture-deleted', handleLectureDeleted);
+    };
+  }, [playback, onClose]);
+
   // Auto-dock to MiniPlayer if user navigates away to another main tab (Home, Batches, Tests, Analytics)
   const prevActiveTabRef = useRef(activeTab);
   useEffect(() => {
