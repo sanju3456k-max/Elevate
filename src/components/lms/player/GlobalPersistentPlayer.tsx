@@ -126,6 +126,24 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
     onUpdatePlayback((prev) => (prev ? { ...prev, isPlaying: !prev.isPlaying } : null));
   }, [onUpdatePlayback]);
 
+  const handlePlayStateChange = useCallback(
+    (playing: boolean) => {
+      onUpdatePlayback((prev) => (prev && prev.isPlaying !== playing ? { ...prev, isPlaying: playing } : prev));
+    },
+    [onUpdatePlayback]
+  );
+
+  const handleProgress = useCallback(
+    (sec: number, total: number) => {
+      setCurrentPlaybackSec(sec);
+      if (total > 0) setTotalDuration(total);
+      if (playback?.lectureId) {
+        updateWatchProgress(playback.lectureId, sec, total);
+      }
+    },
+    [playback?.lectureId, updateWatchProgress]
+  );
+
   const handleClose = useCallback((e?: React.MouseEvent) => {
     e?.stopPropagation();
     onClose();
@@ -237,14 +255,8 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             isMini={isMinimized}
             autoPlay={true}
             isPlayingProp={playback.isPlaying}
-            onPlayStateChange={(playing) => {
-              onUpdatePlayback((prev) => (prev && prev.isPlaying !== playing ? { ...prev, isPlaying: playing } : prev));
-            }}
-            onProgress={(sec, total) => {
-              setCurrentPlaybackSec(sec);
-              if (total > 0) setTotalDuration(total);
-              updateWatchProgress(playback.lectureId, sec, total);
-            }}
+            onPlayStateChange={handlePlayStateChange}
+            onProgress={handleProgress}
           />
         </div>
       </div>

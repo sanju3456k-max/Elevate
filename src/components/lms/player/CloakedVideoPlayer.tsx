@@ -133,10 +133,17 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   optionsMenuOpenRef.current = optionsMenuOpen;
   selectedQualityRef.current = currentQuality;
 
-  const isControlsVisibleRef = useRef(isControlsVisible);
-  isControlsVisibleRef.current = isControlsVisible;
+  // Dedicated refs to break state feedback loop with external controllers (e.g. MiniPlayer toggle)
   const isPlayingRef = useRef(isPlaying);
   isPlayingRef.current = isPlaying;
+
+  const onPlayStateChangeRef = useRef(onPlayStateChange);
+  useEffect(() => {
+    onPlayStateChangeRef.current = onPlayStateChange;
+  }, [onPlayStateChange]);
+
+  const isControlsVisibleRef = useRef(isControlsVisible);
+  isControlsVisibleRef.current = isControlsVisible;
   const lastControlsRevealedAt = useRef(0);
 
   // Helper: Show streamline and tools controls for a set duration (5s by default)
@@ -329,7 +336,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         if (typeof p.seekTo === 'function') {
           p.seekTo(seekToSeconds, true);
           p.playVideo?.();
+          isPlayingRef.current = true;
           setIsPlaying(true);
+          onPlayStateChangeRef.current?.(true);
           setCurrentTime(seekToSeconds);
           showNoticeWithDecay(`Jumped to ${formatDuration(seekToSeconds)}`, 5000);
         }
@@ -338,24 +347,23 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   }, [seekToSeconds, isPlayerReady, safeCallPlayer, showNoticeWithDecay]);
 
   // Synchronize external play/pause state (e.g. from YouTube MiniPlayer controls)
+  // Clean one-way sink: updates player hardware without triggering an echo feedback loop
   useEffect(() => {
-    if (isPlayingProp !== undefined) {
-      safeCallPlayer((p) => {
-        if (isPlayingProp && p.playVideo) {
-          p.playVideo();
-          setIsPlaying(true);
-        } else if (!isPlayingProp && p.pauseVideo) {
-          p.pauseVideo();
-          setIsPlaying(false);
-        }
-      });
-    }
-  }, [isPlayingProp, safeCallPlayer]);
+    if (isPlayingProp === undefined) return;
+    if (isPlayingRef.current === isPlayingProp) return;
 
-  // Synchronize internal playback state changes back to parent
-  useEffect(() => {
-    onPlayStateChange?.(isPlaying);
-  }, [isPlaying, onPlayStateChange]);
+    isPlayingRef.current = isPlayingProp;
+    setIsPlaying(isPlayingProp);
+
+    safeCallPlayer((p) => {
+      if (isPlayingProp) {
+        if (p.playVideo) p.playVideo();
+        setHasEverPlayed(true);
+      } else {
+        if (p.pauseVideo) p.pauseVideo();
+      }
+    });
+  }, [isPlayingProp, safeCallPlayer]);
 
   // Initialize or re-create player with high definition rendering
   useEffect(() => {
@@ -415,8 +423,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
               if ((autoPlay || isMini) && isPlayingProp !== false) {
                 try {
                   event.target.playVideo();
+                  isPlayingRef.current = true;
                   setIsPlaying(true);
                   setHasEverPlayed(true);
+                  onPlayStateChangeRef.current?.(true);
                 } catch {}
               }
 
@@ -435,15 +445,25 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             onStateChange: (event: any) => {
               // YT.PlayerState: -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering)
               if (event.data === 1) {
-                setIsPlaying(true);
-                setHasEverPlayed(true);
-                setIsBufferingOrStarting(false);
+                if (!isPlayingRef.current) {
+                  isPlayingRef.current = true;
+                  setIsPlaying(true);
+                  setHasEverPlayed(true);
+                  setIsBufferingOrStarting(false);
+                  onPlayStateChangeRef.current?.(true);
+                }
               } else if (event.data === 2) {
-                setIsPlaying(false);
-                setIsBufferingOrStarting(false);
+                if (isPlayingRef.current) {
+                  isPlayingRef.current = false;
+                  setIsPlaying(false);
+                  setIsBufferingOrStarting(false);
+                  onPlayStateChangeRef.current?.(false);
+                }
               } else if (event.data === 0) {
+                isPlayingRef.current = false;
                 setIsPlaying(false);
                 setIsBufferingOrStarting(false);
+                onPlayStateChangeRef.current?.(false);
                 if (onComplete) onComplete();
               }
             },
@@ -566,6 +586,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     safeCallPlayer((p) => {
       if (p.playVideo) {
         p.playVideo();
+        isPlayingRef.current = true;
+        setIsPlaying(true);
+        setHasEverPlayed(true);
+        onPlayStateChangeRef.current?.(true);
       }
     });
   };
@@ -578,7 +602,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     safeCallPlayer((p) => {
       if (p.playVideo) {
         p.playVideo();
+        isPlayingRef.current = true;
         setIsPlaying(true);
+        onPlayStateChangeRef.current?.(true);
         showControlsForDuration(5000);
       }
     });
@@ -588,7 +614,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     safeCallPlayer((p) => {
       if (p.pauseVideo) {
         p.pauseVideo();
+        isPlayingRef.current = false;
         setIsPlaying(false);
+        onPlayStateChangeRef.current?.(false);
         if (controlsTimeoutRef.current) {
           clearTimeout(controlsTimeoutRef.current);
           controlsTimeoutRef.current = null;
@@ -1217,7 +1245,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                       if (p.seekTo) {
                         p.seekTo(m.seconds, true);
                         p.playVideo?.();
+                        isPlayingRef.current = true;
                         setIsPlaying(true);
+                        onPlayStateChangeRef.current?.(true);
                         setCurrentTime(m.seconds);
                       }
                     });
