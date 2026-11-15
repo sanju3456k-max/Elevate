@@ -129,20 +129,22 @@ export const BatchAdminStudio: React.FC = () => {
   const lastFetchedBatchYtIdRef = useRef<string | null>(null);
 
   // Handle YouTube URL paste & auto detection
-  const handleVideoUrlChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
+  const handleVideoUrlChange = async (e: React.ChangeEvent<HTMLInputElement> | string, force = false) => {
+    const val = typeof e === 'string' ? e : e.target.value;
     setVideoUrlInput(val);
     const ytId = extractYouTubeVideoId(val);
     setDetectedYtId(ytId);
-    if (!ytId || ytId === lastFetchedBatchYtIdRef.current) return;
+    if (!ytId) {
+      lastFetchedBatchYtIdRef.current = null;
+      return;
+    }
+    if (!force && ytId === lastFetchedBatchYtIdRef.current && lectureTitle) return;
     lastFetchedBatchYtIdRef.current = ytId;
     setIsAutoFetchingYt(true);
     try {
-      const meta = await fetchVideoMetadata(ytId);
+      const meta = await fetchVideoMetadata(ytId, force);
       if (meta) {
-        if (!lectureTitle.trim() || lectureTitle.toLowerCase().startsWith('lecture') || lectureTitle.toLowerCase().startsWith('video')) {
-          setLectureTitle(meta.title);
-        }
+        setLectureTitle(meta.title);
         if (meta.durationMinutes && meta.durationMinutes > 0) {
           setDurationMinutes(meta.durationMinutes);
         }
@@ -586,6 +588,12 @@ export const BatchAdminStudio: React.FC = () => {
                     type="text"
                     value={videoUrlInput}
                     onChange={handleVideoUrlChange}
+                    onPaste={(e) => {
+                      const pasted = e.clipboardData.getData('text');
+                      if (pasted) {
+                        handleVideoUrlChange(pasted, true);
+                      }
+                    }}
                     placeholder="e.g. https://www.youtube.com/watch?v=WUvTyaaNkzM or youtu.be/..."
                     className="w-full pl-3.5 pr-10 py-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl text-xs text-[var(--md-sys-color-on-surface)] placeholder-[var(--md-sys-color-outline)] border-none outline-none focus:bg-[var(--md-sys-color-surface-container-highest)] font-mono"
                   />

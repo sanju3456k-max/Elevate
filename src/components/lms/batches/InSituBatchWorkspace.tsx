@@ -25,6 +25,8 @@ import {
 import { useApp } from '../../../lms/LmsContext';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
 import { extractYouTubeId, obfuscateVideoKey, buildGoogleDrivePreviewUrl, extractGoogleDriveId } from '../../../lms/security';
+import { fetchVideoMetadata, extractYouTubeVideoId } from '../../../lms/videoMetadataService';
+import { M3CircularProgress } from '../../ui/Material3';
 import type { Batch, Chapter, Lecture, BatchTestCard } from '../../../lms/types';
 import { BatchEditorModal } from './BatchEditorModal';
 import { BatchQuickEnrollModal } from './BatchQuickEnrollModal';
@@ -86,6 +88,33 @@ export const InSituBatchWorkspace: React.FC<InSituBatchWorkspaceProps> = ({
   const [newLectureDuration, setNewLectureDuration] = useState('45');
   const [newLectureNotesTitle, setNewLectureNotesTitle] = useState('');
   const [newLectureNotesUrl, setNewLectureNotesUrl] = useState('');
+  const [isAutoFetchingYt, setIsAutoFetchingYt] = useState(false);
+  const lastFetchedYtIdRef = React.useRef<string | null>(null);
+
+  const handleVideoUrlChange = async (url: string, force = false) => {
+    setNewLectureVideoUrl(url);
+    const ytId = extractYouTubeVideoId(url);
+    if (!ytId) {
+      lastFetchedYtIdRef.current = null;
+      return;
+    }
+    if (!force && ytId === lastFetchedYtIdRef.current && newLectureTitle) return;
+    lastFetchedYtIdRef.current = ytId;
+    setIsAutoFetchingYt(true);
+    try {
+      const meta = await fetchVideoMetadata(ytId, force);
+      if (meta) {
+        setNewLectureTitle(meta.title);
+        if (meta.durationMinutes && meta.durationMinutes > 0) {
+          setNewLectureDuration(String(meta.durationMinutes));
+        }
+      }
+    } catch (err) {
+      console.warn('Auto metadata fetch error:', err);
+    } finally {
+      setIsAutoFetchingYt(false);
+    }
+  };
 
   // Filtered data for this batch
   const batchChapters = useMemo(() => chapters.filter((c) => c.batchId === batch?.id), [chapters, batch?.id]);
@@ -461,14 +490,28 @@ export const InSituBatchWorkspace: React.FC<InSituBatchWorkspaceProps> = ({
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
-                    YouTube Video URL *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-[var(--md-sys-color-on-surface-variant)]">
+                      YouTube Video URL *
+                    </label>
+                    {isAutoFetchingYt && (
+                      <span className="text-[10px] text-indigo-500 font-semibold flex items-center gap-1.5 animate-pulse">
+                        <M3CircularProgress size={12} fourColor={true} />
+                        <span>Auto-generating title & timing...</span>
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     required
                     value={newLectureVideoUrl}
-                    onChange={(e) => setNewLectureVideoUrl(e.target.value)}
+                    onChange={(e) => handleVideoUrlChange(e.target.value)}
+                    onPaste={(e) => {
+                      const pasted = e.clipboardData.getData('text');
+                      if (pasted) {
+                        handleVideoUrlChange(pasted, true);
+                      }
+                    }}
                     placeholder="https://www.youtube.com/watch?v=..."
                     className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-highest)] rounded-xl text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none font-mono"
                   />

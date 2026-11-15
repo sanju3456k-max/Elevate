@@ -1349,18 +1349,20 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
   const [isAutoFetchingMeta, setIsAutoFetchingMeta] = useState(false);
   const lastFetchedYtIdRef = useRef<string | null>(null);
 
-  const handleVideoUrlChange = async (url: string) => {
+  const handleVideoUrlChange = async (url: string, force = false) => {
     setLecVideoUrl(url);
     const ytId = extractYouTubeVideoId(url);
-    if (!ytId || ytId === lastFetchedYtIdRef.current) return;
+    if (!ytId) {
+      lastFetchedYtIdRef.current = null;
+      return;
+    }
+    if (!force && ytId === lastFetchedYtIdRef.current && lecTitle) return;
     lastFetchedYtIdRef.current = ytId;
     setIsAutoFetchingMeta(true);
     try {
-      const meta = await fetchVideoMetadata(ytId);
+      const meta = await fetchVideoMetadata(ytId, force);
       if (meta) {
-        if (!lecTitle || lecTitle.trim() === '' || lecTitle.toLowerCase().startsWith('lecture') || lecTitle.toLowerCase().startsWith('masterclass')) {
-          setLecTitle(meta.title);
-        }
+        setLecTitle(meta.title);
         if (meta.durationMinutes && meta.durationMinutes > 0) {
           setLecDuration(meta.durationMinutes);
         }
@@ -1408,6 +1410,7 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
       setLecIsFreePreview(targetLecture.isFreePreview);
       setLecMilestones(targetLecture.milestones || []);
     } else if (entity.type === 'new_lecture') {
+      lastFetchedYtIdRef.current = null;
       setLecTitle('');
       setLecDesc('');
       setLecVideoUrl('');
@@ -1582,14 +1585,32 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
                   </span>
                 )}
               </label>
-              <input
-                type="text"
-                required
-                value={lecVideoUrl}
-                onChange={(e) => handleVideoUrlChange(e.target.value)}
-                placeholder="https://www.youtube.com/watch?v=..."
-                className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs font-mono text-[var(--md-sys-color-on-surface)] border-none outline-none"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  required
+                  value={lecVideoUrl}
+                  onChange={(e) => handleVideoUrlChange(e.target.value)}
+                  onPaste={(e) => {
+                    const pasted = e.clipboardData.getData('text');
+                    if (pasted) {
+                      handleVideoUrlChange(pasted, true);
+                    }
+                  }}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  className="w-full pr-8 p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs font-mono text-[var(--md-sys-color-on-surface)] border-none outline-none"
+                />
+                {extractYouTubeVideoId(lecVideoUrl) && (
+                  <button
+                    type="button"
+                    onClick={() => handleVideoUrlChange(lecVideoUrl, true)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-[var(--md-sys-color-on-surface-variant)] hover:text-indigo-600 border-none bg-transparent cursor-pointer rounded-full hover:bg-[var(--md-sys-color-surface-container-highest)]"
+                    title="Auto-fetch Title & Duration from YouTube"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isAutoFetchingMeta ? 'animate-spin' : ''}`} />
+                  </button>
+                )}
+              </div>
               <span className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 flex items-center space-x-1">
                 <ShieldCheck className="w-3 h-3" />
                 <span>Zero-bandwidth streaming: Protected by Elevate DRM Curtain</span>

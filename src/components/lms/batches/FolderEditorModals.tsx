@@ -228,18 +228,20 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
   const [isAutoFetching, setIsAutoFetching] = useState(false);
   const lastFetchedIdRef = useRef<string | null>(null);
 
-  const handleVideoUrlChange = async (url: string) => {
+  const handleVideoUrlChange = async (url: string, force = false) => {
     setVideoUrl(url);
     const ytId = extractYouTubeVideoId(url);
-    if (!ytId || ytId === lastFetchedIdRef.current) return;
+    if (!ytId) {
+      lastFetchedIdRef.current = null;
+      return;
+    }
+    if (!force && ytId === lastFetchedIdRef.current && title) return;
     lastFetchedIdRef.current = ytId;
     setIsAutoFetching(true);
     try {
-      const meta = await fetchVideoMetadata(ytId);
+      const meta = await fetchVideoMetadata(ytId, force);
       if (meta) {
-        if (!title.trim() || title.toLowerCase().startsWith('lecture') || title.toLowerCase().startsWith('video')) {
-          setTitle(meta.title);
-        }
+        setTitle(meta.title);
         if (meta.durationMinutes && meta.durationMinutes > 0) {
           setDurationMinutes(meta.durationMinutes);
         }
@@ -267,6 +269,7 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
           setPdfNoteTitle(firstNote?.title || '');
           setPdfNoteUrl(firstNote?.fileUrl || firstNote?.url || '');
         } else {
+          lastFetchedIdRef.current = null;
           setTitle('');
           setDescription('');
           setVideoUrl('');
@@ -363,6 +366,12 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
               required
               value={videoUrl}
               onChange={(e) => handleVideoUrlChange(e.target.value)}
+              onPaste={(e) => {
+                const pasted = e.clipboardData.getData('text');
+                if (pasted) {
+                  handleVideoUrlChange(pasted, true);
+                }
+              }}
               placeholder="https://www.youtube.com/watch?v=... or YouTube Video ID"
               className="w-full px-3.5 py-2.5 rounded-2xl bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs sm:text-sm text-[var(--md-sys-color-on-surface)] focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition font-mono"
             />
