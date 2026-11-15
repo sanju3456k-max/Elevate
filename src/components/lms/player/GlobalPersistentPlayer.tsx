@@ -4,6 +4,7 @@ import {
   Pause,
   X,
   ChevronDown,
+  ChevronUp,
   Clock,
   FileText,
   Plus,
@@ -215,7 +216,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
           ? `fixed left-3 right-3 md:left-auto md:right-5 md:w-[420px] h-15 sm:h-16 z-50 bg-white/95 dark:bg-[#1e2024]/95 backdrop-blur-2xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.18),0_2px_8px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.65)] border border-slate-200/90 dark:border-zinc-800/90 p-0 transition-all duration-200 select-none cursor-pointer overflow-hidden md:!bottom-5 ${
               !isTestMode ? 'flex items-center justify-between' : 'hidden'
             }`
-          : 'fixed inset-x-0 bottom-0 top-0 md:top-[58px] z-40 bg-[var(--md-sys-color-background)] overflow-y-auto px-0 sm:px-6 lg:px-8 py-0 sm:py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-[1720px] mx-auto w-full items-start'
+          : 'fixed inset-x-0 bottom-0 top-0 md:top-[58px] z-50 md:z-40 bg-[var(--md-sys-color-background)] overflow-y-auto px-0 sm:px-6 lg:px-8 py-0 sm:py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-[1720px] mx-auto w-full items-start'
       }
       style={
         isMinimized
@@ -248,7 +249,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             <button
               type="button"
               onClick={handleMinimize}
-              className="absolute top-3 left-3 z-30 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition border-none cursor-pointer shadow-md select-none"
+              className="absolute top-3 left-3 z-50 w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition border-none cursor-pointer shadow-md select-none"
               title="Minimize to MiniPlayer"
             >
               <ChevronDown className="w-5 h-5 stroke-[2.5]" />
@@ -373,6 +374,16 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
           </div>
 
           <div className="flex items-center gap-1 pr-2 sm:pr-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              id="miniplayer-expand-to-full-btn"
+              onClick={handleExpand}
+              className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 border-none bg-transparent cursor-pointer transition active:scale-90"
+              title="Expand to Full Video"
+              aria-label="Expand to Full Video"
+            >
+              <ChevronUp className="w-4.5 h-4.5 stroke-[2.2]" />
+            </button>
             <button
               type="button"
               id="miniplayer-toggle-play-btn"

@@ -239,16 +239,18 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     }
   }, [selectedBatchId, loadCurriculumForBatch]);
 
-  // When lectures are loaded, if we have an active initial lecture, ensure its chapter/batch are aligned without re-triggering stage changes
+  // One-time initial deep-link alignment when opening a lecture via direct link
+  const hasAlignedInitialDeepLinkRef = useRef(false);
   useEffect(() => {
-    if (initialLectureId && consumedLectureIdRef.current === initialLectureId && selectedLectureId === initialLectureId) {
+    if (!hasAlignedInitialDeepLinkRef.current && initialLectureId) {
       const targetLec = lectures.find((l) => l.id === initialLectureId);
       if (targetLec) {
+        hasAlignedInitialDeepLinkRef.current = true;
         if (targetLec.chapterId && !selectedChapterId) setSelectedChapterId(targetLec.chapterId);
         if (targetLec.batchId && !selectedBatchId) setSelectedBatchId(targetLec.batchId);
       }
     }
-  }, [initialLectureId, lectures, selectedLectureId, selectedChapterId, selectedBatchId]);
+  }, [initialLectureId, lectures]);
 
   const enrolledBatches = useMemo(
     () => batches.filter((b) => isEnrolled(b.id)),
@@ -437,12 +439,54 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     setCurrentStage('folder_content');
   };
 
-  const goToFolderContent = (chapterId: string) => {
-    setSelectedChapterId(chapterId);
-    onChapterChange?.(chapterId);
-    setFolderActiveTab('videos');
-    onFolderTabChange?.('videos');
+  const handleGoToAllCourses = useCallback(() => {
+    setSelectedBatchId('');
+    setSelectedChapterId(null);
+    setSelectedLectureId(null);
+    consumedLectureIdRef.current = null;
+    onBatchChange?.(null);
+    onChapterChange?.(null);
+    onLectureChange?.(null);
+    setCurrentStage('batch_list');
+    onStageChange?.('batch_list');
+  }, [onBatchChange, onChapterChange, onLectureChange, onStageChange]);
+
+  const handleGoToBatchRoot = useCallback(() => {
+    setSelectedChapterId(null);
+    setSelectedLectureId(null);
+    consumedLectureIdRef.current = null;
+    onChapterChange?.(null);
+    onLectureChange?.(null);
     setCurrentStage('folder_content');
+    onStageChange?.('folder_content');
+  }, [onChapterChange, onLectureChange, onStageChange]);
+
+  const handleGoToChapter = useCallback((chapterId: string) => {
+    setSelectedChapterId(chapterId);
+    setSelectedLectureId(null);
+    consumedLectureIdRef.current = null;
+    onChapterChange?.(chapterId);
+    onLectureChange?.(null);
+    setCurrentStage('folder_content');
+    onStageChange?.('folder_content');
+  }, [onChapterChange, onLectureChange, onStageChange]);
+
+  const handleStepBack = useCallback(() => {
+    if (selectedChapterId) {
+      const cur = chapters.find((c) => c.id === selectedChapterId);
+      const parentId = cur?.parentId || null;
+      if (parentId) {
+        handleGoToChapter(parentId);
+      } else {
+        handleGoToBatchRoot();
+      }
+    } else {
+      handleGoToAllCourses();
+    }
+  }, [selectedChapterId, chapters, handleGoToChapter, handleGoToBatchRoot, handleGoToAllCourses]);
+
+  const goToFolderContent = (chapterId: string) => {
+    handleGoToChapter(chapterId);
   };
 
   const goToLectureView = (lectureId: string) => {
@@ -625,18 +669,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           <div className="flex items-center space-x-2 flex-wrap gap-y-1.5">
             {/* Direct Step-Back Button */}
             <button
-              onClick={() => {
-                if (selectedChapterId) {
-                  const cur = chapters.find((c) => c.id === selectedChapterId);
-                  const parentId = cur?.parentId || null;
-                  setSelectedChapterId(parentId);
-                  onChapterChange?.(parentId);
-                } else {
-                  setSelectedBatchId('');
-                  onBatchChange?.(null);
-                  setCurrentStage('batch_list');
-                }
-              }}
+              onClick={handleStepBack}
               className="p-1.5 rounded-full hover:bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface)] border-none bg-transparent cursor-pointer flex items-center justify-center transition shrink-0"
               title="Up one level"
             >
@@ -646,11 +679,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             {/* Google Drive Breadcrumbs Trail */}
             <div className="flex items-center space-x-1.5 text-xs font-semibold overflow-x-auto py-1 scrollbar-none">
               <button
-                onClick={() => {
-                  setSelectedBatchId('');
-                  onBatchChange?.(null);
-                  setCurrentStage('batch_list');
-                }}
+                onClick={handleGoToAllCourses}
                 className="px-2 py-1 rounded-lg hover:bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] border-none bg-transparent cursor-pointer shrink-0"
               >
                 All Courses
@@ -659,10 +688,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
 
               <button
-                onClick={() => {
-                  setSelectedChapterId(null);
-                  onChapterChange?.(null);
-                }}
+                onClick={handleGoToBatchRoot}
                 className={`px-2.5 py-1 rounded-lg border-none bg-transparent cursor-pointer shrink-0 truncate max-w-[140px] sm:max-w-xs ${
                   !selectedChapterId
                     ? 'font-bold text-[var(--md-sys-color-primary)] bg-[var(--md-sys-color-surface-container)]'
@@ -680,10 +706,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   <React.Fragment key={crumb.id}>
                     <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <button
-                      onClick={() => {
-                        setSelectedChapterId(crumb.id);
-                        onChapterChange?.(crumb.id);
-                      }}
+                      onClick={() => handleGoToChapter(crumb.id)}
                       className={`px-2.5 py-1 rounded-lg border-none bg-transparent cursor-pointer shrink-0 truncate max-w-[130px] sm:max-w-xs ${
                         isCurrent
                           ? 'font-bold text-[var(--md-sys-color-primary)] bg-[var(--md-sys-color-surface-container)]'

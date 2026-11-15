@@ -207,6 +207,7 @@ export default function App() {
 
   // In batches section, user is "inside" a batch when viewing folders, chapter contents, or lecture player
   const isInsideBatch = activeTab === 'batches' && (Boolean(selectedBatchId) || batchesStage !== 'batch_list');
+  const isFullVideoPlayerActive = Boolean(persistentPlayback && !persistentPlayback.isMinimized);
 
   // Enterprise Omni-Channel Origin Context Engine (Guarantees seamless back navigation to exact origin)
   interface NavigationOriginContext {
@@ -1783,7 +1784,9 @@ export default function App() {
         <div
           id="app-navbar-wrapper"
           className={`sticky top-0 z-50 transition-all duration-200 shrink-0 ${
-            ['home', 'batches', 'tests', 'analytics'].includes(activeTab)
+            isFullVideoPlayerActive
+              ? 'hidden md:block'
+              : ['home', 'batches', 'tests', 'analytics'].includes(activeTab)
               ? (activeTab === 'batches' && isInsideBatch ? 'hidden md:block' : 'block')
               : 'hidden md:block'
           }`}
@@ -1946,7 +1949,7 @@ export default function App() {
         }`}>
 
           {/* MOBILE BOTTOM NAVIGATION HEADER (Home, Courses, Tests, Analytics) - Clean pure white, no partition lines */}
-          {isAppLoaded && ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && !isInsideBatch && (
+          {isAppLoaded && !isFullVideoPlayerActive && ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && !isInsideBatch && (
             <nav
               id="mobile-bottom-nav"
               aria-label="Mobile Bottom Navigation"
