@@ -122,9 +122,12 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   // ==========================================
   const {
     batches,
+    chapters,
     getEnrollmentsForBatch,
     getTestsForBatch,
     addTestToBatchCatalog,
+    deleteBatchTest,
+    toggleTestInChapter,
   } = useApp();
 
   const [selectedBatchId, setSelectedBatchId] = useState<string>(() => batches[0]?.id || 'batch_testing_01');
@@ -696,11 +699,15 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
 
   const handleTogglePublish = async (test: MathTest) => {
     const isAlreadyInBatch = currentBatchTests.some((t) => t.testId === test.id || (t as any).id === test.id);
+    const targetChapter = chapters.find((c) => c.batchId === selectedBatchId);
+    const targetChapterId = targetChapter?.id || null;
+
     if (!isAlreadyInBatch) {
       const dur = getTestDurationMinutes(test);
       addTestToBatchCatalog({
         testId: test.id,
         batchId: selectedBatchId,
+        chapterId: targetChapterId,
         title: test.title,
         topic: test.topic || 'General Mathematics',
         difficulty: (test.difficulty as any) || 'medium',
@@ -708,10 +715,19 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
         questionCount: test.questions?.length || (test as any).questionCount || 30,
         passingScorePercentage: test.passingScorePercentage || 40,
       });
+      if (targetChapterId) {
+        toggleTestInChapter(targetChapterId, test.id, test);
+      }
       await publishTestToBatchCatalog(selectedBatchId, test).catch(() => {});
     }
 
     const res = await toggleTestPublishStatus(test);
+    if (!res.isPublished) {
+      deleteBatchTest(selectedBatchId, test.id);
+      if (targetChapterId && targetChapter?.testIds?.includes(test.id)) {
+        toggleTestInChapter(targetChapterId, test.id);
+      }
+    }
     setPublishedTestIds(getMasterPublishedTestIds());
     onRefreshTests?.();
     showNotification(

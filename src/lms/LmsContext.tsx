@@ -36,6 +36,7 @@ import {
   fetchBatchCurriculumFromFirestore,
   cleanKeyForFirestore,
   syncBatchTestToFirestore,
+  deleteBatchTestFromFirestore,
   fetchBatchTestsFromFirestore,
 } from '../lib/batchCloudSync';
 
@@ -109,6 +110,7 @@ interface AppContextType {
   addTestToBatchCatalog: (params: {
     testId?: string;
     batchId: string;
+    chapterId?: string | null;
     title: string;
     topic: string;
     difficulty: 'easy' | 'medium' | 'hard' | 'adaptive';
@@ -116,6 +118,7 @@ interface AppContextType {
     questionCount: number;
     passingScorePercentage?: number;
   }) => { success: boolean; message: string };
+  deleteBatchTest: (batchId: string, testId: string) => void;
   getTestsForBatch: (batchId: string) => BatchTestCard[];
   securitySettings: SecuritySettingsConfig;
   updateSecuritySettings: (newSettings: Partial<SecuritySettingsConfig>) => void;
@@ -744,22 +747,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             id: testId,
             testId: testId,
             batchId: target.batchId,
+            chapterId: chapterId,
+            folderId: chapterId,
             title: testObj?.title || 'Curriculum Mock Test',
             topic: testObj?.topic || target.title || 'Curriculum Assessment',
             timeLimitMinutes: dur,
+            time: dur,
+            durationMinutes: dur,
             questionCount: testObj?.questions?.length || (testObj as any)?.questionCount || 20,
             difficulty: (testObj?.difficulty as any) || 'medium',
+            passingScorePercentage: testObj?.passingScorePercentage || 40,
+            catalogChunkId: 'chunk_1',
+            chunkEstimatedBytes: 85 * 1024,
             publishedAt: new Date().toISOString(),
           };
           syncBatchTestToFirestore(target.batchId, card).catch(() => {});
           setBatchTests((btPrev) => {
-            if (btPrev.some((b) => (b.testId || b.id) === testId && b.batchId === target.batchId)) return btPrev;
-            const updatedBt = [...btPrev, card];
+            const filtered = btPrev.filter((b) => (b.testId || b.id) !== testId || b.batchId !== target.batchId);
+            const updatedBt = [card, ...filtered];
             try {
               secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(updatedBt));
             } catch {}
             return updatedBt;
           });
+        } else {
+          // Unlink & delete test from batch and cloud
+          setBatchTests((btPrev) => {
+            const updatedBt = btPrev.filter((b) => (b.testId || b.id) !== testId || b.batchId !== target.batchId);
+            try {
+              secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(updatedBt));
+            } catch {}
+            return updatedBt;
+          });
+          deleteBatchTestFromFirestore(target.batchId, testId).catch(() => {});
         }
         touchBatchCatalogBeacon().catch(() => {});
       }
@@ -869,12 +889,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return next;
       });
 
-      // 3. Batch Tests
+      // 3. Batch Tests Authoritative Reconciliation
       fetchBatchTestsFromFirestore(batchId).then((cloudTests) => {
-        if (cloudTests.length > 0) {
+        if (cloudTests && cloudTests.length > 0) {
           setBatchTests((prev) => {
             const otherBatchTests = prev.filter((t) => t.batchId !== batchId);
-            return [...otherBatchTests, ...cloudTests];
+            const next = [...otherBatchTests, ...cloudTests];
+            try {
+              secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(next));
+            } catch {}
+            return next;
           });
         }
       }).catch(() => {});
@@ -1298,6 +1322,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addTestToBatchCatalog = ({
     testId,
     batchId,
+    chapterId,
     title,
     topic,
     difficulty,
@@ -1307,6 +1332,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }: {
     testId?: string;
     batchId: string;
+    chapterId?: string | null;
     title: string;
     topic: string;
     difficulty: 'easy' | 'medium' | 'hard' | 'adaptive';
@@ -1316,14 +1342,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }) => {
     const cleanTestId = testId?.trim() || `btest_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     const chunkId = `chunk_${Math.floor(batchTests.filter((t) => t.batchId === batchId).length / 6) + 1}`;
+    const dur = Number(timeLimitMinutes) || 60;
+
+    // Resolve chapter: if explicit chapterId not passed, attach to the first/primary chapter in this batch
+    const targetChapter = chapterId
+      ? chapters.find((c) => c.id === chapterId && c.batchId === batchId)
+      : chapters.find((c) => c.batchId === batchId);
+    const resolvedChapterId = targetChapter?.id || chapterId || null;
+
     const newTestCard: BatchTestCard = {
       testId: cleanTestId,
       id: cleanTestId,
       batchId,
+      chapterId: resolvedChapterId,
+      folderId: resolvedChapterId,
       title: title.trim(),
       topic: topic.trim(),
       difficulty,
-      timeLimitMinutes: Number(timeLimitMinutes) || 60,
+      timeLimitMinutes: dur,
+      time: dur,
+      durationMinutes: dur,
       questionCount: Number(questionCount) || 30,
       passingScorePercentage: Number(passingScorePercentage) || 40,
       catalogChunkId: chunkId,
@@ -1339,12 +1377,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch {}
       return next;
     });
+
+    // Also update chapter so that its testIds array includes cleanTestId
+    if (resolvedChapterId) {
+      setChapters((prev) => {
+        const next = prev.map((c) => {
+          if (c.id !== resolvedChapterId) return c;
+          const currentTests = c.testIds || [];
+          if (currentTests.includes(cleanTestId)) return c;
+          const updated = {
+            ...c,
+            testIds: [...currentTests, cleanTestId],
+            updatedAt: new Date().toISOString(),
+          };
+          syncChapterToFirestore(batchId, updated).catch(() => {});
+          return updated;
+        });
+        try {
+          secureStorage.setItem(STORAGE_KEYS.CHAPTERS, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+    }
+
     syncBatchTestToFirestore(batchId, newTestCard).catch(() => {});
     return {
       success: true,
       message: `Published "${newTestCard.title}" into batch catalog chunk ${chunkId} (Estimated 85 KB bin-packed).`,
     };
   };
+
+  const deleteBatchTest = useCallback((batchId: string, testId: string) => {
+    setBatchTests((prev) => {
+      const next = prev.filter((t) => (t.testId || t.id) !== testId || t.batchId !== batchId);
+      try {
+        secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    setChapters((prev) => {
+      const next = prev.map((c) => {
+        if (c.batchId !== batchId || !c.testIds?.includes(testId)) return c;
+        const updated = {
+          ...c,
+          testIds: c.testIds.filter((tid) => tid !== testId),
+          updatedAt: new Date().toISOString(),
+        };
+        syncChapterToFirestore(batchId, updated).catch(() => {});
+        return updated;
+      });
+      try {
+        secureStorage.setItem(STORAGE_KEYS.CHAPTERS, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    deleteBatchTestFromFirestore(batchId, testId).catch(() => {});
+  }, []);
 
   const getTestsForBatch = (batchId: string) => {
     return batchTests.filter((t) => t.batchId === batchId);
@@ -1408,6 +1498,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loadCurriculumForBatch,
         searchStudents,
         addTestToBatchCatalog,
+        deleteBatchTest,
         getTestsForBatch,
         securitySettings,
         updateSecuritySettings,

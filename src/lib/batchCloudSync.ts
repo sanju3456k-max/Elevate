@@ -926,8 +926,35 @@ export async function syncBatchTestToFirestore(batchId: string, testCard: any): 
   try {
     const testRef = doc(db, 'batches', batchId, 'tests', testCard.testId);
     await setDoc(testRef, sanitizeForFirestore(testCard), { merge: true });
+    touchBatchCatalogBeacon().catch(() => {});
   } catch (err) {
     console.warn('Failed to sync batch test:', err);
+  }
+}
+
+export async function deleteBatchTestFromFirestore(batchId: string, testId: string): Promise<void> {
+  if (!batchId || !testId) return;
+  try {
+    await deleteDoc(doc(db, 'batches', batchId, 'tests', testId));
+    // Also remove from catalog manifest if present
+    const manifestRef = doc(db, 'batches', batchId, 'catalog', 'manifest');
+    const manifestSnap = await getDoc(manifestRef).catch(() => null);
+    if (manifestSnap && manifestSnap.exists()) {
+      const data = manifestSnap.data();
+      if (Array.isArray(data.tests)) {
+        const filtered = data.tests.filter((t: any) => t.id !== testId && t.testId !== testId);
+        await updateDoc(manifestRef, {
+          tests: filtered,
+          totalTests: filtered.length,
+          updatedAt: new Date().toISOString(),
+        }).catch(() => {});
+      }
+    }
+    const nowIso = new Date().toISOString();
+    await updateDoc(doc(db, 'batches', batchId), { updatedAt: nowIso }).catch(() => {});
+    touchBatchCatalogBeacon().catch(() => {});
+  } catch (error) {
+    console.warn(`Failed to delete test ${testId} for batch ${batchId}:`, error);
   }
 }
 
@@ -942,14 +969,18 @@ export async function fetchBatchTestsFromFirestore(batchId: string): Promise<any
     snap.forEach((d) => {
       const data = d.data();
       const tid = data.testId || d.id;
+      const dur = Number(data.timeLimitMinutes) || Number(data.durationMinutes) || Number(data.time) || 60;
       list.push({
         id: tid,
         testId: tid,
         batchId,
+        chapterId: data.chapterId || data.folderId || null,
         title: data.title || 'Batch Assessment Test',
         topic: data.topic || 'Curriculum Practice',
         questionCount: Number(data.questionCount) || 30,
-        timeLimitMinutes: Number(data.timeLimitMinutes) || 60,
+        timeLimitMinutes: dur,
+        time: dur,
+        durationMinutes: dur,
         difficulty: data.difficulty || 'medium',
         passingScorePercentage: Number(data.passingScorePercentage) || 40,
         catalogChunkId: data.catalogChunkId || 'chunk_1',
@@ -967,11 +998,16 @@ export async function fetchBatchTestsFromFirestore(batchId: string): Promise<any
           mData.tests.forEach((t: any) => {
             const tid = t.testId || t.id;
             if (tid && !list.some((existing) => existing.testId === tid || existing.id === tid)) {
+              const dur = Number(t.timeLimitMinutes) || Number(t.durationMinutes) || Number(t.time) || 60;
               list.push({
                 ...t,
                 id: tid,
                 testId: tid,
                 batchId,
+                chapterId: t.chapterId || t.folderId || null,
+                timeLimitMinutes: dur,
+                time: dur,
+                durationMinutes: dur,
               });
             }
           });

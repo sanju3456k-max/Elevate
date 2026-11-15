@@ -126,6 +126,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     loadCurriculumForBatch,
     showSecurityToast,
     batchTests,
+    deleteBatchTest,
   } = useApp();
 
   const isMaster = Boolean(isMasterEditMode) || isMasterUser(auth.currentUser) || user?.role === 'admin';
@@ -512,45 +513,68 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
     // When inside a folder/chapter
     if (selectedChapterId && currentFolder) {
-      const folderTestIds = currentFolder.testIds || [];
+      const activeBatchId = currentBatch?.id || selectedBatchId;
+      const isFirstOrOnlyChapter = chapters.filter((c) => c.batchId === activeBatchId)[0]?.id === selectedChapterId;
+      
+      const chapterTestIdSet = new Set<string>();
+      (currentFolder.testIds || []).forEach((tid) => chapterTestIdSet.add(tid));
+
+      // Associate batchTests: either explicitly matching chapterId or fallback to first chapter
+      (batchTests || []).forEach((bt) => {
+        if (bt.batchId !== activeBatchId) return;
+        const tid = bt.testId || bt.id;
+        if (!tid) return;
+        if (bt.chapterId === selectedChapterId || bt.chapterId === currentFolder.id) {
+          chapterTestIdSet.add(tid);
+        } else if (!bt.chapterId && isFirstOrOnlyChapter) {
+          chapterTestIdSet.add(tid);
+        }
+      });
+
       const resolvedList: MathTest[] = [];
 
-      folderTestIds.forEach((tid) => {
+      chapterTestIdSet.forEach((tid) => {
         const candidate = candidateMap.get(tid) || getCachedFullTest(tid);
+        const bt = (batchTests || []).find((b) => (b.testId === tid || b.id === tid) && b.batchId === activeBatchId);
+
         if (candidate) {
-          resolvedList.push(candidate);
+          const resolvedDuration = (bt ? getTestDurationMinutes(bt) : 0) || getTestDurationMinutes(candidate) || 25;
+          resolvedList.push({
+            ...candidate,
+            id: tid,
+            timeLimitMinutes: resolvedDuration,
+            time: resolvedDuration,
+            durationMinutes: resolvedDuration,
+            questionCount: candidate.questions?.length || (candidate as any).questionCount || bt?.questionCount || 20,
+          });
+        } else if (bt) {
+          const resolvedDuration = getTestDurationMinutes(bt) || 25;
+          resolvedList.push({
+            id: tid,
+            title: bt.title || 'Mock Test',
+            topic: bt.topic || (bt as any).subject || currentFolder.title || 'Assessment',
+            difficulty: bt.difficulty || 'medium',
+            timeLimitMinutes: resolvedDuration,
+            time: resolvedDuration,
+            durationMinutes: resolvedDuration,
+            questionCount: bt.questionCount || 20,
+            questions: [],
+            isPublic: true,
+          });
         } else {
-          // Check if in batchTests
-          const bt = (batchTests || []).find((b) => b.testId === tid || b.id === tid);
-          if (bt) {
-            const resolvedDuration = getTestDurationMinutes(bt);
-            resolvedList.push({
-              id: tid,
-              title: bt.title || 'Mock Test',
-              topic: bt.topic || bt.subject || currentFolder.title || 'Assessment',
-              difficulty: bt.difficulty || 'medium',
-              timeLimitMinutes: resolvedDuration,
-              time: resolvedDuration,
-              durationMinutes: resolvedDuration,
-              questionCount: bt.questionCount || 20,
-              questions: [],
-              isPublic: true,
-            });
-          } else {
-            // Fallback placeholder so count and card is never lost
-            resolvedList.push({
-              id: tid,
-              title: `Mock Test (${currentFolder.title || 'Chapter Test'})`,
-              topic: currentFolder.title || 'Assessment',
-              difficulty: 'medium',
-              timeLimitMinutes: 25,
-              time: 25,
-              durationMinutes: 25,
-              questionCount: 20,
-              questions: [],
-              isPublic: true,
-            });
-          }
+          // Fallback placeholder so count and card is never lost
+          resolvedList.push({
+            id: tid,
+            title: `Mock Test (${currentFolder.title || 'Chapter Test'})`,
+            topic: currentFolder.title || 'Assessment',
+            difficulty: 'medium',
+            timeLimitMinutes: 25,
+            time: 25,
+            durationMinutes: 25,
+            questionCount: 20,
+            questions: [],
+            isPublic: true,
+          });
         }
       });
 
@@ -1105,7 +1129,22 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 const subLectures = lectures.filter((l) => l.chapterId === fld.id && l.batchId === currentBatch.id);
                 let notesCount = (fld.pdfNotes?.length || 0);
                 subLectures.forEach((l) => (notesCount += l.pdfNotes?.length || 0));
-                const subTestsCount = fld.testIds?.length || 0;
+                
+                const activeBatchId = currentBatch?.id || selectedBatchId;
+                const isFirstOrOnlyChapter = chapters.filter((c) => c.batchId === activeBatchId)[0]?.id === fld.id;
+                const folderTestIdSet = new Set<string>();
+                (fld.testIds || []).forEach((tid) => folderTestIdSet.add(tid));
+                (batchTests || []).forEach((bt) => {
+                  if (bt.batchId !== activeBatchId) return;
+                  const tid = bt.testId || bt.id;
+                  if (!tid) return;
+                  if (bt.chapterId === fld.id || fld.testIds?.includes(tid)) {
+                    folderTestIdSet.add(tid);
+                  } else if (!bt.chapterId && isFirstOrOnlyChapter) {
+                    folderTestIdSet.add(tid);
+                  }
+                });
+                const subTestsCount = folderTestIdSet.size;
                 const nestedChildFolders = chapters.filter((c) => c.parentId === fld.id);
 
                 return (
@@ -1565,11 +1604,15 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                             <button
                               type="button"
                               onClick={() => {
-                                toggleTestInChapter(selectedChapterId, t.id);
-                                showSecurityToast(`Test unlinked from folder.`);
+                                const targetBatchId = currentBatch?.id || selectedBatchId;
+                                deleteBatchTest(targetBatchId, t.id);
+                                if (selectedChapterId) {
+                                  toggleTestInChapter(selectedChapterId, t.id);
+                                }
+                                showSecurityToast(`Test removed from batch.`);
                               }}
                               className="p-1 rounded-full bg-black/60 hover:bg-rose-600 text-white transition border-none cursor-pointer"
-                              title="Unlink Test"
+                              title="Delete Test from Batch"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>

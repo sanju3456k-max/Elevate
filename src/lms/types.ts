@@ -160,10 +160,14 @@ export interface BatchTestCard {
   testId: string;
   id?: string; // Optional alias for testId
   batchId: string;
+  chapterId?: string | null;
+  folderId?: string | null;
   title: string;
   topic: string;
   questionCount: number;
   timeLimitMinutes: number;
+  time?: number;
+  durationMinutes?: number;
   difficulty: 'easy' | 'medium' | 'hard' | 'adaptive';
   passingScorePercentage: number;
   catalogChunkId: string;
