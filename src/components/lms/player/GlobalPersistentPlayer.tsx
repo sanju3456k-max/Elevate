@@ -108,8 +108,8 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
     },
   });
 
-  const isPrimaryTab = ['home', 'batches', 'tests', 'analytics'].includes(activeTab);
-  const isBottomNavVisible = isPrimaryTab && !isInsideBatch;
+  const isTestMode = activeTab === 'take-test' || activeTab === 'omr-test';
+  const isBottomNavVisible = !isInsideBatch && ['home', 'batches', 'tests', 'analytics'].includes(activeTab);
   const isMinimized = playback?.isMinimized ?? true;
 
   const handleMinimize = useCallback((e?: React.MouseEvent) => {
@@ -181,12 +181,19 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
       id="global-persistent-player-host"
       className={
         isMinimized
-          ? `fixed left-3 right-3 ${
-              isBottomNavVisible ? 'bottom-[68px] md:bottom-4' : 'bottom-3 md:bottom-4'
-            } md:left-auto md:right-4 md:w-[410px] h-14 sm:h-16 z-50 bg-white/95 dark:bg-[#1e2024]/95 backdrop-blur-2xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.16),0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.55)] border border-slate-200/90 dark:border-zinc-800/90 p-0 transition-all duration-200 select-none cursor-pointer overflow-hidden ${
-              isPrimaryTab ? 'flex items-center justify-between' : 'hidden'
+          ? `fixed left-3 right-3 md:left-auto md:right-5 md:w-[420px] h-15 sm:h-16 z-50 bg-white/95 dark:bg-[#1e2024]/95 backdrop-blur-2xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.18),0_2px_8px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.65)] border border-slate-200/90 dark:border-zinc-800/90 p-0 transition-all duration-200 select-none cursor-pointer overflow-hidden md:!bottom-5 ${
+              !isTestMode ? 'flex items-center justify-between' : 'hidden'
             }`
           : 'fixed inset-0 z-50 bg-[var(--md-sys-color-background)] overflow-y-auto flex flex-col'
+      }
+      style={
+        isMinimized
+          ? {
+              bottom: isBottomNavVisible
+                ? 'calc(76px + env(safe-area-inset-bottom, 0px))'
+                : 'calc(14px + env(safe-area-inset-bottom, 0px))',
+            }
+          : undefined
       }
       onClick={isMinimized ? handleExpand : undefined}
     >
@@ -194,7 +201,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
       <div
         className={
           isMinimized
-            ? 'w-24 sm:w-28 h-14 sm:h-16 shrink-0 rounded-l-2xl overflow-hidden relative bg-black pointer-events-none border-r border-slate-200/50 dark:border-zinc-800/50'
+            ? 'w-24 sm:w-28 h-full shrink-0 rounded-l-2xl overflow-hidden relative bg-black pointer-events-none border-r border-slate-200/50 dark:border-zinc-800/50'
             : 'sticky top-0 z-40 sm:static w-full sm:max-w-5xl sm:mx-auto px-0 sm:px-4 pt-0 sm:pt-4 shrink-0 bg-black'
         }
       >
@@ -265,28 +272,28 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-1 pr-2.5 sm:pr-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1 pr-2 sm:pr-3 shrink-0" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
               id="miniplayer-toggle-play-btn"
               onClick={handleTogglePlay}
-              className="w-8 sm:w-8.5 h-8 sm:h-8.5 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 border-none bg-transparent cursor-pointer transition active:scale-90"
+              className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 border-none bg-transparent cursor-pointer transition active:scale-90"
               title={playback.isPlaying ? 'Pause' : 'Play'}
             >
               {playback.isPlaying ? (
-                <Pause className="w-4 h-4 fill-current" />
+                <Pause className="w-4.5 h-4.5 fill-current" />
               ) : (
-                <Play className="w-4 h-4 fill-current ml-0.5" />
+                <Play className="w-4.5 h-4.5 fill-current ml-0.5" />
               )}
             </button>
             <button
               type="button"
               id="miniplayer-close-strip-btn"
               onClick={handleClose}
-              className="w-8 sm:w-8.5 h-8 sm:h-8.5 rounded-full flex items-center justify-center hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 dark:text-zinc-500 dark:hover:text-rose-400 border-none bg-transparent cursor-pointer transition active:scale-90"
+              className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 dark:text-zinc-500 dark:hover:text-rose-400 border-none bg-transparent cursor-pointer transition active:scale-90"
               title="Close video"
             >
-              <X className="w-4 h-4 stroke-[2.2]" />
+              <X className="w-4.5 h-4.5 stroke-[2.2]" />
             </button>
           </div>
 

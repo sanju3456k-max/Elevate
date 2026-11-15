@@ -412,7 +412,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                 } catch {}
               }
 
-              if (autoPlay || isMini) {
+              if ((autoPlay || isMini) && isPlayingProp !== false) {
                 try {
                   event.target.playVideo();
                   setIsPlaying(true);
@@ -948,24 +948,36 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 1a. Miniplayer Pre-playback Clean Poster Cover (Eliminates YouTube raw embed UI, play button & clock icon) */}
-      {isMini && authStatus === 'authorized' && !hasEverPlayed && (
+      {/* 1a. Miniplayer Paused / Pre-playback Clean Poster Cover (Completely eliminates YouTube's paused title bleed, avatar, and native huge play icon) */}
+      {isMini && authStatus === 'authorized' && (!isPlaying || !hasEverPlayed) && (
         <div className="absolute inset-0 z-20 bg-black flex items-center justify-center overflow-hidden pointer-events-none">
-          {activePosterImage && (
+          {activePosterImage ? (
             <img
               src={activePosterImage}
               alt={title}
+              onError={(e) => {
+                const cur = e.currentTarget.src;
+                if (cur.includes('maxresdefault.jpg') && safeVideoId) {
+                  e.currentTarget.src = `https://img.youtube.com/vi/${safeVideoId}/sddefault.jpg`;
+                } else if (cur.includes('sddefault.jpg') && safeVideoId) {
+                  e.currentTarget.src = `https://img.youtube.com/vi/${safeVideoId}/hqdefault.jpg`;
+                }
+              }}
               className="w-full h-full object-cover"
             />
+          ) : (
+            <div className="w-full h-full bg-slate-900 flex items-center justify-center">
+              <span className="text-[10px] text-slate-400 font-bold">{title.slice(0, 1)}</span>
+            </div>
           )}
         </div>
       )}
 
       {/* 1b. Top Cloaking Security Guard (Masks any edge title/channel overlay bleed) */}
-      <div className={`absolute top-0 inset-x-0 ${isMini ? 'h-4' : 'h-14'} bg-gradient-to-b from-black/95 via-black/50 to-transparent pointer-events-none z-15`} />
+      <div className={`absolute top-0 inset-x-0 ${isMini ? 'h-6' : 'h-14'} bg-gradient-to-b from-black/95 via-black/50 to-transparent pointer-events-none z-15`} />
 
       {/* 1c. Bottom Cloaking Security Guard (Masks any YouTube watermark/logo bleed) */}
-      <div className={`absolute bottom-0 inset-x-0 ${isMini ? 'h-4' : 'h-16'} bg-gradient-to-t from-black/95 via-black/50 to-transparent pointer-events-none z-15`} />
+      <div className={`absolute bottom-0 inset-x-0 ${isMini ? 'h-6' : 'h-16'} bg-gradient-to-t from-black/95 via-black/50 to-transparent pointer-events-none z-15`} />
 
       {!isMini && (
         <>
@@ -1125,8 +1137,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 4. Center Play/Pause Floating Control (Compact & subtle in miniplayer preview, prominent in expanded player) */}
-      {(isMini ? !isPlaying : (isControlsVisible || !isPlaying)) && isPlayerReady && authStatus === 'authorized' && hasEverPlayed && (
+      {/* 4. Center Play/Pause Floating Control (Only in expanded player view, prominent and touch-friendly) */}
+      {(isControlsVisible || !isPlaying) && isPlayerReady && authStatus === 'authorized' && hasEverPlayed && (
         <div className={`absolute inset-0 z-20 flex items-center justify-center pointer-events-none transition-all ${!isPlaying ? 'bg-black/25' : ''}`}>
           <button
             type="button"
@@ -1139,17 +1151,13 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                 showControlsForDuration(5000);
               }
             }}
-            className={
-              isMini
-                ? "w-7 h-7 rounded-full bg-black/75 hover:bg-black/90 backdrop-blur-xs text-white border border-white/30 flex items-center justify-center shadow-md pointer-events-auto cursor-pointer transition transform active:scale-90"
-                : "w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-black/55 hover:bg-black/75 backdrop-blur-md text-white border border-white/20 flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition transform border-none cursor-pointer pointer-events-auto"
-            }
+            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-black/55 hover:bg-black/75 backdrop-blur-md text-white border border-white/20 flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition transform border-none cursor-pointer pointer-events-auto"
             title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
           >
             {isPlaying ? (
-              <Pause className={isMini ? "w-3.5 h-3.5 fill-current" : "w-7 h-7 fill-current"} />
+              <Pause className="w-7 h-7 fill-current" />
             ) : (
-              <Play className={isMini ? "w-3.5 h-3.5 fill-current ml-0.5" : "w-7 h-7 fill-current ml-0.5"} />
+              <Play className="w-7 h-7 fill-current ml-0.5" />
             )}
           </button>
         </div>
