@@ -698,7 +698,13 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   }, []);
 
   const handleTogglePublish = async (test: MathTest) => {
-    const isPublishedInBatch = currentBatchTests.some((t) => t.testId === test.id || (t as any).id === test.id);
+    const isPublishedInBatch = currentBatchTests.some(
+      (t) =>
+        t.testId === test.id ||
+        (t as any).id === test.id ||
+        (t as any).originalTestId === test.id ||
+        (t.title && test.title && t.title.trim().toLowerCase() === test.title.trim().toLowerCase())
+    );
     const isMasterPublished = publishedTestIds.includes(test.id);
     const isCurrentlyLive = isPublishedInBatch || isMasterPublished;
 
@@ -706,8 +712,8 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     const targetChapterId = targetChapter?.id || null;
 
     if (isCurrentlyLive) {
-      // 1. Cleanly delete and unpublish from selected batch (removes from batchTests state, chapter testIds, and Firestore)
-      deleteBatchTest(selectedBatchId, test.id);
+      // 1. Cleanly delete and unpublish from selected batch (matches by ID, originalTestId, and title)
+      deleteBatchTest(selectedBatchId, test.id, test.title);
 
       // 2. Also unpublish from global master test catalog
       await unpublishMasterTest(test.id).catch(() => {});
@@ -2348,7 +2354,13 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
               {tests
                 .filter((t) => t.title.toLowerCase().includes(publishingSearch.toLowerCase()) || (t.topic || '').toLowerCase().includes(publishingSearch.toLowerCase()))
                 .map((test) => {
-                  const isPublishedInBatch = currentBatchTests.some((t) => t.testId === test.id || (t as any).id === test.id);
+                  const isPublishedInBatch = currentBatchTests.some(
+                    (t) =>
+                      t.testId === test.id ||
+                      (t as any).id === test.id ||
+                      (t as any).originalTestId === test.id ||
+                      (t.title && test.title && t.title.trim().toLowerCase() === test.title.trim().toLowerCase())
+                  );
                   const isMasterPublished = publishedTestIds.includes(test.id);
                   const isPublished = isPublishedInBatch || isMasterPublished;
                   const attemptsCount = attempts.filter((a) => a.testId === test.id || a.testTitle === test.title).length;

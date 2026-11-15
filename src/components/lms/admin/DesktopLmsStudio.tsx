@@ -142,6 +142,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
     addTestToBatchCatalog,
     getTestsForBatch,
     toggleTestInChapter,
+    deleteBatchTest,
     showSecurityToast,
     globalGuestAccessMode,
     setGlobalGuestAccessMode,
@@ -347,13 +348,31 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
     allCandidateTests.forEach((t) => candidateMap.set(t.id, t));
 
     if (selectedFolderId && currentFolder) {
-      const folderTestIds = currentFolder.testIds || [];
-      return folderTestIds.map((tid) => {
+      const activeBatchId = selectedBatchId;
+      const isFirstOrOnly = chapters.filter((c) => c.batchId === activeBatchId)[0]?.id === selectedFolderId;
+      const folderTestIdSet = new Set<string>();
+      (currentFolder.testIds || []).forEach((tid) => folderTestIdSet.add(tid));
+      (batchTests || []).forEach((bt) => {
+        if (bt.batchId !== activeBatchId) return;
+        const tid = bt.testId || bt.id;
+        if (!tid) return;
+        if (bt.chapterId === selectedFolderId || (currentFolder.testIds && currentFolder.testIds.includes(tid))) {
+          folderTestIdSet.add(tid);
+        } else if (!bt.chapterId && isFirstOrOnly) {
+          folderTestIdSet.add(tid);
+        }
+      });
+
+      const list: MathTest[] = [];
+      folderTestIdSet.forEach((tid) => {
         const found = candidateMap.get(tid) || getCachedFullTest(tid);
-        if (found) return found;
+        if (found) {
+          list.push(found);
+          return;
+        }
         const bt = (batchTests || []).find((b) => b.testId === tid || b.id === tid);
         const dur = bt ? getTestDurationMinutes(bt) : 25;
-        return {
+        list.push({
           id: tid,
           title: bt?.title || `Mock Test (${currentFolder.title || 'Chapter Assessment'})`,
           topic: bt?.topic || currentFolder.title || 'Assessment',
@@ -364,7 +383,15 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
           questionCount: bt?.questionCount || 20,
           questions: [],
           isPublic: true,
-        } as MathTest;
+        } as MathTest);
+      });
+
+      const seen = new Set<string>();
+      return list.filter((t) => {
+        const norm = (t.title || '').trim().toLowerCase();
+        if (!norm || seen.has(norm)) return false;
+        seen.add(norm);
+        return true;
       });
     }
 
@@ -1218,7 +1245,11 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      toggleTestInChapter(selectedFolderId, t.id);
+                                      deleteBatchTest(selectedBatchId, t.id, t.title);
+                                      if (selectedFolderId) {
+                                        toggleTestInChapter(selectedFolderId, t.id);
+                                      }
+                                      showSecurityToast(`Test "${t.title}" unlinked from folder.`);
                                     }}
                                     className="p-1 rounded-full text-[var(--md-sys-color-on-surface-variant)] hover:text-rose-600 hover:bg-rose-500/10 transition border-none bg-transparent cursor-pointer"
                                     title="Unlink Test"
@@ -1290,7 +1321,13 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                                 {selectedFolderId && (
                                   <button
                                     type="button"
-                                    onClick={() => toggleTestInChapter(selectedFolderId, t.id)}
+                                    onClick={() => {
+                                      deleteBatchTest(selectedBatchId, t.id, t.title);
+                                      if (selectedFolderId) {
+                                        toggleTestInChapter(selectedFolderId, t.id);
+                                      }
+                                      showSecurityToast(`Test "${t.title}" unlinked from folder.`);
+                                    }}
                                     className="p-1 rounded-md text-rose-500 hover:bg-rose-500/10 border-none bg-transparent cursor-pointer"
                                     title="Unlink"
                                   >
@@ -1458,9 +1495,22 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                       <h4 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] line-clamp-1">
                         {t.title}
                       </h4>
-                      <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-amber-500/15 text-amber-600">
-                        {t.difficulty}
-                      </span>
+                      <div className="flex items-center space-x-1.5 shrink-0">
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-amber-500/15 text-amber-600">
+                          {t.difficulty}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            deleteBatchTest(selectedBatchId, t.testId || t.id, t.title);
+                            showSecurityToast(`Test "${t.title}" removed from batch.`);
+                          }}
+                          className="p-1 rounded-full text-[var(--md-sys-color-on-surface-variant)] hover:text-rose-600 hover:bg-rose-500/10 transition border-none bg-transparent cursor-pointer"
+                          title="Remove Test from Batch"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] space-y-1">
@@ -2053,11 +2103,20 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
         isOpen={isLinkTestModalOpen}
         onClose={() => setIsLinkTestModalOpen(false)}
         availableTests={allCandidateTests}
-        linkedTestIds={currentFolder?.testIds || []}
+        linkedTestIds={currentFolderTests.map((t) => t.id)}
         onToggleTest={(testId) => {
           if (selectedFolderId) {
-            const found = allCandidateTests.find((t) => t.id === testId);
-            toggleTestInChapter(selectedFolderId, testId, found);
+            const isAlreadyLinked = currentFolderTests.some((t) => t.id === testId);
+            if (isAlreadyLinked) {
+              const found = currentFolderTests.find((t) => t.id === testId);
+              deleteBatchTest(selectedBatchId, testId, found?.title);
+              toggleTestInChapter(selectedFolderId, testId);
+              showSecurityToast('Test unlinked from folder.');
+            } else {
+              const found = allCandidateTests.find((t) => t.id === testId);
+              toggleTestInChapter(selectedFolderId, testId, found);
+              showSecurityToast('Test linked to folder.');
+            }
           }
         }}
         folderName={currentFolder?.title || currentBatch?.title}

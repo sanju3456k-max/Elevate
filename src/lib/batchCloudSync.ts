@@ -932,17 +932,63 @@ export async function syncBatchTestToFirestore(batchId: string, testCard: any): 
   }
 }
 
-export async function deleteBatchTestFromFirestore(batchId: string, testId: string): Promise<void> {
-  if (!batchId || !testId) return;
+export async function deleteBatchTestFromFirestore(batchId: string, testId: string, testTitle?: string): Promise<void> {
+  if (!batchId) return;
   try {
-    await deleteDoc(doc(db, 'batches', batchId, 'tests', testId));
-    // Also remove from catalog manifest if present
+    // 1. Delete by direct ID if provided
+    if (testId) {
+      await deleteDoc(doc(db, 'batches', batchId, 'tests', testId)).catch(() => {});
+    }
+
+    // 2. Search tests subcollection for any doc matching testId, originalTestId, or testTitle
+    const testsCol = collection(db, 'batches', batchId, 'tests');
+    const testsSnap = await getDocs(testsCol).catch(() => null);
+    const deletedDocIds: string[] = [];
+
+    if (testsSnap && !testsSnap.empty) {
+      for (const tDoc of testsSnap.docs) {
+        const data = tDoc.data();
+        const matchesId = testId && (tDoc.id === testId || data.testId === testId || data.originalTestId === testId || data.id === testId);
+        const matchesTitle = testTitle && data.title && data.title.trim().toLowerCase() === testTitle.trim().toLowerCase();
+
+        if (matchesId || matchesTitle) {
+          deletedDocIds.push(tDoc.id);
+          if (data.testId) deletedDocIds.push(data.testId);
+          await deleteDoc(doc(db, 'batches', batchId, 'tests', tDoc.id)).catch(() => {});
+        }
+      }
+    }
+
+    // 3. Remove all deletedDocIds from all chapters of this batch in Firestore
+    if (deletedDocIds.length > 0 || testId) {
+      const allIdsToRemove = new Set<string>([...deletedDocIds, ...(testId ? [testId] : [])]);
+      const chapsCol = collection(db, 'batches', batchId, 'chapters');
+      const chapsSnap = await getDocs(chapsCol).catch(() => null);
+      if (chapsSnap && !chapsSnap.empty) {
+        for (const cDoc of chapsSnap.docs) {
+          const cData = cDoc.data();
+          if (Array.isArray(cData.testIds) && cData.testIds.some((id: string) => allIdsToRemove.has(id))) {
+            const nextTestIds = cData.testIds.filter((id: string) => !allIdsToRemove.has(id));
+            await updateDoc(doc(db, 'batches', batchId, 'chapters', cDoc.id), {
+              testIds: nextTestIds,
+              updatedAt: new Date().toISOString(),
+            }).catch(() => {});
+          }
+        }
+      }
+    }
+
+    // 4. Also remove from catalog manifest if present
     const manifestRef = doc(db, 'batches', batchId, 'catalog', 'manifest');
     const manifestSnap = await getDoc(manifestRef).catch(() => null);
     if (manifestSnap && manifestSnap.exists()) {
       const data = manifestSnap.data();
       if (Array.isArray(data.tests)) {
-        const filtered = data.tests.filter((t: any) => t.id !== testId && t.testId !== testId);
+        const filtered = data.tests.filter((t: any) => {
+          const matchesId = testId && (t.id === testId || t.testId === testId || t.originalTestId === testId);
+          const matchesTitle = testTitle && t.title && t.title.trim().toLowerCase() === testTitle.trim().toLowerCase();
+          return !(matchesId || matchesTitle);
+        });
         await updateDoc(manifestRef, {
           tests: filtered,
           totalTests: filtered.length,

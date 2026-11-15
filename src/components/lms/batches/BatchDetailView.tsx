@@ -578,7 +578,13 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         }
       });
 
-      return resolvedList;
+      const seenTitles = new Set<string>();
+      return resolvedList.filter((t) => {
+        const norm = (t.title || '').trim().toLowerCase();
+        if (!norm || seenTitles.has(norm)) return false;
+        seenTitles.add(norm);
+        return true;
+      });
     }
 
     // When at root batch level (no specific chapter selected)
@@ -1605,11 +1611,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                               type="button"
                               onClick={() => {
                                 const targetBatchId = currentBatch?.id || selectedBatchId;
-                                deleteBatchTest(targetBatchId, t.id);
-                                if (selectedChapterId) {
-                                  toggleTestInChapter(selectedChapterId, t.id);
-                                }
-                                showSecurityToast(`Test removed from batch.`);
+                                deleteBatchTest(targetBatchId, t.id, t.title);
+                                showSecurityToast(`Test "${t.title}" removed from batch.`);
                               }}
                               className="p-1 rounded-full bg-black/60 hover:bg-rose-600 text-white transition border-none cursor-pointer"
                               title="Delete Test from Batch"

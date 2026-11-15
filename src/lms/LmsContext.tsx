@@ -118,7 +118,7 @@ interface AppContextType {
     questionCount: number;
     passingScorePercentage?: number;
   }) => { success: boolean; message: string };
-  deleteBatchTest: (batchId: string, testId: string) => void;
+  deleteBatchTest: (batchId: string, testId: string, testTitle?: string) => void;
   getTestsForBatch: (batchId: string) => BatchTestCard[];
   securitySettings: SecuritySettingsConfig;
   updateSecuritySettings: (newSettings: Partial<SecuritySettingsConfig>) => void;
@@ -1343,6 +1343,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const cleanTestId = testId?.trim() || `btest_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     const chunkId = `chunk_${Math.floor(batchTests.filter((t) => t.batchId === batchId).length / 6) + 1}`;
     const dur = Number(timeLimitMinutes) || 60;
+    const cleanTitle = title.trim();
 
     // Resolve chapter: if explicit chapterId not passed, attach to the first/primary chapter in this batch
     const targetChapter = chapterId
@@ -1356,7 +1357,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       batchId,
       chapterId: resolvedChapterId,
       folderId: resolvedChapterId,
-      title: title.trim(),
+      title: cleanTitle,
       topic: topic.trim(),
       difficulty,
       timeLimitMinutes: dur,
@@ -1370,7 +1371,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setBatchTests((prev) => {
-      const filtered = prev.filter((t) => t.testId !== cleanTestId && (t as any).id !== cleanTestId);
+      // Deduplicate: replace any test in this batch with matching cleanTestId OR exact same title
+      const filtered = prev.filter(
+        (t) =>
+          t.batchId !== batchId ||
+          (t.testId !== cleanTestId &&
+            (t as any).id !== cleanTestId &&
+            t.title.trim().toLowerCase() !== cleanTitle.toLowerCase())
+      );
       const next = [newTestCard, ...filtered];
       try {
         secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(next));
@@ -1407,9 +1415,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
-  const deleteBatchTest = useCallback((batchId: string, testId: string) => {
+  const deleteBatchTest = useCallback((batchId: string, testId: string, testTitle?: string) => {
+    const matchingDeletedIds = new Set<string>();
+    if (testId) matchingDeletedIds.add(testId);
+
     setBatchTests((prev) => {
-      const next = prev.filter((t) => (t.testId || t.id) !== testId || t.batchId !== batchId);
+      const next = prev.filter((t) => {
+        const matchesBatch = !batchId || t.batchId === batchId;
+        if (!matchesBatch) return true;
+        const matchesId = (t.testId || t.id) === testId || (t as any).originalTestId === testId;
+        const matchesTitle = testTitle && t.title && t.title.trim().toLowerCase() === testTitle.trim().toLowerCase();
+        if (matchesId || matchesTitle) {
+          if (t.testId) matchingDeletedIds.add(t.testId);
+          if (t.id) matchingDeletedIds.add(t.id);
+          return false;
+        }
+        return true;
+      });
       try {
         secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(next));
       } catch {}
@@ -1418,13 +1440,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setChapters((prev) => {
       const next = prev.map((c) => {
-        if (c.batchId !== batchId || !c.testIds?.includes(testId)) return c;
+        const matchesBatch = !batchId || c.batchId === batchId;
+        if (!matchesBatch || !c.testIds) return c;
+        const hasAnyMatching = c.testIds.some((tid) => matchingDeletedIds.has(tid) || tid === testId);
+        if (!hasAnyMatching) return c;
         const updated = {
           ...c,
-          testIds: c.testIds.filter((tid) => tid !== testId),
+          testIds: c.testIds.filter((tid) => !matchingDeletedIds.has(tid) && tid !== testId),
           updatedAt: new Date().toISOString(),
         };
-        syncChapterToFirestore(batchId, updated).catch(() => {});
+        syncChapterToFirestore(c.batchId, updated).catch(() => {});
         return updated;
       });
       try {
@@ -1433,7 +1458,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return next;
     });
 
-    deleteBatchTestFromFirestore(batchId, testId).catch(() => {});
+    deleteBatchTestFromFirestore(batchId, testId, testTitle).catch(() => {});
   }, []);
 
   const getTestsForBatch = (batchId: string) => {
