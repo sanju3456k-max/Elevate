@@ -567,7 +567,8 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
           <button
             onClick={onCancel}
             title="Back to Tests"
-            className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all duration-200 cursor-pointer shrink-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] border-0 ring-0 outline-none select-none active:scale-95"
+            data-desktop-hide-back="true"
+            className="md:hidden desktop-hide-back-btn w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all duration-200 cursor-pointer shrink-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] border-0 ring-0 outline-none select-none active:scale-95"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>

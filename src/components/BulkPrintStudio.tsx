@@ -618,15 +618,16 @@ export const BulkPrintStudio: React.FC<BulkPrintStudioProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 bg-[#e5e9f0] dark:bg-[#0b0c10] text-slate-900 dark:text-zinc-100 h-[100dvh] max-h-screen pb-[calc(max(0.5rem,env(safe-area-inset-bottom,0px)))] overflow-hidden flex flex-col z-40 font-sans"
+      className="fixed inset-0 md:static md:inset-auto md:h-[calc(100vh-64px)] md:max-h-[calc(100vh-64px)] md:z-auto bg-[#e5e9f0] dark:bg-[#0b0c10] text-slate-900 dark:text-zinc-100 h-[100dvh] max-h-screen pb-[calc(max(0.5rem,env(safe-area-inset-bottom,0px)))] overflow-hidden flex flex-col z-40 font-sans"
     >
       {/* Top Bar Navigation - Matched with Attempt OMR Mode */}
-      <header className="px-4 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.6rem)] pb-2 flex items-center justify-between shrink-0 z-30 bg-transparent">
+      <header className="px-4 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.6rem)] md:pt-3 pb-2 flex items-center justify-between shrink-0 z-30 bg-transparent">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onExit}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white dark:bg-[#21222e] text-slate-800 dark:text-zinc-100 hover:bg-slate-100 dark:hover:bg-[#282a39] flex items-center justify-center transition-all active:scale-95 border-0 ring-0 outline-none shadow-xs cursor-pointer shrink-0"
+            data-desktop-hide-back="true"
+            className="md:hidden desktop-hide-back-btn w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white dark:bg-[#21222e] text-slate-800 dark:text-zinc-100 hover:bg-slate-100 dark:hover:bg-[#282a39] flex items-center justify-center transition-all active:scale-95 border-0 ring-0 outline-none shadow-xs cursor-pointer shrink-0"
             title="Exit OMR Print Studio"
           >
             <ArrowLeft className="w-4 h-4 sm:w-4.5 sm:h-4.5" />

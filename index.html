@@ -91,6 +91,24 @@
         }
       })();
     </script>
+    <script>
+      // Desktop Site Detection & Responsive Navigation State Coordinator
+      (function() {
+        function updateDesktopState() {
+          var isDesktop = window.innerWidth >= 768;
+          if (isDesktop) {
+            document.documentElement.classList.add('desktop-site');
+            if (document.body) document.body.classList.add('desktop-site');
+          } else {
+            document.documentElement.classList.remove('desktop-site');
+            if (document.body) document.body.classList.remove('desktop-site');
+          }
+        }
+        updateDesktopState();
+        window.addEventListener('resize', updateDesktopState, { passive: true });
+        document.addEventListener('DOMContentLoaded', updateDesktopState);
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
     <title>Elevate — Math Mock Tests, OMR Studio & Notes</title>
     <meta name="description" content="Elevate - Master mathematics mock tests with timed assessments, printable question papers, auto-generated OMR bubble sheets with optical recognition scanning, KaTeX formulas, notes studio, and cross-device sync." />

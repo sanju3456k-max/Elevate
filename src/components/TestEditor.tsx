@@ -2741,7 +2741,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
 
   return (
     <div 
-      className={`h-[100dvh] lg:h-[calc(100dvh-58px)] max-h-screen w-full flex flex-col bg-[#e5e9f0] dark:bg-[#0b0c10] text-slate-900 dark:text-zinc-100 p-2 sm:p-3 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] pb-[calc(max(0.5rem,env(safe-area-inset-bottom,0px))+0.25rem)] overflow-hidden font-sans relative transition-colors ${
+      className={`h-[100dvh] md:h-[calc(100dvh-64px)] max-h-screen w-full flex flex-col bg-[#e5e9f0] dark:bg-[#0b0c10] text-slate-900 dark:text-zinc-100 p-2 sm:p-3 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] pb-[calc(max(0.5rem,env(safe-area-inset-bottom,0px))+0.25rem)] overflow-hidden font-sans relative transition-colors ${
         isDraggingImport ? 'ring-4 ring-[#0b57d0] ring-inset bg-blue-50/40 dark:bg-blue-950/20' : ''
       }`}
       onDragOver={handleImportDragOver}
@@ -2847,13 +2847,14 @@ export const TestEditor: React.FC<TestEditorProps> = ({
               </button>
             </div>
 
-            {/* Back Arrow Button (Smartly replaced close button with back arrow) */}
+            {/* Back Arrow Button (Smartly hidden on desktop site, touch-friendly on mobile) */}
             <button
               type="button"
               id="test-editor-close-btn"
               onClick={onCancel}
               title="Back to Tests"
-              className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0"
+              data-desktop-hide-back="true"
+              className="md:hidden desktop-hide-back-btn w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>

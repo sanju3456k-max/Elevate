@@ -1252,5 +1252,15 @@ table td .katex .mclose {
   font-size: 1.05em !important;
 }
 
+/* Desktop Site Enhancement: Globally suppress back & close buttons on desktop viewports */
+@media (min-width: 768px) {
+  .desktop-hide-back-btn,
+  .desktop-site .desktop-hide-back-btn,
+  [data-desktop-hide-back="true"] {
+    display: none !important;
+  }
+}
+
+
 
 

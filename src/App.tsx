@@ -272,6 +272,7 @@ export default function App() {
   } = usePWAInstall();
 
   const setActiveTab = useCallback((newTab: ActiveTab | ((prev: ActiveTab) => ActiveTab)) => {
+    setIsSettingsModalOpen(false);
     setActiveTabState((prev) => {
       const resolvedTab = typeof newTab === 'function' ? newTab(prev) : newTab;
       if (prev !== resolvedTab) {
@@ -1774,17 +1775,17 @@ export default function App() {
       )}
 
       {/* Navigation Header:
-          - Active Test Runners (take-test, omr-test) run in full-screen distraction-free examination chrome.
-          - Desktop Viewing Experience (lg:): Header is visible across all standard pages.
-          - Mobile & Tablet Apps (< lg): Top Header is EXCLUSIVELY displayed on the 4 primary tabs: Home, Batches (courses directory only), Tests, and Analytics.
+          - Active Test Runners (take-test, omr-test) & Full-Screen Theta AI run in full-screen distraction-free chrome.
+          - Desktop Viewing Experience (md:): Header is visible across all standard pages.
+          - Mobile & Tablet Apps (< md): Top Header is displayed on primary tabs: Home, Batches, Tests, and Analytics.
           - When inside a batch (viewing folders, contents, or video), top header is hidden on mobile & tablet to maximize workspace focus. */}
-      {activeTab !== 'take-test' && activeTab !== 'omr-test' && (
+      {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'chatbot' && (
         <div
           id="app-navbar-wrapper"
-          className={`sticky top-0 z-40 transition-all duration-200 shrink-0 ${
+          className={`sticky top-0 z-50 transition-all duration-200 shrink-0 ${
             ['home', 'batches', 'tests', 'analytics'].includes(activeTab)
-              ? (activeTab === 'batches' && isInsideBatch ? 'hidden lg:block' : 'block')
-              : 'hidden lg:block'
+              ? (activeTab === 'batches' && isInsideBatch ? 'hidden md:block' : 'block')
+              : 'hidden md:block'
           }`}
         >
           <Navbar
@@ -1801,7 +1802,7 @@ export default function App() {
             onDrawerOpenChange={setIsNavDrawerOpen}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
-            onOpenSettings={() => setIsSettingsModalOpen(true)}
+            onOpenSettings={() => setIsSettingsModalOpen((prev) => !prev)}
           />
         </div>
       )}
@@ -1915,7 +1916,7 @@ export default function App() {
       )}
 
       {activeTab === 'custom-builder' && (
-        <div className="fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
+        <div className="fixed inset-0 md:top-[64px] md:h-[calc(100dvh-64px)] bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
           <CustomTestBuilder
             tests={tests}
             attempts={attempts}
@@ -2198,9 +2199,9 @@ export default function App() {
         />
       )}
 
-          {/* Dedicated Gemini Multi-Turn Chatbot */}
+          {/* Dedicated Gemini Multi-Turn Chatbot (Full-Screen Immersive Canvas without top header offset) */}
           {activeTab === 'chatbot' && (
-            <div className="fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
+            <div className="fixed inset-0 bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
               <GeminiChatbotView 
                 isDarkMode={isDarkMode} 
                 tests={tests}
@@ -2220,7 +2221,7 @@ export default function App() {
 
           {/* Unified Notes Studio (Formula Notes, Study Repository & HTML Notes with Google Drive Sync) */}
           {activeTab === 'notes-repository' && (
-            <div className="fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
+            <div className="fixed inset-0 md:top-[64px] md:h-[calc(100dvh-64px)] bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
               <NotesStudio
                 tests={tests}
                 currentUser={currentUser}
@@ -2235,7 +2236,7 @@ export default function App() {
 
           {/* Unified Notes Studio - HTML Projects & Code Mode */}
           {activeTab === 'html-notes' && (
-            <div className="fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
+            <div className="fixed inset-0 md:top-[64px] md:h-[calc(100dvh-64px)] bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
               <NotesStudio
                 tests={tests}
                 currentUser={currentUser}

@@ -289,7 +289,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         exit={{ opacity: 0 }}
         transition={{ duration: 0.15 }}
         style={gpuAcceleratedStyle}
-        className={`fixed inset-0 ${APP_STYLES.page} z-50 flex flex-col h-full max-h-[100dvh] overflow-hidden`}
+        className={`fixed inset-x-0 bottom-0 top-0 md:top-[64px] md:h-[calc(100dvh-64px)] ${APP_STYLES.page} z-40 flex flex-col h-full max-h-[100dvh] overflow-hidden`}
       >
         {/* HEADER: TRANSPARENT BACKGROUND, OMR STYLE BACK BUTTON */}
         <div className="px-3.5 sm:px-6 py-3 flex items-center justify-between shrink-0 z-30 bg-transparent border-0 shadow-none">
@@ -299,7 +299,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               id="back-from-settings-btn"
               onClick={onClose}
               title="Back to App"
-              className={APP_STYLES.button.icon}
+              className={`${APP_STYLES.button.icon} md:hidden desktop-hide-back-btn`}
+              data-desktop-hide-back="true"
             >
               <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
@@ -339,7 +340,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* MAIN SCROLLABLE CONTENT BODY (M3 SURFACE CARDS) */}
         <div 
-          className="flex-1 min-h-0 overflow-y-auto px-3.5 sm:px-6 py-4 max-w-4xl mx-auto w-full space-y-4 pb-24 overscroll-y-contain [webkit-overflow-scrolling:touch]"
+          className="flex-1 min-h-0 overflow-y-auto px-3.5 sm:px-8 py-5 max-w-5xl mx-auto w-full space-y-4 md:space-y-5 pb-24 overscroll-y-contain [webkit-overflow-scrolling:touch]"
           data-scrollable="true"
         >
 
@@ -361,126 +362,147 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </motion.div>
           )}
 
-          {/* CARD 0: DISPLAY & APPEARANCE (THEME & UI SCALE) */}
-          <div className={`p-5 sm:p-6 space-y-4 ${APP_STYLES.card.base}`}>
-            <div>
-              <h3 className="text-xs font-bold text-[#0b57d0] dark:text-[#a8c7fa] uppercase tracking-wider flex items-center gap-2">
-                <Sliders className="w-4 h-4" />
-                <span>Display & Appearance</span>
-              </h3>
-              <p className="text-xs text-[#44474f] dark:text-[#c4c6d0] mt-1">
-                Customize application theme, color mode, and interface scale for all devices.
-              </p>
-            </div>
-
-            <div className="space-y-2 pt-1">
-              {/* Dark Theme Toggle with M3Switch */}
-              <div 
-                className={`flex items-center justify-between p-3.5 sm:p-4 rounded-[20px] cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors select-none ${APP_STYLES.subcard.base}`}
-                onClick={() => onToggleTheme && onToggleTheme()}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onToggleTheme && onToggleTheme();
-                  }
-                }}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-[#ece6f0] dark:bg-[#2a2b30] text-[#1a1b1f] dark:text-[#e3e2e6] flex items-center justify-center shrink-0">
-                    {isDarkMode ? <Moon className="w-5 h-5 text-[#a8c7fa] fill-[#a8c7fa]/20" /> : <Sun className="w-5 h-5 text-amber-500 fill-amber-500/20" />}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs sm:text-sm font-bold text-[#1a1b1f] dark:text-[#e3e2e6]">Dark Theme</div>
-                    <div className="text-[11px] text-[#44474f] dark:text-[#c4c6d0]">
-                      {isDarkMode ? 'Dark surface tonal palette active' : 'Light surface tonal palette active'}
-                    </div>
-                  </div>
-                </div>
-
-                {onToggleTheme && (
-                  <div 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleTheme();
-                    }}
-                    className="shrink-0"
-                  >
-                    <M3Switch
-                      checked={!!isDarkMode}
-                      onChange={() => onToggleTheme()}
-                      id="m3-settings-dark-mode-toggle"
-                    />
-                  </div>
-                )}
+          {/* DESKTOP 2-COLUMN GRID: APPEARANCE + ACCOUNT */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* CARD 0: DISPLAY & APPEARANCE (THEME & UI SCALE) */}
+            <div className={`p-5 sm:p-6 space-y-4 ${APP_STYLES.card.base} flex flex-col justify-between`}>
+              <div>
+                <h3 className="text-xs font-bold text-[#0b57d0] dark:text-[#a8c7fa] uppercase tracking-wider flex items-center gap-2">
+                  <Sliders className="w-4 h-4" />
+                  <span>Display & Appearance</span>
+                </h3>
+                <p className="text-xs text-[#44474f] dark:text-[#c4c6d0] mt-1">
+                  Customize application theme, color mode, and interface scale for all devices.
+                </p>
               </div>
 
-              {/* UI Scale Presets */}
-              {onScaleChange && (
-                <div className={`flex items-center justify-between p-3.5 sm:p-4 rounded-[20px] flex-wrap sm:flex-nowrap gap-3 ${APP_STYLES.subcard.base}`}>
+              <div className="space-y-2 pt-1">
+                {/* Dark Theme Toggle with M3Switch */}
+                <div 
+                  className={`flex items-center justify-between p-3.5 sm:p-4 rounded-[20px] cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors select-none ${APP_STYLES.subcard.base}`}
+                  onClick={() => onToggleTheme && onToggleTheme()}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onToggleTheme && onToggleTheme();
+                    }
+                  }}
+                >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 rounded-full bg-[#ece6f0] dark:bg-[#2a2b30] text-[#1a1b1f] dark:text-[#e3e2e6] flex items-center justify-center shrink-0">
-                      <Monitor className="w-5 h-5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                      {isDarkMode ? <Moon className="w-5 h-5 text-[#a8c7fa] fill-[#a8c7fa]/20" /> : <Sun className="w-5 h-5 text-amber-500 fill-amber-500/20" />}
                     </div>
                     <div className="min-w-0">
-                      <div className="text-xs sm:text-sm font-bold text-[#1a1b1f] dark:text-[#e3e2e6]">Interface Density</div>
+                      <div className="text-xs sm:text-sm font-bold text-[#1a1b1f] dark:text-[#e3e2e6]">Dark Theme</div>
                       <div className="text-[11px] text-[#44474f] dark:text-[#c4c6d0]">
-                        Select zoom scale for readability
+                        {isDarkMode ? 'Dark surface tonal palette active' : 'Light surface tonal palette active'}
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 bg-[#ece6f0] dark:bg-[#2a2b30] p-1 rounded-full shrink-0">
-                    {(['compact', 'standard', 'comfortable'] as const).map((scaleOption) => {
-                      const isSelected = (uiScale || 'standard') === scaleOption;
-                      return (
-                        <button
-                          key={scaleOption}
-                          type="button"
-                          onClick={() => onScaleChange(scaleOption)}
-                          aria-pressed={isSelected}
-                          className={`px-3.5 py-1.5 rounded-full text-xs font-bold capitalize transition-all cursor-pointer border-0 outline-none select-none ${
-                            isSelected
-                              ? 'bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#062e6f] shadow-xs'
-                              : 'bg-transparent text-[#44474f] dark:text-[#c4c6d0] hover:text-[#1a1b1f] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
-                          }`}
-                        >
-                          {scaleOption}
-                        </button>
-                      );
-                    })}
+                  {onToggleTheme && (
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleTheme();
+                      }}
+                      className="shrink-0"
+                    >
+                      <M3Switch
+                        checked={!!isDarkMode}
+                        onChange={() => onToggleTheme()}
+                        id="m3-settings-dark-mode-toggle"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* UI Scale Presets */}
+                {onScaleChange && (
+                  <div className={`flex items-center justify-between p-3.5 sm:p-4 rounded-[20px] flex-wrap sm:flex-nowrap gap-3 ${APP_STYLES.subcard.base}`}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-[#ece6f0] dark:bg-[#2a2b30] text-[#1a1b1f] dark:text-[#e3e2e6] flex items-center justify-center shrink-0">
+                        <Monitor className="w-5 h-5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs sm:text-sm font-bold text-[#1a1b1f] dark:text-[#e3e2e6]">Interface Density</div>
+                        <div className="text-[11px] text-[#44474f] dark:text-[#c4c6d0]">
+                          Select zoom scale for readability
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 bg-[#ece6f0] dark:bg-[#2a2b30] p-1 rounded-full shrink-0">
+                      {(['compact', 'standard', 'comfortable'] as const).map((scaleOption) => {
+                        const isSelected = (uiScale || 'standard') === scaleOption;
+                        return (
+                          <button
+                            key={scaleOption}
+                            type="button"
+                            onClick={() => onScaleChange(scaleOption)}
+                            aria-pressed={isSelected}
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold capitalize transition-all cursor-pointer border-0 outline-none select-none ${
+                              isSelected
+                                ? 'bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#062e6f] shadow-xs'
+                                : 'bg-transparent text-[#44474f] dark:text-[#c4c6d0] hover:text-[#1a1b1f] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
+                            }`}
+                          >
+                            {scaleOption}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* CARD 1: ACCOUNT & STORAGE STATS OVERVIEW */}
+            <div className={`p-5 sm:p-6 space-y-4 ${APP_STYLES.card.base} flex flex-col justify-between`}>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[#d3e3fd] dark:bg-[#0842a0] flex items-center justify-center text-[#041e49] dark:text-[#d3e3fd] shrink-0 border-0">
+                    {currentUser ? <UserCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 stroke-[2.2]" /> : <UserX className="w-5 h-5 text-amber-500 stroke-[2.2]" />}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold text-[#1a1b1f] dark:text-[#e3e2e6] truncate">
+                      {currentUser ? 'Google Cloud Profile Linked' : 'Guest Account Mode'}
+                    </h3>
+                    <p className="text-xs text-[#44474f] dark:text-[#c4c6d0] truncate">
+                      {currentUser ? currentUser.email || currentUser.uid : 'Data is stored locally on this device'}
+                    </p>
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
 
-          {/* CARD 1: ACCOUNT & STORAGE STATS OVERVIEW */}
-          <div className={`p-5 sm:p-6 space-y-4 ${APP_STYLES.card.base}`}>
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#d3e3fd] dark:bg-[#0842a0] flex items-center justify-center text-[#041e49] dark:text-[#d3e3fd] shrink-0 border-0">
-                  {currentUser ? <UserCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 stroke-[2.2]" /> : <UserX className="w-5 h-5 text-amber-500 stroke-[2.2]" />}
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-[#1a1b1f] dark:text-[#e3e2e6]">
-                    {currentUser ? 'Google Cloud Profile Linked' : 'Guest Account Mode'}
-                  </h3>
-                  <p className="text-xs text-[#44474f] dark:text-[#c4c6d0]">
-                    {currentUser ? currentUser.email || currentUser.uid : 'Data is stored locally on this device'}
-                  </p>
+                <div className="p-4 rounded-[20px] bg-black/5 dark:bg-white/5 space-y-2">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#0b57d0] dark:text-[#a8c7fa]">
+                    Storage Summary
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs font-mono font-bold text-[#44474f] dark:text-[#c4c6d0]">
+                    <div className="p-2 rounded-xl bg-white/60 dark:bg-zinc-800/60 flex flex-col">
+                      <span className="text-[10px] font-normal text-slate-500">Authored Tests</span>
+                      <span>{customStats.authoredTestsCount}</span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white/60 dark:bg-zinc-800/60 flex flex-col">
+                      <span className="text-[10px] font-normal text-slate-500">Exam Attempts</span>
+                      <span>{customStats.totalAttemptsCount}</span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white/60 dark:bg-zinc-800/60 flex flex-col">
+                      <span className="text-[10px] font-normal text-slate-500">Chat Sessions</span>
+                      <span>{customStats.chatHistoriesCount}</span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white/60 dark:bg-zinc-800/60 flex flex-col">
+                      <span className="text-[10px] font-normal text-slate-500">HTML Projects</span>
+                      <span>{customStats.htmlProjectsCount || 0}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 text-xs font-mono font-bold text-[#44474f] dark:text-[#c4c6d0] flex-wrap">
-                <span>{customStats.authoredTestsCount} Tests</span>
-                <span>•</span>
-                <span>{customStats.totalAttemptsCount} Attempts</span>
-                <span>•</span>
-                <span>{customStats.chatHistoriesCount} Chats</span>
-                <span>•</span>
-                <span>{customStats.htmlProjectsCount || 0} HTML Projects</span>
+              <div className="text-[11px] text-slate-500 dark:text-zinc-400">
+                All data syncs seamlessly with encrypted cloud storage and offline IndexedDB.
               </div>
             </div>
           </div>
