@@ -56,6 +56,7 @@ import {
   gpuAcceleratedStyle 
 } from '../lib/animationConfig';
 import { APP_STYLES } from './ui/AppStyles';
+import { M3CircularProgress } from './ui/Material3';
 import { TestLeaderboardModal } from './TestLeaderboardModal';
 import { 
   getAssignedRemedialTestsForStudent, 
@@ -857,7 +858,7 @@ export const TestList: React.FC<TestListProps> = ({
         {isSearchingCloud && (
           <div className="flex items-center gap-2 pt-0.5">
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#041e49] dark:text-[#c2e7ff] text-[11px] font-semibold border-0 ring-0">
-              <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+              <M3CircularProgress size={13} fourColor={true} className="shrink-0" />
               <span>Searching cloud...</span>
             </div>
           </div>
@@ -869,7 +870,7 @@ export const TestList: React.FC<TestListProps> = ({
         isSearchingCloud ? (
           <div className="text-center py-20 px-4 bg-[#f8fafd] dark:bg-[#1a1d22] rounded-[24px] space-y-3.5 border-0 shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
             <div className="w-12 h-12 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center mx-auto border-0 shadow-none">
-              <Loader2 className="w-6 h-6 animate-spin" />
+              <M3CircularProgress size={28} fourColor={true} />
             </div>
             <h3 className="text-sm sm:text-base font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">Searching cloud library...</h3>
             <p className="text-xs text-[#5e5e5e] dark:text-[#9aa0a6] font-normal max-w-md mx-auto">
@@ -1014,7 +1015,7 @@ export const TestList: React.FC<TestListProps> = ({
           >
             {isLoadingMoreTests ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" slot="icon" />
+                <M3CircularProgress size={16} fourColor={true} className="mr-2" slot="icon" />
                 <span>Loading more tests...</span>
               </>
             ) : (

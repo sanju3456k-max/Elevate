@@ -38,6 +38,7 @@ import {
   buildGoogleDrivePreviewUrl,
 } from '../../lms/security';
 import { CloakedVideoPlayer } from './player/CloakedVideoPlayer';
+import { M3Switch, M3CircularProgress } from '../ui/Material3';
 import { BatchEditorModal } from './batches/BatchEditorModal';
 import { BatchQuickEnrollModal } from './batches/BatchQuickEnrollModal';
 import { InSituBatchWorkspace } from './batches/InSituBatchWorkspace';
@@ -574,8 +575,8 @@ export const BatchAdminStudio: React.FC = () => {
                     YouTube Video Link (Unlisted / Public)
                   </label>
                   {isAutoFetchingYt && (
-                    <span className="text-[10px] text-indigo-500 font-semibold flex items-center gap-1 animate-pulse">
-                      <Loader2 className="w-3 h-3 animate-spin" />
+                    <span className="text-[10px] text-indigo-500 font-semibold flex items-center gap-1.5 animate-pulse">
+                      <M3CircularProgress size={12} fourColor={true} />
                       <span>Auto-generating title & timing...</span>
                     </span>
                   )}
@@ -705,20 +706,21 @@ export const BatchAdminStudio: React.FC = () => {
               </div>
 
               {/* Free Demo Toggle */}
-              <div className="flex items-center space-x-3 p-3.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl border-none">
-                <input
-                  type="checkbox"
-                  id="freePreview"
-                  checked={isFreePreview}
-                  onChange={(e) => setIsFreePreview(e.target.checked)}
-                  className="w-4 h-4 rounded text-[var(--md-sys-color-primary)] border-none outline-none"
-                />
-                <label htmlFor="freePreview" className="text-xs text-[var(--md-sys-color-on-surface)] cursor-pointer">
-                  <span className="font-bold">Mark as Free Demo Lecture</span>
+              <div className="flex items-center justify-between p-3.5 bg-[var(--md-sys-color-surface-container-high)] rounded-2xl border-none">
+                <div>
+                  <span className="font-bold text-xs text-[var(--md-sys-color-on-surface)] block">
+                    Mark as Free Demo Lecture
+                  </span>
                   <span className="block text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
                     Non-enrolled guests can watch this video as a preview demo.
                   </span>
-                </label>
+                </div>
+                <M3Switch
+                  id="freePreview"
+                  checked={isFreePreview}
+                  onChange={setIsFreePreview}
+                  aria-label="Mark as Free Demo Lecture"
+                />
               </div>
 
               {/* Submit Button */}

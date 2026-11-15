@@ -53,6 +53,7 @@ import {
   formatDuration,
 } from '../../../lms/security';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
+import { M3Switch, M3CircularProgress } from '../../ui/Material3';
 import type {
   Batch,
   Chapter,
@@ -1575,8 +1576,8 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
               <label className="text-[11px] font-bold text-[var(--md-sys-color-on-surface-variant)] flex items-center justify-between mb-1">
                 <span>YouTube URL (Auto-Cloaked) *</span>
                 {isAutoFetchingMeta && (
-                  <span className="text-[10px] text-indigo-500 font-semibold flex items-center gap-1 animate-pulse">
-                    <Loader2 className="w-3 h-3 animate-spin" />
+                  <span className="text-[10px] text-indigo-500 font-semibold flex items-center gap-1.5 animate-pulse">
+                    <M3CircularProgress size={12} fourColor={true} />
                     <span>Auto-generating title & timing...</span>
                   </span>
                 )}
@@ -1637,11 +1638,10 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
                   Allow non-enrolled guests to watch this video
                 </span>
               </div>
-              <input
-                type="checkbox"
+              <M3Switch
                 checked={lecIsFreePreview}
-                onChange={(e) => setLecIsFreePreview(e.target.checked)}
-                className="w-4 h-4 cursor-pointer"
+                onChange={setLecIsFreePreview}
+                aria-label="Free Preview Demo"
               />
             </div>
 

@@ -19,6 +19,7 @@ import type { Lecture, PdfNote } from '../../../lms/types';
 import type { MathTest } from '../../../types';
 import { extractYouTubeId, obfuscateVideoKey } from '../../../lms/security';
 import { fetchVideoMetadata, extractYouTubeVideoId } from '../../../lms/videoMetadataService';
+import { M3Switch, M3CircularProgress } from '../../ui/Material3';
 
 const FOLDER_COLORS = [
   { id: 'blue', value: '#0b57d0', label: 'Classic Blue' },
@@ -351,8 +352,8 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
                 Video Source (YouTube / Vimeo / Direct URL) <span className="text-rose-500">*</span>
               </label>
               {isAutoFetching && (
-                <span className="text-[11px] text-indigo-500 font-semibold flex items-center gap-1 animate-pulse">
-                  <Loader2 className="w-3 h-3 animate-spin" />
+                <span className="text-[11px] text-indigo-500 font-semibold flex items-center gap-1.5 animate-pulse">
+                  <M3CircularProgress size={12} fourColor={true} />
                   <span>Auto-generating title & timing...</span>
                 </span>
               )}
@@ -386,19 +387,21 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
               />
             </div>
 
-            <div className="flex items-center space-x-2 pt-6">
-              <label className="flex items-center space-x-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={isFreePreview}
-                  onChange={(e) => setIsFreePreview(e.target.checked)}
-                  className="w-4 h-4 rounded text-indigo-600 focus:ring-0 cursor-pointer"
-                />
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-[var(--md-sys-color-surface-container-low)]">
+              <div>
                 <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-1">
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Free Preview for Guests</span>
+                  <span>Free Preview</span>
                 </span>
-              </label>
+                <span className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] block">
+                  Allow guests to view
+                </span>
+              </div>
+              <M3Switch
+                checked={isFreePreview}
+                onChange={setIsFreePreview}
+                aria-label="Free Preview for Guests"
+              />
             </div>
           </div>
 
