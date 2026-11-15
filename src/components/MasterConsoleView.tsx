@@ -123,6 +123,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   const {
     batches,
     chapters,
+    batchTests,
     getEnrollmentsForBatch,
     getTestsForBatch,
     addTestToBatchCatalog,
@@ -141,13 +142,29 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     };
   }, [batches, selectedBatchId]);
 
+  const currentBatchChapters = useMemo(() => {
+    return chapters.filter((c) => c.batchId === selectedBatchId);
+  }, [chapters, selectedBatchId]);
+
+  const [selectedPublishChapterId, setSelectedPublishChapterId] = useState<string>('');
+
+  useEffect(() => {
+    if (currentBatchChapters.length > 0) {
+      if (!selectedPublishChapterId || !currentBatchChapters.some((c) => c.id === selectedPublishChapterId)) {
+        setSelectedPublishChapterId(currentBatchChapters[0].id);
+      }
+    } else {
+      setSelectedPublishChapterId('');
+    }
+  }, [selectedBatchId, currentBatchChapters, selectedPublishChapterId]);
+
   const currentBatchEnrollments = useMemo(() => {
     return getEnrollmentsForBatch(selectedBatchId);
   }, [selectedBatchId, getEnrollmentsForBatch]);
 
   const currentBatchTests = useMemo(() => {
-    return getTestsForBatch(selectedBatchId);
-  }, [selectedBatchId, getTestsForBatch]);
+    return (batchTests || []).filter((t) => t.batchId === selectedBatchId);
+  }, [selectedBatchId, batchTests]);
 
   const batchEnrolledUids = useMemo(() => {
     return new Set(currentBatchEnrollments.map((e) => e.userId));
@@ -705,48 +722,36 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
         (t as any).originalTestId === test.id ||
         (t.title && test.title && t.title.trim().toLowerCase() === test.title.trim().toLowerCase())
     );
-    const isMasterPublished = publishedTestIds.includes(test.id);
-    const isCurrentlyLive = isPublishedInBatch || isMasterPublished;
 
-    const targetChapter = chapters.find((c) => c.batchId === selectedBatchId);
-    const targetChapterId = targetChapter?.id || null;
-
-    if (isCurrentlyLive) {
+    if (isPublishedInBatch) {
       // 1. Cleanly delete and unpublish from selected batch (matches by ID, originalTestId, and title)
       deleteBatchTest(selectedBatchId, test.id, test.title);
 
-      // 2. Also unpublish from global master test catalog
-      await unpublishMasterTest(test.id).catch(() => {});
-
-      // 3. Immediately update published IDs state so UI flips to DRAFT instantly
-      setPublishedTestIds((prev) => prev.filter((id) => id !== test.id));
-      onRefreshTests?.();
-
       showNotification(`"${test.title}" is now unpublished from "${currentBatch.title}".`, 'info');
     } else {
-      // 1. Publish to batch catalog and bind to active chapter
+      // 1. Resolve destination chapter in the selected batch
+      const targetChapterId = selectedPublishChapterId || currentBatchChapters[0]?.id || null;
+      const targetChapterObj = currentBatchChapters.find((c) => c.id === targetChapterId);
+
+      // 2. Publish to batch catalog chunk and bind to target chapter
       const dur = getTestDurationMinutes(test);
       addTestToBatchCatalog({
         testId: test.id,
         batchId: selectedBatchId,
         chapterId: targetChapterId,
         title: test.title,
-        topic: test.topic || 'General Mathematics',
+        topic: test.topic || targetChapterObj?.title || 'General Mathematics',
         difficulty: (test.difficulty as any) || 'medium',
         timeLimitMinutes: dur,
         questionCount: test.questions?.length || (test as any).questionCount || 30,
         passingScorePercentage: test.passingScorePercentage || 40,
       });
 
-      // 2. Publish to master catalog & cloud
-      await publishMasterTest(test).catch(() => {});
+      // 3. Sync strictly to batch cloud catalog (batches/{batchId}/tests/{testId})
       await publishTestToBatchCatalog(selectedBatchId, test).catch(() => {});
 
-      // 3. Immediately update published IDs state so UI flips to LIVE instantly
-      setPublishedTestIds((prev) => (prev.includes(test.id) ? prev : [...prev, test.id]));
-      onRefreshTests?.();
-
-      showNotification(`"${test.title}" is now published to "${currentBatch.title}".`, 'info');
+      const folderName = targetChapterObj?.title ? ` (Folder: ${targetChapterObj.title})` : '';
+      showNotification(`"${test.title}" published into "${currentBatch.title}"${folderName}!`, 'info');
     }
   };
 
@@ -958,7 +963,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 <span>Publish to Students</span>
               </div>
               <span className="text-[10px] font-mono text-slate-500">
-                {publishedTestIds.length}/{tests.length}
+                {currentBatchTests.length}/{tests.length}
               </span>
             </button>
           </div>
@@ -2334,16 +2339,36 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   </div>
                 </div>
 
-                <div className="w-full sm:w-72">
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5e5e5e] dark:text-[#9aa0a6] pointer-events-none" />
-                    <input
-                      type="text"
-                      value={publishingSearch}
-                      onChange={(e) => setPublishingSearch(e.target.value)}
-                      placeholder="Search mock tests library..."
-                      className="w-full pl-9 pr-3.5 py-2 text-xs rounded-full bg-[#f0f4f9] dark:bg-[#141619] border-0 text-[#1f1f1f] dark:text-[#e3e3e3] placeholder:text-[#5e5e5e]/80 dark:placeholder:text-[#9aa0a6]/80 focus:outline-none focus:ring-2 focus:ring-[#0b57d0] font-medium"
-                    />
+                <div className="flex items-center gap-2.5 flex-wrap w-full sm:w-auto">
+                  {currentBatchChapters.length > 0 && (
+                    <div className="flex items-center gap-2 bg-[#f0f4f9] dark:bg-[#141619] px-3.5 py-1.5 rounded-full border border-gray-200/60 dark:border-gray-800/60">
+                      <Folder className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+                      <span className="text-[11px] font-bold text-[#5e5e5e] dark:text-[#9aa0a6] shrink-0">Target Folder:</span>
+                      <select
+                        value={selectedPublishChapterId}
+                        onChange={(e) => setSelectedPublishChapterId(e.target.value)}
+                        className="text-xs font-semibold bg-transparent border-0 outline-none text-[#1f1f1f] dark:text-[#e3e3e3] cursor-pointer max-w-[160px] truncate"
+                      >
+                        {currentBatchChapters.map((ch) => (
+                          <option key={ch.id} value={ch.id} className="bg-white dark:bg-[#1e2024]">
+                            {ch.title}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="w-full sm:w-64">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5e5e5e] dark:text-[#9aa0a6] pointer-events-none" />
+                      <input
+                        type="text"
+                        value={publishingSearch}
+                        onChange={(e) => setPublishingSearch(e.target.value)}
+                        placeholder="Search mock tests library..."
+                        className="w-full pl-9 pr-3.5 py-2 text-xs rounded-full bg-[#f0f4f9] dark:bg-[#141619] border-0 text-[#1f1f1f] dark:text-[#e3e3e3] placeholder:text-[#5e5e5e]/80 dark:placeholder:text-[#9aa0a6]/80 focus:outline-none focus:ring-2 focus:ring-[#0b57d0] font-medium"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2354,15 +2379,18 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
               {tests
                 .filter((t) => t.title.toLowerCase().includes(publishingSearch.toLowerCase()) || (t.topic || '').toLowerCase().includes(publishingSearch.toLowerCase()))
                 .map((test) => {
-                  const isPublishedInBatch = currentBatchTests.some(
+                  const linkedBatchTest = currentBatchTests.find(
                     (t) =>
                       t.testId === test.id ||
                       (t as any).id === test.id ||
                       (t as any).originalTestId === test.id ||
                       (t.title && test.title && t.title.trim().toLowerCase() === test.title.trim().toLowerCase())
                   );
-                  const isMasterPublished = publishedTestIds.includes(test.id);
-                  const isPublished = isPublishedInBatch || isMasterPublished;
+                  const isPublishedInBatch = !!linkedBatchTest;
+                  const targetFolder = linkedBatchTest?.chapterId
+                    ? currentBatchChapters.find((c) => c.id === linkedBatchTest.chapterId)
+                    : currentBatchChapters.find((c) => c.testIds?.includes(test.id));
+                  const selectedTargetFolder = currentBatchChapters.find((c) => c.id === selectedPublishChapterId);
                   const attemptsCount = attempts.filter((a) => a.testId === test.id || a.testTitle === test.title).length;
 
                   return (
@@ -2375,9 +2403,9 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                           <span className="text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider block truncate text-[#0b57d0] dark:text-[#a8c7fa]">
                             {test.topic || 'General Math'}
                           </span>
-                          {isPublished ? (
+                          {isPublishedInBatch ? (
                             <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 shrink-0">
-                              LIVE
+                              {targetFolder ? `LIVE • ${targetFolder.title}` : 'LIVE IN BATCH'}
                             </span>
                           ) : (
                             <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-[#f0f4f9] dark:bg-[#141619] text-[#5e5e5e] dark:text-[#9aa0a6] border-0 shrink-0">
@@ -2410,20 +2438,20 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                         <button
                           onClick={() => handleTogglePublish(test)}
                           className={`h-9 px-4 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 border-0 outline-none ${
-                            isPublished
+                            isPublishedInBatch
                               ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/50 dark:hover:text-rose-300'
                               : 'bg-[#0b57d0] hover:bg-[#0842a0] text-white shadow-[0_2px_6px_rgba(11,87,208,0.25)]'
                           }`}
                         >
-                          {isPublished ? (
+                          {isPublishedInBatch ? (
                             <>
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                              <span>Live (Click to Unpublish)</span>
+                              <span>Live in Batch (Click to Unpublish)</span>
                             </>
                           ) : (
                             <>
                               <Send className="w-3.5 h-3.5" />
-                              <span>Publish to Students</span>
+                              <span>Insert into {selectedTargetFolder?.title || 'Batch'}</span>
                             </>
                           )}
                         </button>
