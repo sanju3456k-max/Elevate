@@ -423,90 +423,10 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
         </>
       )}
 
-      {/* 3. In Expanded View: Right Sidebar (Lecture Notes + Course Playlist Queue) */}
+      {/* 3. In Expanded View: Right Sidebar (Course Playlist Queue + Lecture Notes) */}
       {!isMinimized && (
         <div className="lg:col-span-4 space-y-5 w-full px-3 sm:px-0">
-          {/* Lecture Notes Card */}
-          <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs space-y-4 border border-[var(--md-sys-color-outline-variant)]/10">
-            <div className="flex items-center justify-between pb-2 border-b border-[var(--md-sys-color-outline-variant)]/15">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] flex items-center justify-center shrink-0">
-                  <FileText className="w-4 h-4" />
-                </div>
-                <div>
-                  <h2 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] leading-tight">
-                    Lecture Notes
-                  </h2>
-                  <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
-                    Personal study notes & key takeaways
-                  </p>
-                </div>
-              </div>
-              {currentLectureNotes.length > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-[var(--md-sys-color-surface-container-high)] text-[10px] font-bold text-[var(--md-sys-color-on-surface-variant)]">
-                  {currentLectureNotes.length} saved
-                </span>
-              )}
-            </div>
-
-            {/* Note input form */}
-            <form onSubmit={handleCreateNote} className="space-y-2">
-              <textarea
-                rows={3}
-                value={noteInputText}
-                onChange={(e) => setNoteInputText(e.target.value)}
-                placeholder="Write your study notes, formulas, or key concepts freely..."
-                className="w-full px-3 py-2.5 rounded-xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs text-[var(--md-sys-color-on-surface)] placeholder:text-[var(--md-sys-color-on-surface-variant)]/60 resize-none focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition"
-              />
-              <div className="flex items-center justify-end">
-                <button
-                  type="submit"
-                  disabled={!noteInputText.trim()}
-                  className="px-4 py-2 rounded-xl bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] text-xs font-bold border-none cursor-pointer disabled:opacity-50 flex items-center space-x-1.5 hover:opacity-95 active:scale-95 transition shrink-0 shadow-2xs"
-                >
-                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>Save Note</span>
-                </button>
-              </div>
-            </form>
-
-            {/* Saved Notes List */}
-            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-              {currentLectureNotes.length === 0 ? (
-                <div className="p-4 text-center rounded-2xl bg-[var(--md-sys-color-surface)]/60 border border-[var(--md-sys-color-outline-variant)]/10 space-y-1">
-                  <p className="text-xs font-semibold text-[var(--md-sys-color-on-surface)]">
-                    No notes saved yet
-                  </p>
-                  <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
-                    Write key concepts or formulas above to review them anytime.
-                  </p>
-                </div>
-              ) : (
-                currentLectureNotes.map((note) => (
-                  <div
-                    key={note.id}
-                    className="p-3 rounded-2xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/20 flex items-start justify-between gap-2.5 transition hover:shadow-xs group"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs sm:text-[13px] text-[var(--md-sys-color-on-surface)] break-words leading-relaxed whitespace-pre-wrap">
-                        {note.text}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => deletePersonalNote(note.id)}
-                      className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/20 border-none bg-transparent cursor-pointer shrink-0 transition opacity-80 group-hover:opacity-100"
-                      title="Delete Note"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* YouTube-style Course Playlist Queue */}
+          {/* YouTube-style Course Playlist Queue (Top on Desktop) */}
           {batchLectures.length > 0 && (
             <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs space-y-3 border border-[var(--md-sys-color-outline-variant)]/10">
               <div className="flex items-center justify-between pb-2 border-b border-[var(--md-sys-color-outline-variant)]/15">
@@ -594,6 +514,86 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
               </div>
             </div>
           )}
+
+          {/* Lecture Notes Card (Bottom on Desktop) */}
+          <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs space-y-4 border border-[var(--md-sys-color-outline-variant)]/10">
+            <div className="flex items-center justify-between pb-2 border-b border-[var(--md-sys-color-outline-variant)]/15">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] flex items-center justify-center shrink-0">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] leading-tight">
+                    Lecture Notes
+                  </h2>
+                  <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                    Personal study notes & key takeaways
+                  </p>
+                </div>
+              </div>
+              {currentLectureNotes.length > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-[var(--md-sys-color-surface-container-high)] text-[10px] font-bold text-[var(--md-sys-color-on-surface-variant)]">
+                  {currentLectureNotes.length} saved
+                </span>
+              )}
+            </div>
+
+            {/* Note input form */}
+            <form onSubmit={handleCreateNote} className="space-y-2">
+              <textarea
+                rows={3}
+                value={noteInputText}
+                onChange={(e) => setNoteInputText(e.target.value)}
+                placeholder="Write your study notes, formulas, or key concepts freely..."
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs text-[var(--md-sys-color-on-surface)] placeholder:text-[var(--md-sys-color-on-surface-variant)]/60 resize-none focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition"
+              />
+              <div className="flex items-center justify-end">
+                <button
+                  type="submit"
+                  disabled={!noteInputText.trim()}
+                  className="px-4 py-2 rounded-xl bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] text-xs font-bold border-none cursor-pointer disabled:opacity-50 flex items-center space-x-1.5 hover:opacity-95 active:scale-95 transition shrink-0 shadow-2xs"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Save Note</span>
+                </button>
+              </div>
+            </form>
+
+            {/* Saved Notes List */}
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+              {currentLectureNotes.length === 0 ? (
+                <div className="p-4 text-center rounded-2xl bg-[var(--md-sys-color-surface)]/60 border border-[var(--md-sys-color-outline-variant)]/10 space-y-1">
+                  <p className="text-xs font-semibold text-[var(--md-sys-color-on-surface)]">
+                    No notes saved yet
+                  </p>
+                  <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                    Write key concepts or formulas above to review them anytime.
+                  </p>
+                </div>
+              ) : (
+                currentLectureNotes.map((note) => (
+                  <div
+                    key={note.id}
+                    className="p-3 rounded-2xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/20 flex items-start justify-between gap-2.5 transition hover:shadow-xs group"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-[13px] text-[var(--md-sys-color-on-surface)] break-words leading-relaxed whitespace-pre-wrap">
+                        {note.text}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => deletePersonalNote(note.id)}
+                      className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/20 border-none bg-transparent cursor-pointer shrink-0 transition opacity-80 group-hover:opacity-100"
+                      title="Delete Note"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
