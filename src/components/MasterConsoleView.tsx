@@ -698,11 +698,27 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   }, []);
 
   const handleTogglePublish = async (test: MathTest) => {
-    const isAlreadyInBatch = currentBatchTests.some((t) => t.testId === test.id || (t as any).id === test.id);
+    const isPublishedInBatch = currentBatchTests.some((t) => t.testId === test.id || (t as any).id === test.id);
+    const isMasterPublished = publishedTestIds.includes(test.id);
+    const isCurrentlyLive = isPublishedInBatch || isMasterPublished;
+
     const targetChapter = chapters.find((c) => c.batchId === selectedBatchId);
     const targetChapterId = targetChapter?.id || null;
 
-    if (!isAlreadyInBatch) {
+    if (isCurrentlyLive) {
+      // 1. Cleanly delete and unpublish from selected batch (removes from batchTests state, chapter testIds, and Firestore)
+      deleteBatchTest(selectedBatchId, test.id);
+
+      // 2. Also unpublish from global master test catalog
+      await unpublishMasterTest(test.id).catch(() => {});
+
+      // 3. Immediately update published IDs state so UI flips to DRAFT instantly
+      setPublishedTestIds((prev) => prev.filter((id) => id !== test.id));
+      onRefreshTests?.();
+
+      showNotification(`"${test.title}" is now unpublished from "${currentBatch.title}".`, 'info');
+    } else {
+      // 1. Publish to batch catalog and bind to active chapter
       const dur = getTestDurationMinutes(test);
       addTestToBatchCatalog({
         testId: test.id,
@@ -715,27 +731,17 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
         questionCount: test.questions?.length || (test as any).questionCount || 30,
         passingScorePercentage: test.passingScorePercentage || 40,
       });
-      if (targetChapterId) {
-        toggleTestInChapter(targetChapterId, test.id, test);
-      }
-      await publishTestToBatchCatalog(selectedBatchId, test).catch(() => {});
-    }
 
-    const res = await toggleTestPublishStatus(test);
-    if (!res.isPublished) {
-      deleteBatchTest(selectedBatchId, test.id);
-      if (targetChapterId && targetChapter?.testIds?.includes(test.id)) {
-        toggleTestInChapter(targetChapterId, test.id);
-      }
+      // 2. Publish to master catalog & cloud
+      await publishMasterTest(test).catch(() => {});
+      await publishTestToBatchCatalog(selectedBatchId, test).catch(() => {});
+
+      // 3. Immediately update published IDs state so UI flips to LIVE instantly
+      setPublishedTestIds((prev) => (prev.includes(test.id) ? prev : [...prev, test.id]));
+      onRefreshTests?.();
+
+      showNotification(`"${test.title}" is now published to "${currentBatch.title}".`, 'info');
     }
-    setPublishedTestIds(getMasterPublishedTestIds());
-    onRefreshTests?.();
-    showNotification(
-      res.isPublished 
-        ? `"${test.title}" is now published to "${currentBatch.title}" (750 KB Bin-Packed).` 
-        : `"${test.title}" is now unpublished from "${currentBatch.title}".`,
-      'info'
-    );
   };
 
   return (
@@ -2342,7 +2348,9 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
               {tests
                 .filter((t) => t.title.toLowerCase().includes(publishingSearch.toLowerCase()) || (t.topic || '').toLowerCase().includes(publishingSearch.toLowerCase()))
                 .map((test) => {
-                  const isPublished = publishedTestIds.includes(test.id);
+                  const isPublishedInBatch = currentBatchTests.some((t) => t.testId === test.id || (t as any).id === test.id);
+                  const isMasterPublished = publishedTestIds.includes(test.id);
+                  const isPublished = isPublishedInBatch || isMasterPublished;
                   const attemptsCount = attempts.filter((a) => a.testId === test.id || a.testTitle === test.title).length;
 
                   return (

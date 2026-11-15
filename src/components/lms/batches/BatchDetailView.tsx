@@ -1793,11 +1793,19 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           isOpen={isLinkTestModalOpen}
           onClose={() => setIsLinkTestModalOpen(false)}
           availableTests={allCandidateTests}
-          linkedTestIds={currentFolder?.testIds || []}
+          linkedTestIds={folderTests.map((t) => t.id)}
           onToggleTest={(testId) => {
             if (selectedChapterId) {
-              const found = allCandidateTests.find((t) => t.id === testId);
-              toggleTestInChapter(selectedChapterId, testId, found);
+              const isAlreadyInFolder = folderTests.some((t) => t.id === testId);
+              if (isAlreadyInFolder) {
+                deleteBatchTest(currentBatch?.id || selectedBatchId, testId);
+                toggleTestInChapter(selectedChapterId, testId);
+                showSecurityToast('Test unlinked from folder.');
+              } else {
+                const found = allCandidateTests.find((t) => t.id === testId);
+                toggleTestInChapter(selectedChapterId, testId, found);
+                showSecurityToast('Test linked to folder.');
+              }
             }
           }}
           folderName={currentFolder?.title || currentBatch?.title}
