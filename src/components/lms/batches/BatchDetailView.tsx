@@ -275,9 +275,24 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       );
     } catch {}
 
+    let unsubTests: (() => void) | null = null;
+    try {
+      const testsCol = collection(db, 'batches', selectedBatchId, 'tests');
+      unsubTests = onSnapshot(
+        testsCol,
+        () => {
+          loadCurriculumForBatch(selectedBatchId);
+        },
+        (err) => {
+          console.warn('Batch tests live stream notice:', err);
+        }
+      );
+    } catch {}
+
     return () => {
       if (unsubLectures) unsubLectures();
       if (unsubChapters) unsubChapters();
+      if (unsubTests) unsubTests();
     };
   }, [selectedBatchId, loadCurriculumForBatch]);
 
@@ -1738,7 +1753,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           linkedTestIds={currentFolder?.testIds || []}
           onToggleTest={(testId) => {
             if (selectedChapterId) {
-              toggleTestInChapter(selectedChapterId, testId);
+              const found = allCandidateTests.find((t) => t.id === testId);
+              toggleTestInChapter(selectedChapterId, testId, found);
             }
           }}
           folderName={currentFolder?.title || currentBatch?.title}

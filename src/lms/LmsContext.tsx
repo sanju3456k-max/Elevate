@@ -13,8 +13,9 @@ import {
 } from './initialData';
 import { enableContentSecurityDeterrence, obfuscateVideoKey, initConsoleSecurityNotice } from './security';
 import { secureStorage } from '../lib/secureStorage';
-import { auth, db } from '../lib/firebase';
-import { isMasterUser } from '../lib/masterAccount';
+import { auth, db, getCachedFullTest } from '../lib/firebase';
+import { isMasterUser, publishTestToBatchCatalog } from '../lib/masterAccount';
+import { getTestDurationMinutes } from '../utils/testFormatConverter';
 import { listenerManager } from '../lib/listenerManager';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
@@ -69,7 +70,7 @@ interface AppContextType {
   addFolder: (folderData: { batchId: string; title: string; parentId?: string | null; subjectId?: string; color?: string; description?: string }) => Chapter;
   addPdfNoteToChapter: (chapterId: string, note: Omit<PdfNote, 'id'>) => void;
   deletePdfNoteFromChapter: (chapterId: string, noteId: string) => void;
-  toggleTestInChapter: (chapterId: string, testId: string) => void;
+  toggleTestInChapter: (chapterId: string, testId: string, testData?: any) => void;
   getBreadcrumbs: (chapterId: string | null, batchId: string) => Array<{ id: string | null; title: string }>;
   getSubfolders: (batchId: string, parentId?: string | null) => Chapter[];
   lectures: Lecture[];
@@ -711,12 +712,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, []);
 
-  const toggleTestInChapter = useCallback((chapterId: string, testId: string) => {
+  const toggleTestInChapter = useCallback((chapterId: string, testId: string, testData?: any) => {
     setChapters((prev) => {
+      let isAdded = false;
       const next = prev.map((c) => {
         if (c.id !== chapterId) return c;
         const currentTests = c.testIds || [];
         const exists = currentTests.includes(testId);
+        isAdded = !exists;
         const newTestIds = exists ? currentTests.filter((t) => t !== testId) : [...currentTests, testId];
         return {
           ...c,
@@ -727,6 +730,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const target = next.find((c) => c.id === chapterId);
       if (target) {
         syncChapterToFirestore(target.batchId, target).catch(() => {});
+        try {
+          secureStorage.setItem(STORAGE_KEYS.CHAPTERS, JSON.stringify(next));
+        } catch {}
+
+        if (isAdded) {
+          const testObj = testData || getCachedFullTest(testId);
+          if (testObj) {
+            publishTestToBatchCatalog(target.batchId, testObj).catch(() => {});
+          }
+          const dur = testObj ? getTestDurationMinutes(testObj) : 25;
+          const card: BatchTestCard = {
+            id: testId,
+            testId: testId,
+            batchId: target.batchId,
+            title: testObj?.title || 'Curriculum Mock Test',
+            topic: testObj?.topic || target.title || 'Curriculum Assessment',
+            timeLimitMinutes: dur,
+            questionCount: testObj?.questions?.length || (testObj as any)?.questionCount || 20,
+            difficulty: (testObj?.difficulty as any) || 'medium',
+            publishedAt: new Date().toISOString(),
+          };
+          syncBatchTestToFirestore(target.batchId, card).catch(() => {});
+          setBatchTests((btPrev) => {
+            if (btPrev.some((b) => (b.testId || b.id) === testId && b.batchId === target.batchId)) return btPrev;
+            const updatedBt = [...btPrev, card];
+            try {
+              secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(updatedBt));
+            } catch {}
+            return updatedBt;
+          });
+        }
+        touchBatchCatalogBeacon().catch(() => {});
       }
       return next;
     });

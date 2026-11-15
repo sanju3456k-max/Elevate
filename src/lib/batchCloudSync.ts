@@ -839,7 +839,14 @@ export async function fetchBatchCurriculumFromFirestore(
         title: data.title || 'Chapter',
         description: data.description || '',
         order: Number(data.order) || 1,
-        testIds: data.testIds || [],
+        testIds: Array.isArray(data.testIds) ? data.testIds : [],
+        parentId: data.parentId || null,
+        folderType: data.folderType || 'folder',
+        color: data.color || '#0b57d0',
+        icon: data.icon || '',
+        pdfNotes: Array.isArray(data.pdfNotes) ? data.pdfNotes : [],
+        createdAt: data.createdAt || '',
+        updatedAt: data.updatedAt || '',
       });
     });
 
@@ -934,8 +941,10 @@ export async function fetchBatchTestsFromFirestore(batchId: string): Promise<any
     const list: any[] = [];
     snap.forEach((d) => {
       const data = d.data();
+      const tid = data.testId || d.id;
       list.push({
-        testId: d.id,
+        id: tid,
+        testId: tid,
         batchId,
         title: data.title || 'Batch Assessment Test',
         topic: data.topic || 'Curriculum Practice',
@@ -948,6 +957,28 @@ export async function fetchBatchTestsFromFirestore(batchId: string): Promise<any
         publishedAt: data.publishedAt || new Date().toISOString(),
       });
     });
+
+    // Also merge from manifest catalog if available
+    try {
+      const manifestSnap = await getDoc(doc(db, 'batches', batchId, 'catalog', 'manifest'));
+      if (manifestSnap && manifestSnap.exists()) {
+        const mData = manifestSnap.data();
+        if (Array.isArray(mData?.tests)) {
+          mData.tests.forEach((t: any) => {
+            const tid = t.testId || t.id;
+            if (tid && !list.some((existing) => existing.testId === tid || existing.id === tid)) {
+              list.push({
+                ...t,
+                id: tid,
+                testId: tid,
+                batchId,
+              });
+            }
+          });
+        }
+      }
+    } catch {}
+
     return list;
   } catch (err) {
     console.warn(`Failed to fetch tests for batch ${batchId}:`, err);

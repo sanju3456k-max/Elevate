@@ -49,8 +49,11 @@ import {
 } from 'lucide-react';
 import { fetchVideoMetadata, extractYouTubeVideoId } from '../../../lms/videoMetadataService';
 import { useApp } from '../../../lms/LmsContext';
-import { db } from '../../../lib/firebase';
+import { db, getCachedFullTest } from '../../../lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
+import { getGlobalPublishedTests } from '../../../lib/masterAccount';
+import { getTestDurationMinutes } from '../../../utils/testFormatConverter';
+import { LinkTestModal } from '../batches/FolderEditorModals';
 import {
   extractYouTubeId,
   obfuscateVideoKey,
@@ -155,6 +158,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [contentFilter, setContentFilter] = useState<'all' | 'videos' | 'notes' | 'tests'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLinkTestModalOpen, setIsLinkTestModalOpen] = useState(false);
 
   // Synchronize with external props if provided
   useEffect(() => {
@@ -231,8 +235,38 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
       );
     } catch {}
 
+    let unsubChapters: (() => void) | null = null;
+    try {
+      const chapsCol = collection(db, 'batches', selectedBatchId, 'chapters');
+      unsubChapters = onSnapshot(
+        chapsCol,
+        () => {
+          loadCurriculumForBatch(selectedBatchId);
+        },
+        (err) => {
+          console.warn('Admin studio live chaps notice:', err);
+        }
+      );
+    } catch {}
+
+    let unsubTests: (() => void) | null = null;
+    try {
+      const testsCol = collection(db, 'batches', selectedBatchId, 'tests');
+      unsubTests = onSnapshot(
+        testsCol,
+        () => {
+          loadCurriculumForBatch(selectedBatchId);
+        },
+        (err) => {
+          console.warn('Admin studio live tests notice:', err);
+        }
+      );
+    } catch {}
+
     return () => {
       if (unsubLectures) unsubLectures();
+      if (unsubChapters) unsubChapters();
+      if (unsubTests) unsubTests();
     };
   }, [selectedBatchId, loadCurriculumForBatch, loadRosterForBatch]);
 
@@ -272,6 +306,82 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
   const currentFolder = useMemo(() => {
     return batchChapters.find((c) => c.id === selectedFolderId) || null;
   }, [batchChapters, selectedFolderId]);
+
+  // Candidate tests pool for linking
+  const allCandidateTests = useMemo(() => {
+    const map = new Map<string, MathTest>();
+    (availableTests || []).forEach((t) => {
+      if (t?.id) map.set(t.id, t);
+    });
+    try {
+      const pub = getGlobalPublishedTests();
+      (pub || []).forEach((t) => {
+        if (t?.id && !map.has(t.id)) map.set(t.id, t);
+      });
+    } catch {}
+    (batchTests || []).forEach((bt) => {
+      const tid = bt.testId || bt.id;
+      if (tid && !map.has(tid)) {
+        const cached = getCachedFullTest(tid);
+        const resolvedDuration = getTestDurationMinutes(bt) || (cached ? getTestDurationMinutes(cached) : 25);
+        map.set(tid, {
+          id: tid,
+          title: bt.title || 'Mock Test',
+          topic: bt.topic || bt.subject || 'Assessment',
+          difficulty: bt.difficulty || 'medium',
+          timeLimitMinutes: resolvedDuration,
+          time: resolvedDuration,
+          durationMinutes: resolvedDuration,
+          questionCount: bt.questionCount || (cached?.questions?.length) || 20,
+          questions: cached?.questions || [],
+          isPublic: true,
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [availableTests, batchTests]);
+
+  // Tests linked to current folder or batch root
+  const currentFolderTests = useMemo(() => {
+    const candidateMap = new Map<string, MathTest>();
+    allCandidateTests.forEach((t) => candidateMap.set(t.id, t));
+
+    if (selectedFolderId && currentFolder) {
+      const folderTestIds = currentFolder.testIds || [];
+      return folderTestIds.map((tid) => {
+        const found = candidateMap.get(tid) || getCachedFullTest(tid);
+        if (found) return found;
+        const bt = (batchTests || []).find((b) => b.testId === tid || b.id === tid);
+        const dur = bt ? getTestDurationMinutes(bt) : 25;
+        return {
+          id: tid,
+          title: bt?.title || `Mock Test (${currentFolder.title || 'Chapter Assessment'})`,
+          topic: bt?.topic || currentFolder.title || 'Assessment',
+          difficulty: bt?.difficulty || 'medium',
+          timeLimitMinutes: dur,
+          time: dur,
+          durationMinutes: dur,
+          questionCount: bt?.questionCount || 20,
+          questions: [],
+          isPublic: true,
+        } as MathTest;
+      });
+    }
+
+    return batchCatalogTests.map((bt) => {
+      const tid = bt.testId || bt.id;
+      return candidateMap.get(tid) || {
+        id: tid,
+        title: bt.title,
+        topic: bt.topic,
+        difficulty: bt.difficulty,
+        timeLimitMinutes: getTestDurationMinutes(bt),
+        questionCount: bt.questionCount,
+        questions: [],
+        isPublic: true,
+      } as MathTest;
+    });
+  }, [allCandidateTests, selectedFolderId, currentFolder, batchCatalogTests, batchTests]);
 
   // Dynamic Google Drive-style Breadcrumbs
   const breadcrumbTrail = useMemo(() => {
@@ -889,6 +999,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
               )}
 
               {/* Lectures Section */}
+              {(contentFilter === 'all' || contentFilter === 'videos') && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--md-sys-color-on-surface-variant)] flex items-center space-x-1.5">
@@ -1045,6 +1156,156 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                   </div>
                 )}
               </div>
+              )}
+
+              {/* Tests & CBT Assessments Section */}
+              {(contentFilter === 'all' || contentFilter === 'tests') && (
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--md-sys-color-on-surface-variant)] flex items-center space-x-1.5">
+                      <Award className="w-3.5 h-3.5 text-amber-500" />
+                      <span>
+                        {selectedFolderId
+                          ? `Folder Tests & Assessments (${currentFolderTests.length})`
+                          : `Batch Tests Catalog (${currentFolderTests.length})`}
+                      </span>
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setIsLinkTestModalOpen(true)}
+                      className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline border-none bg-transparent cursor-pointer flex items-center space-x-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Link / Add Test</span>
+                    </button>
+                  </div>
+
+                  {currentFolderTests.length === 0 ? (
+                    <div className="p-8 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl border border-dashed border-[var(--md-sys-color-outline-variant)]/30 space-y-2">
+                      <Award className="w-8 h-8 mx-auto text-amber-500 opacity-60" />
+                      <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)]">
+                        No Mock Tests in this folder yet
+                      </h4>
+                      <p className="text-xs text-[var(--md-sys-color-on-surface-variant)]">
+                        Attach chapter CBT assessments, practice papers, or quizzes to this curriculum node.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setIsLinkTestModalOpen(true)}
+                        className="mt-2 px-4 py-1.5 rounded-full bg-amber-500 text-white text-xs font-bold border-none cursor-pointer shadow-xs hover:bg-amber-600"
+                      >
+                        + Link First Test
+                      </button>
+                    </div>
+                  ) : viewMode === 'grid' ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {currentFolderTests.map((t) => (
+                        <div
+                          key={t.id}
+                          className="rounded-2xl bg-[var(--md-sys-color-surface-container)] overflow-hidden shadow-xs hover:shadow-md transition flex flex-col justify-between border border-transparent hover:border-amber-500/30 group relative"
+                        >
+                          <div className="p-4 space-y-2.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-emerald-500 text-white shadow-xs">
+                                {t.difficulty || 'Medium'}
+                              </span>
+                              <div className="flex items-center space-x-1.5">
+                                <span className="px-1.5 py-0.5 rounded-md bg-white/80 dark:bg-black/60 font-mono text-[9px] font-bold text-emerald-700 dark:text-emerald-300">
+                                  CBT
+                                </span>
+                                {selectedFolderId && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleTestInChapter(selectedFolderId, t.id);
+                                    }}
+                                    className="p-1 rounded-full text-[var(--md-sys-color-on-surface-variant)] hover:text-rose-600 hover:bg-rose-500/10 transition border-none bg-transparent cursor-pointer"
+                                    title="Unlink Test"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] line-clamp-1">
+                              {t.title}
+                            </h4>
+                            <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] line-clamp-1">
+                              Topic: {t.topic || 'General Practice'}
+                            </p>
+                          </div>
+
+                          <div className="p-3 bg-[var(--md-sys-color-surface-container-high)]/40 flex items-center justify-between text-[11px] font-mono text-[var(--md-sys-color-on-surface-variant)] border-t border-[var(--md-sys-color-outline-variant)]/10">
+                            <span className="flex items-center space-x-1">
+                              <Clock className="w-3.5 h-3.5 text-amber-500" />
+                              <span>{getTestDurationMinutes(t)} Mins</span>
+                            </span>
+                            <span className="font-bold">
+                              {t.questions?.length || (t as any).questionCount || 20} Qs
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    /* Table View for Tests */
+                    <div className="rounded-2xl overflow-hidden bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/20 shadow-xs">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] font-bold text-[11px]">
+                          <tr>
+                            <th className="py-2.5 px-4">Test Title</th>
+                            <th className="py-2.5 px-3">Topic</th>
+                            <th className="py-2.5 px-3">Duration</th>
+                            <th className="py-2.5 px-3">Questions</th>
+                            <th className="py-2.5 px-3">Difficulty</th>
+                            <th className="py-2.5 px-4 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--md-sys-color-outline-variant)]/10 font-medium">
+                          {currentFolderTests.map((t) => (
+                            <tr key={t.id} className="hover:bg-[var(--md-sys-color-surface-container-high)]/50 transition">
+                              <td className="py-2.5 px-4 flex items-center space-x-2">
+                                <Award className="w-4 h-4 text-amber-500 shrink-0" />
+                                <span className="font-bold text-[var(--md-sys-color-on-surface)] truncate block max-w-sm">
+                                  {t.title}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-[var(--md-sys-color-on-surface-variant)] truncate max-w-xs">
+                                {t.topic || 'General Practice'}
+                              </td>
+                              <td className="py-2.5 px-3 font-mono text-[11px]">
+                                {getTestDurationMinutes(t)}m
+                              </td>
+                              <td className="py-2.5 px-3 font-mono text-[11px]">
+                                {t.questions?.length || (t as any).questionCount || 20}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600">
+                                  {t.difficulty || 'Medium'}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-4 text-right">
+                                {selectedFolderId && (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleTestInChapter(selectedFolderId, t.id)}
+                                    className="p-1 rounded-md text-rose-500 hover:bg-rose-500/10 border-none bg-transparent cursor-pointer"
+                                    title="Unlink"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -1787,6 +2048,20 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
           </div>
         </div>
       )}
+      {/* LINK MOCK TEST MODAL */}
+      <LinkTestModal
+        isOpen={isLinkTestModalOpen}
+        onClose={() => setIsLinkTestModalOpen(false)}
+        availableTests={allCandidateTests}
+        linkedTestIds={currentFolder?.testIds || []}
+        onToggleTest={(testId) => {
+          if (selectedFolderId) {
+            const found = allCandidateTests.find((t) => t.id === testId);
+            toggleTestInChapter(selectedFolderId, testId, found);
+          }
+        }}
+        folderName={currentFolder?.title || currentBatch?.title}
+      />
       </div>
     </div>
   );
