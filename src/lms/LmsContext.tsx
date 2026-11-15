@@ -467,12 +467,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const updateBatch = async (id: string, updated: Partial<Batch>) => {
+  const updateBatch = useCallback(async (id: string, updated: Partial<Batch>) => {
     let targetToSync: Batch | null = null;
+    const nowIso = new Date().toISOString();
     setBatches((prev) => {
       const next = prev.map((b) => {
         if (b.id === id) {
-          const merged = { ...b, ...updated };
+          const merged = { ...b, ...updated, updatedAt: nowIso };
           targetToSync = merged;
           return merged;
         }
@@ -485,7 +486,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const batchRef = doc(db, 'batches', id);
       await updateDoc(batchRef, {
         ...updated,
-        updatedAt: new Date().toISOString(),
+        updatedAt: nowIso,
       });
       touchBatchCatalogBeacon().catch(() => {});
     } catch {
@@ -493,7 +494,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         await syncBatchToFirestore(targetToSync).catch(() => {});
       }
     }
-  };
+  }, []);
 
   const deleteBatch = async (id: string) => {
     setBatches((prev) => prev.filter((b) => b.id !== id));
@@ -669,36 +670,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [chapters]);
 
-  const addLecture = (lectureData: Omit<Lecture, 'id' | 'createdAt'>) => {
+  const addLecture = useCallback((lectureData: Omit<Lecture, 'id' | 'createdAt'>) => {
+    const nowIso = new Date().toISOString();
     const newLecture: Lecture = {
       ...lectureData,
-      id: `lec_${Date.now()}`,
-      createdAt: new Date().toISOString(),
+      id: `lec_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      createdAt: nowIso,
+      updatedAt: nowIso,
     };
     setLectures((prev) => [...prev, newLecture]);
     syncLectureToFirestore(newLecture.batchId, newLecture).catch(() => {});
-  };
+    return newLecture;
+  }, []);
 
-  const updateLecture = (id: string, updated: Partial<Lecture>) => {
+  const updateLecture = useCallback((id: string, updated: Partial<Lecture>) => {
+    const nowIso = new Date().toISOString();
     setLectures((prev) => {
-      const next = prev.map((l) => (l.id === id ? { ...l, ...updated } : l));
+      const next = prev.map((l) => (l.id === id ? { ...l, ...updated, updatedAt: nowIso } : l));
       const target = next.find((l) => l.id === id);
       if (target) {
         syncLectureToFirestore(target.batchId, target).catch(() => {});
       }
       return next;
     });
-  };
+  }, []);
 
-  const deleteLecture = (id: string) => {
-    const target = lectures.find((l) => l.id === id);
-    setLectures((prev) => prev.filter((l) => l.id !== id));
-    if (target?.batchId) {
-      deleteLectureFromFirestore(target.batchId, id).catch(() => {});
-    }
-  };
+  const deleteLecture = useCallback((id: string) => {
+    setLectures((prev) => {
+      const target = prev.find((l) => l.id === id);
+      if (target?.batchId) {
+        deleteLectureFromFirestore(target.batchId, id).catch(() => {});
+      }
+      return prev.filter((l) => l.id !== id);
+    });
+  }, []);
 
-  const loadCurriculumForBatch = async (batchId: string) => {
+  const loadCurriculumForBatch = useCallback(async (batchId: string) => {
     if (!batchId) return;
     try {
       const { chapters: cloudChaps, lectures: cloudLecs } = await fetchBatchCurriculumFromFirestore(batchId);
@@ -711,7 +718,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
           });
           const map = new Map(prev.map((c) => [c.id, c]));
-          cloudChaps.forEach((cc) => map.set(cc.id, cc));
+          cloudChaps.forEach((cc) => {
+            const existing = map.get(cc.id);
+            // Protect local edits: only overwrite if cloud version is explicitly newer or local has no timestamp
+            if (!existing || !existing.updatedAt || new Date(cc.updatedAt || 0) >= new Date(existing.updatedAt)) {
+              map.set(cc.id, cc);
+            }
+          });
           return Array.from(map.values());
         });
       }
@@ -724,7 +737,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
           });
           const map = new Map(prev.map((l) => [l.id, l]));
-          cloudLecs.forEach((cl) => map.set(cl.id, cl));
+          cloudLecs.forEach((cl) => {
+            const existing = map.get(cl.id);
+            // Protect local edits: only overwrite if cloud version is explicitly newer or local has no timestamp
+            if (!existing || !existing.updatedAt || new Date(cl.updatedAt || 0) >= new Date(existing.updatedAt)) {
+              map.set(cl.id, cl);
+            }
+          });
           return Array.from(map.values());
         });
       }
@@ -742,71 +761,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (cloudChaps.length === 0) {
         // If batch has no curriculum in cloud yet, supply foundational starter module
-        const targetBatch = batches.find((b) => b.id === batchId);
-        const batchTitle = targetBatch?.title || 'Coaching Batch';
-        const starterChapId = `chap_${batchId}_01`;
-        const starterLecId = `lec_${batchId}_01`;
-        const starterChap: Chapter = {
-          id: starterChapId,
-          batchId,
-          subjectId: 'sub_math_01',
-          title: 'Chapter 01: Concept Mastery & Foundation',
-          description: `Core curriculum module with video lessons and study materials for ${batchTitle}.`,
-          order: 1,
-        };
-        const starterLec: Lecture = {
-          id: starterLecId,
-          batchId,
-          subjectId: 'sub_math_01',
-          chapterId: starterChapId,
-          title: 'Lecture 01: Course Orientation & Core Problem Solving',
-          description: 'Comprehensive coaching lecture covering foundational derivations, problem-solving shortcuts, and formula charts.',
-          durationMinutes: 45,
-          videoSourceType: 'youtube',
-          encryptedVideoId: obfuscateVideoKey('WUvTyaaNkzM'), // High quality visual sample video key
-          thumbnailUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500&auto=format&fit=crop&q=80',
-          order: 1,
-          isFreePreview: false,
-          pdfNotes: [
-            {
-              id: `pdf_${Date.now()}`,
-              title: `${batchTitle} - Chapter 01 DPP & Formula Notes.pdf`,
-              url: '#',
-              size: '1.8 MB',
-              pages: 6,
-              type: 'pdf',
-            },
-          ],
-          milestones: [
-            { id: 'm1', seconds: 0, title: '01. Lecture Roadmap & Key Formulae' },
-            { id: 'm2', seconds: 180, title: '02. Step-by-Step Derivation' },
-            { id: 'm3', seconds: 480, title: '03. Exam Pattern Question Solving' },
-          ],
-          faculty: {
-            name: targetBatch?.instructor?.name || 'Sanju Kumar',
-            designation: targetBatch?.instructor?.designation || 'Master Faculty',
-            avatarUrl: targetBatch?.instructor?.avatarUrl || '',
-          },
-          createdAt: new Date().toISOString(),
-        };
-
         setChapters((prev) => {
-          const exists = prev.some((c) => c.batchId === batchId);
-          return exists ? prev : [...prev, starterChap];
+          const targetBatch = prev.find((c) => c.batchId === batchId);
+          if (targetBatch) return prev; // already has local chapters
+          const starterChapId = `chap_${batchId}_01`;
+          const starterChap: Chapter = {
+            id: starterChapId,
+            batchId,
+            subjectId: 'sub_math_01',
+            title: 'Chapter 01: Concept Mastery & Foundation',
+            description: `Core curriculum module with video lessons and study materials.`,
+            order: 1,
+          };
+          syncChapterToFirestore(batchId, starterChap).catch(() => {});
+          return [...prev, starterChap];
         });
-        setLectures((prev) => {
-          const exists = prev.some((l) => l.batchId === batchId);
-          return exists ? prev : [...prev, starterLec];
-        });
-
-        // Persist starter curriculum to Cloud Firestore
-        syncChapterToFirestore(batchId, starterChap).catch(() => {});
-        syncLectureToFirestore(batchId, starterLec).catch(() => {});
       }
     } catch (err) {
       console.warn(`Curriculum load error for batch ${batchId}:`, err);
     }
-  };
+  }, []);
 
   const updateWatchProgress = (lectureId: string, currentSeconds: number, totalSeconds: number) => {
     const isCompleted = totalSeconds > 0 && currentSeconds >= totalSeconds * 0.9;
@@ -1141,7 +1115,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return enrollments.filter((e) => e.batchId === batchId && e.status === 'active');
   };
 
-  const loadRosterForBatch = async (batchId: string) => {
+  const loadRosterForBatch = useCallback(async (batchId: string) => {
     if (!batchId) return;
     try {
       const cloudList = await fetchBatchEnrollmentsFromFirestore(batchId);
@@ -1158,7 +1132,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (err) {
       console.warn(`Roster load error for batch ${batchId}:`, err);
     }
-  };
+  }, []);
 
   const searchStudents = (queryStr: string) => {
     if (!queryStr.trim()) return students;

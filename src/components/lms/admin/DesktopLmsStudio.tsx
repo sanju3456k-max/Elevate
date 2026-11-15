@@ -192,9 +192,11 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
     return batches.find((b) => b.id === selectedBatchId) || batches[0] || null;
   }, [batches, selectedBatchId]);
 
-  // Auto load batch curriculum and roster when active batch changes
+  // Auto load batch curriculum and roster ONLY when selectedBatchId actually changes
+  const loadedBatchIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (selectedBatchId) {
+    if (selectedBatchId && loadedBatchIdRef.current !== selectedBatchId) {
+      loadedBatchIdRef.current = selectedBatchId;
       loadCurriculumForBatch(selectedBatchId);
       loadRosterForBatch(selectedBatchId);
     }
@@ -316,27 +318,29 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
             <Sliders className="w-4 h-4" />
           </button>
 
-          {/* Batch Selector Pill */}
-          <div className="relative group">
-            <select
-              value={selectedBatchId}
-              onChange={(e) => {
-                const newId = e.target.value;
-                handleBatchChange(newId);
-                selectEntity({ type: 'batch', id: newId });
-              }}
-              className="appearance-none pl-3.5 pr-8 py-1.5 rounded-full bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] text-xs font-bold text-[var(--md-sys-color-on-surface)] border-none outline-none cursor-pointer transition shadow-xs max-w-[200px] sm:max-w-[260px] truncate"
-            >
-              {batches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.title} {b.isPublished ? '●' : '○ (Draft)'}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-2.5 text-[var(--md-sys-color-on-surface-variant)] pointer-events-none" />
-          </div>
+          {/* Batch Selector Pill (Hidden when controlled externally by Master Console sidebar) */}
+          {!externalBatchId && (
+            <div className="relative group">
+              <select
+                value={selectedBatchId}
+                onChange={(e) => {
+                  const newId = e.target.value;
+                  handleBatchChange(newId);
+                  selectEntity({ type: 'batch', id: newId });
+                }}
+                className="appearance-none pl-3.5 pr-8 py-1.5 rounded-full bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] text-xs font-bold text-[var(--md-sys-color-on-surface)] border-none outline-none cursor-pointer transition shadow-xs max-w-[200px] sm:max-w-[260px] truncate"
+              >
+                {batches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.title} {b.isPublished ? '●' : '○ (Draft)'}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-2.5 text-[var(--md-sys-color-on-surface-variant)] pointer-events-none" />
+            </div>
+          )}
 
-          <div className="h-5 w-px bg-[var(--md-sys-color-outline-variant)]/30 hidden sm:block" />
+          {!externalBatchId && <div className="h-5 w-px bg-[var(--md-sys-color-outline-variant)]/30 hidden sm:block" />}
 
           {/* Quick Metrics Badge */}
           {currentBatch && (
@@ -488,117 +492,121 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
         {/* =======================================================================
             PANE 1: TREE NAVIGATOR & ROSTER EXPLORER (Left 280px)
             ======================================================================= */}
-        {!isLeftPaneCollapsed && (
+        {!isLeftPaneCollapsed && (!externalActiveTab || activeTab === 'curriculum') && (
           <aside className="w-64 lg:w-72 bg-[var(--md-sys-color-surface-container)] border-r border-[var(--md-sys-color-outline-variant)]/20 flex flex-col shrink-0 overflow-y-auto scrollbar-none transition-all duration-200">
-            {/* Batch Header Snapshot Card */}
-            {currentBatch && (
-              <div
-                onClick={() => selectEntity({ type: 'batch', id: currentBatch.id })}
-                className="p-3.5 m-3 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] cursor-pointer transition shadow-xs space-y-2 border border-transparent hover:border-[var(--md-sys-color-primary)]/30 group"
-              >
-                <div className="flex items-center space-x-2.5">
-                  <div className="w-10 h-10 rounded-xl overflow-hidden bg-black shrink-0 relative">
-                    <img
-                      src={currentBatch.bannerUrl || currentBatch.thumbnailUrl}
-                      alt={currentBatch.title}
-                      className="w-full h-full object-cover"
-                    />
+            {/* Batch Header Snapshot Card & Tabs (Only in standalone mode) */}
+            {!externalActiveTab && (
+              <>
+                {currentBatch && (
+                  <div
+                    onClick={() => selectEntity({ type: 'batch', id: currentBatch.id })}
+                    className="p-3.5 m-3 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] cursor-pointer transition shadow-xs space-y-2 border border-transparent hover:border-[var(--md-sys-color-primary)]/30 group"
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <div className="w-10 h-10 rounded-xl overflow-hidden bg-black shrink-0 relative">
+                        <img
+                          src={currentBatch.bannerUrl || currentBatch.thumbnailUrl}
+                          alt={currentBatch.title}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] truncate group-hover:text-[var(--md-sys-color-primary)]">
+                          {currentBatch.title}
+                        </h3>
+                        <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate">
+                          {currentBatch.category}
+                        </p>
+                      </div>
+                      <span
+                        className={`w-2 h-2 rounded-full shrink-0 ${
+                          currentBatch.isPublished ? 'bg-emerald-500' : 'bg-amber-500'
+                        }`}
+                        title={currentBatch.isPublished ? 'Published' : 'Draft'}
+                      />
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] truncate group-hover:text-[var(--md-sys-color-primary)]">
-                      {currentBatch.title}
-                    </h3>
-                    <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate">
-                      {currentBatch.category}
-                    </p>
-                  </div>
-                  <span
-                    className={`w-2 h-2 rounded-full shrink-0 ${
-                      currentBatch.isPublished ? 'bg-emerald-500' : 'bg-amber-500'
+                )}
+
+                {/* Studio Navigation Tabs */}
+                <div className="px-3 pb-2 space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange('curriculum')}
+                    className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-none cursor-pointer ${
+                      activeTab === 'curriculum'
+                        ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
+                        : 'text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
                     }`}
-                    title={currentBatch.isPublished ? 'Published' : 'Draft'}
-                  />
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <Folder className="w-4 h-4" />
+                      <span>Curriculum Tree</span>
+                    </div>
+                    <span className="text-[10px] opacity-80 font-mono">
+                      {batchChapters.length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange('roster')}
+                    className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-none cursor-pointer ${
+                      activeTab === 'roster'
+                        ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
+                        : 'text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <Users className="w-4 h-4" />
+                      <span>Student Roster</span>
+                    </div>
+                    <span className="text-[10px] opacity-80 font-mono">
+                      {batchEnrollments.length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange('tests')}
+                    className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-none cursor-pointer ${
+                      activeTab === 'tests'
+                        ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
+                        : 'text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <Award className="w-4 h-4" />
+                      <span>Test Catalogs</span>
+                    </div>
+                    <span className="text-[10px] opacity-80 font-mono">
+                      {batchCatalogTests.length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleTabChange('settings');
+                      if (currentBatch) selectEntity({ type: 'batch', id: currentBatch.id });
+                    }}
+                    className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-none cursor-pointer ${
+                      activeTab === 'settings'
+                        ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
+                        : 'text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <Settings className="w-4 h-4" />
+                      <span>Batch Settings</span>
+                    </div>
+                  </button>
                 </div>
-              </div>
+              </>
             )}
 
-            {/* Studio Navigation Tabs */}
-            <div className="px-3 pb-2 space-y-1">
-              <button
-                type="button"
-                onClick={() => handleTabChange('curriculum')}
-                className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-none cursor-pointer ${
-                  activeTab === 'curriculum'
-                    ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
-                    : 'text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
-                }`}
-              >
-                <div className="flex items-center space-x-2.5">
-                  <Folder className="w-4 h-4" />
-                  <span>Curriculum Tree</span>
-                </div>
-                <span className="text-[10px] opacity-80 font-mono">
-                  {batchChapters.length}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleTabChange('roster')}
-                className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-none cursor-pointer ${
-                  activeTab === 'roster'
-                    ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
-                    : 'text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
-                }`}
-              >
-                <div className="flex items-center space-x-2.5">
-                  <Users className="w-4 h-4" />
-                  <span>Student Roster</span>
-                </div>
-                <span className="text-[10px] opacity-80 font-mono">
-                  {batchEnrollments.length}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleTabChange('tests')}
-                className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-none cursor-pointer ${
-                  activeTab === 'tests'
-                    ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
-                    : 'text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
-                }`}
-              >
-                <div className="flex items-center space-x-2.5">
-                  <Award className="w-4 h-4" />
-                  <span>Test Catalogs</span>
-                </div>
-                <span className="text-[10px] opacity-80 font-mono">
-                  {batchCatalogTests.length}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  handleTabChange('settings');
-                  if (currentBatch) selectEntity({ type: 'batch', id: currentBatch.id });
-                }}
-                className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-none cursor-pointer ${
-                  activeTab === 'settings'
-                    ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
-                    : 'text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)]'
-                }`}
-              >
-                <div className="flex items-center space-x-2.5">
-                  <Settings className="w-4 h-4" />
-                  <span>Batch Settings</span>
-                </div>
-              </button>
-            </div>
-
             {/* Hierarchical Tree Folders */}
-            <div className="flex-1 px-3 py-2 space-y-1 border-t border-[var(--md-sys-color-outline-variant)]/20 overflow-y-auto">
+            <div className={`flex-1 px-3 py-2 space-y-1 overflow-y-auto ${!externalActiveTab ? 'border-t border-[var(--md-sys-color-outline-variant)]/20' : 'pt-3'}`}>
               <div className="flex items-center justify-between px-1 mb-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--md-sys-color-on-surface-variant)]">
                   Folder Hierarchy
@@ -1316,12 +1324,20 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
     return entity.type === 'lecture' && entity.id ? lectures.find((l) => l.id === entity.id) : null;
   }, [entity, lectures]);
 
-  // Form local states
+  // Form local states for Batch
+  const [batchTitle, setBatchTitle] = useState('');
+  const [batchCategory, setBatchCategory] = useState('');
+  const [batchTagline, setBatchTagline] = useState('');
+  const [batchPrice, setBatchPrice] = useState(999);
+  const [batchValidity, setBatchValidity] = useState(365);
+
+  // Form local states for Folder
   const [folderTitle, setFolderTitle] = useState('');
   const [folderDesc, setFolderDesc] = useState('');
   const [folderColor, setFolderColor] = useState('#0b57d0');
   const [folderParentId, setFolderParentId] = useState<string | null>(null);
 
+  // Form local states for Lecture
   const [lecTitle, setLecTitle] = useState('');
   const [lecDesc, setLecDesc] = useState('');
   const [lecVideoUrl, setLecVideoUrl] = useState('');
@@ -1355,9 +1371,21 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
     }
   };
 
-  // Sync state when entity changes
+  // Sync state ONLY when entity identity changes (prevents keystroke resets and reversals)
+  const entityKey = `${entity.type}_${entity.id || ''}_${entity.parentId || ''}`;
+  const prevEntityKeyRef = useRef<string>('');
+
   useEffect(() => {
-    if (entity.type === 'folder' && targetChapter) {
+    if (prevEntityKeyRef.current === entityKey) return;
+    prevEntityKeyRef.current = entityKey;
+
+    if (entity.type === 'batch' && currentBatch) {
+      setBatchTitle(currentBatch.title || '');
+      setBatchCategory(currentBatch.category || '');
+      setBatchTagline(currentBatch.tagline || '');
+      setBatchPrice(currentBatch.price || 0);
+      setBatchValidity(currentBatch.validityDays || 365);
+    } else if (entity.type === 'folder' && targetChapter) {
       setFolderTitle(targetChapter.title);
       setFolderDesc(targetChapter.description || '');
       setFolderColor(targetChapter.color || '#0b57d0');
@@ -1375,7 +1403,7 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
         : '';
       setLecVideoUrl(rawKey.length === 11 ? `https://www.youtube.com/watch?v=${rawKey}` : rawKey);
       setLecDuration(targetLecture.durationMinutes);
-      setLecChapterId(targetLecture.chapterId);
+      setLecChapterId(targetLecture.chapterId || '');
       setLecIsFreePreview(targetLecture.isFreePreview);
       setLecMilestones(targetLecture.milestones || []);
     } else if (entity.type === 'new_lecture') {
@@ -1383,11 +1411,11 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
       setLecDesc('');
       setLecVideoUrl('');
       setLecDuration(45);
-      setLecChapterId(entity.parentId || batchChapters[0]?.id || '');
+      setLecChapterId(entity.parentId || (batchChapters[0]?.id || ''));
       setLecIsFreePreview(false);
       setLecMilestones([]);
     }
-  }, [entity, targetChapter, targetLecture, batchChapters]);
+  }, [entityKey, entity.type, currentBatch, targetChapter, targetLecture, batchChapters]);
 
   return (
     <div className="flex flex-col h-full">
@@ -1589,6 +1617,7 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
                   onChange={(e) => setLecChapterId(e.target.value)}
                   className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none cursor-pointer"
                 >
+                  <option value="">Root Level of Batch (Unassigned)</option>
                   {batchChapters.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.title}
@@ -1692,9 +1721,10 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
               </label>
               <input
                 type="text"
-                value={currentBatch.title}
-                onChange={(e) => onUpdateBatch(currentBatch.id, { title: e.target.value })}
-                className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs font-bold text-[var(--md-sys-color-on-surface)] border-none outline-none"
+                value={batchTitle}
+                onChange={(e) => setBatchTitle(e.target.value)}
+                placeholder="e.g. Master JEE Advance 2026"
+                className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs font-bold text-[var(--md-sys-color-on-surface)] border-none outline-none focus:ring-1 focus:ring-[#0b57d0]"
               />
             </div>
 
@@ -1704,9 +1734,10 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
               </label>
               <input
                 type="text"
-                value={currentBatch.category}
-                onChange={(e) => onUpdateBatch(currentBatch.id, { category: e.target.value })}
-                className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none"
+                value={batchCategory}
+                onChange={(e) => setBatchCategory(e.target.value)}
+                placeholder="e.g. Mathematics, JEE, Foundation"
+                className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none focus:ring-1 focus:ring-[#0b57d0]"
               />
             </div>
 
@@ -1716,9 +1747,10 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
               </label>
               <textarea
                 rows={2}
-                value={currentBatch.tagline}
-                onChange={(e) => onUpdateBatch(currentBatch.id, { tagline: e.target.value })}
-                className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none resize-none"
+                value={batchTagline}
+                onChange={(e) => setBatchTagline(e.target.value)}
+                placeholder="Brief high-impact tagline for batch card..."
+                className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none resize-none focus:ring-1 focus:ring-[#0b57d0]"
               />
             </div>
 
@@ -1729,9 +1761,9 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
                 </label>
                 <input
                   type="number"
-                  value={currentBatch.price}
-                  onChange={(e) => onUpdateBatch(currentBatch.id, { price: Number(e.target.value) })}
-                  className="w-full p-2 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs font-bold text-[var(--md-sys-color-on-surface)] border-none outline-none"
+                  value={batchPrice}
+                  onChange={(e) => setBatchPrice(Number(e.target.value))}
+                  className="w-full p-2 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs font-bold text-[var(--md-sys-color-on-surface)] border-none outline-none focus:ring-1 focus:ring-[#0b57d0]"
                 />
               </div>
 
@@ -1741,11 +1773,33 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
                 </label>
                 <input
                   type="number"
-                  value={currentBatch.validityDays}
-                  onChange={(e) => onUpdateBatch(currentBatch.id, { validityDays: Number(e.target.value) })}
-                  className="w-full p-2 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs font-bold text-[var(--md-sys-color-on-surface)] border-none outline-none"
+                  value={batchValidity}
+                  onChange={(e) => setBatchValidity(Number(e.target.value))}
+                  className="w-full p-2 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs font-bold text-[var(--md-sys-color-on-surface)] border-none outline-none focus:ring-1 focus:ring-[#0b57d0]"
                 />
               </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!batchTitle.trim()) {
+                    alert('Please enter a valid Batch Title.');
+                    return;
+                  }
+                  onUpdateBatch(currentBatch.id, {
+                    title: batchTitle.trim(),
+                    category: batchCategory.trim(),
+                    tagline: batchTagline.trim(),
+                    price: Number(batchPrice) || 0,
+                    validityDays: Number(batchValidity) || 365,
+                  });
+                }}
+                className="w-full py-2.5 rounded-xl bg-[#0b57d0] hover:bg-[#0b57d0]/90 text-white font-bold text-xs shadow-xs transition border-none cursor-pointer flex items-center justify-center space-x-1.5"
+              >
+                <span>Save Batch Details</span>
+              </button>
             </div>
           </div>
         )}

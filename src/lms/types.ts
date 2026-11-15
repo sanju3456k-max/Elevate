@@ -36,6 +36,7 @@ export interface PersonalNote {
   seconds: number;
   text: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Lecture {
@@ -60,6 +61,7 @@ export interface Lecture {
     avatarUrl: string;
   };
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Chapter {
