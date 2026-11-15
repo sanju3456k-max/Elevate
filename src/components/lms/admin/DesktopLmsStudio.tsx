@@ -27,6 +27,7 @@ import {
   Check,
   X,
   ShieldCheck,
+  ShieldAlert,
   AlertTriangle,
   Calendar,
   ExternalLink,
@@ -142,6 +143,8 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
     globalGuestAccessMode,
     setGlobalGuestAccessMode,
     toggleBatchGuestAccess,
+    securitySettings,
+    updateSecuritySettings,
     user,
   } = useApp();
 
@@ -1407,6 +1410,131 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                         value={currentBatch.validityDays}
                         onChange={(e) => updateBatch(currentBatch.id, { validityDays: Number(e.target.value) })}
                         className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-xl text-xs font-bold text-[var(--md-sys-color-on-surface)] border-none outline-none focus:ring-1 focus:ring-[var(--md-sys-color-primary)]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. CONTENT THEFT PROTECTION & DRM SECURITY CENTER */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/20 space-y-4">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center space-x-2">
+                      <ShieldAlert className="w-4 h-4 text-amber-500" />
+                      <h4 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] uppercase tracking-wider">
+                        Enterprise Content Protection & DRM Security Center
+                      </h4>
+                    </div>
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center space-x-1">
+                      <span>● Active during Videos & Live Tests</span>
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] leading-relaxed">
+                    Elevate activates these security barriers strictly when a student is watching a video lecture or attempting a live test. Standard navigation (home, catalog, analytics) operates with zero friction.
+                  </p>
+
+                  <div className="space-y-3 pt-1">
+                    {/* Security Toggle 1: Screen Recording & Snipping Tool Blackout */}
+                    <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)]/60 border border-[var(--md-sys-color-outline-variant)]/10">
+                      <div className="space-y-0.5 flex-1 pr-2">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">
+                            Visual DRM Screen Shield (Snipping Tool & Focus Loss Blackout)
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            securitySettings?.enableDrmScreenProtection ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-500/15 text-slate-500'
+                          }`}>
+                            {securitySettings?.enableDrmScreenProtection ? 'Active' : 'Disabled'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] leading-normal">
+                          When window loses focus (Snipping Tool Win+Shift+S, OBS, background capture), video and active tests are immediately blacked out. Clipboard is cleared on PrintScreen.
+                        </p>
+                      </div>
+                      <M3Switch
+                        checked={Boolean(securitySettings?.enableDrmScreenProtection)}
+                        onChange={() => {
+                          const next = !securitySettings?.enableDrmScreenProtection;
+                          updateSecuritySettings({ enableDrmScreenProtection: next });
+                        }}
+                      />
+                    </div>
+
+                    {/* Security Toggle 2: Forensic Student Watermark */}
+                    <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)]/60 border border-[var(--md-sys-color-outline-variant)]/10">
+                      <div className="space-y-0.5 flex-1 pr-2">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">
+                            Forensic Dynamic Watermark (Anti-Cam Recording)
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            securitySettings?.enableDynamicWatermark ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-500/15 text-slate-500'
+                          }`}>
+                            {securitySettings?.enableDynamicWatermark ? 'Active' : 'Disabled'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] leading-normal">
+                          Translucent student identity (Name, Email, UID, Session ID) drifts randomly every 7 seconds over playing videos and active tests to deter phone/camera recording.
+                        </p>
+                      </div>
+                      <M3Switch
+                        checked={Boolean(securitySettings?.enableDynamicWatermark)}
+                        onChange={() => {
+                          const next = !securitySettings?.enableDynamicWatermark;
+                          updateSecuritySettings({ enableDynamicWatermark: next });
+                        }}
+                      />
+                    </div>
+
+                    {/* Security Toggle 3: In-Memory Exam Answer Masking */}
+                    <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)]/60 border border-[var(--md-sys-color-outline-variant)]/10">
+                      <div className="space-y-0.5 flex-1 pr-2">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">
+                            Exam In-Memory Answer Masking (Zero-Leak Test Bank)
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            securitySettings?.enableExamAnswerMasking ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-500/15 text-slate-500'
+                          }`}>
+                            {securitySettings?.enableExamAnswerMasking ? 'Enforced' : 'Disabled'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] leading-normal">
+                          Strips correct options and explanations from browser state while a test is in progress; answers are only released after official submission.
+                        </p>
+                      </div>
+                      <M3Switch
+                        checked={Boolean(securitySettings?.enableExamAnswerMasking)}
+                        onChange={() => {
+                          const next = !securitySettings?.enableExamAnswerMasking;
+                          updateSecuritySettings({ enableExamAnswerMasking: next });
+                        }}
+                      />
+                    </div>
+
+                    {/* Security Toggle 4: DevTools Auto-Pause & Shortcut Lock */}
+                    <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)]/60 border border-[var(--md-sys-color-outline-variant)]/10">
+                      <div className="space-y-0.5 flex-1 pr-2">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">
+                            DevTools Deterrence & Keyboard Shortcut Shield
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            securitySettings?.enableDevToolsDeterrence ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-500/15 text-slate-500'
+                          }`}>
+                            {securitySettings?.enableDevToolsDeterrence ? 'Active' : 'Disabled'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] leading-normal">
+                          Blocks F12, Ctrl+Shift+I, Ctrl+U, and right-click during video playback and live tests with deterrence warning notices.
+                        </p>
+                      </div>
+                      <M3Switch
+                        checked={Boolean(securitySettings?.enableDevToolsDeterrence)}
+                        onChange={() => {
+                          const next = !securitySettings?.enableDevToolsDeterrence;
+                          updateSecuritySettings({ enableDevToolsDeterrence: next });
+                        }}
                       />
                     </div>
                   </div>
