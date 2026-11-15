@@ -38,9 +38,10 @@ import {
   Clock,
 } from 'lucide-react';
 import { useApp, getFacultyAvatarUrl } from '../../../lms/LmsContext';
-import { auth, db } from '../../../lib/firebase';
+import { auth, db, getCachedFullTest } from '../../../lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
-import { isMasterUser } from '../../../lib/masterAccount';
+import { isMasterUser, getGlobalPublishedTests } from '../../../lib/masterAccount';
+import { getTestDurationMinutes } from '../../../utils/testFormatConverter';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
 import { formatDuration, extractYouTubeId, obfuscateVideoKey, getLectureThumbnailUrl, deobfuscateVideoKey } from '../../../lms/security';
 import { fetchVideoMetadata } from '../../../lms/videoMetadataService';
@@ -444,24 +445,150 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     return folderNotesContent.length;
   }, [currentBatch, selectedChapterId, lectures, chapters, folderNotesContent]);
 
+  // Comprehensive list of candidate tests: availableTests prop + global published tests + batchTests
+  const allCandidateTests = useMemo(() => {
+    const testMap = new Map<string, MathTest>();
+
+    // 1. Tests passed as prop
+    (availableTests || []).forEach((t) => {
+      if (t && t.id) testMap.set(t.id, t);
+    });
+
+    // 2. Tests from global master published storage
+    try {
+      const globalPublished = getGlobalPublishedTests();
+      (globalPublished || []).forEach((t) => {
+        if (t && t.id && !testMap.has(t.id)) {
+          testMap.set(t.id, t);
+        }
+      });
+    } catch {
+      // ignore
+    }
+
+    // 3. Batch tests catalog
+    (batchTests || []).forEach((bt) => {
+      const tid = bt.testId || bt.id;
+      if (tid && !testMap.has(tid)) {
+        const cached = getCachedFullTest(tid);
+        const resolvedDuration = getTestDurationMinutes(bt) || (cached ? getTestDurationMinutes(cached) : 25);
+        testMap.set(tid, {
+          id: tid,
+          title: bt.title || 'Mock Test',
+          topic: bt.topic || bt.subject || 'Assessment',
+          difficulty: bt.difficulty || 'medium',
+          timeLimitMinutes: resolvedDuration,
+          time: resolvedDuration,
+          durationMinutes: resolvedDuration,
+          questionCount: bt.questionCount || (cached?.questions?.length) || 20,
+          questions: cached?.questions || [],
+          isPublic: true,
+        });
+      }
+    });
+
+    return Array.from(testMap.values());
+  }, [availableTests, batchTests]);
+
   // Tests linked to the current folder or batch root
   const folderTests = useMemo(() => {
-    const folderTestIds = new Set(currentFolder?.testIds || []);
-    const matchingTests = availableTests.filter((t) => folderTestIds.has(t.id));
-    if (!selectedChapterId && matchingTests.length === 0) {
-      return batchTests.map((bt) => availableTests.find((t) => t.id === bt.testId)).filter(Boolean) as MathTest[];
+    const candidateMap = new Map<string, MathTest>();
+    allCandidateTests.forEach((t) => candidateMap.set(t.id, t));
+
+    // When inside a folder/chapter
+    if (selectedChapterId && currentFolder) {
+      const folderTestIds = currentFolder.testIds || [];
+      const resolvedList: MathTest[] = [];
+
+      folderTestIds.forEach((tid) => {
+        const candidate = candidateMap.get(tid) || getCachedFullTest(tid);
+        if (candidate) {
+          resolvedList.push(candidate);
+        } else {
+          // Check if in batchTests
+          const bt = (batchTests || []).find((b) => b.testId === tid || b.id === tid);
+          if (bt) {
+            const resolvedDuration = getTestDurationMinutes(bt);
+            resolvedList.push({
+              id: tid,
+              title: bt.title || 'Mock Test',
+              topic: bt.topic || bt.subject || currentFolder.title || 'Assessment',
+              difficulty: bt.difficulty || 'medium',
+              timeLimitMinutes: resolvedDuration,
+              time: resolvedDuration,
+              durationMinutes: resolvedDuration,
+              questionCount: bt.questionCount || 20,
+              questions: [],
+              isPublic: true,
+            });
+          } else {
+            // Fallback placeholder so count and card is never lost
+            resolvedList.push({
+              id: tid,
+              title: `Mock Test (${currentFolder.title || 'Chapter Test'})`,
+              topic: currentFolder.title || 'Assessment',
+              difficulty: 'medium',
+              timeLimitMinutes: 25,
+              time: 25,
+              durationMinutes: 25,
+              questionCount: 20,
+              questions: [],
+              isPublic: true,
+            });
+          }
+        }
+      });
+
+      return resolvedList;
     }
-    return matchingTests;
-  }, [availableTests, currentFolder, selectedChapterId, batchTests]);
+
+    // When at root batch level (no specific chapter selected)
+    const allBatchFolderTestIds = new Set<string>();
+    chapters.filter((c) => c.batchId === (currentBatch?.id || selectedBatchId)).forEach((c) => {
+      (c.testIds || []).forEach((tid) => allBatchFolderTestIds.add(tid));
+    });
+
+    const rootList: MathTest[] = [];
+    allBatchFolderTestIds.forEach((tid) => {
+      const candidate = candidateMap.get(tid) || getCachedFullTest(tid);
+      if (candidate) rootList.push(candidate);
+    });
+
+    (batchTests || []).forEach((bt) => {
+      const tid = bt.testId || bt.id;
+      if (!rootList.some((t) => t.id === tid)) {
+        const candidate = candidateMap.get(tid) || getCachedFullTest(tid);
+        if (candidate) {
+          rootList.push(candidate);
+        } else {
+          const resolvedDuration = getTestDurationMinutes(bt);
+          rootList.push({
+            id: tid,
+            title: bt.title || 'Mock Test',
+            topic: bt.topic || bt.subject || 'Assessment',
+            difficulty: bt.difficulty || 'medium',
+            timeLimitMinutes: resolvedDuration,
+            time: resolvedDuration,
+            durationMinutes: resolvedDuration,
+            questionCount: bt.questionCount || 20,
+            questions: [],
+            isPublic: true,
+          });
+        }
+      }
+    });
+
+    return rootList;
+  }, [allCandidateTests, currentFolder, selectedChapterId, chapters, currentBatch, selectedBatchId, batchTests]);
 
   // Total tests count
   const totalFolderTestsCount = useMemo(() => {
     if (!currentBatch) return 0;
     if (!selectedChapterId) {
-      return batchTests.length || folderTests.length;
+      return folderTests.length || batchTests.length;
     }
     return folderTests.length;
-  }, [currentBatch, selectedChapterId, batchTests, folderTests]);
+  }, [currentBatch, selectedChapterId, folderTests, batchTests]);
 
   // Active Lecture for Player
   const activeLecture = useMemo(() => {
@@ -1411,7 +1538,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                         </div>
                         <div className="flex items-center space-x-1.5 text-[10px] sm:text-xs text-emerald-700 dark:text-emerald-300 font-mono font-bold">
                           <Timer className="w-3.5 h-3.5" />
-                          <span>{t.timeLimitMinutes || 25} Mins</span>
+                          <span>{getTestDurationMinutes(t)} Mins</span>
                         </div>
 
                         {/* Master Unlink Test Button */}
@@ -1607,7 +1734,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         <LinkTestModal
           isOpen={isLinkTestModalOpen}
           onClose={() => setIsLinkTestModalOpen(false)}
-          availableTests={availableTests}
+          availableTests={allCandidateTests}
           linkedTestIds={currentFolder?.testIds || []}
           onToggleTest={(testId) => {
             if (selectedChapterId) {

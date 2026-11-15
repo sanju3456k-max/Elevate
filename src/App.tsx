@@ -520,21 +520,15 @@ export default function App() {
     const isMaster = isMasterUser(activeUser);
     const isGuest = isGuestUser(activeUser);
 
-    // STRICT RULE: Guest users do not take benefits of MasterConsole implements
-    if (isGuest) {
-      setTests((prev) => mergePublishedMasterTests(prev, false, true));
-      return;
-    }
-
     // 1. Real-time Firestore snapshot listener for published master tests (Strictly 1 Read on launch)
     // Listens exclusively to single document: test_leaderboards/MASTER_CATALOG/summary/published_tests
     const unsubscribePublished = subscribeToPublishedMasterTests(() => {
       const activeUid = currentUser?.uid || cachedUser?.uid || null;
       const master = isMasterUser(currentUser || cachedUser);
       const guest = isGuestUser(currentUser || cachedUser);
-      if (!master && !guest) {
+      if (!master) {
         const scoped = loadScopedTests(activeUid);
-        setTests(mergePublishedMasterTests(scoped, false, false));
+        setTests(mergePublishedMasterTests(scoped, false, guest));
       }
     });
 
@@ -1189,8 +1183,8 @@ export default function App() {
   ) => {
     captureOriginContext(explicitOrigin);
     const isGuest = isGuestUser(currentUser || cachedUser);
-    if (isGuest && (isMasterTest(test) || isRemedialTest(test))) {
-      showToast('Sign in required to access tests published by Master Academic Head.', 'warning');
+    if (isGuest && isRemedialTest(test)) {
+      showToast('Sign in required to access student-specific remedial tests.', 'warning');
       handleSignIn();
       return;
     }
@@ -1200,8 +1194,8 @@ export default function App() {
       ? test
       : (await loadFullTestOnDemand(test.id, tests, targetUid)) || test;
 
-    if (isGuest && (isMasterTest(fullTest) || isRemedialTest(fullTest))) {
-      showToast('Sign in required to access tests published by Master Academic Head.', 'warning');
+    if (isGuest && isRemedialTest(fullTest)) {
+      showToast('Sign in required to access student-specific remedial tests.', 'warning');
       handleSignIn();
       return;
     }
@@ -1245,8 +1239,8 @@ export default function App() {
   const handleStartOmrTest = async (test: MathTest, initialTab: 'print' | 'scan' | 'keys' | 'review' = 'print') => {
     captureOriginContext();
     const isGuest = isGuestUser(currentUser || cachedUser);
-    if (isGuest && (isMasterTest(test) || isRemedialTest(test))) {
-      showToast('Sign in required to access tests published by Master Academic Head.', 'warning');
+    if (isGuest && isRemedialTest(test)) {
+      showToast('Sign in required to access student-specific remedial tests.', 'warning');
       handleSignIn();
       return;
     }
@@ -1256,8 +1250,8 @@ export default function App() {
       ? test
       : (await loadFullTestOnDemand(test.id, tests, targetUid)) || test;
 
-    if (isGuest && (isMasterTest(fullTest) || isRemedialTest(fullTest))) {
-      showToast('Sign in required to access tests published by Master Academic Head.', 'warning');
+    if (isGuest && isRemedialTest(fullTest)) {
+      showToast('Sign in required to access student-specific remedial tests.', 'warning');
       handleSignIn();
       return;
     }
@@ -1278,8 +1272,8 @@ export default function App() {
     const targetTestId = specificTestId || pendingStartTest?.test.id || activeTestSession?.testId;
     const session = (targetTestId ? loadScopedActiveSession(targetUid, targetTestId) : null) || activeTestSession;
 
-    if (isGuest && session?.test && (isMasterTest(session.test) || isRemedialTest(session.test))) {
-      showToast('Sign in required to access tests published by Master Academic Head.', 'warning');
+    if (isGuest && session?.test && isRemedialTest(session.test)) {
+      showToast('Sign in required to access student-specific remedial tests.', 'warning');
       handleSignIn();
       setShowResumeModal(false);
       setPendingStartTest(null);

@@ -106,6 +106,7 @@ interface AppContextType {
   loadCurriculumForBatch: (batchId: string) => Promise<void>;
   searchStudents: (query: string) => { id: string; name: string; email?: string; phone?: string }[];
   addTestToBatchCatalog: (params: {
+    testId?: string;
     batchId: string;
     title: string;
     topic: string;
@@ -1260,6 +1261,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addTestToBatchCatalog = ({
+    testId,
     batchId,
     title,
     topic,
@@ -1268,6 +1270,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     questionCount,
     passingScorePercentage = 40,
   }: {
+    testId?: string;
     batchId: string;
     title: string;
     topic: string;
@@ -1276,9 +1279,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     questionCount: number;
     passingScorePercentage?: number;
   }) => {
+    const cleanTestId = testId?.trim() || `btest_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     const chunkId = `chunk_${Math.floor(batchTests.filter((t) => t.batchId === batchId).length / 6) + 1}`;
     const newTestCard: BatchTestCard = {
-      testId: `btest_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      testId: cleanTestId,
+      id: cleanTestId,
       batchId,
       title: title.trim(),
       topic: topic.trim(),
@@ -1291,7 +1296,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       publishedAt: new Date().toISOString(),
     };
 
-    setBatchTests((prev) => [newTestCard, ...prev]);
+    setBatchTests((prev) => {
+      const filtered = prev.filter((t) => t.testId !== cleanTestId && (t as any).id !== cleanTestId);
+      const next = [newTestCard, ...filtered];
+      try {
+        secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
     syncBatchTestToFirestore(batchId, newTestCard).catch(() => {});
     return {
       success: true,

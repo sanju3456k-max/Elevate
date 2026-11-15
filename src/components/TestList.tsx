@@ -43,6 +43,7 @@ import { getAllAvailableTopics } from '../utils/topics';
 import { isAttemptOmrMode, pruneAttemptsToFirstAndLast } from '../lib/storage';
 import { searchCloudTests, getLocalLeaderboardEntries, getCachedFullTest, getSynchronousCachedLeaderboard } from '../lib/firebase';
 import { createShareUrlAsync, formatTestShareMessage } from '../utils/shareUtils';
+import { getTestDurationMinutes } from '../utils/testFormatConverter';
 import type { User } from 'firebase/auth';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useBackHandler } from '../hooks/useBackNavigation';
@@ -677,9 +678,8 @@ export const TestList: React.FC<TestListProps> = ({
       if (seenIds.has(test.id)) return false;
       seenIds.add(test.id);
 
-      // STRICT RULE: Guest users do not take benefits of MasterConsole implements
-      // (No published Master tests and no remedial tests)
-      if (isGuest && (isMasterTest(test) || isRemedialTest(test))) {
+      // Remedial personalized tests are student-specific, but all published Master tests are open
+      if (isGuest && isRemedialTest(test)) {
         return false;
       }
 
@@ -932,9 +932,9 @@ export const TestList: React.FC<TestListProps> = ({
                   if (atts[0].totalPoints && atts[0].totalPoints > 0) return Math.round(atts[0].totalPoints / 4);
                 }
               } catch {}
-              return test.timeLimitMinutes > 0 ? test.timeLimitMinutes : 50;
+              return getTestDurationMinutes(test);
             })();
-            const timeDisplay = test.timeLimitMinutes > 0 ? `${test.timeLimitMinutes}m` : 'Untimed';
+            const timeDisplay = `${getTestDurationMinutes(test)}m`;
             const isNew = isTestNew(test);
 
             return (
@@ -1128,7 +1128,7 @@ export const TestList: React.FC<TestListProps> = ({
                           <span>Time</span>
                         </div>
                         <div className="text-lg sm:text-2xl font-black text-[#1f1f1f] dark:text-[#e3e3e3] font-mono mt-0.5">
-                          {detailedTest.timeLimitMinutes > 0 ? `${detailedTest.timeLimitMinutes}:00` : 'Untimed'}
+                          {`${getTestDurationMinutes(detailedTest)}:00`}
                         </div>
                       </div>
 

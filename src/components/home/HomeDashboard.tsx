@@ -31,6 +31,7 @@ import type { Batch } from '../../lms/types';
 import { useApp, getFacultyAvatarUrl } from '../../lms/LmsContext';
 import { getLectureThumbnailUrl } from '../../lms/security';
 import { isMasterUser } from '../../lib/masterAccount';
+import { getTestDurationMinutes } from '../../utils/testFormatConverter';
 
 interface HomeDashboardProps {
   tests: MathTest[];
@@ -166,12 +167,13 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     // If a batch test exists in batchTests but isn't yet in available tests array, synthesize a test card object
     const latestBatchTestCard = (batchTests || []).find((bt) => enrolledBatchIdSet.has(bt.batchId));
     if (latestBatchTestCard) {
+      const resolvedMinutes = getTestDurationMinutes(latestBatchTestCard);
       const synthTest: MathTest = {
         id: latestBatchTestCard.testId || latestBatchTestCard.id || 'batch_test',
         title: latestBatchTestCard.title || 'Batch Mock Assessment',
         topic: latestBatchTestCard.topic || 'General Practice',
-        timeLimitMinutes: latestBatchTestCard.timeLimitMinutes || 25,
-        durationMinutes: latestBatchTestCard.timeLimitMinutes || 25,
+        timeLimitMinutes: resolvedMinutes,
+        durationMinutes: resolvedMinutes,
         questionCount: latestBatchTestCard.questionCount || 25,
         questions: [],
         createdAt: latestBatchTestCard.publishedAt || Date.now(),
@@ -186,10 +188,10 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     if (!latestTest) return 50;
     if (Array.isArray(latestTest.questions) && latestTest.questions.length > 0) return latestTest.questions.length;
     if (typeof (latestTest as any).questionCount === 'number' && (latestTest as any).questionCount > 0) return (latestTest as any).questionCount;
-    return latestTest.timeLimitMinutes > 0 ? latestTest.timeLimitMinutes : 50;
+    return getTestDurationMinutes(latestTest) || 50;
   })();
   const latestTestTimeDisplay = latestTest
-    ? (latestTest.timeLimitMinutes > 0 ? `${latestTest.timeLimitMinutes}m` : (latestTest.durationMinutes ? `${latestTest.durationMinutes}m` : '45m'))
+    ? `${getTestDurationMinutes(latestTest)}m`
     : '45m';
 
   // In-progress lectures

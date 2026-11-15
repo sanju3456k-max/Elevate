@@ -20,6 +20,7 @@ import type { MathTest } from '../../../types';
 import { extractYouTubeId, obfuscateVideoKey } from '../../../lms/security';
 import { fetchVideoMetadata, extractYouTubeVideoId } from '../../../lms/videoMetadataService';
 import { M3Switch, M3CircularProgress } from '../../ui/Material3';
+import { getTestDurationMinutes } from '../../../utils/testFormatConverter';
 
 const FOLDER_COLORS = [
   { id: 'blue', value: '#0b57d0', label: 'Classic Blue' },
@@ -704,7 +705,7 @@ export const LinkTestModal: React.FC<LinkTestModalProps> = ({
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold truncate">{t.title}</p>
                     <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
-                      {t.questions?.length || 0} Questions • {t.timeLimitMinutes || 25} Mins • {t.difficulty || 'Medium'}
+                      {t.questions?.length || 0} Questions • {getTestDurationMinutes(t)} Mins • {t.difficulty || 'Medium'}
                     </p>
                   </div>
                   <div

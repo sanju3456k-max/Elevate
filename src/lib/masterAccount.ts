@@ -10,6 +10,8 @@ import {
   checkIsOptionCorrect
 } from '../types';
 import { isOfflineLocalOnlyMode, getScopedKey, loadScopedTests } from './storage';
+import { syncBatchTestToFirestore } from './batchCloudSync';
+import { getTestDurationMinutes } from '../utils/testFormatConverter';
 import { getAllAttemptsAcrossAllUsersFromIndexedDB } from './indexedDbStorage';
 import { 
   auth, 
@@ -629,28 +631,25 @@ export function mergePublishedMasterTests(
 ): MathTest[] {
   if (isUserMaster) return userTests;
 
-  const publishedIds = new Set(getMasterPublishedTestIds());
-
-  // STRICT RULE: Guest users DO NOT receive or access Master Console published tests or remedial tests!
-  if (isGuest) {
-    return userTests.filter((t) => !publishedIds.has(t.id) && !isMasterTest(t) && !isRemedialTest(t));
-  }
-
   const published = getGlobalPublishedTests();
-  if (published.length === 0) return userTests;
-
   const testMap = new Map<string, MathTest>();
-  // 1. Add published master tests first
+
+  // 1. Add published master tests first so all students and guest batch users can access them
   published.forEach((t) => {
     if (t && t.id) {
       const qLen = Array.isArray(t.questions) && t.questions.length > 0 ? t.questions.length : 0;
-      const count = qLen || t.questionCount || (t as any).questionsCount || t.timeLimitMinutes || 50;
+      const count = qLen || t.questionCount || (t as any).questionsCount || 25;
+      const dur = getTestDurationMinutes(t);
       testMap.set(t.id, {
         ...t,
+        timeLimitMinutes: dur,
+        time: dur,
+        durationMinutes: dur,
         questionCount: count,
       });
     }
   });
+
   // 2. Add student tests
   userTests.forEach((t) => {
     if (t && t.id) {
@@ -658,10 +657,14 @@ export function mergePublishedMasterTests(
       const qLen = Array.isArray(t.questions) && t.questions.length > 0
         ? t.questions.length
         : (existing && Array.isArray(existing.questions) && existing.questions.length > 0 ? existing.questions.length : 0);
-      const count = qLen || t.questionCount || existing?.questionCount || (t as any).questionsCount || t.timeLimitMinutes || 50;
+      const count = qLen || t.questionCount || existing?.questionCount || (t as any).questionsCount || 25;
+      const dur = getTestDurationMinutes(t) || (existing ? getTestDurationMinutes(existing) : 25);
       testMap.set(t.id, {
         ...existing,
         ...t,
+        timeLimitMinutes: dur,
+        time: dur,
+        durationMinutes: dur,
         questions: (Array.isArray(t.questions) && t.questions.length > 0) ? t.questions : (existing?.questions || []),
         questionCount: count,
       });
@@ -2930,21 +2933,27 @@ export async function publishTestToBatchCatalog(
     );
 
     // 2. Add / update card in manifest
+    const exactDur = getTestDurationMinutes(test);
     const newCard: BatchTestCard = {
+      testId: test.id,
       id: test.id,
+      batchId: cleanBatchId,
       title: test.title,
-      topic: test.topic,
-      difficulty: test.difficulty,
-      timeLimitMinutes: test.timeLimitMinutes,
-      questionCount: test.questions?.length || 0,
+      topic: test.topic || 'Curriculum Assessment',
+      difficulty: (test.difficulty as any) || 'medium',
+      timeLimitMinutes: exactDur,
+      questionCount: test.questions?.length || (test as any).questionCount || 0,
       passingScorePercentage: test.passingScorePercentage || 40,
       chunkId: targetChunkId,
+      catalogChunkId: targetChunkId,
+      chunkEstimatedBytes: testByteSize || 85 * 1024,
       order: currentCards.length + 1,
       createdAt: new Date().toISOString(),
+      publishedAt: new Date().toISOString(),
     };
 
     // Filter out existing card with same ID if re-publishing
-    const updatedCards = currentCards.filter((c) => c.id !== test.id).concat(newCard);
+    const updatedCards = currentCards.filter((c) => c.id !== test.id && (c as any).testId !== test.id).concat(newCard);
 
     await setDoc(
       manifestRef,
@@ -2959,6 +2968,9 @@ export async function publishTestToBatchCatalog(
       },
       { merge: true }
     );
+
+    // Sync individual batch test document for direct real-time batch listeners
+    syncBatchTestToFirestore(cleanBatchId, newCard).catch(() => {});
 
     // Update local cache
     try {

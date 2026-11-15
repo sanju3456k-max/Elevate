@@ -431,3 +431,24 @@ export function parseTestFromText(rawInput: string, fallbackTopic: string = 'Gen
 
   return result;
 }
+
+/**
+ * Safely resolves the exact total time/duration in minutes of a test across all schema variants
+ * (timeLimitMinutes, time, durationMinutes, duration).
+ */
+export function getTestDurationMinutes(test: any): number {
+  if (!test) return 15;
+  if (typeof test.timeLimitMinutes === 'number' && test.timeLimitMinutes > 0) return test.timeLimitMinutes;
+  if (typeof test.time === 'number' && test.time > 0) return test.time;
+  if (typeof test.durationMinutes === 'number' && test.durationMinutes > 0) return test.durationMinutes;
+  if (typeof test.duration === 'number' && test.duration > 0) return test.duration;
+  return 15;
+}
+
+/**
+ * Cleanly formats test duration into human-readable string (e.g. "45m", "60m").
+ */
+export function formatTestDurationDisplay(test: any): string {
+  const mins = getTestDurationMinutes(test);
+  return `${mins}m`;
+}

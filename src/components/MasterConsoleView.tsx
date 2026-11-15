@@ -45,6 +45,7 @@ import {
   Settings
 } from 'lucide-react';
 import type { MathTest, TestAttempt, RemedialFilterType, AssignedRemedialTest } from '../types';
+import { getTestDurationMinutes } from '../utils/testFormatConverter';
 import { 
   MASTER_ADMIN_EMAIL, 
   publishMasterTest, 
@@ -694,15 +695,17 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   }, []);
 
   const handleTogglePublish = async (test: MathTest) => {
-    const isAlreadyInBatch = currentBatchTests.some((t) => t.testId === test.id);
+    const isAlreadyInBatch = currentBatchTests.some((t) => t.testId === test.id || (t as any).id === test.id);
     if (!isAlreadyInBatch) {
+      const dur = getTestDurationMinutes(test);
       addTestToBatchCatalog({
+        testId: test.id,
         batchId: selectedBatchId,
         title: test.title,
         topic: test.topic || 'General Mathematics',
         difficulty: (test.difficulty as any) || 'medium',
-        timeLimitMinutes: test.timeLimitMinutes || 60,
-        questionCount: test.questions?.length || 30,
+        timeLimitMinutes: dur,
+        questionCount: test.questions?.length || (test as any).questionCount || 30,
         passingScorePercentage: test.passingScorePercentage || 40,
       });
       await publishTestToBatchCatalog(selectedBatchId, test).catch(() => {});
@@ -1180,7 +1183,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                               {test.title}
                             </p>
                             <p className={`text-[11px] font-mono mt-0.5 ${isSelected ? 'text-[#041e49]/70 dark:text-[#c2e7ff]/70' : 'text-[#5e5e5e] dark:text-[#9aa0a6]'}`}>
-                              {qCount} Qs • {test.timeLimitMinutes || 60}m
+                              {qCount} Qs • {getTestDurationMinutes(test)}m
                             </p>
                           </div>
 
@@ -1919,7 +1922,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                       {selectedAnalyticsTest?.title || 'Selected Test'}
                     </p>
                     <p className="text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-mono mt-0.5">
-                      {selectedAnalyticsTest?.questions?.length || 50} Questions • {selectedAnalyticsTest?.timeLimitMinutes || 60}m time limit
+                      {selectedAnalyticsTest?.questions?.length || 50} Questions • {getTestDurationMinutes(selectedAnalyticsTest)}m time limit
                     </p>
                   </div>
                 </div>
@@ -1971,7 +1974,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                               {t.title}
                             </p>
                             <p className={`text-[10px] font-mono mt-0.5 ${isSelected ? 'text-[#041e49]/70 dark:text-[#c2e7ff]/70' : 'text-[#5e5e5e] dark:text-[#9aa0a6]'}`}>
-                              {qCount} Questions • {t.timeLimitMinutes || 60}m
+                              {qCount} Questions • {getTestDurationMinutes(t)}m
                             </p>
                           </div>
 
@@ -2358,7 +2361,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                           </span>
                           <span className="inline-flex items-center gap-1 text-[11px] text-[#444746] dark:text-[#c4c7c5] px-1 py-0.5 leading-none">
                             <Clock className="w-3.5 h-3.5 text-[#6750a4] dark:text-[#d0bcff] shrink-0" strokeWidth={2.2} />
-                            <span className="leading-none">{test.timeLimitMinutes || 60}m</span>
+                            <span className="leading-none">{getTestDurationMinutes(test)}m</span>
                           </span>
                           <span className="ml-auto text-[10.5px] text-[#5e5e5e] dark:text-[#9aa0a6]">
                             {attemptsCount} attempt{attemptsCount === 1 ? '' : 's'}
