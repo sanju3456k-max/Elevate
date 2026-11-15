@@ -39,7 +39,10 @@ import {
   Info,
   Trash2,
   RotateCw,
-  Package
+  Package,
+  Menu,
+  Folder,
+  Settings
 } from 'lucide-react';
 import type { MathTest, TestAttempt, RemedialFilterType, AssignedRemedialTest } from '../types';
 import { 
@@ -69,7 +72,7 @@ import {
 } from '../lib/masterAccount';
 import { loadFullTestOnDemand } from '../lib/storage';
 import { APP_STYLES } from './ui/AppStyles';
-import { DesktopLmsStudio } from './lms/admin/DesktopLmsStudio';
+import { DesktopLmsStudio, type StudioTab } from './lms/admin/DesktopLmsStudio';
 import { useApp } from '../lms/LmsContext';
 import { auth, signInWithGoogle } from '../lib/firebase';
 
@@ -87,6 +90,15 @@ interface MasterConsoleViewProps {
   onSignIn?: () => void;
 }
 
+export type MasterConsoleNavTab =
+  | 'curriculum'
+  | 'roster'
+  | 'tests'
+  | 'settings'
+  | 'remedial'
+  | 'analytics'
+  | 'publishing';
+
 export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   onBack,
   tests,
@@ -100,7 +112,9 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   onRefreshTests,
   onSignIn,
 }) => {
-  const [activeTab, setActiveTab] = useState<'batches' | 'remedial' | 'analytics' | 'publishing'>('batches');
+  const [activeTab, setActiveTab] = useState<MasterConsoleNavTab>('curriculum');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const isLmsStudioTab = ['curriculum', 'roster', 'tests', 'settings'].includes(activeTab);
 
   // ==========================================
   // Universal Multi-Tenant Batch Context
@@ -705,211 +719,373 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30 select-none">
+    <div className="fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] bg-[#f4f6fa] dark:bg-[#0d0f14] h-[100dvh] max-h-screen overflow-hidden flex z-30 select-none">
       
-      {/* Top App Bar (Google Material 3 Seamless Header - Color-matched to mobile status bar with 0 border line) */}
-      <header className="px-4 sm:px-6 md:px-8 pt-[calc(env(safe-area-inset-top,0px)+0.45rem)] pb-2 bg-[#e5e9f0] dark:bg-[#0b0c10] shrink-0 flex items-center justify-between gap-3 z-10 border-0 shadow-none">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] text-amber-500 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-center justify-center shrink-0">
-            <Crown className="w-4.5 h-4.5" />
+      {/* Mobile Menu Backdrop */}
+      {isMobileMenuOpen && (
+        <div
+          onClick={() => setIsMobileMenuOpen(false)}
+          className="fixed inset-0 bg-black/50 backdrop-blur-xs z-40 lg:hidden"
+        />
+      )}
+
+      {/* Left Command Rail (Enterprise Academic Admin Sidebar) */}
+      <aside
+        className={`fixed lg:static inset-y-0 left-0 w-72 bg-white dark:bg-[#16181f] border-r border-slate-200/80 dark:border-zinc-800/80 flex flex-col z-50 lg:z-20 transition-transform duration-300 ease-in-out shrink-0 ${
+          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        }`}
+      >
+        {/* Sidebar Top: Superadmin Brand Header */}
+        <div className="p-4 border-b border-slate-200/60 dark:border-zinc-800/60 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center shrink-0 shadow-xs">
+              <Crown className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-sm font-extrabold text-[#1f1f1f] dark:text-[#f0f3f8] tracking-tight truncate">
+                  Elevate Master
+                </h1>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]" title="System Live" />
+              </div>
+              <p className="text-[10px] text-[#5e5e5e] dark:text-[#9aa0a6] font-mono truncate">
+                Superadmin Academic Suite
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400 lg:hidden border-none cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Centralized Active Batch Context Card (Single Source of Truth) */}
+        <div className="p-3 border-b border-slate-200/60 dark:border-zinc-800/60 shrink-0 bg-slate-50/50 dark:bg-zinc-900/40">
+          <div className="flex items-center justify-between mb-1 px-1">
+            <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
+              Active Batch Context
+            </span>
+            <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+              {currentBatch.isPublished ? '● Published' : '○ Draft'}
+            </span>
+          </div>
+          <div className="relative">
+            <select
+              value={selectedBatchId}
+              onChange={(e) => setSelectedBatchId(e.target.value)}
+              className="w-full appearance-none pl-3 pr-8 py-2 rounded-xl bg-white dark:bg-[#1e2026] text-xs font-bold text-slate-800 dark:text-zinc-100 border border-slate-200 dark:border-zinc-700 outline-none cursor-pointer shadow-xs hover:border-blue-500 transition"
+            >
+              {batches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.title} (₹{b.price})
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-2.5 text-slate-400 pointer-events-none" />
+          </div>
+          <div className="flex items-center gap-2 mt-2 px-1 text-[11px] text-slate-600 dark:text-zinc-400">
+            <span className="flex items-center gap-1 font-semibold">
+              <Users className="w-3.5 h-3.5 text-blue-500" />
+              <span>{currentBatchEnrollments.length} Students</span>
+            </span>
+            <span>•</span>
+            <span className="flex items-center gap-1 font-semibold">
+              <Award className="w-3.5 h-3.5 text-indigo-500" />
+              <span>{currentBatchTests.length} Tests</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Unified Navigation Menu */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-4 [scrollbar-width:thin]">
+          {/* Group 1: Academic LMS & Content */}
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider px-2 block mb-1">
+              Curriculum & Batches
+            </span>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('curriculum'); setIsMobileMenuOpen(false); }}
+              className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-0 cursor-pointer ${
+                activeTab === 'curriculum'
+                  ? 'bg-[#0b57d0] text-white shadow-xs'
+                  : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Folder className="w-4 h-4" />
+                <span>Curriculum Studio</span>
+              </div>
+              <span className="text-[10px] opacity-75 font-mono">Folders</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setActiveTab('roster'); setIsMobileMenuOpen(false); }}
+              className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-0 cursor-pointer ${
+                activeTab === 'roster'
+                  ? 'bg-[#0b57d0] text-white shadow-xs'
+                  : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Users className="w-4 h-4" />
+                <span>Student Roster</span>
+              </div>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200/60 dark:bg-zinc-800 font-mono">
+                {currentBatchEnrollments.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setActiveTab('tests'); setIsMobileMenuOpen(false); }}
+              className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-0 cursor-pointer ${
+                activeTab === 'tests'
+                  ? 'bg-[#0b57d0] text-white shadow-xs'
+                  : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Award className="w-4 h-4" />
+                <span>Batch Tests</span>
+              </div>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200/60 dark:bg-zinc-800 font-mono">
+                {currentBatchTests.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setActiveTab('settings'); setIsMobileMenuOpen(false); }}
+              className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-0 cursor-pointer ${
+                activeTab === 'settings'
+                  ? 'bg-[#0b57d0] text-white shadow-xs'
+                  : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Settings className="w-4 h-4" />
+                <span>Batch Settings</span>
+              </div>
+            </button>
           </div>
 
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-bold tracking-tight text-[#1f1f1f] dark:text-[#e3e3e3] truncate">
-                Master Console
-              </h1>
-              <span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)] shrink-0" title="Active Master Control" />
+          {/* Group 2: Intelligence & Assessments */}
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider px-2 block mb-1">
+              Intelligence & Testing
+            </span>
+            <button
+              type="button"
+              onClick={() => { setActiveTab('remedial'); setIsMobileMenuOpen(false); }}
+              className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-0 cursor-pointer ${
+                activeTab === 'remedial'
+                  ? 'bg-[#0b57d0] text-white shadow-xs'
+                  : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Zap className="w-4 h-4 text-amber-500" />
+                <span>Adaptive Remedial</span>
+              </div>
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold">
+                Auto
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setActiveTab('analytics'); setIsMobileMenuOpen(false); }}
+              className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-0 cursor-pointer ${
+                activeTab === 'analytics'
+                  ? 'bg-[#0b57d0] text-white shadow-xs'
+                  : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <BarChart3 className="w-4 h-4 text-indigo-500" />
+                <span>Per-Test Analytics</span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setActiveTab('publishing'); setIsMobileMenuOpen(false); }}
+              className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-0 cursor-pointer ${
+                activeTab === 'publishing'
+                  ? 'bg-[#0b57d0] text-white shadow-xs'
+                  : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <BookOpen className="w-4 h-4 text-emerald-500" />
+                <span>Publish to Students</span>
+              </div>
+              <span className="text-[10px] font-mono text-slate-500">
+                {publishedTestIds.length}/{tests.length}
+              </span>
+            </button>
+          </div>
+
+          {/* Group 3: Storage & Single Instance Architecture */}
+          <div className="p-3 rounded-2xl bg-slate-100/70 dark:bg-zinc-900/60 border border-slate-200/60 dark:border-zinc-800/60 space-y-2">
+            <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-zinc-300">
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                <span>Single-Instance Engine</span>
+              </span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             </div>
-            <p className="text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-mono truncate">
-              Academic Control Center • {MASTER_ADMIN_EMAIL}
+            <p className="text-[10px] text-slate-500 dark:text-zinc-400 font-mono leading-tight">
+              Tests (~40 KB) • Attempts (~1 KB) • Pointers (&lt;0.5 KB) • 750 KB Bin-Pack Sync
             </p>
           </div>
         </div>
 
-        {/* Right Header Controls: Google Sign In, Theme toggle and Close Button */}
-        <div className="flex items-center gap-2 shrink-0">
-          {(!auth.currentUser || !auth.currentUser.email) && (
-            <button
-              onClick={async () => {
-                if (onSignIn) {
-                  onSignIn();
-                } else {
-                  try {
-                    await signInWithGoogle();
-                  } catch (e) {
-                    console.warn('Google sign in error:', e);
-                  }
-                }
-              }}
-              title="Sign in with Google"
-              className="h-9 px-3 sm:px-3.5 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-center gap-2 text-xs font-bold cursor-pointer transition-all active:scale-95 outline-none select-none"
-            >
-              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-              </svg>
-              <span>Sign In with Google</span>
-            </button>
-          )}
+        {/* Sidebar Bottom: Admin Email, Theme & Close */}
+        <div className="p-3 border-t border-slate-200/60 dark:border-zinc-800/60 shrink-0 space-y-2 bg-slate-50/50 dark:bg-zinc-900/40">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0 pr-2">
+              <p className="text-xs font-bold text-slate-800 dark:text-zinc-200 truncate">
+                {currentUserName || 'Superadmin'}
+              </p>
+              <p className="text-[10px] text-slate-500 dark:text-zinc-400 font-mono truncate">
+                {currentUserEmail || MASTER_ADMIN_EMAIL}
+              </p>
+            </div>
+            {onToggleTheme && (
+              <button
+                type="button"
+                onClick={onToggleTheme}
+                className="w-8 h-8 rounded-full bg-white dark:bg-[#1e2026] border border-slate-200 dark:border-zinc-700 flex items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 transition shadow-xs"
+                title="Toggle Dark/Light Mode"
+              >
+                {isDarkMode ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-[#0b57d0]" />}
+              </button>
+            )}
+          </div>
 
-          {onToggleTheme && (
-            <button
-              onClick={onToggleTheme}
-              title="Toggle Dark/Light Mode"
-              className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-center justify-center transition-all cursor-pointer active:scale-95 outline-none select-none"
-            >
-              {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-[#0b57d0]" />}
-            </button>
-          )}
-
-          {/* Close Button */}
           <button
+            type="button"
             onClick={onBack}
-            title="Close Console"
-            aria-label="Close Console"
-            className="h-9 px-3.5 sm:px-4 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-center gap-1.5 text-xs font-semibold cursor-pointer transition-all active:scale-95 outline-none select-none"
+            className="w-full py-2 rounded-xl bg-slate-200/70 dark:bg-zinc-800 hover:bg-slate-300 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer border-none transition active:scale-98"
           >
-            <X className="w-4 h-4 text-[#5e5e5e] dark:text-[#9aa0a6]" />
-            <span className="hidden sm:inline">Close</span>
+            <X className="w-4 h-4" />
+            <span>Exit Master Console</span>
           </button>
         </div>
-      </header>
+      </aside>
 
-      {/* Universal Sticky Batch Context Selector Bar */}
-      <div className="px-4 sm:px-6 md:px-8 py-2.5 bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 dark:from-blue-950/40 dark:via-indigo-950/40 dark:to-purple-950/40 border-b border-slate-200/50 dark:border-zinc-800/50 flex flex-wrap items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center space-x-2.5">
-          <div className="p-1.5 rounded-xl bg-[#0b57d0] text-white shadow-xs">
-            <Layers className="w-4 h-4" />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-[#5e5e5e] dark:text-[#9aa0a6] uppercase tracking-wider block">
-              Active Batch Context
-            </span>
-            <div className="flex items-center space-x-1.5">
-              <select
-                value={selectedBatchId}
-                onChange={(e) => setSelectedBatchId(e.target.value)}
-                className="text-xs font-extrabold bg-transparent text-[#1f1f1f] dark:text-[#e3e3e3] border-none outline-none cursor-pointer pr-3"
-              >
-                {batches.map((b) => (
-                  <option key={b.id} value={b.id} className="bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3]">
-                    {b.title} (₹{b.price})
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] pointer-events-none" />
+      {/* Main Right Administrative Workstation */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
+        {/* Sleek Master Command Bar */}
+        <header className="h-14 px-4 sm:px-6 bg-white dark:bg-[#16181f] border-b border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-between gap-3 shrink-0 z-10 shadow-xs">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="p-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 lg:hidden border-none cursor-pointer"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
+
+            {/* Dynamic Breadcrumbs */}
+            <div className="flex items-center space-x-2 text-xs font-bold truncate">
+              <span className="text-slate-400 dark:text-zinc-500">Master Console</span>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="text-[#0b57d0] dark:text-[#a8c7fa] truncate">{currentBatch.title}</span>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="text-slate-800 dark:text-zinc-200 capitalize">
+                {activeTab === 'curriculum' && 'Curriculum Tree Studio'}
+                {activeTab === 'roster' && 'Student Roster & Devices'}
+                {activeTab === 'tests' && 'Batch Milestone Tests'}
+                {activeTab === 'settings' && 'Batch Profile & Settings'}
+                {activeTab === 'remedial' && 'Adaptive Remedial Engine'}
+                {activeTab === 'analytics' && 'Per-Test Performance Analytics'}
+                {activeTab === 'publishing' && 'Global Test Publishing Catalog'}
+              </span>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center space-x-2 text-[11px] font-semibold text-[#5e5e5e] dark:text-[#9aa0a6]">
-          <span className="px-3 py-1 rounded-full bg-white dark:bg-[#1e2024] shadow-xs flex items-center space-x-1">
-            <Users className="w-3.5 h-3.5 text-emerald-500" />
-            <span>{currentBatchEnrollments.length} Enrolled Students</span>
-          </span>
-          <span className="px-3 py-1 rounded-full bg-white dark:bg-[#1e2024] shadow-xs flex items-center space-x-1">
-            <BookOpen className="w-3.5 h-3.5 text-indigo-500" />
-            <span>{currentBatchTests.length} Batch Mock Tests</span>
-          </span>
-        </div>
-      </div>
+          {/* Right Header: Google Sign In & Exit */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            {(!auth.currentUser || !auth.currentUser.email) && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (onSignIn) {
+                    onSignIn();
+                  } else {
+                    try {
+                      await signInWithGoogle();
+                    } catch (e) {
+                      console.warn('Google sign in error:', e);
+                    }
+                  }
+                }}
+                className="h-8 px-3 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border border-slate-200 dark:border-zinc-700 flex items-center gap-2 text-xs font-bold cursor-pointer transition shadow-xs"
+              >
+                <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                </svg>
+                <span className="hidden sm:inline">Sign In with Google</span>
+              </button>
+            )}
 
-      {/* Tab Navigation Pill Bar (Seamless M3 Segmented Tabs - No partition line, border-0) */}
-      <div className="px-4 sm:px-6 md:px-8 pb-3 pt-0 bg-[#e5e9f0] dark:bg-[#0b0c10] flex items-center justify-between gap-3 overflow-x-auto shrink-0 border-0 shadow-none no-scrollbar">
-        <div className="flex items-center gap-1.5 p-1 bg-white dark:bg-[#1e2024] rounded-full border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
-          <button
-            onClick={() => setActiveTab('batches')}
-            className={`px-4 sm:px-5 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap active:scale-95 border-0 outline-none ${
-              activeTab === 'batches'
-                ? 'bg-[#0b57d0] text-white shadow-xs'
-                : 'text-[#5e5e5e] dark:text-[#9aa0a6] hover:text-[#1f1f1f] dark:hover:text-[#e3e3e3] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30]'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Batches & Authoring</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('remedial')}
-            className={`px-4 sm:px-5 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap active:scale-95 border-0 outline-none ${
-              activeTab === 'remedial'
-                ? 'bg-[#0b57d0] text-white shadow-xs'
-                : 'text-[#5e5e5e] dark:text-[#9aa0a6] hover:text-[#1f1f1f] dark:hover:text-[#e3e3e3] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30]'
-            }`}
-          >
-            <Zap className="w-3.5 h-3.5" />
-            <span>Adaptive Remedial Engine</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('analytics')}
-            className={`px-4 sm:px-5 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap active:scale-95 border-0 outline-none ${
-              activeTab === 'analytics'
-                ? 'bg-[#0b57d0] text-white shadow-xs'
-                : 'text-[#5e5e5e] dark:text-[#9aa0a6] hover:text-[#1f1f1f] dark:hover:text-[#e3e3e3] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30]'
-            }`}
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            <span>Per-Test Performance Analytics</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('publishing')}
-            className={`px-4 sm:px-5 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap active:scale-95 border-0 outline-none ${
-              activeTab === 'publishing'
-                ? 'bg-[#0b57d0] text-white shadow-xs'
-                : 'text-[#5e5e5e] dark:text-[#9aa0a6] hover:text-[#1f1f1f] dark:hover:text-[#e3e3e3] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30]'
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>Publish Tests to Students ({publishedTestIds.length}/{tests.length})</span>
-          </button>
-        </div>
-
-        <div className="shrink-0 hidden lg:flex items-center gap-2 text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-mono bg-white dark:bg-[#1e2024] px-4 py-2 rounded-full border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
-          <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
-          <span>Single-Instance Storage: Tests (~40 KB) • Attempts (~1 KB) • Pointers (&lt;0.5 KB)</span>
-        </div>
-      </div>
-
-      {/* Global In-App Toast Notification */}
-      <AnimatePresence>
-        {notification && (
-          <motion.div
-            initial={{ opacity: 0, y: -15 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            className="mx-4 sm:mx-6 md:mx-8 mb-2 p-3 bg-white dark:bg-[#16181f] border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 text-xs font-bold rounded-2xl flex items-center gap-2.5 shadow-md shrink-0"
-          >
-            <CheckCircle2 className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-            <span>{notification.message}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Main View Body */}
-      <main className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 pb-[calc(max(1.5rem,env(safe-area-inset-bottom,0px))+0.5rem)] pt-1 space-y-6">
-
-        {/* ============================================================ */}
-        {/* TAB 0: BATCH AUTHORING & LMS MANAGEMENT (Desktop Workstation) */}
-        {/* ============================================================ */}
-        {activeTab === 'batches' && (
-          <div className="w-full max-w-[1720px] mx-auto h-[calc(100vh-140px)] min-h-[680px]">
-            <DesktopLmsStudio
-              availableTests={tests}
-              onStartTest={onStartTest}
-            />
+            <button
+              type="button"
+              onClick={onBack}
+              className="h-8 px-3 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer border-none transition"
+              title="Close Console"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Close</span>
+            </button>
           </div>
-        )}
+        </header>
 
-        {/* ============================================================ */}
-        {/* TAB 1: ADAPTIVE REMEDIAL ENGINE                              */}
-        {/* ============================================================ */}
-        {activeTab === 'remedial' && (
-          <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
+        {/* Global In-App Toast Notification */}
+        <AnimatePresence>
+          {notification && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mx-4 my-2 p-3 bg-white dark:bg-[#16181f] border border-blue-500/30 text-slate-900 dark:text-zinc-100 text-xs font-bold rounded-2xl flex items-center gap-2.5 shadow-md shrink-0"
+            >
+              <CheckCircle2 className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+              <span>{notification.message}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Center Viewport */}
+        <div className="flex-1 overflow-hidden relative">
+          {/* TAB 0: LMS STUDIO (Curriculum, Roster, Tests, Settings) */}
+          {isLmsStudioTab && (
+            <div className="w-full h-full p-2 sm:p-3 overflow-hidden">
+              <DesktopLmsStudio
+                availableTests={tests}
+                onStartTest={onStartTest}
+                externalActiveTab={activeTab as StudioTab}
+                onTabChange={(tab) => setActiveTab(tab)}
+                externalBatchId={selectedBatchId}
+                onBatchSelect={(id) => setSelectedBatchId(id)}
+              />
+            </div>
+          )}
+
+          {/* TAB 1: ADAPTIVE REMEDIAL ENGINE */}
+          {activeTab === 'remedial' && (
+            <div className="w-full h-full overflow-y-auto px-4 sm:px-6 md:px-8 py-5 space-y-6 [scrollbar-width:thin]">
+              <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
             
             {/* Batch Context Banner */}
             <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-500/15 to-indigo-500/15 border border-blue-500/20 text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-between flex-wrap gap-2 text-xs">
@@ -1588,15 +1764,16 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 )}
               </div>
             </div>
-
           </div>
-        )}
+        </div>
+      )}
 
         {/* ============================================================ */}
         {/* TAB 2: PER-TEST PERFORMANCE ANALYTICS                        */}
         {/* ============================================================ */}
         {activeTab === 'analytics' && (
-          <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
+          <div className="w-full h-full overflow-y-auto px-4 sm:px-6 md:px-8 py-5 space-y-6 [scrollbar-width:thin]">
+            <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
             
             {/* Batch Context Banner */}
             <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-500/15 to-indigo-500/15 border border-blue-500/20 text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-between flex-wrap gap-2 text-xs">
@@ -2083,15 +2260,16 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 </table>
               </div>
             </div>
-
           </div>
-        )}
+        </div>
+      )}
 
         {/* ============================================================ */}
         {/* TAB 3: PUBLISHING & MASTER TEST BANK                         */}
         {/* ============================================================ */}
         {activeTab === 'publishing' && (
-          <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
+          <div className="w-full h-full overflow-y-auto px-4 sm:px-6 md:px-8 py-5 space-y-6 [scrollbar-width:thin]">
+            <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
             
             {/* Batch Context Banner */}
             <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/15 to-blue-500/15 border border-emerald-500/20 text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-between flex-wrap gap-2 text-xs">
@@ -2225,11 +2403,12 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   );
                 })}
             </div>
-
           </div>
-        )}
+        </div>
+      )}
 
-      </main>
+      </div>
+    </div>
 
       {/* Delete Confirmation Modal (Both User and Master vs Master Only) */}
       <AnimatePresence>

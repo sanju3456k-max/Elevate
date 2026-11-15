@@ -530,57 +530,60 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                       onClick={() => {
                         if (!isCurrent) switchLecture(lec);
                       }}
-                      className={`p-2.5 rounded-2xl flex items-center justify-between gap-3 transition cursor-pointer group ${
+                      className={`rounded-2xl sm:rounded-3xl overflow-hidden flex flex-row items-stretch p-0 border transition cursor-pointer group shadow-2xs hover:shadow-xs relative ${
                         isCurrent
-                          ? 'bg-[var(--md-sys-color-primary-container)]/30 border border-[var(--md-sys-color-primary)]/40 shadow-2xs'
-                          : 'bg-[var(--md-sys-color-surface)] hover:bg-[var(--md-sys-color-surface-container-high)] border border-[var(--md-sys-color-outline-variant)]/15'
+                          ? 'bg-[var(--md-sys-color-primary-container)]/25 border-[var(--md-sys-color-primary)]/40'
+                          : 'bg-[var(--md-sys-color-surface)] hover:bg-[var(--md-sys-color-surface-container-high)] border-[var(--md-sys-color-outline-variant)]/15'
                       }`}
                     >
-                      <div className="flex items-center space-x-3 min-w-0 flex-1">
-                        <div className="w-20 h-12 aspect-video rounded-xl overflow-hidden bg-black shrink-0 relative shadow-2xs">
-                          <img
-                            src={lec.thumbnailUrl || '/assets/default-course-banner.png'}
-                            alt={lec.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).src = '/assets/default-course-banner.png';
-                            }}
-                          />
-                          {isCurrent ? (
-                            <div className="absolute inset-0 bg-black/40 backdrop-blur-2xs flex items-center justify-center">
-                              <span className="w-2 h-2 rounded-full bg-[var(--md-sys-color-primary)] animate-ping" />
+                      {/* Left: Full edge-to-edge flush video preview on card side */}
+                      <div className="relative w-32 sm:w-36 aspect-video shrink-0 self-stretch overflow-hidden bg-black">
+                        <img
+                          src={lec.thumbnailUrl || '/assets/default-course-banner.png'}
+                          alt={lec.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = '/assets/default-course-banner.png';
+                          }}
+                        />
+                        {isCurrent ? (
+                          <div className="absolute inset-0 bg-black/50 backdrop-blur-2xs flex items-center justify-center">
+                            <div className="w-6 h-6 rounded-full bg-[var(--md-sys-color-primary)] text-white flex items-center justify-center shadow-md">
+                              <Play className="w-3 h-3 fill-current ml-0.5" />
                             </div>
-                          ) : (
-                            <span className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-black/75 text-[9px] font-mono font-medium text-white">
-                              {lec.durationMinutes || 0}m
+                          </div>
+                        ) : (
+                          <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[9px] font-mono font-medium text-white">
+                            {lec.durationMinutes ? `${lec.durationMinutes}m` : '15m'}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Right: Content & Metadata */}
+                      <div className="flex-1 min-w-0 p-3 sm:p-3.5 flex items-center justify-between gap-2.5">
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          {isCurrent && (
+                            <span className="text-[10px] font-bold text-[var(--md-sys-color-primary)] tracking-wider uppercase block">
+                              Playing
                             </span>
                           )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            {isCurrent && (
-                              <span className="text-[10px] font-bold text-[var(--md-sys-color-primary)] tracking-wide uppercase">
-                                Playing
-                              </span>
-                            )}
-                            <p
-                              className={`text-xs font-bold truncate leading-snug ${
-                                isCurrent
-                                  ? 'text-[var(--md-sys-color-primary)]'
-                                  : 'text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)]'
-                              }`}
-                            >
-                              {lec.title}
-                            </p>
-                          </div>
-                          <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate mt-0.5">
-                            {playback.batchTitle}
+                          <p
+                            className={`text-xs sm:text-[13px] font-bold truncate leading-snug ${
+                              isCurrent
+                                ? 'text-[var(--md-sys-color-primary)]'
+                                : 'text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)]'
+                            }`}
+                          >
+                            {lec.title}
+                          </p>
+                          <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] truncate leading-normal">
+                            {lec.description || playback.batchTitle}
                           </p>
                         </div>
+                        {!isCurrent && (
+                          <ChevronRight className="w-4 h-4 text-[var(--md-sys-color-outline)] group-hover:text-[var(--md-sys-color-primary)] group-hover:translate-x-0.5 transition shrink-0" />
+                        )}
                       </div>
-                      {!isCurrent && (
-                        <ChevronRight className="w-4 h-4 text-[var(--md-sys-color-on-surface-variant)] group-hover:translate-x-0.5 transition shrink-0" />
-                      )}
                     </div>
                   );
                 })}

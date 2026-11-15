@@ -25,6 +25,7 @@ import {
 } from '../../lib/notifications';
 import { useBackHandler } from '../../hooks/useBackNavigation';
 import { useApp } from '../../lms/LmsContext';
+import { isMasterUser } from '../../lib/masterAccount';
 
 interface NotificationsViewProps {
   onBack: () => void;
@@ -42,9 +43,13 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   onOpenBatch,
   onOpenTest,
 }) => {
-  const { batches, lectures, chapters, announcements, batchTests } = useApp();
+  const { user, batches, lectures, chapters, announcements, batchTests, isEnrolled } = useApp();
   const [readVersion, setReadVersion] = useState(0);
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'unread' | 'lecture' | 'test'>('all');
+
+  const isMaster = user?.role === 'admin' || user?.role === 'superadmin' || isMasterUser(user);
+  const enrolledBatches = useMemo(() => batches.filter((b) => isEnrolled(b.id)), [batches, isEnrolled]);
+  const enrolledBatchIds = useMemo(() => enrolledBatches.map((b) => b.id), [enrolledBatches]);
 
   // Real-time synchronization on read/dismissed event
   useEffect(() => {
@@ -67,7 +72,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
     onBack,
   });
 
-  // Derive authentic batch notifications directly from real curriculum data
+  // Derive authentic batch notifications directly from real curriculum data (strictly filtered by user's enrolled batches)
   const notifications = useMemo(() => {
     return deriveRealBatchNotifications({
       batches,
@@ -75,8 +80,10 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
       chapters,
       announcements,
       batchTests,
+      enrolledBatchIds,
+      isMaster,
     });
-  }, [batches, lectures, chapters, announcements, batchTests, readVersion]);
+  }, [batches, lectures, chapters, announcements, batchTests, enrolledBatchIds, isMaster, readVersion]);
 
   const unreadCount = useMemo(() => {
     return notifications.filter((n) => !n.read).length;

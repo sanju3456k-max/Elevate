@@ -107,6 +107,8 @@ export function deriveRealBatchNotifications(params: {
   announcements?: Announcement[];
   batchTests?: BatchTestCard[];
   availableTests?: MathTest[];
+  enrolledBatchIds?: string[];
+  isMaster?: boolean;
 }): AppNotification[] {
   const {
     batches = [],
@@ -114,15 +116,26 @@ export function deriveRealBatchNotifications(params: {
     chapters = [],
     announcements = [],
     batchTests = [],
+    enrolledBatchIds,
+    isMaster = false,
   } = params;
+
+  const enrolledSet = enrolledBatchIds ? new Set(enrolledBatchIds) : null;
+  const isEnrolledBatch = (bId?: string | null): boolean => {
+    if (isMaster) return true;
+    if (!enrolledSet) return true;
+    if (!bId) return false;
+    return enrolledSet.has(bId);
+  };
 
   const readSet = getReadNotificationIds();
   const dismissedSet = getDismissedNotificationIds();
   const notifs: AppNotification[] = [];
   const seenIds = new Set<string>();
 
-  // 1. REAL BATCH LECTURE UPDATES
+  // 1. REAL BATCH LECTURE UPDATES (Only for enrolled batches for students)
   lectures.forEach((lec) => {
+    if (!isEnrolledBatch(lec.batchId)) return;
     const notifId = `notif-lec-${lec.id}`;
     if (seenIds.has(notifId) || dismissedSet.has(notifId)) return;
     seenIds.add(notifId);
@@ -150,6 +163,7 @@ export function deriveRealBatchNotifications(params: {
 
   // 2. REAL BATCH ANNOUNCEMENTS
   announcements.forEach((ann) => {
+    if (ann.batchId && !isEnrolledBatch(ann.batchId)) return;
     const notifId = `notif-ann-${ann.id}`;
     if (seenIds.has(notifId) || dismissedSet.has(notifId)) return;
     seenIds.add(notifId);
@@ -170,8 +184,9 @@ export function deriveRealBatchNotifications(params: {
     });
   });
 
-  // 3. REAL BATCH TESTS & DPP ASSIGNMENTS
+  // 3. REAL BATCH TESTS & DPP ASSIGNMENTS (Only for enrolled batches for students)
   batchTests.forEach((bTest) => {
+    if (!isEnrolledBatch(bTest.batchId)) return;
     const testKey = bTest.testId || bTest.id || '';
     const notifId = `notif-btest-${testKey}`;
     if (seenIds.has(notifId) || dismissedSet.has(notifId)) return;
@@ -199,8 +214,9 @@ export function deriveRealBatchNotifications(params: {
     });
   });
 
-  // 4. REAL NEW BATCHES PUBLISHED
+  // 4. REAL NEW BATCHES PUBLISHED (Enrolled courses for enrolled students, or all if master)
   batches.forEach((b) => {
+    if (!isMaster && enrolledSet && !enrolledSet.has(b.id)) return;
     const notifId = `notif-batch-${b.id}`;
     if (seenIds.has(notifId) || dismissedSet.has(notifId)) return;
     seenIds.add(notifId);

@@ -89,11 +89,21 @@ const ACCENT_COLORS = [
 interface DesktopLmsStudioProps {
   availableTests?: MathTest[];
   onStartTest?: (test: MathTest, mode: 'timed' | 'practice') => void;
+  externalActiveTab?: StudioTab;
+  onTabChange?: (tab: StudioTab) => void;
+  externalBatchId?: string;
+  onBatchSelect?: (batchId: string) => void;
+  hideHeader?: boolean;
 }
 
 export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
   availableTests = [],
   onStartTest,
+  externalActiveTab,
+  onTabChange,
+  externalBatchId,
+  onBatchSelect,
+  hideHeader = false,
 }) => {
   const {
     batches,
@@ -128,12 +138,37 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
   } = useApp();
 
   // 1. Navigation & View States
-  const [selectedBatchId, setSelectedBatchId] = useState<string>(() => batches[0]?.id || '');
+  const [selectedBatchId, setSelectedBatchId] = useState<string>(() => externalBatchId || batches[0]?.id || '');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<StudioTab>('curriculum');
+  const [activeTab, setActiveTab] = useState<StudioTab>(() => externalActiveTab || 'curriculum');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [contentFilter, setContentFilter] = useState<'all' | 'videos' | 'notes' | 'tests'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Synchronize with external props if provided
+  useEffect(() => {
+    if (externalBatchId && externalBatchId !== selectedBatchId) {
+      setSelectedBatchId(externalBatchId);
+      setSelectedFolderId(null);
+    }
+  }, [externalBatchId]);
+
+  useEffect(() => {
+    if (externalActiveTab && externalActiveTab !== activeTab) {
+      setActiveTab(externalActiveTab);
+    }
+  }, [externalActiveTab]);
+
+  const handleTabChange = useCallback((tab: StudioTab) => {
+    setActiveTab(tab);
+    if (onTabChange) onTabChange(tab);
+  }, [onTabChange]);
+
+  const handleBatchChange = useCallback((batchId: string) => {
+    setSelectedBatchId(batchId);
+    setSelectedFolderId(null);
+    if (onBatchSelect) onBatchSelect(batchId);
+  }, [onBatchSelect]);
 
   // 2. 3-Pane Workstation Layout Visibility States
   const [isLeftPaneCollapsed, setIsLeftPaneCollapsed] = useState(false);
@@ -147,9 +182,10 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
   // Keep selectedBatchId valid
   useEffect(() => {
     if (!selectedBatchId && batches.length > 0) {
-      setSelectedBatchId(batches[0].id);
+      const fallbackId = externalBatchId || batches[0].id;
+      setSelectedBatchId(fallbackId);
     }
-  }, [batches, selectedBatchId]);
+  }, [batches, selectedBatchId, externalBatchId]);
 
   // Current active batch
   const currentBatch = useMemo(() => {
@@ -286,8 +322,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
               value={selectedBatchId}
               onChange={(e) => {
                 const newId = e.target.value;
-                setSelectedBatchId(newId);
-                setSelectedFolderId(null);
+                handleBatchChange(newId);
                 selectEntity({ type: 'batch', id: newId });
               }}
               className="appearance-none pl-3.5 pr-8 py-1.5 rounded-full bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] text-xs font-bold text-[var(--md-sys-color-on-surface)] border-none outline-none cursor-pointer transition shadow-xs max-w-[200px] sm:max-w-[260px] truncate"
@@ -491,7 +526,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
             <div className="px-3 pb-2 space-y-1">
               <button
                 type="button"
-                onClick={() => setActiveTab('curriculum')}
+                onClick={() => handleTabChange('curriculum')}
                 className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-none cursor-pointer ${
                   activeTab === 'curriculum'
                     ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
@@ -509,7 +544,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
 
               <button
                 type="button"
-                onClick={() => setActiveTab('roster')}
+                onClick={() => handleTabChange('roster')}
                 className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-none cursor-pointer ${
                   activeTab === 'roster'
                     ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
@@ -527,7 +562,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
 
               <button
                 type="button"
-                onClick={() => setActiveTab('tests')}
+                onClick={() => handleTabChange('tests')}
                 className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-none cursor-pointer ${
                   activeTab === 'tests'
                     ? 'bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] shadow-xs'
@@ -546,7 +581,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  setActiveTab('settings');
+                  handleTabChange('settings');
                   if (currentBatch) selectEntity({ type: 'batch', id: currentBatch.id });
                 }}
                 className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-none cursor-pointer ${
@@ -1227,6 +1262,19 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
   );
 };
 
+// Helper: Mathematically prevent circular parent-child loops in folder hierarchy
+const isFolderDescendantOf = (folderId: string, potentialAncestorId: string, chapters: Chapter[]): boolean => {
+  if (!folderId || !potentialAncestorId) return false;
+  const visited = new Set<string>();
+  let curr = chapters.find((c) => c.id === folderId);
+  while (curr && curr.parentId && !visited.has(curr.id)) {
+    visited.add(curr.id);
+    if (curr.parentId === potentialAncestorId) return true;
+    curr = chapters.find((c) => c.id === curr!.parentId);
+  }
+  return false;
+};
+
 // =========================================================================
 // INSPECTOR CONTENT COMPONENT (Deep Granular Editor)
 // =========================================================================
@@ -1392,7 +1440,7 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
               >
                 <option value="">Root Level of Batch</option>
                 {batchChapters
-                  .filter((c) => c.id !== entity.id)
+                  .filter((c) => c.id !== entity.id && !isFolderDescendantOf(c.id, entity.id || '', batchChapters))
                   .map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.title}

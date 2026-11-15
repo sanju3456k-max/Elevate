@@ -29,6 +29,7 @@ import type { MathTest, TestAttempt, UserProfile } from '../../types';
 import type { User } from 'firebase/auth';
 import type { Batch } from '../../lms/types';
 import { useApp, getFacultyAvatarUrl } from '../../lms/LmsContext';
+import { isMasterUser } from '../../lib/masterAccount';
 
 interface HomeDashboardProps {
   tests: MathTest[];
@@ -75,10 +76,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onOpenOmr,
   onOpenCustomBuilder,
 }) => {
-  const { batches, lectures, watchProgress, isEnrolled, announcements, setActiveBatchId, setActiveLectureId } = useApp();
+  const { batches, lectures, chapters, batchTests, watchProgress, isEnrolled, announcements, setActiveBatchId, setActiveLectureId } = useApp();
   
   // Filter state for the 4 core buttons: 'all-batches' | 'my-batches' | 'test-library' | 'activity'
   const [activeView, setActiveView] = useState<'all-batches' | 'my-batches' | 'test-library' | 'activity'>('all-batches');
+
+  const isMaster = isMasterUser(currentUser);
 
   // Check if test was created within the last 2 days (48 hours) and has not been attempted yet
   const isTestNew = (test: MathTest | null): boolean => {
@@ -104,15 +107,74 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     () => batches.filter((b) => isEnrolled(b.id)),
     [batches, isEnrolled]
   );
+  const enrolledBatchIdSet = useMemo(
+    () => new Set(enrolledBatches.map((b) => b.id)),
+    [enrolledBatches]
+  );
   const displayedBatches = activeView === 'my-batches' ? enrolledBatches : batches;
 
   const currentBatch = batches[0]; // Testing Batch
   const freeLectures = lectures.filter((l) => l.isFreePreview);
 
-  // Latest updates for batch, video, and tests
+  // Latest updates for batch video & tests: STRICTLY scoped to student's enrolled batches
   const latestAnnouncement = announcements && announcements.length > 0 ? announcements[0] : null;
-  const latestLecture = lectures && lectures.length > 0 ? lectures[lectures.length - 1] : null;
-  const latestTest = tests && tests.length > 0 ? tests[0] : null;
+
+  const eligibleLectures = useMemo(() => {
+    if (isMaster) return lectures;
+    return lectures.filter((l) => enrolledBatchIdSet.has(l.batchId));
+  }, [lectures, enrolledBatchIdSet, isMaster]);
+
+  const latestLecture = eligibleLectures.length > 0 ? eligibleLectures[eligibleLectures.length - 1] : null;
+
+  // Derive latest test strictly for student's enrolled batches (or all if master)
+  const latestTest = useMemo(() => {
+    if (isMaster) {
+      return tests && tests.length > 0 ? tests[0] : null;
+    }
+
+    if (enrolledBatchIdSet.size === 0) {
+      return null;
+    }
+
+    // Collect all test IDs belonging to the student's enrolled batches
+    const enrolledBatchTestIds = new Set<string>();
+    (batchTests || []).forEach((bt) => {
+      if (enrolledBatchIdSet.has(bt.batchId)) {
+        if (bt.testId) enrolledBatchTestIds.add(bt.testId);
+        if (bt.id) enrolledBatchTestIds.add(bt.id);
+      }
+    });
+
+    (chapters || []).forEach((c) => {
+      if (enrolledBatchIdSet.has(c.batchId) && Array.isArray(c.testIds)) {
+        c.testIds.forEach((tid) => enrolledBatchTestIds.add(tid));
+      }
+    });
+
+    // Find the latest test in tests matching enrolled batch test IDs
+    const matched = tests.find(
+      (t) => enrolledBatchTestIds.has(t.id) || Boolean((t as any).batchId && enrolledBatchIdSet.has((t as any).batchId))
+    );
+    if (matched) return matched;
+
+    // If a batch test exists in batchTests but isn't yet in available tests array, synthesize a test card object
+    const latestBatchTestCard = (batchTests || []).find((bt) => enrolledBatchIdSet.has(bt.batchId));
+    if (latestBatchTestCard) {
+      const synthTest: MathTest = {
+        id: latestBatchTestCard.testId || latestBatchTestCard.id || 'batch_test',
+        title: latestBatchTestCard.title || 'Batch Mock Assessment',
+        topic: latestBatchTestCard.topic || 'General Practice',
+        timeLimitMinutes: latestBatchTestCard.timeLimitMinutes || 25,
+        durationMinutes: latestBatchTestCard.timeLimitMinutes || 25,
+        questionCount: latestBatchTestCard.questionCount || 25,
+        questions: [],
+        createdAt: latestBatchTestCard.publishedAt || Date.now(),
+      };
+      return synthTest;
+    }
+
+    return null;
+  }, [tests, batchTests, chapters, enrolledBatchIdSet, isMaster]);
 
   const latestTestQuestionCount = (() => {
     if (!latestTest) return 50;
@@ -323,113 +385,111 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-24 md:pb-16 max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-2 sm:py-3">
-      {/* 1. LATEST UPDATES (Featured Lecture Full Preview & Mock Test) */}
-      <div className="space-y-2.5 sm:space-y-3">
-        {/* Minimal 'NEW' Badge */}
-        <div className="flex items-center">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-orange-500/15 dark:bg-orange-500/25 text-orange-600 dark:text-orange-400 text-[11px] font-black uppercase tracking-wider animate-pulse select-none">
-            <Sparkles className="w-3 h-3 fill-current" />
-            <span>NEW</span>
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Card 1: Latest Featured Lecture (Full Flush Preview View on Left) */}
-        <div
-          onClick={() => {
-            if (latestLecture) {
-              handleSelectLectureItem(latestLecture.batchId, latestLecture.id);
-            } else {
-              onOpenBatches && onOpenBatches();
-            }
-          }}
-          className="group cursor-pointer rounded-[24px] bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 overflow-hidden flex flex-row p-0 justify-between items-stretch relative"
-        >
-          <md-ripple />
-          {/* Video Thumbnail (Edge-to-edge flush on left corner) */}
-          <div className="relative w-36 sm:w-48 aspect-video shrink-0 self-stretch overflow-hidden bg-slate-900/10 dark:bg-black/30">
-            <img
-              src={latestLecture?.thumbnailUrl || 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=800&auto=format&fit=crop&q=80'}
-              alt={latestLecture?.title || 'Video Class'}
-              className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-            />
-            <span className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 px-2 py-0.5 rounded-full bg-pink-100 text-pink-700 dark:bg-purple-900/60 dark:text-purple-300 font-bold text-[8.5px] sm:text-[9.5px] uppercase tracking-wider backdrop-blur-xs">
-              Latest Class
+      {/* 1. LATEST UPDATES (Featured Lecture Full Preview & Mock Test) - Strictly shown for enrolled batches only */}
+      {(latestLecture || latestTest) && (
+        <div className="space-y-2.5 sm:space-y-3">
+          {/* Minimal 'NEW' Badge */}
+          <div className="flex items-center">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-orange-500/15 dark:bg-orange-500/25 text-orange-600 dark:text-orange-400 text-[11px] font-black uppercase tracking-wider animate-pulse select-none">
+              <Sparkles className="w-3 h-3 fill-current" />
+              <span>NEW</span>
             </span>
-            <span className="absolute bottom-1.5 right-1.5 sm:bottom-2 sm:right-2 px-1.5 py-0.5 rounded-md bg-black/80 font-mono text-[9px] sm:text-[10.5px] text-white">
-              {latestLecture ? `${latestLecture.durationMinutes}:00` : '18:00'}
-            </span>
-            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300 bg-black/30">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[var(--md-sys-color-primary)] text-white flex items-center justify-center shadow-lg">
-                <Play className="w-3.5 h-3.5 md:w-4 md:h-4 fill-current ml-0.5" />
-              </div>
-            </div>
           </div>
 
-          {/* Content: ONLY Lecture Title Name */}
-          <div className="flex-1 min-w-0 flex items-center p-3.5 sm:p-5">
-            <h3 className="text-sm sm:text-base font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors leading-snug line-clamp-2">
-              {latestLecture ? latestLecture.title : 'New interactive video lectures added'}
-            </h3>
-          </div>
-        </div>
-
-        {/* Card 2: Clean Test Card (Matches TestCard from Test Library) */}
-        <div
-          onClick={() => {
-            if (latestTest) {
-              onStartTest(latestTest);
-            } else {
-              onOpenAllTests();
-            }
-          }}
-          className="p-3.5 sm:p-4 rounded-[24px] bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 relative overflow-hidden cursor-pointer group flex flex-col justify-between gap-2.5"
-        >
-          <md-ripple />
-          {/* Row 1: Topic tag above title & Title */}
-          <div className="w-full pointer-events-none space-y-0.5">
-            {latestTest?.topic && (
-              <span className="text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider block truncate text-[#0b57d0] dark:text-[#a8c7fa]">
-                {latestTest.topic}
-              </span>
-            )}
-            <h3 className="text-[16px] sm:text-[17px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors leading-snug break-words">
-              {latestTest ? latestTest.title : 'Full Mock Assessment'}
-            </h3>
-          </div>
-
-          {/* Row 2: Question count & time (Left), Minimal 'New' badge & Chevron (Bottom Right) */}
-          <div className="flex items-center justify-between w-full pt-1 border-t border-[var(--md-sys-color-outline-variant)]/20 pointer-events-none">
-            <div className="flex items-center gap-2 text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-medium leading-none">
-              <span className="inline-flex items-center gap-1 text-[11px] text-[#444746] dark:text-[#c4c7c5] px-1 py-0.5 leading-none">
-                <Package className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] shrink-0" strokeWidth={2.2} />
-                <span className="leading-none">{latestTestQuestionCount} Qs</span>
-              </span>
-              <span className="inline-flex items-center gap-1 text-[11px] text-[#444746] dark:text-[#c4c7c5] px-1 py-0.5 leading-none">
-                <Clock className="w-3.5 h-3.5 text-[#6750a4] dark:text-[#d0bcff] shrink-0" strokeWidth={2.2} />
-                <span className="leading-none">{latestTestTimeDisplay}</span>
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1.5 shrink-0">
-              {isTestNew(latestTest) ? (
-                <span
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold tracking-wide uppercase bg-orange-500/15 dark:bg-orange-500/25 text-orange-600 dark:text-orange-400 border-0 shadow-none shrink-0"
-                  title="New test created within the last 2 days"
-                >
-                  <span className="relative flex h-2 w-2 shrink-0">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500 dark:bg-orange-400"></span>
+          <div className={`grid grid-cols-1 ${latestLecture && latestTest ? 'md:grid-cols-2' : ''} gap-4`}>
+            {/* Card 1: Latest Featured Lecture (Full Flush Preview View on Left) */}
+            {latestLecture && (
+              <div
+                onClick={() => {
+                  handleSelectLectureItem(latestLecture.batchId, latestLecture.id);
+                }}
+                className="group cursor-pointer rounded-[24px] bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 overflow-hidden flex flex-row p-0 justify-between items-stretch relative"
+              >
+                <md-ripple />
+                {/* Video Thumbnail (Edge-to-edge flush on left corner) */}
+                <div className="relative w-36 sm:w-48 aspect-video shrink-0 self-stretch overflow-hidden bg-slate-900/10 dark:bg-black/30">
+                  <img
+                    src={latestLecture.thumbnailUrl || 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=800&auto=format&fit=crop&q=80'}
+                    alt={latestLecture.title || 'Video Class'}
+                    className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                  />
+                  <span className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 px-2 py-0.5 rounded-full bg-pink-100 text-pink-700 dark:bg-purple-900/60 dark:text-purple-300 font-bold text-[8.5px] sm:text-[9.5px] uppercase tracking-wider backdrop-blur-xs">
+                    Latest Class
                   </span>
-                  <span>New</span>
-                </span>
-              ) : null}
-              <ChevronRight className="w-3.5 h-3.5 text-[#747775] dark:text-[#8e918f] group-hover:translate-x-0.5 transition-transform shrink-0" />
-            </div>
+                  <span className="absolute bottom-1.5 right-1.5 sm:bottom-2 sm:right-2 px-1.5 py-0.5 rounded-md bg-black/80 font-mono text-[9px] sm:text-[10.5px] text-white">
+                    {latestLecture.durationMinutes ? `${latestLecture.durationMinutes}:00` : '18:00'}
+                  </span>
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300 bg-black/30">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[var(--md-sys-color-primary)] text-white flex items-center justify-center shadow-lg">
+                      <Play className="w-3.5 h-3.5 md:w-4 md:h-4 fill-current ml-0.5" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Content: ONLY Lecture Title Name */}
+                <div className="flex-1 min-w-0 flex items-center p-3.5 sm:p-5">
+                  <h3 className="text-sm sm:text-base font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors leading-snug line-clamp-2">
+                    {latestLecture.title}
+                  </h3>
+                </div>
+              </div>
+            )}
+
+            {/* Card 2: Clean Test Card (Matches TestCard from Test Library) */}
+            {latestTest && (
+              <div
+                onClick={() => {
+                  onStartTest(latestTest);
+                }}
+                className="p-3.5 sm:p-4 rounded-[24px] bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 relative overflow-hidden cursor-pointer group flex flex-col justify-between gap-2.5"
+              >
+                <md-ripple />
+                {/* Row 1: Topic tag above title & Title */}
+                <div className="w-full pointer-events-none space-y-0.5">
+                  {latestTest.topic && (
+                    <span className="text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider block truncate text-[#0b57d0] dark:text-[#a8c7fa]">
+                      {latestTest.topic}
+                    </span>
+                  )}
+                  <h3 className="text-[16px] sm:text-[17px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors leading-snug break-words">
+                    {latestTest.title}
+                  </h3>
+                </div>
+
+                {/* Row 2: Question count & time (Left), Minimal 'New' badge & Chevron (Bottom Right) */}
+                <div className="flex items-center justify-between w-full pt-1 border-t border-[var(--md-sys-color-outline-variant)]/20 pointer-events-none">
+                  <div className="flex items-center gap-2 text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-medium leading-none">
+                    <span className="inline-flex items-center gap-1 text-[11px] text-[#444746] dark:text-[#c4c7c5] px-1 py-0.5 leading-none">
+                      <Package className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] shrink-0" strokeWidth={2.2} />
+                      <span className="leading-none">{latestTestQuestionCount} Qs</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[11px] text-[#444746] dark:text-[#c4c7c5] px-1 py-0.5 leading-none">
+                      <Clock className="w-3.5 h-3.5 text-[#6750a4] dark:text-[#d0bcff] shrink-0" strokeWidth={2.2} />
+                      <span className="leading-none">{latestTestTimeDisplay}</span>
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {isTestNew(latestTest) ? (
+                      <span
+                        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold tracking-wide uppercase bg-orange-500/15 dark:bg-orange-500/25 text-orange-600 dark:text-orange-400 border-0 shadow-none shrink-0"
+                        title="New test created within the last 2 days"
+                      >
+                        <span className="relative flex h-2 w-2 shrink-0">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500 dark:bg-orange-400"></span>
+                        </span>
+                        <span>New</span>
+                      </span>
+                    ) : null}
+                    <ChevronRight className="w-3.5 h-3.5 text-[#747775] dark:text-[#8e918f] group-hover:translate-x-0.5 transition-transform shrink-0" />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      </div>
-    </div>
+      )}
 
       {/* 2. MAIN CONTENT TABS / MODULES */}
       <div className="space-y-6 sm:space-y-8">

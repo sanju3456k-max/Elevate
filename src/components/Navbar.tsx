@@ -123,9 +123,14 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState<boolean>(false);
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
-  const { batches, lectures, chapters, announcements, batchTests } = useApp();
+  const { batches, lectures, chapters, announcements, batchTests, isEnrolled } = useApp();
   const [readVersion, setReadVersion] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const displayUser = currentUser || cachedUser || null;
+  const isMaster = isMasterUser(displayUser);
+  const enrolledBatches = useMemo(() => batches.filter((b) => isEnrolled(b.id)), [batches, isEnrolled]);
+  const enrolledBatchIds = useMemo(() => enrolledBatches.map((b) => b.id), [enrolledBatches]);
 
   // Sync real-time notification badge counts
   useEffect(() => {
@@ -147,15 +152,14 @@ export const Navbar: React.FC<NavbarProps> = ({
       chapters,
       announcements,
       batchTests,
+      enrolledBatchIds,
+      isMaster,
     });
     return notifs.filter((n) => !n.read).length;
-  }, [batches, lectures, chapters, announcements, batchTests, readVersion]);
+  }, [batches, lectures, chapters, announcements, batchTests, enrolledBatchIds, isMaster, readVersion]);
 
   // Lock body & document scrolling while side drawer is open to prevent background scroll
   useScrollLock(isDrawerOpen);
-
-  const displayUser = currentUser || cachedUser || null;
-  const isMaster = isMasterUser(displayUser);
 
   const isSearchActive = isSearchOpen || Boolean(searchQuery);
 
