@@ -21,8 +21,9 @@ import {
   ChevronRight,
   ChevronLeft,
 } from 'lucide-react';
-import { deobfuscateVideoKey, extractYouTubeId, formatDuration, initDevToolsDetector } from '../../../lms/security';
+import { deobfuscateVideoKey, extractYouTubeId, formatDuration, initDevToolsDetector, initFocusLossProtector } from '../../../lms/security';
 import { requestPlaybackToken } from '../../../lms/playbackTokenService';
+import { useApp } from '../../../lms/LmsContext';
 import type { User, TimelineMilestone, PlaybackSessionToken } from '../../../lms/types';
 
 declare global {
@@ -89,6 +90,21 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
   // 2. Active DevTools / Screen Inspection Detection State
   const [isDevToolsOpen, setIsDevToolsOpen] = useState(false);
+
+  // Security Context & Focus-Loss (Snipping Tool / Background Window) Protection
+  const { securitySettings } = useApp();
+  const [isWindowObscured, setIsWindowObscured] = useState(false);
+
+  useEffect(() => {
+    if (!securitySettings?.enableDrmScreenProtection) {
+      setIsWindowObscured(false);
+      return;
+    }
+    const cleanup = initFocusLossProtector((obscured) => {
+      setIsWindowObscured(obscured);
+    });
+    return cleanup;
+  }, [securitySettings?.enableDrmScreenProtection]);
 
   // 3. Playback lifecycle states & Cloaking Curtain
   const [hasEverPlayed, setHasEverPlayed] = useState(false);
@@ -1068,7 +1084,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       )}
 
       {/* 1d. Dynamic Moving DRM Watermark Overlay (Anti-Piracy Screen Recording Deterrent) */}
-      {authStatus === 'authorized' && (
+      {authStatus === 'authorized' && securitySettings?.enableDynamicWatermark !== false && (
         <div
           className="absolute pointer-events-none select-none z-22 transition-all duration-1000 ease-in-out opacity-25 hover:opacity-10 font-mono text-[10px] sm:text-xs text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] flex flex-col items-start bg-black/40 px-2 py-0.5 rounded backdrop-blur-xs border border-white/10"
           style={{
@@ -1080,6 +1096,26 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           <span className="font-semibold tracking-wider">{user.name || 'Student'}</span>
           <span className="text-[9px] opacity-80">{user.email || user.phone || `UID: ${user.id.slice(0, 8)}`}</span>
           <span className="text-[8px] opacity-60">ID: {playbackToken?.token ? playbackToken.token.slice(0, 8).toUpperCase() : user.id.slice(0, 8).toUpperCase()}</span>
+        </div>
+      )}
+
+      {/* 1e. Snipping Tool / Screen Recording Focus Loss Blackout Shield */}
+      {isWindowObscured && securitySettings?.enableDrmScreenProtection && isPlaying && (
+        <div className="absolute inset-0 z-45 bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center p-6 text-center text-white select-none animate-in fade-in duration-200">
+          <div className="w-14 h-14 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mb-3 ring-4 ring-amber-500/10">
+            <ShieldAlert className="w-7 h-7" />
+          </div>
+          <h3 className="text-sm sm:text-base font-bold text-white mb-1">
+            Protected Lecture Stream
+          </h3>
+          <p className="text-[11px] text-slate-300 max-w-xs mb-3 leading-relaxed">
+            Screen capture utility or background window detected. Click or return focus to this window to resume playback.
+          </p>
+          <div className="flex items-center space-x-2 text-[9px] font-mono text-amber-400/90 bg-amber-950/60 px-3 py-1 rounded-full border border-amber-500/30">
+            <span>DRM Shield Active</span>
+            <span>•</span>
+            <span>Anti-Piracy Enforcement</span>
+          </div>
         </div>
       )}
 

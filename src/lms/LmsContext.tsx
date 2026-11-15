@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import type { User, Batch, Subject, Chapter, Lecture, WatchProgress, Announcement, PersonalNote, BatchEnrollment, BatchTestCard, PdfNote } from './types';
+import type { User, Batch, Subject, Chapter, Lecture, WatchProgress, Announcement, PersonalNote, BatchEnrollment, BatchTestCard, PdfNote, SecuritySettingsConfig } from './types';
 import {
   INITIAL_USER,
   INITIAL_BATCHES,
@@ -114,6 +114,8 @@ interface AppContextType {
     passingScorePercentage?: number;
   }) => { success: boolean; message: string };
   getTestsForBatch: (batchId: string) => BatchTestCard[];
+  securitySettings: SecuritySettingsConfig;
+  updateSecuritySettings: (newSettings: Partial<SecuritySettingsConfig>) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -132,6 +134,7 @@ const STORAGE_KEYS = {
   ENROLLMENTS: 'elevatelabs_enrollments_v2',
   BATCH_TESTS: 'elevatelabs_batch_tests_v2',
   GUEST_ACCESS_MODE: 'elevatelabs_guest_access_mode_v2',
+  SECURITY_SETTINGS: 'elevatelabs_security_settings_v2',
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -258,6 +261,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [securityToast, setSecurityToast] = useState<string | null>(null);
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [securitySettings, setSecuritySettings] = useState<SecuritySettingsConfig>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.SECURITY_SETTINGS);
+    if (saved) {
+      try {
+        return {
+          enableDrmScreenProtection: true,
+          enableDynamicWatermark: true,
+          enableExamAnswerMasking: true,
+          enableDevToolsDeterrence: true,
+          ...JSON.parse(saved),
+        };
+      } catch {}
+    }
+    return {
+      enableDrmScreenProtection: true,
+      enableDynamicWatermark: true,
+      enableExamAnswerMasking: true,
+      enableDevToolsDeterrence: true,
+    };
+  });
+
+  const updateSecuritySettings = useCallback((newSettings: Partial<SecuritySettingsConfig>) => {
+    setSecuritySettings((prev) => {
+      const next = { ...prev, ...newSettings };
+      try {
+        localStorage.setItem(STORAGE_KEYS.SECURITY_SETTINGS, JSON.stringify(next));
+      } catch {}
+      setDoc(doc(db, 'master_catalog', 'lms_security_config'), next, { merge: true }).catch(() => {});
+      return next;
+    });
+    showSecurityToast('Security policy updated');
+  }, []);
+
   // 1. Initial Load: Fetch all active published batches and global guest access policy from Cloud Firestore
   useEffect(() => {
     fetchBatchesFromFirestore().then((cloudBatches) => {
@@ -287,8 +323,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     );
 
+    // Live listener for Master Console security configuration
+    const unsubSecurity = listenerManager.subscribeDocument(
+      'master_catalog/lms_security_config',
+      () => doc(db, 'master_catalog', 'lms_security_config'),
+      (snap) => {
+        if (snap.exists()) {
+          const val = snap.data() as Partial<SecuritySettingsConfig>;
+          if (val) {
+            setSecuritySettings((prev) => ({ ...prev, ...val }));
+            try {
+              localStorage.setItem(STORAGE_KEYS.SECURITY_SETTINGS, JSON.stringify(val));
+            } catch {}
+          }
+        }
+      },
+      (err) => {
+        console.warn('LMS security config live listener notice:', err);
+      }
+    );
+
     return () => {
       unsubPolicy();
+      unsubSecurity();
     };
   }, []);
 
@@ -435,11 +492,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   useEffect(() => {
+    // Content security deterrence only engages when an active lecture is playing
+    // and security settings allow it, preventing interference on normal browsing pages
+    if (!securitySettings.enableDevToolsDeterrence || !activeLectureId) {
+      return;
+    }
     const cleanup = enableContentSecurityDeterrence((reason) => {
       showSecurityToast(`🛡️ Security Shield: ${reason}`);
     });
     return cleanup;
-  }, []);
+  }, [securitySettings.enableDevToolsDeterrence, activeLectureId]);
 
   const toggleRole = () => {
     setUser((prev) => ({
@@ -1279,6 +1341,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         searchStudents,
         addTestToBatchCatalog,
         getTestsForBatch,
+        securitySettings,
+        updateSecuritySettings,
       }}
     >
       {children}

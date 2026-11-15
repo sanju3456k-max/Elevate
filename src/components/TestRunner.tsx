@@ -41,6 +41,8 @@ import {
 } from '../lib/animationConfig';
 import { saveScopedActiveSession, clearScopedActiveSession } from '../lib/storage';
 import { APP_STYLES } from './ui/AppStyles';
+import { useApp } from '../lms/LmsContext';
+import { initFocusLossProtector, enableContentSecurityDeterrence } from '../lms/security';
 
 // ==========================================
 // 1. CONFIGURATION & TYPES
@@ -122,6 +124,42 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
   const [isSubmittingTest, setIsSubmittingTest] = useState(false);
   const [showScratchpad, setShowScratchpad] = useState(false);
   const [showHint, setShowHint] = useState(false);
+
+  // Security Context & Visual DRM
+  let securitySettings: any = null;
+  try {
+    const appCtx = useApp();
+    securitySettings = appCtx.securitySettings;
+  } catch {}
+
+  const [isWindowObscured, setIsWindowObscured] = useState(false);
+  const [watermarkPos, setWatermarkPos] = useState({ top: 25, left: 20 });
+
+  useEffect(() => {
+    if (!securitySettings?.enableDrmScreenProtection) {
+      setIsWindowObscured(false);
+      return;
+    }
+    const cleanupFocus = initFocusLossProtector((obscured) => {
+      setIsWindowObscured(obscured);
+    });
+    const cleanupDeterrence = enableContentSecurityDeterrence();
+
+    return () => {
+      cleanupFocus();
+      cleanupDeterrence();
+    };
+  }, [securitySettings?.enableDrmScreenProtection]);
+
+  useEffect(() => {
+    if (securitySettings?.enableDynamicWatermark === false) return;
+    const interval = setInterval(() => {
+      const nextTop = Math.floor(Math.random() * 55) + 20;
+      const nextLeft = Math.floor(Math.random() * 60) + 15;
+      setWatermarkPos({ top: nextTop, left: nextLeft });
+    }, 7000);
+    return () => clearInterval(interval);
+  }, [securitySettings?.enableDynamicWatermark]);
 
   // Prevent device screen from sleeping while test is in progress
   useWakeLock(hasStarted && !isPaused && !isSubmitModalOpen);
@@ -892,6 +930,42 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
   // ==========================================
   return (
     <div className="fixed inset-0 z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col h-[100dvh] max-h-screen overflow-hidden transition-colors duration-200">
+      {/* Visual DRM: Snipping Tool / Focus Loss Blackout Veil */}
+      {isWindowObscured && securitySettings?.enableDrmScreenProtection && (
+        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center p-6 text-center text-white select-none animate-in fade-in duration-200">
+          <div className="w-16 h-16 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mb-3 ring-4 ring-amber-500/10">
+            <AlertTriangle className="w-8 h-8" />
+          </div>
+          <h3 className="text-base sm:text-lg font-bold text-white mb-1">
+            Protected Assessment Window
+          </h3>
+          <p className="text-xs text-slate-300 max-w-sm mb-4 leading-relaxed">
+            Window focus lost or screen capture utility detected. Click or return focus to this window to resume your test.
+          </p>
+          <div className="flex items-center space-x-2 text-[10px] font-mono text-amber-400/90 bg-amber-950/60 px-3.5 py-1.5 rounded-full border border-amber-500/30">
+            <span>Exam Security Shield Active</span>
+            <span>•</span>
+            <span>Anti-Capture Protected</span>
+          </div>
+        </div>
+      )}
+
+      {/* Visual DRM: Forensic Student Watermark */}
+      {securitySettings?.enableDynamicWatermark !== false && (
+        <div
+          className="fixed pointer-events-none select-none z-[45] transition-all duration-1000 ease-in-out opacity-20 font-mono text-[10px] sm:text-xs text-slate-800 dark:text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] flex flex-col items-start bg-slate-900/10 dark:bg-black/40 px-2 py-0.5 rounded backdrop-blur-xs border border-black/10 dark:border-white/10"
+          style={{
+            top: `${watermarkPos.top}%`,
+            left: `${watermarkPos.left}%`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
+          <span className="font-semibold tracking-wider">{currentUser?.displayName || 'Candidate'}</span>
+          <span className="text-[9px] opacity-80">{currentUser?.email || `UID: ${currentUser?.uid?.slice(0, 8) || 'STUDENT'}`}</span>
+          <span className="text-[8px] opacity-60">TEST: {test.id?.slice(0, 8).toUpperCase()}</span>
+        </div>
+      )}
+
       {/* Top Active Header */}
       <header className="bg-[#e5e9f0] dark:bg-[#0b0c10] px-4 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] pb-2.5 sm:pb-3 flex items-center justify-between gap-2.5 shrink-0 z-20 transition-colors max-w-full border-0">
         <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
