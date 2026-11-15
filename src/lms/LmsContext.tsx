@@ -479,16 +479,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         return b;
       });
+      try {
+        localStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(next));
+        localStorage.setItem('elevatelabs_cloud_batches_cache', JSON.stringify(next));
+      } catch {}
       return next;
     });
 
     try {
       const batchRef = doc(db, 'batches', id);
-      await updateDoc(batchRef, {
-        ...updated,
-        updatedAt: nowIso,
-      });
+      await setDoc(
+        batchRef,
+        {
+          ...updated,
+          updatedAt: nowIso,
+        },
+        { merge: true }
+      );
       touchBatchCatalogBeacon().catch(() => {});
+      window.dispatchEvent(new CustomEvent('batch-catalog-updated', { detail: { batchId: id, updated } }));
     } catch {
       if (targetToSync) {
         await syncBatchToFirestore(targetToSync).catch(() => {});
@@ -865,9 +874,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const isGuestAllowedForBatch = (batchId: string): boolean => {
+    const b = batches.find((x) => x.id === batchId);
+    // DRAFT LOCK: If batch is unpublished (Draft), guests can NEVER access it!
+    if (b && b.isPublished === false) return false;
+
+    // EXPLICIT RESTRICTION: If batch explicitly has allowGuestAccess === false, guests are locked out!
+    if (b && b.allowGuestAccess === false) return false;
+
     if (globalGuestAccessMode === 'all_batches') return true;
     if (globalGuestAccessMode === 'none') return false;
-    const b = batches.find((x) => x.id === batchId);
     return !!b?.allowGuestAccess;
   };
 
@@ -884,7 +899,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
     try {
       const batchRef = doc(db, 'batches', batchId);
-      await updateDoc(batchRef, { allowGuestAccess: nextState });
+      await setDoc(batchRef, { allowGuestAccess: nextState }, { merge: true });
       touchBatchCatalogBeacon().catch(() => {});
     } catch {
       await syncBatchToFirestore(updated).catch(() => {});
@@ -895,6 +910,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isEnrolled = (batchId: string): boolean => {
     // 1. Authenticated Master Admin always has preview and authoring rights
     if (isMasterUser(auth.currentUser) || user.role === 'admin') return true;
+
+    const b = batches.find((x) => x.id === batchId);
+    // DRAFT LOCK: If batch is unpublished / in Draft mode, it is completely locked for students & guests!
+    if (b && b.isPublished === false) return false;
 
     // 2. User has an active enrollment ID in state / localStorage (Authenticated student or guest who enrolled)
     if (Array.isArray(user.enrolledBatchIds) && user.enrolledBatchIds.includes(batchId)) return true;
@@ -923,8 +942,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const targetBatch = batches.find((b) => b.id === batchId);
     if (!targetBatch) return { success: false, message: 'Batch not found' };
 
+    if (targetBatch.isPublished === false) {
+      showSecurityToast(`Access Denied: "${targetBatch.title}" is currently in Draft mode and is not published.`);
+      return { success: false, message: 'Batch is currently in Draft mode.' };
+    }
+
     if (!isGuestAllowedForBatch(batchId)) {
-      showSecurityToast(`Access Denied: "${targetBatch.title}" requires Master Admin enrollment.`);
+      showSecurityToast(`Access Denied: "${targetBatch.title}" requires official student roster enrollment.`);
       return { success: false, message: 'Batch requires Master Console roster admission.' };
     }
 

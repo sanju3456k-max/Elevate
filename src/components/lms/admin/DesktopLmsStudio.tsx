@@ -10,9 +10,13 @@ import {
   Award,
   Users,
   UserPlus,
+  Lock,
+  Unlock,
+  Globe,
   Settings,
   Sliders,
   Eye,
+  EyeOff,
   Search,
   Plus,
   Trash2,
@@ -175,6 +179,14 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
   // 2. 3-Pane Workstation Layout Visibility States
   const [isLeftPaneCollapsed, setIsLeftPaneCollapsed] = useState(false);
   const [isInspectorOpen, setIsInspectorOpen] = useState(true);
+
+  // Add Student / Learner Modal State
+  const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
+  const [studentContactInput, setStudentContactInput] = useState('');
+  const [studentNameInput, setStudentNameInput] = useState('');
+  const [studentValidityDays, setStudentValidityDays] = useState(365);
+  const [allowGuestAccessOnEnroll, setAllowGuestAccessOnEnroll] = useState(false);
+  const [isEnrollingStudent, setIsEnrollingStudent] = useState(false);
 
   // 3. Selection & Inspection Entity
   const [inspectedEntity, setInspectedEntity] = useState<InspectedEntity | null>(() => {
@@ -1029,6 +1041,64 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                     Manage active student enrollment, add validity days, or revoke access.
                   </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAllowGuestAccessOnEnroll(Boolean(currentBatch?.allowGuestAccess));
+                    setIsAddStudentModalOpen(true);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] text-xs font-bold border-none cursor-pointer flex items-center space-x-1.5 shadow-xs hover:opacity-95 transition"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>+ Add Student / User</span>
+                </button>
+              </div>
+
+              {/* Batch-Wide Guest Access Policy Banner */}
+              <div className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center space-x-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                    currentBatch?.allowGuestAccess ? 'bg-emerald-500/15 text-emerald-600' : 'bg-amber-500/15 text-amber-600'
+                  }`}>
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">
+                        Guest Mode Policy for this Batch:
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        currentBatch?.allowGuestAccess ? 'bg-emerald-500/15 text-emerald-600' : 'bg-amber-500/15 text-amber-600'
+                      }`}>
+                        {currentBatch?.allowGuestAccess ? '● Allowed (Free Preview for Visitors)' : '🔒 Restricted (Official Roster Only)'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] mt-0.5">
+                      {currentBatch?.allowGuestAccess
+                        ? 'Visitors browsing in Guest Mode can view this course without requiring an individual student account.'
+                        : 'Visitors in Guest Mode cannot access this course unless admitted by Admin or enrolled.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2.5">
+                  <span className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)]">
+                    Allowed to Guest Users:
+                  </span>
+                  <M3Switch
+                    checked={Boolean(currentBatch?.allowGuestAccess)}
+                    onChange={() => {
+                      if (currentBatch) {
+                        const nextState = !currentBatch.allowGuestAccess;
+                        updateBatch(currentBatch.id, { allowGuestAccess: nextState });
+                        showSecurityToast(
+                          nextState
+                            ? `Guest access enabled for "${currentBatch.title}". Open to all visitors.`
+                            : `Guest access restricted for "${currentBatch.title}". Roster admission required.`
+                        );
+                      }
+                    }}
+                  />
+                </div>
               </div>
 
               {/* Roster Table */}
@@ -1124,69 +1194,214 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
 
           {/* TAB 4: BATCH SETTINGS CANVAS */}
           {activeTab === 'settings' && currentBatch && (
-            <div className="max-w-3xl space-y-6">
-              <div className="p-6 rounded-3xl bg-[var(--md-sys-color-surface-container)] space-y-5 shadow-xs">
-                <h3 className="text-base font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-2">
-                  <Settings className="w-5 h-5 text-[var(--md-sys-color-primary)]" />
-                  <span>Batch Global Configuration & Commercials</span>
-                </h3>
+            <div className="max-w-4xl space-y-6">
+              <div className="p-6 rounded-3xl bg-[var(--md-sys-color-surface-container)] space-y-6 shadow-xs border border-[var(--md-sys-color-outline-variant)]/10">
+                <div className="flex items-center justify-between pb-3 border-b border-[var(--md-sys-color-outline-variant)]/15 flex-wrap gap-2">
+                  <div className="flex items-center space-x-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] flex items-center justify-center">
+                      <Settings className="w-5 h-5 text-[var(--md-sys-color-primary)]" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-[var(--md-sys-color-on-surface)]">
+                        Batch Global Configuration & Commercials
+                      </h3>
+                      <p className="text-xs text-[var(--md-sys-color-on-surface-variant)]">
+                        Manage course publication status, student roster rules, guest mode access, and pricing.
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center space-x-1.5 shadow-2xs ${
+                    currentBatch.isPublished !== false
+                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                      : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                  }`}>
+                    {currentBatch.isPublished !== false ? (
+                      <>
+                        <Globe className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>● Live & Published</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-3.5 h-3.5 text-amber-600" />
+                        <span>🔒 Draft (Locked & Hidden)</span>
+                      </>
+                    )}
+                  </span>
+                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* 1. PUBLISH & VISIBILITY STATUS (Master Lock / Unlock) */}
+                <div className="space-y-3">
                   <div>
-                    <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
-                      Batch Selling Price (₹)
+                    <label className="text-xs font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-1.5">
+                      <span>Course Publish Status (Catalog Visibility & Draft Lock)</span>
                     </label>
-                    <input
-                      type="number"
-                      value={currentBatch.price}
-                      onChange={(e) => updateBatch(currentBatch.id, { price: Number(e.target.value) })}
-                      className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-xl text-xs font-bold text-[var(--md-sys-color-on-surface)] border-none outline-none"
-                    />
+                    <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] mt-0.5">
+                      When published, the course is live to students. When set to Draft, the entire batch is strictly locked and hidden from learners.
+                    </p>
                   </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
-                      Original Strike Price (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={currentBatch.originalPrice}
-                      onChange={(e) => updateBatch(currentBatch.id, { originalPrice: Number(e.target.value) })}
-                      className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-xl text-xs font-bold text-[var(--md-sys-color-on-surface)] border-none outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
-                      Access Validity (Days)
-                    </label>
-                    <input
-                      type="number"
-                      value={currentBatch.validityDays}
-                      onChange={(e) => updateBatch(currentBatch.id, { validityDays: Number(e.target.value) })}
-                      className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-xl text-xs font-bold text-[var(--md-sys-color-on-surface)] border-none outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
-                      Publish Status
-                    </label>
-                    <button
-                      type="button"
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Option A: Published */}
+                    <div
                       onClick={() => {
-                        updateBatch(currentBatch.id, { isPublished: !currentBatch.isPublished });
-                        showSecurityToast(`Batch marked as ${!currentBatch.isPublished ? 'Published' : 'Draft'}`);
+                        updateBatch(currentBatch.id, { isPublished: true });
+                        showSecurityToast(`Batch "${currentBatch.title}" Published! Live to students & visitors.`);
                       }}
-                      className={`w-full py-2.5 rounded-xl text-xs font-bold border-none cursor-pointer transition ${
-                        currentBatch.isPublished
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-amber-600 text-white'
+                      className={`p-4 rounded-2xl border-2 transition cursor-pointer flex items-start space-x-3 ${
+                        currentBatch.isPublished !== false
+                          ? 'border-emerald-500 bg-emerald-500/10 dark:bg-emerald-950/20 shadow-xs'
+                          : 'border-[var(--md-sys-color-outline-variant)]/20 bg-[var(--md-sys-color-surface)] hover:border-emerald-500/50'
                       }`}
                     >
-                      {currentBatch.isPublished ? '● Published (Live to Students)' : '○ Draft (Hidden)'}
-                    </button>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                        currentBatch.isPublished !== false ? 'bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-zinc-800 text-slate-500'
+                      }`}>
+                        <Eye className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">
+                            Published (Live to Students)
+                          </h4>
+                          {currentBatch.isPublished !== false && (
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                          )}
+                        </div>
+                        <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] mt-0.5 leading-relaxed">
+                          Visible in All Courses catalog and open to enrolled learners & guest users.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Option B: Draft (Locked) */}
+                    <div
+                      onClick={() => {
+                        updateBatch(currentBatch.id, { isPublished: false });
+                        showSecurityToast(`Batch "${currentBatch.title}" set to Draft! Locked for all students & guests.`);
+                      }}
+                      className={`p-4 rounded-2xl border-2 transition cursor-pointer flex items-start space-x-3 ${
+                        currentBatch.isPublished === false
+                          ? 'border-amber-500 bg-amber-500/10 dark:bg-amber-950/20 shadow-xs'
+                          : 'border-[var(--md-sys-color-outline-variant)]/20 bg-[var(--md-sys-color-surface)] hover:border-amber-500/50'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                        currentBatch.isPublished === false ? 'bg-amber-600 text-white' : 'bg-slate-200 dark:bg-zinc-800 text-slate-500'
+                      }`}>
+                        <Lock className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">
+                            Draft (Locked & Hidden)
+                          </h4>
+                          {currentBatch.isPublished === false && (
+                            <span className="w-2 h-2 rounded-full bg-amber-500" />
+                          )}
+                        </div>
+                        <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] mt-0.5 leading-relaxed">
+                          Locked from all students and guests. Content is internal and only visible to Master Admin.
+                        </p>
+                      </div>
+                    </div>
                   </div>
+                </div>
+
+                {/* 2. TARGET AUDIENCE & GUEST MODE SETTING */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/20 space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Users className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
+                    <h4 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] uppercase tracking-wider">
+                      Audience Access & Guest Mode Setting
+                    </h4>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)]/60 border border-[var(--md-sys-color-outline-variant)]/10">
+                    <div className="space-y-0.5 flex-1 pr-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">
+                          Allowed to Guest Users (Guest Mode)
+                        </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          currentBatch.allowGuestAccess ? 'bg-emerald-500/15 text-emerald-600' : 'bg-amber-500/15 text-amber-600'
+                        }`}>
+                          {currentBatch.allowGuestAccess ? 'Enabled' : 'Disabled'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] leading-normal">
+                        {currentBatch.allowGuestAccess
+                          ? 'Guest Mode is enabled for this batch. Visitors without an account or login can explore videos and notes for free.'
+                          : 'Guest Mode is restricted. Only students officially admitted to the student roster can access this course.'}
+                      </p>
+                    </div>
+                    <M3Switch
+                      checked={Boolean(currentBatch.allowGuestAccess)}
+                      onChange={() => {
+                        const nextState = !currentBatch.allowGuestAccess;
+                        updateBatch(currentBatch.id, { allowGuestAccess: nextState });
+                        showSecurityToast(
+                          nextState
+                            ? `Guest Mode enabled for "${currentBatch.title}". Open to all visitors.`
+                            : `Guest Mode restricted for "${currentBatch.title}". Official roster admission required.`
+                        );
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* 3. COMMERCIALS & PRICING */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] uppercase tracking-wider flex items-center space-x-1.5">
+                    <IndianRupee className="w-3.5 h-3.5 text-[var(--md-sys-color-primary)]" />
+                    <span>Commercials & Validity</span>
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+                        Batch Selling Price (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={currentBatch.price}
+                        onChange={(e) => updateBatch(currentBatch.id, { price: Number(e.target.value) })}
+                        className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-xl text-xs font-bold text-[var(--md-sys-color-on-surface)] border-none outline-none focus:ring-1 focus:ring-[var(--md-sys-color-primary)]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+                        Original Strike Price (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={currentBatch.originalPrice}
+                        onChange={(e) => updateBatch(currentBatch.id, { originalPrice: Number(e.target.value) })}
+                        className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-xl text-xs font-bold text-[var(--md-sys-color-on-surface)] border-none outline-none focus:ring-1 focus:ring-[var(--md-sys-color-primary)]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+                        Access Validity (Days)
+                      </label>
+                      <input
+                        type="number"
+                        value={currentBatch.validityDays}
+                        onChange={(e) => updateBatch(currentBatch.id, { validityDays: Number(e.target.value) })}
+                        className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-xl text-xs font-bold text-[var(--md-sys-color-on-surface)] border-none outline-none focus:ring-1 focus:ring-[var(--md-sys-color-primary)]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Firestore Sync Badge */}
+                <div className="pt-2 flex items-center justify-between text-[11px] text-[var(--md-sys-color-on-surface-variant)] border-t border-[var(--md-sys-color-outline-variant)]/10">
+                  <span className="flex items-center space-x-1.5 text-emerald-600 font-semibold">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Realtime Cloud Firestore Synchronized</span>
+                  </span>
+                  <span>Batch ID: <span className="font-mono">{currentBatch.id}</span></span>
                 </div>
               </div>
             </div>
@@ -1267,6 +1482,140 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
             )}
           </aside>
         )}
+      {/* ADD STUDENT / USER MODAL */}
+      {isAddStudentModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 m3-fade-in">
+          <div className="bg-[var(--md-sys-color-surface-container)] rounded-3xl max-w-md w-full p-6 shadow-2xl border border-[var(--md-sys-color-outline-variant)]/20 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--md-sys-color-outline-variant)]/15">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-emerald-500/15 text-emerald-600 flex items-center justify-center">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[var(--md-sys-color-on-surface)]">
+                    Add Student / User to Batch
+                  </h3>
+                  <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] truncate max-w-[240px]">
+                    {currentBatch?.title || 'Selected Course'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddStudentModalOpen(false)}
+                className="p-1.5 rounded-full hover:bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border-none bg-transparent cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!studentContactInput.trim() || !selectedBatchId) return;
+                setIsEnrollingStudent(true);
+                const result = enrollStudentByContact({
+                  contact: studentContactInput.trim(),
+                  batchId: selectedBatchId,
+                  name: studentNameInput.trim() || undefined,
+                  validityDays: Number(studentValidityDays) || 365,
+                });
+                if (result.success) {
+                  if (allowGuestAccessOnEnroll && currentBatch && !currentBatch.allowGuestAccess) {
+                    updateBatch(currentBatch.id, { allowGuestAccess: true });
+                  }
+                  showSecurityToast(`Student "${studentContactInput}" enrolled successfully.`);
+                  setStudentContactInput('');
+                  setStudentNameInput('');
+                  setStudentValidityDays(365);
+                  setIsAddStudentModalOpen(false);
+                  loadRosterForBatch(selectedBatchId);
+                } else {
+                  showSecurityToast(result.message || 'Enrollment failed.');
+                }
+                setIsEnrollingStudent(false);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+                  Student Phone Number or Email Address *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={studentContactInput}
+                  onChange={(e) => setStudentContactInput(e.target.value)}
+                  placeholder="e.g. student@gmail.com or +91 98765 43210"
+                  className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none focus:ring-1 focus:ring-[var(--md-sys-color-primary)] font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+                  Student Full Name (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={studentNameInput}
+                  onChange={(e) => setStudentNameInput(e.target.value)}
+                  placeholder="e.g. Sanju Student"
+                  className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none focus:ring-1 focus:ring-[var(--md-sys-color-primary)]"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+                  Enrollment Validity (Days)
+                </label>
+                <input
+                  type="number"
+                  value={studentValidityDays}
+                  onChange={(e) => setStudentValidityDays(Number(e.target.value))}
+                  className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs font-bold text-[var(--md-sys-color-on-surface)] border-none outline-none focus:ring-1 focus:ring-[var(--md-sys-color-primary)]"
+                />
+              </div>
+
+              {/* ⭐ ALLOWED TO GUEST USER OPTION */}
+              <div className="p-3.5 rounded-2xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5 pr-2">
+                    <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>Allowed to Guest User (Guest Mode)</span>
+                    </span>
+                    <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] leading-normal">
+                      Enable Guest Mode for this batch so visitor accounts can also preview and access this batch for free.
+                    </p>
+                  </div>
+                  <M3Switch
+                    checked={allowGuestAccessOnEnroll}
+                    onChange={() => setAllowGuestAccessOnEnroll(!allowGuestAccessOnEnroll)}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddStudentModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)] border-none bg-transparent cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!studentContactInput.trim() || isEnrollingStudent}
+                  className="px-5 py-2 rounded-xl bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] text-xs font-bold border-none cursor-pointer disabled:opacity-50 flex items-center space-x-1.5 shadow-xs hover:opacity-95"
+                >
+                  {isEnrollingStudent ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserPlus className="w-3.5 h-3.5" />}
+                  <span>Enroll Student</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );

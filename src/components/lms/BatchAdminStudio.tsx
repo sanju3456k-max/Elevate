@@ -125,6 +125,7 @@ export const BatchAdminStudio: React.FC = () => {
   const [newSubjectTitle, setNewSubjectTitle] = useState('');
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [newChapterDesc, setNewChapterDesc] = useState('');
+  const [enrollAllowGuest, setEnrollAllowGuest] = useState(false);
   const [isAutoFetchingYt, setIsAutoFetchingYt] = useState(false);
   const lastFetchedBatchYtIdRef = useRef<string | null>(null);
 
@@ -257,6 +258,9 @@ export const BatchAdminStudio: React.FC = () => {
     });
 
     if (result.success) {
+      if (enrollAllowGuest && selectedBatchId) {
+        updateBatch(selectedBatchId, { allowGuestAccess: true });
+      }
       showSecurityToast(`🎉 ${result.message}`);
       setEnrollContactInput('');
       setEnrollNameInput('');
@@ -1425,6 +1429,25 @@ export const BatchAdminStudio: React.FC = () => {
                       <option value={730}>2 Years (730 Days)</option>
                       <option value={3650}>Lifetime Access</option>
                     </select>
+                  </div>
+
+                  {/* ⭐ Allowed to Guest User Option */}
+                  <div className="p-3 rounded-2xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>Allowed to Guest User (Guest Mode)</span>
+                      </span>
+                      <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                        Also enable Guest Mode access for this batch so visitor users can preview without login.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={enrollAllowGuest}
+                      onChange={(e) => setEnrollAllowGuest(e.target.checked)}
+                      className="w-4 h-4 rounded text-[var(--md-sys-color-primary)] cursor-pointer"
+                    />
                   </div>
 
                   <button

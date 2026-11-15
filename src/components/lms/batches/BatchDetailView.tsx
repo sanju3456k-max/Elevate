@@ -38,6 +38,8 @@ import {
   Clock,
 } from 'lucide-react';
 import { useApp, getFacultyAvatarUrl } from '../../../lms/LmsContext';
+import { auth } from '../../../lib/firebase';
+import { isMasterUser } from '../../../lib/masterAccount';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
 import { formatDuration, extractYouTubeId, obfuscateVideoKey, getLectureThumbnailUrl, deobfuscateVideoKey } from '../../../lms/security';
 import { fetchVideoMetadata } from '../../../lms/videoMetadataService';
@@ -124,7 +126,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     batchTests,
   } = useApp();
 
-  const isMaster = Boolean(isMasterEditMode);
+  const isMaster = Boolean(isMasterEditMode) || isMasterUser(auth.currentUser) || user?.role === 'admin';
 
   // Selected Batch
   const [selectedBatchId, setSelectedBatchId] = useState<string>(() => {
@@ -254,13 +256,28 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     }
   }, [initialLectureId, lectures]);
 
+  const visibleBatches = useMemo(() => {
+    if (isMaster) return batches;
+    return batches.filter((b) => b.isPublished !== false);
+  }, [batches, isMaster]);
+
   const enrolledBatches = useMemo(
-    () => batches.filter((b) => isEnrolled(b.id)),
-    [batches, isEnrolled]
+    () => visibleBatches.filter((b) => isEnrolled(b.id)),
+    [visibleBatches, isEnrolled]
   );
 
-  const displayedBatches = batchFilter === 'my-batches' ? enrolledBatches : batches;
+  const displayedBatches = batchFilter === 'my-batches' ? enrolledBatches : visibleBatches;
   const currentBatch = batches.find((b) => b.id === selectedBatchId) || batches[0];
+
+  // Auto-protect: If non-admin user is on an unpublished draft batch, return to catalog with alert
+  useEffect(() => {
+    if (!isMaster && currentBatch && currentBatch.isPublished === false && currentStage !== 'batch_list') {
+      showSecurityToast(`Access Denied: "${currentBatch.title}" is currently in Draft mode and is locked.`);
+      setCurrentStage('batch_list');
+      setSelectedBatchId('');
+      onBatchChange?.(null);
+    }
+  }, [currentBatch, isMaster, currentStage, onBatchChange, showSecurityToast]);
 
   // Dynamic Google Drive Breadcrumb Path
   const breadcrumbPath = useMemo(() => {
@@ -455,6 +472,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   });
 
   const goToBatchFolders = (batchId: string) => {
+    const targetBatch = batches.find((b) => b.id === batchId);
+    if (!isMaster && targetBatch && targetBatch.isPublished === false) {
+      showSecurityToast(`Access Locked: "${targetBatch.title}" is in Draft mode and has not been published yet.`);
+      return;
+    }
     if (!isEnrolled(batchId)) {
       if (isGuestAllowedForBatch(batchId)) {
         enrollAsGuest(batchId);
@@ -467,7 +489,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         setCurrentStage('folder_content');
         return;
       }
-      const bTitle = batches.find((b) => b.id === batchId)?.title || 'this batch';
+      const bTitle = targetBatch?.title || 'this batch';
       showSecurityToast(`Access Denied: You are not enrolled in "${bTitle}". Access is restricted to students on the official roster.`);
       return;
     }
@@ -611,12 +633,17 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-white font-bold text-[10px] tracking-wider uppercase">
                     {b.category}
                   </span>
-                  {b.allowGuestAccess && (
+                  {b.isPublished === false ? (
+                    <span className="absolute top-3 right-3 px-2.5 py-0.5 rounded-full bg-amber-600/90 text-white font-bold text-[9px] uppercase tracking-wider flex items-center space-x-1 shadow-xs">
+                      <Lock className="w-3 h-3" />
+                      <span>Draft (Locked)</span>
+                    </span>
+                  ) : b.allowGuestAccess ? (
                     <span className="absolute top-3 right-3 px-2.5 py-0.5 rounded-full bg-emerald-600/90 text-white font-bold text-[9px] uppercase tracking-wider flex items-center space-x-1 shadow-xs">
                       <Sparkles className="w-3 h-3" />
                       <span>Guest Pass</span>
                     </span>
-                  )}
+                  ) : null}
                 </div>
 
                 <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">

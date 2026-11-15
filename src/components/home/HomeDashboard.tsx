@@ -84,35 +84,20 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
   const isMaster = isMasterUser(currentUser);
 
-  // Check if test was created within the last 2 days (48 hours) and has not been attempted yet
-  const isTestNew = (test: MathTest | null): boolean => {
-    if (!test) return false;
-    if ((test as any).isNew) return true;
-    const rawDate = test.createdAt || (test as any).timestamp;
-    if (!rawDate) return false;
-    const createdTime = new Date(rawDate).getTime();
-    if (isNaN(createdTime) || createdTime <= 0) return false;
-    const now = Date.now();
-    const diffMs = now - createdTime;
-    const TWO_DAYS = 2 * 24 * 60 * 60 * 1000;
-    if (diffMs < 0 || diffMs > TWO_DAYS) return false;
-
-    const hasAttempted = attempts.some((att) => att.testId === test.id);
-    if (hasAttempted) return false;
-    if (((test as any).attemptCount || 0) > 0) return false;
-
-    return true;
-  };
+  const visibleBatches = useMemo(() => {
+    if (isMaster) return batches;
+    return batches.filter((b) => b.isPublished !== false);
+  }, [batches, isMaster]);
 
   const enrolledBatches = useMemo(
-    () => batches.filter((b) => isEnrolled(b.id)),
-    [batches, isEnrolled]
+    () => visibleBatches.filter((b) => isEnrolled(b.id)),
+    [visibleBatches, isEnrolled]
   );
   const enrolledBatchIdSet = useMemo(
     () => new Set(enrolledBatches.map((b) => b.id)),
     [enrolledBatches]
   );
-  const displayedBatches = activeView === 'my-batches' ? enrolledBatches : batches;
+  const displayedBatches = activeView === 'my-batches' ? enrolledBatches : visibleBatches;
 
   const currentBatch = batches[0]; // Testing Batch
   const freeLectures = lectures.filter((l) => l.isFreePreview);
@@ -346,6 +331,11 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     : 88;
 
   const handleSelectBatchItem = (batchId: string) => {
+    const target = batches.find((b) => b.id === batchId);
+    if (!isMaster && target && target.isPublished === false) {
+      alert(`Access Locked: "${target.title}" is in Draft mode and has not been published yet.`);
+      return;
+    }
     setActiveBatchId(batchId);
     setActiveLectureId(null);
     if (onSelectBatch) {
