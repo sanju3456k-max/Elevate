@@ -47,6 +47,7 @@ export interface Lecture {
   title: string;
   description: string;
   durationMinutes: number;
+  durationSeconds?: number;
   videoSourceType: 'youtube' | 'direct_hls' | 'vimeo';
   encryptedVideoId: string; // Obfuscated YouTube ID or URL
   thumbnailUrl: string;

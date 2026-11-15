@@ -794,6 +794,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastWatchedAt: new Date().toISOString(),
       },
     }));
+
+    if (totalSeconds > 0) {
+      const roundedMins = Math.max(1, Math.round(totalSeconds / 60));
+      const exactSeconds = Math.round(totalSeconds);
+      setLectures((prev) =>
+        prev.map((l) => {
+          if (l.id === lectureId && (l.durationSeconds !== exactSeconds || l.durationMinutes !== roundedMins)) {
+            const updated = { ...l, durationSeconds: exactSeconds, durationMinutes: roundedMins };
+            syncLectureToFirestore(l.batchId, updated).catch(() => {});
+            return updated;
+          }
+          return l;
+        })
+      );
+    }
   };
 
   const addAnnouncement = (annData: Omit<Announcement, 'id'>) => {

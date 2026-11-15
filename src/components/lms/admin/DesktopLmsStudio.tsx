@@ -916,7 +916,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
 
                               <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-black/80 text-white backdrop-blur-xs">
-                                {lec.durationMinutes} mins
+                                {lec.durationSeconds ? formatDuration(lec.durationSeconds) : `${lec.durationMinutes} mins`}
                               </span>
 
                               {lec.isFreePreview && (

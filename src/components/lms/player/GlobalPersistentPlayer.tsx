@@ -53,6 +53,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
 }) => {
   const {
     lectures,
+    watchProgress,
     personalNotes,
     addPersonalNote,
     deletePersonalNote,
@@ -553,7 +554,11 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                           </div>
                         ) : (
                           <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[9px] font-mono font-medium text-white">
-                            {lec.durationMinutes ? `${lec.durationMinutes}m` : '15m'}
+                            {(() => {
+                              const sec = lec.durationSeconds || watchProgress[lec.id]?.totalSeconds || 0;
+                              if (sec > 0) return formatDuration(sec);
+                              return lec.durationMinutes ? `${lec.durationMinutes}m` : '15m';
+                            })()}
                           </span>
                         )}
                       </div>

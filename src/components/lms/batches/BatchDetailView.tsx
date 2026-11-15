@@ -39,7 +39,8 @@ import {
 } from 'lucide-react';
 import { useApp, getFacultyAvatarUrl } from '../../../lms/LmsContext';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
-import { formatDuration, extractYouTubeId, obfuscateVideoKey, getLectureThumbnailUrl } from '../../../lms/security';
+import { formatDuration, extractYouTubeId, obfuscateVideoKey, getLectureThumbnailUrl, deobfuscateVideoKey } from '../../../lms/security';
+import { fetchVideoMetadata } from '../../../lms/videoMetadataService';
 import type { PdfNote, Chapter, Lecture, Batch } from '../../../lms/types';
 import type { MathTest } from '../../../types';
 import { useBackHandler } from '../../../hooks/useBackNavigation';
@@ -109,6 +110,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     updateLecture,
     deleteLecture,
     user,
+    watchProgress,
     updateWatchProgress,
     isEnrolled,
     enrollInBatch,
@@ -292,6 +294,45 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       return !l.chapterId || l.chapterId === 'root';
     });
   }, [lectures, currentBatch, selectedChapterId]);
+
+  // Dynamic accurate duration resolution for all folder lectures
+  const [exactDurations, setExactDurations] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let isMounted = true;
+    folderLectures.forEach((lec) => {
+      // 1. From existing watch progress
+      const progressSec = watchProgress[lec.id]?.totalSeconds;
+      if (progressSec && progressSec > 0) {
+        setExactDurations((prev) => (prev[lec.id] === progressSec ? prev : { ...prev, [lec.id]: progressSec }));
+        return;
+      }
+      // 2. From lecture record
+      if (lec.durationSeconds && lec.durationSeconds > 0) {
+        setExactDurations((prev) => (prev[lec.id] === lec.durationSeconds ? prev : { ...prev, [lec.id]: lec.durationSeconds! }));
+        return;
+      }
+      // 3. From YouTube metadata service
+      const rawId = deobfuscateVideoKey(lec.encryptedVideoId);
+      if (rawId && rawId.length === 11) {
+        fetchVideoMetadata(rawId)
+          .then((meta) => {
+            if (!isMounted || !meta) return;
+            if (meta.durationSeconds && meta.durationSeconds > 0) {
+              setExactDurations((prev) => ({ ...prev, [lec.id]: meta.durationSeconds! }));
+              updateLecture(lec.id, {
+                durationSeconds: meta.durationSeconds,
+                durationMinutes: meta.durationMinutes,
+              });
+            }
+          })
+          .catch(() => {});
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [folderLectures, watchProgress, updateLecture]);
 
   // Total videos count (all batch videos if at root, or chapter videos if inside a chapter)
   const totalFolderVideosCount = useMemo(() => {
@@ -1014,8 +1055,16 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                             Free
                           </span>
                         )}
-                        <span className="absolute bottom-1.5 right-1.5 sm:bottom-2.5 sm:right-2.5 px-1.5 sm:px-2 py-0.5 rounded-md bg-black/75 font-mono text-[9px] sm:text-[11px] text-white">
-                          {lec.durationMinutes}:00
+                        <span className="absolute bottom-1.5 right-1.5 sm:bottom-2.5 sm:right-2.5 px-1.5 sm:px-2 py-0.5 rounded-md bg-black/80 font-mono text-[9px] sm:text-[11px] text-white font-medium shadow-xs">
+                          {(() => {
+                            const totalSec = exactDurations[lec.id] || lec.durationSeconds || watchProgress[lec.id]?.totalSeconds || 0;
+                            if (totalSec > 0) {
+                              return formatDuration(totalSec);
+                            }
+                            return (lec.durationMinutes && lec.durationMinutes !== 45 && lec.durationMinutes !== 30)
+                              ? `${lec.durationMinutes}:00`
+                              : formatDuration((lec.durationMinutes || 15) * 60);
+                          })()}
                         </span>
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/30">
                           <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] flex items-center justify-center shadow-lg">
