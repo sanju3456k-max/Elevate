@@ -69,7 +69,7 @@ import {
 } from '../lib/masterAccount';
 import { loadFullTestOnDemand } from '../lib/storage';
 import { APP_STYLES } from './ui/AppStyles';
-import { BatchAdminStudio } from './lms/BatchAdminStudio';
+import { DesktopLmsStudio } from './lms/admin/DesktopLmsStudio';
 import { useApp } from '../lms/LmsContext';
 import { auth, signInWithGoogle } from '../lib/firebase';
 
@@ -894,11 +894,14 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
       <main className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 pb-[calc(max(1.5rem,env(safe-area-inset-bottom,0px))+0.5rem)] pt-1 space-y-6">
 
         {/* ============================================================ */}
-        {/* TAB 0: BATCH AUTHORING & LMS MANAGEMENT                      */}
+        {/* TAB 0: BATCH AUTHORING & LMS MANAGEMENT (Desktop Workstation) */}
         {/* ============================================================ */}
         {activeTab === 'batches' && (
-          <div className="max-w-7xl mx-auto w-full">
-            <BatchAdminStudio />
+          <div className="w-full max-w-[1720px] mx-auto h-[calc(100vh-140px)] min-h-[680px]">
+            <DesktopLmsStudio
+              availableTests={tests}
+              onStartTest={onStartTest}
+            />
           </div>
         )}
 
