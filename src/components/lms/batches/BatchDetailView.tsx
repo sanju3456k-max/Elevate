@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import { useApp, getFacultyAvatarUrl } from '../../../lms/LmsContext';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
-import { formatDuration, extractYouTubeId, obfuscateVideoKey } from '../../../lms/security';
+import { formatDuration, extractYouTubeId, obfuscateVideoKey, getLectureThumbnailUrl } from '../../../lms/security';
 import type { PdfNote, Chapter, Lecture, Batch } from '../../../lms/types';
 import type { MathTest } from '../../../types';
 import { useBackHandler } from '../../../hooks/useBackNavigation';
@@ -370,7 +370,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         batchId: currentBatch.id,
         batchTitle: currentBatch.title,
         chapterId: selectedChapterId,
-        thumbnailUrl: activeLecture.thumbnailUrl || currentBatch.thumbnailUrl,
+        thumbnailUrl: getLectureThumbnailUrl(activeLecture),
         durationMinutes: activeLecture.durationMinutes,
         encryptedVideoId: activeLecture.encryptedVideoId,
         playbackSeconds: currentPlaybackSec,
@@ -1002,7 +1002,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                     >
                       <div className="relative w-36 sm:w-full aspect-video shrink-0 self-stretch overflow-hidden bg-slate-900">
                         <img
-                          src={lec.thumbnailUrl || '/assets/default-course-banner.png'}
+                          src={getLectureThumbnailUrl(lec)}
                           alt={lec.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                           onError={(e) => {

@@ -29,6 +29,7 @@ import type { MathTest, TestAttempt, UserProfile } from '../../types';
 import type { User } from 'firebase/auth';
 import type { Batch } from '../../lms/types';
 import { useApp, getFacultyAvatarUrl } from '../../lms/LmsContext';
+import { getLectureThumbnailUrl } from '../../lms/security';
 import { isMasterUser } from '../../lib/masterAccount';
 
 interface HomeDashboardProps {
@@ -409,7 +410,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 {/* Video Thumbnail (Edge-to-edge flush on left corner) */}
                 <div className="relative w-36 sm:w-48 aspect-video shrink-0 self-stretch overflow-hidden bg-slate-900/10 dark:bg-black/30">
                   <img
-                    src={latestLecture.thumbnailUrl || 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=800&auto=format&fit=crop&q=80'}
+                    src={getLectureThumbnailUrl(latestLecture)}
                     alt={latestLecture.title || 'Video Class'}
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                   />

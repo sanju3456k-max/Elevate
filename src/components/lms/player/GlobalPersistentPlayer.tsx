@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { CloakedVideoPlayer } from './CloakedVideoPlayer';
 import { useApp } from '../../../lms/LmsContext';
-import { formatDuration } from '../../../lms/security';
+import { formatDuration, getLectureThumbnailUrl } from '../../../lms/security';
 import { useBackHandler } from '../../../hooks/useBackNavigation';
 import type { TimelineMilestone, Lecture } from '../../../lms/types';
 
@@ -538,7 +538,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                       {/* Left: Full edge-to-edge flush video preview on card side */}
                       <div className="relative w-32 sm:w-36 aspect-video shrink-0 self-stretch overflow-hidden bg-black">
                         <img
-                          src={lec.thumbnailUrl || '/assets/default-course-banner.png'}
+                          src={getLectureThumbnailUrl(lec)}
                           alt={lec.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           onError={(e) => {

@@ -109,6 +109,26 @@ export function deobfuscateVideoKey(encryptedKey: string): string {
 }
 
 /**
+ * Resolves the genuine high-res thumbnail for a lecture.
+ * If lecture has a custom YouTube thumbnail, returns it.
+ * If lecture has an Unsplash generic banner or missing thumbnail,
+ * derives the real YouTube thumbnail from its encrypted video key.
+ */
+export function getLectureThumbnailUrl(lecture: { encryptedVideoId?: string; thumbnailUrl?: string } | null | undefined): string {
+  if (!lecture) return '/assets/default-course-banner.png';
+  if (lecture.thumbnailUrl && !lecture.thumbnailUrl.includes('unsplash.com') && lecture.thumbnailUrl.trim() !== '') {
+    return lecture.thumbnailUrl;
+  }
+  if (lecture.encryptedVideoId) {
+    const rawYtId = deobfuscateVideoKey(lecture.encryptedVideoId);
+    if (rawYtId && rawYtId.length === 11) {
+      return `https://img.youtube.com/vi/${rawYtId}/hqdefault.jpg`;
+    }
+  }
+  return lecture.thumbnailUrl || '/assets/default-course-banner.png';
+}
+
+/**
  * Initializes screen protection listeners:
  * - Disables right-click context menu on video player
  * - Blocks common DevTools inspection keys (F12, Ctrl+Shift+I, Ctrl+U, etc.)

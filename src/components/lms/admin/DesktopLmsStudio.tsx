@@ -51,6 +51,7 @@ import {
   buildGoogleDrivePreviewUrl,
   extractGoogleDriveId,
   formatDuration,
+  getLectureThumbnailUrl,
 } from '../../../lms/security';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
 import { M3Switch, M3CircularProgress } from '../../ui/Material3';
@@ -905,7 +906,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                           <div>
                             <div className="h-32 w-full relative bg-black overflow-hidden group">
                               <img
-                                src={lec.thumbnailUrl || '/assets/default-course-banner.png'}
+                                src={getLectureThumbnailUrl(lec)}
                                 alt={lec.title}
                                 className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                                 onError={(e) => {
@@ -1233,7 +1234,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                     durationMinutes: data.durationMinutes || 45,
                     videoSourceType: 'youtube',
                     encryptedVideoId: data.encryptedVideoId,
-                    thumbnailUrl: data.thumbnailUrl || currentBatch?.thumbnailUrl || '',
+                    thumbnailUrl: data.thumbnailUrl || (data.encryptedVideoId ? getLectureThumbnailUrl(data) : '') || currentBatch?.thumbnailUrl || '',
                     order: batchLectures.length + 1,
                     isFreePreview: Boolean(data.isFreePreview),
                     pdfNotes: [],
@@ -1687,12 +1688,14 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
                   if (!lecTitle.trim() || !lecVideoUrl.trim()) return;
                   const ytId = extractYouTubeId(lecVideoUrl.trim()) || 'WUvTyaaNkzM';
                   const encKey = obfuscateVideoKey(ytId);
+                  const generatedThumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
 
                   if (entity.type === 'new_lecture') {
                     onAddLecture({
                       title: lecTitle.trim(),
                       description: lecDesc.trim(),
                       encryptedVideoId: encKey,
+                      thumbnailUrl: generatedThumb,
                       durationMinutes: lecDuration || 45,
                       chapterId: lecChapterId,
                       isFreePreview: lecIsFreePreview,
@@ -1703,6 +1706,7 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
                       title: lecTitle.trim(),
                       description: lecDesc.trim(),
                       encryptedVideoId: encKey,
+                      thumbnailUrl: generatedThumb,
                       durationMinutes: lecDuration || 45,
                       chapterId: lecChapterId,
                       isFreePreview: lecIsFreePreview,
