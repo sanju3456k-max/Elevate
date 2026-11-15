@@ -7,6 +7,7 @@ import notesRouter from "./ai/notes.js";
 import chatbotRouter from "./ai/chatbot.js";
 import imageRouter from "./ai/image.js";
 import testRouter from "./ai/test.js";
+import videoMetadataRouter from "./videoMetadata.js";
 import { createRateLimiter } from "../middleware/rateLimiter.js";
 
 const router = Router();
@@ -29,6 +30,7 @@ router.use("/drive", generalRateLimiter, driveRouter);
 router.use("/share", generalRateLimiter, shareRouter);
 router.use("/leaderboard", generalRateLimiter, leaderboardRouter);
 router.use("/ai", aiRateLimiter, aiRootRouter);
+router.use("/video-metadata", generalRateLimiter, videoMetadataRouter);
 
 // Flat Routes (Backward Compatibility with existing frontend API calls)
 // These ensure /api/generate-image, /api/ai/chat-stream, /api/gemini/chatbot etc continue to work

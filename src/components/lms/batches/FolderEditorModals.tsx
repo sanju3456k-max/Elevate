@@ -12,11 +12,13 @@ import {
   Sparkles,
   ExternalLink,
   Clock,
-  Search
+  Search,
+  Loader2,
 } from 'lucide-react';
 import type { Lecture, PdfNote } from '../../../lms/types';
 import type { MathTest } from '../../../types';
 import { extractYouTubeId, obfuscateVideoKey } from '../../../lms/security';
+import { fetchVideoMetadata, extractYouTubeVideoId } from '../../../lms/videoMetadataService';
 
 const FOLDER_COLORS = [
   { id: 'blue', value: '#0b57d0', label: 'Classic Blue' },
@@ -222,6 +224,31 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
   const [pdfNoteUrl, setPdfNoteUrl] = useState('');
   const isInitializedRef = useRef(false);
   const activeVideoIdRef = useRef<string | null>(null);
+  const [isAutoFetching, setIsAutoFetching] = useState(false);
+  const lastFetchedIdRef = useRef<string | null>(null);
+
+  const handleVideoUrlChange = async (url: string) => {
+    setVideoUrl(url);
+    const ytId = extractYouTubeVideoId(url);
+    if (!ytId || ytId === lastFetchedIdRef.current) return;
+    lastFetchedIdRef.current = ytId;
+    setIsAutoFetching(true);
+    try {
+      const meta = await fetchVideoMetadata(ytId);
+      if (meta) {
+        if (!title.trim() || title.toLowerCase().startsWith('lecture') || title.toLowerCase().startsWith('video')) {
+          setTitle(meta.title);
+        }
+        if (meta.durationMinutes && meta.durationMinutes > 0) {
+          setDurationMinutes(meta.durationMinutes);
+        }
+      }
+    } catch (err) {
+      console.warn('Auto metadata fetch error:', err);
+    } finally {
+      setIsAutoFetching(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -319,14 +346,22 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-[var(--md-sys-color-on-surface)] mb-1.5">
-              Video Source (YouTube / Vimeo / Direct URL) <span className="text-rose-500">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold text-[var(--md-sys-color-on-surface)]">
+                Video Source (YouTube / Vimeo / Direct URL) <span className="text-rose-500">*</span>
+              </label>
+              {isAutoFetching && (
+                <span className="text-[11px] text-indigo-500 font-semibold flex items-center gap-1 animate-pulse">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Auto-generating title & timing...</span>
+                </span>
+              )}
+            </div>
             <input
               type="text"
               required
               value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
+              onChange={(e) => handleVideoUrlChange(e.target.value)}
               placeholder="https://www.youtube.com/watch?v=... or YouTube Video ID"
               className="w-full px-3.5 py-2.5 rounded-2xl bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs sm:text-sm text-[var(--md-sys-color-on-surface)] focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition font-mono"
             />

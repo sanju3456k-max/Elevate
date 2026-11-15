@@ -1256,9 +1256,26 @@ table td .katex .mclose {
 @media (min-width: 768px) {
   .desktop-hide-back-btn,
   .desktop-site .desktop-hide-back-btn,
-  [data-desktop-hide-back="true"] {
+  [data-desktop-hide-back="true"],
+  #video-player-collapse-btn {
     display: none !important;
   }
+}
+
+/* Ensure App Header is always visible on Desktop Site */
+.desktop-site #app-navbar-wrapper,
+html.desktop-site #app-navbar-wrapper {
+  display: block !important;
+}
+
+/* Strictly hide dropdown/back/collapse buttons on Desktop Site */
+.desktop-site .desktop-hide-back-btn,
+.desktop-site [data-desktop-hide-back="true"],
+.desktop-site #video-player-collapse-btn,
+.desktop-site [title="Minimize to MiniPlayer"],
+.desktop-site [title="Minimize to bottom strip"],
+.desktop-site [aria-label="Collapse video"] {
+  display: none !important;
 }
 
 

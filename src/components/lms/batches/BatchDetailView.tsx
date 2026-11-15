@@ -1519,7 +1519,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               type="button"
               id="video-player-collapse-btn"
               onClick={handleExitLectureView}
-              className="absolute top-2.5 left-2.5 z-30 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition border-none cursor-pointer shadow-md select-none"
+              className="absolute top-2.5 left-2.5 z-30 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition border-none cursor-pointer shadow-md select-none md:hidden desktop-hide-back-btn"
               title="Minimize to bottom strip"
               aria-label="Collapse video"
             >

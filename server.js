@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 
 // server/routes/index.ts
-import { Router as Router9 } from "express";
+import { Router as Router10 } from "express";
 
 // server/routes/drive.ts
 import { Router } from "express";
@@ -3291,6 +3291,111 @@ router8.use("/image", image_default);
 router8.use("/test", test_default);
 var ai_default = router8;
 
+// server/routes/videoMetadata.ts
+import { Router as Router9 } from "express";
+var router9 = Router9();
+function extractYouTubeId(urlOrId) {
+  if (!urlOrId || typeof urlOrId !== "string") return null;
+  const trimmed = urlOrId.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
+    return trimmed;
+  }
+  const match = trimmed.match(
+    /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/|live\/))([a-zA-Z0-9_-]{11})/i
+  );
+  return match ? match[1] : null;
+}
+function decodeHtmlEntities(str) {
+  if (!str) return "";
+  return str.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&apos;|&#x27;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&ndash;/g, "\u2013").replace(/&mdash;/g, "\u2014").replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10))).replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+function parseDurationSeconds(html) {
+  const lenMatch = html.match(/"lengthSeconds"\s*:\s*"(\d+)"/);
+  if (lenMatch && lenMatch[1]) {
+    const s = parseInt(lenMatch[1], 10);
+    if (!isNaN(s) && s > 0) return s;
+  }
+  const isoMatch = html.match(/itemprop=["']duration["']\s+content=["']PT([^"']+)["']/i);
+  if (isoMatch && isoMatch[1]) {
+    const m = isoMatch[1].match(/(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/i);
+    if (m) {
+      const h = parseInt(m[1] || "0", 10);
+      const min = parseInt(m[2] || "0", 10);
+      const s = parseInt(m[3] || "0", 10);
+      const total = h * 3600 + min * 60 + s;
+      if (total > 0) return total;
+    }
+  }
+  const approxMatch = html.match(/"approxDurationMs"\s*:\s*"(\d+)"/);
+  if (approxMatch && approxMatch[1]) {
+    const ms = parseInt(approxMatch[1], 10);
+    if (!isNaN(ms) && ms > 0) return Math.round(ms / 1e3);
+  }
+  return 0;
+}
+router9.get("/", async (req, res) => {
+  try {
+    const rawUrl = req.query.url || req.query.id || "";
+    if (!rawUrl) {
+      return res.status(400).json({ success: false, error: "Missing video url or id" });
+    }
+    const videoId = extractYouTubeId(rawUrl);
+    if (!videoId) {
+      return res.status(400).json({ success: false, error: "Invalid YouTube URL or ID" });
+    }
+    const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    const ytRes = await fetch(ytUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9"
+      }
+    });
+    if (!ytRes.ok) {
+      try {
+        const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(ytUrl)}&format=json`);
+        if (oembedRes.ok) {
+          const data = await oembedRes.json();
+          return res.json({
+            success: true,
+            videoId,
+            title: decodeHtmlEntities(data.title || "Lecture Video"),
+            durationMinutes: 30,
+            durationSeconds: 1800,
+            thumbnailUrl: data.thumbnail_url || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+          });
+        }
+      } catch {
+      }
+      return res.status(502).json({ success: false, error: "Failed to fetch YouTube page" });
+    }
+    const html = await ytRes.text();
+    let rawTitle = "";
+    const metaTitle = html.match(/<meta\s+name=["']title["']\s+content=["']([^"']+)["']/i);
+    if (metaTitle && metaTitle[1]) {
+      rawTitle = metaTitle[1];
+    } else {
+      const pageTitle = html.match(/<title>([^<]+?)(?:\s*-\s*YouTube)?<\/title>/i);
+      if (pageTitle && pageTitle[1]) {
+        rawTitle = pageTitle[1];
+      }
+    }
+    const cleanTitle = decodeHtmlEntities(rawTitle.trim()) || "Lecture Video";
+    const durationSeconds = parseDurationSeconds(html);
+    const durationMinutes = durationSeconds > 0 ? Math.max(1, Math.round(durationSeconds / 60)) : 30;
+    return res.json({
+      success: true,
+      videoId,
+      title: cleanTitle,
+      durationMinutes,
+      durationSeconds,
+      thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err?.message || "Internal server error" });
+  }
+});
+var videoMetadata_default = router9;
+
 // server/middleware/rateLimiter.ts
 function createRateLimiter(options) {
   const {
@@ -3342,7 +3447,7 @@ function createRateLimiter(options) {
 }
 
 // server/routes/index.ts
-var router9 = Router9();
+var router10 = Router10();
 var aiRateLimiter = createRateLimiter({
   windowMs: 60 * 1e3,
   max: 60,
@@ -3353,24 +3458,25 @@ var generalRateLimiter = createRateLimiter({
   max: 180,
   message: "Too many requests. Please slow down and try again in a moment."
 });
-router9.use("/drive", generalRateLimiter, drive_default);
-router9.use("/share", generalRateLimiter, share_default);
-router9.use("/leaderboard", generalRateLimiter, leaderboard_default);
-router9.use("/ai", aiRateLimiter, ai_default);
-router9.use("/", aiRateLimiter, image_default);
-router9.use("/ai", aiRateLimiter, notes_default);
-router9.use("/gemini/chatbot", aiRateLimiter, chatbot_default);
-router9.use("/gemini", aiRateLimiter, chatbot_default);
-router9.use("/gemini", aiRateLimiter, notes_default);
-router9.use("/chatbot", aiRateLimiter, chatbot_default);
-router9.use("/", aiRateLimiter, test_default);
-var routes_default = router9;
+router10.use("/drive", generalRateLimiter, drive_default);
+router10.use("/share", generalRateLimiter, share_default);
+router10.use("/leaderboard", generalRateLimiter, leaderboard_default);
+router10.use("/ai", aiRateLimiter, ai_default);
+router10.use("/video-metadata", generalRateLimiter, videoMetadata_default);
+router10.use("/", aiRateLimiter, image_default);
+router10.use("/ai", aiRateLimiter, notes_default);
+router10.use("/gemini/chatbot", aiRateLimiter, chatbot_default);
+router10.use("/gemini", aiRateLimiter, chatbot_default);
+router10.use("/gemini", aiRateLimiter, notes_default);
+router10.use("/chatbot", aiRateLimiter, chatbot_default);
+router10.use("/", aiRateLimiter, test_default);
+var routes_default = router10;
 
 // server/routes/pwa.ts
-import { Router as Router10 } from "express";
+import { Router as Router11 } from "express";
 import path2 from "path";
-var router10 = Router10();
-router10.get(["/manifest.webmanifest", "/manifest.json"], (_req, res) => {
+var router11 = Router11();
+router11.get(["/manifest.webmanifest", "/manifest.json"], (_req, res) => {
   const isWebManifest = _req.path.endsWith(".webmanifest");
   const filePath = path2.join(process.cwd(), isWebManifest ? "public/manifest.webmanifest" : "public/manifest.json");
   res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
@@ -3381,7 +3487,7 @@ router10.get(["/manifest.webmanifest", "/manifest.json"], (_req, res) => {
     }
   });
 });
-router10.get("/sw.js", (_req, res) => {
+router11.get("/sw.js", (_req, res) => {
   const filePath = path2.join(process.cwd(), "public/sw.js");
   res.setHeader("Content-Type", "application/javascript; charset=utf-8");
   res.setHeader("Service-Worker-Allowed", "/");
@@ -3392,7 +3498,7 @@ router10.get("/sw.js", (_req, res) => {
     }
   });
 });
-var pwa_default = router10;
+var pwa_default = router11;
 
 // server.ts
 dotenv.config();

@@ -40,7 +40,9 @@ import {
   RefreshCw,
   BookOpen,
   Info,
+  Loader2,
 } from 'lucide-react';
+import { fetchVideoMetadata, extractYouTubeVideoId } from '../../../lms/videoMetadataService';
 import { useApp } from '../../../lms/LmsContext';
 import {
   extractYouTubeId,
@@ -1279,6 +1281,31 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
   const [lecChapterId, setLecChapterId] = useState<string>('');
   const [lecIsFreePreview, setLecIsFreePreview] = useState(false);
   const [lecMilestones, setLecMilestones] = useState<TimelineMilestone[]>([]);
+  const [isAutoFetchingMeta, setIsAutoFetchingMeta] = useState(false);
+  const lastFetchedYtIdRef = useRef<string | null>(null);
+
+  const handleVideoUrlChange = async (url: string) => {
+    setLecVideoUrl(url);
+    const ytId = extractYouTubeVideoId(url);
+    if (!ytId || ytId === lastFetchedYtIdRef.current) return;
+    lastFetchedYtIdRef.current = ytId;
+    setIsAutoFetchingMeta(true);
+    try {
+      const meta = await fetchVideoMetadata(ytId);
+      if (meta) {
+        if (!lecTitle || lecTitle.trim() === '' || lecTitle.toLowerCase().startsWith('lecture') || lecTitle.toLowerCase().startsWith('masterclass')) {
+          setLecTitle(meta.title);
+        }
+        if (meta.durationMinutes && meta.durationMinutes > 0) {
+          setLecDuration(meta.durationMinutes);
+        }
+      }
+    } catch (err) {
+      console.warn('Auto metadata fetch error:', err);
+    } finally {
+      setIsAutoFetchingMeta(false);
+    }
+  };
 
   // Sync state when entity changes
   useEffect(() => {
@@ -1469,14 +1496,20 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
-                YouTube URL (Auto-Cloaked) *
+              <label className="text-[11px] font-bold text-[var(--md-sys-color-on-surface-variant)] flex items-center justify-between mb-1">
+                <span>YouTube URL (Auto-Cloaked) *</span>
+                {isAutoFetchingMeta && (
+                  <span className="text-[10px] text-indigo-500 font-semibold flex items-center gap-1 animate-pulse">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Auto-generating title & timing...</span>
+                  </span>
+                )}
               </label>
               <input
                 type="text"
                 required
                 value={lecVideoUrl}
-                onChange={(e) => setLecVideoUrl(e.target.value)}
+                onChange={(e) => handleVideoUrlChange(e.target.value)}
                 placeholder="https://www.youtube.com/watch?v=..."
                 className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs font-mono text-[var(--md-sys-color-on-surface)] border-none outline-none"
               />

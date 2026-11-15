@@ -27,8 +27,10 @@ import {
   ArrowRight,
   ExternalLink,
   IndianRupee,
+  Loader2,
 } from 'lucide-react';
 import { useApp } from '../../lms/LmsContext';
+import { fetchVideoMetadata, extractYouTubeVideoId } from '../../lms/videoMetadataService';
 import {
   extractYouTubeId,
   obfuscateVideoKey,
@@ -122,13 +124,33 @@ export const BatchAdminStudio: React.FC = () => {
   const [newSubjectTitle, setNewSubjectTitle] = useState('');
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [newChapterDesc, setNewChapterDesc] = useState('');
+  const [isAutoFetchingYt, setIsAutoFetchingYt] = useState(false);
+  const lastFetchedBatchYtIdRef = useRef<string | null>(null);
 
   // Handle YouTube URL paste & auto detection
-  const handleVideoUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVideoUrlChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setVideoUrlInput(val);
-    const ytId = extractYouTubeId(val);
+    const ytId = extractYouTubeVideoId(val);
     setDetectedYtId(ytId);
+    if (!ytId || ytId === lastFetchedBatchYtIdRef.current) return;
+    lastFetchedBatchYtIdRef.current = ytId;
+    setIsAutoFetchingYt(true);
+    try {
+      const meta = await fetchVideoMetadata(ytId);
+      if (meta) {
+        if (!lectureTitle.trim() || lectureTitle.toLowerCase().startsWith('lecture') || lectureTitle.toLowerCase().startsWith('video')) {
+          setLectureTitle(meta.title);
+        }
+        if (meta.durationMinutes && meta.durationMinutes > 0) {
+          setDurationMinutes(meta.durationMinutes);
+        }
+      }
+    } catch (err) {
+      console.warn('Auto metadata fetch error:', err);
+    } finally {
+      setIsAutoFetchingYt(false);
+    }
   };
 
   // Handle Google Drive URL paste & auto detection
@@ -547,9 +569,17 @@ export const BatchAdminStudio: React.FC = () => {
 
               {/* YouTube Link Input with Auto Detection */}
               <div>
-                <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
-                  YouTube Video Link (Unlisted / Public)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)]">
+                    YouTube Video Link (Unlisted / Public)
+                  </label>
+                  {isAutoFetchingYt && (
+                    <span className="text-[10px] text-indigo-500 font-semibold flex items-center gap-1 animate-pulse">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>Auto-generating title & timing...</span>
+                    </span>
+                  )}
+                </div>
                 <div className="relative">
                   <input
                     type="text"

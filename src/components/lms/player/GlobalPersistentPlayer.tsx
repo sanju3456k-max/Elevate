@@ -249,7 +249,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             <button
               type="button"
               onClick={handleMinimize}
-              className="absolute top-3 left-3 z-50 w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition border-none cursor-pointer shadow-md select-none"
+              className="absolute top-3 left-3 z-50 w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition border-none cursor-pointer shadow-md select-none md:hidden desktop-hide-back-btn"
               title="Minimize to MiniPlayer"
             >
               <ChevronDown className="w-5 h-5 stroke-[2.5]" />
