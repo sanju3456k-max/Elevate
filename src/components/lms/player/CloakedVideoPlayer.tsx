@@ -1391,13 +1391,17 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         className="absolute inset-0 z-20 flex select-none cursor-pointer"
         style={{ touchAction: 'manipulation' }}
       >
-        {/* Left 35%: double-tap rewind feedback */}
+        {/* Left 35%: double-tap rewind feedback (Ringless Minimal Modern UI) */}
         <div className="relative w-[35%] h-full flex items-center justify-center pointer-events-none">
           {seekFeedback?.side === 'left' && (
-            <div className="flex flex-col items-center justify-center bg-black/85 backdrop-blur-md rounded-full w-20 h-20 text-white animate-in zoom-in-75 duration-200 border border-white/20 shadow-2xl">
-              <RotateCcw className="w-7 h-7 mb-1 text-white" />
-              <span className="text-[11px] font-bold font-mono tracking-tight text-emerald-400">
-                -{seekFeedback.seconds}s
+            <div className="flex flex-col items-center justify-center select-none animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                <ChevronLeft className="w-8 h-8 stroke-[3] -mr-3.5 animate-pulse" />
+                <ChevronLeft className="w-8 h-8 stroke-[3] -mr-3.5 animate-pulse [animation-delay:100ms]" />
+                <ChevronLeft className="w-8 h-8 stroke-[3] animate-pulse [animation-delay:200ms]" />
+              </div>
+              <span className="mt-1.5 text-xs sm:text-sm font-semibold text-white tracking-wide drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
+                {seekFeedback.seconds} seconds
               </span>
             </div>
           )}
@@ -1406,24 +1410,28 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         {/* Center 30%: direct tap to toggle */}
         <div className="relative w-[30%] h-full pointer-events-none" />
 
-        {/* Right 35%: double-tap forward feedback */}
+        {/* Right 35%: double-tap forward feedback (Ringless Minimal Modern UI) */}
         <div className="relative w-[35%] h-full flex items-center justify-center pointer-events-none">
           {seekFeedback?.side === 'right' && (
-            <div className="flex flex-col items-center justify-center bg-black/85 backdrop-blur-md rounded-full w-20 h-20 text-white animate-in zoom-in-75 duration-200 border border-white/20 shadow-2xl">
-              <RotateCw className="w-7 h-7 mb-1 text-white" />
-              <span className="text-[11px] font-bold font-mono tracking-tight text-emerald-400">
-                +{seekFeedback.seconds}s
+            <div className="flex flex-col items-center justify-center select-none animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                <ChevronRight className="w-8 h-8 stroke-[3] animate-pulse [animation-delay:200ms]" />
+                <ChevronRight className="w-8 h-8 stroke-[3] -ml-3.5 animate-pulse [animation-delay:100ms]" />
+                <ChevronRight className="w-8 h-8 stroke-[3] -ml-3.5 animate-pulse" />
+              </div>
+              <span className="mt-1.5 text-xs sm:text-sm font-semibold text-white tracking-wide drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
+                {seekFeedback.seconds} seconds
               </span>
             </div>
           )}
         </div>
       </div>
 
-      {/* 2b. 2X Speed Floating Indicator (Shows when holding 2x speed) */}
+      {/* 2b. 2X Speed Floating Indicator (Minimal modern pill without harsh rings) */}
       {is2xSpeedActive && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 bg-black/85 backdrop-blur-md text-amber-400 font-bold text-xs sm:text-sm px-4 py-1.5 rounded-full shadow-2xl flex items-center space-x-2 border border-amber-400/30 animate-in fade-in zoom-in-95 pointer-events-none select-none">
-          <FastForward className="w-4 h-4 text-amber-400 fill-current animate-pulse" />
-          <span className="tracking-wider uppercase text-white font-mono text-[11px] sm:text-xs">2X Speed</span>
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 bg-black/75 text-white text-xs sm:text-sm font-semibold px-3.5 py-1 rounded-full shadow-xl flex items-center space-x-1.5 border border-white/10 animate-in fade-in zoom-in-95 duration-150 pointer-events-none select-none">
+          <FastForward className="w-3.5 h-3.5 text-amber-400 fill-current animate-pulse" />
+          <span className="tracking-wide">2X Speed</span>
         </div>
       )}
 
@@ -1441,11 +1449,11 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 4. Center Play/Pause Floating Control (Only in expanded player view, prominent and touch-friendly) */}
+      {/* 4. Center Play/Pause Floating Control (Only in expanded player view, prominent and touch-friendly, zero blur) */}
       {(isControlsVisible || !isPlaying) && isPlayerReady && authStatus === 'authorized' && hasEverPlayed && (
         <div
-          className={`absolute inset-0 z-22 flex items-center justify-center pointer-events-none transition-all ${
-            !isPlaying ? 'bg-black/40 backdrop-blur-[1.5px]' : ''
+          className={`absolute inset-0 z-22 flex items-center justify-center pointer-events-none transition-opacity duration-200 ${
+            !isPlaying ? 'bg-black/15' : 'bg-transparent'
           }`}
         >
           <button
@@ -1460,7 +1468,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             onMouseDown={(e) => {
               e.stopPropagation();
             }}
-            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-black/65 hover:bg-black/85 backdrop-blur-md text-white border border-white/20 flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition transform border-none cursor-pointer pointer-events-auto"
+            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all duration-150 border-none cursor-pointer pointer-events-auto"
             title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
           >
             {isPlaying ? (
