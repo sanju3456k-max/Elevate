@@ -627,6 +627,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         secureStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(next));
         secureStorage.setItem('elevatelabs_cloud_batches_cache', JSON.stringify(next));
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('math_mock_batches_cache', JSON.stringify(next));
+          window.localStorage.setItem('math_mock_batches_cache_time', String(Date.now()));
+        }
       } catch {}
       return next;
     });
@@ -651,7 +655,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const deleteBatch = async (id: string) => {
-    setBatches((prev) => prev.filter((b) => b.id !== id));
+    setBatches((prev) => {
+      const next = prev.filter((b) => b.id !== id);
+      try {
+        secureStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(next));
+        secureStorage.setItem('elevatelabs_cloud_batches_cache', JSON.stringify(next));
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('math_mock_batches_cache', JSON.stringify(next));
+          window.localStorage.setItem('math_mock_batches_cache_time', String(Date.now()));
+        }
+      } catch {}
+      return next;
+    });
     await deleteBatchFromFirestore(id);
   };
 
@@ -1094,8 +1109,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const targetBatch = batches.find((b) => b.id === batchId);
     if (!targetBatch) return;
     const nextState = !targetBatch.allowGuestAccess;
-    const updated = { ...targetBatch, allowGuestAccess: nextState };
-    setBatches((prev) => prev.map((b) => (b.id === batchId ? updated : b)));
+    const nowIso = new Date().toISOString();
+    const updated = { ...targetBatch, allowGuestAccess: nextState, updatedAt: nowIso };
+    setBatches((prev) => {
+      const next = prev.map((b) => (b.id === batchId ? updated : b));
+      try {
+        secureStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(next));
+        secureStorage.setItem('elevatelabs_cloud_batches_cache', JSON.stringify(next));
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('math_mock_batches_cache', JSON.stringify(next));
+          window.localStorage.setItem('math_mock_batches_cache_time', String(Date.now()));
+        }
+      } catch {}
+      return next;
+    });
     showSecurityToast(
       nextState
         ? `Guest access enabled for "${targetBatch.title}". Open to all visitors.`
@@ -1103,8 +1130,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
     try {
       const batchRef = doc(db, 'batches', batchId);
-      await setDoc(batchRef, { allowGuestAccess: nextState }, { merge: true });
+      await setDoc(batchRef, { allowGuestAccess: nextState, updatedAt: nowIso }, { merge: true });
       touchBatchCatalogBeacon().catch(() => {});
+      window.dispatchEvent(new CustomEvent('batch-catalog-updated', { detail: { batchId, updated: { allowGuestAccess: nextState } } }));
     } catch {
       await syncBatchToFirestore(updated).catch(() => {});
     }
@@ -1112,8 +1140,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // 4. Multi-Factor Batch Enrollment Check (Supports Master Admin, Enrolled Students, and Active Guest Sessions)
   const isEnrolled = (batchId: string): boolean => {
-    // 1. Authenticated Master Admin always has preview and authoring rights
-    if (isMasterUser(auth.currentUser) || user.role === 'admin') return true;
+    // 1. Authenticated Master Admin or Faculty always has preview and authoring rights
+    if (isMasterUser(auth.currentUser) || user.role === 'admin' || (user as any)?.role === 'teacher') return true;
 
     const b = batches.find((x) => x.id === batchId);
     // DRAFT LOCK: If batch is unpublished / in Draft mode, it is completely locked for students & guests!

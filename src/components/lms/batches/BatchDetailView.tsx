@@ -139,7 +139,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     toggleBatchGuestAccess,
   } = useApp();
 
-  const isMaster = Boolean(isMasterEditMode) || isMasterUser(auth.currentUser) || user?.role === 'admin';
+  const isMaster = Boolean(isMasterEditMode) || isMasterUser(auth.currentUser) || user?.role === 'admin' || (user as any)?.role === 'teacher';
 
   // Modal state for Creating New Batch (Master User)
   const [isCreateBatchModalOpen, setIsCreateBatchModalOpen] = useState(false);
@@ -1058,7 +1058,19 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                       <span className="truncate max-w-[120px] font-medium">{b.instructor?.name || 'Elevate Faculty'}</span>
                     </div>
 
-                    {isEnrolled(b.id) ? (
+                    {isMaster && b.isPublished === false ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          goToBatchFolders(b.id);
+                        }}
+                        className="m3-btn-tonal px-3 sm:px-3.5 py-1.5 text-xs font-bold flex items-center space-x-1.5 bg-amber-500/15 text-amber-800 dark:text-amber-200 border-none outline-none cursor-pointer rounded-full hover:bg-amber-500/25 transition"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                        <span>Manage Draft</span>
+                      </button>
+                    ) : isEnrolled(b.id) ? (
                       <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center space-x-1">
                         <CheckCircle className="w-4 h-4" />
                         <span>Enrolled</span>
@@ -1085,7 +1097,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                         className="m3-btn-tonal px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold flex items-center space-x-1 text-slate-500 opacity-80 border-none outline-none cursor-pointer"
                       >
                         <Lock className="w-3.5 h-3.5" />
-                        <span>Locked</span>
+                        <span>Locked {b.price ? `(₹${b.price})` : ''}</span>
                       </button>
                     )}
                   </div>
@@ -1312,6 +1324,30 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             </div>
           )}
         </div>
+
+        {/* Draft Mode Notice Banner (Faculty only) */}
+        {isMaster && currentBatch && currentBatch.isPublished === false && (
+          <div className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200">
+            <div className="flex items-center space-x-2.5 min-w-0">
+              <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <div className="text-xs">
+                <p className="font-bold">Draft Mode Active</p>
+                <p className="text-[11px] opacity-90 truncate max-w-xs sm:max-w-md">This course is hidden from students. Only instructors can access and edit curriculum.</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                updateBatch(currentBatch.id, { isPublished: true });
+                showSecurityToast(`Batch "${currentBatch.title}" is now Published (Live)!`);
+              }}
+              className="px-3.5 py-1.5 rounded-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center space-x-1.5 shadow-xs transition border-none cursor-pointer shrink-0 ml-2"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>Publish (Go Live)</span>
+            </button>
+          </div>
+        )}
 
         {/* TOP TOGGLE BAR: VIDEOS | NOTES | TESTS (Only displayed inside subfolders; hidden on batch root folder listing) */}
         {shouldShowContentTabs && (

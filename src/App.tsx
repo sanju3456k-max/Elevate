@@ -2175,6 +2175,7 @@ export default function App() {
                 initialChapterId={selectedChapterId}
                 initialFolderTab={selectedFolderTab}
                 initialSeekSeconds={initialSeekSeconds}
+                isMasterEditMode={isMasterUser(currentUser || cachedUser) || (userProfile as any)?.role === 'admin'}
                 onBatchChange={(batchId) => {
                   setSelectedBatchId(batchId);
                   if (!batchId) setBatchesStage('batch_list');

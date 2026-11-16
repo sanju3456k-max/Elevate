@@ -83,7 +83,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   // Filter state for the 4 core buttons: 'all-batches' | 'my-batches' | 'test-library' | 'activity'
   const [activeView, setActiveView] = useState<'all-batches' | 'my-batches' | 'test-library' | 'activity'>('all-batches');
 
-  const isMaster = isMasterUser(currentUser);
+  const isMaster = isMasterUser(currentUser) || (userProfile as any)?.role === 'admin';
 
   // Check if test was created within the last 2 days (48 hours) and has not been attempted yet
   const isTestNew = (test: MathTest | null): boolean => {
@@ -758,6 +758,17 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
         <span className="absolute top-1.5 left-1.5 sm:top-3 sm:left-3 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-[var(--md-sys-color-surface-container-highest)]/90 backdrop-blur-md text-[var(--md-sys-color-on-surface)] text-[9px] sm:text-xs font-semibold border-none">
           {batch.category || 'Batch #01'}
         </span>
+        {batch.isPublished === false ? (
+          <span className="absolute top-1.5 right-1.5 sm:top-3 sm:right-3 px-2 sm:px-2.5 py-0.5 rounded-full bg-amber-600/90 backdrop-blur-md text-white font-bold text-[9px] sm:text-[10px] uppercase tracking-wider flex items-center space-x-1 shadow-xs">
+            <Lock className="w-3 h-3" />
+            <span>Draft</span>
+          </span>
+        ) : batch.allowGuestAccess ? (
+          <span className="absolute top-1.5 right-1.5 sm:top-3 sm:right-3 px-2 sm:px-2.5 py-0.5 rounded-full bg-emerald-600/90 backdrop-blur-md text-white font-bold text-[9px] sm:text-[10px] uppercase tracking-wider flex items-center space-x-1 shadow-xs">
+            <Sparkles className="w-3 h-3" />
+            <span>Guest Pass</span>
+          </span>
+        ) : null}
         <div className="absolute bottom-1.5 left-1.5 right-1.5 sm:bottom-3 sm:left-3 sm:right-3 flex items-center justify-between text-[9px] sm:text-xs text-white">
           <span className="flex items-center space-x-1 bg-black/60 backdrop-blur-xs px-1.5 sm:px-2.5 py-0.5 rounded-full">
             <Star className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-amber-400 fill-current" />
