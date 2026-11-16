@@ -239,13 +239,16 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     extractYouTubeId(rawVideoId) ||
     (/^[a-zA-Z0-9_-]{11}$/.test(rawVideoId) ? rawVideoId : 'WUvTyaaNkzM');
 
-  // Multi-tier HD thumbnail resolution (maxresdefault 1280x720 -> sddefault 640x480 -> hqdefault 480x360)
+  // Multi-tier HD thumbnail resolution via cloaked server thumbnail proxy
+  const cloakedPoster = encryptedVideoId
+    ? `/api/video-thumbnail?token=${encodeURIComponent(encryptedVideoId)}`
+    : (thumbnailUrl && !thumbnailUrl.includes('img.youtube.com') ? thumbnailUrl : '');
+
   const posterSource =
     posterUrl ||
-    (thumbnailUrl && !thumbnailUrl.includes('hqdefault.jpg') ? thumbnailUrl : null) ||
-    (safeVideoId ? `https://img.youtube.com/vi/${safeVideoId}/maxresdefault.jpg` : '') ||
-    thumbnailUrl ||
-    '';
+    cloakedPoster ||
+    (thumbnailUrl && !thumbnailUrl.includes('img.youtube.com') ? thumbnailUrl : '') ||
+    '/assets/default-course-banner.png';
 
   const [activePosterImage, setActivePosterImage] = useState<string>(posterSource);
 
@@ -1080,12 +1083,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
               src={activePosterImage}
               alt={title}
               onError={(e) => {
-                const cur = e.currentTarget.src;
-                if (cur.includes('maxresdefault.jpg') && safeVideoId) {
-                  e.currentTarget.src = `https://img.youtube.com/vi/${safeVideoId}/sddefault.jpg`;
-                } else if (cur.includes('sddefault.jpg') && safeVideoId) {
-                  e.currentTarget.src = `https://img.youtube.com/vi/${safeVideoId}/hqdefault.jpg`;
-                }
+                e.currentTarget.src = '/assets/default-course-banner.png';
               }}
               className="w-full h-full object-cover"
             />
@@ -1114,12 +1112,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
               src={activePosterImage}
               alt={title}
               onError={(e) => {
-                const cur = e.currentTarget.src;
-                if (cur.includes('maxresdefault.jpg') && safeVideoId) {
-                  e.currentTarget.src = `https://img.youtube.com/vi/${safeVideoId}/sddefault.jpg`;
-                } else if (cur.includes('sddefault.jpg') && safeVideoId) {
-                  e.currentTarget.src = `https://img.youtube.com/vi/${safeVideoId}/hqdefault.jpg`;
-                }
+                e.currentTarget.src = '/assets/default-course-banner.png';
               }}
               className="absolute inset-0 w-full h-full object-cover sm:object-contain bg-black brightness-95 transition-opacity duration-300 pointer-events-none"
             />

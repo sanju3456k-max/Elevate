@@ -3,7 +3,7 @@ import express from "express";
 import dotenv from "dotenv";
 
 // server/routes/index.ts
-import { Router as Router10 } from "express";
+import { Router as Router11 } from "express";
 
 // server/routes/drive.ts
 import { Router } from "express";
@@ -3291,6 +3291,7 @@ var ai_default = router8;
 // server/routes/videoMetadata.ts
 import { Router as Router9 } from "express";
 var router9 = Router9();
+var OBFUSCATION_SALT = "EDUPULSE_SECURE_TOKEN_v1";
 function extractYouTubeId(urlOrId) {
   if (!urlOrId || typeof urlOrId !== "string") return null;
   const trimmed = urlOrId.trim();
@@ -3301,6 +3302,43 @@ function extractYouTubeId(urlOrId) {
     /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/|live\/))([a-zA-Z0-9_-]{11})/i
   );
   return match ? match[1] : null;
+}
+function obfuscateToken(rawId) {
+  try {
+    const encoded = encodeURIComponent(rawId);
+    let output = "";
+    for (let i = 0; i < encoded.length; i++) {
+      const charCode = encoded.charCodeAt(i) ^ OBFUSCATION_SALT.charCodeAt(i % OBFUSCATION_SALT.length);
+      output += String.fromCharCode(charCode);
+    }
+    return Buffer.from(output, "latin1").toString("base64");
+  } catch {
+    return Buffer.from(rawId).toString("base64");
+  }
+}
+function deobfuscateToken(token) {
+  if (!token || typeof token !== "string") return null;
+  const trimmed = token.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+  try {
+    const decoded = Buffer.from(trimmed, "base64").toString("latin1");
+    let output = "";
+    for (let i = 0; i < decoded.length; i++) {
+      const charCode = decoded.charCodeAt(i) ^ OBFUSCATION_SALT.charCodeAt(i % OBFUSCATION_SALT.length);
+      output += String.fromCharCode(charCode);
+    }
+    const candidate = decodeURIComponent(output).trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(candidate)) return candidate;
+    const match = candidate.match(/[a-zA-Z0-9_-]{11}/);
+    if (match) return match[0];
+  } catch {
+  }
+  try {
+    const plain = Buffer.from(trimmed, "base64").toString("utf-8").trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(plain)) return plain;
+  } catch {
+  }
+  return null;
 }
 function decodeHtmlEntities(str) {
   if (!str) return "";
@@ -3330,17 +3368,18 @@ function parseDurationSeconds(html) {
   }
   return 0;
 }
-router9.get("/", async (req, res) => {
+async function handleMetadataRequest(rawInput, res) {
+  if (!rawInput) {
+    return res.status(400).json({ success: false, error: "Missing video input" });
+  }
+  let videoId = deobfuscateToken(rawInput) || extractYouTubeId(rawInput);
+  if (!videoId) {
+    return res.status(400).json({ success: false, error: "Invalid video identifier" });
+  }
+  const token = obfuscateToken(videoId);
+  const cloakedThumbnailUrl = `/api/video-thumbnail?token=${encodeURIComponent(token)}`;
+  const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;
   try {
-    const rawUrl = req.query.url || req.query.id || "";
-    if (!rawUrl) {
-      return res.status(400).json({ success: false, error: "Missing video url or id" });
-    }
-    const videoId = extractYouTubeId(rawUrl);
-    if (!videoId) {
-      return res.status(400).json({ success: false, error: "Invalid YouTube URL or ID" });
-    }
-    const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;
     const ytRes = await fetch(ytUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -3354,16 +3393,16 @@ router9.get("/", async (req, res) => {
           const data = await oembedRes.json();
           return res.json({
             success: true,
-            videoId,
             title: decodeHtmlEntities(data.title || "Lecture Video"),
             durationMinutes: 30,
             durationSeconds: 1800,
-            thumbnailUrl: data.thumbnail_url || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+            thumbnailUrl: cloakedThumbnailUrl,
+            token
           });
         }
       } catch {
       }
-      return res.status(502).json({ success: false, error: "Failed to fetch YouTube page" });
+      return res.status(502).json({ success: false, error: "Failed to fetch video details" });
     }
     const html = await ytRes.text();
     let rawTitle = "";
@@ -3381,17 +3420,108 @@ router9.get("/", async (req, res) => {
     const durationMinutes = durationSeconds > 0 ? Math.max(1, Math.round(durationSeconds / 60)) : 30;
     return res.json({
       success: true,
-      videoId,
       title: cleanTitle,
       durationMinutes,
       durationSeconds,
-      thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+      thumbnailUrl: cloakedThumbnailUrl,
+      token
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err?.message || "Internal server error" });
   }
+}
+router9.post("/", async (req, res) => {
+  const rawInput = req.body?.token || req.body?.url || req.body?.id || "";
+  await handleMetadataRequest(rawInput, res);
+});
+router9.get("/", async (req, res) => {
+  const rawInput = req.query?.token || req.query?.url || req.query?.id || "";
+  await handleMetadataRequest(rawInput, res);
 });
 var videoMetadata_default = router9;
+
+// server/routes/videoThumbnail.ts
+import { Router as Router10 } from "express";
+var router10 = Router10();
+var OBFUSCATION_SALT2 = "EDUPULSE_SECURE_TOKEN_v1";
+function deobfuscateVideoKey(token) {
+  if (!token || typeof token !== "string") return null;
+  const trimmed = token.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+  try {
+    const decoded = Buffer.from(trimmed, "base64").toString("latin1");
+    let output = "";
+    for (let i = 0; i < decoded.length; i++) {
+      const charCode = decoded.charCodeAt(i) ^ OBFUSCATION_SALT2.charCodeAt(i % OBFUSCATION_SALT2.length);
+      output += String.fromCharCode(charCode);
+    }
+    const candidate = decodeURIComponent(output).trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(candidate)) return candidate;
+    const match = candidate.match(/[a-zA-Z0-9_-]{11}/);
+    if (match) return match[0];
+  } catch {
+  }
+  try {
+    const plain = Buffer.from(trimmed, "base64").toString("utf-8").trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(plain)) return plain;
+  } catch {
+  }
+  return null;
+}
+var thumbnailCache = /* @__PURE__ */ new Map();
+router10.get("/", async (req, res) => {
+  try {
+    const rawToken = req.query.token || req.query.id || "";
+    if (!rawToken) {
+      return res.status(400).send("Missing token");
+    }
+    const videoId = deobfuscateVideoKey(rawToken);
+    if (!videoId) {
+      return res.status(404).send("Invalid video token");
+    }
+    const quality = req.query.quality || "hq";
+    let filename = "hqdefault.jpg";
+    if (quality === "maxres") filename = "maxresdefault.jpg";
+    else if (quality === "sd") filename = "sddefault.jpg";
+    const cacheKey = `${videoId}_${filename}`;
+    if (thumbnailCache.has(cacheKey)) {
+      const cached = thumbnailCache.get(cacheKey);
+      res.setHeader("Content-Type", cached.contentType);
+      res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400, immutable");
+      return res.send(cached.buffer);
+    }
+    const ytUrl = `https://img.youtube.com/vi/${videoId}/${filename}`;
+    let ytRes = await fetch(ytUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      }
+    });
+    if (!ytRes.ok && filename !== "hqdefault.jpg") {
+      ytRes = await fetch(`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+    }
+    if (!ytRes.ok) {
+      return res.status(404).send("Thumbnail not found");
+    }
+    const arrayBuffer = await ytRes.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const contentType = ytRes.headers.get("content-type") || "image/jpeg";
+    if (thumbnailCache.size > 250) {
+      const firstKey = thumbnailCache.keys().next().value;
+      if (firstKey) thumbnailCache.delete(firstKey);
+    }
+    thumbnailCache.set(cacheKey, { buffer, contentType });
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400, immutable");
+    return res.send(buffer);
+  } catch (err) {
+    return res.status(500).send("Failed to stream thumbnail");
+  }
+});
+var videoThumbnail_default = router10;
 
 // server/middleware/rateLimiter.ts
 function createRateLimiter(options) {
@@ -3444,7 +3574,7 @@ function createRateLimiter(options) {
 }
 
 // server/routes/index.ts
-var router10 = Router10();
+var router11 = Router11();
 var aiRateLimiter = createRateLimiter({
   windowMs: 60 * 1e3,
   max: 60,
@@ -3455,19 +3585,20 @@ var generalRateLimiter = createRateLimiter({
   max: 180,
   message: "Too many requests. Please slow down and try again in a moment."
 });
-router10.use("/drive", generalRateLimiter, drive_default);
-router10.use("/share", generalRateLimiter, share_default);
-router10.use("/leaderboard", generalRateLimiter, leaderboard_default);
-router10.use("/ai", aiRateLimiter, ai_default);
-router10.use("/video-metadata", generalRateLimiter, videoMetadata_default);
-router10.use("/", aiRateLimiter, image_default);
-router10.use("/ai", aiRateLimiter, notes_default);
-router10.use("/gemini/chatbot", aiRateLimiter, chatbot_default);
-router10.use("/gemini", aiRateLimiter, chatbot_default);
-router10.use("/gemini", aiRateLimiter, notes_default);
-router10.use("/chatbot", aiRateLimiter, chatbot_default);
-router10.use("/", aiRateLimiter, test_default);
-var routes_default = router10;
+router11.use("/drive", generalRateLimiter, drive_default);
+router11.use("/share", generalRateLimiter, share_default);
+router11.use("/leaderboard", generalRateLimiter, leaderboard_default);
+router11.use("/ai", aiRateLimiter, ai_default);
+router11.use("/video-metadata", generalRateLimiter, videoMetadata_default);
+router11.use("/video-thumbnail", generalRateLimiter, videoThumbnail_default);
+router11.use("/", aiRateLimiter, image_default);
+router11.use("/ai", aiRateLimiter, notes_default);
+router11.use("/gemini/chatbot", aiRateLimiter, chatbot_default);
+router11.use("/gemini", aiRateLimiter, chatbot_default);
+router11.use("/gemini", aiRateLimiter, notes_default);
+router11.use("/chatbot", aiRateLimiter, chatbot_default);
+router11.use("/", aiRateLimiter, test_default);
+var routes_default = router11;
 
 // server/api.ts
 dotenv.config();

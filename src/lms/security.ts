@@ -116,15 +116,25 @@ export function deobfuscateVideoKey(encryptedKey: string): string {
  */
 export function getLectureThumbnailUrl(lecture: { encryptedVideoId?: string; thumbnailUrl?: string } | null | undefined): string {
   if (!lecture) return '/assets/default-course-banner.png';
+
+  // 1. If lecture has an encrypted video ID, ALWAYS route through cloaked server thumbnail proxy
+  if (lecture.encryptedVideoId) {
+    return `/api/video-thumbnail?token=${encodeURIComponent(lecture.encryptedVideoId)}`;
+  }
+
+  // 2. If legacy thumbnailUrl contains img.youtube.com, cloak it immediately
+  if (lecture.thumbnailUrl && lecture.thumbnailUrl.includes('img.youtube.com')) {
+    const m = lecture.thumbnailUrl.match(/\/vi\/([a-zA-Z0-9_-]{11})\//);
+    if (m && m[1]) {
+      return `/api/video-thumbnail?token=${encodeURIComponent(obfuscateVideoKey(m[1]))}`;
+    }
+  }
+
+  // 3. Custom internal or uploaded thumbnail
   if (lecture.thumbnailUrl && !lecture.thumbnailUrl.includes('unsplash.com') && lecture.thumbnailUrl.trim() !== '') {
     return lecture.thumbnailUrl;
   }
-  if (lecture.encryptedVideoId) {
-    const rawYtId = deobfuscateVideoKey(lecture.encryptedVideoId);
-    if (rawYtId && rawYtId.length === 11) {
-      return `https://img.youtube.com/vi/${rawYtId}/hqdefault.jpg`;
-    }
-  }
+
   return lecture.thumbnailUrl || '/assets/default-course-banner.png';
 }
 

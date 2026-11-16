@@ -44,7 +44,6 @@ import { isMasterUser, getGlobalPublishedTests } from '../../../lib/masterAccoun
 import { getTestDurationMinutes } from '../../../utils/testFormatConverter';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
 import { formatDuration, extractYouTubeId, obfuscateVideoKey, getLectureThumbnailUrl, deobfuscateVideoKey } from '../../../lms/security';
-import { fetchVideoMetadata } from '../../../lms/videoMetadataService';
 import type { PdfNote, Chapter, Lecture, Batch } from '../../../lms/types';
 import type { MathTest } from '../../../types';
 import { useBackHandler } from '../../../hooks/useBackNavigation';
@@ -382,7 +381,6 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   const [exactDurations, setExactDurations] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    let isMounted = true;
     folderLectures.forEach((lec) => {
       // 1. From existing watch progress
       const progressSec = watchProgress[lec.id]?.totalSeconds;
@@ -390,32 +388,21 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         setExactDurations((prev) => (prev[lec.id] === progressSec ? prev : { ...prev, [lec.id]: progressSec }));
         return;
       }
-      // 2. From lecture record
+      // 2. From lecture record durationSeconds
       if (lec.durationSeconds && lec.durationSeconds > 0) {
         setExactDurations((prev) => (prev[lec.id] === lec.durationSeconds ? prev : { ...prev, [lec.id]: lec.durationSeconds! }));
         return;
       }
-      // 3. From YouTube metadata service
-      const rawId = deobfuscateVideoKey(lec.encryptedVideoId);
-      if (rawId && rawId.length === 11) {
-        fetchVideoMetadata(rawId)
-          .then((meta) => {
-            if (!isMounted || !meta) return;
-            if (meta.durationSeconds && meta.durationSeconds > 0) {
-              setExactDurations((prev) => ({ ...prev, [lec.id]: meta.durationSeconds! }));
-              updateLecture(lec.id, {
-                durationSeconds: meta.durationSeconds,
-                durationMinutes: meta.durationMinutes,
-              });
-            }
-          })
-          .catch(() => {});
+      // 3. Fallback from lecture record durationMinutes
+      if (lec.durationMinutes && lec.durationMinutes > 0) {
+        const sec = lec.durationMinutes * 60;
+        setExactDurations((prev) => (prev[lec.id] === sec ? prev : { ...prev, [lec.id]: sec }));
+        return;
       }
+      // 4. Safe default fallback (1800s)
+      setExactDurations((prev) => (prev[lec.id] ? prev : { ...prev, [lec.id]: 1800 }));
     });
-    return () => {
-      isMounted = false;
-    };
-  }, [folderLectures, watchProgress, updateLecture]);
+  }, [folderLectures, watchProgress]);
 
   // Total videos count (all batch videos if at root, or chapter videos if inside a chapter)
   const totalFolderVideosCount = useMemo(() => {
@@ -1748,7 +1735,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 encryptedVideoId: obfuscated,
                 durationMinutes,
                 isFreePreview,
-                thumbnailUrl: `https://img.youtube.com/vi/${rawYtId}/hqdefault.jpg`,
+                thumbnailUrl: `/api/video-thumbnail?token=${encodeURIComponent(obfuscated)}`,
                 pdfNotes: notes.length > 0 ? notes : editingLecture.pdfNotes,
               });
               showSecurityToast(`Lecture "${title}" updated.`);
@@ -1764,7 +1751,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 durationMinutes,
                 isFreePreview,
                 order: folderLectures.length + 1,
-                thumbnailUrl: `https://img.youtube.com/vi/${rawYtId}/hqdefault.jpg`,
+                thumbnailUrl: `/api/video-thumbnail?token=${encodeURIComponent(obfuscated)}`,
                 pdfNotes: notes,
               });
               showSecurityToast(`Lecture "${title}" added.`);

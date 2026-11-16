@@ -189,7 +189,7 @@ export const BatchAdminStudio: React.FC = () => {
     }
 
     const encryptedKey = obfuscateVideoKey(detectedYtId);
-    const generatedThumbnail = `https://img.youtube.com/vi/${detectedYtId}/hqdefault.jpg`;
+    const generatedThumbnail = `/api/video-thumbnail?token=${encodeURIComponent(encryptedKey)}`;
 
     const notesList = [];
     if (pdfTitle.trim()) {

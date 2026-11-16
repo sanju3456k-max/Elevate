@@ -2542,7 +2542,7 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
                   if (!lecTitle.trim() || !lecVideoUrl.trim()) return;
                   const ytId = extractYouTubeId(lecVideoUrl.trim()) || 'WUvTyaaNkzM';
                   const encKey = obfuscateVideoKey(ytId);
-                  const generatedThumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+                  const generatedThumb = `/api/video-thumbnail?token=${encodeURIComponent(encKey)}`;
 
                   if (entity.type === 'new_lecture') {
                     onAddLecture({
