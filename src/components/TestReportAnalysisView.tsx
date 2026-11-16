@@ -29,7 +29,8 @@ import {
   FileText,
   Maximize2,
   Minimize2,
-  Trophy
+  Trophy,
+  AlertCircle
 } from 'lucide-react';
 import type { TestAttempt, MathTest, MathQuestion, TestLeaderboardSummary } from '../types';
 import { getQuestionExplanation } from '../types';
@@ -40,6 +41,7 @@ import { APP_STYLES } from './ui/AppStyles';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { MathRenderer } from './MathRenderer';
 import { QuestionDiagramViewer } from './QuestionDiagramViewer';
+import { initFocusLossProtector, enableContentSecurityDeterrence } from '../lms/security';
 
 export interface TestReportAnalysisViewProps {
   attempt: TestAttempt;
@@ -343,6 +345,18 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
   }, [attempt?.testId, attempt?.testTitle, isRemedial]);
   const [extraAddonsPrompt, setExtraAddonsPrompt] = useState<string>('');
   const promptBarInputRef = useRef<HTMLInputElement>(null);
+  const [isWindowObscured, setIsWindowObscured] = useState<boolean>(false);
+
+  useEffect(() => {
+    const cleanupFocus = initFocusLossProtector((obscured) => {
+      setIsWindowObscured(obscured);
+    });
+    const cleanupDeterrence = enableContentSecurityDeterrence();
+    return () => {
+      cleanupFocus();
+      cleanupDeterrence();
+    };
+  }, []);
 
   const handleOpenSubtopicQuestions = (sub: SubtopicAnalysisItem, initialQNum?: number) => {
     setSelectedSubtopicQuestionsModal({
@@ -1235,6 +1249,28 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
 
   return (
     <div className={`fixed inset-0 md:top-[58px] md:h-[calc(100dvh-58px)] z-30 ${APP_STYLES.page} overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin]`}>
+      {/* Anti-Screenshot & Screen Blackout Veil */}
+      {isWindowObscured && (
+        <div
+          onClick={() => setIsWindowObscured(false)}
+          className="fixed inset-0 z-[999999] bg-black flex flex-col items-center justify-center p-6 text-center text-white select-none cursor-pointer"
+        >
+          <div className="w-16 h-16 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mb-3 ring-4 ring-amber-500/10">
+            <AlertCircle className="w-8 h-8" />
+          </div>
+          <h3 className="text-base sm:text-lg font-bold text-white mb-1">
+            Protected Solutions Window
+          </h3>
+          <p className="text-xs text-slate-300 max-w-sm mb-4 leading-relaxed">
+            Screen capture, multi-finger gesture, or window focus change detected. Tap anywhere to resume viewing solutions.
+          </p>
+          <div className="flex items-center space-x-2 text-[10px] font-mono text-amber-400/90 bg-amber-950/60 px-3.5 py-1.5 rounded-full border border-amber-500/30">
+            <span>Solutions Protection Active</span>
+            <span>•</span>
+            <span>Anti-Capture Protected</span>
+          </div>
+        </div>
+      )}
       {/* Transparent Clean Header Banner (Minimal, No Subtopic Tags at Top) */}
       <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] md:pt-3">
         <div className="flex items-center justify-between gap-3 px-0.5 py-1">

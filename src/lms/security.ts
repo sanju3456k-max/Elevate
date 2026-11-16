@@ -196,35 +196,117 @@ export function enableContentSecurityDeterrence(onViolation?: (reason: string) =
 }
 
 /**
- * Focus-Loss & Screen Recording / Snipping Tool Protector
- * Detects when the window loses focus (e.g. Snipping Tool Win+Shift+S, OBS recording, or background alt-tab)
- * and notifies subscribers so the video player or active test can obscure/blackout content.
+ * Focus-Loss & Screen Recording / Snipping Tool / Mobile Anti-Screenshot Protector
+ * Detects:
+ * 1. Mobile 3-finger swipe screenshot gestures (touchstart, touchmove with >= 3 touches) -> instant blackout
+ * 2. Mobile hardware button combinations (Volume Down + Power / AudioVolumeDown / PrintScreen)
+ * 3. Window blur / notification shade pull-down / app switcher on mobile
+ * 4. Desktop Snipping Tool (Win+Shift+S, PrintScreen, Alt-Tab)
+ * and immediately covers the screen in 100% pitch-black veil so any capture results in a black image.
  */
 export function initFocusLossProtector(onObscuredChange: (isObscured: boolean) => void): () => void {
-  const handleBlur = () => {
+  let touchTimeout: any = null;
+  let focusDebounceTimeout: any = null;
+
+  const triggerBlackout = (persistMs: number = 2000) => {
     onObscuredChange(true);
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText('').catch(() => {});
+      }
+    } catch {}
+
+    if (touchTimeout) clearTimeout(touchTimeout);
+    if (persistMs > 0) {
+      touchTimeout = setTimeout(() => {
+        if (typeof document !== 'undefined' && !document.hidden && document.hasFocus()) {
+          onObscuredChange(false);
+        }
+      }, persistMs);
+    }
+  };
+
+  const handleBlur = () => {
+    triggerBlackout(0);
   };
 
   const handleFocus = () => {
-    onObscuredChange(false);
+    // When focus returns, wait 400ms before removing blackout so mobile screenshot rendering pipeline only captures pure black
+    if (focusDebounceTimeout) clearTimeout(focusDebounceTimeout);
+    focusDebounceTimeout = setTimeout(() => {
+      if (typeof document !== 'undefined' && !document.hidden && document.hasFocus()) {
+        onObscuredChange(false);
+      }
+    }, 400);
   };
 
   const handleVisibility = () => {
     if (document.visibilityState === 'hidden') {
-      onObscuredChange(true);
+      triggerBlackout(0);
     } else if (document.hasFocus()) {
-      onObscuredChange(false);
+      handleFocus();
+    }
+  };
+
+  const handlePageHide = () => {
+    triggerBlackout(0);
+  };
+
+  // 1. Mobile Multi-finger Touch Detection (Android 3-Finger Swipe Screenshot)
+  const handleTouchStart = (e: TouchEvent) => {
+    if (e.touches && e.touches.length >= 3) {
+      try {
+        if (e.cancelable) e.preventDefault();
+      } catch {}
+      e.stopPropagation();
+      triggerBlackout(2500);
+    }
+  };
+
+  const handleTouchMove = (e: TouchEvent) => {
+    if (e.touches && e.touches.length >= 3) {
+      try {
+        if (e.cancelable) e.preventDefault();
+      } catch {}
+      e.stopPropagation();
+      triggerBlackout(2500);
+    }
+  };
+
+  // 2. Mobile Hardware Volume Buttons & Screenshot Keys
+  const handleKeyDown = (e: KeyboardEvent) => {
+    const key = e.key || '';
+    const code = e.code || '';
+    const keyCode = e.keyCode;
+
+    // Mobile Android Volume Down / Up / Snapshot / PrintScreen
+    const isVolDown = key === 'AudioVolumeDown' || code === 'VolumeDown' || keyCode === 25;
+    const isVolUp = key === 'AudioVolumeUp' || code === 'VolumeUp' || keyCode === 24;
+    const isPrintScreen = key === 'PrintScreen' || key === 'Snapshot' || code === 'PrintScreen' || keyCode === 44;
+
+    if (isVolDown || isVolUp || isPrintScreen) {
+      triggerBlackout(2000);
     }
   };
 
   window.addEventListener('blur', handleBlur);
   window.addEventListener('focus', handleFocus);
   document.addEventListener('visibilitychange', handleVisibility);
+  window.addEventListener('pagehide', handlePageHide);
+  window.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
+  window.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
+  window.addEventListener('keydown', handleKeyDown, true);
 
   return () => {
+    if (touchTimeout) clearTimeout(touchTimeout);
+    if (focusDebounceTimeout) clearTimeout(focusDebounceTimeout);
     window.removeEventListener('blur', handleBlur);
     window.removeEventListener('focus', handleFocus);
     document.removeEventListener('visibilitychange', handleVisibility);
+    window.removeEventListener('pagehide', handlePageHide);
+    window.removeEventListener('touchstart', handleTouchStart, true);
+    window.removeEventListener('touchmove', handleTouchMove, true);
+    window.removeEventListener('keydown', handleKeyDown, true);
   };
 }
 

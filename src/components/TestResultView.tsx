@@ -80,6 +80,7 @@ import type { User } from 'firebase/auth';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { APP_STYLES } from './ui/AppStyles';
+import { initFocusLossProtector, enableContentSecurityDeterrence } from '../lms/security';
 import { 
   androidDrawerRightVariants, 
   androidBackdropVariants, 
@@ -124,6 +125,18 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
   const [panelFilter, setPanelFilter] = useState<QuestionFilterTab>('all');
   const [isFilterOpen, setIsFilterOpen] = useState<boolean>(false);
   const [isSplitView, setIsSplitView] = useState<boolean>(false);
+  const [isWindowObscured, setIsWindowObscured] = useState<boolean>(false);
+
+  useEffect(() => {
+    const cleanupFocus = initFocusLossProtector((obscured) => {
+      setIsWindowObscured(obscured);
+    });
+    const cleanupDeterrence = enableContentSecurityDeterrence();
+    return () => {
+      cleanupFocus();
+      cleanupDeterrence();
+    };
+  }, []);
 
   // User flag/review marks for questions during review
   const [flaggedMap, setFlaggedMap] = useState<Record<string, boolean>>(() => {
@@ -1141,6 +1154,28 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
 
     return (
       <div className="fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col h-[100dvh] max-h-screen overflow-hidden transition-colors duration-200">
+        {/* Anti-Screenshot & Screen Blackout Veil */}
+        {isWindowObscured && (
+          <div
+            onClick={() => setIsWindowObscured(false)}
+            className="fixed inset-0 z-[999999] bg-black flex flex-col items-center justify-center p-6 text-center text-white select-none cursor-pointer"
+          >
+            <div className="w-16 h-16 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mb-3 ring-4 ring-amber-500/10">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <h3 className="text-base sm:text-lg font-bold text-white mb-1">
+              Protected Solutions Window
+            </h3>
+            <p className="text-xs text-slate-300 max-w-sm mb-4 leading-relaxed">
+              Screen capture, multi-finger gesture, or window focus change detected. Tap anywhere to resume viewing solutions.
+            </p>
+            <div className="flex items-center space-x-2 text-[10px] font-mono text-amber-400/90 bg-amber-950/60 px-3.5 py-1.5 rounded-full border border-amber-500/30">
+              <span>Solutions Protection Active</span>
+              <span>•</span>
+              <span>Anti-Capture Protected</span>
+            </div>
+          </div>
+        )}
         <header className="shrink-0 z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] px-3 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.35rem)] pb-2 transition-colors border-0">
           <div className="max-w-6xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
             <div className="flex items-center gap-2">
@@ -1686,6 +1721,28 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
 
   return (
     <div className="fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] overflow-y-auto">
+      {/* Anti-Screenshot & Screen Blackout Veil */}
+      {isWindowObscured && (
+        <div
+          onClick={() => setIsWindowObscured(false)}
+          className="fixed inset-0 z-[999999] bg-black flex flex-col items-center justify-center p-6 text-center text-white select-none cursor-pointer"
+        >
+          <div className="w-16 h-16 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mb-3 ring-4 ring-amber-500/10">
+            <AlertCircle className="w-8 h-8" />
+          </div>
+          <h3 className="text-base sm:text-lg font-bold text-white mb-1">
+            Protected Solutions Window
+          </h3>
+          <p className="text-xs text-slate-300 max-w-sm mb-4 leading-relaxed">
+            Screen capture, multi-finger gesture, or window focus change detected. Tap anywhere to resume viewing solutions.
+          </p>
+          <div className="flex items-center space-x-2 text-[10px] font-mono text-amber-400/90 bg-amber-950/60 px-3.5 py-1.5 rounded-full border border-amber-500/30">
+            <span>Solutions Protection Active</span>
+            <span>•</span>
+            <span>Anti-Capture Protected</span>
+          </div>
+        </div>
+      )}
       <div className="max-w-5xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-5 pb-36 sm:pb-32">
       {/* Header Bar with Clean Icon Badge matching CustomTestBuilder */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2">
