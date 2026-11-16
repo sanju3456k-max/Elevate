@@ -2110,16 +2110,16 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   return (
     <div className="space-y-4 sm:space-y-6 pb-24 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
       {/* Main Grid: Player on Left, In-Video Notes & Chapters on Right */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
-        {/* LEFT COLUMN: Full-Width Video Player on Mobile & Lecture Info */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
+        {/* LEFT COLUMN: Full-Width Video Player on Mobile & Tablet, Card Grid on Desktop */}
         <div className="lg:col-span-8 space-y-4">
-          <div className="-mx-3.5 sm:mx-0 -mt-4 sm:mt-0 w-[calc(100%+1.75rem)] sm:w-full rounded-none sm:rounded-3xl overflow-hidden shadow-2xl border-none relative group sticky top-0 z-40 bg-black sm:static">
+          <div className="-mx-3.5 sm:-mx-6 lg:mx-0 -mt-4 sm:-mt-6 lg:mt-0 w-[calc(100%+1.75rem)] sm:w-[calc(100%+3rem)] lg:w-full rounded-none lg:rounded-3xl overflow-hidden shadow-none lg:shadow-2xl border-none relative group sticky top-0 z-40 bg-black lg:static">
             {/* YouTube-style Top-Left Collapse Down-Chevron Button */}
             <button
               type="button"
               id="video-player-collapse-btn"
               onClick={handleExitLectureView}
-              className="absolute top-2.5 left-2.5 z-30 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition border-none cursor-pointer shadow-md select-none md:hidden desktop-hide-back-btn"
+              className="absolute top-2.5 left-2.5 z-30 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition border-none cursor-pointer shadow-md select-none lg:hidden desktop-hide-back-btn"
               title="Minimize to bottom strip"
               aria-label="Collapse video"
             >
@@ -2143,7 +2143,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             />
           </div>
 
-          <div className="px-3.5 sm:px-0">
+          <div className="px-3.5 sm:px-6 lg:px-0">
             <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-2 shadow-xs">
               <h1 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] leading-snug">
                 {activeLecture.title}
@@ -2156,7 +2156,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         </div>
 
         {/* RIGHT COLUMN: Lecture Notes (Free-form study notes without timing stamps) */}
-        <div className="lg:col-span-4 px-3.5 sm:px-0 space-y-4">
+        <div className="lg:col-span-4 px-3.5 sm:px-6 lg:px-0 space-y-4">
           <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs space-y-4">
             {/* Header: Title */}
             <div className="flex items-center justify-between pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">

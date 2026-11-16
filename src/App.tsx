@@ -2168,7 +2168,7 @@ export default function App() {
 
           {/* Video Batches & LMS Suite (Elevate Integrated Curriculum) */}
           {activeTab === 'batches' && (
-            <div className={`max-w-7xl mx-auto ${isLectureViewActive ? 'px-0 sm:px-6 py-0 sm:py-6' : 'px-3 sm:px-6 py-4 sm:py-6'}`}>
+            <div className={`max-w-7xl mx-auto ${isLectureViewActive ? 'px-0 lg:px-6 py-0 lg:py-6' : 'px-3 sm:px-6 py-4 sm:py-6'}`}>
               <BatchDetailView
                 batchId={selectedBatchId || undefined}
                 initialLectureId={selectedLectureId}

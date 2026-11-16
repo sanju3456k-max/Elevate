@@ -38,6 +38,15 @@ export const ALL_ENROLLMENTS_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes fresh L1
  * without forcing them to poll or scan the whole collection.
  */
 export async function touchBatchCatalogBeacon(): Promise<void> {
+  // Always aggressively invalidate local L1 cache first
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      localStorage.removeItem(BATCH_CACHE_KEY);
+      localStorage.removeItem(BATCH_CACHE_TIME_KEY);
+      localStorage.removeItem(BATCH_CACHE_BEACON_KEY);
+    } catch {}
+  }
+
   try {
     const metaRef = doc(db, 'master_catalog', 'batch_catalog_meta');
     const nowIso = new Date().toISOString();
@@ -45,13 +54,6 @@ export async function touchBatchCatalogBeacon(): Promise<void> {
       lastUpdatedAt: nowIso,
       updatedAt: Date.now(),
     }, { merge: true });
-
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        localStorage.removeItem(BATCH_CACHE_KEY);
-        localStorage.removeItem(BATCH_CACHE_TIME_KEY);
-      } catch {}
-    }
   } catch (e) {
     console.warn('Silent notice: batch catalog beacon touch:', e);
   }

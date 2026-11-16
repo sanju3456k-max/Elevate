@@ -238,7 +238,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
           ? `fixed left-3 right-3 md:left-auto md:right-5 md:w-[420px] h-15 sm:h-16 z-50 bg-white/95 dark:bg-[#1e2024]/95 backdrop-blur-2xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.18),0_2px_8px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.65)] border border-slate-200/90 dark:border-zinc-800/90 p-0 transition-all duration-200 select-none cursor-pointer overflow-hidden md:!bottom-5 ${
               !isTestMode ? 'flex items-center justify-between' : 'hidden'
             }`
-          : 'fixed inset-x-0 bottom-0 top-0 md:top-[58px] z-50 md:z-40 bg-[var(--md-sys-color-background)] overflow-y-auto px-0 sm:px-6 lg:px-8 py-0 sm:py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-[1720px] mx-auto w-full items-start'
+          : 'fixed inset-x-0 bottom-0 top-0 md:top-[58px] z-50 md:z-40 bg-[var(--md-sys-color-background)] overflow-y-auto px-0 lg:px-8 py-0 lg:py-6 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 max-w-[1720px] mx-auto w-full items-start'
       }
       style={
         isMinimized
@@ -256,14 +256,14 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
         className={
           isMinimized
             ? 'w-24 sm:w-28 h-full shrink-0 rounded-l-2xl overflow-hidden relative bg-black pointer-events-none border-r border-slate-200/50 dark:border-zinc-800/50'
-            : 'lg:col-span-8 space-y-4 w-full pt-[56.25vw] sm:pt-0'
+            : 'lg:col-span-8 space-y-4 w-full pt-0'
         }
       >
         <div
           className={
             isMinimized
               ? 'w-full h-full'
-              : 'aspect-video w-full fixed top-0 inset-x-0 z-40 bg-black shadow-none sm:static sm:z-auto sm:rounded-2xl lg:rounded-3xl sm:shadow-lg overflow-hidden group'
+              : 'aspect-video w-full sticky top-0 z-40 bg-black shadow-none rounded-none lg:rounded-3xl lg:shadow-lg overflow-hidden group lg:static'
           }
         >
           {/* Top-left minimize button on video when expanded */}
@@ -271,7 +271,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             <button
               type="button"
               onClick={handleMinimize}
-              className="absolute top-3 left-3 z-50 w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition border border-white/10 cursor-pointer shadow-none select-none md:hidden desktop-hide-back-btn"
+              className="absolute top-3 left-3 z-50 w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition border border-white/10 cursor-pointer shadow-none select-none lg:hidden desktop-hide-back-btn"
               title="Minimize to MiniPlayer"
             >
               <ChevronDown className="w-5 h-5 stroke-[2.5]" />
@@ -298,7 +298,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
 
         {/* When Expanded: Lecture Title, Badge, Duration, and YouTube-style Description Card */}
         {!isMinimized && (
-          <div className="space-y-4 px-3 sm:px-0">
+          <div className="space-y-4 px-3.5 sm:px-6 lg:px-0">
             {/* Title & Actions row */}
             <div className="space-y-2 pt-1">
               <h1 className="text-base sm:text-xl md:text-2xl font-bold text-[var(--md-sys-color-on-surface)] leading-snug tracking-tight">
@@ -446,7 +446,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
 
       {/* 3. In Expanded View: Right Sidebar (Course Playlist Queue + Lecture Notes) */}
       {!isMinimized && (
-        <div className="lg:col-span-4 space-y-5 w-full px-3 sm:px-0">
+        <div className="lg:col-span-4 space-y-5 w-full px-3.5 sm:px-6 lg:px-0">
           {/* YouTube-style Course Playlist Queue (Top on Desktop) */}
           {batchLectures.length > 0 && (
             <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs space-y-3 border border-[var(--md-sys-color-outline-variant)]/10">
