@@ -1124,45 +1124,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 1b. Top Cloaking Security Guard (Solid Black Bar + Gradient that physically blocks YouTube's title, channel, playlist bar, and share button from bleeding through) */}
-      <div
-        className={`absolute top-0 inset-x-0 z-18 pointer-events-none transition-all duration-300 ${
-          isMini && !isFullscreen
-            ? 'h-6 bg-black'
-            : isControlsVisible || !isPlaying
-              ? 'h-14 sm:h-16 bg-black'
-              : 'h-11 sm:h-12 bg-black'
-        }`}
-      />
-      <div
-        className={`absolute top-0 inset-x-0 pointer-events-none z-17 transition-all duration-300 ${
-          isMini && !isFullscreen
-            ? 'hidden'
-            : isControlsVisible || !isPlaying
-              ? 'h-24 sm:h-28 bg-gradient-to-b from-black/95 via-black/80 to-transparent'
-              : 'h-16 bg-gradient-to-b from-black to-transparent'
-        }`}
-      />
 
-      {/* 1c. Bottom Cloaking Security Guard (Solid Black Bar + Gradient that completely eliminates YouTube logo, watermark, and clips) */}
-      <div
-        className={`absolute bottom-0 inset-x-0 z-18 pointer-events-none transition-all duration-300 ${
-          isMini && !isFullscreen
-            ? 'h-6 bg-black'
-            : isControlsVisible || !isPlaying
-              ? 'h-16 sm:h-20 bg-black'
-              : 'h-10 sm:h-11 bg-black'
-        }`}
-      />
-      <div
-        className={`absolute bottom-0 inset-x-0 pointer-events-none z-17 transition-all duration-300 ${
-          isMini && !isFullscreen
-            ? 'hidden'
-            : isControlsVisible || !isPlaying
-              ? 'h-24 sm:h-28 bg-gradient-to-t from-black/95 via-black/80 to-transparent'
-              : 'h-16 bg-gradient-to-t from-black to-transparent'
-        }`}
-      />
 
       {(!isMini || isFullscreen) && (
         <>
@@ -1330,7 +1292,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       {(!isMini || isFullscreen) && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className={`absolute top-0 inset-x-0 z-30 px-3.5 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between transition-opacity duration-300 ${
+          className={`absolute top-0 inset-x-0 z-30 px-3.5 py-2.5 sm:px-4 sm:py-3 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-center justify-between transition-opacity duration-300 ${
             isControlsVisible || !isPlaying ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
         >
@@ -1364,7 +1326,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
               hideControls();
             }
           }}
-          className={`absolute inset-0 z-20 flex items-center justify-center transition-all ${!isPlaying ? 'bg-black/75 backdrop-blur-xs' : ''}`}
+          className={`absolute inset-0 z-20 flex items-center justify-center transition-all ${!isPlaying ? 'bg-black/25' : ''}`}
         >
           <button
             type="button"
