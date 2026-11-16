@@ -932,72 +932,103 @@ export async function syncBatchTestToFirestore(batchId: string, testCard: any): 
   }
 }
 
-export async function deleteBatchTestFromFirestore(batchId: string, testId: string, testTitle?: string): Promise<void> {
+export async function deleteBatchTestFromFirestore(
+  batchId: string,
+  testId: string,
+  testTitle?: string,
+  additionalIds?: string[]
+): Promise<void> {
   if (!batchId) return;
   try {
+    const cleanBatchId = batchId.trim();
+    const allTargetIds = new Set<string>();
+    if (testId) allTargetIds.add(testId);
+    if (additionalIds && Array.isArray(additionalIds)) {
+      additionalIds.forEach((id) => id && allTargetIds.add(id));
+    }
+
     // 1. Delete by direct ID if provided
-    if (testId) {
-      await deleteDoc(doc(db, 'batches', batchId, 'tests', testId)).catch(() => {});
+    for (const id of allTargetIds) {
+      await deleteDoc(doc(db, 'batches', cleanBatchId, 'tests', id)).catch(() => {});
     }
 
     // 2. Search tests subcollection for any doc matching testId, originalTestId, or testTitle
-    const testsCol = collection(db, 'batches', batchId, 'tests');
+    const testsCol = collection(db, 'batches', cleanBatchId, 'tests');
     const testsSnap = await getDocs(testsCol).catch(() => null);
     const deletedDocIds: string[] = [];
 
     if (testsSnap && !testsSnap.empty) {
       for (const tDoc of testsSnap.docs) {
         const data = tDoc.data();
-        const matchesId = testId && (tDoc.id === testId || data.testId === testId || data.originalTestId === testId || data.id === testId);
+        const matchesId =
+          allTargetIds.has(tDoc.id) ||
+          (data.testId && allTargetIds.has(data.testId)) ||
+          (data.originalTestId && allTargetIds.has(data.originalTestId)) ||
+          (data.id && allTargetIds.has(data.id));
         const matchesTitle = testTitle && data.title && data.title.trim().toLowerCase() === testTitle.trim().toLowerCase();
 
         if (matchesId || matchesTitle) {
           deletedDocIds.push(tDoc.id);
           if (data.testId) deletedDocIds.push(data.testId);
-          await deleteDoc(doc(db, 'batches', batchId, 'tests', tDoc.id)).catch(() => {});
+          allTargetIds.add(tDoc.id);
+          if (data.testId) allTargetIds.add(data.testId);
+          await deleteDoc(doc(db, 'batches', cleanBatchId, 'tests', tDoc.id)).catch(() => {});
         }
       }
     }
 
     // 3. Remove all deletedDocIds from all chapters of this batch in Firestore
-    if (deletedDocIds.length > 0 || testId) {
-      const allIdsToRemove = new Set<string>([...deletedDocIds, ...(testId ? [testId] : [])]);
-      const chapsCol = collection(db, 'batches', batchId, 'chapters');
-      const chapsSnap = await getDocs(chapsCol).catch(() => null);
-      if (chapsSnap && !chapsSnap.empty) {
-        for (const cDoc of chapsSnap.docs) {
-          const cData = cDoc.data();
-          if (Array.isArray(cData.testIds) && cData.testIds.some((id: string) => allIdsToRemove.has(id))) {
-            const nextTestIds = cData.testIds.filter((id: string) => !allIdsToRemove.has(id));
-            await updateDoc(doc(db, 'batches', batchId, 'chapters', cDoc.id), {
-              testIds: nextTestIds,
-              updatedAt: new Date().toISOString(),
-            }).catch(() => {});
-          }
+    const allIdsToRemove = new Set<string>([...deletedDocIds, ...allTargetIds]);
+    const chapsCol = collection(db, 'batches', cleanBatchId, 'chapters');
+    const chapsSnap = await getDocs(chapsCol).catch(() => null);
+    if (chapsSnap && !chapsSnap.empty) {
+      for (const cDoc of chapsSnap.docs) {
+        const cData = cDoc.data();
+        if (Array.isArray(cData.testIds) && cData.testIds.some((id: string) => allIdsToRemove.has(id))) {
+          const nextTestIds = cData.testIds.filter((id: string) => !allIdsToRemove.has(id));
+          await updateDoc(doc(db, 'batches', cleanBatchId, 'chapters', cDoc.id), {
+            testIds: nextTestIds,
+            updatedAt: new Date().toISOString(),
+          }).catch(() => {});
         }
       }
     }
 
     // 4. Also remove from catalog manifest if present
-    const manifestRef = doc(db, 'batches', batchId, 'catalog', 'manifest');
+    const manifestRef = doc(db, 'batches', cleanBatchId, 'catalog', 'manifest');
     const manifestSnap = await getDoc(manifestRef).catch(() => null);
     if (manifestSnap && manifestSnap.exists()) {
       const data = manifestSnap.data();
       if (Array.isArray(data.tests)) {
         const filtered = data.tests.filter((t: any) => {
-          const matchesId = testId && (t.id === testId || t.testId === testId || t.originalTestId === testId);
+          const matchesId = allIdsToRemove.has(t.id) || allIdsToRemove.has(t.testId) || allIdsToRemove.has(t.originalTestId);
           const matchesTitle = testTitle && t.title && t.title.trim().toLowerCase() === testTitle.trim().toLowerCase();
           return !(matchesId || matchesTitle);
         });
-        await updateDoc(manifestRef, {
-          tests: filtered,
-          totalTests: filtered.length,
-          updatedAt: new Date().toISOString(),
-        }).catch(() => {});
+        await setDoc(
+          manifestRef,
+          {
+            tests: filtered,
+            totalTests: filtered.length,
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        ).catch(() => {});
       }
     }
+
+    // 5. Invalidate cached local storage manifests to prevent stale cache resurrection
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(`batch_${cleanBatchId}_manifest`);
+        for (const id of allIdsToRemove) {
+          localStorage.removeItem(`batch_${cleanBatchId}_test_${id}`);
+        }
+      }
+    } catch {}
+
     const nowIso = new Date().toISOString();
-    await updateDoc(doc(db, 'batches', batchId), { updatedAt: nowIso }).catch(() => {});
+    await updateDoc(doc(db, 'batches', cleanBatchId), { updatedAt: nowIso }).catch(() => {});
     touchBatchCatalogBeacon().catch(() => {});
   } catch (error) {
     console.warn(`Failed to delete test ${testId} for batch ${batchId}:`, error);
@@ -1035,31 +1066,33 @@ export async function fetchBatchTestsFromFirestore(batchId: string): Promise<any
       });
     });
 
-    // Also merge from manifest catalog if available
-    try {
-      const manifestSnap = await getDoc(doc(db, 'batches', batchId, 'catalog', 'manifest'));
-      if (manifestSnap && manifestSnap.exists()) {
-        const mData = manifestSnap.data();
-        if (Array.isArray(mData?.tests)) {
-          mData.tests.forEach((t: any) => {
-            const tid = t.testId || t.id;
-            if (tid && !list.some((existing) => existing.testId === tid || existing.id === tid)) {
-              const dur = Number(t.timeLimitMinutes) || Number(t.durationMinutes) || Number(t.time) || 60;
-              list.push({
-                ...t,
-                id: tid,
-                testId: tid,
-                batchId,
-                chapterId: t.chapterId || t.folderId || null,
-                timeLimitMinutes: dur,
-                time: dur,
-                durationMinutes: dur,
-              });
-            }
-          });
+    // If subcollection is empty, check manifest catalog fallback
+    if (list.length === 0) {
+      try {
+        const manifestSnap = await getDoc(doc(db, 'batches', batchId, 'catalog', 'manifest'));
+        if (manifestSnap && manifestSnap.exists()) {
+          const mData = manifestSnap.data();
+          if (Array.isArray(mData?.tests)) {
+            mData.tests.forEach((t: any) => {
+              const tid = t.testId || t.id;
+              if (tid) {
+                const dur = Number(t.timeLimitMinutes) || Number(t.durationMinutes) || Number(t.time) || 60;
+                list.push({
+                  ...t,
+                  id: tid,
+                  testId: tid,
+                  batchId,
+                  chapterId: t.chapterId || t.folderId || null,
+                  timeLimitMinutes: dur,
+                  time: dur,
+                  durationMinutes: dur,
+                });
+              }
+            });
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    }
 
     return list;
   } catch (err) {

@@ -328,15 +328,15 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
         map.set(tid, {
           id: tid,
           title: bt.title || 'Mock Test',
-          topic: bt.topic || bt.subject || 'Assessment',
-          difficulty: bt.difficulty || 'medium',
+          topic: bt.topic || 'Assessment',
+          difficulty: ((bt.difficulty as any) || 'Medium') as any,
           timeLimitMinutes: resolvedDuration,
           time: resolvedDuration,
           durationMinutes: resolvedDuration,
           questionCount: bt.questionCount || (cached?.questions?.length) || 20,
           questions: cached?.questions || [],
           isPublic: true,
-        });
+        } as unknown as MathTest);
       }
     });
     return Array.from(map.values());
@@ -376,14 +376,14 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
           id: tid,
           title: bt?.title || `Mock Test (${currentFolder.title || 'Chapter Assessment'})`,
           topic: bt?.topic || currentFolder.title || 'Assessment',
-          difficulty: bt?.difficulty || 'medium',
+          difficulty: ((bt?.difficulty as any) || 'Medium') as any,
           timeLimitMinutes: dur,
           time: dur,
           durationMinutes: dur,
           questionCount: bt?.questionCount || 20,
           questions: [],
           isPublic: true,
-        } as MathTest);
+        } as unknown as MathTest);
       });
 
       const seen = new Set<string>();
@@ -397,16 +397,16 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
 
     return batchCatalogTests.map((bt) => {
       const tid = bt.testId || bt.id;
-      return candidateMap.get(tid) || {
+      return candidateMap.get(tid) || ({
         id: tid,
         title: bt.title,
         topic: bt.topic,
-        difficulty: bt.difficulty,
+        difficulty: ((bt.difficulty as any) || 'Medium') as any,
         timeLimitMinutes: getTestDurationMinutes(bt),
         questionCount: bt.questionCount,
         questions: [],
         isPublic: true,
-      } as MathTest;
+      } as unknown as MathTest);
     });
   }, [allCandidateTests, selectedFolderId, currentFolder, batchCatalogTests, batchTests]);
 
@@ -1246,9 +1246,6 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       deleteBatchTest(selectedBatchId, t.id, t.title);
-                                      if (selectedFolderId) {
-                                        toggleTestInChapter(selectedFolderId, t.id);
-                                      }
                                       showSecurityToast(`Test "${t.title}" unlinked from folder.`);
                                     }}
                                     className="p-1 rounded-full text-[var(--md-sys-color-on-surface-variant)] hover:text-rose-600 hover:bg-rose-500/10 transition border-none bg-transparent cursor-pointer"
@@ -1323,9 +1320,6 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                                     type="button"
                                     onClick={() => {
                                       deleteBatchTest(selectedBatchId, t.id, t.title);
-                                      if (selectedFolderId) {
-                                        toggleTestInChapter(selectedFolderId, t.id);
-                                      }
                                       showSecurityToast(`Test "${t.title}" unlinked from folder.`);
                                     }}
                                     className="p-1 rounded-md text-rose-500 hover:bg-rose-500/10 border-none bg-transparent cursor-pointer"
@@ -1483,43 +1477,69 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                     Assessments and practice papers attached directly to this batch.
                   </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setIsLinkTestModalOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm transition border-none cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add / Link Test to Batch</span>
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {batchCatalogTests.map((t) => (
-                  <div
-                    key={t.testId || t.id}
-                    className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container)] space-y-3 shadow-xs border border-transparent hover:border-amber-500/30 transition"
+              {batchCatalogTests.length === 0 ? (
+                <div className="p-12 text-center rounded-3xl bg-[var(--md-sys-color-surface-container)] space-y-3 border border-[var(--md-sys-color-outline-variant)]/10">
+                  <Award className="w-8 h-8 text-[var(--md-sys-color-on-surface-variant)] opacity-40 mx-auto" />
+                  <p className="text-sm font-bold text-[var(--md-sys-color-on-surface)]">No tests attached to this batch yet</p>
+                  <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] max-w-sm mx-auto">
+                    Link existing mock tests or create new milestone assessments for students enrolled in this batch.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsLinkTestModalOpen(true)}
+                    className="mt-2 px-4 py-2 rounded-xl bg-[#0b57d0] text-white text-xs font-bold inline-flex items-center space-x-1.5 border-none cursor-pointer"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] line-clamp-1">
-                        {t.title}
-                      </h4>
-                      <div className="flex items-center space-x-1.5 shrink-0">
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-amber-500/15 text-amber-600">
-                          {t.difficulty}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            deleteBatchTest(selectedBatchId, t.testId || t.id, t.title);
-                            showSecurityToast(`Test "${t.title}" removed from batch.`);
-                          }}
-                          className="p-1 rounded-full text-[var(--md-sys-color-on-surface-variant)] hover:text-rose-600 hover:bg-rose-500/10 transition border-none bg-transparent cursor-pointer"
-                          title="Remove Test from Batch"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                    <Plus className="w-4 h-4" />
+                    <span>+ Link First Test</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {batchCatalogTests.map((t) => (
+                    <div
+                      key={t.testId || t.id}
+                      className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container)] space-y-3 shadow-xs border border-transparent hover:border-amber-500/30 transition"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] line-clamp-1">
+                          {t.title}
+                        </h4>
+                        <div className="flex items-center space-x-1.5 shrink-0">
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-amber-500/15 text-amber-600">
+                            {t.difficulty}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              deleteBatchTest(selectedBatchId, t.testId || t.id, t.title);
+                              showSecurityToast(`Test "${t.title}" removed from batch.`);
+                            }}
+                            className="p-1 rounded-full text-[var(--md-sys-color-on-surface-variant)] hover:text-rose-600 hover:bg-rose-500/10 transition border-none bg-transparent cursor-pointer"
+                            title="Remove Test from Batch"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] space-y-1">
+                        <p>Topic: {t.topic}</p>
+                        <p>{t.questionCount} Questions • {t.timeLimitMinutes} Mins</p>
                       </div>
                     </div>
-
-                    <div className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] space-y-1">
-                      <p>Topic: {t.topic}</p>
-                      <p>{t.questionCount} Questions • {t.timeLimitMinutes} Mins</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -2103,20 +2123,39 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
         isOpen={isLinkTestModalOpen}
         onClose={() => setIsLinkTestModalOpen(false)}
         availableTests={allCandidateTests}
-        linkedTestIds={currentFolderTests.map((t) => t.id)}
+        linkedTestIds={
+          selectedFolderId
+            ? currentFolderTests.map((t) => t.id)
+            : batchCatalogTests.map((t) => t.testId || t.id)
+        }
         onToggleTest={(testId) => {
-          if (selectedFolderId) {
-            const isAlreadyLinked = currentFolderTests.some((t) => t.id === testId);
-            if (isAlreadyLinked) {
-              const found = currentFolderTests.find((t) => t.id === testId);
-              deleteBatchTest(selectedBatchId, testId, found?.title);
-              toggleTestInChapter(selectedFolderId, testId);
-              showSecurityToast('Test unlinked from folder.');
+          const targetFolderId = selectedFolderId || chapters.find((c) => c.batchId === selectedBatchId)?.id || null;
+          const isAlreadyLinked = selectedFolderId
+            ? currentFolderTests.some((t) => t.id === testId)
+            : batchCatalogTests.some((t) => (t.testId || t.id) === testId);
+
+          if (isAlreadyLinked) {
+            const found = (selectedFolderId ? currentFolderTests : batchCatalogTests).find(
+              (t) => (t.id || (t as any).testId) === testId
+            );
+            deleteBatchTest(selectedBatchId, testId, found?.title);
+            showSecurityToast(`Test unlinked from ${selectedFolderId ? 'folder' : 'batch'}.`);
+          } else {
+            const found = allCandidateTests.find((t) => t.id === testId);
+            if (targetFolderId) {
+              toggleTestInChapter(targetFolderId, testId, found);
             } else {
-              const found = allCandidateTests.find((t) => t.id === testId);
-              toggleTestInChapter(selectedFolderId, testId, found);
-              showSecurityToast('Test linked to folder.');
+              addTestToBatchCatalog({
+                testId,
+                batchId: selectedBatchId,
+                title: found?.title || 'Mock Test',
+                topic: found?.topic || 'Curriculum Assessment',
+                difficulty: (found?.difficulty as any) || 'medium',
+                timeLimitMinutes: found?.timeLimitMinutes || 60,
+                questionCount: found?.questions?.length || 20,
+              });
             }
+            showSecurityToast(`Test linked to ${selectedFolderId ? 'folder' : 'batch'}.`);
           }
         }}
         folderName={currentFolder?.title || currentBatch?.title}

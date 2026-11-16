@@ -2851,6 +2851,8 @@ export async function fetchCohortAttemptsForTest(test: MathTest, forceRefresh: b
 
 export interface BatchTestCard {
   id: string;
+  testId?: string;
+  batchId?: string;
   title: string;
   topic: string;
   difficulty: string;
@@ -2858,8 +2860,11 @@ export interface BatchTestCard {
   questionCount: number;
   passingScorePercentage: number;
   chunkId: string;
+  catalogChunkId?: string;
+  chunkEstimatedBytes?: number;
   order: number;
   createdAt: string;
+  publishedAt?: string;
 }
 
 export const BATCH_CHUNK_CEILING_BYTES = 768000; // 750 KB safe ceiling (Firestore hard limit is 1,048,576 bytes)

@@ -891,16 +891,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // 3. Batch Tests Authoritative Reconciliation
       fetchBatchTestsFromFirestore(batchId).then((cloudTests) => {
-        if (cloudTests && cloudTests.length > 0) {
-          setBatchTests((prev) => {
-            const otherBatchTests = prev.filter((t) => t.batchId !== batchId);
-            const next = [...otherBatchTests, ...cloudTests];
-            try {
-              secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(next));
-            } catch {}
-            return next;
-          });
-        }
+        setBatchTests((prev) => {
+          const otherBatchTests = prev.filter((t) => t.batchId !== batchId);
+          const next = [...otherBatchTests, ...(cloudTests || [])];
+          try {
+            secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(next));
+          } catch {}
+          return next;
+        });
       }).catch(() => {});
 
       if (cloudChaps.length === 0) {
@@ -1409,6 +1407,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     syncBatchTestToFirestore(batchId, newTestCard).catch(() => {});
+    window.dispatchEvent(new CustomEvent('batch-tests-updated', { detail: { batchId, testId: cleanTestId } }));
     return {
       success: true,
       message: `Published "${newTestCard.title}" into batch catalog chunk ${chunkId} (Estimated 85 KB bin-packed).`,
@@ -1458,7 +1457,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return next;
     });
 
-    deleteBatchTestFromFirestore(batchId, testId, testTitle).catch(() => {});
+    const deletedIdsArray = Array.from(matchingDeletedIds);
+    deleteBatchTestFromFirestore(batchId, testId, testTitle, deletedIdsArray).catch(() => {});
+    window.dispatchEvent(new CustomEvent('batch-tests-updated', { detail: { batchId, testId } }));
   }, []);
 
   const getTestsForBatch = (batchId: string) => {

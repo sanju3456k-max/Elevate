@@ -478,8 +478,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         testMap.set(tid, {
           id: tid,
           title: bt.title || 'Mock Test',
-          topic: bt.topic || bt.subject || 'Assessment',
-          difficulty: bt.difficulty || 'medium',
+          topic: bt.topic || (bt as any).subject || 'Assessment',
+          difficulty: ((bt.difficulty as any) || 'Medium') as any,
           timeLimitMinutes: resolvedDuration,
           time: resolvedDuration,
           durationMinutes: resolvedDuration,
@@ -540,7 +540,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             id: tid,
             title: bt.title || 'Mock Test',
             topic: bt.topic || (bt as any).subject || currentFolder.title || 'Assessment',
-            difficulty: bt.difficulty || 'medium',
+            difficulty: ((bt.difficulty as any) || 'Medium') as any,
             timeLimitMinutes: resolvedDuration,
             time: resolvedDuration,
             durationMinutes: resolvedDuration,
@@ -554,7 +554,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             id: tid,
             title: `Mock Test (${currentFolder.title || 'Chapter Test'})`,
             topic: currentFolder.title || 'Assessment',
-            difficulty: 'medium',
+            difficulty: 'Medium' as any,
             timeLimitMinutes: 25,
             time: 25,
             durationMinutes: 25,
@@ -575,8 +575,9 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     }
 
     // When at root batch level (no specific chapter selected)
+    const activeBatchId = currentBatch?.id || selectedBatchId;
     const allBatchFolderTestIds = new Set<string>();
-    chapters.filter((c) => c.batchId === (currentBatch?.id || selectedBatchId)).forEach((c) => {
+    chapters.filter((c) => c.batchId === activeBatchId).forEach((c) => {
       (c.testIds || []).forEach((tid) => allBatchFolderTestIds.add(tid));
     });
 
@@ -587,6 +588,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     });
 
     (batchTests || []).forEach((bt) => {
+      if (bt.batchId && bt.batchId !== activeBatchId) return;
       const tid = bt.testId || bt.id;
       if (!rootList.some((t) => t.id === tid)) {
         const candidate = candidateMap.get(tid) || getCachedFullTest(tid);
@@ -597,8 +599,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           rootList.push({
             id: tid,
             title: bt.title || 'Mock Test',
-            topic: bt.topic || bt.subject || 'Assessment',
-            difficulty: bt.difficulty || 'medium',
+            topic: bt.topic || (bt as any).subject || 'Assessment',
+            difficulty: ((bt.difficulty as any) || 'Medium') as any,
             timeLimitMinutes: resolvedDuration,
             time: resolvedDuration,
             durationMinutes: resolvedDuration,
@@ -616,11 +618,12 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   // Total tests count
   const totalFolderTestsCount = useMemo(() => {
     if (!currentBatch) return 0;
+    const activeBatchId = currentBatch.id || selectedBatchId;
     if (!selectedChapterId) {
-      return folderTests.length || batchTests.length;
+      return folderTests.length || batchTests.filter((b) => b.batchId === activeBatchId).length;
     }
     return folderTests.length;
-  }, [currentBatch, selectedChapterId, folderTests, batchTests]);
+  }, [currentBatch, selectedChapterId, folderTests, batchTests, selectedBatchId]);
 
   // Active Lecture for Player
   const activeLecture = useMemo(() => {
@@ -1789,7 +1792,6 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               const isAlreadyInFolder = folderTests.some((t) => t.id === testId);
               if (isAlreadyInFolder) {
                 deleteBatchTest(currentBatch?.id || selectedBatchId, testId);
-                toggleTestInChapter(selectedChapterId, testId);
                 showSecurityToast('Test unlinked from folder.');
               } else {
                 const found = allCandidateTests.find((t) => t.id === testId);

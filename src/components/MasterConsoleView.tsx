@@ -129,9 +129,16 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     addTestToBatchCatalog,
     deleteBatchTest,
     toggleTestInChapter,
+    loadCurriculumForBatch,
   } = useApp();
 
   const [selectedBatchId, setSelectedBatchId] = useState<string>(() => batches[0]?.id || 'batch_testing_01');
+
+  useEffect(() => {
+    if (selectedBatchId) {
+      loadCurriculumForBatch(selectedBatchId);
+    }
+  }, [selectedBatchId, loadCurriculumForBatch]);
 
   const currentBatch = useMemo(() => {
     return batches.find((b) => b.id === selectedBatchId) || batches[0] || {
@@ -706,13 +713,18 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   React.useEffect(() => {
     const handleUpdate = () => {
       setPublishedTestIds(getMasterPublishedTestIds());
+      if (selectedBatchId) {
+        loadCurriculumForBatch(selectedBatchId);
+      }
     };
     window.addEventListener('tests-published-updated', handleUpdate);
+    window.addEventListener('batch-tests-updated', handleUpdate);
 
     return () => {
       window.removeEventListener('tests-published-updated', handleUpdate);
+      window.removeEventListener('batch-tests-updated', handleUpdate);
     };
-  }, []);
+  }, [selectedBatchId, loadCurriculumForBatch]);
 
   const handleTogglePublish = async (test: MathTest) => {
     const isPublishedInBatch = currentBatchTests.some(
