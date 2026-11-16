@@ -12,6 +12,7 @@ import {
   syncUserProfile,
   checkRedirectResult,
   auth,
+  db,
   resetGlobalQuotaExceeded,
   checkAndResetQuotaOnNewDay,
   syncStatsRollupToFirestore,
@@ -19,6 +20,14 @@ import {
   fetchTestsFromFirestore,
   fetchUserAttemptsFromFirestore
 } from './lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { 
+  enforceDeviceLock, 
+  getOrCreateDeviceId, 
+  getDeviceMetadata, 
+  type DeviceLockStatus 
+} from './lib/deviceAuthService';
+import { DeviceLockedModal } from './components/auth/DeviceLockedModal';
 import { syncHub } from './lib/syncEngine';
 import { smartCoordinator } from './lib/smartLocalCoordinator';
 import { optimizeTestForFirestore } from './lib/imageOptimization';
@@ -204,6 +213,7 @@ export default function App() {
     []
   );
   const [initialSeekSeconds, setInitialSeekSeconds] = useState<number | null>(null);
+  const [deviceLockStatus, setDeviceLockStatus] = useState<DeviceLockStatus | null>(null);
 
   // In batches section, user is "inside" a batch when viewing folders, chapter contents, or lecture player
   const isInsideBatch = activeTab === 'batches' && (Boolean(selectedBatchId) || batchesStage !== 'batch_list');
@@ -739,6 +749,15 @@ export default function App() {
       console.warn('Background sync user profile warning:', err);
     });
 
+    // Enforce strict Single-Device Binding
+    enforceDeviceLock(user).then((status) => {
+      if (!status.allowed) {
+        setDeviceLockStatus(status);
+      } else {
+        setDeviceLockStatus(null);
+      }
+    }).catch(() => {});
+
     // Ensure app-initial-splash placeholder is removed if present
     const splashEl = document.getElementById('app-initial-splash');
     if (splashEl && splashEl.parentNode) {
@@ -802,6 +821,49 @@ export default function App() {
     );
     return () => unsubscribe();
   }, [showToast, handleUserAuthenticated]);
+
+  // Real-time Single Device Binding & Concurrency Enforcement
+  useEffect(() => {
+    if (!currentUser || isMasterUser(currentUser)) {
+      setDeviceLockStatus(null);
+      return;
+    }
+
+    const currentDevId = getOrCreateDeviceId();
+    const unsub = onSnapshot(
+      doc(db, 'users', currentUser.uid),
+      (snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+        const registeredId = data?.registeredDeviceId;
+
+        if (!registeredId) {
+          // Admin just reset this user's device! Re-bind to this device now
+          enforceDeviceLock(currentUser).then((status) => {
+            setDeviceLockStatus(status.allowed ? null : status);
+          });
+        } else if (registeredId !== currentDevId) {
+          // Device mismatch (Account active or locked to another device)
+          setDeviceLockStatus({
+            allowed: false,
+            registeredDeviceLabel: data?.registeredDeviceLabel || 'Another Device',
+            registeredDeviceAt: data?.registeredDeviceAt || '',
+            currentDeviceLabel: getDeviceMetadata().label,
+            currentDeviceId: currentDevId,
+            userEmail: currentUser.email || '',
+            userName: currentUser.displayName || '',
+          });
+        } else {
+          setDeviceLockStatus(null);
+        }
+      },
+      (err) => {
+        console.warn('Real-time device lock check notice:', err);
+      }
+    );
+
+    return () => unsub();
+  }, [currentUser]);
 
   // Global listener for firestore quota limit exhaustion and reset
   useEffect(() => {
@@ -1148,6 +1210,7 @@ export default function App() {
 
   const handleSignOut = async () => {
     try {
+      setDeviceLockStatus(null);
       await signOutUser();
       await clearAllNotesFromIDB();
       syncHub.stopSyncHub();
@@ -2481,6 +2544,15 @@ export default function App() {
         user={currentUser || cachedUser || { id: 'guest', name: 'Student', role: 'student' }}
         isInsideBatch={isInsideBatch}
       />
+
+      {/* Strict Single-Device Security Barrier Modal */}
+      {deviceLockStatus && !deviceLockStatus.allowed && (
+        <DeviceLockedModal
+          status={deviceLockStatus}
+          currentUser={currentUser}
+          onSignOut={handleSignOut}
+        />
+      )}
     </div>
     </LmsProvider>
   );

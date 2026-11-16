@@ -43,10 +43,12 @@ import {
   ArrowUpRight,
   Copy,
   RefreshCw,
+  Smartphone,
   BookOpen,
   Info,
   Loader2,
 } from 'lucide-react';
+import { adminResetDeviceLock } from '../../../lib/deviceAuthService';
 import { fetchVideoMetadata, extractYouTubeVideoId } from '../../../lms/videoMetadataService';
 import { useApp } from '../../../lms/LmsContext';
 import { db, getCachedFullTest } from '../../../lib/firebase';
@@ -1443,18 +1445,39 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                           </span>
                         </td>
                         <td className="py-2.5 px-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (window.confirm(`Revoke enrollment for ${enr.studentName}?`)) {
-                                revokeStudentEnrollment(enr.userId, selectedBatchId);
-                                showSecurityToast(`Enrollment revoked for ${enr.studentName}`);
-                              }
-                            }}
-                            className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 border-none bg-transparent cursor-pointer"
-                          >
-                            Revoke
-                          </button>
+                          <div className="flex items-center justify-end space-x-1.5">
+                            <button
+                              type="button"
+                              title="Reset Device Lock (Allows student to register a new phone or laptop upon login)"
+                              onClick={() => {
+                                if (window.confirm(`Reset device lock for ${enr.studentName}? This will allow them to bind a new device on their next login.`)) {
+                                  adminResetDeviceLock(enr.userId).then((ok) => {
+                                    if (ok) {
+                                      showSecurityToast(`Device lock reset for ${enr.studentName}. New device registration permitted.`);
+                                    } else {
+                                      alert('Failed to reset device lock. Please check permissions.');
+                                    }
+                                  });
+                                }
+                              }}
+                              className="px-2 py-1 rounded-lg text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 border-none bg-transparent cursor-pointer flex items-center space-x-1 transition"
+                            >
+                              <Smartphone className="w-3.5 h-3.5" />
+                              <span>Reset Device</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`Revoke enrollment for ${enr.studentName}?`)) {
+                                  revokeStudentEnrollment(enr.userId, selectedBatchId);
+                                  showSecurityToast(`Enrollment revoked for ${enr.studentName}`);
+                                }
+                              }}
+                              className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 border-none bg-transparent cursor-pointer transition"
+                            >
+                              Revoke
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
