@@ -206,9 +206,11 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
   // Helper: Show streamline and tools controls for a set duration (5s by default)
   const showControlsForDuration = useCallback((duration = 5000) => {
+    if (!isControlsVisibleRef.current) {
+      lastControlsRevealedAt.current = Date.now();
+    }
     setIsControlsVisible(true);
     isControlsVisibleRef.current = true;
-    lastControlsRevealedAt.current = Date.now();
     if (controlsTimeoutRef.current) {
       clearTimeout(controlsTimeoutRef.current);
       controlsTimeoutRef.current = null;
@@ -781,15 +783,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   // 2. Surface Tap & Double-Tap seek gestures (10s Rewind on Left, 10s Forward on Right, Instant toggle in Center)
   const handleSurfaceTap = useCallback((zone: 'left' | 'center' | 'right') => {
     const now = Date.now();
-    const DOUBLE_TAP_WINDOW = 320;
+    const DOUBLE_TAP_WINDOW = 280;
 
-    // Center zone: toggle controls
+    // Center zone: toggle controls immediately
     if (zone === 'center') {
-      // If controls were revealed within the last 700ms, ignore toggle off (prevents mobile ghost-click instant dismissal)
-      if (isControlsVisibleRef.current && now - lastControlsRevealedAt.current < 700) {
-        showControlsForDuration(5000);
-        return;
-      }
       if (isControlsVisibleRef.current) {
         hideControls();
       } else {
@@ -833,10 +830,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
     tapTimeoutRef.current = setTimeout(() => {
       // Single tap confirmed: toggle controls
-      const tapNow = Date.now();
-      if (isControlsVisibleRef.current && tapNow - lastControlsRevealedAt.current < 700) {
-        showControlsForDuration(5000);
-      } else if (isControlsVisibleRef.current) {
+      if (isControlsVisibleRef.current) {
         hideControls();
       } else {
         showControlsForDuration(5000);
@@ -1268,9 +1262,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     };
   }, []);
 
-  // Keep controls and dropdowns visible for 5s on mouse move / interaction
+  // Reveal controls on desktop mouse movement if currently hidden
   const handleMouseMove = () => {
-    if (!isHoveringControlsRef.current) {
+    if (!isControlsVisibleRef.current && !isHoveringControlsRef.current) {
       showControlsForDuration(5000);
     }
   };
@@ -1340,11 +1334,6 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     <div
       ref={containerRef}
       onMouseMove={isMini ? undefined : handleMouseMove}
-      onTouchStart={isMini ? undefined : () => {
-        if (isControlsVisibleRef.current && isPlayingRef.current) {
-          showControlsForDuration(5000);
-        }
-      }}
       style={{
         WebkitFontSmoothing: 'antialiased',
         touchAction: 'manipulation',
@@ -1401,11 +1390,11 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
 
 
-      {/* Dynamic Paused Security Guards: Compact & subtle to avoid heavy black shadows across the video */}
+      {/* Dynamic Paused Security Guards: Rich shadow strips on top and bottom to completely hide YouTube title & bottom shelf */}
       {!isPlaying && isPlayerReady && hasEverPlayed && (!isMini || isFullscreen) && (
         <>
-          <div className="absolute top-0 inset-x-0 h-10 sm:h-12 bg-gradient-to-b from-black/85 via-black/45 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
-          <div className="absolute bottom-0 inset-x-0 h-13 sm:h-15 bg-gradient-to-t from-black/90 via-black/50 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
+          <div className="absolute top-0 inset-x-0 h-16 sm:h-20 bg-gradient-to-b from-black from-65% via-black/85 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
+          <div className="absolute bottom-0 inset-x-0 h-20 sm:h-24 bg-gradient-to-t from-black from-70% via-black/90 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
         </>
       )}
 
@@ -1604,11 +1593,11 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 3. Top Header Bar (Video Title Only, 100% cloaks YouTube title bleed) */}
+      {/* 3. Top Header Bar (Video Title Only, 100% cloaks YouTube title bleed with dark shadow strip) */}
       {(!isMini || isFullscreen) && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className={`absolute top-0 inset-x-0 z-30 px-3.5 py-2 sm:px-4 sm:py-2.5 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-center transition-opacity duration-300 ${
+          className={`absolute top-0 inset-x-0 z-30 px-3.5 py-3 sm:px-5 sm:py-4 bg-gradient-to-b from-black from-60% via-black/85 to-transparent flex items-center transition-opacity duration-300 ${
             isControlsVisible || !isPlaying ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
         >
@@ -1688,7 +1677,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             showControlsForDuration(5000);
           }
         }}
-        className={`absolute bottom-0 inset-x-0 z-30 px-4 sm:px-6 pt-4 pb-2.5 sm:pb-3 bg-gradient-to-t from-black/90 via-black/60 to-transparent transition-opacity duration-300 flex flex-col space-y-1.5 ${
+        className={`absolute bottom-0 inset-x-0 z-30 px-4 sm:px-6 pt-8 sm:pt-10 pb-3 sm:pb-3.5 bg-gradient-to-t from-black from-60% via-black/90 via-black/75 to-transparent transition-opacity duration-300 flex flex-col space-y-1.5 ${
           isControlsVisible || !isPlaying || optionsMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
@@ -1915,21 +1904,21 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                 <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
 
-              {/* Options Popup / Menu - Modern Borderless YouTube Style without heavy shadow */}
+              {/* Options Popup / Menu - Mobile-Optimized Borderless Modern YouTube Style */}
               {optionsMenuOpen && (
                 <div
                   onClick={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
-                  className="absolute bottom-12 right-0 bg-zinc-950/95 backdrop-blur-2xl rounded-2xl border border-white/15 p-2 w-56 sm:w-60 z-50 animate-in fade-in zoom-in-95 text-white select-none shadow-none"
+                  className="absolute bottom-11 sm:bottom-12 right-0 bg-zinc-950/95 backdrop-blur-2xl rounded-2xl border border-white/15 p-1.5 sm:p-2 w-48 sm:w-56 max-h-[150px] sm:max-h-80 flex flex-col z-50 animate-in fade-in zoom-in-95 text-white select-none shadow-none"
                 >
                   {/* MAIN VIEW */}
                   {optionsView === 'main' && (
-                    <div className="space-y-1">
-                      <div className="px-3 py-1.5 text-[11px] font-semibold tracking-wide text-zinc-400 border-b border-white/10 flex items-center justify-between">
+                    <div className="space-y-0.5 sm:space-y-1">
+                      <div className="px-2.5 py-1 text-[11px] font-semibold tracking-wide text-zinc-400 border-b border-white/10 flex items-center justify-between shrink-0">
                         <span>Settings</span>
                         <button
                           onClick={() => setOptionsMenuOpen(false)}
-                          className="text-zinc-400 hover:text-white bg-transparent border-none cursor-pointer text-xs"
+                          className="text-zinc-400 hover:text-white bg-transparent border-none cursor-pointer text-xs p-1"
                         >
                           ✕
                         </button>
@@ -1938,30 +1927,32 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                       {/* Option 1: Quality */}
                       <button
                         onClick={() => setOptionsView('quality')}
-                        className="w-full text-left px-3 py-2.5 rounded-xl text-xs transition flex items-center justify-between hover:bg-white/10 border-none outline-none cursor-pointer text-zinc-200"
+                        className="w-full text-left px-2.5 py-2 rounded-xl text-xs transition flex items-center justify-between hover:bg-white/10 border-none outline-none cursor-pointer text-zinc-200"
                       >
-                        <div className="flex items-center space-x-2.5">
+                        <div className="flex items-center space-x-2">
                           <SlidersHorizontal className="w-4 h-4 text-emerald-400" />
                           <span>Quality</span>
                         </div>
                         <div className="flex items-center space-x-1 text-xs">
-                          <span className="font-semibold text-emerald-300">{currentQuality.replace(' (Best Quality)', '')}</span>
-                          <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
+                          <span className="font-semibold text-emerald-300 truncate max-w-[80px]">
+                            {currentQuality.replace(' (Best Quality)', '')}
+                          </span>
+                          <ChevronRight className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                         </div>
                       </button>
 
                       {/* Option 2: Playback Speed */}
                       <button
                         onClick={() => setOptionsView('speed')}
-                        className="w-full text-left px-3 py-2.5 rounded-xl text-xs transition flex items-center justify-between hover:bg-white/10 border-none outline-none cursor-pointer text-zinc-200"
+                        className="w-full text-left px-2.5 py-2 rounded-xl text-xs transition flex items-center justify-between hover:bg-white/10 border-none outline-none cursor-pointer text-zinc-200"
                       >
-                        <div className="flex items-center space-x-2.5">
+                        <div className="flex items-center space-x-2">
                           <Gauge className="w-4 h-4 text-purple-400" />
                           <span>Playback speed</span>
                         </div>
                         <div className="flex items-center space-x-1 text-zinc-400 font-mono text-[11px]">
                           <span>{playbackSpeed}x</span>
-                          <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
+                          <ChevronRight className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                         </div>
                       </button>
                     </div>
@@ -1969,8 +1960,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
                   {/* SPEED SUB-MENU */}
                   {optionsView === 'speed' && (
-                    <div className="space-y-1">
-                      <div className="px-2 py-1.5 text-xs font-semibold text-zinc-200 border-b border-white/10 flex items-center space-x-1">
+                    <div className="flex flex-col min-h-0 flex-1 space-y-0.5">
+                      <div className="px-1.5 py-1 text-xs font-semibold text-zinc-200 border-b border-white/10 flex items-center space-x-1 shrink-0">
                         <button
                           onClick={() => setOptionsView('main')}
                           className="p-1 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white bg-transparent border-none cursor-pointer"
@@ -1979,7 +1970,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                         </button>
                         <span>Playback speed</span>
                       </div>
-                      <div className="max-h-56 overflow-y-auto space-y-0.5 pt-1 scrollbar-none">
+                      <div className="overflow-y-auto space-y-0.5 pt-1 pr-0.5 max-h-[110px] sm:max-h-56 scrollbar-thin">
                         {availableSpeeds.map((spd) => (
                           <button
                             key={spd}
@@ -1987,7 +1978,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                               handleSpeedChange(spd);
                               setOptionsMenuOpen(false);
                             }}
-                            className={`w-full text-left px-3 py-2 text-xs rounded-xl transition flex items-center justify-between border-none outline-none cursor-pointer ${
+                            className={`w-full text-left px-2.5 py-1.5 sm:py-2 text-[11px] sm:text-xs rounded-xl transition flex items-center justify-between border-none outline-none cursor-pointer ${
                               playbackSpeed === spd
                                 ? 'bg-white/15 text-white font-bold'
                                 : 'text-zinc-300 hover:bg-white/10'
@@ -2001,10 +1992,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                     </div>
                   )}
 
-                  {/* QUALITY SUB-MENU (YouTube-Style Quality Selector) */}
+                  {/* QUALITY SUB-MENU */}
                   {optionsView === 'quality' && (
-                    <div className="space-y-1">
-                      <div className="px-2 py-1.5 text-xs font-semibold text-zinc-200 border-b border-white/10 flex items-center justify-between">
+                    <div className="flex flex-col min-h-0 flex-1 space-y-0.5">
+                      <div className="px-1.5 py-1 text-xs font-semibold text-zinc-200 border-b border-white/10 flex items-center justify-between shrink-0">
                         <div className="flex items-center space-x-1">
                           <button
                             onClick={() => setOptionsView('main')}
@@ -2012,10 +2003,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                           >
                             <ChevronLeft className="w-4 h-4" />
                           </button>
-                          <span>Quality for this video</span>
+                          <span className="text-xs">Video Quality</span>
                         </div>
                       </div>
-                      <div className="max-h-64 overflow-y-auto space-y-0.5 pt-1 scrollbar-none">
+                      <div className="overflow-y-auto space-y-0.5 pt-1 pr-0.5 max-h-[110px] sm:max-h-60 scrollbar-thin">
                         {QUALITY_OPTIONS.map((q) => {
                           const isSelected =
                             currentQuality === q.label ||
@@ -2026,16 +2017,16 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                               onClick={() => {
                                 handleQualityChange(q);
                               }}
-                              className={`w-full text-left px-3 py-2 text-xs rounded-xl transition flex items-center justify-between border-none outline-none cursor-pointer ${
+                              className={`w-full text-left px-2.5 py-1.5 sm:py-2 text-[11px] sm:text-xs rounded-xl transition flex items-center justify-between border-none outline-none cursor-pointer ${
                                 isSelected
                                   ? 'bg-white/15 text-white font-bold'
                                   : 'text-zinc-300 hover:bg-white/10'
                               }`}
                             >
-                              <div className="flex items-center space-x-2">
+                              <div className="flex items-center space-x-1.5">
                                 <span>{q.label}</span>
                                 {q.label.includes('HD') && (
-                                  <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 uppercase tracking-wider">
+                                  <span className="text-[8.5px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 uppercase tracking-wider">
                                     HD
                                   </span>
                                 )}
