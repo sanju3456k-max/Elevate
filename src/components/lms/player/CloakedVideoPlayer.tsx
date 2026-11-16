@@ -1240,11 +1240,11 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
 
 
-      {/* Dynamic Paused Security Guards: Drown out YouTube's native paused overlay (Title at top, and More Videos / Share / History / YouTube Logo at bottom) */}
+      {/* Dynamic Paused Security Guards: Drown out YouTube's native paused overlay (Title at top, and More Videos / Share / History / YouTube Logo at bottom) while keeping video crisp */}
       {!isPlaying && isPlayerReady && hasEverPlayed && (!isMini || isFullscreen) && (
         <>
-          <div className="absolute top-0 inset-x-0 h-20 sm:h-24 bg-gradient-to-b from-black via-black/95 to-transparent z-25 pointer-events-none transition-opacity duration-300" />
-          <div className="absolute bottom-0 inset-x-0 h-20 sm:h-24 bg-gradient-to-t from-black via-black/95 to-transparent z-25 pointer-events-none transition-opacity duration-300" />
+          <div className="absolute top-0 inset-x-0 h-12 sm:h-14 bg-gradient-to-b from-black/90 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
+          <div className="absolute bottom-0 inset-x-0 h-14 sm:h-16 bg-gradient-to-t from-black/95 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
         </>
       )}
 
@@ -1306,7 +1306,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       {/* 1d. Dynamic Moving DRM Watermark Overlay (Anti-Piracy Screen Recording Deterrent) */}
       {authStatus === 'authorized' && securitySettings?.enableDynamicWatermark !== false && (
         <div
-          className="absolute pointer-events-none select-none z-22 transition-all duration-1000 ease-in-out opacity-25 hover:opacity-10 font-mono text-[10px] sm:text-xs text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] flex flex-col items-start bg-black/40 px-2 py-0.5 rounded backdrop-blur-xs border border-white/10"
+          className="absolute pointer-events-none select-none z-22 transition-all duration-1000 ease-in-out opacity-25 font-mono text-[10px] sm:text-xs text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)] flex flex-col items-start"
           style={{
             top: `${watermarkPos.top}%`,
             left: `${watermarkPos.left}%`,
@@ -1392,18 +1392,22 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         style={{ touchAction: 'manipulation' }}
       >
         {/* Left 35%: double-tap rewind feedback (Ringless Minimal Modern UI) */}
-        <div className="relative w-[35%] h-full flex items-center justify-center pointer-events-none">
+        <div className="relative w-[35%] h-full flex items-center justify-center pointer-events-none overflow-hidden">
           {seekFeedback?.side === 'left' && (
-            <div className="flex flex-col items-center justify-center select-none animate-in fade-in zoom-in-95 duration-150">
-              <div className="flex items-center text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
-                <ChevronLeft className="w-8 h-8 stroke-[3] -mr-3.5 animate-pulse" />
-                <ChevronLeft className="w-8 h-8 stroke-[3] -mr-3.5 animate-pulse [animation-delay:100ms]" />
-                <ChevronLeft className="w-8 h-8 stroke-[3] animate-pulse [animation-delay:200ms]" />
+            <>
+              {/* YouTube-style soft side ripple without harsh rings */}
+              <div className="absolute inset-y-0 left-0 w-full bg-white/10 rounded-r-full animate-in fade-in duration-150" />
+              <div className="relative flex flex-col items-center justify-center select-none animate-in fade-in zoom-in-90 duration-150">
+                <div className="flex items-center text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                  <ChevronLeft className="w-8 h-8 stroke-[2.5] -mr-3.5 animate-pulse" />
+                  <ChevronLeft className="w-8 h-8 stroke-[2.5] -mr-3.5 animate-pulse [animation-delay:100ms]" />
+                  <ChevronLeft className="w-8 h-8 stroke-[2.5] animate-pulse [animation-delay:200ms]" />
+                </div>
+                <span className="mt-2 text-xs sm:text-sm font-medium text-white tracking-wide drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
+                  {seekFeedback.seconds} seconds
+                </span>
               </div>
-              <span className="mt-1.5 text-xs sm:text-sm font-semibold text-white tracking-wide drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
-                {seekFeedback.seconds} seconds
-              </span>
-            </div>
+            </>
           )}
         </div>
 
@@ -1411,26 +1415,30 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         <div className="relative w-[30%] h-full pointer-events-none" />
 
         {/* Right 35%: double-tap forward feedback (Ringless Minimal Modern UI) */}
-        <div className="relative w-[35%] h-full flex items-center justify-center pointer-events-none">
+        <div className="relative w-[35%] h-full flex items-center justify-center pointer-events-none overflow-hidden">
           {seekFeedback?.side === 'right' && (
-            <div className="flex flex-col items-center justify-center select-none animate-in fade-in zoom-in-95 duration-150">
-              <div className="flex items-center text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
-                <ChevronRight className="w-8 h-8 stroke-[3] animate-pulse [animation-delay:200ms]" />
-                <ChevronRight className="w-8 h-8 stroke-[3] -ml-3.5 animate-pulse [animation-delay:100ms]" />
-                <ChevronRight className="w-8 h-8 stroke-[3] -ml-3.5 animate-pulse" />
+            <>
+              {/* YouTube-style soft side ripple without harsh rings */}
+              <div className="absolute inset-y-0 right-0 w-full bg-white/10 rounded-l-full animate-in fade-in duration-150" />
+              <div className="relative flex flex-col items-center justify-center select-none animate-in fade-in zoom-in-90 duration-150">
+                <div className="flex items-center text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                  <ChevronRight className="w-8 h-8 stroke-[2.5] animate-pulse [animation-delay:200ms]" />
+                  <ChevronRight className="w-8 h-8 stroke-[2.5] -ml-3.5 animate-pulse [animation-delay:100ms]" />
+                  <ChevronRight className="w-8 h-8 stroke-[2.5] -ml-3.5 animate-pulse" />
+                </div>
+                <span className="mt-2 text-xs sm:text-sm font-medium text-white tracking-wide drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
+                  {seekFeedback.seconds} seconds
+                </span>
               </div>
-              <span className="mt-1.5 text-xs sm:text-sm font-semibold text-white tracking-wide drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
-                {seekFeedback.seconds} seconds
-              </span>
-            </div>
+            </>
           )}
         </div>
       </div>
 
-      {/* 2b. 2X Speed Floating Indicator (Minimal modern pill without harsh rings) */}
+      {/* 2b. 2X Speed Floating Indicator (Ringless Minimal Modern UI) */}
       {is2xSpeedActive && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 bg-black/75 text-white text-xs sm:text-sm font-semibold px-3.5 py-1 rounded-full shadow-xl flex items-center space-x-1.5 border border-white/10 animate-in fade-in zoom-in-95 duration-150 pointer-events-none select-none">
-          <FastForward className="w-3.5 h-3.5 text-amber-400 fill-current animate-pulse" />
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 bg-black/70 text-white text-xs sm:text-sm font-medium px-4 py-1.5 rounded-full shadow-lg flex items-center space-x-2 border-none animate-in fade-in zoom-in-95 duration-150 pointer-events-none select-none">
+          <FastForward className="w-4 h-4 text-amber-400 fill-current animate-pulse" />
           <span className="tracking-wide">2X Speed</span>
         </div>
       )}
@@ -1449,12 +1457,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 4. Center Play/Pause Floating Control (Only in expanded player view, prominent and touch-friendly, zero blur) */}
+      {/* 4. Center Play/Pause Floating Control (Only in expanded player view, prominent and touch-friendly, 100% crisp with zero blur and zero ring) */}
       {(isControlsVisible || !isPlaying) && isPlayerReady && authStatus === 'authorized' && hasEverPlayed && (
         <div
-          className={`absolute inset-0 z-22 flex items-center justify-center pointer-events-none transition-opacity duration-200 ${
-            !isPlaying ? 'bg-black/15' : 'bg-transparent'
-          }`}
+          className="absolute inset-0 z-22 flex items-center justify-center pointer-events-none bg-transparent"
         >
           <button
             type="button"
@@ -1468,7 +1474,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             onMouseDown={(e) => {
               e.stopPropagation();
             }}
-            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all duration-150 border-none cursor-pointer pointer-events-auto"
+            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all duration-150 border-none cursor-pointer pointer-events-auto"
             title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
           >
             {isPlaying ? (
