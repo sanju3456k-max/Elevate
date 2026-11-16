@@ -1302,28 +1302,17 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       </div>
 
-      {/* 3. Top Header Bar (Elevate Branded Player Header) */}
+      {/* 3. Top Header Bar (Video Title Only) */}
       {(!isMini || isFullscreen) && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className={`absolute top-0 inset-x-0 z-30 px-3.5 py-2.5 sm:px-4 sm:py-3 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-center justify-between transition-opacity duration-300 ${
+          className={`absolute top-0 inset-x-0 z-30 px-3.5 py-2.5 sm:px-4 sm:py-3 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-center transition-opacity duration-300 ${
             isControlsVisible || !isPlaying ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
         >
-          <div className="flex items-center space-x-2 truncate max-w-[80%]">
-            <div className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-[10px] font-semibold text-emerald-400 shrink-0">
-              <ShieldCheck className="w-3 h-3 text-emerald-400" />
-              <span>Elevate</span>
-            </div>
-            <h2 className="text-white text-xs sm:text-sm font-semibold truncate drop-shadow">
-              {title}
-            </h2>
-          </div>
-          <div className="flex items-center space-x-2 shrink-0">
-            <span className="text-[9px] sm:text-[10px] font-mono text-slate-300 bg-white/10 px-2 py-0.5 rounded border border-white/15">
-              1080p HD
-            </span>
-          </div>
+          <h2 className="text-white text-xs sm:text-sm font-medium truncate drop-shadow">
+            {title}
+          </h2>
         </div>
       )}
 
