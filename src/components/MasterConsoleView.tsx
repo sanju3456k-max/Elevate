@@ -83,7 +83,8 @@ import { APP_STYLES } from './ui/AppStyles';
 import { adminResetDeviceLock } from '../lib/deviceAuthService';
 import { M3Switch } from './ui/Material3';
 import { useApp } from '../lms/LmsContext';
-import { auth, signInWithGoogle } from '../lib/firebase';
+import { auth, signInWithGoogle, db } from '../lib/firebase';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 
 interface MasterConsoleViewProps {
   onBack: () => void;
@@ -131,6 +132,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     batches,
     chapters,
     batchTests,
+    students,
+    enrollments,
+    globalGuestAccessMode,
+    setGlobalGuestAccessMode,
     getEnrollmentsForBatch,
     loadRosterForBatch,
     enrollStudentByContact,
@@ -206,14 +211,116 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   }, [currentBatchEnrollments]);
 
   // ==========================================
-  // Roster Tab States & Actions
+  // Global Roster & Device Auth States & Actions
   // ==========================================
   const [rosterSearch, setRosterSearch] = useState('');
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
   const [studentContactInput, setStudentContactInput] = useState('');
   const [studentNameInput, setStudentNameInput] = useState('');
   const [studentValidityDays, setStudentValidityDays] = useState(365);
+  const [studentEnrollBatchId, setStudentEnrollBatchId] = useState<string>(() => batches[0]?.id || 'batch_testing_01');
   const [isEnrollingStudent, setIsEnrollingStudent] = useState(false);
+  const [pendingResetRequests, setPendingResetRequests] = useState<any[]>([]);
+
+  // Real-time listener for student hardware reset requests
+  useEffect(() => {
+    if (!db) return;
+    try {
+      const q = query(collection(db, 'device_reset_requests'), where('status', '==', 'pending'));
+      const unsub = onSnapshot(q, (snapshot) => {
+        const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setPendingResetRequests(list);
+      }, (err) => {
+        console.warn('Device reset requests listener:', err);
+      });
+      return () => unsub();
+    } catch (e) {
+      console.warn('Error setting up reset requests listener:', e);
+    }
+  }, []);
+
+  const handleApproveDeviceReset = async (uid: string, studentName: string) => {
+    try {
+      const ok = await adminResetDeviceLock(uid);
+      if (ok) {
+        showSecurityToast(`Device lock reset approved for ${studentName || uid}.`);
+      } else {
+        alert('Failed to approve device reset. Please check permissions.');
+      }
+    } catch (e: any) {
+      alert('Error approving device reset: ' + (e?.message || e));
+    }
+  };
+
+  const globalStudentsList = useMemo(() => {
+    const studentMap = new Map<string, {
+      id: string;
+      name: string;
+      email?: string;
+      phone?: string;
+      enrolledBatches: { batchId: string; batchTitle: string; status: string }[];
+      attemptCount: number;
+      hasDeviceLock: boolean;
+      status?: string;
+    }>();
+
+    (students || []).forEach(st => {
+      studentMap.set(st.id, {
+        id: st.id,
+        name: st.name || 'Student',
+        email: st.email || '',
+        phone: st.phone || '',
+        enrolledBatches: [],
+        attemptCount: 0,
+        hasDeviceLock: false,
+        status: 'Active',
+      });
+    });
+
+    (enrollments || []).forEach(enr => {
+      const existing = studentMap.get(enr.userId) || {
+        id: enr.userId,
+        name: enr.studentName || 'Student',
+        email: enr.studentEmail || '',
+        phone: enr.studentPhone || '',
+        enrolledBatches: [],
+        attemptCount: 0,
+        hasDeviceLock: Boolean((enr as any).deviceBoundId),
+        status: enr.status || 'Active',
+      };
+      const batch = batches.find(b => b.id === enr.batchId);
+      const batchTitle = batch ? batch.title : enr.batchId;
+      if (!existing.enrolledBatches.some(b => b.batchId === enr.batchId)) {
+        existing.enrolledBatches.push({
+          batchId: enr.batchId,
+          batchTitle,
+          status: enr.status || 'Active'
+        });
+      }
+      if ((enr as any).deviceBoundId) {
+        existing.hasDeviceLock = true;
+      }
+      studentMap.set(enr.userId, existing);
+    });
+
+    (attempts || []).forEach(att => {
+      if (att.userId && studentMap.has(att.userId)) {
+        studentMap.get(att.userId)!.attemptCount += 1;
+      }
+    });
+
+    return Array.from(studentMap.values());
+  }, [students, enrollments, batches, attempts]);
+
+  const filteredGlobalStudents = useMemo(() => {
+    if (!rosterSearch.trim()) return globalStudentsList;
+    const q = rosterSearch.toLowerCase().trim();
+    return globalStudentsList.filter(s =>
+      (s.name && s.name.toLowerCase().includes(q)) ||
+      (s.email && s.email.toLowerCase().includes(q)) ||
+      (s.phone && s.phone.toLowerCase().includes(q))
+    );
+  }, [globalStudentsList, rosterSearch]);
 
   const filteredEnrollments = useMemo(() => {
     if (!rosterSearch.trim()) return currentBatchEnrollments;
@@ -227,12 +334,13 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
 
   const handleEnrollStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!studentContactInput.trim() || !selectedBatchId) return;
+    const targetBatchId = studentEnrollBatchId || selectedBatchId;
+    if (!studentContactInput.trim() || !targetBatchId) return;
     setIsEnrollingStudent(true);
     try {
       const result = enrollStudentByContact({
         contact: studentContactInput.trim(),
-        batchId: selectedBatchId,
+        batchId: targetBatchId,
         name: studentNameInput.trim() || undefined,
         validityDays: Number(studentValidityDays) || 365,
       });
@@ -1046,11 +1154,16 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             >
               <div className="flex items-center gap-2.5">
                 <Users className="w-4 h-4" />
-                <span>Student Roster</span>
+                <span>Global Students</span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200/60 dark:bg-zinc-800 font-mono">
-                {currentBatchEnrollments.length}
-              </span>
+              <div className="flex items-center gap-1.5">
+                {pendingResetRequests.length > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" title={`${pendingResetRequests.length} pending device unlock requests`} />
+                )}
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200/60 dark:bg-zinc-800 font-mono">
+                  {globalStudentsList.length}
+                </span>
+              </div>
             </button>
 
             <button
@@ -1063,8 +1176,8 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <Settings className="w-4 h-4" />
-                <span>Batch Settings & DRM</span>
+                <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                <span>Security & Policies</span>
               </div>
             </button>
           </div>
@@ -1207,8 +1320,8 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
               <span className="text-[#0b57d0] dark:text-[#a8c7fa] truncate">{currentBatch.title}</span>
               <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <span className="text-slate-800 dark:text-zinc-200 capitalize">
-                {activeTab === 'roster' && 'Student Roster & Devices'}
-                {activeTab === 'settings' && 'Batch Profile & DRM Settings'}
+                {activeTab === 'roster' && 'Global Student Directory & Hardware Devices'}
+                {activeTab === 'settings' && 'Platform Security, Visual DRM & Institutional Policies'}
                 {activeTab === 'remedial' && 'Adaptive Remedial Engine'}
                 {activeTab === 'analytics' && 'Per-Test Performance Analytics'}
                 {activeTab === 'publishing' && 'Global Test Publishing Catalog'}
@@ -1285,11 +1398,11 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
         {/* Mobile Material Design 3 Horizontal Tab Strip */}
         <div className="lg:hidden flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-[#16181f] border-b border-slate-200/80 dark:border-zinc-800/80 overflow-x-auto scrollbar-none shrink-0 z-10">
           {[
-            { id: 'roster', label: 'Roster', icon: Users, badge: currentBatchEnrollments.length },
+            { id: 'roster', label: 'Students', icon: Users, badge: globalStudentsList.length },
             { id: 'remedial', label: 'Remedial', icon: Zap },
             { id: 'analytics', label: 'Analytics', icon: BarChart3 },
             { id: 'publishing', label: 'Publish', icon: BookOpen, badge: currentBatchTests.length },
-            { id: 'settings', label: 'Settings', icon: Settings },
+            { id: 'settings', label: 'Security', icon: ShieldCheck },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -1335,7 +1448,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
 
         {/* Center Viewport */}
         <div className="flex-1 overflow-hidden relative">
-          {/* TAB 0: STUDENT ROSTER & DEVICES */}
+          {/* TAB 0: GLOBAL STUDENT DIRECTORY & HARDWARE DEVICE CENTER */}
           {activeTab === 'roster' && (
             <div className="w-full h-full overflow-y-auto px-3 sm:px-6 md:px-8 py-3.5 sm:py-5 space-y-4 sm:space-y-6 [scrollbar-width:thin]">
               <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
@@ -1344,10 +1457,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   <div>
                     <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
                       <Users className="w-4 h-4 text-emerald-500" />
-                      <span>Enrolled Student Roster ({currentBatchEnrollments.length})</span>
+                      <span>Global Student Directory & Hardware Devices ({globalStudentsList.length})</span>
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-                      Batch: <strong>{currentBatch.title}</strong> • Manage active student enrollment, add validity days, or reset single-device locks.
+                      Platform-wide overview of registered students across all batches, test attempts, and single-device hardware locks.
                     </p>
                   </div>
                   <button
@@ -1360,42 +1473,49 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   </button>
                 </div>
 
-                {/* Batch-Wide Guest Access Policy Banner */}
-                <div className="p-4 rounded-2xl bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-between gap-3 flex-wrap shadow-xs">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                      currentBatch?.allowGuestAccess ? 'bg-emerald-500/15 text-emerald-600' : 'bg-amber-500/15 text-amber-600'
-                    }`}>
-                      <Sparkles className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">
-                          Guest Mode Policy for this Batch:
-                        </span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          currentBatch?.allowGuestAccess ? 'bg-emerald-500/15 text-emerald-600' : 'bg-amber-500/15 text-amber-600'
-                        }`}>
-                          {currentBatch?.allowGuestAccess ? '● Allowed (Free Preview for Visitors)' : '🔒 Restricted (Official Roster Only)'}
-                        </span>
+                {/* Pending Device Unlock Requests Banner */}
+                {pendingResetRequests.length > 0 && (
+                  <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 space-y-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center space-x-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        <h4 className="text-xs font-bold uppercase tracking-wider">
+                          Pending Device Unlock Requests ({pendingResetRequests.length})
+                        </h4>
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
-                        {currentBatch?.allowGuestAccess
-                          ? 'Visitors browsing in Guest Mode can view this course without requiring an individual student account.'
-                          : 'Visitors in Guest Mode cannot access this course unless admitted by Admin or enrolled.'}
-                      </p>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                        Action Required
+                      </span>
+                    </div>
+                    <p className="text-[11px] opacity-80 leading-relaxed">
+                      These students have logged in on a new device or cleared cache and requested permission to re-bind their hardware.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-1">
+                      {pendingResetRequests.map((req) => (
+                        <div
+                          key={req.id}
+                          className="p-3 rounded-xl bg-white dark:bg-[#16181f] border border-amber-500/20 flex items-center justify-between gap-2 shadow-xs"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-slate-800 dark:text-zinc-200 truncate">
+                              {req.studentName || req.email || req.uid}
+                            </p>
+                            <p className="text-[10px] text-slate-500 dark:text-zinc-400 truncate">
+                              {req.email || req.phone || 'Student'}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleApproveDeviceReset(req.uid || req.id, req.studentName || 'Student')}
+                            className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold border-none cursor-pointer transition shrink-0 active:scale-95"
+                          >
+                            Approve
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-xs font-bold text-slate-700 dark:text-zinc-300">
-                      Allowed to Guest Users:
-                    </span>
-                    <M3Switch
-                      checked={Boolean(currentBatch?.allowGuestAccess)}
-                      onChange={handleToggleGuestAccess}
-                    />
-                  </div>
-                </div>
+                )}
 
                 {/* Search Bar */}
                 <div className="relative max-w-md">
@@ -1404,116 +1524,133 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                     type="text"
                     value={rosterSearch}
                     onChange={(e) => setRosterSearch(e.target.value)}
-                    placeholder="Search enrolled students by name, email or phone..."
+                    placeholder="Search students by name, email or phone across all batches..."
                     className="w-full pl-8 pr-3 py-2 rounded-xl bg-white dark:bg-[#16181f] text-xs font-medium text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0] transition shadow-xs"
                   />
                 </div>
 
-                {/* Roster Cards (Mobile) & Table (Desktop) */}
+                {/* Global Students Cards (Mobile) & Table (Desktop) */}
                 <div className="rounded-2xl overflow-hidden bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 shadow-xs">
-                  {/* Mobile Card List for < sm screens */}
+                  {/* Mobile Card List */}
                   <div className="sm:hidden divide-y divide-slate-100 dark:divide-zinc-800/60">
-                    {filteredEnrollments.length === 0 ? (
+                    {filteredGlobalStudents.length === 0 ? (
                       <div className="p-8 text-center text-xs text-slate-500 dark:text-zinc-400">
-                        {currentBatchEnrollments.length === 0 ? 'No students enrolled in this batch yet.' : 'No students matching search.'}
+                        {globalStudentsList.length === 0 ? 'No registered students found.' : 'No students matching search.'}
                       </div>
                     ) : (
-                      filteredEnrollments.map((enr) => (
-                        <div key={enr.id} className="p-3.5 space-y-2.5">
+                      filteredGlobalStudents.map((st) => (
+                        <div key={st.id} className="p-3.5 space-y-2.5">
                           <div className="flex items-center justify-between">
                             <span className="font-bold text-xs text-slate-900 dark:text-zinc-100">
-                              {enr.studentName || 'Student'}
+                              {st.name || 'Student'}
                             </span>
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600">
-                              {enr.status || 'Active'}
+                              {st.status || 'Active'}
                             </span>
                           </div>
                           <p className="text-[11px] font-mono text-slate-500 dark:text-zinc-400 truncate">
-                            {enr.studentEmail || enr.studentPhone || 'N/A'}
+                            {st.email || st.phone || 'N/A'}
                           </p>
+                          <div className="flex flex-wrap gap-1">
+                            {st.enrolledBatches.length > 0 ? (
+                              st.enrolledBatches.map((b) => (
+                                <span
+                                  key={b.batchId}
+                                  className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                                >
+                                  {b.batchTitle}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-[9px] text-slate-400 italic">No batches assigned</span>
+                            )}
+                          </div>
                           <div className="flex items-center justify-between pt-1">
                             <span className="text-[10px] text-slate-500 dark:text-zinc-400">
-                              Enrolled: {enr.enrolledAt ? new Date(enr.enrolledAt).toLocaleDateString() : 'Active'}
+                              Tests Taken: <strong>{st.attemptCount}</strong>
                             </span>
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                title="Reset Device Lock (Allows student to register a new phone or laptop upon login)"
-                                onClick={() => handleResetDeviceLock(enr.userId, enr.studentName || 'Student')}
-                                className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border-none cursor-pointer flex items-center gap-1 active:scale-95"
-                              >
-                                <Smartphone className="w-3 h-3" />
-                                <span>Reset Device</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleRevokeEnrollment(enr.userId, enr.studentName || 'Student')}
-                                className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-rose-500 bg-rose-50 dark:bg-rose-950/20 border-none cursor-pointer active:scale-95"
-                              >
-                                Revoke
-                              </button>
-                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleResetDeviceLock(st.id, st.name || 'Student')}
+                              className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 border-none bg-transparent cursor-pointer flex items-center space-x-1"
+                            >
+                              <Smartphone className="w-3.5 h-3.5" />
+                              <span>Reset Device</span>
+                            </button>
                           </div>
                         </div>
                       ))
                     )}
                   </div>
 
-                  {/* Desktop Table View for >= sm screens */}
+                  {/* Desktop Table View */}
                   <div className="hidden sm:block overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-50 dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 font-bold text-[11px]">
-                        <tr>
-                          <th className="py-2.5 px-4">Student</th>
-                          <th className="py-2.5 px-3">Contact</th>
-                          <th className="py-2.5 px-3">Enrolled At</th>
-                          <th className="py-2.5 px-3">Status</th>
-                          <th className="py-2.5 px-4 text-right">Actions</th>
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-200/80 dark:border-zinc-800/80 bg-slate-50/70 dark:bg-zinc-900/40 text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
+                          <th className="p-3 pl-4">Student</th>
+                          <th className="p-3">Contact</th>
+                          <th className="p-3">Enrolled Batches</th>
+                          <th className="p-3">Tests Attempted</th>
+                          <th className="p-3">Device Lock</th>
+                          <th className="p-3 pr-4 text-right">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60 font-medium">
-                        {filteredEnrollments.length === 0 ? (
+                      <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60 text-xs">
+                        {filteredGlobalStudents.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="py-8 text-center text-slate-500 dark:text-zinc-400">
-                              {currentBatchEnrollments.length === 0 ? 'No students enrolled in this batch yet.' : 'No students matching search.'}
+                            <td colSpan={6} className="p-8 text-center text-slate-500 dark:text-zinc-400">
+                              {globalStudentsList.length === 0 ? 'No registered students found.' : 'No students matching search.'}
                             </td>
                           </tr>
                         ) : (
-                          filteredEnrollments.map((enr) => (
-                            <tr key={enr.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition">
-                              <td className="py-2.5 px-4 font-bold text-slate-900 dark:text-zinc-100">
-                                {enr.studentName || 'Student'}
+                          filteredGlobalStudents.map((st) => (
+                            <tr key={st.id} className="hover:bg-slate-50/60 dark:hover:bg-zinc-900/30 transition">
+                              <td className="p-3 pl-4 font-bold text-slate-900 dark:text-zinc-100">
+                                {st.name || 'Student'}
                               </td>
-                              <td className="py-2.5 px-3 text-[11px] font-mono text-slate-500 dark:text-zinc-400">
-                                {enr.studentEmail || enr.studentPhone || 'N/A'}
+                              <td className="p-3 font-mono text-[11px] text-slate-600 dark:text-zinc-400">
+                                {st.email || st.phone || 'N/A'}
                               </td>
-                              <td className="py-2.5 px-3 text-[11px] text-slate-600 dark:text-zinc-400">
-                                {enr.enrolledAt ? new Date(enr.enrolledAt).toLocaleDateString() : 'Active'}
+                              <td className="p-3">
+                                <div className="flex flex-wrap gap-1 max-w-xs">
+                                  {st.enrolledBatches.length > 0 ? (
+                                    st.enrolledBatches.map((b) => (
+                                      <span
+                                        key={b.batchId}
+                                        className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 truncate max-w-[120px]"
+                                        title={b.batchTitle}
+                                      >
+                                        {b.batchTitle}
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="text-[10px] text-slate-400 italic">No batches</span>
+                                  )}
+                                </div>
                               </td>
-                              <td className="py-2.5 px-3">
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600">
-                                  {enr.status || 'Active'}
+                              <td className="p-3 font-semibold text-slate-700 dark:text-zinc-300">
+                                {st.attemptCount} attempts
+                              </td>
+                              <td className="p-3">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  st.hasDeviceLock
+                                    ? 'bg-emerald-500/15 text-emerald-600'
+                                    : 'bg-slate-200 dark:bg-zinc-800 text-slate-500'
+                                }`}>
+                                  {st.hasDeviceLock ? '🔒 Locked' : '● Open'}
                                 </span>
                               </td>
-                              <td className="py-2.5 px-4 text-right">
-                                <div className="flex items-center justify-end space-x-1.5">
-                                  <button
-                                    type="button"
-                                    title="Reset Device Lock (Allows student to register a new phone or laptop upon login)"
-                                    onClick={() => handleResetDeviceLock(enr.userId, enr.studentName || 'Student')}
-                                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 border-none bg-transparent cursor-pointer flex items-center space-x-1 transition"
-                                  >
-                                    <Smartphone className="w-3.5 h-3.5" />
-                                    <span>Reset Device</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRevokeEnrollment(enr.userId, enr.studentName || 'Student')}
-                                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 border-none bg-transparent cursor-pointer transition"
-                                  >
-                                    Revoke
-                                  </button>
-                                </div>
+                              <td className="p-3 pr-4 text-right">
+                                <button
+                                  type="button"
+                                  title="Reset Device Lock (Allows student to register a new phone or laptop upon login)"
+                                  onClick={() => handleResetDeviceLock(st.id, st.name || 'Student')}
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 border-none bg-transparent cursor-pointer inline-flex items-center space-x-1 transition"
+                                >
+                                  <Smartphone className="w-3.5 h-3.5" />
+                                  <span>Reset Device</span>
+                                </button>
                               </td>
                             </tr>
                           ))
@@ -1526,194 +1663,116 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             </div>
           )}
 
-          {/* TAB: BATCH SETTINGS & SECURITY */}
+          {/* TAB: PLATFORM SECURITY, DRM & INSTITUTIONAL POLICIES */}
           {activeTab === 'settings' && (
             <div className="w-full h-full overflow-y-auto px-3 sm:px-6 md:px-8 py-3.5 sm:py-5 space-y-4 sm:space-y-6 [scrollbar-width:thin]">
               <div className="max-w-4xl mx-auto w-full space-y-5 sm:space-y-6">
                 {/* Header Card */}
                 <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-between gap-4 flex-wrap shadow-xs">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-2xl bg-[#0b57d0]/10 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0">
-                      <Settings className="w-5 h-5" />
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                      <ShieldCheck className="w-5 h-5" />
                     </div>
                     <div>
                       <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100">
-                        Batch Global Configuration & Security
+                        Platform Security, Visual DRM & Institutional Policies
                       </h3>
                       <p className="text-xs text-slate-500 dark:text-zinc-400">
-                        Manage course publication status, student roster rules, pricing, and DRM content protection.
+                        Institution-wide DRM protection, local data encryption, and global guest visitor access policies.
                       </p>
                     </div>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center space-x-1.5 shadow-2xs ${
-                    currentBatch.isPublished !== false
-                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                      : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
-                  }`}>
-                    {currentBatch.isPublished !== false ? (
-                      <>
-                        <Globe className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>● Live & Published</span>
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="w-3.5 h-3.5 text-amber-600" />
-                        <span>🔒 Draft (Locked & Hidden)</span>
-                      </>
-                    )}
-                  </span>
                 </div>
 
-                {/* 1. PUBLISH & VISIBILITY STATUS */}
+                {/* Decentralized Batch Operations Card */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-transparent border border-blue-500/20 space-y-2.5">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center space-x-2">
+                      <Folder className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100">
+                        Batch Metadata, Folders & Lectures Management
+                      </h4>
+                    </div>
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-500/15 text-[#0b57d0] dark:text-[#a8c7fa]">
+                      Decoupled Architecture
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-zinc-300 leading-relaxed">
+                    Batch names, descriptions, pricing, access validity, curriculum folders, video lectures, and notes are managed directly from the outer <strong>Course Batches</strong> tab. Click any batch card&apos;s 3-dots menu or open a batch to manage content.
+                  </p>
+                  {onOpenBatch && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onBack();
+                        onOpenBatch(selectedBatchId);
+                      }}
+                      className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold border-none cursor-pointer shadow-xs transition"
+                    >
+                      <span>Open Course Batches Catalog</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Global Guest Mode Institutional Policy */}
                 <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 space-y-3 shadow-xs">
                   <div>
-                    <label className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center space-x-1.5">
-                      <span>Course Catalog Visibility (Live vs Draft Lock)</span>
-                    </label>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider flex items-center space-x-2">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Global Guest Visitor Policy</span>
+                    </h4>
                     <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
-                      When published, the course is live to students in the catalog. When set to Draft, the entire batch is strictly locked and hidden from learners.
+                      Configure how non-logged-in guest learners access your curriculum courses.
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div
-                      onClick={() => handleTogglePublishBatch(true)}
-                      className={`p-4 rounded-2xl border-2 transition cursor-pointer flex items-start space-x-3 ${
-                        currentBatch.isPublished !== false
-                          ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/20 shadow-xs'
-                          : 'border-slate-200 dark:border-zinc-800 hover:border-emerald-500/50'
-                      }`}
-                    >
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                        currentBatch.isPublished !== false ? 'bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-zinc-800 text-slate-500'
-                      }`}>
-                        <Eye className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100">
-                            Published (Live to Students)
-                          </h4>
-                          {currentBatch.isPublished !== false && (
-                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                          )}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    {[
+                      {
+                        mode: 'specific_batches' as const,
+                        title: 'Per-Batch Control (Recommended)',
+                        desc: 'Each batch admin toggles Guest Mode individually via Batch Settings.',
+                      },
+                      {
+                        mode: 'all_batches' as const,
+                        title: 'All Batches Open',
+                        desc: 'All published courses are open for free preview across the platform.',
+                      },
+                      {
+                        mode: 'none' as const,
+                        title: 'Strictly Enrolled Only',
+                        desc: 'Completely disables Guest Mode. Students must be enrolled to view courses.',
+                      },
+                    ].map((opt) => (
+                      <div
+                        key={opt.mode}
+                        onClick={() => setGlobalGuestAccessMode(opt.mode)}
+                        className={`p-3.5 rounded-xl border-2 cursor-pointer transition flex flex-col justify-between space-y-2 ${
+                          globalGuestAccessMode === opt.mode
+                            ? 'border-[#0b57d0] bg-[#0b57d0]/10 shadow-xs'
+                            : 'border-slate-200 dark:border-zinc-800 hover:border-slate-300'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">
+                              {opt.title}
+                            </span>
+                            {globalGuestAccessMode === opt.mode && (
+                              <Check className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1 leading-snug">
+                            {opt.desc}
+                          </p>
                         </div>
-                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
-                          Visible in All Courses catalog and open to enrolled learners.
-                        </p>
                       </div>
-                    </div>
-
-                    <div
-                      onClick={() => handleTogglePublishBatch(false)}
-                      className={`p-4 rounded-2xl border-2 transition cursor-pointer flex items-start space-x-3 ${
-                        currentBatch.isPublished === false
-                          ? 'border-amber-500 bg-amber-50/60 dark:bg-amber-950/20 shadow-xs'
-                          : 'border-slate-200 dark:border-zinc-800 hover:border-amber-500/50'
-                      }`}
-                    >
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                        currentBatch.isPublished === false ? 'bg-amber-600 text-white' : 'bg-slate-200 dark:bg-zinc-800 text-slate-500'
-                      }`}>
-                        <Lock className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100">
-                            Draft (Locked & Hidden)
-                          </h4>
-                          {currentBatch.isPublished === false && (
-                            <span className="w-2 h-2 rounded-full bg-amber-500" />
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
-                          Completely locked for all students and visitors while content is being prepared.
-                        </p>
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* 2. COMMERCIALS & PRICING */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 space-y-4 shadow-xs">
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider flex items-center space-x-1.5">
-                    <IndianRupee className="w-3.5 h-3.5 text-[#0b57d0]" />
-                    <span>Commercials & Batch Metadata</span>
-                  </h4>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 block mb-1">
-                        Batch Title
-                      </label>
-                      <input
-                        type="text"
-                        value={batchTitleInput}
-                        onChange={(e) => setBatchTitleInput(e.target.value)}
-                        className="w-full p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0]"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 block mb-1">
-                        Category
-                      </label>
-                      <input
-                        type="text"
-                        value={batchCategoryInput}
-                        onChange={(e) => setBatchCategoryInput(e.target.value)}
-                        className="w-full p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0]"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 block mb-1">
-                        Selling Price (₹)
-                      </label>
-                      <input
-                        type="number"
-                        value={batchPrice}
-                        onChange={(e) => setBatchPrice(Number(e.target.value))}
-                        className="w-full p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0]"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 block mb-1">
-                        Original Price (₹)
-                      </label>
-                      <input
-                        type="number"
-                        value={batchOriginalPrice}
-                        onChange={(e) => setBatchOriginalPrice(Number(e.target.value))}
-                        className="w-full p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0]"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 block mb-1">
-                        Access Validity (Days)
-                      </label>
-                      <input
-                        type="number"
-                        value={batchValidityDays}
-                        onChange={(e) => setBatchValidityDays(Number(e.target.value))}
-                        className="w-full p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0]"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-1">
-                    <button
-                      type="button"
-                      onClick={handleSaveBatchSettings}
-                      className="px-5 py-2 rounded-xl bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold border-none cursor-pointer shadow-xs transition active:scale-95"
-                    >
-                      Save Commercial Settings
-                    </button>
-                  </div>
-                </div>
-
-                {/* 3. CONTENT THEFT PROTECTION & DRM SECURITY CENTER */}
+                {/* Visual DRM & Offline Storage Encryption Security Center */}
                 <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 space-y-4 shadow-xs">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center space-x-2">
@@ -3270,10 +3329,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
-                    Add Student / User to Batch
+                    Enroll Student / User into Course Batch
                   </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate max-w-[240px]">
-                    {currentBatch?.title || 'Selected Course'}
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                    Direct admission with single-device hardware authentication
                   </p>
                 </div>
               </div>
@@ -3287,6 +3346,23 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             </div>
 
             <form onSubmit={handleEnrollStudent} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block mb-1">
+                  Assign Course Batch *
+                </label>
+                <select
+                  value={studentEnrollBatchId}
+                  onChange={(e) => setStudentEnrollBatchId(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-900 text-xs font-bold text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0]"
+                >
+                  {batches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.title} ({b.category || 'General'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block mb-1">
                   Student Phone Number or Email Address *
