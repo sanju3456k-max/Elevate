@@ -2974,8 +2974,13 @@ export async function publishTestToBatchCatalog(
       { merge: true }
     );
 
-    // Sync individual batch test document for direct real-time batch listeners
-    syncBatchTestToFirestore(cleanBatchId, newCard).catch(() => {});
+    // Sync individual batch test document with complete questions for direct access
+    const fullTestDoc = {
+      ...newCard,
+      questions: sanitizedTest.questions || [],
+      questionCount: sanitizedTest.questions?.length || newCard.questionCount,
+    };
+    syncBatchTestToFirestore(cleanBatchId, fullTestDoc).catch(() => {});
 
     // Update local cache
     try {

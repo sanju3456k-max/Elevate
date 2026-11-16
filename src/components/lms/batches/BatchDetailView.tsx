@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { useApp, getFacultyAvatarUrl } from '../../../lms/LmsContext';
 import { auth, db, getCachedFullTest } from '../../../lib/firebase';
+import { loadFullTestOnDemand } from '../../../lib/storage';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { isMasterUser, getGlobalPublishedTests } from '../../../lib/masterAccount';
 import { getTestDurationMinutes } from '../../../utils/testFormatConverter';
@@ -473,20 +474,29 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     (batchTests || []).forEach((bt) => {
       const tid = bt.testId || bt.id;
       if (tid && !testMap.has(tid)) {
-        const cached = getCachedFullTest(tid);
+        let cached = getCachedFullTest(tid);
+        if (!cached && typeof localStorage !== 'undefined') {
+          try {
+            const raw = localStorage.getItem(`batch_${bt.batchId}_test_${tid}`);
+            if (raw) cached = JSON.parse(raw);
+          } catch {}
+        }
         const resolvedDuration = getTestDurationMinutes(bt) || (cached ? getTestDurationMinutes(cached) : 25);
+        const resolvedQuestions = cached?.questions || [];
         testMap.set(tid, {
           id: tid,
+          batchId: bt.batchId,
+          catalogChunkId: bt.catalogChunkId || (bt as any).chunkId,
           title: bt.title || 'Mock Test',
           topic: bt.topic || (bt as any).subject || 'Assessment',
           difficulty: ((bt.difficulty as any) || 'Medium') as any,
           timeLimitMinutes: resolvedDuration,
           time: resolvedDuration,
           durationMinutes: resolvedDuration,
-          questionCount: bt.questionCount || (cached?.questions?.length) || 20,
-          questions: cached?.questions || [],
+          questionCount: bt.questionCount || (resolvedQuestions.length > 0 ? resolvedQuestions.length : 20),
+          questions: resolvedQuestions,
           isPublic: true,
-        });
+        } as any);
       }
     });
 
@@ -521,37 +531,53 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       const resolvedList: MathTest[] = [];
 
       chapterTestIdSet.forEach((tid) => {
-        const candidate = candidateMap.get(tid) || getCachedFullTest(tid);
+        let candidate = candidateMap.get(tid) || getCachedFullTest(tid);
         const bt = (batchTests || []).find((b) => (b.testId === tid || b.id === tid) && b.batchId === activeBatchId);
+
+        if (!candidate && typeof localStorage !== 'undefined') {
+          try {
+            const raw = localStorage.getItem(`batch_${activeBatchId}_test_${tid}`);
+            if (raw) candidate = JSON.parse(raw);
+          } catch {}
+        }
+
+        const resolvedQuestions = candidate?.questions || [];
+        const questionCount = (resolvedQuestions.length > 0 ? resolvedQuestions.length : (bt?.questionCount || candidate?.questionCount || 20));
 
         if (candidate) {
           const resolvedDuration = (bt ? getTestDurationMinutes(bt) : 0) || getTestDurationMinutes(candidate) || 25;
           resolvedList.push({
             ...candidate,
             id: tid,
+            batchId: activeBatchId,
+            catalogChunkId: bt?.catalogChunkId || (bt as any)?.chunkId,
             timeLimitMinutes: resolvedDuration,
             time: resolvedDuration,
             durationMinutes: resolvedDuration,
-            questionCount: candidate.questions?.length || (candidate as any).questionCount || bt?.questionCount || 20,
-          });
+            questionCount,
+            questions: resolvedQuestions,
+          } as any);
         } else if (bt) {
           const resolvedDuration = getTestDurationMinutes(bt) || 25;
           resolvedList.push({
             id: tid,
+            batchId: activeBatchId,
+            catalogChunkId: bt.catalogChunkId || (bt as any).chunkId,
             title: bt.title || 'Mock Test',
             topic: bt.topic || (bt as any).subject || currentFolder.title || 'Assessment',
             difficulty: ((bt.difficulty as any) || 'Medium') as any,
             timeLimitMinutes: resolvedDuration,
             time: resolvedDuration,
             durationMinutes: resolvedDuration,
-            questionCount: bt.questionCount || 20,
-            questions: [],
+            questionCount,
+            questions: resolvedQuestions,
             isPublic: true,
-          });
+          } as any);
         } else {
           // Fallback placeholder so count and card is never lost
           resolvedList.push({
             id: tid,
+            batchId: activeBatchId,
             title: `Mock Test (${currentFolder.title || 'Chapter Test'})`,
             topic: currentFolder.title || 'Assessment',
             difficulty: 'Medium' as any,
@@ -561,7 +587,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             questionCount: 20,
             questions: [],
             isPublic: true,
-          });
+          } as any);
         }
       });
 
@@ -1626,14 +1652,14 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                         <div className="flex items-center justify-between text-[10px] sm:text-[11px] pt-1 border-t border-[var(--md-sys-color-outline-variant)]/20 mt-auto">
                           <div className="flex items-center space-x-1 text-[var(--md-sys-color-on-surface-variant)] truncate max-w-[120px] sm:max-w-none">
                             <HelpCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                            <span>{t.questions?.length || 10} Questions</span>
+                            <span>{(t.questions && t.questions.length > 0 ? t.questions.length : (t.questionCount || 20))} Questions</span>
                           </div>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               if (onStartTest) {
                                 onStartTest(t, {
-                                  batchId: selectedBatchId,
+                                  batchId: selectedBatchId || currentBatch?.id,
                                   chapterId: selectedChapterId,
                                   folderTab: 'tests',
                                 });
@@ -1787,15 +1813,19 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           onClose={() => setIsLinkTestModalOpen(false)}
           availableTests={allCandidateTests}
           linkedTestIds={folderTests.map((t) => t.id)}
-          onToggleTest={(testId) => {
+          onToggleTest={async (testId) => {
             if (selectedChapterId) {
               const isAlreadyInFolder = folderTests.some((t) => t.id === testId);
+              const targetBatchId = currentBatch?.id || selectedBatchId;
               if (isAlreadyInFolder) {
-                deleteBatchTest(currentBatch?.id || selectedBatchId, testId);
+                deleteBatchTest(targetBatchId, testId);
                 showSecurityToast('Test unlinked from folder.');
               } else {
                 const found = allCandidateTests.find((t) => t.id === testId);
-                toggleTestInChapter(selectedChapterId, testId, found);
+                const fullFound = (found && found.questions && found.questions.length > 0)
+                  ? found
+                  : (await loadFullTestOnDemand(testId, allCandidateTests, null, targetBatchId)) || found;
+                toggleTestInChapter(selectedChapterId, testId, fullFound);
                 showSecurityToast('Test linked to folder.');
               }
             }

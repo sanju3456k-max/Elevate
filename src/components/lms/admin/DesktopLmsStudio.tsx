@@ -52,6 +52,7 @@ import { adminResetDeviceLock } from '../../../lib/deviceAuthService';
 import { fetchVideoMetadata, extractYouTubeVideoId } from '../../../lms/videoMetadataService';
 import { useApp } from '../../../lms/LmsContext';
 import { db, getCachedFullTest } from '../../../lib/firebase';
+import { loadFullTestOnDemand } from '../../../lib/storage';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { getGlobalPublishedTests } from '../../../lib/masterAccount';
 import { getTestDurationMinutes } from '../../../utils/testFormatConverter';
@@ -2151,7 +2152,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
             ? currentFolderTests.map((t) => t.id)
             : batchCatalogTests.map((t) => t.testId || t.id)
         }
-        onToggleTest={(testId) => {
+        onToggleTest={async (testId) => {
           const targetFolderId = selectedFolderId || chapters.find((c) => c.batchId === selectedBatchId)?.id || null;
           const isAlreadyLinked = selectedFolderId
             ? currentFolderTests.some((t) => t.id === testId)
@@ -2165,17 +2166,21 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
             showSecurityToast(`Test unlinked from ${selectedFolderId ? 'folder' : 'batch'}.`);
           } else {
             const found = allCandidateTests.find((t) => t.id === testId);
+            const fullFound = (found && found.questions && found.questions.length > 0)
+              ? found
+              : (await loadFullTestOnDemand(testId, allCandidateTests, null, selectedBatchId)) || found;
             if (targetFolderId) {
-              toggleTestInChapter(targetFolderId, testId, found);
+              toggleTestInChapter(targetFolderId, testId, fullFound);
             } else {
               addTestToBatchCatalog({
                 testId,
                 batchId: selectedBatchId,
-                title: found?.title || 'Mock Test',
-                topic: found?.topic || 'Curriculum Assessment',
-                difficulty: (found?.difficulty as any) || 'medium',
-                timeLimitMinutes: found?.timeLimitMinutes || 60,
-                questionCount: found?.questions?.length || 20,
+                title: fullFound?.title || 'Mock Test',
+                topic: fullFound?.topic || 'Curriculum Assessment',
+                difficulty: (fullFound?.difficulty as any) || 'medium',
+                timeLimitMinutes: fullFound?.timeLimitMinutes || 60,
+                questionCount: fullFound?.questions?.length || 20,
+                questions: fullFound?.questions,
               });
             }
             showSecurityToast(`Test linked to ${selectedFolderId ? 'folder' : 'batch'}.`);

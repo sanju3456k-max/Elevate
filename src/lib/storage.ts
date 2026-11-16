@@ -1,5 +1,6 @@
 import type { MathTest, TestAttempt, ActiveTestSession } from '../types';
 import { SAMPLE_MATH_TESTS } from '../data/sampleTests';
+import { fetchTestFromAllCatalogs, hydrateQuestionsForTest } from './questionCatalogService';
 import { 
   fetchFullTestFromFirestore, 
   deleteTestFromFirestore, 
@@ -1433,53 +1434,78 @@ export function migrateGuestDataToUserAccount(
 }
 
 /**
- * On-demand test loader.
- * Checks memory, local storage, sample tests, and on-demand Firestore fetch.
- * Guarantees zero unnecessary reads when questions are already in memory or local cache.
+ * On-demand test loader with Universal Multi-Catalog & Hydration guarantee.
+ * Checks memory, local storage, sample tests, and on-demand Firestore / Batch Question Catalogs.
+ * Guarantees zero unnecessary reads when questions are already in memory or local cache,
+ * and guarantees a test NEVER returns with 0 questions.
  */
 export async function loadFullTestOnDemand(
   testId: string, 
   memoryTests?: MathTest[], 
-  userId?: string | null
+  userId?: string | null,
+  batchId?: string | null,
+  chunkId?: string | null
 ): Promise<MathTest | null> {
   if (!testId) return null;
+  const cleanId = testId.trim();
 
   // 1. Check in-memory tests first
   if (memoryTests && Array.isArray(memoryTests)) {
-    const found = memoryTests.find((t) => t.id === testId);
+    const found = memoryTests.find((t) => t.id === cleanId || (t as any).testId === cleanId);
     if (found && Array.isArray(found.questions) && found.questions.length > 0) {
       return found;
     }
   }
 
+  // 1b. Check local batch test cache if batchId is provided or detected
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const activeBatch = batchId || localStorage.getItem('math_mock_selected_batch_id');
+      if (activeBatch) {
+        const batchKey = `batch_${activeBatch.trim()}_test_${cleanId}`;
+        const raw = localStorage.getItem(batchKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.questions) && parsed.questions.length > 0) {
+            return parsed;
+          }
+        }
+      }
+      const genericCached = getCachedFullTest(cleanId);
+      if (genericCached && Array.isArray(genericCached.questions) && genericCached.questions.length > 0) {
+        return genericCached;
+      }
+    } catch {}
+  }
+
   // 2. Check local scoped storage cache
   const localScoped = loadScopedTests(userId);
-  const foundLocal = localScoped.find((t) => t.id === testId);
+  const foundLocal = localScoped.find((t) => t.id === cleanId || (t as any).testId === cleanId);
   if (foundLocal && Array.isArray(foundLocal.questions) && foundLocal.questions.length > 0) {
     return foundLocal;
   }
 
   // 2b. Check high-capacity IndexedDB storage cache
   try {
-    const idbTest = await getTestFromIndexedDB(userId, testId);
+    const idbTest = await getTestFromIndexedDB(userId, cleanId);
     if (idbTest && Array.isArray(idbTest.questions) && idbTest.questions.length > 0) {
       return idbTest;
     }
   } catch {}
 
   // 3. Check sample tests
-  const sample = SAMPLE_MATH_TESTS.find((s) => s.id === testId);
+  const sample = SAMPLE_MATH_TESTS.find((s) => s.id === cleanId);
   if (sample && Array.isArray(sample.questions) && sample.questions.length > 0) {
     return sample;
   }
 
-  // 4. Fetch on demand from Firestore (single document read)
+  // 4. Fetch on demand from multi-tier catalogs (Batch catalog chunks, batch tests, leaderboards published_paper, user tests, root tests)
   try {
-    const remote = await fetchFullTestFromFirestore(testId);
+    const remote = await fetchTestFromAllCatalogs(cleanId, batchId, chunkId);
     if (remote && Array.isArray(remote.questions) && remote.questions.length > 0) {
       // Update local cache and IndexedDB with hydrated test
-      const updated = localScoped.map((t) => (t.id === testId ? remote : t));
-      if (!updated.some((t) => t.id === testId)) {
+      const updated = localScoped.map((t) => (t.id === cleanId ? remote : t));
+      if (!updated.some((t) => t.id === cleanId)) {
         updated.push(remote);
       }
       saveScopedTests(userId, updated);
@@ -1487,10 +1513,26 @@ export async function loadFullTestOnDemand(
       return remote;
     }
   } catch (err) {
-    console.warn(`Failed to fetch test ${testId} on demand:`, err);
+    console.warn(`Failed to fetch test ${cleanId} from catalog:`, err);
   }
 
-  return foundLocal || sample || null;
+  // 5. If foundLocal or sample exists, ensure it is NEVER returned with 0 questions!
+  const candidate = foundLocal || sample;
+  if (candidate) {
+    const hydratedQuestions = Array.isArray(candidate.questions) && candidate.questions.length > 0
+      ? candidate.questions
+      : hydrateQuestionsForTest(candidate, candidate.questionCount || 20);
+    const hydratedTest = {
+      ...candidate,
+      questions: hydratedQuestions,
+      questionCount: hydratedQuestions.length,
+    };
+    putTestToIndexedDB(userId, hydratedTest).catch(() => {});
+    return hydratedTest;
+  }
+
+  // 6. Final safety: synthesize a valid test matching the ID so test runner never crashes with 0 questions
+  return await fetchTestFromAllCatalogs(cleanId, batchId, chunkId);
 }
 
 /**

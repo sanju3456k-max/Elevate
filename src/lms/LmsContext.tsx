@@ -15,6 +15,7 @@ import { enableContentSecurityDeterrence, obfuscateVideoKey, initConsoleSecurity
 import { secureStorage } from '../lib/secureStorage';
 import { auth, db, getCachedFullTest } from '../lib/firebase';
 import { isMasterUser, publishTestToBatchCatalog } from '../lib/masterAccount';
+import { hydrateQuestionsForTest } from '../lib/questionCatalogService';
 import { getTestDurationMinutes } from '../utils/testFormatConverter';
 import { listenerManager } from '../lib/listenerManager';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -117,6 +118,7 @@ interface AppContextType {
     timeLimitMinutes: number;
     questionCount: number;
     passingScorePercentage?: number;
+    questions?: any[];
   }) => { success: boolean; message: string };
   deleteBatchTest: (batchId: string, testId: string, testTitle?: string) => void;
   getTestsForBatch: (batchId: string) => BatchTestCard[];
@@ -738,10 +740,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } catch {}
 
         if (isAdded) {
-          const testObj = testData || getCachedFullTest(testId);
-          if (testObj) {
-            publishTestToBatchCatalog(target.batchId, testObj).catch(() => {});
+          let testObj = testData || getCachedFullTest(testId);
+          if (!testObj || !testObj.questions || testObj.questions.length === 0) {
+            const fallbackCount = (testObj as any)?.questionCount || 20;
+            const hydrated = hydrateQuestionsForTest(testObj || { id: testId, title: 'Curriculum Assessment' }, fallbackCount);
+            testObj = {
+              ...(testObj || {}),
+              id: testId,
+              title: testObj?.title || 'Curriculum Mock Test',
+              topic: testObj?.topic || target.title || 'Curriculum Assessment',
+              difficulty: (testObj?.difficulty as any) || 'medium',
+              questions: hydrated,
+              questionCount: hydrated.length,
+            };
           }
+          publishTestToBatchCatalog(target.batchId, testObj).catch(() => {});
           const dur = testObj ? getTestDurationMinutes(testObj) : 25;
           const card: BatchTestCard = {
             id: testId,
@@ -761,7 +774,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             chunkEstimatedBytes: 85 * 1024,
             publishedAt: new Date().toISOString(),
           };
-          syncBatchTestToFirestore(target.batchId, card).catch(() => {});
+          syncBatchTestToFirestore(target.batchId, {
+            ...card,
+            questions: testObj.questions || [],
+          }).catch(() => {});
           setBatchTests((btPrev) => {
             const filtered = btPrev.filter((b) => (b.testId || b.id) !== testId || b.batchId !== target.batchId);
             const updatedBt = [card, ...filtered];
@@ -1327,6 +1343,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     timeLimitMinutes,
     questionCount,
     passingScorePercentage = 40,
+    questions,
   }: {
     testId?: string;
     batchId: string;
@@ -1337,6 +1354,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     timeLimitMinutes: number;
     questionCount: number;
     passingScorePercentage?: number;
+    questions?: any[];
   }) => {
     const cleanTestId = testId?.trim() || `btest_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     const chunkId = `chunk_${Math.floor(batchTests.filter((t) => t.batchId === batchId).length / 6) + 1}`;
@@ -1348,6 +1366,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ? chapters.find((c) => c.id === chapterId && c.batchId === batchId)
       : chapters.find((c) => c.batchId === batchId);
     const resolvedChapterId = targetChapter?.id || chapterId || null;
+
+    // Resolve or synthesize questions so test paper is never empty
+    const resolvedQuestions = (questions && Array.isArray(questions) && questions.length > 0)
+      ? questions
+      : hydrateQuestionsForTest(
+          { id: cleanTestId, title: cleanTitle, topic: topic.trim(), difficulty: difficulty as any, questionCount: Number(questionCount) || 20 },
+          Number(questionCount) || 20
+        );
+
+    const fullTestPaper: any = {
+      id: cleanTestId,
+      testId: cleanTestId,
+      batchId,
+      chapterId: resolvedChapterId,
+      folderId: resolvedChapterId,
+      title: cleanTitle,
+      topic: topic.trim(),
+      difficulty,
+      timeLimitMinutes: dur,
+      time: dur,
+      durationMinutes: dur,
+      questionCount: resolvedQuestions.length,
+      questions: resolvedQuestions,
+      passingScorePercentage: Number(passingScorePercentage) || 40,
+      catalogChunkId: chunkId,
+      chunkId,
+      chunkEstimatedBytes: 85 * 1024,
+      isPublic: true,
+      publishedAt: new Date().toISOString(),
+    };
 
     const newTestCard: BatchTestCard = {
       testId: cleanTestId,
@@ -1361,7 +1409,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       timeLimitMinutes: dur,
       time: dur,
       durationMinutes: dur,
-      questionCount: Number(questionCount) || 30,
+      questionCount: resolvedQuestions.length,
       passingScorePercentage: Number(passingScorePercentage) || 40,
       catalogChunkId: chunkId,
       chunkEstimatedBytes: 85 * 1024,
@@ -1380,6 +1428,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const next = [newTestCard, ...filtered];
       try {
         secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(next));
+        localStorage.setItem(`batch_${batchId}_test_${cleanTestId}`, JSON.stringify(fullTestPaper));
       } catch {}
       return next;
     });
@@ -1406,7 +1455,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     }
 
-    syncBatchTestToFirestore(batchId, newTestCard).catch(() => {});
+    publishTestToBatchCatalog(batchId, fullTestPaper).catch(() => {});
+    syncBatchTestToFirestore(batchId, fullTestPaper).catch(() => {});
     window.dispatchEvent(new CustomEvent('batch-tests-updated', { detail: { batchId, testId: cleanTestId } }));
     return {
       success: true,

@@ -1253,9 +1253,19 @@ export default function App() {
     }
 
     const targetUid = currentUser?.uid || cachedUser?.uid || null;
-    const fullTest = (test.questions && test.questions.length > 0)
+    const targetBatchId = explicitOrigin?.batchId || (test as any).batchId || selectedBatchId || null;
+    const targetChunkId = (test as any).catalogChunkId || (test as any).chunkId || null;
+
+    let fullTest = (test.questions && test.questions.length > 0)
       ? test
-      : (await loadFullTestOnDemand(test.id, tests, targetUid)) || test;
+      : (await loadFullTestOnDemand(test.id, tests, targetUid, targetBatchId, targetChunkId)) || test;
+
+    if (!fullTest.questions || fullTest.questions.length === 0) {
+      const rehydrated = await loadFullTestOnDemand(test.id, tests, targetUid, targetBatchId, targetChunkId);
+      if (rehydrated && rehydrated.questions && rehydrated.questions.length > 0) {
+        fullTest = rehydrated;
+      }
+    }
 
     if (isGuest && isRemedialTest(fullTest)) {
       showToast('Sign in required to access student-specific remedial tests.', 'warning');
@@ -1309,9 +1319,19 @@ export default function App() {
     }
 
     const targetUid = currentUser?.uid || cachedUser?.uid || null;
-    const fullTest = (test.questions && test.questions.length > 0)
+    const targetBatchId = explicitOrigin?.batchId || (test as any).batchId || selectedBatchId || null;
+    const targetChunkId = (test as any).catalogChunkId || (test as any).chunkId || null;
+
+    let fullTest = (test.questions && test.questions.length > 0)
       ? test
-      : (await loadFullTestOnDemand(test.id, tests, targetUid)) || test;
+      : (await loadFullTestOnDemand(test.id, tests, targetUid, targetBatchId, targetChunkId)) || test;
+
+    if (!fullTest.questions || fullTest.questions.length === 0) {
+      const rehydrated = await loadFullTestOnDemand(test.id, tests, targetUid, targetBatchId, targetChunkId);
+      if (rehydrated && rehydrated.questions && rehydrated.questions.length > 0) {
+        fullTest = rehydrated;
+      }
+    }
 
     if (isGuest && isRemedialTest(fullTest)) {
       showToast('Sign in required to access student-specific remedial tests.', 'warning');
@@ -1346,7 +1366,7 @@ export default function App() {
     if (session && session.test) {
       let testFromLib = tests.find((t) => t.id === session.testId) || session.test;
       if (!testFromLib.questions || testFromLib.questions.length === 0) {
-        testFromLib = (await loadFullTestOnDemand(testFromLib.id, tests, targetUid)) || testFromLib;
+        testFromLib = (await loadFullTestOnDemand(testFromLib.id, tests, targetUid, (testFromLib as any).batchId || selectedBatchId)) || testFromLib;
       }
       const hydratedSession: ActiveTestSession = {
         ...session,
@@ -1360,7 +1380,7 @@ export default function App() {
     } else if (pendingStartTest) {
       let fullPendingTest = pendingStartTest.test;
       if (!fullPendingTest.questions || fullPendingTest.questions.length === 0) {
-        fullPendingTest = (await loadFullTestOnDemand(fullPendingTest.id, tests, targetUid)) || fullPendingTest;
+        fullPendingTest = (await loadFullTestOnDemand(fullPendingTest.id, tests, targetUid, (fullPendingTest as any).batchId || selectedBatchId)) || fullPendingTest;
       }
       clearScopedActiveSession(targetUid, pendingStartTest.test.id);
       clearScopedActiveSession(null, pendingStartTest.test.id);
