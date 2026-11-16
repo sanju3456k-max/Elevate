@@ -785,6 +785,12 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     const now = Date.now();
     const DOUBLE_TAP_WINDOW = 280;
 
+    // If controls were just revealed within the last 600ms, protect against accidental double-firing
+    if (isControlsVisibleRef.current && now - lastControlsRevealedAt.current < 600) {
+      showControlsForDuration(5000);
+      return;
+    }
+
     // Center zone: toggle controls immediately
     if (zone === 'center') {
       if (isControlsVisibleRef.current) {
@@ -911,8 +917,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   };
 
   const handleSurfaceClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // If handled by touch within 800ms or if just released 2x hold within 500ms, suppress synthetic click
-    if (Date.now() - lastTouchHandledTimeRef.current < 800 || Date.now() - last2xEndTimeRef.current < 500) {
+    // If handled by touch within 1200ms or if just released 2x hold within 500ms, suppress synthetic click
+    if (Date.now() - lastTouchHandledTimeRef.current < 1200 || Date.now() - last2xEndTimeRef.current < 500) {
       return;
     }
     const zone = getZoneFromX(e.clientX, e.currentTarget);
@@ -995,6 +1001,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const targetTime = parseFloat(e.target.value);
     setCurrentTime(targetTime);
+    lastTouchHandledTimeRef.current = Date.now();
+    lastControlsRevealedAt.current = Date.now();
+    showControlsForDuration(5000);
     safeCallPlayer((p) => {
       if (p.seekTo) {
         p.seekTo(targetTime, true);
@@ -1394,7 +1403,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       {!isPlaying && isPlayerReady && hasEverPlayed && (!isMini || isFullscreen) && (
         <>
           <div className="absolute top-0 inset-x-0 h-16 sm:h-20 bg-gradient-to-b from-black from-65% via-black/85 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
-          <div className="absolute bottom-0 inset-x-0 h-20 sm:h-24 bg-gradient-to-t from-black from-70% via-black/90 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
+          <div className="absolute bottom-0 inset-x-0 h-12 bg-gradient-to-t from-black/95 via-black/80 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
         </>
       )}
 
@@ -1650,6 +1659,19 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         onMouseDown={(e) => e.stopPropagation()}
         onTouchStart={(e) => {
           e.stopPropagation();
+          lastTouchHandledTimeRef.current = Date.now();
+          lastControlsRevealedAt.current = Date.now();
+          if (isPlayingRef.current) {
+            showControlsForDuration(5000);
+          }
+        }}
+        onTouchMove={(e) => {
+          e.stopPropagation();
+          lastTouchHandledTimeRef.current = Date.now();
+        }}
+        onTouchEnd={(e) => {
+          e.stopPropagation();
+          lastTouchHandledTimeRef.current = Date.now();
           if (isPlayingRef.current) {
             showControlsForDuration(5000);
           }
@@ -1677,10 +1699,13 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             showControlsForDuration(5000);
           }
         }}
-        className={`absolute bottom-0 inset-x-0 z-30 px-4 sm:px-6 pt-8 sm:pt-10 pb-3 sm:pb-3.5 bg-gradient-to-t from-black from-60% via-black/90 via-black/75 to-transparent transition-opacity duration-300 flex flex-col space-y-1.5 ${
+        className={`absolute bottom-0 inset-x-0 z-30 px-4 sm:px-6 pt-0 pb-3 sm:pb-3.5 transition-opacity duration-300 flex flex-col space-y-1 ${
           isControlsVisible || !isPlaying || optionsMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
+        {/* Shadow backdrop strictly under the streaming line (progress bar) and buttons - never above */}
+        <div className="absolute inset-x-0 bottom-0 top-0 bg-gradient-to-t from-black via-black/95 via-black/85 to-transparent pointer-events-none -z-10" />
+
         {/* TIMELINE MILESTONES (Topic Breakpoints) STRIP */}
         {milestones && milestones.length > 0 && (
           <div
@@ -1720,10 +1745,26 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           </div>
         )}
 
-        {/* Scroller / Progress Bar Track with Milestone Markers */}
+        {/* Scroller / Progress Bar Track (Streaming Line) with Milestone Markers */}
         <div
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => {
+            e.stopPropagation();
+            lastTouchHandledTimeRef.current = Date.now();
+            lastControlsRevealedAt.current = Date.now();
+            showControlsForDuration(5000);
+          }}
+          onTouchMove={(e) => {
+            e.stopPropagation();
+            lastTouchHandledTimeRef.current = Date.now();
+            showControlsForDuration(5000);
+          }}
+          onTouchEnd={(e) => {
+            e.stopPropagation();
+            lastTouchHandledTimeRef.current = Date.now();
+            showControlsForDuration(5000);
+          }}
           className="relative py-2 flex items-center cursor-pointer group/scrub"
         >
           <input
@@ -1735,6 +1776,22 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             onChange={handleSeek}
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+              lastTouchHandledTimeRef.current = Date.now();
+              lastControlsRevealedAt.current = Date.now();
+              showControlsForDuration(5000);
+            }}
+            onTouchMove={(e) => {
+              e.stopPropagation();
+              lastTouchHandledTimeRef.current = Date.now();
+              showControlsForDuration(5000);
+            }}
+            onTouchEnd={(e) => {
+              e.stopPropagation();
+              lastTouchHandledTimeRef.current = Date.now();
+              showControlsForDuration(5000);
+            }}
             style={{
               background: `linear-gradient(to right, #0b57d0 0%, #0b57d0 ${
                 duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0
