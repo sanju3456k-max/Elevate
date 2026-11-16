@@ -39,7 +39,8 @@ import {
   gpuAcceleratedStyle,
   gpuTransformStyle 
 } from '../lib/animationConfig';
-import { saveScopedActiveSession, clearScopedActiveSession } from '../lib/storage';
+import { saveScopedActiveSession, clearScopedActiveSession, loadFullTestOnDemand } from '../lib/storage';
+import { hydrateQuestionsForTest } from '../lib/questionCatalogService';
 import { APP_STYLES } from './ui/AppStyles';
 import { useApp } from '../lms/LmsContext';
 import { initFocusLossProtector, enableContentSecurityDeterrence } from '../lms/security';
@@ -81,11 +82,28 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
   // ==========================================
   // 2. STATE MANAGEMENT & QUESTION NORMALIZATION
   // ==========================================
-  // Ensure all questions are guaranteed to have unique non-empty IDs
-  const normalizedQuestions = useMemo(() => {
-    return normalizeQuestions(test.questions || []);
-  }, [test.questions]);
+  // Resilient Question Catalog State: Ensures questions are NEVER 0 or blank
+  const [activeQuestions, setActiveQuestions] = useState<MathQuestion[]>(() => {
+    if (test.questions && Array.isArray(test.questions) && test.questions.length > 0) {
+      return normalizeQuestions(test.questions);
+    }
+    const count = test.questionCount || 10;
+    return hydrateQuestionsForTest(test, count);
+  });
 
+  useEffect(() => {
+    if (test.questions && Array.isArray(test.questions) && test.questions.length > 0) {
+      setActiveQuestions(normalizeQuestions(test.questions));
+    } else if (test.id) {
+      loadFullTestOnDemand(test.id, undefined, currentUser?.uid, (test as any).batchId).then((full) => {
+        if (full && Array.isArray(full.questions) && full.questions.length > 0) {
+          setActiveQuestions(normalizeQuestions(full.questions));
+        }
+      });
+    }
+  }, [test.id, test.questions, currentUser?.uid]);
+
+  const normalizedQuestions = activeQuestions;
   const questionsCount = normalizedQuestions.length;
 
   const [hasStarted, setHasStarted] = useState<boolean>(() => initialSession?.hasStarted ?? false);
@@ -879,7 +897,7 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
                   QUESTIONS
                 </span>
                 <span className="text-2xl sm:text-3xl font-black text-[#1f1f1f] dark:text-[#e3e3e3] font-mono">
-                  {test.questions.length}
+                  {normalizedQuestions.length}
                 </span>
               </div>
 

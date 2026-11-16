@@ -110,7 +110,7 @@ service cloud.firestore {
 
       // 2. Bin-Packed Question Catalog Chunks (Lazy loaded on attempt)
       match /question_catalogs/{chunkId} {
-        allow read: if isSignedIn();
+        allow read: if true;
         allow write: if isMasterAdmin();
       }
 
