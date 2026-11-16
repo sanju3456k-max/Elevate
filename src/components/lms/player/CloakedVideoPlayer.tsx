@@ -1124,11 +1124,45 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 1b. Top Cloaking Security Guard (Masks any edge title/channel overlay bleed) */}
-      <div className={`absolute top-0 inset-x-0 ${isMini && !isFullscreen ? 'h-6' : 'h-14 sm:h-16'} bg-gradient-to-b from-black/90 via-black/40 to-transparent pointer-events-none z-15`} />
+      {/* 1b. Top Cloaking Security Guard (Solid Black Bar + Gradient that physically blocks YouTube's title, channel, playlist bar, and share button from bleeding through) */}
+      <div
+        className={`absolute top-0 inset-x-0 z-18 pointer-events-none transition-all duration-300 ${
+          isMini && !isFullscreen
+            ? 'h-6 bg-black'
+            : isControlsVisible || !isPlaying
+              ? 'h-14 sm:h-16 bg-black'
+              : 'h-11 sm:h-12 bg-black'
+        }`}
+      />
+      <div
+        className={`absolute top-0 inset-x-0 pointer-events-none z-17 transition-all duration-300 ${
+          isMini && !isFullscreen
+            ? 'hidden'
+            : isControlsVisible || !isPlaying
+              ? 'h-24 sm:h-28 bg-gradient-to-b from-black/95 via-black/80 to-transparent'
+              : 'h-16 bg-gradient-to-b from-black to-transparent'
+        }`}
+      />
 
-      {/* 1c. Bottom Cloaking Security Guard (Masks any YouTube watermark/logo bleed) */}
-      <div className={`absolute bottom-0 inset-x-0 ${isMini && !isFullscreen ? 'h-6' : 'h-16 sm:h-18'} bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none z-15`} />
+      {/* 1c. Bottom Cloaking Security Guard (Solid Black Bar + Gradient that completely eliminates YouTube logo, watermark, and clips) */}
+      <div
+        className={`absolute bottom-0 inset-x-0 z-18 pointer-events-none transition-all duration-300 ${
+          isMini && !isFullscreen
+            ? 'h-6 bg-black'
+            : isControlsVisible || !isPlaying
+              ? 'h-16 sm:h-20 bg-black'
+              : 'h-10 sm:h-11 bg-black'
+        }`}
+      />
+      <div
+        className={`absolute bottom-0 inset-x-0 pointer-events-none z-17 transition-all duration-300 ${
+          isMini && !isFullscreen
+            ? 'hidden'
+            : isControlsVisible || !isPlaying
+              ? 'h-24 sm:h-28 bg-gradient-to-t from-black/95 via-black/80 to-transparent'
+              : 'h-16 bg-gradient-to-t from-black to-transparent'
+        }`}
+      />
 
       {(!isMini || isFullscreen) && (
         <>
@@ -1292,17 +1326,28 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       </div>
 
-      {/* 3. Top Header Bar (Only in Fullscreen mode so inline playback is never obstructed) */}
-      {isFullscreen && (
+      {/* 3. Top Header Bar (Elevate Branded Player Header) */}
+      {(!isMini || isFullscreen) && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className={`absolute top-0 inset-x-0 z-30 p-3 sm:p-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-center justify-between transition-opacity duration-300 ${
-            isControlsVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          className={`absolute top-0 inset-x-0 z-30 px-3.5 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between transition-opacity duration-300 ${
+            isControlsVisible || !isPlaying ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
         >
-          <h2 className="text-white text-xs sm:text-sm font-semibold truncate max-w-sm sm:max-w-md drop-shadow">
-            {title}
-          </h2>
+          <div className="flex items-center space-x-2 truncate max-w-[80%]">
+            <div className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-[10px] font-semibold text-emerald-400 shrink-0">
+              <ShieldCheck className="w-3 h-3 text-emerald-400" />
+              <span>Elevate</span>
+            </div>
+            <h2 className="text-white text-xs sm:text-sm font-semibold truncate drop-shadow">
+              {title}
+            </h2>
+          </div>
+          <div className="flex items-center space-x-2 shrink-0">
+            <span className="text-[9px] sm:text-[10px] font-mono text-slate-300 bg-white/10 px-2 py-0.5 rounded border border-white/15">
+              1080p HD
+            </span>
+          </div>
         </div>
       )}
 
@@ -1319,7 +1364,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
               hideControls();
             }
           }}
-          className={`absolute inset-0 z-20 flex items-center justify-center transition-all ${!isPlaying ? 'bg-black/50 backdrop-blur-xs' : ''}`}
+          className={`absolute inset-0 z-20 flex items-center justify-center transition-all ${!isPlaying ? 'bg-black/75 backdrop-blur-xs' : ''}`}
         >
           <button
             type="button"
