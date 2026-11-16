@@ -785,13 +785,24 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     const now = Date.now();
     const DOUBLE_TAP_WINDOW = 280;
 
-    // If controls were just revealed within the last 600ms, protect against accidental double-firing
-    if (isControlsVisibleRef.current && now - lastControlsRevealedAt.current < 600) {
+    // If options menu is open, tapping anywhere outside dismisses the options menu while preserving controls
+    if (optionsMenuOpenRef.current) {
+      setOptionsMenuOpen(false);
+      optionsMenuOpenRef.current = false;
+      showControlsForDuration(5000);
+      return;
+    }
+
+    // Protection window: If controls were just revealed within the last 800ms,
+    // protect against delayed synthetic clicks, touch release bounce, or accidental micro-taps.
+    // Always refresh the 5s timer rather than dismissing prematurely.
+    if (isControlsVisibleRef.current && now - lastControlsRevealedAt.current < 800) {
       showControlsForDuration(5000);
       return;
     }
 
     // Center zone: toggle controls immediately
+    // If controls have been visible for >= 800ms, intentional re-tap hides them; otherwise reveal for 5s
     if (zone === 'center') {
       if (isControlsVisibleRef.current) {
         hideControls();
@@ -836,7 +847,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
     tapTimeoutRef.current = setTimeout(() => {
       // Single tap confirmed: toggle controls
-      if (isControlsVisibleRef.current) {
+      // If controls have been visible for >= 800ms, intentional re-tap hides them; otherwise show for 5000ms
+      if (isControlsVisibleRef.current && Date.now() - lastControlsRevealedAt.current >= 800) {
         hideControls();
       } else {
         showControlsForDuration(5000);
@@ -890,14 +902,16 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     const dur = Date.now() - touchStartRef.current.time;
     touchStartRef.current = null;
 
+    // ALWAYS mark touch handled on any touch release so synthetic mouse clicks are reliably suppressed
+    lastTouchHandledTimeRef.current = Date.now();
+
     // If this release was from a 2X hold or long press, do NOT trigger any tap
     if (was2x || dur >= 350) {
-      lastTouchHandledTimeRef.current = Date.now();
       return;
     }
 
-    if (Math.hypot(dx, dy) < 15) {
-      lastTouchHandledTimeRef.current = Date.now();
+    // Standard touch slop: allow up to 30px displacement for natural mobile touchscreen finger squish/roll
+    if (Math.hypot(dx, dy) < 30) {
       const zone = getZoneFromX(endX, e.currentTarget);
       handleSurfaceTap(zone);
     }
@@ -1625,10 +1639,25 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
+              // Prevent synthetic delayed click from firing togglePlay if touch just occurred
+              if (Date.now() - lastTouchHandledTimeRef.current < 600) {
+                return;
+              }
               togglePlay();
+              showControlsForDuration(5000);
             }}
             onTouchStart={(e) => {
               e.stopPropagation();
+              lastTouchHandledTimeRef.current = Date.now();
+              lastControlsRevealedAt.current = Date.now();
+              showControlsForDuration(5000);
+            }}
+            onTouchEnd={(e) => {
+              e.stopPropagation();
+              lastTouchHandledTimeRef.current = Date.now();
+              lastControlsRevealedAt.current = Date.now();
+              togglePlay();
+              showControlsForDuration(5000);
             }}
             onMouseDown={(e) => {
               e.stopPropagation();
@@ -1966,7 +1995,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                 <div
                   onClick={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
-                  className="absolute bottom-11 sm:bottom-12 right-0 bg-zinc-950/95 backdrop-blur-2xl rounded-2xl border border-white/15 p-1.5 sm:p-2 w-48 sm:w-56 max-h-[150px] sm:max-h-80 flex flex-col z-50 animate-in fade-in zoom-in-95 text-white select-none shadow-none"
+                  onTouchStart={(e) => e.stopPropagation()}
+                  className="absolute bottom-10 sm:bottom-12 right-0 bg-zinc-950/95 backdrop-blur-2xl rounded-2xl border border-white/15 p-1.5 sm:p-2 w-44 sm:w-56 max-h-[120px] sm:max-h-80 flex flex-col z-50 animate-in fade-in zoom-in-95 text-white select-none shadow-none"
                 >
                   {/* MAIN VIEW */}
                   {optionsView === 'main' && (
@@ -1984,7 +2014,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                       {/* Option 1: Quality */}
                       <button
                         onClick={() => setOptionsView('quality')}
-                        className="w-full text-left px-2.5 py-2 rounded-xl text-xs transition flex items-center justify-between hover:bg-white/10 border-none outline-none cursor-pointer text-zinc-200"
+                        className="w-full text-left px-2.5 py-1.5 sm:py-2 rounded-xl text-xs transition flex items-center justify-between hover:bg-white/10 border-none outline-none cursor-pointer text-zinc-200"
                       >
                         <div className="flex items-center space-x-2">
                           <SlidersHorizontal className="w-4 h-4 text-emerald-400" />
@@ -2001,7 +2031,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                       {/* Option 2: Playback Speed */}
                       <button
                         onClick={() => setOptionsView('speed')}
-                        className="w-full text-left px-2.5 py-2 rounded-xl text-xs transition flex items-center justify-between hover:bg-white/10 border-none outline-none cursor-pointer text-zinc-200"
+                        className="w-full text-left px-2.5 py-1.5 sm:py-2 rounded-xl text-xs transition flex items-center justify-between hover:bg-white/10 border-none outline-none cursor-pointer text-zinc-200"
                       >
                         <div className="flex items-center space-x-2">
                           <Gauge className="w-4 h-4 text-purple-400" />
@@ -2027,7 +2057,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                         </button>
                         <span>Playback speed</span>
                       </div>
-                      <div className="overflow-y-auto space-y-0.5 pt-1 pr-0.5 max-h-[110px] sm:max-h-56 scrollbar-thin">
+                      <div className="overflow-y-auto space-y-0.5 pt-1 pr-0.5 max-h-[82px] sm:max-h-56 scrollbar-thin">
                         {availableSpeeds.map((spd) => (
                           <button
                             key={spd}
@@ -2035,7 +2065,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                               handleSpeedChange(spd);
                               setOptionsMenuOpen(false);
                             }}
-                            className={`w-full text-left px-2.5 py-1.5 sm:py-2 text-[11px] sm:text-xs rounded-xl transition flex items-center justify-between border-none outline-none cursor-pointer ${
+                            className={`w-full text-left px-2 py-1 sm:px-2.5 sm:py-2 text-[10.5px] sm:text-xs rounded-lg sm:rounded-xl transition flex items-center justify-between border-none outline-none cursor-pointer ${
                               playbackSpeed === spd
                                 ? 'bg-white/15 text-white font-bold'
                                 : 'text-zinc-300 hover:bg-white/10'
@@ -2063,7 +2093,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                           <span className="text-xs">Video Quality</span>
                         </div>
                       </div>
-                      <div className="overflow-y-auto space-y-0.5 pt-1 pr-0.5 max-h-[110px] sm:max-h-60 scrollbar-thin">
+                      <div className="overflow-y-auto space-y-0.5 pt-1 pr-0.5 max-h-[82px] sm:max-h-60 scrollbar-thin">
                         {QUALITY_OPTIONS.map((q) => {
                           const isSelected =
                             currentQuality === q.label ||
@@ -2074,7 +2104,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                               onClick={() => {
                                 handleQualityChange(q);
                               }}
-                              className={`w-full text-left px-2.5 py-1.5 sm:py-2 text-[11px] sm:text-xs rounded-xl transition flex items-center justify-between border-none outline-none cursor-pointer ${
+                              className={`w-full text-left px-2 py-1 sm:px-2.5 sm:py-2 text-[10.5px] sm:text-xs rounded-lg sm:rounded-xl transition flex items-center justify-between border-none outline-none cursor-pointer ${
                                 isSelected
                                   ? 'bg-white/15 text-white font-bold'
                                   : 'text-zinc-300 hover:bg-white/10'
