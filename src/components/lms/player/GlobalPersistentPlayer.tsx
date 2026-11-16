@@ -263,7 +263,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
           className={
             isMinimized
               ? 'w-full h-full'
-              : 'aspect-video w-full fixed top-0 inset-x-0 z-40 bg-black shadow-2xl sm:static sm:z-auto sm:rounded-2xl lg:rounded-3xl sm:shadow-2xl overflow-hidden group'
+              : 'aspect-video w-full fixed top-0 inset-x-0 z-40 bg-black shadow-none sm:static sm:z-auto sm:rounded-2xl lg:rounded-3xl sm:shadow-lg overflow-hidden group'
           }
         >
           {/* Top-left minimize button on video when expanded */}
@@ -271,7 +271,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             <button
               type="button"
               onClick={handleMinimize}
-              className="absolute top-3 left-3 z-50 w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition border-none cursor-pointer shadow-md select-none md:hidden desktop-hide-back-btn"
+              className="absolute top-3 left-3 z-50 w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition border border-white/10 cursor-pointer shadow-none select-none md:hidden desktop-hide-back-btn"
               title="Minimize to MiniPlayer"
             >
               <ChevronDown className="w-5 h-5 stroke-[2.5]" />

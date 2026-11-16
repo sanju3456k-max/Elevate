@@ -61,6 +61,8 @@ export interface QualityOption {
 
 const QUALITY_OPTIONS: QualityOption[] = [
   { label: 'Auto (Best Quality)', value: 'default', badge: 'Auto' },
+  { label: '2160p 4K', value: 'hd2160', badge: '4K' },
+  { label: '1440p 2K', value: 'hd1440', badge: '1440p' },
   { label: '1080p HD', value: 'hd1080', badge: '1080p' },
   { label: '720p HD', value: 'hd720', badge: '720p' },
   { label: '480p', value: 'large', badge: '480p' },
@@ -480,6 +482,11 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             playsinline: 1,
             cc_load_policy: 0, // Controlled via our custom CC button
             origin: window.location.origin,
+            enablejsapi: 1,
+            widget_referrer: window.location.origin,
+            vq: 'hd1080',
+            hd: 1,
+            suggestedQuality: 'hd1080',
           },
           events: {
             onReady: (event: any) => {
@@ -514,17 +521,31 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                 }
                 const targetLabel = selectedQualityRef.current || '1080p HD';
                 const targetObj = QUALITY_OPTIONS.find((o) => o.label === targetLabel);
-                const qualityValue = targetObj ? targetObj.value : 'hd1080';
+                const qualityValue = targetObj && targetObj.value !== 'default' ? targetObj.value : 'hd1080';
 
                 if (event.target.setPlaybackQualityRange) {
-                  event.target.setPlaybackQualityRange(
-                    qualityValue === 'default' ? 'hd720' : qualityValue,
-                    'highres'
-                  );
+                  event.target.setPlaybackQualityRange(qualityValue, 'highres');
                 }
                 if (event.target.setPlaybackQuality) {
-                  event.target.setPlaybackQuality(qualityValue === 'default' ? 'hd1080' : qualityValue);
+                  event.target.setPlaybackQuality(qualityValue);
                 }
+
+                // Send direct postMessage commands to ensure DASH pipeline locks to highest quality
+                try {
+                  const iframe = containerRef.current?.querySelector('iframe');
+                  if (iframe?.contentWindow) {
+                    iframe.contentWindow.postMessage(JSON.stringify({
+                      event: 'command',
+                      func: 'setPlaybackQuality',
+                      args: [qualityValue]
+                    }), '*');
+                    iframe.contentWindow.postMessage(JSON.stringify({
+                      event: 'command',
+                      func: 'setPlaybackQualityRange',
+                      args: [qualityValue, 'highres']
+                    }), '*');
+                  }
+                } catch {}
 
                 // Strictly turn off subtitles/captions by default on start
                 if (event.target.unloadModule) {
@@ -572,15 +593,25 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                 try {
                   const targetLabel = selectedQualityRef.current || '1080p HD';
                   const targetObj = QUALITY_OPTIONS.find((o) => o.label === targetLabel);
-                  const qualityValue = targetObj ? targetObj.value : 'hd1080';
+                  const qualityValue = targetObj && targetObj.value !== 'default' ? targetObj.value : 'hd1080';
                   if (event.target.setPlaybackQualityRange) {
-                    event.target.setPlaybackQualityRange(
-                      qualityValue === 'default' ? 'hd720' : qualityValue,
-                      'highres'
-                    );
+                    event.target.setPlaybackQualityRange(qualityValue, 'highres');
                   }
                   if (event.target.setPlaybackQuality) {
-                    event.target.setPlaybackQuality(qualityValue === 'default' ? 'hd1080' : qualityValue);
+                    event.target.setPlaybackQuality(qualityValue);
+                  }
+                  const iframe = containerRef.current?.querySelector('iframe');
+                  if (iframe?.contentWindow) {
+                    iframe.contentWindow.postMessage(JSON.stringify({
+                      event: 'command',
+                      func: 'setPlaybackQuality',
+                      args: [qualityValue]
+                    }), '*');
+                    iframe.contentWindow.postMessage(JSON.stringify({
+                      event: 'command',
+                      func: 'setPlaybackQualityRange',
+                      args: [qualityValue, 'highres']
+                    }), '*');
                   }
                   if (event.target.getAvailableQualityLevels) {
                     const levels = event.target.getAvailableQualityLevels();
@@ -996,10 +1027,11 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     } catch {}
 
     safeCallPlayer((p) => {
+      const qVal = q.value === 'default' ? 'hd1080' : q.value;
       if (q.value === 'default') {
         // Reset to automatic highest adaptive stream
         if (p.setPlaybackQualityRange) {
-          p.setPlaybackQualityRange('hd720', 'highres');
+          p.setPlaybackQualityRange('hd1080', 'highres');
         }
         if (p.setPlaybackQuality) {
           p.setPlaybackQuality('highres');
@@ -1013,6 +1045,23 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           p.setPlaybackQuality(q.value);
         }
       }
+
+      // Send postMessage directly to YouTube iframe to force DASH engine resolution update
+      try {
+        const iframe = containerRef.current?.querySelector('iframe');
+        if (iframe?.contentWindow) {
+          iframe.contentWindow.postMessage(JSON.stringify({
+            event: 'command',
+            func: 'setPlaybackQuality',
+            args: [qVal]
+          }), '*');
+          iframe.contentWindow.postMessage(JSON.stringify({
+            event: 'command',
+            func: 'setPlaybackQualityRange',
+            args: [qVal, q.value === 'default' ? 'highres' : qVal]
+          }), '*');
+        }
+      } catch {}
 
       // Trigger YouTube DASH engine to flush buffer and re-fetch chunks immediately in new quality
       if (p.getCurrentTime && p.seekTo) {
@@ -1297,7 +1346,6 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         }
       }}
       style={{
-        transform: 'translateZ(0)',
         WebkitFontSmoothing: 'antialiased',
         touchAction: 'manipulation',
       }}
@@ -1306,7 +1354,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           ? 'h-full w-full aspect-auto rounded-none flex items-center justify-center'
           : isMini
             ? 'h-full w-full rounded-none'
-            : 'aspect-video rounded-none sm:rounded-3xl shadow-2xl group'
+            : 'aspect-video rounded-none sm:rounded-3xl shadow-none group'
       }`}
     >
       {/* 1. HD Scaled YouTube Iframe Engine (Adapts cleanly to UI & device width without artificial zoom distortion) */}
@@ -1353,11 +1401,11 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
 
 
-      {/* Dynamic Paused Security Guards: 100% block YouTube's native paused overlay (Title at top, and More Videos / Share / History / YouTube Logo at bottom) */}
+      {/* Dynamic Paused Security Guards: Compact & subtle to avoid heavy black shadows across the video */}
       {!isPlaying && isPlayerReady && hasEverPlayed && (!isMini || isFullscreen) && (
         <>
-          <div className="absolute top-0 inset-x-0 h-18 sm:h-20 bg-gradient-to-b from-black from-65% via-black/90 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
-          <div className="absolute bottom-0 inset-x-0 h-22 sm:h-24 bg-gradient-to-t from-black from-70% via-black/95 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
+          <div className="absolute top-0 inset-x-0 h-10 sm:h-12 bg-gradient-to-b from-black/85 via-black/45 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
+          <div className="absolute bottom-0 inset-x-0 h-13 sm:h-15 bg-gradient-to-t from-black/90 via-black/50 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
         </>
       )}
 
@@ -1511,12 +1559,12 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
               {/* YouTube-style soft side ripple without harsh rings */}
               <div className="absolute inset-y-0 left-0 w-full bg-white/10 rounded-r-full animate-in fade-in duration-150" />
               <div className="relative flex flex-col items-center justify-center select-none animate-in fade-in zoom-in-90 duration-150">
-                <div className="flex items-center text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                <div className="flex items-center text-white drop-shadow-sm">
                   <ChevronLeft className="w-8 h-8 stroke-[2.5] -mr-3.5 animate-pulse" />
                   <ChevronLeft className="w-8 h-8 stroke-[2.5] -mr-3.5 animate-pulse [animation-delay:100ms]" />
                   <ChevronLeft className="w-8 h-8 stroke-[2.5] animate-pulse [animation-delay:200ms]" />
                 </div>
-                <span className="mt-2 text-xs sm:text-sm font-medium text-white tracking-wide drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
+                <span className="mt-2 text-xs sm:text-sm font-medium text-white tracking-wide drop-shadow-sm">
                   {seekFeedback.seconds} seconds
                 </span>
               </div>
@@ -1534,12 +1582,12 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
               {/* YouTube-style soft side ripple without harsh rings */}
               <div className="absolute inset-y-0 right-0 w-full bg-white/10 rounded-l-full animate-in fade-in duration-150" />
               <div className="relative flex flex-col items-center justify-center select-none animate-in fade-in zoom-in-90 duration-150">
-                <div className="flex items-center text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                <div className="flex items-center text-white drop-shadow-sm">
                   <ChevronRight className="w-8 h-8 stroke-[2.5] animate-pulse [animation-delay:200ms]" />
                   <ChevronRight className="w-8 h-8 stroke-[2.5] -ml-3.5 animate-pulse [animation-delay:100ms]" />
                   <ChevronRight className="w-8 h-8 stroke-[2.5] -ml-3.5 animate-pulse" />
                 </div>
-                <span className="mt-2 text-xs sm:text-sm font-medium text-white tracking-wide drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
+                <span className="mt-2 text-xs sm:text-sm font-medium text-white tracking-wide drop-shadow-sm">
                   {seekFeedback.seconds} seconds
                 </span>
               </div>
@@ -1550,7 +1598,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
       {/* 2b. 2X Speed Floating Indicator (Ringless Minimal Modern UI) */}
       {is2xSpeedActive && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 bg-black/70 text-white text-xs sm:text-sm font-medium px-4 py-1.5 rounded-full shadow-lg flex items-center space-x-2 border-none animate-in fade-in zoom-in-95 duration-150 pointer-events-none select-none">
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 bg-black/80 text-white text-xs sm:text-sm font-medium px-4 py-1.5 rounded-full border border-white/10 flex items-center space-x-2 shadow-none animate-in fade-in zoom-in-95 duration-150 pointer-events-none select-none">
           <FastForward className="w-4 h-4 text-amber-400 fill-current animate-pulse" />
           <span className="tracking-wide">2X Speed</span>
         </div>
@@ -1560,7 +1608,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       {(!isMini || isFullscreen) && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className={`absolute top-0 inset-x-0 z-30 px-3.5 py-2.5 sm:px-4 sm:py-3 bg-gradient-to-b from-black from-55% via-black/85 to-transparent flex items-center transition-opacity duration-300 ${
+          className={`absolute top-0 inset-x-0 z-30 px-3.5 py-2 sm:px-4 sm:py-2.5 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-center transition-opacity duration-300 ${
             isControlsVisible || !isPlaying ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
         >
@@ -1570,7 +1618,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 4. Center Play/Pause Floating Control (Opaque bg-zinc-950 completely covers YouTube's native play/pause icon underneath) */}
+      {/* 4. Center Play/Pause Floating Control (Clean border, 0 black shadow) */}
       {(isControlsVisible || !isPlaying) && isPlayerReady && authStatus === 'authorized' && hasEverPlayed && (
         <div
           className="absolute inset-0 z-22 flex items-center justify-center pointer-events-none bg-transparent"
@@ -1587,7 +1635,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             onMouseDown={(e) => {
               e.stopPropagation();
             }}
-            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-zinc-950 text-white flex items-center justify-center shadow-[0_10px_35px_rgba(0,0,0,0.95)] hover:scale-108 active:scale-95 transition-all duration-150 border-none cursor-pointer pointer-events-auto"
+            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-zinc-950/95 text-white flex items-center justify-center border border-white/10 hover:border-white/25 hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer pointer-events-auto shadow-none"
             title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
           >
             {isPlaying ? (
@@ -1640,7 +1688,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             showControlsForDuration(5000);
           }
         }}
-        className={`absolute bottom-0 inset-x-0 z-30 px-4 sm:px-6 pt-6 pb-2.5 sm:pb-3 bg-gradient-to-t from-black via-black/95 via-black/80 to-transparent transition-opacity duration-300 flex flex-col space-y-1.5 ${
+        className={`absolute bottom-0 inset-x-0 z-30 px-4 sm:px-6 pt-4 pb-2.5 sm:pb-3 bg-gradient-to-t from-black/90 via-black/60 to-transparent transition-opacity duration-300 flex flex-col space-y-1.5 ${
           isControlsVisible || !isPlaying || optionsMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
@@ -1788,7 +1836,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
               {/* Volume Slider: Smoothly appears when clicked */}
               {isVolumeSliderOpen && (
-                <div className="flex items-center space-x-1.5 bg-black/85 backdrop-blur-md px-2 py-1 rounded-full animate-in fade-in zoom-in-95 border border-white/10 shadow-lg ml-0.5">
+                <div className="flex items-center space-x-1.5 bg-black/85 backdrop-blur-md px-2 py-1 rounded-full animate-in fade-in zoom-in-95 border border-white/10 shadow-none ml-0.5">
                   <input
                     type="range"
                     min="0"
@@ -1841,7 +1889,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
               }}
               className={`px-2 py-1 rounded-lg transition border-none outline-none cursor-pointer flex items-center justify-center font-bold text-xs select-none ${
                 captionsEnabled
-                  ? 'bg-white text-black shadow-md'
+                  ? 'bg-white text-black shadow-none'
                   : 'hover:bg-white/15 text-slate-300 hover:text-white'
               }`}
               title={captionsEnabled ? 'Turn off captions (c)' : 'Turn on captions (c)'}
@@ -1867,12 +1915,12 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                 <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
 
-              {/* Options Popup / Menu - Modern Borderless YouTube Style */}
+              {/* Options Popup / Menu - Modern Borderless YouTube Style without heavy shadow */}
               {optionsMenuOpen && (
                 <div
                   onClick={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
-                  className="absolute bottom-12 right-0 bg-zinc-950/98 backdrop-blur-2xl rounded-2xl shadow-[0_12px_45px_rgba(0,0,0,0.9)] p-2 w-56 sm:w-60 z-50 animate-in fade-in zoom-in-95 border-none text-white select-none"
+                  className="absolute bottom-12 right-0 bg-zinc-950/95 backdrop-blur-2xl rounded-2xl border border-white/15 p-2 w-56 sm:w-60 z-50 animate-in fade-in zoom-in-95 text-white select-none shadow-none"
                 >
                   {/* MAIN VIEW */}
                   {optionsView === 'main' && (
