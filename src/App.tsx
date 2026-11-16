@@ -1857,7 +1857,7 @@ export default function App() {
           - Desktop Viewing Experience (md:): Header is visible across all standard pages.
           - Mobile & Tablet Apps (< md): Top Header is displayed on primary tabs: Home, Batches, Tests, and Analytics.
           - When inside a batch (viewing folders, contents, or video), top header is hidden on mobile & tablet to maximize workspace focus. */}
-      {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'chatbot' && (
+      {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'chatbot' && activeTab !== 'master-console' && (
         <div
           id="app-navbar-wrapper"
           className={`sticky top-0 z-50 transition-all duration-200 shrink-0 ${

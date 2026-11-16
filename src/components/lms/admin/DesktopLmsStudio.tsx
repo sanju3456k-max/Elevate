@@ -189,9 +189,13 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
     if (onBatchSelect) onBatchSelect(batchId);
   }, [onBatchSelect]);
 
-  // 2. 3-Pane Workstation Layout Visibility States
-  const [isLeftPaneCollapsed, setIsLeftPaneCollapsed] = useState(false);
-  const [isInspectorOpen, setIsInspectorOpen] = useState(true);
+  // 2. 3-Pane Workstation Layout Visibility States (Responsive for mobile & desktop)
+  const [isLeftPaneCollapsed, setIsLeftPaneCollapsed] = useState(() => {
+    return typeof window !== 'undefined' ? window.innerWidth < 1024 : false;
+  });
+  const [isInspectorOpen, setIsInspectorOpen] = useState(() => {
+    return typeof window !== 'undefined' ? window.innerWidth >= 1024 : true;
+  });
 
   // Add Student / Learner Modal State
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
@@ -476,11 +480,11 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-[var(--md-sys-color-surface)] text-[var(--md-sys-color-on-surface)] select-none overflow-hidden rounded-3xl border border-[var(--md-sys-color-outline-variant)]/20 shadow-2xl">
+    <div className="w-full h-full flex flex-col bg-[var(--md-sys-color-surface)] text-[var(--md-sys-color-on-surface)] select-none overflow-hidden rounded-none sm:rounded-3xl border-0 sm:border border-[var(--md-sys-color-outline-variant)]/20 shadow-none sm:shadow-2xl">
       {/* =========================================================================
-          TOP COMMAND & WORKBAR (Desktop First)
+          TOP COMMAND & WORKBAR (Desktop & Mobile Optimized)
           ========================================================================= */}
-      <header className="h-16 px-4 sm:px-6 bg-[var(--md-sys-color-surface-container)] border-b border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between gap-4 shrink-0 z-30">
+      <header className="h-14 sm:h-16 px-3 sm:px-6 bg-[var(--md-sys-color-surface-container)] border-b border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between gap-2 sm:gap-4 shrink-0 z-30">
         {/* Left: Pane 1 Toggle & Batch Switcher Dropdown */}
         <div className="flex items-center space-x-3 shrink-0">
           <button
@@ -664,10 +668,30 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
           ========================================================================= */}
       <div className="flex-1 flex overflow-hidden relative">
         {/* =======================================================================
-            PANE 1: TREE NAVIGATOR & ROSTER EXPLORER (Left 280px)
+            PANE 1: TREE NAVIGATOR & ROSTER EXPLORER (Left 280px / Mobile Drawer)
             ======================================================================= */}
         {!isLeftPaneCollapsed && (!externalActiveTab || activeTab === 'curriculum') && (
-          <aside className="w-64 lg:w-72 bg-[var(--md-sys-color-surface-container)] border-r border-[var(--md-sys-color-outline-variant)]/20 flex flex-col shrink-0 overflow-y-auto scrollbar-none transition-all duration-200">
+          <>
+            {/* Mobile Backdrop for Tree Navigator */}
+            <div
+              onClick={() => setIsLeftPaneCollapsed(true)}
+              className="fixed inset-0 bg-black/50 backdrop-blur-xs z-40 lg:hidden"
+            />
+            <aside className="fixed lg:static inset-y-0 left-0 z-50 lg:z-10 w-72 max-w-[85vw] bg-[var(--md-sys-color-surface-container)] border-r border-[var(--md-sys-color-outline-variant)]/20 flex flex-col shrink-0 overflow-y-auto scrollbar-none transition-all duration-200 shadow-2xl lg:shadow-none">
+              {/* Mobile Drawer Header */}
+              <div className="flex lg:hidden items-center justify-between p-3 border-b border-[var(--md-sys-color-outline-variant)]/20 shrink-0">
+                <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)] flex items-center gap-1.5">
+                  <Folder className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
+                  <span>Curriculum Tree</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsLeftPaneCollapsed(true)}
+                  className="p-1 rounded-full hover:bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border-none bg-transparent cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             {/* Batch Header Snapshot Card & Tabs (Only in standalone mode) */}
             {!externalActiveTab && (
               <>
@@ -878,12 +902,13 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                 })}
             </div>
           </aside>
+          </>
         )}
 
         {/* =======================================================================
             PANE 2: CONTENT CANVAS & DATA GRID (Center Flex-1)
             ======================================================================= */}
-        <main className="flex-1 flex flex-col bg-[var(--md-sys-color-surface)] overflow-y-auto scrollbar-none p-4 sm:p-6 space-y-6">
+        <main className="flex-1 flex flex-col bg-[var(--md-sys-color-surface)] overflow-y-auto scrollbar-none p-3 sm:p-6 space-y-4 sm:space-y-6">
           {/* TAB 1: CURRICULUM CANVAS */}
           {activeTab === 'curriculum' && (
             <div className="space-y-6">
@@ -1416,37 +1441,33 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                 </div>
               </div>
 
-              {/* Roster Table */}
+              {/* Roster Container */}
               <div className="rounded-2xl overflow-hidden bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/20 shadow-xs">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] font-bold text-[11px]">
-                    <tr>
-                      <th className="py-2.5 px-4">Student</th>
-                      <th className="py-2.5 px-3">Contact</th>
-                      <th className="py-2.5 px-3">Enrolled At</th>
-                      <th className="py-2.5 px-3">Status</th>
-                      <th className="py-2.5 px-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--md-sys-color-outline-variant)]/10 font-medium">
-                    {batchEnrollments.map((enr) => (
-                      <tr key={enr.id} className="hover:bg-[var(--md-sys-color-surface-container-high)]/50 transition">
-                        <td className="py-2.5 px-4 font-bold text-[var(--md-sys-color-on-surface)]">
-                          {enr.studentName || 'Student'}
-                        </td>
-                        <td className="py-2.5 px-3 text-[11px] font-mono text-[var(--md-sys-color-on-surface-variant)]">
-                          {enr.studentEmail || enr.studentPhone || 'N/A'}
-                        </td>
-                        <td className="py-2.5 px-3 text-[11px]">
-                          {enr.enrolledAt ? new Date(enr.enrolledAt).toLocaleDateString() : 'Active'}
-                        </td>
-                        <td className="py-2.5 px-3">
+                {/* Mobile Card List for < sm screens */}
+                <div className="sm:hidden divide-y divide-[var(--md-sys-color-outline-variant)]/10">
+                  {batchEnrollments.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-[var(--md-sys-color-on-surface-variant)]">
+                      No students enrolled in this batch yet.
+                    </div>
+                  ) : (
+                    batchEnrollments.map((enr) => (
+                      <div key={enr.id} className="p-3.5 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-[var(--md-sys-color-on-surface)]">
+                            {enr.studentName || 'Student'}
+                          </span>
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600">
                             {enr.status || 'Active'}
                           </span>
-                        </td>
-                        <td className="py-2.5 px-4 text-right">
-                          <div className="flex items-center justify-end space-x-1.5">
+                        </div>
+                        <p className="text-[11px] font-mono text-[var(--md-sys-color-on-surface-variant)] truncate">
+                          {enr.studentEmail || enr.studentPhone || 'N/A'}
+                        </p>
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                            {enr.enrolledAt ? new Date(enr.enrolledAt).toLocaleDateString() : 'Active'}
+                          </span>
+                          <div className="flex items-center gap-1.5">
                             <button
                               type="button"
                               title="Reset Device Lock (Allows student to register a new phone or laptop upon login)"
@@ -1461,9 +1482,9 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                                   });
                                 }
                               }}
-                              className="px-2 py-1 rounded-lg text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 border-none bg-transparent cursor-pointer flex items-center space-x-1 transition"
+                              className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border-none cursor-pointer flex items-center gap-1 active:scale-95"
                             >
-                              <Smartphone className="w-3.5 h-3.5" />
+                              <Smartphone className="w-3 h-3" />
                               <span>Reset Device</span>
                             </button>
                             <button
@@ -1474,16 +1495,86 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                                   showSecurityToast(`Enrollment revoked for ${enr.studentName}`);
                                 }
                               }}
-                              className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 border-none bg-transparent cursor-pointer transition"
+                              className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-rose-500 bg-rose-50 dark:bg-rose-950/20 border-none cursor-pointer active:scale-95"
                             >
                               Revoke
                             </button>
                           </div>
-                        </td>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Desktop Table View for >= sm screens */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] font-bold text-[11px]">
+                      <tr>
+                        <th className="py-2.5 px-4">Student</th>
+                        <th className="py-2.5 px-3">Contact</th>
+                        <th className="py-2.5 px-3">Enrolled At</th>
+                        <th className="py-2.5 px-3">Status</th>
+                        <th className="py-2.5 px-4 text-right">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--md-sys-color-outline-variant)]/10 font-medium">
+                      {batchEnrollments.map((enr) => (
+                        <tr key={enr.id} className="hover:bg-[var(--md-sys-color-surface-container-high)]/50 transition">
+                          <td className="py-2.5 px-4 font-bold text-[var(--md-sys-color-on-surface)]">
+                            {enr.studentName || 'Student'}
+                          </td>
+                          <td className="py-2.5 px-3 text-[11px] font-mono text-[var(--md-sys-color-on-surface-variant)]">
+                            {enr.studentEmail || enr.studentPhone || 'N/A'}
+                          </td>
+                          <td className="py-2.5 px-3 text-[11px]">
+                            {enr.enrolledAt ? new Date(enr.enrolledAt).toLocaleDateString() : 'Active'}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600">
+                              {enr.status || 'Active'}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-4 text-right">
+                            <div className="flex items-center justify-end space-x-1.5">
+                              <button
+                                type="button"
+                                title="Reset Device Lock (Allows student to register a new phone or laptop upon login)"
+                                onClick={() => {
+                                  if (window.confirm(`Reset device lock for ${enr.studentName}? This will allow them to bind a new device on their next login.`)) {
+                                    adminResetDeviceLock(enr.userId).then((ok) => {
+                                      if (ok) {
+                                        showSecurityToast(`Device lock reset for ${enr.studentName}. New device registration permitted.`);
+                                      } else {
+                                        alert('Failed to reset device lock. Please check permissions.');
+                                      }
+                                    });
+                                  }
+                                }}
+                                className="px-2 py-1 rounded-lg text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 border-none bg-transparent cursor-pointer flex items-center space-x-1 transition"
+                              >
+                                <Smartphone className="w-3.5 h-3.5" />
+                                <span>Reset Device</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm(`Revoke enrollment for ${enr.studentName}?`)) {
+                                    revokeStudentEnrollment(enr.userId, selectedBatchId);
+                                    showSecurityToast(`Enrollment revoked for ${enr.studentName}`);
+                                  }
+                                }}
+                                className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 border-none bg-transparent cursor-pointer transition"
+                              >
+                                Revoke
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -1935,10 +2026,16 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
         </main>
 
         {/* =======================================================================
-            PANE 3: LIVE CONTEXTUAL INSPECTOR PANEL (Right 400px)
+            PANE 3: LIVE CONTEXTUAL INSPECTOR PANEL (Right 400px / Mobile Sheet)
             ======================================================================= */}
         {isInspectorOpen && (
-          <aside className="w-80 lg:w-96 bg-[var(--md-sys-color-surface-container)] border-l border-[var(--md-sys-color-outline-variant)]/20 flex flex-col shrink-0 overflow-y-auto scrollbar-none transition-all duration-200 z-20">
+          <>
+            {/* Mobile Backdrop for Inspector */}
+            <div
+              onClick={() => setIsInspectorOpen(false)}
+              className="fixed inset-0 bg-black/50 backdrop-blur-xs z-40 lg:hidden"
+            />
+            <aside className="fixed lg:static inset-y-0 right-0 z-50 lg:z-20 w-full sm:w-96 lg:w-96 bg-[var(--md-sys-color-surface-container)] border-l border-[var(--md-sys-color-outline-variant)]/20 flex flex-col shrink-0 overflow-y-auto scrollbar-none transition-all duration-200 shadow-2xl lg:shadow-none">
             {inspectedEntity ? (
               <InspectorContent
                 entity={inspectedEntity}
@@ -2007,6 +2104,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
               </div>
             )}
           </aside>
+          </>
         )}
       {/* ADD STUDENT / USER MODAL */}
       {isAddStudentModalOpen && (

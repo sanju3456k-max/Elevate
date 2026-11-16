@@ -768,7 +768,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] bg-[#f4f6fa] dark:bg-[#0d0f14] h-[100dvh] max-h-screen overflow-hidden flex z-30 select-none">
+    <div className="fixed inset-0 h-[100dvh] w-screen bg-[#f4f6fa] dark:bg-[#0d0f14] overflow-hidden flex z-30 select-none">
       
       {/* Mobile Menu Backdrop */}
       {isMobileMenuOpen && (
@@ -1032,18 +1032,30 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
       {/* Main Right Administrative Workstation */}
       <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
         {/* Sleek Master Command Bar */}
-        <header className="h-14 px-4 sm:px-6 bg-white dark:bg-[#16181f] border-b border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-between gap-3 shrink-0 z-10 shadow-xs">
-          <div className="flex items-center gap-3 min-w-0">
+        <header className="h-14 px-3 sm:px-6 bg-white dark:bg-[#16181f] border-b border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-between gap-2 sm:gap-3 shrink-0 z-10 shadow-xs">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen(true)}
-              className="p-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 lg:hidden border-none cursor-pointer"
+              className="p-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 lg:hidden border-none cursor-pointer shrink-0"
+              title="Open Navigation Menu"
             >
               <Menu className="w-4 h-4" />
             </button>
 
-            {/* Dynamic Breadcrumbs */}
-            <div className="flex items-center space-x-2 text-xs font-bold truncate">
+            {/* Mobile Header Title */}
+            <div className="lg:hidden flex items-center gap-1.5 min-w-0">
+              <Crown className="w-4 h-4 text-amber-500 shrink-0" />
+              <span className="font-extrabold text-xs sm:text-sm text-[#1f1f1f] dark:text-[#f0f3f8] truncate">
+                Master Console
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#0b57d0]/10 text-[#0b57d0] dark:text-[#a8c7fa] font-bold truncate max-w-[110px]">
+                {currentBatch.title}
+              </span>
+            </div>
+
+            {/* Desktop Dynamic Breadcrumbs */}
+            <div className="hidden lg:flex items-center space-x-2 text-xs font-bold truncate">
               <span className="text-slate-400 dark:text-zinc-500">Master Console</span>
               <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <span className="text-[#0b57d0] dark:text-[#a8c7fa] truncate">{currentBatch.title}</span>
@@ -1060,8 +1072,8 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             </div>
           </div>
 
-          {/* Right Header: Google Sign In & Exit */}
-          <div className="flex items-center gap-2.5 shrink-0">
+          {/* Right Header: Theme Toggle & Exit */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {(!auth.currentUser || !auth.currentUser.email) && (
               <button
                 type="button"
@@ -1076,7 +1088,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                     }
                   }
                 }}
-                className="h-8 px-3 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border border-slate-200 dark:border-zinc-700 flex items-center gap-2 text-xs font-bold cursor-pointer transition shadow-xs"
+                className="h-8 px-2.5 sm:px-3 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border border-slate-200 dark:border-zinc-700 flex items-center gap-1.5 text-xs font-bold cursor-pointer transition shadow-xs"
               >
                 <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -1084,21 +1096,70 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
                 </svg>
-                <span className="hidden sm:inline">Sign In with Google</span>
+                <span className="hidden sm:inline">Sign In</span>
+              </button>
+            )}
+
+            {onToggleTheme && (
+              <button
+                type="button"
+                onClick={onToggleTheme}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center cursor-pointer border-none transition text-slate-700 dark:text-zinc-300"
+                title="Toggle Theme"
+              >
+                {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-[#0b57d0]" />}
               </button>
             )}
 
             <button
               type="button"
               onClick={onBack}
-              className="h-8 px-3 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer border-none transition"
-              title="Close Console"
+              className="h-8 px-2.5 sm:px-3 rounded-full bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 text-xs font-bold flex items-center gap-1 cursor-pointer border border-rose-200/60 dark:border-rose-800/40 transition active:scale-95"
+              title="Exit Master Console"
             >
               <X className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Close</span>
+              <span>Exit</span>
             </button>
           </div>
         </header>
+
+        {/* Mobile Material Design 3 Horizontal Tab Strip */}
+        <div className="lg:hidden flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-[#16181f] border-b border-slate-200/80 dark:border-zinc-800/80 overflow-x-auto scrollbar-none shrink-0 z-10">
+          {[
+            { id: 'curriculum', label: 'Curriculum', icon: Folder },
+            { id: 'roster', label: 'Roster', icon: Users, badge: currentBatchEnrollments.length },
+            { id: 'tests', label: 'Tests', icon: Award, badge: currentBatchTests.length },
+            { id: 'remedial', label: 'Remedial', icon: Zap },
+            { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+            { id: 'publishing', label: 'Publish', icon: BookOpen },
+            { id: 'settings', label: 'Settings', icon: Settings },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id as MasterConsoleNavTab)}
+                className={`h-8 px-3 rounded-full flex items-center gap-1.5 text-xs font-bold whitespace-nowrap shrink-0 transition cursor-pointer border-0 outline-none ${
+                  isActive
+                    ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] shadow-xs'
+                    : 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700'
+                }`}
+              >
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#0b57d0] dark:text-[#a8c7fa]' : ''}`} />
+                <span>{tab.label}</span>
+                {typeof tab.badge === 'number' && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                    isActive ? 'bg-[#0b57d0]/20 text-[#041e49] dark:text-[#c2e7ff]' : 'bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-zinc-400'
+                  }`}>
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
 
         {/* Global In-App Toast Notification */}
         <AnimatePresence>
@@ -1119,7 +1180,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
         <div className="flex-1 overflow-hidden relative">
           {/* TAB 0: LMS STUDIO (Curriculum, Roster, Tests, Settings) */}
           {isLmsStudioTab && (
-            <div className="w-full h-full p-2 sm:p-3 overflow-hidden">
+            <div className="w-full h-full p-0 sm:p-3 overflow-hidden">
               <DesktopLmsStudio
                 availableTests={tests}
                 onStartTest={onStartTest}
@@ -1133,7 +1194,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
 
           {/* TAB 1: ADAPTIVE REMEDIAL ENGINE */}
           {activeTab === 'remedial' && (
-            <div className="w-full h-full overflow-y-auto px-4 sm:px-6 md:px-8 py-5 space-y-6 [scrollbar-width:thin]">
+            <div className="w-full h-full overflow-y-auto px-3 sm:px-6 md:px-8 py-3.5 sm:py-5 space-y-4 sm:space-y-6 [scrollbar-width:thin]">
               <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
             
             {/* Batch Context Banner */}
@@ -1821,7 +1882,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
         {/* TAB 2: PER-TEST PERFORMANCE ANALYTICS                        */}
         {/* ============================================================ */}
         {activeTab === 'analytics' && (
-          <div className="w-full h-full overflow-y-auto px-4 sm:px-6 md:px-8 py-5 space-y-6 [scrollbar-width:thin]">
+          <div className="w-full h-full overflow-y-auto px-3 sm:px-6 md:px-8 py-3.5 sm:py-5 space-y-4 sm:space-y-6 [scrollbar-width:thin]">
             <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
             
             {/* Batch Context Banner */}
@@ -2317,7 +2378,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
         {/* TAB 3: PUBLISHING & MASTER TEST BANK                         */}
         {/* ============================================================ */}
         {activeTab === 'publishing' && (
-          <div className="w-full h-full overflow-y-auto px-4 sm:px-6 md:px-8 py-5 space-y-6 [scrollbar-width:thin]">
+          <div className="w-full h-full overflow-y-auto px-3 sm:px-6 md:px-8 py-3.5 sm:py-5 space-y-4 sm:space-y-6 [scrollbar-width:thin]">
             <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
             
             {/* Batch Context Banner */}
