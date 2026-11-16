@@ -4,6 +4,7 @@ import {
   Pause,
   RotateCcw,
   RotateCw,
+  FastForward,
   Volume2,
   VolumeX,
   Maximize2,
@@ -138,6 +139,16 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   const lastBackdropClickRef = useRef<number>(0);
   const [seekFeedback, setSeekFeedback] = useState<{ side: 'left' | 'right'; seconds: number } | null>(null);
   const seekFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Hold-to-2X Speed Gesture State & Refs (YouTube signature feature)
+  const [is2xSpeedActive, setIs2xSpeedActive] = useState(false);
+  const is2xSpeedActiveRef = useRef(false);
+  is2xSpeedActiveRef.current = is2xSpeedActive;
+  const speedBefore2xRef = useRef(1);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const last2xEndTimeRef = useRef(0);
+  const playbackSpeedRef = useRef(playbackSpeed);
+  playbackSpeedRef.current = playbackSpeed;
 
   // Track whether mouse/pointer is hovering over the bottom control bar
   const [isHoveringControls, setIsHoveringControls] = useState(false);
@@ -568,7 +579,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   const handleSkip = useCallback((seconds: number) => {
     safeCallPlayer((p) => {
       if (p.getCurrentTime && p.seekTo) {
-        const nextTime = Math.min(Math.max(0, p.getCurrentTime() + seconds), duration);
+        const curr = p.getCurrentTime() || 0;
+        const maxTime = duration > 0 ? duration : 999999;
+        const nextTime = Math.max(0, Math.min(maxTime, curr + seconds));
         p.seekTo(nextTime, true);
         setCurrentTime(nextTime);
       }
@@ -579,55 +592,117 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const lastTouchHandledTimeRef = useRef<number>(0);
 
-  // Surface Tap & Double-Tap seek gestures (10s Rewind on Left, 10s Forward on Right, Instant toggle in Center or when visible)
+  // 1. Hold to 2X Speed Handler (Activates when pressing on the right side/surface for >350ms while playing)
+  const startHold2xTimer = useCallback((clientX: number, target: HTMLElement) => {
+    if (!isPlayingRef.current) return;
+
+    const rect = target.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const ratio = (clientX - rect.left) / rect.width;
+    if (ratio < 0.35) return; // Left 35% reserved for rewind double-tap
+
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+
+    longPressTimerRef.current = setTimeout(() => {
+      if (isPlayingRef.current) {
+        is2xSpeedActiveRef.current = true;
+        setIs2xSpeedActive(true);
+        speedBefore2xRef.current = playbackSpeedRef.current;
+        safeCallPlayer((p) => {
+          if (p.setPlaybackRate) {
+            p.setPlaybackRate(2);
+          }
+        });
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          try {
+            navigator.vibrate(35);
+          } catch {}
+        }
+      }
+    }, 350);
+  }, [safeCallPlayer]);
+
+  const releaseHold2x = useCallback((): boolean => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+
+    if (is2xSpeedActiveRef.current) {
+      is2xSpeedActiveRef.current = false;
+      setIs2xSpeedActive(false);
+      last2xEndTimeRef.current = Date.now();
+      const prevSpeed = speedBefore2xRef.current || 1;
+      safeCallPlayer((p) => {
+        if (p.setPlaybackRate) {
+          p.setPlaybackRate(prevSpeed);
+        }
+      });
+      return true;
+    }
+    return false;
+  }, [safeCallPlayer]);
+
+  // 2. Surface Tap & Double-Tap seek gestures (10s Rewind on Left, 10s Forward on Right, Instant toggle in Center)
   const handleSurfaceTap = useCallback((zone: 'left' | 'center' | 'right') => {
-    // 1. If controls are ALREADY visible: tapping anywhere on the player surface immediately hides them!
-    if (isControlsVisibleRef.current) {
-      hideControls();
-      return;
-    }
-
-    // 2. If controls are HIDDEN:
-    // Center tap: immediately reveal navigation controls for 5 seconds without waiting!
-    if (zone === 'center') {
-      showControlsForDuration(5000);
-      return;
-    }
-
-    // Left or Right tap: check for double-tap seek (10s Rewind / Forward)
     const now = Date.now();
-    const DOUBLE_TAP_DELAY = 280;
+    const DOUBLE_TAP_WINDOW = 320;
 
-    if (now - lastTapRef.current.time < DOUBLE_TAP_DELAY && lastTapRef.current.side === zone) {
-      // Double tap recognized!
+    // Center zone: immediate toggle controls without delay!
+    if (zone === 'center') {
+      if (isControlsVisibleRef.current) {
+        hideControls();
+      } else {
+        showControlsForDuration(5000);
+      }
+      return;
+    }
+
+    // Left or Right zone: Check if this tap is consecutive (within DOUBLE_TAP_WINDOW) on the same side
+    if (lastTapRef.current.side === zone && now - lastTapRef.current.time < DOUBLE_TAP_WINDOW) {
+      // Double tap (or 3rd/4th consecutive tap) detected!
       if (tapTimeoutRef.current) {
         clearTimeout(tapTimeoutRef.current);
         tapTimeoutRef.current = null;
       }
+
       const delta = zone === 'left' ? -10 : 10;
       handleSkip(delta);
 
-      setSeekFeedback({ side: zone as 'left' | 'right', seconds: 10 });
+      setSeekFeedback((prev) => {
+        const nextSeconds = prev && prev.side === zone ? prev.seconds + 10 : 10;
+        return { side: zone, seconds: nextSeconds };
+      });
+
       if (seekFeedbackTimeoutRef.current) {
         clearTimeout(seekFeedbackTimeoutRef.current);
       }
       seekFeedbackTimeoutRef.current = setTimeout(() => {
         setSeekFeedback(null);
-      }, 700);
+      }, 750);
 
-      lastTapRef.current = { time: 0, side: zone };
-    } else {
-      // First tap on left or right: wait DOUBLE_TAP_DELAY to distinguish single tap from double tap
       lastTapRef.current = { time: now, side: zone };
-      if (tapTimeoutRef.current) {
-        clearTimeout(tapTimeoutRef.current);
-      }
-      tapTimeoutRef.current = setTimeout(() => {
-        // Single tap confirmed: reveal navigation controls for 5 seconds
-        showControlsForDuration(5000);
-        lastTapRef.current = { time: 0, side: zone };
-      }, DOUBLE_TAP_DELAY);
+      return;
     }
+
+    // First tap on Left or Right: Record tap and set a delay to distinguish single tap from double tap
+    lastTapRef.current = { time: now, side: zone };
+    if (tapTimeoutRef.current) {
+      clearTimeout(tapTimeoutRef.current);
+    }
+
+    tapTimeoutRef.current = setTimeout(() => {
+      // Single tap confirmed: toggle controls
+      if (isControlsVisibleRef.current) {
+        hideControls();
+      } else {
+        showControlsForDuration(5000);
+      }
+      lastTapRef.current = { time: 0, side: zone };
+      tapTimeoutRef.current = null;
+    }, DOUBLE_TAP_WINDOW);
   }, [hideControls, showControlsForDuration, handleSkip]);
 
   const getZoneFromX = (clientX: number, target: HTMLElement): 'left' | 'center' | 'right' => {
@@ -647,10 +722,25 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         y: e.touches[0].clientY,
         time: Date.now(),
       };
+      startHold2xTimer(e.touches[0].clientX, e.currentTarget);
+    }
+  };
+
+  const handleSurfaceTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!touchStartRef.current || e.touches.length === 0) return;
+    const dx = e.touches[0].clientX - touchStartRef.current.x;
+    const dy = e.touches[0].clientY - touchStartRef.current.y;
+    // Cancel 2x hold timer if finger moves significantly (e.g. scroll or drag)
+    if (Math.hypot(dx, dy) > 12) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
     }
   };
 
   const handleSurfaceTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const was2x = releaseHold2x();
     if (!touchStartRef.current || e.changedTouches.length === 0) return;
     const endX = e.changedTouches[0].clientX;
     const endY = e.changedTouches[0].clientY;
@@ -659,17 +749,35 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     const dur = Date.now() - touchStartRef.current.time;
     touchStartRef.current = null;
 
-    // Small movement (< 15px) and short duration (< 450ms) is a clean tap
-    if (Math.hypot(dx, dy) < 15 && dur < 450) {
+    // If this release was from a 2X hold or long press, do NOT trigger any tap
+    if (was2x || dur >= 350) {
+      lastTouchHandledTimeRef.current = Date.now();
+      return;
+    }
+
+    if (Math.hypot(dx, dy) < 15) {
       lastTouchHandledTimeRef.current = Date.now();
       const zone = getZoneFromX(endX, e.currentTarget);
       handleSurfaceTap(zone);
     }
   };
 
+  const handleSurfaceMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return; // Left mouse button only
+    startHold2xTimer(e.clientX, e.currentTarget);
+  };
+
+  const handleSurfaceMouseUp = () => {
+    releaseHold2x();
+  };
+
+  const handleSurfaceMouseLeave = () => {
+    releaseHold2x();
+  };
+
   const handleSurfaceClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // If handled by touch within last 600ms, suppress synthetic click to avoid double toggle
-    if (Date.now() - lastTouchHandledTimeRef.current < 600) {
+    // If handled by touch within 600ms or if just released 2x hold within 400ms, suppress click
+    if (Date.now() - lastTouchHandledTimeRef.current < 600 || Date.now() - last2xEndTimeRef.current < 400) {
       return;
     }
     const zone = getZoneFromX(e.clientX, e.currentTarget);
@@ -1270,20 +1378,27 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 2. Interaction Layer with Left/Center/Right Touch & Click (YouTube-style 10s Rewind/Skip & Instant Controls Toggle) */}
+      {/* 2. Full-Screen Gestures: Double-Tap Seek (±10s/±20s/±30s) & Hold for 2X Speed Surface */}
       <div
         onTouchStart={handleSurfaceTouchStart}
+        onTouchMove={handleSurfaceTouchMove}
         onTouchEnd={handleSurfaceTouchEnd}
+        onTouchCancel={handleSurfaceTouchEnd}
+        onMouseDown={handleSurfaceMouseDown}
+        onMouseUp={handleSurfaceMouseUp}
+        onMouseLeave={handleSurfaceMouseLeave}
         onClick={handleSurfaceClick}
-        className="absolute inset-0 z-10 flex select-none cursor-pointer"
+        className="absolute inset-0 z-20 flex select-none cursor-pointer"
         style={{ touchAction: 'manipulation' }}
       >
-        {/* Left 35%: double-tap rewind 10s */}
+        {/* Left 35%: double-tap rewind feedback */}
         <div className="relative w-[35%] h-full flex items-center justify-center pointer-events-none">
           {seekFeedback?.side === 'left' && (
-            <div className="flex flex-col items-center justify-center bg-black/75 backdrop-blur-xs rounded-full w-20 h-20 text-white animate-in zoom-in-75 duration-200 border border-white/20 shadow-2xl">
-              <RotateCcw className="w-6 h-6 mb-1 text-white" />
-              <span className="text-[10px] font-bold tracking-tight">10 seconds</span>
+            <div className="flex flex-col items-center justify-center bg-black/85 backdrop-blur-md rounded-full w-20 h-20 text-white animate-in zoom-in-75 duration-200 border border-white/20 shadow-2xl">
+              <RotateCcw className="w-7 h-7 mb-1 text-white" />
+              <span className="text-[11px] font-bold font-mono tracking-tight text-emerald-400">
+                -{seekFeedback.seconds}s
+              </span>
             </div>
           )}
         </div>
@@ -1291,16 +1406,26 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         {/* Center 30%: direct tap to toggle */}
         <div className="relative w-[30%] h-full pointer-events-none" />
 
-        {/* Right 35%: double-tap forward 10s */}
+        {/* Right 35%: double-tap forward feedback */}
         <div className="relative w-[35%] h-full flex items-center justify-center pointer-events-none">
           {seekFeedback?.side === 'right' && (
-            <div className="flex flex-col items-center justify-center bg-black/75 backdrop-blur-xs rounded-full w-20 h-20 text-white animate-in zoom-in-75 duration-200 border border-white/20 shadow-2xl">
-              <RotateCw className="w-6 h-6 mb-1 text-white" />
-              <span className="text-[10px] font-bold tracking-tight">10 seconds</span>
+            <div className="flex flex-col items-center justify-center bg-black/85 backdrop-blur-md rounded-full w-20 h-20 text-white animate-in zoom-in-75 duration-200 border border-white/20 shadow-2xl">
+              <RotateCw className="w-7 h-7 mb-1 text-white" />
+              <span className="text-[11px] font-bold font-mono tracking-tight text-emerald-400">
+                +{seekFeedback.seconds}s
+              </span>
             </div>
           )}
         </div>
       </div>
+
+      {/* 2b. 2X Speed Floating Indicator (Shows when holding 2x speed) */}
+      {is2xSpeedActive && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 bg-black/85 backdrop-blur-md text-amber-400 font-bold text-xs sm:text-sm px-4 py-1.5 rounded-full shadow-2xl flex items-center space-x-2 border border-amber-400/30 animate-in fade-in zoom-in-95 pointer-events-none select-none">
+          <FastForward className="w-4 h-4 text-amber-400 fill-current animate-pulse" />
+          <span className="tracking-wider uppercase text-white font-mono text-[11px] sm:text-xs">2X Speed</span>
+        </div>
+      )}
 
       {/* 3. Top Header Bar (Video Title Only) */}
       {(!isMini || isFullscreen) && (
@@ -1319,17 +1444,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       {/* 4. Center Play/Pause Floating Control (Only in expanded player view, prominent and touch-friendly) */}
       {(isControlsVisible || !isPlaying) && isPlayerReady && authStatus === 'authorized' && hasEverPlayed && (
         <div
-          onTouchStart={(e) => {
-            if (e.target === e.currentTarget && isControlsVisibleRef.current) {
-              hideControls();
-            }
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget && isControlsVisibleRef.current) {
-              hideControls();
-            }
-          }}
-          className={`absolute inset-0 z-20 flex items-center justify-center transition-all ${!isPlaying ? 'bg-black/40 backdrop-blur-[1.5px]' : ''}`}
+          className={`absolute inset-0 z-22 flex items-center justify-center pointer-events-none transition-all ${
+            !isPlaying ? 'bg-black/40 backdrop-blur-[1.5px]' : ''
+          }`}
         >
           <button
             type="button"
@@ -1340,7 +1457,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             onTouchStart={(e) => {
               e.stopPropagation();
             }}
-            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-black/65 hover:bg-black/85 backdrop-blur-md text-white border border-white/20 flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition transform border-none cursor-pointer"
+            onMouseDown={(e) => {
+              e.stopPropagation();
+            }}
+            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-black/65 hover:bg-black/85 backdrop-blur-md text-white border border-white/20 flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition transform border-none cursor-pointer pointer-events-auto"
             title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
           >
             {isPlaying ? (
