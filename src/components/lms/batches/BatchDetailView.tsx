@@ -1218,9 +1218,9 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             </div>
           </div>
 
-          {/* Master Admin Contextual Action Bar (Shifted rightwards with dedicated crisp icons) */}
+          {/* Master Admin Contextual Action Bar (Compact Icon Buttons on Mobile, Full Pills on Desktop) */}
           {isMaster && (
-            <div className="ml-auto flex items-center justify-end space-x-2 shrink-0 flex-wrap gap-y-2">
+            <div className="flex items-center justify-end space-x-1.5 sm:space-x-2 shrink-0 flex-nowrap self-end ml-auto">
               {/* Batch Management: Students Roster & Batch Settings */}
               <button
                 type="button"
@@ -1228,12 +1228,17 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   setBatchForRoster(currentBatch);
                   setIsBatchRosterModalOpen(true);
                 }}
-                className="px-3 py-1.5 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
-                title="Manage Enrolled Students and Reset Devices"
+                className="relative p-2 sm:px-3 sm:py-1.5 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
+                title={`Manage Students (${getEnrollmentsForBatch(currentBatch?.id || selectedBatchId).length})`}
                 aria-label="Manage Students"
               >
-                <Users className="w-3.5 h-3.5 shrink-0" />
-                <span>Students ({getEnrollmentsForBatch(currentBatch?.id || selectedBatchId).length})</span>
+                <Users className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">Students ({getEnrollmentsForBatch(currentBatch?.id || selectedBatchId).length})</span>
+                {getEnrollmentsForBatch(currentBatch?.id || selectedBatchId).length > 0 && (
+                  <span className="sm:hidden absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-950 text-white text-[9px] font-bold flex items-center justify-center shadow-xs">
+                    {getEnrollmentsForBatch(currentBatch?.id || selectedBatchId).length}
+                  </span>
+                )}
               </button>
 
               <button
@@ -1242,15 +1247,15 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   setBatchToEdit(currentBatch);
                   setIsEditBatchModalOpen(true);
                 }}
-                className="px-3 py-1.5 rounded-full bg-slate-700 hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
+                className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-slate-700 hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
                 title="Edit Batch Settings, Pricing and Access"
                 aria-label="Batch Settings"
               >
-                <Settings className="w-3.5 h-3.5 shrink-0" />
-                <span>Settings</span>
+                <Settings className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">Settings</span>
               </button>
 
-              <div className="hidden sm:block w-[1px] h-5 bg-[var(--md-sys-color-outline-variant)]/40 mx-0.5" />
+              <div className="w-[1px] h-4 sm:h-5 bg-[var(--md-sys-color-outline-variant)]/40 mx-0.5 shrink-0" />
 
               <button
                 type="button"
@@ -1258,12 +1263,12 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   setEditingFolder(null);
                   setIsFolderModalOpen(true);
                 }}
-                className="px-3 py-1.5 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#041e49] font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs hover:opacity-90 active:scale-95 transition border-none cursor-pointer shrink-0"
+                className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#041e49] font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs hover:opacity-90 active:scale-95 transition border-none cursor-pointer shrink-0"
                 title={selectedChapterId ? "Add Subfolder" : "Add Chapter Folder"}
                 aria-label={selectedChapterId ? "Add Subfolder" : "Add Folder"}
               >
-                <FolderPlus className="w-3.5 h-3.5 shrink-0" />
-                <span>{selectedChapterId ? "+ Subfolder" : "+ Folder"}</span>
+                <FolderPlus className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">{selectedChapterId ? "+ Subfolder" : "+ Folder"}</span>
               </button>
 
               <button
@@ -1272,12 +1277,12 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   setEditingLecture(null);
                   setIsVideoModalOpen(true);
                 }}
-                className="px-3 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
+                className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
                 title="Add Video Lecture"
                 aria-label="Add Lecture"
               >
-                <Video className="w-3.5 h-3.5 shrink-0" />
-                <span>+ Lecture</span>
+                <Video className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">+ Lecture</span>
               </button>
 
               <button
@@ -1286,23 +1291,23 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   setEditingNote(null);
                   setIsNoteModalOpen(true);
                 }}
-                className="px-3 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
+                className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
                 title="Add Notes or Document Files"
                 aria-label="Add File"
               >
-                <FilePlus className="w-3.5 h-3.5 shrink-0" />
-                <span>+ File</span>
+                <FilePlus className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">+ File</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setIsLinkTestModalOpen(true)}
-                className="px-3 py-1.5 rounded-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
+                className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
                 title="Link Mock Test"
                 aria-label="Link Test"
               >
-                <Award className="w-3.5 h-3.5 shrink-0" />
-                <span>+ Test</span>
+                <Award className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">+ Test</span>
               </button>
             </div>
           )}
