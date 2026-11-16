@@ -29,10 +29,10 @@ service cloud.firestore {
 
     // User profile documents and all subcollections (notes, sessions, settings, htmlNotesStudio, etc.)
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if isOwner(userId) || isMasterAdmin();
 
       match /{allSubcollections=**} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if isOwner(userId) || isMasterAdmin();
       }
     }
 
@@ -50,6 +50,14 @@ service cloud.firestore {
     // User Sync Beacons: Single lightweight revision tracker per user
     match /user_sync_beacons/{userId} {
       allow read, write: if isOwner(userId);
+    }
+
+    // Device Reset Requests:
+    // Students can submit a request for device unlock; Master Admin can read/manage all requests
+    match /device_reset_requests/{userId} {
+      allow read: if isOwner(userId) || isMasterAdmin();
+      allow create: if isOwner(userId);
+      allow update, delete: if isMasterAdmin();
     }
 
     // Test Leaderboards: Lightweight rankings per test
