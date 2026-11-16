@@ -157,12 +157,16 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   }, [selectedBatchId, loadRosterForBatch, loadCurriculumForBatch]);
 
   const currentBatch = useMemo(() => {
-    return batches.find((b) => b.id === selectedBatchId) || batches[0] || {
+    return batches.find((b) => b.id === selectedBatchId) || batches[0] || ({
       id: 'batch_testing_01',
       title: 'Testing Batch',
       price: 999,
       isPublished: true,
-    };
+      originalPrice: 1999,
+      validityDays: 365,
+      category: 'Mathematics',
+      allowGuestAccess: true,
+    } as any);
   }, [batches, selectedBatchId]);
 
   const currentBatchChapters = useMemo(() => {

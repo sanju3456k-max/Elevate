@@ -1253,7 +1253,7 @@ export default function App() {
     }
 
     const targetUid = currentUser?.uid || cachedUser?.uid || null;
-    const targetBatchId = explicitOrigin?.batchId || (test as any).batchId || selectedBatchId || null;
+    const targetBatchId = (test as any).batchId || selectedBatchId || null;
     const targetChunkId = (test as any).catalogChunkId || (test as any).chunkId || null;
 
     let fullTest = (test.questions && test.questions.length > 0)
@@ -1319,7 +1319,7 @@ export default function App() {
     }
 
     const targetUid = currentUser?.uid || cachedUser?.uid || null;
-    const targetBatchId = explicitOrigin?.batchId || (test as any).batchId || selectedBatchId || null;
+    const targetBatchId = (test as any).batchId || selectedBatchId || null;
     const targetChunkId = (test as any).catalogChunkId || (test as any).chunkId || null;
 
     let fullTest = (test.questions && test.questions.length > 0)

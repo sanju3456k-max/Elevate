@@ -9,7 +9,8 @@ import {
   unmarkMultipleDeletedTestsInFirestore,
   db,
   auth,
-  updateUserSyncBeacon
+  updateUserSyncBeacon,
+  getCachedFullTest
 } from './firebase';
 import { 
   writeBatch, 

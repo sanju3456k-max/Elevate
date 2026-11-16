@@ -16,7 +16,7 @@ import {
 import { CloakedVideoPlayer } from './CloakedVideoPlayer';
 import { useApp } from '../../../lms/LmsContext';
 import { formatDuration, getLectureThumbnailUrl } from '../../../lms/security';
-import { useBackHandler } from '../../../hooks/useBackNavigation';
+import { useBackHandler, isBrowserFullscreen, exitBrowserFullscreen } from '../../../hooks/useBackNavigation';
 import type { TimelineMilestone, Lecture } from '../../../lms/types';
 
 export interface PersistentPlaybackData {
@@ -127,12 +127,16 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
     }
   }, [activeTab, playback, onUpdatePlayback]);
 
-  // Back handler when expanded: Minimize to strip on back press (YouTube style)
+  // Back handler when expanded: If fullscreen, exit fullscreen first; otherwise minimize to strip (YouTube style)
   useBackHandler({
     isOpen: Boolean(playback && !playback.isMinimized),
     priority: 50,
     id: 'global_persistent_player_back',
     onBack: () => {
+      if (isBrowserFullscreen()) {
+        exitBrowserFullscreen();
+        return;
+      }
       onUpdatePlayback((prev) => (prev ? { ...prev, isMinimized: true } : null));
     },
   });
@@ -143,6 +147,9 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
 
   const handleMinimize = useCallback((e?: React.MouseEvent) => {
     e?.stopPropagation();
+    if (isBrowserFullscreen()) {
+      exitBrowserFullscreen();
+    }
     onUpdatePlayback((prev) => (prev ? { ...prev, isMinimized: true } : null));
   }, [onUpdatePlayback]);
 

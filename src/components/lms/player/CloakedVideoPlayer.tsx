@@ -24,6 +24,7 @@ import {
 import { deobfuscateVideoKey, extractYouTubeId, formatDuration, initDevToolsDetector, initFocusLossProtector } from '../../../lms/security';
 import { requestPlaybackToken } from '../../../lms/playbackTokenService';
 import { useApp } from '../../../lms/LmsContext';
+import { useBackHandler, isBrowserFullscreen, exitBrowserFullscreen } from '../../../hooks/useBackNavigation';
 import type { User, TimelineMilestone, PlaybackSessionToken } from '../../../lms/types';
 
 declare global {
@@ -963,6 +964,33 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     }
   };
 
+  // Top Priority Back Navigation Stack: When in fullscreen, any back gesture/mouse button MUST exit fullscreen first
+  useBackHandler({
+    isOpen: isFullscreen,
+    priority: 100,
+    id: `cloaked_video_fs_${lectureId || encryptedVideoId || 'active'}`,
+    onBack: () => {
+      toggleFullscreen();
+    },
+  });
+
+  // Safety Guard: if component transitions to mini mode while still in fullscreen, exit immediately
+  useEffect(() => {
+    if (isMini && (isFullscreen || isBrowserFullscreen())) {
+      exitBrowserFullscreen();
+      setIsFullscreen(false);
+    }
+  }, [isMini, isFullscreen]);
+
+  // Safety Guard: On unmount, ensure browser is not left trapped in fullscreen
+  useEffect(() => {
+    return () => {
+      if (isBrowserFullscreen()) {
+        exitBrowserFullscreen();
+      }
+    };
+  }, []);
+
   // Keep controls and dropdowns visible for 5s on mouse move / interaction
   const handleMouseMove = () => {
     if (!isHoveringControlsRef.current) {
@@ -1046,10 +1074,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         touchAction: 'manipulation',
       }}
       className={`relative w-full bg-black overflow-hidden border-none select-none transition-all duration-200 ${
-        isMini
-          ? 'h-full w-full rounded-none'
-          : isFullscreen
-            ? 'h-full w-full aspect-auto rounded-none flex items-center justify-center'
+        isFullscreen
+          ? 'h-full w-full aspect-auto rounded-none flex items-center justify-center'
+          : isMini
+            ? 'h-full w-full rounded-none'
             : 'aspect-video rounded-none sm:rounded-3xl shadow-2xl group'
       }`}
     >
@@ -1059,11 +1087,11 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           <div
             className="relative pointer-events-none flex items-center justify-center"
             style={{
-              width: isMini ? '180%' : '100%',
-              height: isMini ? '180%' : '100%',
-              minWidth: isMini ? '180%' : '100%',
-              minHeight: isMini ? '180%' : '100%',
-              transform: isMini ? 'scale(1.1)' : 'none',
+              width: isMini && !isFullscreen ? '180%' : '100%',
+              height: isMini && !isFullscreen ? '180%' : '100%',
+              minWidth: isMini && !isFullscreen ? '180%' : '100%',
+              minHeight: isMini && !isFullscreen ? '180%' : '100%',
+              transform: isMini && !isFullscreen ? 'scale(1.1)' : 'none',
               transformOrigin: 'center center',
             }}
           >
@@ -1076,7 +1104,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       )}
 
       {/* 1a. Miniplayer Paused / Pre-playback Clean Poster Cover (Completely eliminates YouTube's paused title bleed, avatar, and native huge play icon) */}
-      {isMini && authStatus === 'authorized' && (!isPlaying || !hasEverPlayed) && (
+      {isMini && !isFullscreen && authStatus === 'authorized' && (!isPlaying || !hasEverPlayed) && (
         <div className="absolute inset-0 z-20 bg-black flex items-center justify-center overflow-hidden pointer-events-none">
           {activePosterImage ? (
             <img
@@ -1096,12 +1124,12 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       )}
 
       {/* 1b. Top Cloaking Security Guard (Masks any edge title/channel overlay bleed) */}
-      <div className={`absolute top-0 inset-x-0 ${isMini ? 'h-6' : 'h-14'} bg-gradient-to-b from-black/95 via-black/50 to-transparent pointer-events-none z-15`} />
+      <div className={`absolute top-0 inset-x-0 ${isMini && !isFullscreen ? 'h-6' : 'h-14'} bg-gradient-to-b from-black/95 via-black/50 to-transparent pointer-events-none z-15`} />
 
       {/* 1c. Bottom Cloaking Security Guard (Masks any YouTube watermark/logo bleed) */}
-      <div className={`absolute bottom-0 inset-x-0 ${isMini ? 'h-6' : 'h-16'} bg-gradient-to-t from-black/95 via-black/50 to-transparent pointer-events-none z-15`} />
+      <div className={`absolute bottom-0 inset-x-0 ${isMini && !isFullscreen ? 'h-6' : 'h-16'} bg-gradient-to-t from-black/95 via-black/50 to-transparent pointer-events-none z-15`} />
 
-      {!isMini && (
+      {(!isMini || isFullscreen) && (
         <>
       {/* 1c. High-Fidelity Pre-Playback Poster Curtain (Eliminates YouTube unstarted title, channel avatar, and red play button) */}
       {authStatus === 'authorized' && !hasEverPlayed && (

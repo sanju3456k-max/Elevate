@@ -36,6 +36,9 @@ import {
   List,
   Home,
   Clock,
+  Settings,
+  Smartphone,
+  Globe,
 } from 'lucide-react';
 import { useApp, getFacultyAvatarUrl } from '../../../lms/LmsContext';
 import { auth, db, getCachedFullTest } from '../../../lib/firebase';
@@ -47,7 +50,7 @@ import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
 import { formatDuration, extractYouTubeId, obfuscateVideoKey, getLectureThumbnailUrl, deobfuscateVideoKey } from '../../../lms/security';
 import type { PdfNote, Chapter, Lecture, Batch } from '../../../lms/types';
 import type { MathTest } from '../../../types';
-import { useBackHandler } from '../../../hooks/useBackNavigation';
+import { useBackHandler, isBrowserFullscreen, exitBrowserFullscreen } from '../../../hooks/useBackNavigation';
 import {
   CreateOrEditFolderModal,
   AddOrEditVideoModal,
@@ -56,6 +59,7 @@ import {
   ConfirmDeleteModal,
   CreateBatchModal,
 } from './FolderEditorModals';
+import { EditBatchModal, BatchRosterModal } from './BatchAdminModals';
 
 interface BatchDetailViewProps {
   batchId?: string;
@@ -129,12 +133,32 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     batchTests,
     deleteBatchTest,
     addBatch,
+    updateBatch,
+    deleteBatch,
+    getEnrollmentsForBatch,
+    toggleBatchGuestAccess,
   } = useApp();
 
   const isMaster = Boolean(isMasterEditMode) || isMasterUser(auth.currentUser) || user?.role === 'admin';
 
   // Modal state for Creating New Batch (Master User)
   const [isCreateBatchModalOpen, setIsCreateBatchModalOpen] = useState(false);
+
+  // Modal states for Editing Batch & Batch Roster (Master User)
+  const [isEditBatchModalOpen, setIsEditBatchModalOpen] = useState(false);
+  const [batchToEdit, setBatchToEdit] = useState<Batch | null>(null);
+
+  const [isBatchRosterModalOpen, setIsBatchRosterModalOpen] = useState(false);
+  const [batchForRoster, setBatchForRoster] = useState<Batch | null>(null);
+
+  const [activeCardMenuBatchId, setActiveCardMenuBatchId] = useState<string | null>(null);
+
+  // Close 3-dots card menu when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = () => setActiveCardMenuBatchId(null);
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, []);
 
   // Selected Batch
   const [selectedBatchId, setSelectedBatchId] = useState<string>(() => {
@@ -663,6 +687,9 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
   // Dedicated collapse/exit handler from lecture view that passes video into YouTube-style bottom strip
   const handleExitLectureView = useCallback(() => {
+    if (isBrowserFullscreen()) {
+      exitBrowserFullscreen();
+    }
     if (activeLecture && onSetMiniPlayer && currentBatch) {
       onSetMiniPlayer({
         lectureId: activeLecture.id,
@@ -690,6 +717,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     priority: 25,
     id: 'batch_detail_stage_back',
     onBack: () => {
+      if (isBrowserFullscreen()) {
+        exitBrowserFullscreen();
+        return;
+      }
       if (previewImage) {
         setPreviewImage(null);
         return;
@@ -889,16 +920,119 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                     {b.category}
                   </span>
                   {b.isPublished === false ? (
-                    <span className="absolute top-3 right-3 px-2.5 py-0.5 rounded-full bg-amber-600/90 text-white font-bold text-[9px] uppercase tracking-wider flex items-center space-x-1 shadow-xs">
+                    <span className={`absolute top-3 ${isMaster ? 'right-11' : 'right-3'} px-2.5 py-0.5 rounded-full bg-amber-600/90 text-white font-bold text-[9px] uppercase tracking-wider flex items-center space-x-1 shadow-xs`}>
                       <Lock className="w-3 h-3" />
-                      <span>Draft (Locked)</span>
+                      <span>Draft</span>
                     </span>
                   ) : b.allowGuestAccess ? (
-                    <span className="absolute top-3 right-3 px-2.5 py-0.5 rounded-full bg-emerald-600/90 text-white font-bold text-[9px] uppercase tracking-wider flex items-center space-x-1 shadow-xs">
+                    <span className={`absolute top-3 ${isMaster ? 'right-11' : 'right-3'} px-2.5 py-0.5 rounded-full bg-emerald-600/90 text-white font-bold text-[9px] uppercase tracking-wider flex items-center space-x-1 shadow-xs`}>
                       <Sparkles className="w-3 h-3" />
                       <span>Guest Pass</span>
                     </span>
                   ) : null}
+
+                  {/* Master Admin 3-Dots Quick Actions Menu */}
+                  {isMaster && (
+                    <div className="absolute top-2.5 right-2.5 z-20">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveCardMenuBatchId(activeCardMenuBatchId === b.id ? null : b.id);
+                        }}
+                        className="w-7 h-7 rounded-full bg-black/70 hover:bg-black/90 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition shadow-md border-none cursor-pointer"
+                        title="Course Management Options"
+                        aria-label="Course Management Options"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+
+                      {activeCardMenuBatchId === b.id && (
+                        <div
+                          className="absolute right-0 top-8 w-48 bg-white dark:bg-[#1e2024] rounded-2xl shadow-2xl border border-[var(--md-sys-color-outline-variant)]/20 py-1.5 z-30 animate-fade-in text-xs font-semibold"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveCardMenuBatchId(null);
+                              setBatchToEdit(b);
+                              setIsEditBatchModalOpen(true);
+                            }}
+                            className="w-full px-3.5 py-2 text-left text-[var(--md-sys-color-on-surface)] hover:bg-[var(--md-sys-color-surface-container-high)] flex items-center space-x-2 border-none bg-transparent cursor-pointer"
+                          >
+                            <Edit3 className="w-3.5 h-3.5 text-[#0b57d0]" />
+                            <span>Edit Details & Price</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveCardMenuBatchId(null);
+                              setBatchForRoster(b);
+                              setIsBatchRosterModalOpen(true);
+                            }}
+                            className="w-full px-3.5 py-2 text-left text-[var(--md-sys-color-on-surface)] hover:bg-[var(--md-sys-color-surface-container-high)] flex items-center space-x-2 border-none bg-transparent cursor-pointer"
+                          >
+                            <Users className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Manage Students</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveCardMenuBatchId(null);
+                              const willPublish = b.isPublished === false;
+                              updateBatch(b.id, { isPublished: willPublish });
+                              showSecurityToast(
+                                willPublish
+                                  ? `Batch "${b.title}" is now Published (Live)`
+                                  : `Batch "${b.title}" moved to Draft mode`
+                              );
+                            }}
+                            className="w-full px-3.5 py-2 text-left text-[var(--md-sys-color-on-surface)] hover:bg-[var(--md-sys-color-surface-container-high)] flex items-center space-x-2 border-none bg-transparent cursor-pointer"
+                          >
+                            <Globe className="w-3.5 h-3.5 text-indigo-500" />
+                            <span>{b.isPublished === false ? 'Publish (Go Live)' : 'Set to Draft'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveCardMenuBatchId(null);
+                              toggleBatchGuestAccess(b.id);
+                            }}
+                            className="w-full px-3.5 py-2 text-left text-[var(--md-sys-color-on-surface)] hover:bg-[var(--md-sys-color-surface-container-high)] flex items-center space-x-2 border-none bg-transparent cursor-pointer"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                            <span>{b.allowGuestAccess ? 'Disable Guest Pass' : 'Enable Guest Pass'}</span>
+                          </button>
+
+                          <div className="my-1 border-t border-[var(--md-sys-color-outline-variant)]/15" />
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveCardMenuBatchId(null);
+                              setDeleteModalConfig({
+                                isOpen: true,
+                                title: 'Delete Course Batch',
+                                message: `Are you sure you want to delete "${b.title}"? This cannot be undone.`,
+                                onConfirm: () => {
+                                  deleteBatch(b.id);
+                                  showSecurityToast(`Batch "${b.title}" deleted.`);
+                                },
+                              });
+                            }}
+                            className="w-full px-3.5 py-2 text-left text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 flex items-center space-x-2 border-none bg-transparent cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete Batch</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
@@ -980,13 +1114,41 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
         {/* MODAL: CREATE BATCH (Exclusively for Master Admin) */}
         {isMaster && (
-          <CreateBatchModal
-            isOpen={isCreateBatchModalOpen}
-            onClose={() => setIsCreateBatchModalOpen(false)}
-            onCreate={(batchData) => {
-              addBatch(batchData);
-            }}
-          />
+          <>
+            <CreateBatchModal
+              isOpen={isCreateBatchModalOpen}
+              onClose={() => setIsCreateBatchModalOpen(false)}
+              onCreate={(batchData) => {
+                addBatch(batchData as any);
+              }}
+            />
+
+            <EditBatchModal
+              isOpen={isEditBatchModalOpen}
+              onClose={() => {
+                setIsEditBatchModalOpen(false);
+                setBatchToEdit(null);
+              }}
+              batch={batchToEdit}
+              onSave={(bId, updated) => {
+                updateBatch(bId, updated);
+                showSecurityToast(`Batch settings updated.`);
+              }}
+              onDelete={(bId) => {
+                deleteBatch(bId);
+                showSecurityToast(`Batch deleted.`);
+              }}
+            />
+
+            <BatchRosterModal
+              isOpen={isBatchRosterModalOpen}
+              onClose={() => {
+                setIsBatchRosterModalOpen(false);
+                setBatchForRoster(null);
+              }}
+              batch={batchForRoster}
+            />
+          </>
         )}
       </div>
     );
@@ -1059,6 +1221,37 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           {/* Master Admin Contextual Action Bar (Shifted rightwards with dedicated crisp icons) */}
           {isMaster && (
             <div className="ml-auto flex items-center justify-end space-x-2 shrink-0 flex-wrap gap-y-2">
+              {/* Batch Management: Students Roster & Batch Settings */}
+              <button
+                type="button"
+                onClick={() => {
+                  setBatchForRoster(currentBatch);
+                  setIsBatchRosterModalOpen(true);
+                }}
+                className="px-3 py-1.5 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
+                title="Manage Enrolled Students and Reset Devices"
+                aria-label="Manage Students"
+              >
+                <Users className="w-3.5 h-3.5 shrink-0" />
+                <span>Students ({getEnrollmentsForBatch(currentBatch?.id || selectedBatchId).length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setBatchToEdit(currentBatch);
+                  setIsEditBatchModalOpen(true);
+                }}
+                className="px-3 py-1.5 rounded-full bg-slate-700 hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
+                title="Edit Batch Settings, Pricing and Access"
+                aria-label="Batch Settings"
+              >
+                <Settings className="w-3.5 h-3.5 shrink-0" />
+                <span>Settings</span>
+              </button>
+
+              <div className="hidden sm:block w-[1px] h-5 bg-[var(--md-sys-color-outline-variant)]/40 mx-0.5" />
+
               <button
                 type="button"
                 onClick={() => {
@@ -1870,6 +2063,38 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           title={deleteModalConfig.title}
           message={deleteModalConfig.message}
         />
+
+        {/* MODALS 6 & 7: EDIT BATCH & BATCH ROSTER */}
+        {isMaster && (
+          <>
+            <EditBatchModal
+              isOpen={isEditBatchModalOpen}
+              onClose={() => {
+                setIsEditBatchModalOpen(false);
+                setBatchToEdit(null);
+              }}
+              batch={batchToEdit || currentBatch}
+              onSave={(bId, updated) => {
+                updateBatch(bId, updated);
+                showSecurityToast(`Batch settings updated.`);
+              }}
+              onDelete={(bId) => {
+                deleteBatch(bId);
+                showSecurityToast(`Batch deleted.`);
+                handleGoToAllCourses();
+              }}
+            />
+
+            <BatchRosterModal
+              isOpen={isBatchRosterModalOpen}
+              onClose={() => {
+                setIsBatchRosterModalOpen(false);
+                setBatchForRoster(null);
+              }}
+              batch={batchForRoster || currentBatch}
+            />
+          </>
+        )}
       </div>
     );
   }

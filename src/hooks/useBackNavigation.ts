@@ -12,8 +12,52 @@ interface StackItem {
 const backStack: StackItem[] = [];
 let isInitialized = false;
 
+/**
+ * Checks whether the browser document is currently in HTML5 fullscreen mode.
+ */
+export function isBrowserFullscreen(): boolean {
+  if (typeof document === 'undefined') return false;
+  return !!(
+    document.fullscreenElement ||
+    (document as any).webkitFullscreenElement ||
+    (document as any).mozFullScreenElement ||
+    (document as any).msFullscreenElement
+  );
+}
+
+/**
+ * Safely exits HTML5 fullscreen across all vendor implementations.
+ */
+export function exitBrowserFullscreen(): boolean {
+  if (typeof document === 'undefined') return false;
+  try {
+    if (document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+      return true;
+    } else if ((document as any).webkitExitFullscreen) {
+      (document as any).webkitExitFullscreen();
+      return true;
+    } else if ((document as any).mozCancelFullScreen) {
+      (document as any).mozCancelFullScreen();
+      return true;
+    } else if ((document as any).msExitFullscreen) {
+      (document as any).msExitFullscreen();
+      return true;
+    }
+  } catch (err) {
+    console.debug('Failed to exit fullscreen:', err);
+  }
+  return false;
+}
+
 // Trigger the topmost back handler. Returns true if an action was handled.
 export function triggerBack(): boolean {
+  // 1. Top priority: If browser is in fullscreen, ANY back action MUST exit fullscreen first!
+  if (isBrowserFullscreen()) {
+    exitBrowserFullscreen();
+    return true;
+  }
+
   if (backStack.length > 0) {
     // Sort descending by priority
     const sorted = [...backStack].sort((a, b) => b.priority - a.priority);
@@ -33,10 +77,7 @@ export function triggerBack(): boolean {
  * Initializes global event listeners for:
  * 1. window popstate (Android system back button/gesture, browser back button, mouse back button, Alt+Left)
  * 2. Keyboard Escape and Backspace on desktops
- *
- * NOTE: Artificial touchstart/touchend swipe listeners are avoided here to prevent
- * accidental back navigation when users are scrolling or swiping their fingers across the screen in Chrome.
- * The native Android/iOS system back gesture is dispatched natively via popstate.
+ * 3. Desktop Mouse Back Button (auxclick / mouseup button 3)
  */
 function initGlobalListeners() {
   if (isInitialized || typeof window === 'undefined') return;
@@ -44,6 +85,12 @@ function initGlobalListeners() {
 
   // 1. Popstate listener (System back gestures, Android back button, Browser back button)
   window.addEventListener('popstate', () => {
+    // If currently in fullscreen, exiting fullscreen is the authoritative back action
+    if (isBrowserFullscreen()) {
+      exitBrowserFullscreen();
+      return;
+    }
+
     // Check if a modal/overlay in our back stack wants to consume this
     if (backStack.length > 0) {
       triggerBack();
@@ -53,6 +100,11 @@ function initGlobalListeners() {
   // 2. Desktop Keyboard Navigation (Escape key & Backspace when outside inputs)
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      // In fullscreen, browser natively handles ESC to exit fullscreen.
+      // Do not trigger underlying backStack modals while in fullscreen.
+      if (isBrowserFullscreen()) {
+        return;
+      }
       const handled = triggerBack();
       if (handled) {
         e.preventDefault();
@@ -67,6 +119,30 @@ function initGlobalListeners() {
       }
     }
   });
+
+  // 3. Desktop Mouse Back Button (button 3 is standard browser back button on desktop mice)
+  const handleMouseBackButton = (e: MouseEvent | PointerEvent) => {
+    if (e.button === 3) {
+      if (isBrowserFullscreen()) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        exitBrowserFullscreen();
+        return;
+      }
+      if (backStack.length > 0) {
+        const handled = triggerBack();
+        if (handled) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    }
+  };
+
+  window.addEventListener('mouseup', handleMouseBackButton as any, true);
+  window.addEventListener('auxclick', handleMouseBackButton as any, true);
+  window.addEventListener('pointerup', handleMouseBackButton as any, true);
 }
 
 function isInputFocused(): boolean {
