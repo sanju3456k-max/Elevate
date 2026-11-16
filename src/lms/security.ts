@@ -21,13 +21,19 @@ export function extractYouTubeId(urlOrId: string): string | null {
   if (!urlOrId) return null;
   const trimmed = urlOrId.trim();
 
-  // If it's already an 11-char YouTube ID
+  // 1. If it's already an exact 11-char YouTube ID
   if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
     return trimmed;
   }
 
-  // Regex for YouTube URLs
-  const regExp = /(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+  // 2. If it's an 11-char ID followed by query params (e.g. WUvTyaaNkzM?list=PL... or WUvTyaaNkzM&list=...)
+  const directIdWithParams = trimmed.match(/^([a-zA-Z0-9_-]{11})(?:[?&#].*)?$/);
+  if (directIdWithParams && directIdWithParams[1]) {
+    return directIdWithParams[1];
+  }
+
+  // 3. Regex for all YouTube URL variants (watch, embed, live, shorts, youtu.be), strictly stripping list/index params
+  const regExp = /(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?|live|shorts)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
   const match = trimmed.match(regExp);
   return match && match[1] ? match[1] : null;
 }
