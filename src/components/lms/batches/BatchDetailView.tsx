@@ -54,6 +54,7 @@ import {
   AddOrEditNoteModal,
   LinkTestModal,
   ConfirmDeleteModal,
+  CreateBatchModal,
 } from './FolderEditorModals';
 
 interface BatchDetailViewProps {
@@ -127,9 +128,13 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     showSecurityToast,
     batchTests,
     deleteBatchTest,
+    addBatch,
   } = useApp();
 
   const isMaster = Boolean(isMasterEditMode) || isMasterUser(auth.currentUser) || user?.role === 'admin';
+
+  // Modal state for Creating New Batch (Master User)
+  const [isCreateBatchModalOpen, setIsCreateBatchModalOpen] = useState(false);
 
   // Selected Batch
   const [selectedBatchId, setSelectedBatchId] = useState<string>(() => {
@@ -824,8 +829,21 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   if (currentStage === 'batch_list') {
     return (
       <div className="space-y-6 pb-8 max-w-7xl mx-auto m3-transition-enter">
-        {/* Course Filter Toggle: All Courses vs My Courses */}
-        <div className="flex items-center justify-start sm:justify-end pb-1">
+        {/* Course Filter Toggle: All Courses vs My Courses & Master Actions */}
+        <div className="flex items-center justify-between gap-3 pb-1 flex-wrap">
+          {isMaster ? (
+            <button
+              type="button"
+              onClick={() => setIsCreateBatchModalOpen(true)}
+              className="px-4 py-2 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white font-bold text-xs flex items-center space-x-1.5 shadow-xs transition border-none cursor-pointer active:scale-95"
+            >
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <span>+ Create Course Batch</span>
+            </button>
+          ) : (
+            <div />
+          )}
+
           <div className="flex items-center space-x-2 p-1 bg-[var(--md-sys-color-surface-container)] rounded-full self-start sm:self-auto">
             <button
               onClick={() => setBatchFilter('all')}
@@ -958,6 +976,17 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               Explore All Courses
             </button>
           </div>
+        )}
+
+        {/* MODAL: CREATE BATCH (Exclusively for Master Admin) */}
+        {isMaster && (
+          <CreateBatchModal
+            isOpen={isCreateBatchModalOpen}
+            onClose={() => setIsCreateBatchModalOpen(false)}
+            onCreate={(batchData) => {
+              addBatch(batchData);
+            }}
+          />
         )}
       </div>
     );

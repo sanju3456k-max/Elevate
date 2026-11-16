@@ -798,3 +798,167 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
     </div>
   );
 };
+
+/* =========================================================================
+   6. CREATE BATCH MODAL
+   ========================================================================= */
+interface CreateBatchModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onCreate: (batch: {
+    title: string;
+    description: string;
+    category: string;
+    price: number;
+    originalPrice: number;
+    validityDays: number;
+    allowGuestAccess: boolean;
+  }) => void;
+}
+
+export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
+  isOpen,
+  onClose,
+  onCreate,
+}) => {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('Mathematics');
+  const [price, setPrice] = useState(999);
+  const [originalPrice, setOriginalPrice] = useState(1999);
+  const [validityDays, setValidityDays] = useState(365);
+  const [allowGuestAccess, setAllowGuestAccess] = useState(false);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 m3-fade-in">
+      <div className="bg-[var(--md-sys-color-surface-container)] rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-[var(--md-sys-color-outline-variant)]/20 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between pb-3 border-b border-[var(--md-sys-color-outline-variant)]/15">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-9 h-9 rounded-2xl bg-[#0b57d0]/15 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-[var(--md-sys-color-on-surface)]">
+                Create New Academic Course
+              </h3>
+              <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                Launch a course container for folders, lectures, and mock tests.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-full hover:bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border-none bg-transparent cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!title.trim()) return;
+            onCreate({
+              title: title.trim(),
+              description: description.trim(),
+              category: category.trim() || 'General',
+              price: Number(price) || 0,
+              originalPrice: Number(originalPrice) || 0,
+              validityDays: Number(validityDays) || 365,
+              allowGuestAccess,
+            });
+            onClose();
+          }}
+          className="space-y-3.5 text-xs"
+        >
+          <div>
+            <label className="text-[11px] font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+              Course / Batch Title *
+            </label>
+            <input
+              type="text"
+              required
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. JEE Target 2027: Complete Calculus"
+              className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none font-bold"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+                Category
+              </label>
+              <input
+                type="text"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                placeholder="e.g. Mathematics"
+                className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+                Selling Price (₹)
+              </label>
+              <input
+                type="number"
+                value={price}
+                onChange={(e) => setPrice(Number(e.target.value))}
+                className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[11px] font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+              Description / Overview
+            </label>
+            <textarea
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Course description and coverage..."
+              className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none resize-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-[var(--md-sys-color-surface-container-high)]/60">
+            <div>
+              <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)] block">
+                Free Guest Mode Preview
+              </span>
+              <span className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                Allow visitors without accounts to explore preview videos.
+              </span>
+            </div>
+            <M3Switch
+              checked={allowGuestAccess}
+              onChange={() => setAllowGuestAccess(!allowGuestAccess)}
+            />
+          </div>
+
+          <div className="flex items-center justify-end space-x-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)] border-none bg-transparent cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 rounded-xl bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold border-none cursor-pointer shadow-xs transition"
+            >
+              Create Course Batch
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};

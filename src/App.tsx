@@ -2409,6 +2409,13 @@ export default function App() {
             }
           }}
           onSignIn={handleSignIn}
+          onOpenBatch={(bId) => {
+            setSelectedBatchId(bId);
+            setSelectedChapterId(null);
+            setSelectedLectureId(null);
+            setBatchesStage('folder_content');
+            setActiveTab('batches');
+          }}
         />
       )}
 

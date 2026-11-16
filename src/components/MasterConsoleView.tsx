@@ -42,7 +42,14 @@ import {
   Package,
   Menu,
   Folder,
-  Settings
+  Settings,
+  Smartphone,
+  UserPlus,
+  ShieldAlert,
+  IndianRupee,
+  Globe,
+  Lock,
+  ExternalLink
 } from 'lucide-react';
 import type { MathTest, TestAttempt, RemedialFilterType, AssignedRemedialTest } from '../types';
 import { getTestDurationMinutes } from '../utils/testFormatConverter';
@@ -73,7 +80,8 @@ import {
 } from '../lib/masterAccount';
 import { loadFullTestOnDemand } from '../lib/storage';
 import { APP_STYLES } from './ui/AppStyles';
-import { DesktopLmsStudio, type StudioTab } from './lms/admin/DesktopLmsStudio';
+import { adminResetDeviceLock } from '../lib/deviceAuthService';
+import { M3Switch } from './ui/Material3';
 import { useApp } from '../lms/LmsContext';
 import { auth, signInWithGoogle } from '../lib/firebase';
 
@@ -89,16 +97,15 @@ interface MasterConsoleViewProps {
   onStartTest?: (test: MathTest, mode: 'timed' | 'practice') => void;
   onRefreshTests?: () => void;
   onSignIn?: () => void;
+  onOpenBatch?: (batchId: string) => void;
 }
 
 export type MasterConsoleNavTab =
-  | 'curriculum'
   | 'roster'
-  | 'tests'
-  | 'settings'
   | 'remedial'
   | 'analytics'
-  | 'publishing';
+  | 'publishing'
+  | 'settings';
 
 export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   onBack,
@@ -112,10 +119,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   onStartTest,
   onRefreshTests,
   onSignIn,
+  onOpenBatch,
 }) => {
-  const [activeTab, setActiveTab] = useState<MasterConsoleNavTab>('curriculum');
+  const [activeTab, setActiveTab] = useState<MasterConsoleNavTab>('roster');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
-  const isLmsStudioTab = ['curriculum', 'roster', 'tests', 'settings'].includes(activeTab);
 
   // ==========================================
   // Universal Multi-Tenant Batch Context
@@ -125,6 +132,14 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     chapters,
     batchTests,
     getEnrollmentsForBatch,
+    loadRosterForBatch,
+    enrollStudentByContact,
+    revokeStudentEnrollment,
+    updateBatch,
+    deleteBatch,
+    showSecurityToast,
+    securitySettings,
+    updateSecuritySettings,
     getTestsForBatch,
     addTestToBatchCatalog,
     deleteBatchTest,
@@ -136,9 +151,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
 
   useEffect(() => {
     if (selectedBatchId) {
+      loadRosterForBatch(selectedBatchId);
       loadCurriculumForBatch(selectedBatchId);
     }
-  }, [selectedBatchId, loadCurriculumForBatch]);
+  }, [selectedBatchId, loadRosterForBatch, loadCurriculumForBatch]);
 
   const currentBatch = useMemo(() => {
     return batches.find((b) => b.id === selectedBatchId) || batches[0] || {
@@ -184,6 +200,137 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     });
     return set;
   }, [currentBatchEnrollments]);
+
+  // ==========================================
+  // Roster Tab States & Actions
+  // ==========================================
+  const [rosterSearch, setRosterSearch] = useState('');
+  const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
+  const [studentContactInput, setStudentContactInput] = useState('');
+  const [studentNameInput, setStudentNameInput] = useState('');
+  const [studentValidityDays, setStudentValidityDays] = useState(365);
+  const [isEnrollingStudent, setIsEnrollingStudent] = useState(false);
+
+  const filteredEnrollments = useMemo(() => {
+    if (!rosterSearch.trim()) return currentBatchEnrollments;
+    const q = rosterSearch.toLowerCase().trim();
+    return currentBatchEnrollments.filter((e) =>
+      (e.studentName && e.studentName.toLowerCase().includes(q)) ||
+      (e.studentEmail && e.studentEmail.toLowerCase().includes(q)) ||
+      (e.studentPhone && e.studentPhone.toLowerCase().includes(q))
+    );
+  }, [currentBatchEnrollments, rosterSearch]);
+
+  const handleEnrollStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!studentContactInput.trim() || !selectedBatchId) return;
+    setIsEnrollingStudent(true);
+    try {
+      const result = enrollStudentByContact({
+        contact: studentContactInput.trim(),
+        batchId: selectedBatchId,
+        name: studentNameInput.trim() || undefined,
+        validityDays: Number(studentValidityDays) || 365,
+      });
+      if (result.success) {
+        showNotification(result.message || 'Student enrolled successfully!');
+        setIsAddStudentModalOpen(false);
+        setStudentContactInput('');
+        setStudentNameInput('');
+      } else {
+        alert(result.message || 'Enrollment failed.');
+      }
+    } catch (err: any) {
+      alert('Error enrolling student: ' + (err?.message || err));
+    } finally {
+      setIsEnrollingStudent(false);
+    }
+  };
+
+  const handleResetDeviceLock = async (userId: string, studentName: string) => {
+    if (window.confirm(`Reset device lock for ${studentName}? This will allow them to bind a new phone or laptop upon their next login.`)) {
+      const ok = await adminResetDeviceLock(userId);
+      if (ok) {
+        showNotification(`Device lock reset for ${studentName}. New device registration permitted.`);
+      } else {
+        alert('Failed to reset device lock. Please check permissions.');
+      }
+    }
+  };
+
+  const handleRevokeEnrollment = (userId: string, studentName: string) => {
+    if (window.confirm(`Revoke enrollment for ${studentName}?`)) {
+      revokeStudentEnrollment(userId, selectedBatchId);
+      showNotification(`Enrollment revoked for ${studentName}`);
+    }
+  };
+
+  // ==========================================
+  // Settings Tab States & Actions
+  // ==========================================
+  const [batchPrice, setBatchPrice] = useState<number>(currentBatch.price || 999);
+  const [batchOriginalPrice, setBatchOriginalPrice] = useState<number>(currentBatch.originalPrice || 1999);
+  const [batchValidityDays, setBatchValidityDays] = useState<number>(currentBatch.validityDays || 365);
+  const [batchTitleInput, setBatchTitleInput] = useState<string>(currentBatch.title || '');
+  const [batchCategoryInput, setBatchCategoryInput] = useState<string>(currentBatch.category || 'Mathematics');
+
+  useEffect(() => {
+    setBatchPrice(currentBatch.price || 999);
+    setBatchOriginalPrice(currentBatch.originalPrice || 1999);
+    setBatchValidityDays(currentBatch.validityDays || 365);
+    setBatchTitleInput(currentBatch.title || '');
+    setBatchCategoryInput(currentBatch.category || 'Mathematics');
+  }, [currentBatch]);
+
+  const handleSaveBatchSettings = () => {
+    updateBatch(currentBatch.id, {
+      title: batchTitleInput.trim() || currentBatch.title,
+      category: batchCategoryInput.trim() || currentBatch.category,
+      price: Number(batchPrice) || 0,
+      originalPrice: Number(batchOriginalPrice) || 0,
+      validityDays: Number(batchValidityDays) || 365,
+    });
+    showNotification(`Settings saved for "${currentBatch.title}".`);
+  };
+
+  const handleTogglePublishBatch = (isPublished: boolean) => {
+    updateBatch(currentBatch.id, { isPublished });
+    showNotification(
+      isPublished
+        ? `Batch "${currentBatch.title}" Published! Live to students & visitors.`
+        : `Batch "${currentBatch.title}" set to Draft! Locked for students.`
+    );
+  };
+
+  const handleToggleGuestAccess = () => {
+    const nextState = !currentBatch.allowGuestAccess;
+    updateBatch(currentBatch.id, { allowGuestAccess: nextState });
+    showNotification(
+      nextState
+        ? `Guest access enabled for "${currentBatch.title}". Open to all visitors.`
+        : `Guest access restricted for "${currentBatch.title}". Official roster admission required.`
+    );
+  };
+
+  const handleToggleDrmShield = () => {
+    const next = !securitySettings?.enableDrmScreenProtection;
+    updateSecuritySettings({ enableDrmScreenProtection: next });
+    showNotification(
+      next
+        ? 'DRM Screen Shield activated (Snipping tool blackout enabled).'
+        : 'DRM Screen Shield disabled.'
+    );
+  };
+
+  const handleToggleEncryption = () => {
+    const next = securitySettings?.enableStorageEncryption === false;
+    updateSecuritySettings({ enableStorageEncryption: next });
+    showNotification(
+      next
+        ? 'Offline and local storage encryption enabled.'
+        : 'Storage encryption set to standard.'
+    );
+  };
 
   // ==========================================
   // 1. Adaptive Remedial Engine State
@@ -850,27 +997,40 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
 
         {/* Unified Navigation Menu */}
         <div className="flex-1 overflow-y-auto p-3 space-y-4 [scrollbar-width:thin]">
-          {/* Group 1: Academic LMS & Content */}
+          {/* Direct Link to Batches Content View */}
+          <div className="p-3 rounded-2xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-800/40 space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold text-blue-900 dark:text-blue-200">
+              <span className="flex items-center gap-1.5">
+                <Folder className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                <span>Course Content</span>
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-mono">
+                Outside
+              </span>
+            </div>
+            <p className="text-[11px] text-blue-800/80 dark:text-blue-300/80 leading-snug">
+              Add folders, videos, files and tests directly in the Course Viewer.
+            </p>
+            {onOpenBatch && (
+              <button
+                type="button"
+                onClick={() => {
+                  onBack();
+                  onOpenBatch(selectedBatchId);
+                }}
+                className="w-full py-1.5 px-2.5 rounded-xl bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer border-none"
+              >
+                <span>Manage Course Content</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Group 1: Academic Operations & Access */}
           <div className="space-y-1">
             <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider px-2 block mb-1">
-              Curriculum & Batches
+              Roster & Security
             </span>
-            <button
-              type="button"
-              onClick={() => { setActiveTab('curriculum'); setIsMobileMenuOpen(false); }}
-              className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-0 cursor-pointer ${
-                activeTab === 'curriculum'
-                  ? 'bg-[#0b57d0] text-white shadow-xs'
-                  : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800/60'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Folder className="w-4 h-4" />
-                <span>Curriculum Studio</span>
-              </div>
-              <span className="text-[10px] opacity-75 font-mono">Folders</span>
-            </button>
-
             <button
               type="button"
               onClick={() => { setActiveTab('roster'); setIsMobileMenuOpen(false); }}
@@ -891,24 +1051,6 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
 
             <button
               type="button"
-              onClick={() => { setActiveTab('tests'); setIsMobileMenuOpen(false); }}
-              className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-0 cursor-pointer ${
-                activeTab === 'tests'
-                  ? 'bg-[#0b57d0] text-white shadow-xs'
-                  : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800/60'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Award className="w-4 h-4" />
-                <span>Batch Tests</span>
-              </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200/60 dark:bg-zinc-800 font-mono">
-                {currentBatchTests.length}
-              </span>
-            </button>
-
-            <button
-              type="button"
               onClick={() => { setActiveTab('settings'); setIsMobileMenuOpen(false); }}
               className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition border-0 cursor-pointer ${
                 activeTab === 'settings'
@@ -918,7 +1060,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             >
               <div className="flex items-center gap-2.5">
                 <Settings className="w-4 h-4" />
-                <span>Batch Settings</span>
+                <span>Batch Settings & DRM</span>
               </div>
             </button>
           </div>
@@ -1061,10 +1203,8 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
               <span className="text-[#0b57d0] dark:text-[#a8c7fa] truncate">{currentBatch.title}</span>
               <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <span className="text-slate-800 dark:text-zinc-200 capitalize">
-                {activeTab === 'curriculum' && 'Curriculum Tree Studio'}
                 {activeTab === 'roster' && 'Student Roster & Devices'}
-                {activeTab === 'tests' && 'Batch Milestone Tests'}
-                {activeTab === 'settings' && 'Batch Profile & Settings'}
+                {activeTab === 'settings' && 'Batch Profile & DRM Settings'}
                 {activeTab === 'remedial' && 'Adaptive Remedial Engine'}
                 {activeTab === 'analytics' && 'Per-Test Performance Analytics'}
                 {activeTab === 'publishing' && 'Global Test Publishing Catalog'}
@@ -1072,8 +1212,23 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             </div>
           </div>
 
-          {/* Right Header: Theme Toggle & Exit */}
+          {/* Right Header: Content Link, Theme Toggle & Exit */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {onOpenBatch && (
+              <button
+                type="button"
+                onClick={() => {
+                  onBack();
+                  onOpenBatch(selectedBatchId);
+                }}
+                className="h-8 px-2.5 sm:px-3 rounded-full bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 text-[#0b57d0] dark:text-[#a8c7fa] text-xs font-bold flex items-center gap-1 cursor-pointer border border-blue-200/60 dark:border-blue-800/40 transition active:scale-95"
+                title="Manage Folders and Lectures in Course View"
+              >
+                <Folder className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Course Content ↗</span>
+              </button>
+            )}
+
             {(!auth.currentUser || !auth.currentUser.email) && (
               <button
                 type="button"
@@ -1126,12 +1281,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
         {/* Mobile Material Design 3 Horizontal Tab Strip */}
         <div className="lg:hidden flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-[#16181f] border-b border-slate-200/80 dark:border-zinc-800/80 overflow-x-auto scrollbar-none shrink-0 z-10">
           {[
-            { id: 'curriculum', label: 'Curriculum', icon: Folder },
             { id: 'roster', label: 'Roster', icon: Users, badge: currentBatchEnrollments.length },
-            { id: 'tests', label: 'Tests', icon: Award, badge: currentBatchTests.length },
             { id: 'remedial', label: 'Remedial', icon: Zap },
             { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-            { id: 'publishing', label: 'Publish', icon: BookOpen },
+            { id: 'publishing', label: 'Publish', icon: BookOpen, badge: currentBatchTests.length },
             { id: 'settings', label: 'Settings', icon: Settings },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -1178,17 +1331,451 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
 
         {/* Center Viewport */}
         <div className="flex-1 overflow-hidden relative">
-          {/* TAB 0: LMS STUDIO (Curriculum, Roster, Tests, Settings) */}
-          {isLmsStudioTab && (
-            <div className="w-full h-full p-0 sm:p-3 overflow-hidden">
-              <DesktopLmsStudio
-                availableTests={tests}
-                onStartTest={onStartTest}
-                externalActiveTab={activeTab as StudioTab}
-                onTabChange={(tab) => setActiveTab(tab)}
-                externalBatchId={selectedBatchId}
-                onBatchSelect={(id) => setSelectedBatchId(id)}
-              />
+          {/* TAB 0: STUDENT ROSTER & DEVICES */}
+          {activeTab === 'roster' && (
+            <div className="w-full h-full overflow-y-auto px-3 sm:px-6 md:px-8 py-3.5 sm:py-5 space-y-4 sm:space-y-6 [scrollbar-width:thin]">
+              <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
+                {/* Header Card */}
+                <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-between gap-3 flex-wrap shadow-xs">
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+                      <Users className="w-4 h-4 text-emerald-500" />
+                      <span>Enrolled Student Roster ({currentBatchEnrollments.length})</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                      Batch: <strong>{currentBatch.title}</strong> • Manage active student enrollment, add validity days, or reset single-device locks.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddStudentModalOpen(true)}
+                    className="px-4 py-2 rounded-xl bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold border-none cursor-pointer flex items-center gap-1.5 shadow-xs transition active:scale-95"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>+ Add Student / User</span>
+                  </button>
+                </div>
+
+                {/* Batch-Wide Guest Access Policy Banner */}
+                <div className="p-4 rounded-2xl bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-between gap-3 flex-wrap shadow-xs">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                      currentBatch?.allowGuestAccess ? 'bg-emerald-500/15 text-emerald-600' : 'bg-amber-500/15 text-amber-600'
+                    }`}>
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">
+                          Guest Mode Policy for this Batch:
+                        </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          currentBatch?.allowGuestAccess ? 'bg-emerald-500/15 text-emerald-600' : 'bg-amber-500/15 text-amber-600'
+                        }`}>
+                          {currentBatch?.allowGuestAccess ? '● Allowed (Free Preview for Visitors)' : '🔒 Restricted (Official Roster Only)'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                        {currentBatch?.allowGuestAccess
+                          ? 'Visitors browsing in Guest Mode can view this course without requiring an individual student account.'
+                          : 'Visitors in Guest Mode cannot access this course unless admitted by Admin or enrolled.'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xs font-bold text-slate-700 dark:text-zinc-300">
+                      Allowed to Guest Users:
+                    </span>
+                    <M3Switch
+                      checked={Boolean(currentBatch?.allowGuestAccess)}
+                      onChange={handleToggleGuestAccess}
+                    />
+                  </div>
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative max-w-md">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={rosterSearch}
+                    onChange={(e) => setRosterSearch(e.target.value)}
+                    placeholder="Search enrolled students by name, email or phone..."
+                    className="w-full pl-8 pr-3 py-2 rounded-xl bg-white dark:bg-[#16181f] text-xs font-medium text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0] transition shadow-xs"
+                  />
+                </div>
+
+                {/* Roster Cards (Mobile) & Table (Desktop) */}
+                <div className="rounded-2xl overflow-hidden bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 shadow-xs">
+                  {/* Mobile Card List for < sm screens */}
+                  <div className="sm:hidden divide-y divide-slate-100 dark:divide-zinc-800/60">
+                    {filteredEnrollments.length === 0 ? (
+                      <div className="p-8 text-center text-xs text-slate-500 dark:text-zinc-400">
+                        {currentBatchEnrollments.length === 0 ? 'No students enrolled in this batch yet.' : 'No students matching search.'}
+                      </div>
+                    ) : (
+                      filteredEnrollments.map((enr) => (
+                        <div key={enr.id} className="p-3.5 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs text-slate-900 dark:text-zinc-100">
+                              {enr.studentName || 'Student'}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600">
+                              {enr.status || 'Active'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] font-mono text-slate-500 dark:text-zinc-400 truncate">
+                            {enr.studentEmail || enr.studentPhone || 'N/A'}
+                          </p>
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-[10px] text-slate-500 dark:text-zinc-400">
+                              Enrolled: {enr.enrolledAt ? new Date(enr.enrolledAt).toLocaleDateString() : 'Active'}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                title="Reset Device Lock (Allows student to register a new phone or laptop upon login)"
+                                onClick={() => handleResetDeviceLock(enr.userId, enr.studentName || 'Student')}
+                                className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border-none cursor-pointer flex items-center gap-1 active:scale-95"
+                              >
+                                <Smartphone className="w-3 h-3" />
+                                <span>Reset Device</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRevokeEnrollment(enr.userId, enr.studentName || 'Student')}
+                                className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-rose-500 bg-rose-50 dark:bg-rose-950/20 border-none cursor-pointer active:scale-95"
+                              >
+                                Revoke
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Desktop Table View for >= sm screens */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 font-bold text-[11px]">
+                        <tr>
+                          <th className="py-2.5 px-4">Student</th>
+                          <th className="py-2.5 px-3">Contact</th>
+                          <th className="py-2.5 px-3">Enrolled At</th>
+                          <th className="py-2.5 px-3">Status</th>
+                          <th className="py-2.5 px-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60 font-medium">
+                        {filteredEnrollments.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="py-8 text-center text-slate-500 dark:text-zinc-400">
+                              {currentBatchEnrollments.length === 0 ? 'No students enrolled in this batch yet.' : 'No students matching search.'}
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredEnrollments.map((enr) => (
+                            <tr key={enr.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition">
+                              <td className="py-2.5 px-4 font-bold text-slate-900 dark:text-zinc-100">
+                                {enr.studentName || 'Student'}
+                              </td>
+                              <td className="py-2.5 px-3 text-[11px] font-mono text-slate-500 dark:text-zinc-400">
+                                {enr.studentEmail || enr.studentPhone || 'N/A'}
+                              </td>
+                              <td className="py-2.5 px-3 text-[11px] text-slate-600 dark:text-zinc-400">
+                                {enr.enrolledAt ? new Date(enr.enrolledAt).toLocaleDateString() : 'Active'}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600">
+                                  {enr.status || 'Active'}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-4 text-right">
+                                <div className="flex items-center justify-end space-x-1.5">
+                                  <button
+                                    type="button"
+                                    title="Reset Device Lock (Allows student to register a new phone or laptop upon login)"
+                                    onClick={() => handleResetDeviceLock(enr.userId, enr.studentName || 'Student')}
+                                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 border-none bg-transparent cursor-pointer flex items-center space-x-1 transition"
+                                  >
+                                    <Smartphone className="w-3.5 h-3.5" />
+                                    <span>Reset Device</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRevokeEnrollment(enr.userId, enr.studentName || 'Student')}
+                                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 border-none bg-transparent cursor-pointer transition"
+                                  >
+                                    Revoke
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: BATCH SETTINGS & SECURITY */}
+          {activeTab === 'settings' && (
+            <div className="w-full h-full overflow-y-auto px-3 sm:px-6 md:px-8 py-3.5 sm:py-5 space-y-4 sm:space-y-6 [scrollbar-width:thin]">
+              <div className="max-w-4xl mx-auto w-full space-y-5 sm:space-y-6">
+                {/* Header Card */}
+                <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-between gap-4 flex-wrap shadow-xs">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-2xl bg-[#0b57d0]/10 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0">
+                      <Settings className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100">
+                        Batch Global Configuration & Security
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-zinc-400">
+                        Manage course publication status, student roster rules, pricing, and DRM content protection.
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center space-x-1.5 shadow-2xs ${
+                    currentBatch.isPublished !== false
+                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                      : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                  }`}>
+                    {currentBatch.isPublished !== false ? (
+                      <>
+                        <Globe className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>● Live & Published</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-3.5 h-3.5 text-amber-600" />
+                        <span>🔒 Draft (Locked & Hidden)</span>
+                      </>
+                    )}
+                  </span>
+                </div>
+
+                {/* 1. PUBLISH & VISIBILITY STATUS */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 space-y-3 shadow-xs">
+                  <div>
+                    <label className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center space-x-1.5">
+                      <span>Course Catalog Visibility (Live vs Draft Lock)</span>
+                    </label>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                      When published, the course is live to students in the catalog. When set to Draft, the entire batch is strictly locked and hidden from learners.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div
+                      onClick={() => handleTogglePublishBatch(true)}
+                      className={`p-4 rounded-2xl border-2 transition cursor-pointer flex items-start space-x-3 ${
+                        currentBatch.isPublished !== false
+                          ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/20 shadow-xs'
+                          : 'border-slate-200 dark:border-zinc-800 hover:border-emerald-500/50'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                        currentBatch.isPublished !== false ? 'bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-zinc-800 text-slate-500'
+                      }`}>
+                        <Eye className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100">
+                            Published (Live to Students)
+                          </h4>
+                          {currentBatch.isPublished !== false && (
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
+                          Visible in All Courses catalog and open to enrolled learners.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div
+                      onClick={() => handleTogglePublishBatch(false)}
+                      className={`p-4 rounded-2xl border-2 transition cursor-pointer flex items-start space-x-3 ${
+                        currentBatch.isPublished === false
+                          ? 'border-amber-500 bg-amber-50/60 dark:bg-amber-950/20 shadow-xs'
+                          : 'border-slate-200 dark:border-zinc-800 hover:border-amber-500/50'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                        currentBatch.isPublished === false ? 'bg-amber-600 text-white' : 'bg-slate-200 dark:bg-zinc-800 text-slate-500'
+                      }`}>
+                        <Lock className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100">
+                            Draft (Locked & Hidden)
+                          </h4>
+                          {currentBatch.isPublished === false && (
+                            <span className="w-2 h-2 rounded-full bg-amber-500" />
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
+                          Completely locked for all students and visitors while content is being prepared.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. COMMERCIALS & PRICING */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 space-y-4 shadow-xs">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider flex items-center space-x-1.5">
+                    <IndianRupee className="w-3.5 h-3.5 text-[#0b57d0]" />
+                    <span>Commercials & Batch Metadata</span>
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 block mb-1">
+                        Batch Title
+                      </label>
+                      <input
+                        type="text"
+                        value={batchTitleInput}
+                        onChange={(e) => setBatchTitleInput(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 block mb-1">
+                        Category
+                      </label>
+                      <input
+                        type="text"
+                        value={batchCategoryInput}
+                        onChange={(e) => setBatchCategoryInput(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 block mb-1">
+                        Selling Price (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={batchPrice}
+                        onChange={(e) => setBatchPrice(Number(e.target.value))}
+                        className="w-full p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 block mb-1">
+                        Original Price (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={batchOriginalPrice}
+                        onChange={(e) => setBatchOriginalPrice(Number(e.target.value))}
+                        className="w-full p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 dark:text-zinc-400 block mb-1">
+                        Access Validity (Days)
+                      </label>
+                      <input
+                        type="number"
+                        value={batchValidityDays}
+                        onChange={(e) => setBatchValidityDays(Number(e.target.value))}
+                        className="w-full p-2.5 bg-slate-50 dark:bg-zinc-900 rounded-xl text-xs font-bold text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={handleSaveBatchSettings}
+                      className="px-5 py-2 rounded-xl bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold border-none cursor-pointer shadow-xs transition active:scale-95"
+                    >
+                      Save Commercial Settings
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. CONTENT THEFT PROTECTION & DRM SECURITY CENTER */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 space-y-4 shadow-xs">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center space-x-2">
+                      <ShieldAlert className="w-4 h-4 text-amber-500" />
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider">
+                        Enterprise Content Protection & DRM Security Center
+                      </h4>
+                    </div>
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center space-x-1">
+                      <span>● Active during Videos & Live Tests</span>
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
+                    Elevate activates these security barriers strictly when a student is watching a video lecture or attempting a live test.
+                  </p>
+
+                  <div className="space-y-3 pt-1">
+                    {/* Toggle: Visual DRM Screen Shield */}
+                    <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200/60 dark:border-zinc-800/60">
+                      <div className="space-y-0.5 flex-1 pr-2">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-bold text-slate-800 dark:text-zinc-200">
+                            Visual DRM Screen Shield (Snipping Tool & Focus Loss Blackout)
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            securitySettings?.enableDrmScreenProtection ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-200 dark:bg-zinc-800 text-slate-500'
+                          }`}>
+                            {securitySettings?.enableDrmScreenProtection ? 'Enabled' : 'Disabled'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                          Instantly blacks out canvas whenever Snipping Tool, PrintScreen, screen recorders, or window focus loss occurs.
+                        </p>
+                      </div>
+                      <M3Switch
+                        checked={Boolean(securitySettings?.enableDrmScreenProtection)}
+                        onChange={handleToggleDrmShield}
+                      />
+                    </div>
+
+                    {/* Toggle: Storage Encryption */}
+                    <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200/60 dark:border-zinc-800/60">
+                      <div className="space-y-0.5 flex-1 pr-2">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-bold text-slate-800 dark:text-zinc-200">
+                            Client Offline Storage Encryption (IndexedDB / Cache)
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            securitySettings?.enableStorageEncryption !== false ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-200 dark:bg-zinc-800 text-slate-500'
+                          }`}>
+                            {securitySettings?.enableStorageEncryption !== false ? 'Encrypted' : 'Standard'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                          Encrypts question blueprints, study notes, and video tokens before storing in the browser.
+                        </p>
+                      </div>
+                      <M3Switch
+                        checked={securitySettings?.enableStorageEncryption !== false}
+                        onChange={handleToggleEncryption}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -2667,6 +3254,94 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
           </div>
         )}
       </AnimatePresence>
+
+      {/* ADD STUDENT / USER MODAL */}
+      {isAddStudentModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 m3-fade-in">
+          <div className="bg-white dark:bg-[#1e2024] rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-zinc-800 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-zinc-800/60">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-emerald-500/15 text-emerald-600 flex items-center justify-center">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                    Add Student / User to Batch
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate max-w-[240px]">
+                    {currentBatch?.title || 'Selected Course'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddStudentModalOpen(false)}
+                className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400 border-none bg-transparent cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEnrollStudent} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block mb-1">
+                  Student Phone Number or Email Address *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={studentContactInput}
+                  onChange={(e) => setStudentContactInput(e.target.value)}
+                  placeholder="e.g. student@gmail.com or +91 98765 43210"
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-900 text-xs text-slate-900 dark:text-zinc-100 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0] font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block mb-1">
+                  Student Full Name (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={studentNameInput}
+                  onChange={(e) => setStudentNameInput(e.target.value)}
+                  placeholder="e.g. Sanju Student"
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-900 text-xs text-slate-900 dark:text-zinc-100 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0]"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block mb-1">
+                  Enrollment Validity (Days)
+                </label>
+                <input
+                  type="number"
+                  value={studentValidityDays}
+                  onChange={(e) => setStudentValidityDays(Number(e.target.value))}
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-900 text-xs text-slate-900 dark:text-zinc-100 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddStudentModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 border-none bg-transparent cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isEnrollingStudent}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold border-none cursor-pointer shadow-xs transition"
+                >
+                  {isEnrollingStudent ? 'Enrolling...' : 'Confirm Admission'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );
