@@ -1092,11 +1092,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
               height: isMini && !isFullscreen ? '180%' : '100%',
               minWidth: isMini && !isFullscreen ? '180%' : '100%',
               minHeight: isMini && !isFullscreen ? '180%' : '100%',
-              transform: isMini && !isFullscreen
-                ? 'scale(1.1)'
-                : isFullscreen
-                  ? 'scale(1.18)'
-                  : 'scale(1.20)',
+              transform: isMini && !isFullscreen ? 'scale(1.1)' : 'none',
               transformOrigin: 'center center',
             }}
           >
@@ -1129,10 +1125,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       )}
 
       {/* 1b. Top Cloaking Security Guard (Masks any edge title/channel overlay bleed) */}
-      <div className={`absolute top-0 inset-x-0 ${isMini && !isFullscreen ? 'h-6' : 'h-20 sm:h-24'} bg-gradient-to-b from-black from-35% via-black/85 to-transparent pointer-events-none z-15`} />
+      <div className={`absolute top-0 inset-x-0 ${isMini && !isFullscreen ? 'h-6' : 'h-14 sm:h-16'} bg-gradient-to-b from-black/90 via-black/40 to-transparent pointer-events-none z-15`} />
 
       {/* 1c. Bottom Cloaking Security Guard (Masks any YouTube watermark/logo bleed) */}
-      <div className={`absolute bottom-0 inset-x-0 ${isMini && !isFullscreen ? 'h-6' : 'h-20 sm:h-24'} bg-gradient-to-t from-black from-35% via-black/85 to-transparent pointer-events-none z-15`} />
+      <div className={`absolute bottom-0 inset-x-0 ${isMini && !isFullscreen ? 'h-6' : 'h-16 sm:h-18'} bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none z-15`} />
 
       {(!isMini || isFullscreen) && (
         <>
