@@ -402,6 +402,12 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       return;
     }
 
+    if (!autoPlay && !isMini) {
+      setHasEverPlayed(false);
+      setIsPlaying(false);
+      setIsBufferingOrStarting(false);
+    }
+
     const initPlayer = () => {
       if (!window.YT || !window.YT.Player) return false;
 
@@ -1126,6 +1132,14 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
 
 
+      {/* Dynamic Paused Security Guards: Drown out YouTube's native paused overlay (Title at top, and More Videos / Share / History / YouTube Logo at bottom) */}
+      {!isPlaying && isPlayerReady && hasEverPlayed && (!isMini || isFullscreen) && (
+        <>
+          <div className="absolute top-0 inset-x-0 h-20 sm:h-24 bg-gradient-to-b from-black via-black/95 to-transparent z-25 pointer-events-none transition-opacity duration-300" />
+          <div className="absolute bottom-0 inset-x-0 h-20 sm:h-24 bg-gradient-to-t from-black via-black/95 to-transparent z-25 pointer-events-none transition-opacity duration-300" />
+        </>
+      )}
+
       {(!isMini || isFullscreen) && (
         <>
       {/* 1c. High-Fidelity Pre-Playback Poster Curtain (Eliminates YouTube unstarted title, channel avatar, and red play button) */}
@@ -1326,7 +1340,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
               hideControls();
             }
           }}
-          className={`absolute inset-0 z-20 flex items-center justify-center transition-all ${!isPlaying ? 'bg-black/25' : ''}`}
+          className={`absolute inset-0 z-20 flex items-center justify-center transition-all ${!isPlaying ? 'bg-black/40 backdrop-blur-[1.5px]' : ''}`}
         >
           <button
             type="button"
@@ -1337,7 +1351,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             onTouchStart={(e) => {
               e.stopPropagation();
             }}
-            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-black/55 hover:bg-black/75 backdrop-blur-md text-white border border-white/20 flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition transform border-none cursor-pointer"
+            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-black/65 hover:bg-black/85 backdrop-blur-md text-white border border-white/20 flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition transform border-none cursor-pointer"
             title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
           >
             {isPlaying ? (
@@ -1390,8 +1404,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             showControlsForDuration(5000);
           }
         }}
-        className={`absolute bottom-0 inset-x-0 z-30 px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-t from-black/95 via-black/80 to-transparent transition-opacity duration-300 flex flex-col space-y-1.5 ${
-          isControlsVisible || optionsMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        className={`absolute bottom-0 inset-x-0 z-30 px-4 sm:px-6 pt-6 pb-2.5 sm:pb-3 bg-gradient-to-t from-black via-black/95 via-black/80 to-transparent transition-opacity duration-300 flex flex-col space-y-1.5 ${
+          isControlsVisible || !isPlaying || optionsMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
         {/* TIMELINE MILESTONES (Topic Breakpoints) STRIP */}
