@@ -256,14 +256,14 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
         className={
           isMinimized
             ? 'w-24 sm:w-28 h-full shrink-0 rounded-l-2xl overflow-hidden relative bg-black pointer-events-none border-r border-slate-200/50 dark:border-zinc-800/50'
-            : 'lg:col-span-8 space-y-4 w-full'
+            : 'lg:col-span-8 space-y-4 w-full pt-[56.25vw] sm:pt-0'
         }
       >
         <div
           className={
             isMinimized
               ? 'w-full h-full'
-              : 'aspect-video w-full rounded-none sm:rounded-2xl lg:rounded-3xl overflow-hidden shadow-2xl relative group bg-black'
+              : 'aspect-video w-full fixed top-0 inset-x-0 z-40 bg-black shadow-2xl sm:static sm:z-auto sm:rounded-2xl lg:rounded-3xl sm:shadow-2xl overflow-hidden group'
           }
         >
           {/* Top-left minimize button on video when expanded */}

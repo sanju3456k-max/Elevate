@@ -54,14 +54,34 @@ interface CloakedVideoPlayerProps {
   onPlayStateChange?: (isPlaying: boolean) => void;
 }
 
-const QUALITY_OPTIONS = [
-  { label: 'Auto', value: 'default' },
-  { label: '1080p', value: 'hd1080' },
-  { label: '720p', value: 'hd720' },
-  { label: '480p', value: 'large' },
-  { label: '360p', value: 'medium' },
-  { label: '240p', value: 'small' },
+export interface QualityOption {
+  label: string;
+  value: string;
+  badge?: string;
+}
+
+const QUALITY_OPTIONS: QualityOption[] = [
+  { label: 'Auto (Best Quality)', value: 'default', badge: 'Auto' },
+  { label: '1080p HD', value: 'hd1080', badge: '1080p' },
+  { label: '720p HD', value: 'hd720', badge: '720p' },
+  { label: '480p', value: 'large', badge: '480p' },
+  { label: '360p', value: 'medium', badge: '360p' },
+  { label: '240p', value: 'small', badge: '240p' },
+  { label: '144p', value: 'tiny', badge: '144p' },
 ];
+
+const QUALITY_CODE_TO_LABEL: Record<string, string> = {
+  highres: '1080p HD',
+  hd2160: '4K HD',
+  hd1440: '1440p HD',
+  hd1080: '1080p HD',
+  hd720: '720p HD',
+  large: '480p',
+  medium: '360p',
+  small: '240p',
+  tiny: '144p',
+  default: 'Auto',
+};
 
 export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   encryptedVideoId,
@@ -128,7 +148,14 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   // Options (Settings) Menu State: Unified Quality, Speed & Captions
   const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
   const [optionsView, setOptionsView] = useState<'main' | 'speed' | 'quality'>('main');
-  const [currentQuality, setCurrentQuality] = useState('Auto');
+  const [currentQuality, setCurrentQuality] = useState<string>(() => {
+    try {
+      return localStorage.getItem('elevate_video_quality') || '1080p HD';
+    } catch {
+      return '1080p HD';
+    }
+  });
+  const [availableQualityLevels, setAvailableQualityLevels] = useState<string[]>([]);
   const [captionsEnabled, setCaptionsEnabled] = useState(false);
   const [securityNotice, setSecurityNotice] = useState<string | null>(null);
 
@@ -476,17 +503,49 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                 } catch {}
               }
 
-              // If user has explicitly selected manual quality before video load, apply it
+              // Detect and enforce maximum HD playback quality
               try {
-                if (selectedQualityRef.current !== 'Auto' && event.target.setPlaybackQuality) {
-                  const targetObj = QUALITY_OPTIONS.find((o) => o.label === selectedQualityRef.current);
-                  if (targetObj) {
-                    event.target.setPlaybackQuality(targetObj.value);
+                if (event.target.getAvailableQualityLevels) {
+                  const levels = event.target.getAvailableQualityLevels();
+                  if (Array.isArray(levels) && levels.length > 0) {
+                    setAvailableQualityLevels(levels);
                   }
+                }
+                const targetLabel = selectedQualityRef.current || '1080p HD';
+                const targetObj = QUALITY_OPTIONS.find((o) => o.label === targetLabel);
+                const qualityValue = targetObj ? targetObj.value : 'hd1080';
+
+                if (event.target.setPlaybackQualityRange) {
+                  event.target.setPlaybackQualityRange(
+                    qualityValue === 'default' ? 'hd720' : qualityValue,
+                    'highres'
+                  );
+                }
+                if (event.target.setPlaybackQuality) {
+                  event.target.setPlaybackQuality(qualityValue === 'default' ? 'hd1080' : qualityValue);
                 }
               } catch {
                 // fallback
               }
+            },
+            onPlaybackQualityChange: (event: any) => {
+              const qCode = event.data;
+              if (qCode && QUALITY_CODE_TO_LABEL[qCode]) {
+                const label = QUALITY_CODE_TO_LABEL[qCode];
+                if (selectedQualityRef.current.startsWith('Auto')) {
+                  setCurrentQuality(`Auto (${label})`);
+                } else {
+                  setCurrentQuality(label);
+                }
+              }
+              try {
+                if (event.target.getAvailableQualityLevels) {
+                  const levels = event.target.getAvailableQualityLevels();
+                  if (Array.isArray(levels) && levels.length > 0) {
+                    setAvailableQualityLevels(levels);
+                  }
+                }
+              } catch {}
             },
             onStateChange: (event: any) => {
               // YT.PlayerState: -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering)
@@ -498,6 +557,28 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                 onPlayStateChangeRef.current?.(true);
                 // Video started/resumed: auto-hide controls after 5 seconds on both mobile & desktop
                 showControlsForDuration(5000);
+
+                // Enforce maximum available quality as soon as streaming starts
+                try {
+                  const targetLabel = selectedQualityRef.current || '1080p HD';
+                  const targetObj = QUALITY_OPTIONS.find((o) => o.label === targetLabel);
+                  const qualityValue = targetObj ? targetObj.value : 'hd1080';
+                  if (event.target.setPlaybackQualityRange) {
+                    event.target.setPlaybackQualityRange(
+                      qualityValue === 'default' ? 'hd720' : qualityValue,
+                      'highres'
+                    );
+                  }
+                  if (event.target.setPlaybackQuality) {
+                    event.target.setPlaybackQuality(qualityValue === 'default' ? 'hd1080' : qualityValue);
+                  }
+                  if (event.target.getAvailableQualityLevels) {
+                    const levels = event.target.getAvailableQualityLevels();
+                    if (Array.isArray(levels) && levels.length > 0) {
+                      setAvailableQualityLevels(levels);
+                    }
+                  }
+                } catch {}
               } else if (event.data === 2) {
                 isPlayingRef.current = false;
                 setIsPlaying(false);
@@ -877,19 +958,22 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     setOptionsMenuOpen(false);
   };
 
-  // Video Quality Handler - minimal, clean, and responsive
-  const handleQualityChange = (q: { label: string; value: string }) => {
+  // Video Quality Handler - YouTube-grade HD enforcement & instantaneous buffer refresh
+  const handleQualityChange = (q: QualityOption) => {
     setCurrentQuality(q.label);
     selectedQualityRef.current = q.label;
+    try {
+      localStorage.setItem('elevate_video_quality', q.label);
+    } catch {}
 
     safeCallPlayer((p) => {
-      if (q.label === 'Auto') {
-        // Reset to YouTube's automatic adaptive network streaming
-        if (p.setPlaybackQuality) {
-          p.setPlaybackQuality('default');
-        }
+      if (q.value === 'default') {
+        // Reset to automatic highest adaptive stream
         if (p.setPlaybackQualityRange) {
-          p.setPlaybackQualityRange('default', 'highres');
+          p.setPlaybackQualityRange('hd720', 'highres');
+        }
+        if (p.setPlaybackQuality) {
+          p.setPlaybackQuality('highres');
         }
       } else {
         // Manually enforce selected target resolution
@@ -911,7 +995,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     });
 
     setOptionsMenuOpen(false);
-    setSecurityNotice(q.label === 'Auto' ? 'Quality: Auto (Network)' : `Quality: ${q.label}`);
+    setSecurityNotice(q.label === 'Auto (Best Quality)' ? 'Quality: Auto (Best Available)' : `Quality: ${q.label}`);
     setTimeout(() => setSecurityNotice(null), 2500);
   };
 
@@ -1713,12 +1797,30 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             </div>
           </div>
 
-          {/* Right Controls: Unified Option / Settings Menu & Fullscreen */}
+          {/* Right Controls: Quick Quality Selector, Settings Menu & Fullscreen */}
           <div
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
             className="flex items-center space-x-1.5 sm:space-x-2 pr-2 sm:pr-0"
           >
+            {/* Quick Quality Pill Button (1-tap access to 1080p HD, 720p HD, etc.) */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOptionsView('quality');
+                setOptionsMenuOpen((prev) => !prev);
+              }}
+              className="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-slate-200 hover:text-white text-[11px] font-semibold tracking-wide transition border border-white/15 select-none cursor-pointer flex items-center space-x-1"
+              title="Change Video Quality (1080p HD, 720p, etc.)"
+            >
+              <SlidersHorizontal className="w-3 h-3 text-emerald-400" />
+              <span>{currentQuality.replace(' (Best Quality)', '').replace(' HD', '')}</span>
+              {currentQuality.includes('HD') && (
+                <span className="text-[8.5px] font-black px-1 rounded bg-emerald-500/25 text-emerald-300">HD</span>
+              )}
+            </button>
+
             {/* Unified Option / Settings Button */}
             <div className="relative" onClick={(e) => e.stopPropagation()}>
               <button
@@ -1742,7 +1844,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                 <div
                   onClick={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
-                  className="absolute bottom-11 right-0 bg-slate-900/98 backdrop-blur-md rounded-2xl shadow-2xl p-2 w-52 sm:w-56 z-50 animate-in fade-in zoom-in-95 border border-slate-700/80 text-white"
+                  className="absolute bottom-11 right-0 bg-slate-900/98 backdrop-blur-md rounded-2xl shadow-2xl p-2 w-56 sm:w-60 z-50 animate-in fade-in zoom-in-95 border border-slate-700/80 text-white"
                 >
                   {/* MAIN VIEW */}
                   {optionsView === 'main' && (
@@ -1782,7 +1884,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                           <span>Quality</span>
                         </div>
                         <div className="flex items-center space-x-1 text-slate-400 text-[11px]">
-                          <span>{currentQuality}</span>
+                          <span className="font-semibold text-emerald-300">{currentQuality}</span>
                           <ChevronRight className="w-3.5 h-3.5" />
                         </div>
                       </button>
@@ -1837,36 +1939,52 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                     </div>
                   )}
 
-                  {/* QUALITY SUB-MENU */}
+                  {/* QUALITY SUB-MENU (YouTube-Style Quality Selector) */}
                   {optionsView === 'quality' && (
                     <div className="space-y-1">
-                      <div className="px-2 py-1.5 text-xs font-bold text-slate-200 border-b border-slate-800 flex items-center space-x-1">
-                        <button
-                          onClick={() => setOptionsView('main')}
-                          className="p-1 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white bg-transparent border-none cursor-pointer"
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <span>Video Quality</span>
-                      </div>
-                      <div className="max-h-52 overflow-y-auto space-y-0.5 pt-1">
-                        {QUALITY_OPTIONS.map((q) => (
+                      <div className="px-2 py-1.5 text-xs font-bold text-slate-200 border-b border-slate-800 flex items-center justify-between">
+                        <div className="flex items-center space-x-1">
                           <button
-                            key={q.value}
-                            onClick={() => {
-                              handleQualityChange(q);
-                              setOptionsMenuOpen(false);
-                            }}
-                            className={`w-full text-left px-3 py-1.5 text-xs rounded-lg transition flex items-center justify-between border-none outline-none cursor-pointer ${
-                              currentQuality === q.label
-                                ? 'bg-[var(--md-sys-color-primary)]/20 text-[var(--md-sys-color-primary)] font-bold'
-                                : 'text-slate-300 hover:bg-slate-800/80'
-                            }`}
+                            onClick={() => setOptionsView('main')}
+                            className="p-1 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white bg-transparent border-none cursor-pointer"
                           >
-                            <span>{q.label}</span>
-                            {currentQuality === q.label && <Check className="w-3.5 h-3.5" />}
+                            <ChevronLeft className="w-4 h-4" />
                           </button>
-                        ))}
+                          <span>Video Quality</span>
+                        </div>
+                        <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-wider">
+                          HD Available
+                        </span>
+                      </div>
+                      <div className="max-h-60 overflow-y-auto space-y-0.5 pt-1 scrollbar-none">
+                        {QUALITY_OPTIONS.map((q) => {
+                          const isSelected =
+                            currentQuality === q.label ||
+                            (q.value === 'default' && currentQuality.startsWith('Auto'));
+                          return (
+                            <button
+                              key={q.value}
+                              onClick={() => {
+                                handleQualityChange(q);
+                              }}
+                              className={`w-full text-left px-3 py-2 text-xs rounded-lg transition flex items-center justify-between border-none outline-none cursor-pointer ${
+                                isSelected
+                                  ? 'bg-[var(--md-sys-color-primary)]/20 text-[var(--md-sys-color-primary)] font-bold'
+                                  : 'text-slate-300 hover:bg-slate-800/80'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-2">
+                                <span>{q.label}</span>
+                                {q.label.includes('HD') && (
+                                  <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 uppercase tracking-wider">
+                                    HD
+                                  </span>
+                                )}
+                              </div>
+                              {isSelected && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

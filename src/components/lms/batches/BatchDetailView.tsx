@@ -2113,7 +2113,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
         {/* LEFT COLUMN: Full-Width Video Player on Mobile & Lecture Info */}
         <div className="lg:col-span-8 space-y-4">
-          <div className="-mx-3.5 sm:mx-0 -mt-4 sm:mt-0 w-[calc(100%+1.75rem)] sm:w-full rounded-none sm:rounded-3xl overflow-hidden shadow-2xl border-none relative group">
+          <div className="-mx-3.5 sm:mx-0 -mt-4 sm:mt-0 w-[calc(100%+1.75rem)] sm:w-full rounded-none sm:rounded-3xl overflow-hidden shadow-2xl border-none relative group sticky top-0 z-40 bg-black sm:static">
             {/* YouTube-style Top-Left Collapse Down-Chevron Button */}
             <button
               type="button"
