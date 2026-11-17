@@ -241,14 +241,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     isControlsVisibleRef.current = false;
   }, []);
 
-  // Helper: Toggle controls visibility on tap (tap to reveal for 5s, re-tap to immediately hide)
+  // Helper: Reveal controls on tap (tap reveals/refreshes for 5s, re-tap never prematurely hides)
   const toggleControls = useCallback(() => {
-    if (isControlsVisibleRef.current) {
-      hideControls();
-    } else {
-      showControlsForDuration(5000);
-    }
-  }, [hideControls, showControlsForDuration]);
+    showControlsForDuration(5000);
+  }, [showControlsForDuration]);
 
   // Helper: Scientific 5-second decay for in-video note tabs and status notices
   const securityNoticeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -801,14 +797,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       return;
     }
 
-    // Center zone: toggle controls immediately
-    // If controls have been visible for >= 800ms, intentional re-tap hides them; otherwise reveal for 5s
+    // Center zone: always reveal / extend controls for 5s (never prematurely hide on re-click)
     if (zone === 'center') {
-      if (isControlsVisibleRef.current) {
-        hideControls();
-      } else {
-        showControlsForDuration(5000);
-      }
+      showControlsForDuration(5000);
       return;
     }
 
@@ -846,17 +837,12 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     }
 
     tapTimeoutRef.current = setTimeout(() => {
-      // Single tap confirmed: toggle controls
-      // If controls have been visible for >= 800ms, intentional re-tap hides them; otherwise show for 5000ms
-      if (isControlsVisibleRef.current && Date.now() - lastControlsRevealedAt.current >= 800) {
-        hideControls();
-      } else {
-        showControlsForDuration(5000);
-      }
+      // Single tap confirmed: always reveal / extend controls for 5000ms (re-tap never prematurely hides)
+      showControlsForDuration(5000);
       lastTapRef.current = { time: 0, side: zone };
       tapTimeoutRef.current = null;
     }, DOUBLE_TAP_WINDOW);
-  }, [hideControls, showControlsForDuration, handleSkip]);
+  }, [showControlsForDuration, handleSkip]);
 
   const getZoneFromX = (clientX: number, target: HTMLElement): 'left' | 'center' | 'right' => {
     const rect = target.getBoundingClientRect();
@@ -1476,16 +1462,16 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       {/* 1d. Dynamic Moving DRM Watermark Overlay (Anti-Piracy Screen Recording Deterrent) */}
       {authStatus === 'authorized' && securitySettings?.enableDynamicWatermark !== false && (
         <div
-          className="absolute pointer-events-none select-none z-22 transition-all duration-1000 ease-in-out opacity-25 font-mono text-[10px] sm:text-xs text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)] flex flex-col items-start"
+          className="absolute pointer-events-none select-none z-22 transition-all duration-1000 ease-in-out opacity-40 font-mono text-[11px] sm:text-xs text-white/90 drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)] flex flex-col items-start"
           style={{
             top: `${watermarkPos.top}%`,
             left: `${watermarkPos.left}%`,
             transform: 'translate(-50%, -50%)',
           }}
         >
-          <span className="font-semibold tracking-wider">{user.name || 'Student'}</span>
-          <span className="text-[9px] opacity-80">{user.email || user.phone || `UID: ${user.id.slice(0, 8)}`}</span>
-          <span className="text-[8px] opacity-60">ID: {playbackToken?.token ? playbackToken.token.slice(0, 8).toUpperCase() : user.id.slice(0, 8).toUpperCase()}</span>
+          <span className="font-semibold tracking-wider">{user?.name || 'Student'}</span>
+          <span className="text-[9.5px] opacity-85">{user?.email || user?.phone || `UID: ${user?.id ? user.id.slice(0, 8) : 'STUDENT'}`}</span>
+          <span className="text-[8.5px] opacity-75">ID: {playbackToken?.token ? playbackToken.token.slice(0, 8).toUpperCase() : (user?.id ? user.id.slice(0, 8).toUpperCase() : 'SESSION')}</span>
         </div>
       )}
 
