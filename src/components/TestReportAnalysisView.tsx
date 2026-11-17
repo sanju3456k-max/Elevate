@@ -453,6 +453,31 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
     };
   }, [fullScreenChapterId, selectedSubtopicQuestionsModal]);
 
+  // Synchronize mobile fullscreen state for Chapter Full Screen and Subtopic Questions modal
+  useEffect(() => {
+    const isChapterOrSubtopicsActive = Boolean(fullScreenChapterId || selectedSubtopicQuestionsModal);
+    if (typeof document !== 'undefined') {
+      document.body.classList.toggle('elevate-chapter-fullscreen-active', isChapterOrSubtopicsActive);
+      document.documentElement.classList.toggle('elevate-chapter-fullscreen-active', isChapterOrSubtopicsActive);
+      window.dispatchEvent(
+        new CustomEvent('elevate:chapter-fullscreen-active', {
+          detail: { active: isChapterOrSubtopicsActive },
+        })
+      );
+    }
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.body.classList.remove('elevate-chapter-fullscreen-active');
+        document.documentElement.classList.remove('elevate-chapter-fullscreen-active');
+        window.dispatchEvent(
+          new CustomEvent('elevate:chapter-fullscreen-active', {
+            detail: { active: false },
+          })
+        );
+      }
+    };
+  }, [fullScreenChapterId, selectedSubtopicQuestionsModal]);
+
   // Guarantee clean scroll reset on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -2189,13 +2214,13 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
           <header className="sticky top-0 z-30 bg-[#e5e9f0]/98 dark:bg-[#0b0c10]/98 backdrop-blur-md shadow-[0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.2)] border-b-0 shrink-0">
             <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] md:pt-3 md:pb-3">
               <div className="flex items-center justify-between gap-3 px-0.5 py-1">
-                {/* Left: Adjusted Back Button for White Surface & Chapter Title */}
+                {/* Left: Adjusted Back Button for White Surface & Chapter Title (Hidden on desktop - only close button kept on desktop) */}
                 <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
                   <button
                     id="fullscreen-chapter-back-btn"
                     type="button"
                     onClick={() => setFullScreenChapterId(null)}
-                    className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-slate-50 dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-100 border-0 ring-0 shadow-none flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 outline-none"
+                    className="md:hidden desktop-hide-back-btn w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-slate-50 dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-100 border-0 ring-0 shadow-none flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 outline-none"
                     title="Back to Performance Analysis (Device Gesture / Esc)"
                     aria-label="Back to Performance Analysis"
                   >
@@ -2473,13 +2498,13 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
           <header className="sticky top-0 z-30 bg-[#e5e9f0]/98 dark:bg-[#0b0c10]/98 backdrop-blur-md shadow-[0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.2)] border-b-0 shrink-0">
             <div className="max-w-5xl w-full mx-auto px-3 sm:px-6 py-2.5 sm:py-3.5 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] md:pt-3 md:pb-3">
               <div className="flex items-center justify-between gap-3 px-0.5 py-1">
-                {/* Left: Back Button & Subtopic Title */}
+                {/* Left: Back Button & Subtopic Title (Hidden on desktop - only close button kept on desktop) */}
                 <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
                   <button
                     id="subtopic-questions-back-btn"
                     type="button"
                     onClick={() => setSelectedSubtopicQuestionsModal(null)}
-                    className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-slate-50 dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-100 border-0 ring-0 shadow-none flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 outline-none"
+                    className="md:hidden desktop-hide-back-btn w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-slate-50 dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-100 border-0 ring-0 shadow-none flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 outline-none"
                     title="Back to Chapter Concepts (Device Gesture / Esc)"
                     aria-label="Back to Chapter Concepts"
                   >

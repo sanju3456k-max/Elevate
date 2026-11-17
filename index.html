@@ -98,7 +98,7 @@
           var ua = navigator.userAgent || '';
           // Chrome/Firefox/Safari on Android/iOS when "Desktop site" is toggled omit 'Mobile' from userAgent
           var isDesktopUA = !/Mobile|Android.*Mobile|iPhone|iPod/i.test(ua);
-          var isDesktop = window.innerWidth >= 768 || isDesktopUA;
+          var isDesktop = window.innerWidth >= 768;
           if (isDesktop) {
             document.documentElement.classList.add('desktop-site');
             if (document.body) document.body.classList.add('desktop-site');

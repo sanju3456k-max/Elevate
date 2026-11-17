@@ -219,6 +219,25 @@ export default function App() {
   const isInsideBatch = activeTab === 'batches' && (Boolean(selectedBatchId) || batchesStage !== 'batch_list');
   const isFullVideoPlayerActive = Boolean(persistentPlayback && !persistentPlayback.isMinimized);
 
+  // Track whether Chapter Full Screen or Subtopic Questions view is active (to hide mobile app header & bottom nav)
+  const [isChapterFullScreenActive, setIsChapterFullScreenActive] = useState<boolean>(() => {
+    if (typeof document !== 'undefined') {
+      return document.body.classList.contains('elevate-chapter-fullscreen-active');
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const handleChapterFullScreen = (e: Event) => {
+      const customEvent = e as CustomEvent<{ active: boolean }>;
+      setIsChapterFullScreenActive(Boolean(customEvent.detail?.active));
+    };
+    window.addEventListener('elevate:chapter-fullscreen-active', handleChapterFullScreen);
+    return () => {
+      window.removeEventListener('elevate:chapter-fullscreen-active', handleChapterFullScreen);
+    };
+  }, []);
+
   // Enterprise Omni-Channel Origin Context Engine (Guarantees seamless back navigation to exact origin)
   interface NavigationOriginContext {
     tab: ActiveTab;
@@ -1868,12 +1887,12 @@ export default function App() {
           - Active Test Runners (take-test, omr-test) & Full-Screen Theta AI run in full-screen distraction-free chrome.
           - Desktop Viewing Experience (md:): Header is visible across all standard pages.
           - Mobile & Tablet Apps (< md): Top Header is displayed on primary tabs: Home, Batches, Tests, and Analytics.
-          - When inside a batch (viewing folders, contents, or video), top header is hidden on mobile & tablet to maximize workspace focus. */}
+          - When inside a batch (viewing folders, contents, or video), or inside full-screen Chapter/Subtopics view, top header is hidden on mobile & tablet to maximize workspace focus. */}
       {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'chatbot' && activeTab !== 'master-console' && (
         <div
           id="app-navbar-wrapper"
           className={`sticky top-0 z-50 transition-all duration-200 shrink-0 ${
-            isFullVideoPlayerActive
+            isChapterFullScreenActive || isFullVideoPlayerActive
               ? 'hidden md:block'
               : ['home', 'batches', 'tests', 'analytics'].includes(activeTab)
               ? (activeTab === 'batches' && isInsideBatch ? 'hidden md:block' : 'block')
@@ -2032,13 +2051,13 @@ export default function App() {
       {/* Main Content Area */}
       {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'results' && activeTab !== 'create' && activeTab !== 'custom-builder' && activeTab !== 'master-console' && (
         <main className={`flex-1 min-w-0 bg-[#e5e9f0] dark:bg-[#0b0c10] ${
-          ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && !isInsideBatch
+          ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && !isInsideBatch && !isChapterFullScreenActive
             ? (persistentPlayback?.isMinimized ? 'pb-36 sm:pb-28' : 'pb-24 sm:pb-8')
             : (persistentPlayback?.isMinimized ? 'pb-24 sm:pb-28' : 'pb-6 sm:pb-8')
         }`}>
 
           {/* MOBILE BOTTOM NAVIGATION HEADER (Home, Courses, Tests, Analytics) - Clean pure white, no partition lines */}
-          {isAppLoaded && !isFullVideoPlayerActive && ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && !isInsideBatch && (
+          {isAppLoaded && !isFullVideoPlayerActive && !isChapterFullScreenActive && ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && !isInsideBatch && (
             <nav
               id="mobile-bottom-nav"
               aria-label="Mobile Bottom Navigation"

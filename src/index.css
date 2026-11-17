@@ -1263,9 +1263,11 @@ table td .katex .mclose {
 }
 
 /* Ensure App Header is always visible on Desktop Site */
-.desktop-site #app-navbar-wrapper,
-html.desktop-site #app-navbar-wrapper {
-  display: block !important;
+@media (min-width: 768px) {
+  .desktop-site #app-navbar-wrapper,
+  html.desktop-site #app-navbar-wrapper {
+    display: block !important;
+  }
 }
 
 /* Strictly hide dropdown/back/collapse buttons on Desktop Site */
@@ -1277,6 +1279,17 @@ html.desktop-site #app-navbar-wrapper {
 .desktop-site [aria-label="Collapse video"] {
   display: none !important;
 }
+
+/* Distraction-free mobile view for Chapter Full Screen and Subtopic Questions */
+@media (max-width: 767px) {
+  body.elevate-chapter-fullscreen-active #app-navbar-wrapper,
+  body.elevate-chapter-fullscreen-active #mobile-bottom-nav,
+  html.elevate-chapter-fullscreen-active #app-navbar-wrapper,
+  html.elevate-chapter-fullscreen-active #mobile-bottom-nav {
+    display: none !important;
+  }
+}
+
 
 
 
