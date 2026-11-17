@@ -1373,13 +1373,13 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       {authStatus === 'authorized' && (
         <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none flex items-center justify-center select-none bg-black">
           <div
-            className="relative pointer-events-none flex items-center justify-center"
+            className="relative pointer-events-none flex items-center justify-center w-full h-full"
             style={{
-              width: isMini && !isFullscreen ? '180%' : '100%',
-              height: isMini && !isFullscreen ? '180%' : '100%',
-              minWidth: isMini && !isFullscreen ? '180%' : '100%',
-              minHeight: isMini && !isFullscreen ? '180%' : '100%',
-              transform: isMini && !isFullscreen ? 'scale(1.1)' : 'none',
+              width: '100%',
+              height: '100%',
+              minWidth: '100%',
+              minHeight: '100%',
+              transform: 'none',
               transformOrigin: 'center center',
             }}
           >
@@ -1413,11 +1413,16 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
 
 
-      {/* Dynamic Paused Security Guards: Rich shadow strips on top and bottom to completely hide YouTube title & bottom shelf */}
+      {/* Permanent Solid Black Bottom Cloak: 100% opaque black, completely covers YouTube's native bottom control shelf, playlist cards, and 'More videos' */}
+      {(!isMini || isFullscreen) && (
+        <div className="absolute bottom-0 inset-x-0 h-13 sm:h-14 bg-black z-20 pointer-events-none" />
+      )}
+
+      {/* Dynamic Paused Security Guards: Top shadow for title and solid black bottom bar */}
       {!isPlaying && isPlayerReady && hasEverPlayed && (!isMini || isFullscreen) && (
         <>
           <div className="absolute top-0 inset-x-0 h-16 sm:h-20 bg-gradient-to-b from-black from-65% via-black/85 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
-          <div className="absolute bottom-0 inset-x-0 h-12 bg-gradient-to-t from-black/95 via-black/80 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
+          <div className="absolute bottom-0 inset-x-0 h-13 sm:h-14 bg-black z-25 pointer-events-none" />
         </>
       )}
 
@@ -1732,8 +1737,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           isControlsVisible || !isPlaying || optionsMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
-        {/* Shadow backdrop strictly under the streaming line (progress bar) and buttons - never above */}
-        <div className="absolute inset-x-0 bottom-0 top-0 bg-gradient-to-t from-black via-black/95 via-black/85 to-transparent pointer-events-none -z-10" />
+        {/* Solid black backdrop strictly under the streaming line (progress bar) and buttons - completely hides YouTube bottom UI, zero shadow above */}
+        <div className="absolute inset-x-0 bottom-0 h-13 sm:h-14 bg-black pointer-events-none -z-10" />
 
         {/* TIMELINE MILESTONES (Topic Breakpoints) STRIP */}
         {milestones && milestones.length > 0 && (

@@ -12,6 +12,7 @@ import {
   ChevronRight,
   BookOpen,
   ListVideo,
+  Maximize2,
 } from 'lucide-react';
 import { CloakedVideoPlayer } from './CloakedVideoPlayer';
 import { useApp } from '../../../lms/LmsContext';
@@ -235,8 +236,8 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
       id="global-persistent-player-host"
       className={
         isMinimized
-          ? `fixed left-3 right-3 md:left-auto md:right-5 md:w-[420px] h-15 sm:h-16 z-50 bg-white/95 dark:bg-[#1e2024]/95 backdrop-blur-2xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.18),0_2px_8px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.65)] border border-slate-200/90 dark:border-zinc-800/90 p-0 transition-all duration-200 select-none cursor-pointer overflow-hidden md:!bottom-5 ${
-              !isTestMode ? 'flex items-center justify-between' : 'hidden'
+          ? `fixed left-3 right-3 md:left-auto md:right-6 md:w-[360px] md:h-auto h-15 sm:h-16 z-50 bg-white dark:bg-[#1a1c22] backdrop-blur-2xl rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.22),0_4px_12px_rgba(0,0,0,0.12)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.75)] border border-slate-200/90 dark:border-zinc-800/90 p-0 transition-all duration-200 select-none cursor-pointer overflow-hidden md:!bottom-6 ${
+              !isTestMode ? 'flex flex-row md:flex-col items-center md:items-stretch justify-between' : 'hidden'
             }`
           : 'fixed inset-x-0 bottom-0 top-0 md:top-[58px] z-50 md:z-40 bg-[var(--md-sys-color-background)] overflow-y-auto px-0 lg:px-8 py-0 lg:py-6 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 max-w-[1720px] mx-auto w-full items-start'
       }
@@ -255,14 +256,14 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
       <div
         className={
           isMinimized
-            ? 'w-24 sm:w-28 h-full shrink-0 rounded-l-2xl overflow-hidden relative bg-black pointer-events-none border-r border-slate-200/50 dark:border-zinc-800/50'
+            ? 'w-24 sm:w-28 md:w-full h-full md:h-auto md:aspect-video shrink-0 rounded-l-2xl md:rounded-l-none md:rounded-t-2xl overflow-hidden relative bg-black border-r md:border-r-0 md:border-b border-slate-200/50 dark:border-zinc-800/50 group/minivid'
             : 'lg:col-span-8 space-y-4 w-full pt-0'
         }
       >
         <div
           className={
             isMinimized
-              ? 'w-full h-full'
+              ? 'w-full h-full relative overflow-hidden flex items-center justify-center bg-black'
               : 'aspect-video w-full sticky top-0 z-40 bg-black shadow-none rounded-none lg:rounded-3xl lg:shadow-lg overflow-hidden group lg:static'
           }
         >
@@ -276,6 +277,87 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             >
               <ChevronDown className="w-5 h-5 stroke-[2.5]" />
             </button>
+          )}
+
+          {/* YouTube Desktop Miniplayer Hover Controls Overlay */}
+          {isMinimized && (
+            <div
+              className="hidden md:flex absolute inset-0 z-30 bg-black/45 opacity-0 group-hover/minivid:opacity-100 transition-opacity duration-200 flex-col justify-between p-2.5 pointer-events-auto select-none"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Top Row: Expand icon on left, Close icon on right */}
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  id="desktop-miniplayer-expand-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleExpand();
+                  }}
+                  className="w-7 h-7 rounded-full bg-black/60 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center transition border-none cursor-pointer"
+                  title="Expand to Full Video"
+                  aria-label="Expand to Full Video"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  id="desktop-miniplayer-close-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleClose();
+                  }}
+                  className="w-7 h-7 rounded-full bg-black/60 hover:bg-rose-600 active:scale-90 text-white flex items-center justify-center transition border-none cursor-pointer"
+                  title="Close Video"
+                  aria-label="Close Video"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Center: Play/Pause */}
+              <div className="flex items-center justify-center">
+                <button
+                  type="button"
+                  id="desktop-miniplayer-play-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleTogglePlay();
+                  }}
+                  className="w-11 h-11 rounded-full bg-black/70 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center transition border-none cursor-pointer shadow-lg"
+                  title={playback.isPlaying ? 'Pause' : 'Play'}
+                  aria-label={playback.isPlaying ? 'Pause' : 'Play'}
+                >
+                  {playback.isPlaying ? (
+                    <Pause className="w-5 h-5 fill-current" />
+                  ) : (
+                    <Play className="w-5 h-5 fill-current ml-0.5" />
+                  )}
+                </button>
+              </div>
+
+              {/* Bottom Row: Current time & Duration */}
+              <div className="flex items-center justify-between text-white text-[10.5px] font-mono px-0.5">
+                <span>
+                  {formatDuration(currentPlaybackSec)} / {formatDuration(totalDuration > 0 ? totalDuration : ((playback.durationMinutes || 0) * 60))}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Desktop Miniplayer Bottom Edge Linear Progress Line */}
+          {isMinimized && (
+            <div className="hidden md:block absolute bottom-0 inset-x-0 h-[3px] bg-slate-400/40 dark:bg-zinc-700/80 overflow-hidden z-25 pointer-events-none">
+              <div
+                className="h-full bg-[#0b57d0] dark:bg-[#a8c7fa] transition-all duration-200"
+                style={{
+                  width: `${(() => {
+                    const effectiveDur = totalDuration > 0 ? totalDuration : ((playback.durationMinutes || 0) * 60);
+                    return effectiveDur > 0 ? Math.min(100, Math.max(0, (currentPlaybackSec / effectiveDur) * 100)) : 0;
+                  })()}%`,
+                }}
+              />
+            </div>
           )}
 
           <CloakedVideoPlayer
@@ -374,7 +456,36 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
       {/* 2. In Minimized View: Strip Content (Title, Batch, Length Count, Play/Pause, Close) */}
       {isMinimized && (
         <>
-          <div className="flex-1 min-w-0 pl-3 sm:pl-3.5 pr-2 py-1 flex flex-col justify-center">
+          {/* DESKTOP MINIPLAYER BOTTOM CARD (Metadata & Expand Chevron) */}
+          <div
+            className="hidden md:flex px-4 py-3 items-center justify-between gap-3 bg-white dark:bg-[#1a1c22] cursor-pointer"
+            onClick={handleExpand}
+          >
+            <div className="min-w-0 flex-1">
+              <h4 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-zinc-100 truncate leading-snug tracking-tight">
+                {playback.lectureTitle}
+              </h4>
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate mt-0.5">
+                {playback.batchTitle}
+              </p>
+            </div>
+            <button
+              type="button"
+              id="desktop-miniplayer-expand-chevron-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleExpand();
+              }}
+              className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-600 dark:text-zinc-300 border-none bg-transparent cursor-pointer transition active:scale-90 shrink-0"
+              title="Expand to Full Video"
+              aria-label="Expand to Full Video"
+            >
+              <ChevronUp className="w-4 h-4 stroke-[2.2]" />
+            </button>
+          </div>
+
+          {/* MOBILE MINIPLAYER STRIP CONTENT */}
+          <div className="md:hidden flex-1 min-w-0 pl-3 sm:pl-3.5 pr-2 py-1 flex flex-col justify-center">
             <h4 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-zinc-100 truncate leading-snug tracking-tight">
               {playback.lectureTitle}
             </h4>
@@ -394,7 +505,8 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-1 pr-2 sm:pr-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+          {/* MOBILE ACTION BUTTONS */}
+          <div className="md:hidden flex items-center gap-1 pr-2 sm:pr-3 shrink-0" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
               id="miniplayer-expand-to-full-btn"
@@ -429,8 +541,8 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             </button>
           </div>
 
-          {/* Sleek linear progress bar embedded strictly inside the card */}
-          <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-slate-100 dark:bg-zinc-800/80 overflow-hidden rounded-b-2xl pointer-events-none">
+          {/* Mobile linear progress bar embedded strictly inside the card */}
+          <div className="md:hidden absolute bottom-0 left-0 right-0 h-[2.5px] bg-slate-100 dark:bg-zinc-800/80 overflow-hidden rounded-b-2xl pointer-events-none">
             <div
               className="h-full bg-[#0b57d0] dark:bg-[#a8c7fa] transition-all duration-200 rounded-r-full"
               style={{
