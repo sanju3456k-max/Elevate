@@ -20,6 +20,7 @@ import {
   Settings,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
 } from 'lucide-react';
 import { deobfuscateVideoKey, extractYouTubeId, formatDuration, initDevToolsDetector, initFocusLossProtector } from '../../../lms/security';
 import { requestPlaybackToken } from '../../../lms/playbackTokenService';
@@ -51,6 +52,7 @@ interface CloakedVideoPlayerProps {
   autoPlay?: boolean;
   isPlayingProp?: boolean;
   onPlayStateChange?: (isPlaying: boolean) => void;
+  onMinimize?: () => void;
 }
 
 export interface QualityOption {
@@ -101,6 +103,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   autoPlay = false,
   isPlayingProp,
   onPlayStateChange,
+  onMinimize,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
@@ -1647,17 +1650,33 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 3. Top Header Bar (Video Title Only, 100% cloaks YouTube title bleed with extended dark strip) */}
+      {/* 3. Top Header Bar (Minimize Button & Video Title, 100% cloaks YouTube title bleed with extended dark strip) */}
       {(!isMini || isFullscreen) && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className={`absolute top-0 inset-x-0 z-30 px-3.5 pt-3.5 pb-8 sm:px-5 sm:pt-4 sm:pb-12 bg-gradient-to-b from-black from-75% via-black/90 to-transparent min-h-[92px] sm:min-h-[114px] flex items-start transition-opacity duration-300 ${
+          className={`absolute top-0 inset-x-0 z-30 px-3 pt-3 pb-8 sm:px-5 sm:pt-4 sm:pb-12 bg-gradient-to-b from-black from-75% via-black/90 to-transparent min-h-[92px] sm:min-h-[114px] flex items-center justify-between gap-3 transition-opacity duration-300 ${
             isControlsVisible || !isPlaying ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
         >
-          <h2 className="text-white text-xs sm:text-sm font-semibold truncate drop-shadow-md">
-            {title}
-          </h2>
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            {onMinimize && !isFullscreen && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMinimize();
+                }}
+                className="w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition border border-white/10 cursor-pointer shadow-none select-none shrink-0"
+                title="Minimize to MiniPlayer"
+                aria-label="Minimize to MiniPlayer"
+              >
+                <ChevronDown className="w-5 h-5 stroke-[2.5]" />
+              </button>
+            )}
+            <h2 className="text-white text-xs sm:text-sm font-semibold truncate drop-shadow-md">
+              {title}
+            </h2>
+          </div>
         </div>
       )}
 

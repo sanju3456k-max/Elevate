@@ -313,18 +313,6 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
               : 'aspect-video w-full sticky top-0 z-40 bg-black shadow-none rounded-none lg:rounded-3xl lg:shadow-lg overflow-hidden group lg:static'
           }
         >
-          {/* Top-left minimize button on video when expanded */}
-          {!isMinimized && (
-            <button
-              type="button"
-              onClick={handleMinimize}
-              className="absolute top-3 left-3 z-50 w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition border border-white/10 cursor-pointer shadow-none select-none lg:hidden desktop-hide-back-btn"
-              title="Minimize to MiniPlayer"
-            >
-              <ChevronDown className="w-5 h-5 stroke-[2.5]" />
-            </button>
-          )}
-
           {/* YouTube Desktop Miniplayer Hover Controls Overlay */}
           {isMinimized && (
             <div
@@ -439,6 +427,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             isPlayingProp={playback.isPlaying}
             onPlayStateChange={handlePlayStateChange}
             onProgress={handleProgress}
+            onMinimize={handleMinimize}
           />
         </div>
 
@@ -466,18 +455,6 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                       </span>
                     </span>
                   )}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleMinimize}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface)] text-xs font-semibold cursor-pointer border-none transition active:scale-95 shadow-2xs"
-                    title="Minimize to MiniPlayer"
-                  >
-                    <ChevronDown className="w-4 h-4 stroke-[2.2]" />
-                    <span>MiniPlayer</span>
-                  </button>
                 </div>
               </div>
             </div>
