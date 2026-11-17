@@ -1516,6 +1516,21 @@ export async function saveTestToFirestore(test: MathTest, overrideAuthorId?: str
         caller: 'Save/Create Test in User Subcollection',
       });
 
+      // 1b. Real-Time Master / Student Sync:
+      // If saving an official / master test or edited by master admin, mirror authoritative full paper
+      // to test_leaderboards/{validId}/summary/published_paper so students instantly receive updated layout & questions
+      if (
+        (processedTest as any).isMasterTest ||
+        (processedTest as any).publishedToStudents ||
+        finalAuthorEmail === 'sanju3456k@gmail.com' ||
+        finalAuthorId === 'sanju3456k@gmail.com'
+      ) {
+        try {
+          const pubDocRef = doc(db, 'test_leaderboards', validId, 'summary', 'published_paper');
+          await setDoc(pubDocRef, sanitized, { merge: true });
+        } catch {}
+      }
+
 
     } catch (err) {
       firestoreTelemetry.record({

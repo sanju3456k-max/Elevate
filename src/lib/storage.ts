@@ -1488,14 +1488,12 @@ export async function loadFullTestOnDemand(
   }
 
   // 2. Check local scoped storage cache
-  if (!forceFresh) {
-    const localScoped = loadScopedTests(userId);
-    const foundLocal = localScoped.find((t) => t.id === cleanId || (t as any).testId === cleanId);
-    if (foundLocal && Array.isArray(foundLocal.questions) && foundLocal.questions.length > 0) {
-      const locTime = foundLocal?.updatedAt ? new Date(foundLocal.updatedAt).getTime() : 0;
-      if (!minTime || locTime >= minTime) {
-        return foundLocal;
-      }
+  const localScoped = loadScopedTests(userId);
+  const foundLocal = localScoped.find((t) => t.id === cleanId || (t as any).testId === cleanId);
+  if (!forceFresh && foundLocal && Array.isArray(foundLocal.questions) && foundLocal.questions.length > 0) {
+    const locTime = foundLocal?.updatedAt ? new Date(foundLocal.updatedAt).getTime() : 0;
+    if (!minTime || locTime >= minTime) {
+      return foundLocal;
     }
   }
 
@@ -1513,11 +1511,9 @@ export async function loadFullTestOnDemand(
   }
 
   // 3. Check sample tests
-  if (!forceFresh) {
-    const sample = SAMPLE_MATH_TESTS.find((s) => s.id === cleanId);
-    if (sample && Array.isArray(sample.questions) && sample.questions.length > 0) {
-      return sample;
-    }
+  const sample = SAMPLE_MATH_TESTS.find((s) => s.id === cleanId);
+  if (!forceFresh && sample && Array.isArray(sample.questions) && sample.questions.length > 0) {
+    return sample;
   }
 
   // 4. Fetch on demand from multi-tier catalogs (Batch catalog chunks, batch tests, leaderboards published_paper, user tests, root tests)

@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronUp,
   LayoutGrid,
+  Edit3,
   X,
   Target,
   FileCheck,
@@ -96,6 +97,7 @@ interface MasterConsoleViewProps {
   isDarkMode?: boolean;
   onToggleTheme?: () => void;
   onStartTest?: (test: MathTest, mode: 'timed' | 'practice') => void;
+  onEditTest?: (test: MathTest) => void;
   onRefreshTests?: () => void;
   onSignIn?: () => void;
   onOpenBatch?: (batchId: string) => void;
@@ -118,6 +120,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   isDarkMode,
   onToggleTheme,
   onStartTest,
+  onEditTest,
   onRefreshTests,
   onSignIn,
   onOpenBatch,
@@ -3180,6 +3183,17 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                         </button>
 
                         <div className="flex items-center gap-1.5">
+                          {onEditTest && (
+                            <button
+                              type="button"
+                              onClick={() => onEditTest(test)}
+                              className="h-9 px-3.5 rounded-full text-xs font-semibold text-white bg-[#0b57d0] hover:bg-[#0842a0] transition-colors cursor-pointer active:scale-95 border-0 outline-none flex items-center gap-1.5 shadow-2xs"
+                              title="Edit test, questions, and question paper layout settings"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Edit</span>
+                            </button>
+                          )}
                           {onStartTest && (
                             <button
                               onClick={() => onStartTest(test, 'timed')}

@@ -743,6 +743,28 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
       </div>
 
+      {/* Test Detail & Attempt Records Modal with Dual Mode Options (OMR + Online) */}
+      <TestDetailModal
+        test={detailedTest}
+        onClose={() => setDetailedTest(null)}
+        attempts={attempts}
+        userProfile={userProfile}
+        currentUser={currentUser}
+        allTests={tests}
+        onStartTest={(testToStart) => {
+          setDetailedTest(null);
+          onStartTest(testToStart);
+        }}
+        onStartOmrTest={(testToStart) => {
+          setDetailedTest(null);
+          if (onStartOmrTest) {
+            onStartOmrTest(testToStart);
+          } else if (onOpenOmr) {
+            onOpenOmr();
+          }
+        }}
+        onViewAttemptResult={onViewAttemptResult}
+      />
     </div>
   );
 };
@@ -846,29 +868,6 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
           )}
         </div>
       </div>
-
-      {/* Test Detail & Attempt Records Modal with Dual Mode Options (OMR + Online) */}
-      <TestDetailModal
-        test={detailedTest}
-        onClose={() => setDetailedTest(null)}
-        attempts={attempts}
-        userProfile={userProfile}
-        currentUser={currentUser}
-        allTests={tests}
-        onStartTest={(testToStart) => {
-          setDetailedTest(null);
-          onStartTest(testToStart);
-        }}
-        onStartOmrTest={(testToStart) => {
-          setDetailedTest(null);
-          if (onStartOmrTest) {
-            onStartOmrTest(testToStart);
-          } else if (onOpenOmr) {
-            onOpenOmr();
-          }
-        }}
-        onViewAttemptResult={onViewAttemptResult}
-      />
     </div>
   );
 };

@@ -18,7 +18,8 @@ import {
   syncStatsRollupToFirestore,
   syncTestHistoriesToFirestore,
   fetchTestsFromFirestore,
-  fetchUserAttemptsFromFirestore
+  fetchUserAttemptsFromFirestore,
+  getCachedFullTest
 } from './lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { 
@@ -42,8 +43,12 @@ import {
   fetchPublishedMasterTestsFromCloud,
   subscribeToPublishedMasterTests,
   fetchCloudAssignedRemedialTests,
-  subscribeToAssignedRemedialTests
+  subscribeToAssignedRemedialTests,
+  publishMasterTest,
+  publishTestToBatchCatalog,
 } from './lib/masterAccount';
+import { syncBatchTestToFirestore, touchBatchCatalogBeacon } from './lib/batchCloudSync';
+import { TestDetailModal } from './components/TestDetailModal';
 import type { User } from 'firebase/auth';
 import { normalizeQuestions, type ActiveTab, type MathTest, type TestAttempt, type ActiveTestSession, type UserProfile, type TestHistoryEntry } from './types';
 import { triggerBlobDownload } from './lib/omrPrintDownload';
@@ -607,6 +612,7 @@ export default function App() {
   const [resumedSession, setResumedSession] = useState<ActiveTestSession | null>(null);
   const [pendingStartTest, setPendingStartTest] = useState<{ test: MathTest; mode: 'timed' | 'practice' } | null>(null);
   const [showResumeModal, setShowResumeModal] = useState<boolean>(false);
+  const [globalDetailTest, setGlobalDetailTest] = useState<MathTest | null>(null);
 
   const [isNavDrawerOpen, setIsNavDrawerOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -1662,6 +1668,48 @@ export default function App() {
     if (isAuthenticUser) {
       saveTestToFirestore(validatedTest, targetUid).catch(console.warn);
     }
+
+    // Master / Cloud Authoritative Propagation:
+    // When Master user saves a test, or when an official/master test is saved,
+    // propagate full paper & layout changes to global published tests in Firestore
+    const isMaster = isMasterUser(currentUser || cachedUser) || (userProfile as any)?.role === 'admin';
+    if (isMaster || (validatedTest as any).isMasterTest || (validatedTest as any).publishedToStudents) {
+      publishMasterTest(validatedTest).catch(console.warn);
+    }
+
+    // Real-Time Batch Propagation:
+    // Sync updated questions and question paper layouts across all batches that include this test
+    try {
+      const rawBatchTests = localStorage.getItem('math_mock_lms_batch_tests');
+      if (rawBatchTests) {
+        const batchTestsList = JSON.parse(rawBatchTests);
+        if (Array.isArray(batchTestsList)) {
+          const matchingBatches = batchTestsList.filter(
+            (bt: any) => (bt.testId || bt.id) === validatedTest.id
+          );
+          matchingBatches.forEach((mb: any) => {
+            if (mb.batchId) {
+              syncBatchTestToFirestore(mb.batchId, validatedTest).catch(console.warn);
+              publishTestToBatchCatalog(mb.batchId, validatedTest).catch(console.warn);
+            }
+          });
+        }
+      }
+      if (validatedTest.batchId) {
+        syncBatchTestToFirestore(validatedTest.batchId, validatedTest).catch(console.warn);
+        publishTestToBatchCatalog(validatedTest.batchId, validatedTest).catch(console.warn);
+      }
+      touchBatchCatalogBeacon().catch(() => {});
+    } catch (e) {
+      console.warn('Batch propagation skipped:', e);
+    }
+
+    // Broadcast real-time update event so any active views/subscribers reload immediately
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tests-published-updated', { detail: { testId: validatedTest.id, isPublished: true } }));
+      window.dispatchEvent(new CustomEvent('batch-tests-updated', { detail: { testId: validatedTest.id } }));
+    }
+
     // Stay in test creation studio stage
     showToast(`Test "${validatedTest.title}" saved successfully!`, 'success');
   };
@@ -2165,6 +2213,8 @@ export default function App() {
               currentUser={currentUser}
               userProfile={userProfile}
               onStartTest={(test) => handleStartTest(test, 'timed')}
+              onStartOmrTest={(test) => handleStartOmrTest(test)}
+              onViewAttemptResult={handleViewAttemptResult}
               onOpenBatches={(filter) => {
                 setSelectedBatchId(null);
                 setSelectedChapterId(null);
@@ -2409,9 +2459,9 @@ export default function App() {
                 setActiveTab('batches');
               }}
               onOpenTest={(testId) => {
-                const found = tests.find((t) => t.id === testId);
+                const found = tests.find((t) => t.id === testId) || getCachedFullTest(testId);
                 if (found) {
-                  handleStartTest(found, 'timed');
+                  setGlobalDetailTest(found);
                 } else {
                   setActiveTab('tests');
                 }
@@ -2437,6 +2487,27 @@ export default function App() {
         />
       )}
 
+      {/* Global Test Detail & Attempt Records Modal (for Notifications & Direct Deep Links) */}
+      {globalDetailTest && (
+        <TestDetailModal
+          test={globalDetailTest}
+          onClose={() => setGlobalDetailTest(null)}
+          attempts={attempts}
+          userProfile={userProfile}
+          currentUser={currentUser}
+          allTests={tests}
+          onStartTest={(testToStart) => {
+            setGlobalDetailTest(null);
+            handleStartTest(testToStart, 'timed');
+          }}
+          onStartOmrTest={(testToStart) => {
+            setGlobalDetailTest(null);
+            handleStartOmrTest(testToStart);
+          }}
+          onViewAttemptResult={handleViewAttemptResult}
+        />
+      )}
+
       {/* Full-Screen Academic Master Console (Exclusively for sanju3456k@gmail.com) */}
       {activeTab === 'master-console' && isMasterUser(currentUser || cachedUser) && (
         <MasterConsoleView
@@ -2449,6 +2520,7 @@ export default function App() {
           isDarkMode={isDarkMode}
           onToggleTheme={toggleTheme}
           onStartTest={handleStartTest}
+          onEditTest={handleEditTest}
           onRefreshTests={() => {
             const targetUid = currentUser?.uid || cachedUser?.uid || null;
             const freshTests = loadScopedTests(targetUid);
