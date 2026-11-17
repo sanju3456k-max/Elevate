@@ -25,6 +25,7 @@ import type { Batch, BatchEnrollment } from '../../../lms/types';
 import { useApp } from '../../../lms/LmsContext';
 import { adminResetDeviceLock } from '../../../lib/deviceAuthService';
 import { M3Switch } from '../../ui/Material3';
+import { BatchThumbnailPicker } from './BatchThumbnailPicker';
 
 /* =========================================================================
    1. EDIT BATCH MODAL (Settings, Details, Pricing, Status & Delete)
@@ -215,17 +216,13 @@ export const EditBatchModal: React.FC<EditBatchModalProps> = ({
             />
           </div>
 
-          {/* Banner URL */}
-          <div>
-            <label className="text-[11px] font-bold text-[var(--md-sys-color-on-surface)] block mb-1">
-              Course Banner Image URL
-            </label>
-            <input
-              type="url"
+          {/* High-Resolution Thumbnail & Course Banner with Live 16:9 Preview & Repair */}
+          <div className="p-3.5 rounded-2xl bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/20">
+            <BatchThumbnailPicker
               value={bannerUrl}
-              onChange={(e) => setBannerUrl(e.target.value)}
-              placeholder="https://... or leave empty for default banner"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs text-[var(--md-sys-color-on-surface)] focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition font-mono"
+              onChange={setBannerUrl}
+              previewTitle={title}
+              previewCategory={category}
             />
           </div>
 

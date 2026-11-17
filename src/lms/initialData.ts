@@ -22,9 +22,9 @@ export const INITIAL_BATCHES: Batch[] = [
     price: 999,
     originalPrice: 2999,
     bannerUrl:
-      'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=1920&auto=format&fit=crop&q=85',
     thumbnailUrl:
-      'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=1920&auto=format&fit=crop&q=85',
     instructor: {
       name: 'Elevate Labs Faculty',
       designation: 'Master Educator',

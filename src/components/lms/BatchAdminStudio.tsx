@@ -40,6 +40,7 @@ import {
 import { CloakedVideoPlayer } from './player/CloakedVideoPlayer';
 import { M3Switch, M3CircularProgress } from '../ui/Material3';
 import { BatchEditorModal } from './batches/BatchEditorModal';
+import { DEFAULT_HIGH_RES_BANNER } from './batches/BatchThumbnailPicker';
 import { BatchQuickEnrollModal } from './batches/BatchQuickEnrollModal';
 import { InSituBatchWorkspace } from './batches/InSituBatchWorkspace';
 import type { Batch } from '../../lms/types';
@@ -117,9 +118,7 @@ export const BatchAdminStudio: React.FC = () => {
   const [newBatchPrice, setNewBatchPrice] = useState(999);
   const [newBatchOrigPrice, setNewBatchOrigPrice] = useState(2999);
   const [newBatchInstructor, setNewBatchInstructor] = useState('Elevate Labs Faculty');
-  const [newBatchBanner, setNewBatchBanner] = useState(
-    'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1200&auto=format&fit=crop&q=80'
-  );
+  const [newBatchBanner, setNewBatchBanner] = useState(DEFAULT_HIGH_RES_BANNER);
 
   // Form states for Add Subject / Chapter
   const [newSubjectTitle, setNewSubjectTitle] = useState('');

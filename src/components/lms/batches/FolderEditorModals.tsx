@@ -21,6 +21,7 @@ import { extractYouTubeId, obfuscateVideoKey } from '../../../lms/security';
 import { fetchVideoMetadata, extractYouTubeVideoId } from '../../../lms/videoMetadataService';
 import { M3Switch, M3CircularProgress } from '../../ui/Material3';
 import { getTestDurationMinutes } from '../../../utils/testFormatConverter';
+import { BatchThumbnailPicker, DEFAULT_HIGH_RES_BANNER } from './BatchThumbnailPicker';
 
 const FOLDER_COLORS = [
   { id: 'blue', value: '#0b57d0', label: 'Classic Blue' },
@@ -813,6 +814,8 @@ interface CreateBatchModalProps {
     originalPrice: number;
     validityDays: number;
     allowGuestAccess: boolean;
+    bannerUrl?: string;
+    thumbnailUrl?: string;
   }) => void;
 }
 
@@ -828,6 +831,7 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
   const [originalPrice, setOriginalPrice] = useState(1999);
   const [validityDays, setValidityDays] = useState(365);
   const [allowGuestAccess, setAllowGuestAccess] = useState(false);
+  const [bannerUrl, setBannerUrl] = useState(DEFAULT_HIGH_RES_BANNER);
 
   if (!isOpen) return null;
 
@@ -869,6 +873,8 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
               originalPrice: Number(originalPrice) || 0,
               validityDays: Number(validityDays) || 365,
               allowGuestAccess,
+              bannerUrl: bannerUrl.trim() || DEFAULT_HIGH_RES_BANNER,
+              thumbnailUrl: bannerUrl.trim() || DEFAULT_HIGH_RES_BANNER,
             });
             onClose();
           }}
@@ -924,6 +930,16 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Course description and coverage..."
               className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none resize-none"
+            />
+          </div>
+
+          {/* High Quality Thumbnail & Course Banner with Live 16:9 Preview & Repair */}
+          <div className="p-3.5 rounded-2xl bg-[var(--md-sys-color-surface-container-high)]/40 border border-[var(--md-sys-color-outline-variant)]/20">
+            <BatchThumbnailPicker
+              value={bannerUrl}
+              onChange={setBannerUrl}
+              previewTitle={title}
+              previewCategory={category}
             />
           </div>
 

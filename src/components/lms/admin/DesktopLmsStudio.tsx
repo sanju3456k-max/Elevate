@@ -67,6 +67,7 @@ import {
   getLectureThumbnailUrl,
 } from '../../../lms/security';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
+import { BatchThumbnailPicker } from '../batches/BatchThumbnailPicker';
 import { M3Switch, M3CircularProgress } from '../../ui/Material3';
 import type {
   Batch,
@@ -2351,6 +2352,7 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
   const [batchTagline, setBatchTagline] = useState('');
   const [batchPrice, setBatchPrice] = useState(999);
   const [batchValidity, setBatchValidity] = useState(365);
+  const [batchBanner, setBatchBanner] = useState('');
 
   // Form local states for Folder
   const [folderTitle, setFolderTitle] = useState('');
@@ -2408,6 +2410,7 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
       setBatchTagline(currentBatch.tagline || '');
       setBatchPrice(currentBatch.price || 0);
       setBatchValidity(currentBatch.validityDays || 365);
+      setBatchBanner(currentBatch.bannerUrl || currentBatch.thumbnailUrl || '');
     } else if (entity.type === 'folder' && targetChapter) {
       setFolderTitle(targetChapter.title);
       setFolderDesc(targetChapter.description || '');
@@ -2824,6 +2827,15 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
               </div>
             </div>
 
+            <div className="p-3 rounded-2xl bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/20">
+              <BatchThumbnailPicker
+                value={batchBanner}
+                onChange={setBatchBanner}
+                previewTitle={batchTitle}
+                previewCategory={batchCategory}
+              />
+            </div>
+
             <div className="pt-2">
               <button
                 type="button"
@@ -2838,6 +2850,8 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
                     tagline: batchTagline.trim(),
                     price: Number(batchPrice) || 0,
                     validityDays: Number(batchValidity) || 365,
+                    bannerUrl: batchBanner.trim() || undefined,
+                    thumbnailUrl: batchBanner.trim() || undefined,
                   });
                 }}
                 className="w-full py-2.5 rounded-xl bg-[#0b57d0] hover:bg-[#0b57d0]/90 text-white font-bold text-xs shadow-xs transition border-none cursor-pointer flex items-center justify-center space-x-1.5"

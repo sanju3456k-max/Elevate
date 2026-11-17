@@ -18,6 +18,7 @@ import { isMasterUser, publishTestToBatchCatalog } from '../lib/masterAccount';
 import { hydrateQuestionsForTest } from '../lib/questionCatalogService';
 import { getTestDurationMinutes } from '../utils/testFormatConverter';
 import { listenerManager } from '../lib/listenerManager';
+import { DEFAULT_HIGH_RES_BANNER } from '../components/lms/batches/BatchThumbnailPicker';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, collection, onSnapshot } from 'firebase/firestore';
 import {
@@ -595,12 +596,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // 3. Cloud Firestore Backed Batch CRUD
   const addBatch = async (batchData: Omit<Batch, 'id' | 'enrolledStudentsCount' | 'rating'>) => {
+    const resolvedBanner = batchData.bannerUrl?.trim() || batchData.thumbnailUrl?.trim() || DEFAULT_HIGH_RES_BANNER;
     const newBatch: Batch = {
       ...batchData,
       id: `batch_${Date.now()}`,
       rating: 5.0,
       enrolledStudentsCount: 0,
       isPublished: true,
+      bannerUrl: resolvedBanner,
+      thumbnailUrl: batchData.thumbnailUrl?.trim() || resolvedBanner,
     };
     setBatches((prev) => [newBatch, ...prev]);
     const res = await syncBatchToFirestore(newBatch);

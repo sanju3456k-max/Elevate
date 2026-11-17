@@ -9,12 +9,7 @@ interface BatchEditorModalProps {
   onSave: (batchData: Omit<Batch, 'id' | 'enrolledStudentsCount' | 'rating'>, existingId?: string) => void;
 }
 
-const PRESET_BANNERS = [
-  'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=1200&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=1200&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=1200&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1200&auto=format&fit=crop&q=80'
-];
+import { BatchThumbnailPicker, DEFAULT_HIGH_RES_BANNER, PRESET_BATCH_BANNERS } from './BatchThumbnailPicker';
 
 export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
   isOpen,
@@ -72,8 +67,8 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
           setValidityDays('365');
           setInstructorName('Sanju Kumar');
           setInstructorDesignation('Senior Mathematics Faculty');
-          setBannerUrl(PRESET_BANNERS[0]);
-          setThumbnailUrl(PRESET_BANNERS[0]);
+          setBannerUrl(DEFAULT_HIGH_RES_BANNER);
+          setThumbnailUrl(DEFAULT_HIGH_RES_BANNER);
           setIsPublished(true);
           setAllowGuestAccess(false);
         }
@@ -99,8 +94,8 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
       originalPrice: Number(originalPrice) || Number(price) || 0,
       validityDays: Number(validityDays) || 365,
       startDate: batchToEdit?.startDate || new Date().toISOString(),
-      bannerUrl: bannerUrl.trim() || PRESET_BANNERS[0],
-      thumbnailUrl: thumbnailUrl.trim() || bannerUrl.trim() || PRESET_BANNERS[0],
+      bannerUrl: bannerUrl.trim() || DEFAULT_HIGH_RES_BANNER,
+      thumbnailUrl: thumbnailUrl.trim() || bannerUrl.trim() || DEFAULT_HIGH_RES_BANNER,
       instructor: {
         name: instructorName.trim() || 'Faculty Team',
         designation: instructorDesignation.trim() || 'Educator',
@@ -277,41 +272,17 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
             </div>
           </div>
 
-          {/* Banner & Thumbnail URLs with Presets */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] flex items-center space-x-1">
-              <ImageIcon className="w-3.5 h-3.5 text-purple-500" />
-              <span>Banner & Card Media</span>
-            </label>
-            <input
-              type="text"
+          {/* High-Resolution Thumbnail & Course Banner with Live 16:9 Preview & Repair */}
+          <div className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container-high)]/40 border border-[var(--md-sys-color-outline-variant)]/20">
+            <BatchThumbnailPicker
               value={bannerUrl}
-              onChange={(e) => {
-                setBannerUrl(e.target.value);
-                setThumbnailUrl(e.target.value);
+              onChange={(url) => {
+                setBannerUrl(url);
+                setThumbnailUrl(url);
               }}
-              placeholder="Paste banner image URL (Unsplash or custom CDN)"
-              className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-high)] rounded-xl text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none font-mono text-[11px]"
+              previewTitle={title}
+              previewCategory={category}
             />
-            {/* Quick preset selector */}
-            <div className="flex items-center space-x-2 pt-1">
-              <span className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">Presets:</span>
-              {PRESET_BANNERS.map((preset, idx) => (
-                <button
-                  type="button"
-                  key={idx}
-                  onClick={() => {
-                    setBannerUrl(preset);
-                    setThumbnailUrl(preset);
-                  }}
-                  className={`w-12 h-6 rounded-md overflow-hidden border-2 transition cursor-pointer ${
-                    bannerUrl === preset ? 'border-[var(--md-sys-color-primary)] ring-2 ring-[var(--md-sys-color-primary)]/40' : 'border-transparent opacity-60 hover:opacity-100'
-                  }`}
-                >
-                  <img src={preset} alt="" className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Publish Status Toggle */}
