@@ -316,7 +316,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
           {/* YouTube Desktop Miniplayer Hover Controls Overlay */}
           {isMinimized && (
             <div
-              className={`hidden md:flex absolute inset-0 z-30 transition-opacity duration-200 flex-col justify-between pointer-events-auto select-none ${
+              className={`hidden md:block absolute inset-0 z-30 transition-opacity duration-200 pointer-events-auto select-none ${
                 !playback.isPlaying || isMiniControlsActive
                   ? 'opacity-100'
                   : 'opacity-0 group-hover/minivid:opacity-100'
@@ -329,7 +329,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             >
               {/* Top Row: Solid black base with gradient completely covering YouTube title and channel avatar */}
               <div
-                className="w-full h-16 sm:h-18 bg-gradient-to-b from-black from-75% via-black/95 to-transparent flex items-start justify-between px-2.5 pt-2 z-10 relative"
+                className="absolute top-0 inset-x-0 h-16 sm:h-18 bg-gradient-to-b from-black from-75% via-black/95 to-transparent flex items-start justify-between px-2.5 pt-2 z-10"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Solid Top Cloak (Zero bleed for YouTube title/channel header) */}
@@ -362,8 +362,8 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 </button>
               </div>
 
-              {/* Center: Play/Pause Big Button */}
-              <div className="flex items-center justify-center flex-1">
+              {/* Center: Play/Pause Big Button (Mathematically 50% x 50% Centered to completely cover YouTube's native button without border rings) */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
                 <button
                   type="button"
                   id="desktop-miniplayer-play-btn"
@@ -371,21 +371,21 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                     e.stopPropagation();
                     handleTogglePlay(e);
                   }}
-                  className="w-13 h-13 rounded-full bg-black/85 hover:bg-black active:scale-90 text-white flex items-center justify-center transition border border-white/20 cursor-pointer shadow-2xl"
+                  className="w-[74px] h-[74px] sm:w-[78px] sm:h-[78px] rounded-full bg-zinc-950/95 hover:bg-zinc-900 active:scale-95 text-white flex items-center justify-center transition-all duration-150 border-none cursor-pointer shadow-[0_8px_32px_rgba(0,0,0,0.85)] pointer-events-auto select-none"
                   title={playback.isPlaying ? 'Pause' : 'Play'}
                   aria-label={playback.isPlaying ? 'Pause' : 'Play'}
                 >
                   {playback.isPlaying ? (
-                    <Pause className="w-6 h-6 fill-current" />
+                    <Pause className="w-7 h-7 sm:w-8 sm:h-8 fill-current" />
                   ) : (
-                    <Play className="w-6 h-6 fill-current ml-0.5" />
+                    <Play className="w-7 h-7 sm:w-8 sm:h-8 fill-current ml-1" />
                   )}
                 </button>
               </div>
 
               {/* Bottom Row: Solid jet-black base + gradient completely covering YouTube official buttons, share, alerts & endcards for 5s */}
               <div
-                className="w-full h-16 sm:h-20 bg-gradient-to-t from-black from-70% via-black/95 to-transparent flex items-end justify-between px-3 pb-2.5 z-10 select-none relative"
+                className="absolute bottom-0 inset-x-0 h-16 sm:h-20 bg-gradient-to-t from-black from-70% via-black/95 to-transparent flex items-end justify-between px-3 pb-2.5 z-10 select-none"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* 100% Solid Black Bottom Shield (Completely hides YouTube share, alerts strip and related video boxes) */}
