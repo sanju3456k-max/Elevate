@@ -1391,6 +1391,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
+      {/* Permanent Bottom Edge Bleed Shield (guarantees zero video bleed at bottom edge) */}
+      <div className="absolute inset-x-0 -bottom-1 h-3.5 bg-black z-25 pointer-events-none select-none" />
+
       {/* 1a. Miniplayer Paused / Pre-playback Clean Poster Cover (Completely eliminates YouTube's paused title bleed, avatar, and native huge play icon) */}
       {isMini && !isFullscreen && authStatus === 'authorized' && (!isPlaying || !hasEverPlayed) && (
         <div className="absolute inset-0 z-20 bg-black flex items-center justify-center overflow-hidden pointer-events-none">
@@ -1413,16 +1416,16 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
 
 
-      {/* Permanent Solid Black Bottom Cloak: 100% opaque black, completely covers YouTube's native bottom control shelf, playlist cards, and 'More videos' */}
+      {/* Permanent Solid Black Bottom Cloak: 100% opaque black, completely covers YouTube's native bottom shelf and seals bottom edge */}
       {(!isMini || isFullscreen) && (
-        <div className="absolute bottom-0 inset-x-0 h-13 sm:h-14 bg-black z-20 pointer-events-none" />
+        <div className="absolute -bottom-3 inset-x-0 h-16 sm:h-18 bg-black z-20 pointer-events-none" />
       )}
 
-      {/* Dynamic Paused Security Guards: Top shadow for title and solid black bottom bar */}
+      {/* Dynamic Paused Security Guards: Top shadow/gradient cloak extending over native YouTube title and channel info, and solid black bottom cloak */}
       {!isPlaying && isPlayerReady && hasEverPlayed && (!isMini || isFullscreen) && (
         <>
-          <div className="absolute top-0 inset-x-0 h-16 sm:h-20 bg-gradient-to-b from-black from-65% via-black/85 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
-          <div className="absolute bottom-0 inset-x-0 h-13 sm:h-14 bg-black z-25 pointer-events-none" />
+          <div className="absolute top-0 inset-x-0 h-24 sm:h-30 bg-gradient-to-b from-black from-75% via-black/90 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
+          <div className="absolute -bottom-3 inset-x-0 h-16 sm:h-18 bg-black z-25 pointer-events-none" />
         </>
       )}
 
@@ -1621,15 +1624,15 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 3. Top Header Bar (Video Title Only, 100% cloaks YouTube title bleed with dark shadow strip) */}
+      {/* 3. Top Header Bar (Video Title Only, 100% cloaks YouTube title bleed with extended dark strip) */}
       {(!isMini || isFullscreen) && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className={`absolute top-0 inset-x-0 z-30 px-3.5 py-3 sm:px-5 sm:py-4 bg-gradient-to-b from-black from-60% via-black/85 to-transparent flex items-center transition-opacity duration-300 ${
+          className={`absolute top-0 inset-x-0 z-30 px-3.5 pt-3.5 pb-8 sm:px-5 sm:pt-4 sm:pb-12 bg-gradient-to-b from-black from-75% via-black/90 to-transparent min-h-[92px] sm:min-h-[114px] flex items-start transition-opacity duration-300 ${
             isControlsVisible || !isPlaying ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
         >
-          <h2 className="text-white text-xs sm:text-sm font-medium truncate drop-shadow">
+          <h2 className="text-white text-xs sm:text-sm font-semibold truncate drop-shadow-md">
             {title}
           </h2>
         </div>
@@ -1737,8 +1740,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           isControlsVisible || !isPlaying || optionsMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
-        {/* Solid black backdrop strictly under the streaming line (progress bar) and buttons - completely hides YouTube bottom UI, zero shadow above */}
-        <div className="absolute inset-x-0 bottom-0 h-13 sm:h-14 bg-black pointer-events-none -z-10" />
+        {/* Solid black backdrop strictly under the streaming line (progress bar) and buttons - completely hides YouTube bottom UI and sub-pixel edge bleed */}
+        <div className="absolute inset-x-0 -bottom-3 h-20 sm:h-24 bg-black pointer-events-none -z-10" />
 
         {/* TIMELINE MILESTONES (Topic Breakpoints) STRIP */}
         {milestones && milestones.length > 0 && (
