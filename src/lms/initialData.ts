@@ -172,31 +172,4 @@ export const INITIAL_STUDENTS = [
 
 export const INITIAL_ENROLLMENTS: BatchEnrollment[] = [];
 
-export const INITIAL_BATCH_TESTS: BatchTestCard[] = [
-  {
-    testId: 'test_batch_mock_01',
-    batchId: 'batch_testing_01',
-    title: 'JEE Advanced Full Syllabus Mock 01',
-    topic: 'Mathematics - Calculus, Vectors & 3D Geometry',
-    questionCount: 30,
-    timeLimitMinutes: 60,
-    difficulty: 'hard',
-    passingScorePercentage: 40,
-    catalogChunkId: 'chunk_001',
-    chunkEstimatedBytes: 85000,
-    publishedAt: '2026-11-10',
-  },
-  {
-    testId: 'test_batch_mock_02',
-    batchId: 'batch_testing_01',
-    title: 'Definite Integrals & Area under Curve Sprint',
-    topic: 'Integral Calculus High Weightage',
-    questionCount: 20,
-    timeLimitMinutes: 45,
-    difficulty: 'medium',
-    passingScorePercentage: 50,
-    catalogChunkId: 'chunk_001',
-    chunkEstimatedBytes: 52000,
-    publishedAt: '2026-11-12',
-  },
-];
+export const INITIAL_BATCH_TESTS: BatchTestCard[] = [];

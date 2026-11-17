@@ -68,7 +68,8 @@ import {
   getMasterDispatchLedger,
   isMasterTest,
   isRemedialTest,
-  isGuestUser
+  isGuestUser,
+  isDeprecatedTest
 } from '../lib/masterAccount';
 
 interface TestListProps {
@@ -677,6 +678,7 @@ export const TestList: React.FC<TestListProps> = ({
 
     const list = allCandidates.filter((test) => {
       if (!test || !test.id) return false;
+      if (isDeprecatedTest(test)) return false;
       if (seenIds.has(test.id)) return false;
       seenIds.add(test.id);
 

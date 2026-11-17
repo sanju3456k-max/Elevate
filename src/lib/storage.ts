@@ -818,11 +818,19 @@ export function loadScopedTests(userId?: string | null): MathTest[] {
       'test-1793116020776',
       'imported-1789747440687',
       'imported-1789747449650',
+      'test_title_mix_test_5_application_of_derivative_indefinite_integration',
     ]);
     const isDeprecated = (t: any) => {
-      if (!t || !t.id) return true;
-      if (DEPRECATED_TEST_IDS.has(t.id)) return true;
-      if (/^(Mix Test|Integration GCC|vector space GCC|New Mathematics Assessment)/i.test(t.title || '')) return true;
+      if (!t) return true;
+      const tid = String(t.id || t.testId || '').trim();
+      if (!tid) return true;
+      if (DEPRECATED_TEST_IDS.has(tid)) return true;
+      const title = String(t.title || t.testTitle || '').trim();
+      const topic = String(t.topic || '').trim();
+      if (/\b(Mix Test|Integration GCC|vector space GCC|New Mathematics Assessment)\b/i.test(title)) return true;
+      if (/\b(Mix Test)\b/i.test(topic)) return true;
+      if (/application of derivative and indefinite integration/i.test(title)) return true;
+      if (tid.includes('mix_test') || tid.includes('imported-1789747440687')) return true;
       return false;
     };
 
@@ -1446,6 +1454,19 @@ export async function loadFullTestOnDemand(
 ): Promise<MathTest | null> {
   if (!testId) return null;
   const cleanId = testId.trim();
+  if (
+    cleanId === 'imported-1789747440687' ||
+    cleanId === 'test_title_mix_test_5_application_of_derivative_indefinite_integration' ||
+    cleanId.includes('mix_test') ||
+    cleanId === 'imported-1789747405803' ||
+    cleanId === 'test-1794126289591' ||
+    cleanId === 'imported-1789747548377' ||
+    cleanId === 'test-1789812585463' ||
+    cleanId === 'test-1793116020776' ||
+    cleanId === 'imported-1789747449650'
+  ) {
+    return null;
+  }
 
   // Find candidate in memory to detect latest known updatedAt timestamp
   const memMatch = memoryTests && Array.isArray(memoryTests)

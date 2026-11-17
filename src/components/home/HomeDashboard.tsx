@@ -30,7 +30,7 @@ import type { User } from 'firebase/auth';
 import type { Batch } from '../../lms/types';
 import { useApp, getFacultyAvatarUrl } from '../../lms/LmsContext';
 import { getLectureThumbnailUrl } from '../../lms/security';
-import { isMasterUser } from '../../lib/masterAccount';
+import { isMasterUser, isDeprecatedTest, DEPRECATED_TEST_IDS } from '../../lib/masterAccount';
 import { getTestDurationMinutes } from '../../utils/testFormatConverter';
 import { DEFAULT_HIGH_RES_BANNER } from '../lms/batches/BatchThumbnailPicker';
 import { TestDetailModal } from '../TestDetailModal';
@@ -155,6 +155,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     // Collect all test IDs belonging to the student's enrolled batches
     const enrolledBatchTestIds = new Set<string>();
     (batchTests || []).forEach((bt) => {
+      if (isDeprecatedTest(bt)) return;
       if (enrolledBatchIdSet.has(bt.batchId)) {
         if (bt.testId) enrolledBatchTestIds.add(bt.testId);
         if (bt.id) enrolledBatchTestIds.add(bt.id);
@@ -163,18 +164,22 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
     (chapters || []).forEach((c) => {
       if (enrolledBatchIdSet.has(c.batchId) && Array.isArray(c.testIds)) {
-        c.testIds.forEach((tid) => enrolledBatchTestIds.add(tid));
+        c.testIds.forEach((tid) => {
+          if (!DEPRECATED_TEST_IDS.has(tid) && !tid.includes('mix_test') && !tid.includes('imported-1789747440687')) {
+            enrolledBatchTestIds.add(tid);
+          }
+        });
       }
     });
 
     // Find the latest test in tests matching enrolled batch test IDs
     const matched = tests.find(
-      (t) => enrolledBatchTestIds.has(t.id) || Boolean((t as any).batchId && enrolledBatchIdSet.has((t as any).batchId))
+      (t) => !isDeprecatedTest(t) && (enrolledBatchTestIds.has(t.id) || Boolean((t as any).batchId && enrolledBatchIdSet.has((t as any).batchId)))
     );
     if (matched) return matched;
 
     // If a batch test exists in batchTests but isn't yet in available tests array, synthesize a test card object
-    const latestBatchTestCard = (batchTests || []).find((bt) => enrolledBatchIdSet.has(bt.batchId));
+    const latestBatchTestCard = (batchTests || []).find((bt) => !isDeprecatedTest(bt) && enrolledBatchIdSet.has(bt.batchId));
     if (latestBatchTestCard) {
       const resolvedMinutes = getTestDurationMinutes(latestBatchTestCard);
       const synthTest: MathTest = {

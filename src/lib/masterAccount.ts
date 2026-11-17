@@ -194,7 +194,7 @@ export function isRemedialTest(test: Partial<MathTest> | null | undefined): bool
   );
 }
 
-const DEPRECATED_TEST_IDS = new Set([
+export const DEPRECATED_TEST_IDS = new Set([
   'imported-1789747405803',
   'test-1794126289591',
   'imported-1789747548377',
@@ -202,12 +202,20 @@ const DEPRECATED_TEST_IDS = new Set([
   'test-1793116020776',
   'imported-1789747440687',
   'imported-1789747449650',
+  'test_title_mix_test_5_application_of_derivative_indefinite_integration',
 ]);
 
-const isDeprecatedTest = (t: any): boolean => {
-  if (!t || !t.id) return true;
-  if (DEPRECATED_TEST_IDS.has(t.id)) return true;
-  if (/^(Mix Test|Integration GCC|vector space GCC|New Mathematics Assessment)/i.test(t.title || '')) return true;
+export const isDeprecatedTest = (t: any): boolean => {
+  if (!t) return true;
+  const tid = String(t.id || t.testId || '').trim();
+  if (!tid) return true;
+  if (DEPRECATED_TEST_IDS.has(tid)) return true;
+  const title = String(t.title || t.testTitle || '').trim();
+  const topic = String(t.topic || '').trim();
+  if (/\b(Mix Test|Integration GCC|vector space GCC|New Mathematics Assessment)\b/i.test(title)) return true;
+  if (/\b(Mix Test)\b/i.test(topic)) return true;
+  if (/application of derivative and indefinite integration/i.test(title)) return true;
+  if (tid.includes('mix_test') || tid.includes('imported-1789747440687')) return true;
   return false;
 };
 
@@ -527,7 +535,7 @@ export async function fetchPublishedMasterTestsFromCloud(): Promise<MathTest[]> 
       const mergedMap: Record<string, MathTest> = {};
 
       Object.values(rawTests).forEach((t: any) => {
-        if (t && t.id) {
+        if (t && t.id && !isDeprecatedTest(t)) {
           const existing = existingMap[t.id];
           const cached = getCachedFullTest(t.id);
           const hasQ = Array.isArray(t.questions) && t.questions.length > 0;
@@ -593,7 +601,7 @@ export function subscribeToPublishedMasterTests(
             const mergedMap: Record<string, MathTest> = {};
 
             Object.values(allMap).forEach((t: any) => {
-              if (t && t.id) {
+              if (t && t.id && !isDeprecatedTest(t)) {
                 const existing = existingMap[t.id];
                 const cached = getCachedFullTest(t.id);
                 const hasQ = Array.isArray(t.questions) && t.questions.length > 0;
@@ -677,7 +685,7 @@ export function mergePublishedMasterTests(
 
   // 1. Add published master tests first so all students and batch users can access them
   published.forEach((t) => {
-    if (t && t.id) {
+    if (t && t.id && !isDeprecatedTest(t)) {
       const qLen = Array.isArray(t.questions) && t.questions.length > 0 ? t.questions.length : 0;
       const count = qLen || t.questionCount || (t as any).questionsCount || 25;
       const dur = getTestDurationMinutes(t);
@@ -693,7 +701,7 @@ export function mergePublishedMasterTests(
 
   // 2. Add student / user tests
   userTests.forEach((t) => {
-    if (t && t.id) {
+    if (t && t.id && !isDeprecatedTest(t)) {
       const existing = testMap.get(t.id);
       const qLen = Array.isArray(t.questions) && t.questions.length > 0
         ? t.questions.length
@@ -717,7 +725,15 @@ export function mergePublishedMasterTests(
     let rawBatchTests: any[] = [];
     const savedBatchTests = secureStorage.getItem('elevatelabs_batch_tests_v2') || (typeof localStorage !== 'undefined' ? localStorage.getItem('elevatelabs_batch_tests_v2') : null);
     if (savedBatchTests) {
-      rawBatchTests = JSON.parse(savedBatchTests);
+      const parsed = JSON.parse(savedBatchTests);
+      if (Array.isArray(parsed)) {
+        rawBatchTests = parsed.filter((b) => !isDeprecatedTest(b));
+        if (rawBatchTests.length !== parsed.length) {
+          try {
+            secureStorage.setItem('elevatelabs_batch_tests_v2', JSON.stringify(rawBatchTests));
+          } catch {}
+        }
+      }
     }
     let rawBatches: any[] = [];
     const savedBatches = secureStorage.getItem('elevatelabs_batches_v2') || (typeof localStorage !== 'undefined' ? (localStorage.getItem('elevatelabs_batches_v2') || localStorage.getItem('elevatelabs_cloud_batches_cache')) : null);
@@ -728,7 +744,7 @@ export function mergePublishedMasterTests(
     if (Array.isArray(rawBatchTests) && rawBatchTests.length > 0) {
       rawBatchTests.forEach((bt) => {
         const tid = bt.testId || bt.id;
-        if (!tid) return;
+        if (!tid || isDeprecatedTest(bt)) return;
 
         const batchObj = Array.isArray(rawBatches) ? rawBatches.find((b: any) => b.id === bt.batchId) : null;
         const batchTitle = batchObj?.title || (bt as any).batchTitle || null;

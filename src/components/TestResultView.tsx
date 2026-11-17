@@ -49,7 +49,10 @@ import {
   ZoomOut,
   Hand,
   Bookmark,
+  Trophy,
+  Menu,
 } from 'lucide-react';
+import { TestLeaderboardModal } from './TestLeaderboardModal';
 import { loadScopedAttempts, saveScopedAttempts } from '../lib/storage';
 import { MathRenderer } from './MathRenderer';
 import { QuestionDiagramViewer } from './QuestionDiagramViewer';
@@ -189,6 +192,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
 
   const [aiExplanations, setAiExplanations] = useState<Record<string, string>>({});
   const [loadingAi, setLoadingAi] = useState<Record<string, boolean>>({});
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState<boolean>(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState<boolean>(false);
 
   // Custom Personal Notes State
@@ -321,6 +325,13 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
   });
 
   useBackHandler({
+    isOpen: isLeaderboardOpen,
+    onBack: () => setIsLeaderboardOpen(false),
+    priority: 32,
+    id: 'results_leaderboard_modal',
+  });
+
+  useBackHandler({
     isOpen: isProfileMenuOpen,
     onBack: () => setIsProfileMenuOpen(false),
     priority: 30,
@@ -334,10 +345,11 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
     id: 'results_filter_dropdown',
   });
 
-  const isAnyResultOverlayOpen = isQuestionPanelOpen || isProfileMenuOpen || isFilterOpen || isAddNoteModalOpen || !!previewFile;
+  const isAnyResultOverlayOpen = isQuestionPanelOpen || isLeaderboardOpen || isProfileMenuOpen || isFilterOpen || isAddNoteModalOpen || !!previewFile;
 
   const handleSafeBackToDashboard = useCallback(() => {
     setIsQuestionPanelOpen(false);
+    setIsLeaderboardOpen(false);
     setPreviewFile(null);
     setIsProfileMenuOpen(false);
     setIsAddNoteModalOpen(false);
@@ -1228,6 +1240,16 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
               </button>
 
               <button
+                id="review-leaderboard-btn"
+                onClick={() => setIsLeaderboardOpen(true)}
+                title="View Leaderboard"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-[28px] bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-semibold transition-colors cursor-pointer border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]"
+              >
+                <Trophy className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span className="hidden sm:inline">Leaderboard</span>
+              </button>
+
+              <button
                 id="switch-to-notes-btn"
                 onClick={() => setViewMode('notes')}
                 title="View Short Tricks & Notes"
@@ -1237,83 +1259,25 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                 <span className="hidden sm:inline">Notes</span>
               </button>
 
+              {onToggleTheme && (
+                <button
+                  id="review-theme-toggle-btn"
+                  onClick={onToggleTheme}
+                  title={isDarkMode ? "Light mode" : "Dark mode"}
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] flex items-center justify-center transition-all active:scale-95 shrink-0 cursor-pointer shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] border-0"
+                >
+                  {isDarkMode ? <Sun className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-amber-400" /> : <Moon className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-[#0b57d0]" />}
+                </button>
+              )}
+
               <button
                 id="review-palette-btn"
                 onClick={() => setIsQuestionPanelOpen(true)}
-                title="Open Question Drawer"
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-[28px] bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-semibold transition-colors cursor-pointer border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]"
+                title="Open Question Palette & Settings"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] flex items-center justify-center transition-all active:scale-95 shrink-0 relative cursor-pointer shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] border-0"
               >
-                <LayoutGrid className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                <span className="font-mono">{reviewIndex + 1}/{test.questions.length}</span>
+                <Menu className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
               </button>
-
-              {currentUser ? (
-                <div className="relative">
-                  <button
-                    id="review-profile-menu-trigger"
-                    onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                    className="flex items-center gap-1.5 p-0.5 sm:pr-2 rounded-[28px] bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] transition-all shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] border-0"
-                  >
-                    {currentUser.photoURL && currentUser.photoURL.trim() ? (
-                      <img
-                        src={currentUser.photoURL}
-                        alt={currentUser.displayName || 'Google User'}
-                        referrerPolicy="no-referrer"
-                        className="w-7 h-7 rounded-full border-0 object-cover"
-                      />
-                    ) : (
-                      <div className="w-7 h-7 rounded-full bg-[#0084ff] text-white font-bold text-xs flex items-center justify-center">
-                        {currentUser.displayName?.[0]?.toUpperCase() || currentUser.email?.[0]?.toUpperCase() || 'U'}
-                      </div>
-                    )}
-                    <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200 hidden lg:inline max-w-[80px] truncate">
-                      {currentUser.displayName?.split(' ')[0] || currentUser.email?.split('@')[0]}
-                    </span>
-                  </button>
-
-                  {isProfileMenuOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsProfileMenuOpen(false)} />
-                      <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-[#1e2024] rounded-2xl shadow-xl border-0 ring-0 overflow-hidden pt-0 pb-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
-                        <div className="px-3.5 py-3 bg-slate-100/90 dark:bg-[#16181d] border-b border-slate-200/80 dark:border-zinc-800">
-                          <div className="text-xs font-extrabold text-slate-900 dark:text-zinc-100 truncate">
-                            {currentUser.displayName || 'Google User'}
-                          </div>
-                          <div className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 truncate">
-                            {currentUser.email}
-                          </div>
-                        </div>
-                        {onSignOut && (
-                          <button
-                            onClick={() => {
-                              setIsProfileMenuOpen(false);
-                              onSignOut();
-                            }}
-                            className="w-full text-left px-3.5 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 transition-colors font-semibold"
-                          >
-                            <LogOut className="w-3.5 h-3.5" />
-                            <span>Sign Out</span>
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              ) : onSignIn ? (
-                <button
-                  id="review-google-login-btn"
-                  onClick={onSignIn}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#21222e] hover:bg-slate-100 dark:hover:bg-[#282a39] text-slate-700 dark:text-zinc-200 rounded-full text-xs font-semibold transition-all shadow-xs border-0 ring-0"
-                >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                  </svg>
-                  <span className="hidden sm:inline">Sign In</span>
-                </button>
-              ) : null}
             </div>
           </div>
         </header>
@@ -2091,6 +2055,14 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
       <UnifiedFileViewerModal
         file={previewFile}
         onClose={() => setPreviewFile(null)}
+      />
+
+      {/* Test Leaderboard Modal */}
+      <TestLeaderboardModal
+        isOpen={isLeaderboardOpen}
+        test={test}
+        currentUser={currentUser || null}
+        onClose={() => setIsLeaderboardOpen(false)}
       />
     </div>
   </div>

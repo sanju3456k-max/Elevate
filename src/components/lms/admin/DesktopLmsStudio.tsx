@@ -55,7 +55,7 @@ import { useApp } from '../../../lms/LmsContext';
 import { db, getCachedFullTest } from '../../../lib/firebase';
 import { loadFullTestOnDemand } from '../../../lib/storage';
 import { collection, onSnapshot } from 'firebase/firestore';
-import { getGlobalPublishedTests } from '../../../lib/masterAccount';
+import { getGlobalPublishedTests, isDeprecatedTest, DEPRECATED_TEST_IDS } from '../../../lib/masterAccount';
 import { getTestDurationMinutes } from '../../../utils/testFormatConverter';
 import { LinkTestModal } from '../batches/FolderEditorModals';
 import {
@@ -321,17 +321,17 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
   const allCandidateTests = useMemo(() => {
     const map = new Map<string, MathTest>();
     (availableTests || []).forEach((t) => {
-      if (t?.id) map.set(t.id, t);
+      if (t?.id && !isDeprecatedTest(t)) map.set(t.id, t);
     });
     try {
       const pub = getGlobalPublishedTests();
       (pub || []).forEach((t) => {
-        if (t?.id && !map.has(t.id)) map.set(t.id, t);
+        if (t?.id && !map.has(t.id) && !isDeprecatedTest(t)) map.set(t.id, t);
       });
     } catch {}
     (batchTests || []).forEach((bt) => {
       const tid = bt.testId || bt.id;
-      if (tid && !map.has(tid)) {
+      if (tid && !map.has(tid) && !isDeprecatedTest(bt)) {
         const cached = getCachedFullTest(tid);
         const resolvedDuration = getTestDurationMinutes(bt) || (cached ? getTestDurationMinutes(cached) : 25);
         map.set(tid, {
@@ -360,9 +360,13 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
       const activeBatchId = selectedBatchId;
       const isFirstOrOnly = chapters.filter((c) => c.batchId === activeBatchId)[0]?.id === selectedFolderId;
       const folderTestIdSet = new Set<string>();
-      (currentFolder.testIds || []).forEach((tid) => folderTestIdSet.add(tid));
+      (currentFolder.testIds || []).forEach((tid) => {
+        if (!DEPRECATED_TEST_IDS.has(tid) && !tid.includes('mix_test') && !tid.includes('imported-1789747440687')) {
+          folderTestIdSet.add(tid);
+        }
+      });
       (batchTests || []).forEach((bt) => {
-        if (bt.batchId !== activeBatchId) return;
+        if (!bt.batchId || bt.batchId !== activeBatchId || isDeprecatedTest(bt)) return;
         const tid = bt.testId || bt.id;
         if (!tid) return;
         if (bt.chapterId === selectedFolderId || (currentFolder.testIds && currentFolder.testIds.includes(tid))) {
@@ -397,6 +401,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
 
       const seen = new Set<string>();
       return list.filter((t) => {
+        if (isDeprecatedTest(t)) return false;
         const norm = (t.title || '').trim().toLowerCase();
         if (!norm || seen.has(norm)) return false;
         seen.add(norm);
@@ -404,7 +409,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
       });
     }
 
-    return batchCatalogTests.map((bt) => {
+    return batchCatalogTests.filter((bt) => !isDeprecatedTest(bt)).map((bt) => {
       const tid = bt.testId || bt.id;
       return candidateMap.get(tid) || ({
         id: tid,

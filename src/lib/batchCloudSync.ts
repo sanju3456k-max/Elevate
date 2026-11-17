@@ -16,6 +16,7 @@ import { db, sanitizeForFirestore } from './firebase';
 import type { Batch, BatchEnrollment, Chapter, Lecture } from '../lms/types';
 import { INITIAL_BATCHES } from '../lms/initialData';
 import { obfuscateVideoKey } from '../lms/security';
+import { isDeprecatedTest } from './masterAccount';
 
 export const cleanKeyForFirestore = (str: string): string => {
   return str.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
@@ -1096,7 +1097,7 @@ export async function fetchBatchTestsFromFirestore(batchId: string): Promise<any
       } catch {}
     }
 
-    return list;
+    return list.filter((t) => !isDeprecatedTest(t));
   } catch (err) {
     console.warn(`Failed to fetch tests for batch ${batchId}:`, err);
     return [];

@@ -76,6 +76,7 @@ import {
   fetchCohortAttemptsForTest,
   getAllLocalAttemptsAcrossAccounts,
   publishTestToBatchCatalog,
+  isDeprecatedTest,
   type PerTestCohortAnalytics,
   type RemedialDeleteScope
 } from '../lib/masterAccount';
@@ -816,9 +817,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   const [heatmapDisplayMode, setHeatmapDisplayMode] = useState<'firstRow' | 'full'>('firstRow');
 
   const filteredAnalyticsTests = useMemo(() => {
-    if (!analyticsTestSearchFilter.trim()) return tests;
+    const valid = tests.filter((t) => !isDeprecatedTest(t));
+    if (!analyticsTestSearchFilter.trim()) return valid;
     const q = analyticsTestSearchFilter.toLowerCase().trim();
-    return tests.filter((t) => 
+    return valid.filter((t) => 
       (t.title && t.title.toLowerCase().includes(q)) ||
       (t.id && t.id.toLowerCase().includes(q))
     );
@@ -1922,7 +1924,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
 
                   {/* Source Tests Multi-Select Grid: 2 columns on tablet (md:grid-cols-2) */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-2.5 sm:gap-3 pt-1 max-h-[460px] overflow-y-auto pr-1 [scrollbar-width:thin]">
-                    {tests.map((test) => {
+                    {tests.filter((t) => !isDeprecatedTest(t)).map((test) => {
                       const isSelected = selectedSourceTestIds.includes(test.id);
                       const hydrated = hydratedTestsMap[test.id];
                       const qCount = hydrated?.questions?.length || test.questions?.length || (test as any).questionCount || 50;
@@ -3103,7 +3105,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             {/* Test Cards List with One-Click Publish Switch: 2 columns on tablet (md:grid-cols-2) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3">
               {tests
-                .filter((t) => t.title.toLowerCase().includes(publishingSearch.toLowerCase()) || (t.topic || '').toLowerCase().includes(publishingSearch.toLowerCase()))
+                .filter((t) => !isDeprecatedTest(t) && (t.title.toLowerCase().includes(publishingSearch.toLowerCase()) || (t.topic || '').toLowerCase().includes(publishingSearch.toLowerCase())))
                 .map((test) => {
                   const linkedBatchTest = currentBatchTests.find(
                     (t) =>

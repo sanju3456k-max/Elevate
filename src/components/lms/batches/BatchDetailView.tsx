@@ -44,7 +44,7 @@ import { useApp, getFacultyAvatarUrl } from '../../../lms/LmsContext';
 import { auth, db, getCachedFullTest } from '../../../lib/firebase';
 import { loadFullTestOnDemand } from '../../../lib/storage';
 import { collection, onSnapshot } from 'firebase/firestore';
-import { isMasterUser, getGlobalPublishedTests } from '../../../lib/masterAccount';
+import { isMasterUser, getGlobalPublishedTests, isDeprecatedTest, DEPRECATED_TEST_IDS } from '../../../lib/masterAccount';
 import { getTestDurationMinutes } from '../../../utils/testFormatConverter';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
 import { formatDuration, extractYouTubeId, obfuscateVideoKey, getLectureThumbnailUrl, deobfuscateVideoKey } from '../../../lms/security';
@@ -502,14 +502,14 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
     // 1. Tests passed as prop
     (availableTests || []).forEach((t) => {
-      if (t && t.id) testMap.set(t.id, t);
+      if (t && t.id && !isDeprecatedTest(t)) testMap.set(t.id, t);
     });
 
     // 2. Tests from global master published storage
     try {
       const globalPublished = getGlobalPublishedTests();
       (globalPublished || []).forEach((t) => {
-        if (t && t.id && !testMap.has(t.id)) {
+        if (t && t.id && !testMap.has(t.id) && !isDeprecatedTest(t)) {
           testMap.set(t.id, t);
         }
       });
@@ -520,7 +520,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     // 3. Batch tests catalog
     (batchTests || []).forEach((bt) => {
       const tid = bt.testId || bt.id;
-      if (tid && !testMap.has(tid)) {
+      if (tid && !testMap.has(tid) && !isDeprecatedTest(bt)) {
         let cached = getCachedFullTest(tid);
         if (!cached && typeof localStorage !== 'undefined') {
           try {
@@ -561,11 +561,15 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       const isFirstOrOnlyChapter = chapters.filter((c) => c.batchId === activeBatchId)[0]?.id === selectedChapterId;
       
       const chapterTestIdSet = new Set<string>();
-      (currentFolder.testIds || []).forEach((tid) => chapterTestIdSet.add(tid));
+      (currentFolder.testIds || []).forEach((tid) => {
+        if (!DEPRECATED_TEST_IDS.has(tid) && !tid.includes('mix_test') && !tid.includes('imported-1789747440687')) {
+          chapterTestIdSet.add(tid);
+        }
+      });
 
       // Associate batchTests: either explicitly matching chapterId or fallback to first chapter
       (batchTests || []).forEach((bt) => {
-        if (bt.batchId !== activeBatchId) return;
+        if (!bt.batchId || bt.batchId !== activeBatchId || isDeprecatedTest(bt)) return;
         const tid = bt.testId || bt.id;
         if (!tid) return;
         if (bt.chapterId === selectedChapterId || bt.chapterId === currentFolder.id) {
@@ -640,6 +644,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
       const seenTitles = new Set<string>();
       return resolvedList.filter((t) => {
+        if (isDeprecatedTest(t)) return false;
         const norm = (t.title || '').trim().toLowerCase();
         if (!norm || seenTitles.has(norm)) return false;
         seenTitles.add(norm);
@@ -651,22 +656,26 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     const activeBatchId = currentBatch?.id || selectedBatchId;
     const allBatchFolderTestIds = new Set<string>();
     chapters.filter((c) => c.batchId === activeBatchId).forEach((c) => {
-      (c.testIds || []).forEach((tid) => allBatchFolderTestIds.add(tid));
+      (c.testIds || []).forEach((tid) => {
+        if (!DEPRECATED_TEST_IDS.has(tid) && !tid.includes('mix_test') && !tid.includes('imported-1789747440687')) {
+          allBatchFolderTestIds.add(tid);
+        }
+      });
     });
 
     const rootList: MathTest[] = [];
     allBatchFolderTestIds.forEach((tid) => {
       const candidate = candidateMap.get(tid) || getCachedFullTest(tid);
-      if (candidate) rootList.push(candidate);
+      if (candidate && !isDeprecatedTest(candidate)) rootList.push(candidate);
     });
 
     (batchTests || []).forEach((bt) => {
-      if (bt.batchId && bt.batchId !== activeBatchId) return;
+      if (!bt.batchId || bt.batchId !== activeBatchId || isDeprecatedTest(bt)) return;
       const tid = bt.testId || bt.id;
       if (!rootList.some((t) => t.id === tid)) {
         const candidate = candidateMap.get(tid) || getCachedFullTest(tid);
         if (candidate) {
-          rootList.push(candidate);
+          if (!isDeprecatedTest(candidate)) rootList.push(candidate);
         } else {
           const resolvedDuration = getTestDurationMinutes(bt);
           rootList.push({
@@ -685,7 +694,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       }
     });
 
-    return rootList;
+    return rootList.filter((t) => !isDeprecatedTest(t));
   }, [allCandidateTests, currentFolder, selectedChapterId, chapters, currentBatch, selectedBatchId, batchTests]);
 
   // Total tests count

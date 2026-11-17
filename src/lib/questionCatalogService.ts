@@ -2,6 +2,7 @@ import type { MathQuestion, MathTest, DifficultyLevel } from '../types';
 import { db, auth, sanitizeForFirestore } from './firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { SAMPLE_MATH_TESTS } from '../data/sampleTests';
+import { isDeprecatedTest } from './masterAccount';
 import { putTestToIndexedDB, getTestFromIndexedDB } from './indexedDbStorage';
 
 // Canonical topic question blueprints to hydrate tests with realistic academic questions
@@ -288,6 +289,9 @@ export async function fetchTestFromAllCatalogs(
 ): Promise<MathTest | null> {
   if (!testId) return null;
   const cleanTestId = testId.trim();
+  if (isDeprecatedTest({ id: cleanTestId })) {
+    return null;
+  }
   const minTime = options?.minUpdatedAt ? new Date(options.minUpdatedAt).getTime() : 0;
 
   // 1. Check local storage test caches (if not bypassed)

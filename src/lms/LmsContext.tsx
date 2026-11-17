@@ -14,7 +14,7 @@ import {
 import { enableContentSecurityDeterrence, obfuscateVideoKey, initConsoleSecurityNotice } from './security';
 import { secureStorage } from '../lib/secureStorage';
 import { auth, db, getCachedFullTest } from '../lib/firebase';
-import { isMasterUser, publishTestToBatchCatalog } from '../lib/masterAccount';
+import { isMasterUser, publishTestToBatchCatalog, isDeprecatedTest, DEPRECATED_TEST_IDS } from '../lib/masterAccount';
 import { hydrateQuestionsForTest } from '../lib/questionCatalogService';
 import { getTestDurationMinutes } from '../utils/testFormatConverter';
 import { listenerManager } from '../lib/listenerManager';
@@ -205,13 +205,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [chapters, setChapters] = useState<Chapter[]>(() => {
     const saved = secureStorage.getItem(STORAGE_KEYS.CHAPTERS);
+    let parsed: Chapter[] = INITIAL_CHAPTERS;
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        const raw = JSON.parse(saved);
+        if (Array.isArray(raw)) parsed = raw;
       } catch {}
     }
-    return INITIAL_CHAPTERS;
+    return parsed.map((c) => ({
+      ...c,
+      testIds: Array.isArray(c.testIds) ? c.testIds.filter((id) => !DEPRECATED_TEST_IDS.has(id) && !id.includes('mix_test') && !id.includes('imported-1789747440687')) : [],
+    }));
   });
 
   const [lectures, setLectures] = useState<Lecture[]>(() => {
@@ -262,7 +266,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [batchTests, setBatchTests] = useState<BatchTestCard[]>(() => {
     const saved = secureStorage.getItem(STORAGE_KEYS.BATCH_TESTS);
-    return saved ? JSON.parse(saved) : INITIAL_BATCH_TESTS;
+    const parsed = saved ? JSON.parse(saved) : INITIAL_BATCH_TESTS;
+    const cleanList = Array.isArray(parsed) ? parsed.filter((t) => !isDeprecatedTest(t)) : [];
+    if (saved && Array.isArray(parsed) && cleanList.length !== parsed.length) {
+      try {
+        secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(cleanList));
+      } catch {}
+    }
+    return cleanList;
   });
 
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
@@ -982,8 +993,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // 3. Batch Tests Authoritative Reconciliation
       fetchBatchTestsFromFirestore(batchId).then((cloudTests) => {
         setBatchTests((prev) => {
-          const otherBatchTests = prev.filter((t) => t.batchId !== batchId);
-          const next = [...otherBatchTests, ...(cloudTests || [])];
+          const otherBatchTests = prev.filter((t) => t.batchId !== batchId && !isDeprecatedTest(t));
+          const cleanCloud = (cloudTests || []).filter((t: any) => !isDeprecatedTest(t));
+          const next = [...otherBatchTests, ...cleanCloud];
           try {
             secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(next));
           } catch {}
@@ -1600,7 +1612,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const getTestsForBatch = (batchId: string) => {
-    return batchTests.filter((t) => t.batchId === batchId);
+    return batchTests.filter((t) => t.batchId === batchId && !isDeprecatedTest(t));
   };
 
   return (
