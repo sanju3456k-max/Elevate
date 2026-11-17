@@ -802,7 +802,12 @@ export function loadScopedTests(userId?: string | null): MathTest[] {
     const mem = getInMemoryTests(userId);
     if (mem && Array.isArray(mem)) {
       if (isGuest) {
-        const sanitized = mem.filter((t: MathTest) => t && t.id && !deletedIds.has(t.id) && !isMasterOrRemedial(t));
+        const validSampleIds = new Set(SAMPLE_MATH_TESTS.map((s) => s.id));
+        const sanitized = mem.filter((t: MathTest) => {
+          if (!t || !t.id || deletedIds.has(t.id) || isMasterOrRemedial(t)) return false;
+          if (t.id.startsWith('sample-') && !validSampleIds.has(t.id)) return false;
+          return true;
+        });
         const guestIds = new Set(sanitized.map((t) => t.id));
         SAMPLE_MATH_TESTS.forEach((s) => {
           if (!deletedIds.has(s.id) && !guestIds.has(s.id)) {
@@ -843,7 +848,12 @@ export function loadScopedTests(userId?: string | null): MathTest[] {
       if (Array.isArray(parsed)) {
         setInMemoryTests(userId, parsed);
         if (isGuest) {
-          const sanitizedGuestTests = parsed.filter((t: MathTest) => t && t.id && !deletedIds.has(t.id) && !isMasterOrRemedial(t));
+          const validSampleIds = new Set(SAMPLE_MATH_TESTS.map((s) => s.id));
+          const sanitizedGuestTests = parsed.filter((t: MathTest) => {
+            if (!t || !t.id || deletedIds.has(t.id) || isMasterOrRemedial(t)) return false;
+            if (t.id.startsWith('sample-') && !validSampleIds.has(t.id)) return false;
+            return true;
+          });
           const guestIds = new Set(sanitizedGuestTests.map((t) => t.id));
           SAMPLE_MATH_TESTS.forEach((s) => {
             if (!deletedIds.has(s.id) && !guestIds.has(s.id)) {

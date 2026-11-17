@@ -454,6 +454,195 @@ export const SAMPLE_MATH_TESTS: MathTest[] = [
         hint: "Multiply diagonal elements and subtract product of off-diagonal elements."
       }
     ]
+  },
+
+  {
+    id: 'sample-straight-lines-transformation',
+    title: 'Straight Line Transformation of Axis Assessment',
+    description: 'Specialized assessment on straight lines, translation and rotation of coordinate axes, algebraic invariants, and transformed curve equations.',
+    topic: 'Straight Lines & Coordinate Geometry',
+    time: 20,
+    difficulty: 'Medium',
+    timeLimitMinutes: 20,
+    passingScorePercentage: 60,
+    authorId: 'system',
+    authorName: 'Math Mastery Team',
+    isPublic: true,
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    updatedAt: new Date().toISOString(),
+    questionCount: 10,
+    questions: [
+      {
+        id: 'sl-q1',
+        text: 'When the origin is shifted to $(h, k)$ without rotating the coordinate axes, what are the transformation equations expressing the original coordinates $(x, y)$ in terms of the new coordinates $(X, Y)$?',
+        topic: 'Straight Lines & Coordinate Geometry',
+        subtopic: 'Translation of Axes',
+        type: 'mcq',
+        options: [
+          '$x = X + h,\\; y = Y + k$',
+          '$x = X - h,\\; y = Y - k$',
+          '$X = x + h,\\; Y = y + k$',
+          '$x = hX,\\; y = kY$'
+        ],
+        correctAnswer: 0,
+        explanation: 'If the origin is translated to $(h, k)$, a point with coordinates $(X, Y)$ relative to the new origin has coordinates $x = X + h$ and $y = Y + k$ relative to the original axes.',
+        points: 1,
+        hint: 'Original coordinate is the new coordinate plus the shift of the origin.'
+      },
+      {
+        id: 'sl-q2',
+        text: 'The coordinate axes are rotated through an angle $\\theta$ in the anticlockwise direction about the origin. What are the transformation relations for $(x, y)$ in terms of new coordinates $(X, Y)$?',
+        topic: 'Straight Lines & Coordinate Geometry',
+        subtopic: 'Rotation of Axes',
+        type: 'mcq',
+        options: [
+          '$x = X\\cos\\theta - Y\\sin\\theta,\\; y = X\\sin\\theta + Y\\cos\\theta$',
+          '$x = X\\cos\\theta + Y\\sin\\theta,\\; y = X\\sin\\theta - Y\\cos\\theta$',
+          '$x = X\\sin\\theta - Y\\cos\\theta,\\; y = X\\cos\\theta + Y\\sin\\theta$',
+          '$x = X\\cos\\theta,\\; y = Y\\sin\\theta$'
+        ],
+        correctAnswer: 0,
+        explanation: 'By the standard rotation matrix in $\\mathbb{R}^2$, $\\begin{bmatrix} x \\\\ y \\end{bmatrix} = \\begin{bmatrix} \\cos\\theta & -\\sin\\theta \\\\ \\sin\\theta & \\cos\\theta \\end{bmatrix} \\begin{bmatrix} X \\\\ Y \\end{bmatrix}$, yielding $x = X\\cos\\theta - Y\\sin\\theta$ and $y = X\\sin\\theta + Y\\cos\\theta$.',
+        points: 1,
+        hint: 'Use the standard 2D rotation matrix for a counterclockwise rotation.'
+      },
+      {
+        id: 'sl-q3',
+        text: 'To what point should the origin be shifted so that the linear terms in $x^2 + y^2 - 4x + 6y - 12 = 0$ are completely removed?',
+        topic: 'Straight Lines & Coordinate Geometry',
+        subtopic: 'Removal of First Degree Terms',
+        type: 'mcq',
+        options: [
+          '$(2, -3)$',
+          '$(-2, 3)$',
+          '$(4, -6)$',
+          '$(-4, 6)$'
+        ],
+        correctAnswer: 0,
+        explanation: 'Completing the square: $(x - 2)^2 - 4 + (y + 3)^2 - 9 - 12 = 0 \\implies (x - 2)^2 + (y + 3)^2 = 25$. Shifting the origin to the center $(h, k) = (2, -3)$ removes the first degree terms, yielding $X^2 + Y^2 = 25$.',
+        points: 1,
+        hint: 'Find the center of the circle by completing the squares.'
+      },
+      {
+        id: 'sl-q4',
+        text: 'Through what angle must the coordinate axes be rotated to eliminate the $xy$-term from the equation $ax^2 + 2hxy + by^2 = 0$ when $a \\ne b$?',
+        topic: 'Straight Lines & Coordinate Geometry',
+        subtopic: 'Elimination of xy Term',
+        type: 'mcq',
+        options: [
+          '$\\tan(2\\theta) = \\frac{2h}{a - b}$',
+          '$\\tan(2\\theta) = \\frac{a - b}{2h}$',
+          '$\\tan\\theta = \\frac{2h}{a + b}$',
+          '$\\cos(2\\theta) = \\frac{2h}{a - b}$'
+        ],
+        correctAnswer: 0,
+        explanation: 'Substituting $x = X\\cos\\theta - Y\\sin\\theta, y = X\\sin\\theta + Y\\cos\\theta$ into $ax^2 + 2hxy + by^2 = 0$, the coefficient of $XY$ is $2h(\\cos^2\\theta - \\sin^2\\theta) - 2(a - b)\\sin\\theta\\cos\\theta = 2h\\cos(2\\theta) - (a - b)\\sin(2\\theta)$. Setting this to 0 yields $\\tan(2\\theta) = \\frac{2h}{a - b}$.',
+        points: 1,
+        hint: 'Set the coefficient of the cross product term $XY$ to zero.'
+      },
+      {
+        id: 'sl-q5',
+        text: 'If the expression $ax^2 + 2hxy + by^2$ transforms into $A X^2 + 2H XY + B Y^2$ under a rotation of axes about the origin, which of the following is an invariant?',
+        topic: 'Straight Lines & Coordinate Geometry',
+        subtopic: 'Invariants under Rotation',
+        type: 'mcq',
+        options: [
+          '$a + b = A + B$',
+          '$a - b = A - B$',
+          '$ab + h^2 = AB + H^2$',
+          '$a^2 + b^2 = A^2 + B^2$'
+        ],
+        correctAnswer: 0,
+        explanation: 'Under any orthogonal rotation of coordinate axes, the trace $a + b$ and the discriminant $ab - h^2$ are algebraic invariants: $a + b = A + B$ and $ab - h^2 = AB - H^2$.',
+        points: 1,
+        hint: 'The sum of coefficients of squared terms represents the trace of the quadratic form matrix.'
+      },
+      {
+        id: 'sl-q6',
+        text: 'Find the transformed equation of the straight line $3x + 4y - 12 = 0$ when the origin is translated to the point $(2, 3)$.',
+        topic: 'Straight Lines & Coordinate Geometry',
+        subtopic: 'Transformation of Straight Line',
+        type: 'mcq',
+        options: [
+          '$3X + 4Y + 6 = 0$',
+          '$3X + 4Y - 6 = 0$',
+          '$3X + 4Y - 18 = 0$',
+          '$3X - 4Y + 6 = 0$'
+        ],
+        correctAnswer: 0,
+        explanation: 'Substitute $x = X + 2$ and $y = Y + 3$: $3(X + 2) + 4(Y + 3) - 12 = 0 \\implies 3X + 6 + 4Y + 12 - 12 = 0 \\implies 3X + 4Y + 6 = 0$.',
+        points: 1,
+        hint: 'Replace $x$ with $X + 2$ and $y$ with $Y + 3$.'
+      },
+      {
+        id: 'sl-q7',
+        text: 'What happens to the distance between two fixed points $P(x_1, y_1)$ and $Q(x_2, y_2)$ when the coordinate axes are translated and rotated?',
+        topic: 'Straight Lines & Coordinate Geometry',
+        subtopic: 'Distance Invariance',
+        type: 'mcq',
+        options: [
+          'It remains strictly invariant (unchanged)',
+          'It scales by $\\cos\\theta$',
+          'It increases by $\\sqrt{h^2 + k^2}$',
+          'It depends on the angle of rotation $\\theta$'
+        ],
+        correctAnswer: 0,
+        explanation: 'Translations and rotations in Euclidean space are isometries (rigid motions), which strictly preserve Euclidean distances between all pairs of points.',
+        points: 1,
+        hint: 'Rigid body motions do not stretch or compress space.'
+      },
+      {
+        id: 'sl-q8',
+        text: 'If the axes are rotated through an angle of $45^\\circ$ in the counterclockwise direction, what does the equation $x^2 - y^2 = a^2$ become?',
+        topic: 'Straight Lines & Coordinate Geometry',
+        subtopic: 'Rotation of Hyperbola Axes',
+        type: 'mcq',
+        options: [
+          '$-2XY = a^2$ (or $XY = -a^2/2$)',
+          '$X^2 + Y^2 = a^2$',
+          '$XY = a^2$',
+          '$2X^2 - Y^2 = a^2$'
+        ],
+        correctAnswer: 0,
+        explanation: 'Substitute $x = \\frac{X - Y}{\\sqrt{2}}$ and $y = \\frac{X + Y}{\\sqrt{2}}$. Then $x^2 - y^2 = \\frac{(X-Y)^2 - (X+Y)^2}{2} = \\frac{-4XY}{2} = -2XY = a^2$.',
+        points: 1,
+        hint: 'Use $\\cos 45^\\circ = \\sin 45^\\circ = 1/\\sqrt{2}$.'
+      },
+      {
+        id: 'sl-q9',
+        text: 'If the origin is shifted to $(1, 2)$, what are the new coordinates of the point $P(4, -3)$?',
+        topic: 'Straight Lines & Coordinate Geometry',
+        subtopic: 'Coordinates under Translation',
+        type: 'mcq',
+        options: [
+          '$(3, -5)$',
+          '$(5, -1)$',
+          '$(-3, 5)$',
+          '$(3, -1)$'
+        ],
+        correctAnswer: 0,
+        explanation: 'Using $X = x - h$ and $Y = y - k$ with $(h, k) = (1, 2)$ and $(x, y) = (4, -3)$: $X = 4 - 1 = 3$ and $Y = -3 - 2 = -5$. Thus, new coordinates are $(3, -5)$.',
+        points: 1,
+        hint: 'Subtract the coordinates of the new origin from the old coordinates.'
+      },
+      {
+        id: 'sl-q10',
+        text: 'Which geometric quantity of a polygon remains invariant under any transformation of rectangular coordinate axes (translation and rotation)?',
+        topic: 'Straight Lines & Coordinate Geometry',
+        subtopic: 'Area Invariance',
+        type: 'mcq',
+        options: [
+          'The area of the polygon',
+          'The y-intercept of its sides',
+          'The slope of its diagonal',
+          'The sum of the x-coordinates of its vertices'
+        ],
+        correctAnswer: 0,
+        explanation: 'Since orthogonal transformations have determinant $\\pm 1$, the Jacobian of the transformation is $1$. Hence, the area of any planar region or polygon remains strictly invariant.',
+        points: 1,
+        hint: 'The Jacobian determinant of a rigid rotation and translation is unity.'
+      }
+    ]
   }
 ];
 
