@@ -541,7 +541,7 @@ export default function App() {
     const raw = loadScopedTests(initialUser?.uid);
     const isMaster = isMasterUser(initialUser);
     const isGuest = isGuestUser(initialUser);
-    return mergePublishedMasterTests(raw, isMaster, isGuest);
+    return mergePublishedMasterTests(raw, isMaster, isGuest, initialUser);
   });
   const [attempts, setAttempts] = useState<TestAttempt[]>(() => {
     const initialUser = getCachedAuthUser();
@@ -562,7 +562,7 @@ export default function App() {
       const guest = isGuestUser(currentUser || cachedUser);
       if (!master) {
         const scoped = loadScopedTests(activeUid);
-        setTests(mergePublishedMasterTests(scoped, false, guest));
+        setTests(mergePublishedMasterTests(scoped, false, guest, currentUser || cachedUser));
       }
     });
 
@@ -581,7 +581,7 @@ export default function App() {
       const master = isMasterUser(currentUser || cachedUser);
       const guest = isGuestUser(currentUser || cachedUser);
       const scoped = loadScopedTests(targetUid);
-      const merged = mergePublishedMasterTests(scoped, master, guest);
+      const merged = mergePublishedMasterTests(scoped, master, guest, currentUser || cachedUser);
       setTests(merged);
     };
     window.addEventListener('tests-published-updated', handlePublishedUpdated);
@@ -2323,7 +2323,8 @@ export default function App() {
               tests={mergePublishedMasterTests(
                 tests,
                 isMasterUser(currentUser || cachedUser),
-                isGuestUser(currentUser || cachedUser)
+                isGuestUser(currentUser || cachedUser),
+                currentUser || cachedUser
               )}
               attempts={attempts}
               currentUser={currentUser}
@@ -2526,7 +2527,7 @@ export default function App() {
             const freshTests = loadScopedTests(targetUid);
             const isMaster = isMasterUser(currentUser || cachedUser);
             const isGuest = isGuestUser(currentUser || cachedUser);
-            const merged = mergePublishedMasterTests(freshTests, isMaster, isGuest);
+            const merged = mergePublishedMasterTests(freshTests, isMaster, isGuest, currentUser || cachedUser);
             if (Array.isArray(merged) && merged.length > 0) {
               setTests(merged);
             }

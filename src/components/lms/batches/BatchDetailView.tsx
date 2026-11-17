@@ -241,6 +241,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   // Helper to open PDF notes in Google Drive In-App Viewer
   const handleOpenNoteViewer = useCallback((clickedNote: PdfNote, allNotes: PdfNote[] = []) => {
     const list = allNotes.length > 0 ? allNotes : [clickedNote];
+    const currFold = selectedChapterId ? chapters.find((c) => c.id === selectedChapterId) : null;
+    const currBatch = batches.find((b) => b.id === selectedBatchId) || batches[0];
     const formatted: DriveViewerItem[] = list.map((n) => ({
       id: n.id,
       title: n.title,
@@ -248,14 +250,14 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       fileUrl: n.fileUrl || n.url || '',
       previewImageUrl: n.previewImageUrl,
       type: 'pdf',
-      subtitle: selectedChapter?.name || selectedFolder?.name || currentBatch?.title || 'Chapter Resource',
+      subtitle: currFold?.title || currBatch?.title || 'Chapter Resource',
       uploadedAt: n.createdAt,
     }));
     const foundIdx = formatted.findIndex((it) => it.id === clickedNote.id);
     setViewerItems(formatted);
     setViewerInitialIndex(foundIdx >= 0 ? foundIdx : 0);
     setIsViewerOpen(true);
-  }, [selectedChapter, selectedFolder, currentBatch]);
+  }, [selectedChapterId, chapters, selectedBatchId, batches]);
 
   // Helper to open images in Google Drive In-App Viewer
   const handleOpenImageViewer = useCallback((title: string, url: string) => {

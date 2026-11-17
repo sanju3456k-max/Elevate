@@ -431,6 +431,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
+  // Proactively fetch tests for all active batches from Firestore on startup & batch changes
+  useEffect(() => {
+    if (!batches || batches.length === 0) return;
+
+    let isMounted = true;
+    const syncActiveBatchTests = async () => {
+      try {
+        let hasNew = false;
+        let currentTests = [...batchTests];
+
+        for (const b of batches) {
+          if (!b.id) continue;
+          try {
+            const cloudTests = await fetchBatchTestsFromFirestore(b.id);
+            if (Array.isArray(cloudTests) && cloudTests.length > 0) {
+              cloudTests.forEach((ct) => {
+                const cId = ct.testId || ct.id;
+                if (!cId || isDeprecatedTest(ct)) return;
+                const existingIdx = currentTests.findIndex(
+                  (t) => (t.testId || t.id) === cId && t.batchId === b.id
+                );
+                if (existingIdx >= 0) {
+                  currentTests[existingIdx] = { ...currentTests[existingIdx], ...ct };
+                } else {
+                  currentTests.push(ct);
+                  hasNew = true;
+                }
+              });
+            }
+          } catch {}
+        }
+
+        if (isMounted && hasNew) {
+          const cleanList = currentTests.filter((t) => !isDeprecatedTest(t));
+          setBatchTests(cleanList);
+          try {
+            secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(cleanList));
+          } catch {}
+          window.dispatchEvent(new CustomEvent('batch-tests-updated'));
+        }
+      } catch (err) {
+        console.warn('Batch tests background sync notice:', err);
+      }
+    };
+
+    syncActiveBatchTests();
+    return () => {
+      isMounted = false;
+    };
+  }, [batches.length]);
+
   // 2. Live Auth State & Cloud Firestore Student Enrollment Synchronization (Zero-Leakage Session Lifecycle)
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -1228,6 +1279,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     showSecurityToast(`🎉 Free Guest Access Activated for "${targetBatch.title}"!`);
+
+    fetchBatchTestsFromFirestore(batchId).then((tests) => {
+      if (Array.isArray(tests) && tests.length > 0) {
+        setBatchTests((prev) => {
+          const others = prev.filter((t) => t.batchId !== batchId && !isDeprecatedTest(t));
+          const clean = tests.filter((t) => !isDeprecatedTest(t));
+          const next = [...others, ...clean];
+          try {
+            secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(next));
+          } catch {}
+          return next;
+        });
+      }
+      window.dispatchEvent(new CustomEvent('batch-tests-updated', { detail: { batchId } }));
+    }).catch(() => {
+      window.dispatchEvent(new CustomEvent('batch-tests-updated', { detail: { batchId } }));
+    });
+
     return { success: true, message: `Successfully enrolled in ${targetBatch.title} as guest.` };
   };
 
