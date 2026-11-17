@@ -291,7 +291,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
         isMinimized
           ? {
               bottom: isBottomNavVisible
-                ? 'calc(82px + env(safe-area-inset-bottom, 0px))'
+                ? 'calc(76px + env(safe-area-inset-bottom, 0px))'
                 : 'calc(14px + env(safe-area-inset-bottom, 0px))',
             }
           : undefined

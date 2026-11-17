@@ -2100,23 +2100,17 @@ export default function App() {
       {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'results' && activeTab !== 'create' && activeTab !== 'custom-builder' && activeTab !== 'master-console' && (
         <main className={`flex-1 min-w-0 bg-[#e5e9f0] dark:bg-[#0b0c10] ${
           ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && !isInsideBatch && !isChapterFullScreenActive
-            ? (persistentPlayback?.isMinimized ? 'pb-40 sm:pb-28' : 'pb-28 sm:pb-8')
-            : (persistentPlayback?.isMinimized ? 'pb-28 sm:pb-28' : 'pb-6 sm:pb-8')
+            ? (persistentPlayback?.isMinimized ? 'pb-36 sm:pb-28' : 'pb-24 sm:pb-8')
+            : (persistentPlayback?.isMinimized ? 'pb-24 sm:pb-28' : 'pb-6 sm:pb-8')
         }`}>
 
           {/* MOBILE BOTTOM NAVIGATION HEADER (Home, Courses, Tests, Analytics) - Completely plain and seamless with page body and navigation area */}
           {isAppLoaded && !isFullVideoPlayerActive && !isChapterFullScreenActive && ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && !isInsideBatch && (
-            <>
-              {/* Bottom Navigation Area Underlay: Pure White Seamless Field Merging with Android Navigation Area with 0 Partition Line */}
-              <div
-                className="fixed -bottom-40 inset-x-0 h-56 bg-white dark:bg-[#0b0c10] z-[50] pointer-events-none md:hidden border-0 border-none outline-none ring-0 shadow-none transition-colors duration-200"
-                aria-hidden="true"
-              />
-              <nav
-                id="mobile-bottom-nav"
-                aria-label="Mobile Bottom Navigation"
-                className="fixed bottom-0 left-0 right-0 z-[51] md:hidden bg-white dark:bg-[#0b0c10] border-0 border-none shadow-none outline-none ring-0 px-2 pt-1.5 pb-[calc(max(1.15rem,env(safe-area-inset-bottom,0px))+14px)] transition-colors duration-200"
-              >
+            <nav
+              id="mobile-bottom-nav"
+              aria-label="Mobile Bottom Navigation"
+              className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white dark:bg-[#0b0c10] border-0 border-none shadow-none outline-none ring-0 px-2 py-1.5 pb-[calc(max(0.65rem,env(safe-area-inset-bottom,0px)))] transition-colors duration-200"
+            >
               <div className="grid grid-cols-4 items-center justify-around max-w-md mx-auto">
                 {/* 1. Home */}
                 <button
@@ -2205,7 +2199,6 @@ export default function App() {
                 </button>
               </div>
             </nav>
-            </>
           )}
 
           {/* Home Dashboard (Elevate Unified Coaching & Assessment Feed) */}
