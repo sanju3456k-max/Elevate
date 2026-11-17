@@ -22,9 +22,11 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
 
 interface PdfCanvasViewerProps {
   url: string;
+  fallbackEmbedUrl?: string;
   fileName?: string;
   onClose?: () => void;
   hideTopToolbar?: boolean;
+  hideBottomDock?: boolean;
 }
 
 // Single Page Canvas Renderer Component for Continuous Scroll and High Performance
@@ -168,9 +170,11 @@ const ContinuousPageItem: React.FC<ContinuousPageItemProps> = ({
 
 export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
   url,
+  fallbackEmbedUrl,
   fileName,
   onClose,
   hideTopToolbar = false,
+  hideBottomDock = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -545,8 +549,8 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
           isDragging ? 'cursor-grabbing' : ''
         }`}
       >
-        {/* Floating Minimal Controls Dock when top toolbar is hidden */}
-        {hideTopToolbar && (
+        {/* Floating Minimal Controls Dock when top toolbar is hidden and bottom dock not suppressed */}
+        {hideTopToolbar && !hideBottomDock && (
           <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/95 dark:bg-[#16171d]/95 border border-slate-200/80 dark:border-white/10 shadow-2xl backdrop-blur-md text-xs select-none">
             <button
               type="button"
@@ -620,21 +624,32 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
           </div>
         )}
 
-        {/* Error Notification */}
+        {/* Error Notification or Seamless Embedded Fallback */}
         {error ? (
-          <div className="m-auto text-center p-6 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-3xl max-w-md space-y-3 shadow-lg">
-            <AlertTriangle className="w-8 h-8 text-rose-500 mx-auto" />
-            <h4 className="text-sm font-bold text-rose-700 dark:text-rose-200">Unable to Render PDF</h4>
-            <p className="text-xs text-rose-600/80 dark:text-rose-300/80">{error}</p>
-            <a
-              href={url}
-              download={fileName || 'document.pdf'}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all no-underline"
-            >
-              <Download className="w-4 h-4" />
-              <span>Download PDF File</span>
-            </a>
-          </div>
+          fallbackEmbedUrl ? (
+            <div className="w-full h-full flex flex-col relative bg-white dark:bg-[#121318]">
+              <iframe
+                src={fallbackEmbedUrl}
+                title={fileName || 'PDF Document'}
+                className="w-full h-full border-0 bg-white dark:bg-[#121318]"
+                allow="autoplay; fullscreen"
+              />
+            </div>
+          ) : (
+            <div className="m-auto text-center p-6 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-3xl max-w-md space-y-3 shadow-lg">
+              <AlertTriangle className="w-8 h-8 text-rose-500 mx-auto" />
+              <h4 className="text-sm font-bold text-rose-700 dark:text-rose-200">Unable to Render PDF</h4>
+              <p className="text-xs text-rose-600/80 dark:text-rose-300/80">{error}</p>
+              <a
+                href={url}
+                download={fileName || 'document.pdf'}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all no-underline"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download PDF File</span>
+              </a>
+            </div>
+          )
         ) : pdfDoc ? (
           /* 1. CONTINUOUS VERTICAL SCROLL MODE (Zero or minor 1-2px gap between slides) */
           displayMode === 'continuous' ? (

@@ -176,8 +176,38 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
   const handleTogglePlay = useCallback((e?: React.MouseEvent) => {
     e?.stopPropagation();
     showMiniControlsForDuration(5000);
-    onUpdatePlayback((prev) => (prev ? { ...prev, isPlaying: !prev.isPlaying } : null));
-  }, [onUpdatePlayback, showMiniControlsForDuration]);
+
+    const nextIsPlaying = !playback?.isPlaying;
+
+    // 1. Direct synchronous postMessage to YouTube iframe for instant zero-latency playback toggle
+    try {
+      const iframes = document.querySelectorAll('iframe');
+      iframes.forEach((ifr) => {
+        if (ifr.src && (ifr.src.includes('youtube') || ifr.src.includes('youtu.be'))) {
+          ifr.contentWindow?.postMessage(
+            JSON.stringify({
+              event: 'command',
+              func: nextIsPlaying ? 'playVideo' : 'pauseVideo',
+              args: [],
+            }),
+            '*'
+          );
+        }
+      });
+    } catch {}
+
+    // 2. Dispatch custom event for active CloakedVideoPlayer instance
+    try {
+      window.dispatchEvent(
+        new CustomEvent('elevate_player_toggle_play', {
+          detail: { isPlaying: nextIsPlaying },
+        })
+      );
+    } catch {}
+
+    // 3. Update persistent state
+    onUpdatePlayback((prev) => (prev ? { ...prev, isPlaying: nextIsPlaying } : null));
+  }, [onUpdatePlayback, showMiniControlsForDuration, playback?.isPlaying]);
 
   const handlePlayStateChange = useCallback(
     (playing: boolean) => {
@@ -309,11 +339,13 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 handleTogglePlay(e);
               }}
             >
-              {/* Top Row: Opaque black gradient with edge shadow completely covering YouTube title and channel avatar */}
+              {/* Top Row: Solid black base with gradient completely covering YouTube title and channel avatar */}
               <div
-                className="w-full h-13 sm:h-14 bg-gradient-to-b from-black from-75% via-black/90 to-transparent flex items-start justify-between px-2.5 pt-2 z-10"
+                className="w-full h-16 sm:h-18 bg-gradient-to-b from-black from-75% via-black/95 to-transparent flex items-start justify-between px-2.5 pt-2 z-10 relative"
                 onClick={(e) => e.stopPropagation()}
               >
+                {/* Solid Top Cloak (Zero bleed for YouTube title/channel header) */}
+                <div className="absolute top-0 inset-x-0 h-10 bg-black pointer-events-none -z-1" />
                 <button
                   type="button"
                   id="desktop-miniplayer-expand-btn"
@@ -321,7 +353,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                     e.stopPropagation();
                     handleExpand();
                   }}
-                  className="w-7 h-7 rounded-full bg-black/60 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center transition border-none cursor-pointer shadow-md"
+                  className="w-7 h-7 rounded-full bg-black/70 hover:bg-black active:scale-90 text-white flex items-center justify-center transition border-none cursor-pointer shadow-md relative z-10"
                   title="Expand to Full Video"
                   aria-label="Expand to Full Video"
                 >
@@ -334,7 +366,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                     e.stopPropagation();
                     handleClose(e);
                   }}
-                  className="w-7 h-7 rounded-full bg-black/60 hover:bg-rose-600 active:scale-90 text-white flex items-center justify-center transition border-none cursor-pointer shadow-md"
+                  className="w-7 h-7 rounded-full bg-black/70 hover:bg-rose-600 active:scale-90 text-white flex items-center justify-center transition border-none cursor-pointer shadow-md relative z-10"
                   title="Close Video"
                   aria-label="Close Video"
                 >
@@ -351,7 +383,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                     e.stopPropagation();
                     handleTogglePlay(e);
                   }}
-                  className="w-13 h-13 rounded-full bg-black/80 hover:bg-black active:scale-90 text-white flex items-center justify-center transition border border-white/15 cursor-pointer shadow-2xl"
+                  className="w-13 h-13 rounded-full bg-black/85 hover:bg-black active:scale-90 text-white flex items-center justify-center transition border border-white/20 cursor-pointer shadow-2xl"
                   title={playback.isPlaying ? 'Pause' : 'Play'}
                   aria-label={playback.isPlaying ? 'Pause' : 'Play'}
                 >
@@ -363,12 +395,14 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 </button>
               </div>
 
-              {/* Bottom Row: Elegant gradient shadow overlay strip with soft edge shadow completely hiding YouTube cards */}
+              {/* Bottom Row: Solid jet-black base + gradient completely covering YouTube official buttons, share, alerts & endcards for 5s */}
               <div
-                className="w-full h-14 sm:h-16 bg-gradient-to-t from-black from-60% via-black/85 to-transparent flex items-end justify-between px-3 pb-2 z-10 select-none"
+                className="w-full h-16 sm:h-20 bg-gradient-to-t from-black from-70% via-black/95 to-transparent flex items-end justify-between px-3 pb-2.5 z-10 select-none relative"
                 onClick={(e) => e.stopPropagation()}
               >
-                <span className="text-white text-[11px] font-mono font-medium drop-shadow">
+                {/* 100% Solid Black Bottom Shield (Completely hides YouTube share, alerts strip and related video boxes) */}
+                <div className="absolute bottom-0 inset-x-0 h-11 bg-black pointer-events-none -z-1" />
+                <span className="text-white text-[11px] font-mono font-medium drop-shadow relative z-10">
                   {formatDuration(currentPlaybackSec)} / {formatDuration(totalDuration > 0 ? totalDuration : ((playback.durationMinutes || 0) * 60))}
                 </span>
               </div>

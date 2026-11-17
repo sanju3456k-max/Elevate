@@ -24,6 +24,7 @@ import { extractGoogleDriveId, buildGoogleDrivePreviewUrl } from '../../../lms/s
 import { isImageFile, isPdfFile, getDriveImageCandidates } from '../../../lib/filePreviewUtils';
 import { useScrollLock } from '../../../hooks/useScrollLock';
 import { useBackHandler } from '../../../hooks/useBackNavigation';
+import { PdfCanvasViewer } from '../../PdfCanvasViewer';
 
 export interface DriveViewerItem {
   id?: string;
@@ -313,7 +314,7 @@ export const GoogleDriveFileViewerModal: React.FC<GoogleDriveFileViewerModalProp
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.15 }}
-        className="fixed inset-0 z-50 flex flex-col bg-[#f8fafc] dark:bg-[#0b0c10] text-slate-900 dark:text-white select-none overflow-hidden"
+        className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-[#0b0c10] text-slate-900 dark:text-white select-none overflow-hidden"
       >
         {/* ================= GOOGLE DRIVE TOP BAR ================= */}
         <header className="h-14 px-3 sm:px-5 bg-white/95 dark:bg-[#16171d]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-white/10 shrink-0 flex items-center justify-between gap-3 z-30 select-none shadow-xs">
@@ -492,22 +493,29 @@ export const GoogleDriveFileViewerModal: React.FC<GoogleDriveFileViewerModalProp
               )}
             </div>
 
-            {/* Close Button */}
-            <button
-              type="button"
-              onClick={onClose}
+            {/* Google Drive Redirect Button (Replaced rightmost Close button - Left Back Arrow handles close) */}
+            <a
+              href={
+                driveId
+                  ? `https://drive.google.com/file/d/${driveId}/view`
+                  : rawUrl.includes('drive.google.com')
+                  ? rawUrl
+                  : (driveEmbedUrl || rawUrl)
+              }
+              target="_blank"
+              rel="noopener noreferrer"
               className="w-9 h-9 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-white/80 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer active:scale-95 border-0 bg-transparent shrink-0"
-              title="Close Preview (Esc)"
-              aria-label="Close"
+              title="Open in Google Drive"
+              aria-label="Open in Google Drive"
             >
-              <X className="w-5 h-5" />
-            </button>
+              <ExternalLink className="w-4 h-4" />
+            </a>
           </div>
         </header>
 
         {/* ================= MAIN CONTENT VIEWPORT ================= */}
         <main
-          className="flex-1 w-full h-full relative overflow-hidden flex items-center justify-center bg-white dark:bg-[#07080b]"
+          className="flex-1 w-full h-full relative overflow-hidden flex items-center justify-center bg-white dark:bg-[#0b0c10]"
           onWheel={handleWheel}
         >
           {/* FLOATING PREVIOUS ARROW */}
@@ -620,17 +628,23 @@ export const GoogleDriveFileViewerModal: React.FC<GoogleDriveFileViewerModalProp
             </div>
           )}
 
-          {/* 2. PDF RENDERING ENGINE (Google Drive Embedded Viewer) */}
+          {/* 2. PDF RENDERING ENGINE (Direct High-Resolution Canvas with Seamless Continuous Scroll) */}
           {detectedType === 'pdf' && (
-            <div className="w-full h-full flex flex-col relative">
-              <div className="w-full h-full relative overflow-hidden">
-                <iframe
-                  src={driveEmbedUrl || (driveId ? buildGoogleDrivePreviewUrl(driveId) : rawUrl)}
-                  title={currentItem.title}
-                  className="w-full h-full border-0 bg-white dark:bg-[#121318]"
-                  allow="autoplay; fullscreen"
-                />
-              </div>
+            <div className="w-full h-full flex flex-col relative bg-white dark:bg-[#0b0c10]">
+              <PdfCanvasViewer
+                url={
+                  rawUrl.startsWith('data:') || rawUrl.endsWith('.pdf') || rawUrl.includes('/api/')
+                    ? rawUrl
+                    : driveId
+                    ? `/api/drive/media/${driveId}`
+                    : rawUrl
+                }
+                fallbackEmbedUrl={driveEmbedUrl || (driveId ? buildGoogleDrivePreviewUrl(driveId) : rawUrl)}
+                fileName={currentItem.title}
+                hideTopToolbar={true}
+                hideBottomDock={true}
+                onClose={onClose}
+              />
             </div>
           )}
 

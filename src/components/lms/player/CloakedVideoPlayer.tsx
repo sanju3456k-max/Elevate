@@ -296,14 +296,28 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     setActivePosterImage(posterSource);
   }, [posterSource]);
 
-  // Dynamic Moving DRM Watermark Position (drifts across screen every 7s to deter screen recording)
+  // Dynamic Moving DRM Watermark Position (drifts smoothly across screen with gentle easing, 0 flicker)
   useEffect(() => {
+    const waypoints = [
+      { top: 22, left: 18 },
+      { top: 28, left: 62 },
+      { top: 65, left: 68 },
+      { top: 58, left: 22 },
+      { top: 35, left: 45 },
+      { top: 70, left: 40 },
+      { top: 25, left: 30 },
+    ];
+    let step = 0;
     const interval = setInterval(() => {
-      // Keep safely within the visible player area (top 15%..75%, left 10%..70%)
-      const nextTop = Math.floor(15 + Math.random() * 60);
-      const nextLeft = Math.floor(10 + Math.random() * 60);
-      setWatermarkPos({ top: nextTop, left: nextLeft });
-    }, 7000);
+      step = (step + 1) % waypoints.length;
+      const base = waypoints[step];
+      const jitterTop = Math.floor((Math.random() - 0.5) * 6);
+      const jitterLeft = Math.floor((Math.random() - 0.5) * 6);
+      setWatermarkPos({
+        top: Math.max(16, Math.min(74, base.top + jitterTop)),
+        left: Math.max(12, Math.min(72, base.left + jitterLeft)),
+      });
+    }, 11000);
     return () => clearInterval(interval);
   }, []);
 
@@ -432,6 +446,27 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       }
     });
   }, [isPlayingProp, safeCallPlayer]);
+
+  // Synchronous Custom Event listener for instant zero-latency miniplayer controls
+  useEffect(() => {
+    const handleGlobalToggle = (e: any) => {
+      const shouldPlay = e.detail?.isPlaying;
+      if (shouldPlay !== undefined) {
+        setIsPlaying(shouldPlay);
+        isPlayingRef.current = shouldPlay;
+        safeCallPlayer((p) => {
+          if (shouldPlay) {
+            if (p.playVideo) p.playVideo();
+            setHasEverPlayed(true);
+          } else {
+            if (p.pauseVideo) p.pauseVideo();
+          }
+        });
+      }
+    };
+    window.addEventListener('elevate_player_toggle_play', handleGlobalToggle);
+    return () => window.removeEventListener('elevate_player_toggle_play', handleGlobalToggle);
+  }, [safeCallPlayer]);
 
   // Initialize or re-create player with high definition rendering
   useEffect(() => {
@@ -1404,28 +1439,29 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         <div className="absolute top-0 inset-x-0 h-24 sm:h-30 bg-gradient-to-b from-black from-75% via-black/90 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
       )}
 
-      {/* 1d. Forensic Dynamic Moving Watermark Overlay (Anti-Piracy Screen Recording Deterrent) */}
+      {/* 1d. Forensic Dynamic Moving Watermark Overlay (100% Transparent, Ultra-Smooth Continuous Glide, 0 Distraction) */}
       {securitySettings?.enableDynamicWatermark !== false && (
         <div
           id="cloaked-player-dynamic-watermark"
-          className={`absolute pointer-events-none select-none z-35 transition-all duration-1000 ease-in-out font-mono flex flex-col items-start px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg bg-black/70 backdrop-blur-xs border border-white/20 shadow-2xl ${
-            isMini && !isFullscreen ? 'scale-75 origin-top-left' : ''
+          className={`absolute pointer-events-none select-none z-35 font-mono text-white/30 drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] flex flex-col items-center text-center leading-tight tracking-wider scale-85 sm:scale-100 ${
+            isMini && !isFullscreen ? 'scale-70 origin-top-left' : ''
           }`}
           style={{
             top: `${watermarkPos.top}%`,
             left: `${watermarkPos.left}%`,
             transform: 'translate(-50%, -50%)',
+            transition: 'top 8500ms cubic-bezier(0.4, 0, 0.2, 1), left 8500ms cubic-bezier(0.4, 0, 0.2, 1)',
+            willChange: 'top, left',
           }}
         >
-          <div className="flex items-center gap-1.5 font-bold tracking-wider text-[11px] sm:text-xs text-white">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>{user?.name || 'Elevate Student'}</span>
-          </div>
-          <span className="text-[9.5px] text-slate-200 font-medium">
-            {user?.email || user?.phone || `UID: ${user?.id ? user.id.slice(0, 8) : 'STUDENT'}`}
+          <span className="text-[8.5px] sm:text-[11px] font-bold tracking-wider text-white/35">
+            {user?.name || 'Elevate Student'}
           </span>
-          <span className="text-[8.5px] text-amber-300 font-mono tracking-wider">
-            ID: {playbackToken?.token ? playbackToken.token.slice(0, 8).toUpperCase() : (user?.id ? user.id.slice(0, 8).toUpperCase() : 'SECURE-STREAM')}
+          <span className="text-[7.5px] sm:text-[9.5px] font-medium tracking-wide text-white/30">
+            {user?.email || user?.phone || `UID: ${user?.id ? user.id.slice(0, 8).toUpperCase() : 'STUDENT'}`}
+          </span>
+          <span className="text-[6.5px] sm:text-[8.5px] tracking-widest uppercase text-white/25">
+            ID: {playbackToken?.token ? playbackToken.token.slice(0, 8).toUpperCase() : (user?.id ? user.id.slice(0, 8).toUpperCase() : 'SECURE')}
           </span>
         </div>
       )}
@@ -1788,6 +1824,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           }}
           className="relative py-2 flex items-center cursor-pointer group/scrub"
         >
+          {/* Solid Black Shield aligned strictly to the bottom edge of the streaming line, extending all the way down to bottom edge */}
+          <div className="absolute -inset-x-4 sm:-inset-x-6 top-[calc(50%+3px)] -bottom-28 bg-black pointer-events-none -z-10" />
+
           <input
             type="range"
             min="0"
