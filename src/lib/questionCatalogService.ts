@@ -283,20 +283,23 @@ export function hydrateQuestionsForTest(
 export async function fetchTestFromAllCatalogs(
   testId: string,
   batchId?: string | null,
-  chunkId?: string | null
+  chunkId?: string | null,
+  options?: { bypassLocalCache?: boolean; minUpdatedAt?: string | number }
 ): Promise<MathTest | null> {
   if (!testId) return null;
   const cleanTestId = testId.trim();
+  const minTime = options?.minUpdatedAt ? new Date(options.minUpdatedAt).getTime() : 0;
 
-  // 1. Check local storage test caches
-  if (typeof localStorage !== 'undefined') {
+  // 1. Check local storage test caches (if not bypassed)
+  if (!options?.bypassLocalCache && typeof localStorage !== 'undefined') {
     try {
       if (batchId) {
         const batchKey = `batch_${batchId.trim()}_test_${cleanTestId}`;
         const raw = localStorage.getItem(batchKey);
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (parsed && Array.isArray(parsed.questions) && parsed.questions.length > 0) {
+          const parsedTime = parsed?.updatedAt ? new Date(parsed.updatedAt).getTime() : 0;
+          if (parsed && Array.isArray(parsed.questions) && parsed.questions.length > 0 && (!minTime || parsedTime >= minTime)) {
             return parsed;
           }
         }
@@ -305,7 +308,8 @@ export async function fetchTestFromAllCatalogs(
       const genericRaw = localStorage.getItem(genericKey);
       if (genericRaw) {
         const parsed = JSON.parse(genericRaw);
-        if (parsed && Array.isArray(parsed.questions) && parsed.questions.length > 0) {
+        const parsedTime = parsed?.updatedAt ? new Date(parsed.updatedAt).getTime() : 0;
+        if (parsed && Array.isArray(parsed.questions) && parsed.questions.length > 0 && (!minTime || parsedTime >= minTime)) {
           return parsed;
         }
       }
@@ -313,17 +317,22 @@ export async function fetchTestFromAllCatalogs(
   }
 
   // 2. Check IndexedDB
-  try {
-    const idbTest = await getTestFromIndexedDB(null, cleanTestId);
-    if (idbTest && Array.isArray(idbTest.questions) && idbTest.questions.length > 0) {
-      return idbTest;
-    }
-  } catch {}
+  if (!options?.bypassLocalCache) {
+    try {
+      const idbTest = await getTestFromIndexedDB(null, cleanTestId);
+      const idbTime = idbTest?.updatedAt ? new Date(idbTest.updatedAt).getTime() : 0;
+      if (idbTest && Array.isArray(idbTest.questions) && idbTest.questions.length > 0 && (!minTime || idbTime >= minTime)) {
+        return idbTest;
+      }
+    } catch {}
+  }
 
   // 3. Check SAMPLE_MATH_TESTS
-  const sample = SAMPLE_MATH_TESTS.find((s) => s.id === cleanTestId);
-  if (sample && Array.isArray(sample.questions) && sample.questions.length > 0) {
-    return sample;
+  if (!options?.bypassLocalCache) {
+    const sample = SAMPLE_MATH_TESTS.find((s) => s.id === cleanTestId);
+    if (sample && Array.isArray(sample.questions) && sample.questions.length > 0) {
+      return sample;
+    }
   }
 
   // Auto-detect batchId from localStorage if not passed

@@ -1441,21 +1441,29 @@ export async function loadFullTestOnDemand(
   memoryTests?: MathTest[], 
   userId?: string | null,
   batchId?: string | null,
-  chunkId?: string | null
+  chunkId?: string | null,
+  forceFresh?: boolean
 ): Promise<MathTest | null> {
   if (!testId) return null;
   const cleanId = testId.trim();
 
-  // 1. Check in-memory tests first
-  if (memoryTests && Array.isArray(memoryTests)) {
-    const found = memoryTests.find((t) => t.id === cleanId || (t as any).testId === cleanId);
-    if (found && Array.isArray(found.questions) && found.questions.length > 0) {
-      return found;
+  // Find candidate in memory to detect latest known updatedAt timestamp
+  const memMatch = memoryTests && Array.isArray(memoryTests)
+    ? memoryTests.find((t) => t.id === cleanId || (t as any).testId === cleanId)
+    : null;
+  const minUpdatedAt = memMatch?.updatedAt || (memMatch as any)?.timestamp;
+  const minTime = minUpdatedAt ? new Date(minUpdatedAt).getTime() : 0;
+
+  // 1. Check in-memory tests first (only if has questions and satisfies minUpdatedAt)
+  if (!forceFresh && memMatch && Array.isArray(memMatch.questions) && memMatch.questions.length > 0) {
+    const memTime = memMatch.updatedAt ? new Date(memMatch.updatedAt).getTime() : 0;
+    if (!minTime || memTime >= minTime) {
+      return memMatch;
     }
   }
 
   // 1b. Check local batch test cache if batchId is provided or detected
-  if (typeof localStorage !== 'undefined') {
+  if (!forceFresh && typeof localStorage !== 'undefined') {
     try {
       const activeBatch = batchId || localStorage.getItem('math_mock_selected_batch_id');
       if (activeBatch) {
@@ -1463,44 +1471,64 @@ export async function loadFullTestOnDemand(
         const raw = localStorage.getItem(batchKey);
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (parsed && Array.isArray(parsed.questions) && parsed.questions.length > 0) {
+          const parsedTime = parsed?.updatedAt ? new Date(parsed.updatedAt).getTime() : 0;
+          if (parsed && Array.isArray(parsed.questions) && parsed.questions.length > 0 && (!minTime || parsedTime >= minTime)) {
             return parsed;
           }
         }
       }
       const genericCached = getCachedFullTest(cleanId);
       if (genericCached && Array.isArray(genericCached.questions) && genericCached.questions.length > 0) {
-        return genericCached;
+        const genTime = genericCached?.updatedAt ? new Date(genericCached.updatedAt).getTime() : 0;
+        if (!minTime || genTime >= minTime) {
+          return genericCached;
+        }
       }
     } catch {}
   }
 
   // 2. Check local scoped storage cache
-  const localScoped = loadScopedTests(userId);
-  const foundLocal = localScoped.find((t) => t.id === cleanId || (t as any).testId === cleanId);
-  if (foundLocal && Array.isArray(foundLocal.questions) && foundLocal.questions.length > 0) {
-    return foundLocal;
+  if (!forceFresh) {
+    const localScoped = loadScopedTests(userId);
+    const foundLocal = localScoped.find((t) => t.id === cleanId || (t as any).testId === cleanId);
+    if (foundLocal && Array.isArray(foundLocal.questions) && foundLocal.questions.length > 0) {
+      const locTime = foundLocal?.updatedAt ? new Date(foundLocal.updatedAt).getTime() : 0;
+      if (!minTime || locTime >= minTime) {
+        return foundLocal;
+      }
+    }
   }
 
   // 2b. Check high-capacity IndexedDB storage cache
-  try {
-    const idbTest = await getTestFromIndexedDB(userId, cleanId);
-    if (idbTest && Array.isArray(idbTest.questions) && idbTest.questions.length > 0) {
-      return idbTest;
-    }
-  } catch {}
+  if (!forceFresh) {
+    try {
+      const idbTest = await getTestFromIndexedDB(userId, cleanId);
+      if (idbTest && Array.isArray(idbTest.questions) && idbTest.questions.length > 0) {
+        const idbTime = idbTest?.updatedAt ? new Date(idbTest.updatedAt).getTime() : 0;
+        if (!minTime || idbTime >= minTime) {
+          return idbTest;
+        }
+      }
+    } catch {}
+  }
 
   // 3. Check sample tests
-  const sample = SAMPLE_MATH_TESTS.find((s) => s.id === cleanId);
-  if (sample && Array.isArray(sample.questions) && sample.questions.length > 0) {
-    return sample;
+  if (!forceFresh) {
+    const sample = SAMPLE_MATH_TESTS.find((s) => s.id === cleanId);
+    if (sample && Array.isArray(sample.questions) && sample.questions.length > 0) {
+      return sample;
+    }
   }
 
   // 4. Fetch on demand from multi-tier catalogs (Batch catalog chunks, batch tests, leaderboards published_paper, user tests, root tests)
   try {
-    const remote = await fetchTestFromAllCatalogs(cleanId, batchId, chunkId);
+    const remote = await fetchTestFromAllCatalogs(cleanId, batchId, chunkId, {
+      bypassLocalCache: Boolean(forceFresh),
+      minUpdatedAt,
+    });
     if (remote && Array.isArray(remote.questions) && remote.questions.length > 0) {
       // Update local cache and IndexedDB with hydrated test
+      const localScoped = loadScopedTests(userId);
       const updated = localScoped.map((t) => (t.id === cleanId ? remote : t));
       if (!updated.some((t) => t.id === cleanId)) {
         updated.push(remote);

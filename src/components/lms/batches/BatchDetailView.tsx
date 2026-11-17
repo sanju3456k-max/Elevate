@@ -2080,6 +2080,37 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             />
           </>
         )}
+
+        {/* Test Detail & Attempt Records Modal with Dual Mode Options (OMR + Online) */}
+        <TestDetailModal
+          test={detailedTest}
+          onClose={() => setDetailedTest(null)}
+          attempts={attempts}
+          userProfile={userProfile}
+          currentUser={auth.currentUser || (currentUser as any)}
+          allTests={allCandidateTests}
+          onStartTest={(testToStart) => {
+            if (onStartTest) {
+              onStartTest(testToStart, {
+                batchId: selectedBatchId || currentBatch?.id || '',
+                chapterId: selectedChapterId,
+                folderTab: 'tests',
+              });
+            }
+          }}
+          onStartOmrTest={(testToStart) => {
+            if (onStartOmrTest) {
+              onStartOmrTest(testToStart, {
+                batchId: selectedBatchId || currentBatch?.id || '',
+                chapterId: selectedChapterId,
+                folderTab: 'tests',
+              });
+            } else {
+              showSecurityToast('Opening OMR runner...');
+            }
+          }}
+          onViewAttemptResult={onViewAttemptResult}
+        />
       </div>
     );
   }

@@ -33,6 +33,7 @@ import { getLectureThumbnailUrl } from '../../lms/security';
 import { isMasterUser } from '../../lib/masterAccount';
 import { getTestDurationMinutes } from '../../utils/testFormatConverter';
 import { DEFAULT_HIGH_RES_BANNER } from '../lms/batches/BatchThumbnailPicker';
+import { TestDetailModal } from '../TestDetailModal';
 
 interface HomeDashboardProps {
   tests: MathTest[];
@@ -40,6 +41,8 @@ interface HomeDashboardProps {
   currentUser: User | null;
   userProfile?: UserProfile | null;
   onStartTest: (test: MathTest) => void;
+  onStartOmrTest?: (test: MathTest) => void;
+  onViewAttemptResult?: (attempt: TestAttempt) => void;
   onOpenBatches: (filter?: 'all' | 'my-batches') => void;
   onSelectBatch?: (batchId: string) => void;
   onSelectLecture?: (batchId: string, lectureId: string) => void;
@@ -68,6 +71,8 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   currentUser,
   userProfile,
   onStartTest,
+  onStartOmrTest,
+  onViewAttemptResult,
   onOpenBatches,
   onSelectBatch,
   onSelectLecture,
@@ -81,6 +86,9 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 }) => {
   const { batches, lectures, chapters, batchTests, watchProgress, isEnrolled, announcements, setActiveBatchId, setActiveLectureId } = useApp();
   
+  // Selected test for Test Details & Dual Mode (OMR + Online) Modal
+  const [detailedTest, setDetailedTest] = useState<MathTest | null>(null);
+
   // Filter state for the 4 core buttons: 'all-batches' | 'my-batches' | 'test-library' | 'activity'
   const [activeView, setActiveView] = useState<'all-batches' | 'my-batches' | 'test-library' | 'activity'>('all-batches');
 
@@ -453,7 +461,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             {latestTest && (
               <div
                 onClick={() => {
-                  onStartTest(latestTest);
+                  setDetailedTest(latestTest);
                 }}
                 className="p-3.5 sm:p-4 rounded-[24px] bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 relative overflow-hidden cursor-pointer group flex flex-col justify-between gap-2.5"
               >
@@ -838,6 +846,29 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
           )}
         </div>
       </div>
+
+      {/* Test Detail & Attempt Records Modal with Dual Mode Options (OMR + Online) */}
+      <TestDetailModal
+        test={detailedTest}
+        onClose={() => setDetailedTest(null)}
+        attempts={attempts}
+        userProfile={userProfile}
+        currentUser={currentUser}
+        allTests={tests}
+        onStartTest={(testToStart) => {
+          setDetailedTest(null);
+          onStartTest(testToStart);
+        }}
+        onStartOmrTest={(testToStart) => {
+          setDetailedTest(null);
+          if (onStartOmrTest) {
+            onStartOmrTest(testToStart);
+          } else if (onOpenOmr) {
+            onOpenOmr();
+          }
+        }}
+        onViewAttemptResult={onViewAttemptResult}
+      />
     </div>
   );
 };
