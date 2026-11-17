@@ -32,6 +32,7 @@ import { useApp, getFacultyAvatarUrl } from '../../lms/LmsContext';
 import { getLectureThumbnailUrl } from '../../lms/security';
 import { isMasterUser } from '../../lib/masterAccount';
 import { getTestDurationMinutes } from '../../utils/testFormatConverter';
+import { DEFAULT_HIGH_RES_BANNER } from '../lms/batches/BatchThumbnailPicker';
 
 interface HomeDashboardProps {
   tests: MathTest[];
@@ -749,11 +750,14 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
       onClick={onSelect}
       className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-0 border-none shadow-xs hover:shadow-md items-stretch"
     >
-      <div className="relative w-36 sm:w-full aspect-video shrink-0 self-stretch overflow-hidden">
+      <div className="relative w-36 sm:w-full aspect-video shrink-0 self-stretch overflow-hidden bg-slate-900/10 dark:bg-black/40">
         <img
-          src={batch.thumbnailUrl}
+          src={batch.bannerUrl || batch.thumbnailUrl || DEFAULT_HIGH_RES_BANNER}
           alt={batch.title}
           className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = DEFAULT_HIGH_RES_BANNER;
+          }}
         />
         <span className="absolute top-1.5 left-1.5 sm:top-3 sm:left-3 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-[var(--md-sys-color-surface-container-highest)]/90 backdrop-blur-md text-[var(--md-sys-color-on-surface)] text-[9px] sm:text-xs font-semibold border-none">
           {batch.category || 'Batch #01'}

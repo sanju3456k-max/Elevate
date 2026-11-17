@@ -1118,9 +1118,12 @@ export const BatchAdminStudio: React.FC = () => {
                           {/* Banner Image with Category & Status Overlay */}
                           <div className="h-44 w-full relative overflow-hidden bg-black">
                             <img
-                              src={b.bannerUrl || b.thumbnailUrl}
+                              src={b.bannerUrl || b.thumbnailUrl || '/assets/default-course-banner.png'}
                               alt={b.title}
                               className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src = '/assets/default-course-banner.png';
+                              }}
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
 

@@ -113,9 +113,12 @@ export const BatchQuickEnrollModal: React.FC<BatchQuickEnrollModalProps> = ({
         <div className="p-6 border-b border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between sticky top-0 bg-[var(--md-sys-color-surface-container)] z-10 backdrop-blur-md">
           <div className="flex items-center space-x-3">
             <img
-              src={batch.thumbnailUrl}
-              alt=""
+              src={batch.bannerUrl || batch.thumbnailUrl || '/assets/default-course-banner.png'}
+              alt={batch.title || ''}
               className="w-12 h-12 rounded-2xl object-cover flex-shrink-0"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = '/assets/default-course-banner.png';
+              }}
             />
             <div>
               <div className="flex items-center space-x-2">
