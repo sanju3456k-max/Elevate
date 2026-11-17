@@ -1679,6 +1679,14 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
         </footer>
 
         {renderQuestionPanel()}
+
+        {/* Test Leaderboard Modal */}
+        <TestLeaderboardModal
+          isOpen={isLeaderboardOpen}
+          test={test}
+          currentUser={currentUser || null}
+          onClose={() => setIsLeaderboardOpen(false)}
+        />
       </div>
     );
   }
