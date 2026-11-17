@@ -798,33 +798,46 @@ export function loadScopedTests(userId?: string | null): MathTest[] {
       return false;
     };
 
+    // GUEST MODE: Guests strictly only receive the 3 authoritative sample tests
+    if (isGuest) {
+      const activeSampleTests = SAMPLE_MATH_TESTS.filter((s) => !deletedIds.has(s.id));
+      setInMemoryTests(userId, activeSampleTests);
+      try {
+        const { testsKey } = getScopedStorageKeys(userId);
+        localStorage.setItem(testsKey, JSON.stringify(activeSampleTests));
+        localStorage.removeItem(LEGACY_STORAGE_TESTS_KEY);
+      } catch {}
+      return activeSampleTests;
+    }
+
+    const DEPRECATED_TEST_IDS = new Set([
+      'imported-1789747405803',
+      'test-1794126289591',
+      'imported-1789747548377',
+      'test-1789812585463',
+      'test-1793116020776',
+      'imported-1789747440687',
+      'imported-1789747449650',
+    ]);
+    const isDeprecated = (t: any) => {
+      if (!t || !t.id) return true;
+      if (DEPRECATED_TEST_IDS.has(t.id)) return true;
+      if (/^(Mix Test|Integration GCC|vector space GCC|New Mathematics Assessment)/i.test(t.title || '')) return true;
+      return false;
+    };
+
     // 1. Instant synchronous check from L1 In-Memory mirror
     const mem = getInMemoryTests(userId);
     if (mem && Array.isArray(mem)) {
-      if (isGuest) {
-        const validSampleIds = new Set(SAMPLE_MATH_TESTS.map((s) => s.id));
-        const sanitized = mem.filter((t: MathTest) => {
-          if (!t || !t.id || deletedIds.has(t.id) || isMasterOrRemedial(t)) return false;
-          if (t.id.startsWith('sample-') && !validSampleIds.has(t.id)) return false;
-          return true;
-        });
-        const guestIds = new Set(sanitized.map((t) => t.id));
-        SAMPLE_MATH_TESTS.forEach((s) => {
-          if (!deletedIds.has(s.id) && !guestIds.has(s.id)) {
-            sanitized.push(s);
-          }
-        });
-        return sanitized;
-      } else {
-        const userTests = mem.filter((t: MathTest) => t && t.id && !deletedIds.has(t.id));
-        if (userTests.length > 0) return userTests;
-      }
+      const userTests = mem.filter((t: MathTest) => t && t.id && !deletedIds.has(t.id) && !isDeprecated(t));
+      if (userTests.length > 0) return userTests;
     }
 
     // 2. Trigger asynchronous IndexedDB hydration in background to warm in-memory cache
     getAllTestsFromIndexedDB(userId).then((idbTests) => {
       if (Array.isArray(idbTests) && idbTests.length > 0) {
-        setInMemoryTests(userId, idbTests);
+        const filtered = idbTests.filter((t: MathTest) => t && t.id && !deletedIds.has(t.id) && !isDeprecated(t));
+        setInMemoryTests(userId, filtered);
       }
     }).catch(() => {});
 
@@ -832,53 +845,26 @@ export function loadScopedTests(userId?: string | null): MathTest[] {
     const { testsKey } = getScopedStorageKeys(userId);
     let cached = localStorage.getItem(testsKey);
 
-    // If guest storage is empty, attempt one-time migration from legacy key
-    if (!cached && isGuest) {
-      const legacy = localStorage.getItem(LEGACY_STORAGE_TESTS_KEY);
-      if (legacy) {
-        cached = legacy;
-        try {
-          localStorage.setItem(GUEST_STORAGE_TESTS_KEY, legacy);
-        } catch {}
-      }
-    }
-
     if (cached) {
       const parsed = JSON.parse(cached);
       if (Array.isArray(parsed)) {
-        setInMemoryTests(userId, parsed);
-        if (isGuest) {
-          const validSampleIds = new Set(SAMPLE_MATH_TESTS.map((s) => s.id));
-          const sanitizedGuestTests = parsed.filter((t: MathTest) => {
-            if (!t || !t.id || deletedIds.has(t.id) || isMasterOrRemedial(t)) return false;
-            if (t.id.startsWith('sample-') && !validSampleIds.has(t.id)) return false;
-            return true;
-          });
-          const guestIds = new Set(sanitizedGuestTests.map((t) => t.id));
-          SAMPLE_MATH_TESTS.forEach((s) => {
-            if (!deletedIds.has(s.id) && !guestIds.has(s.id)) {
-              sanitizedGuestTests.push(s);
-            }
-          });
-          return sanitizedGuestTests;
-        } else {
-          const userTests = parsed.filter((t: MathTest) => t && t.id && !deletedIds.has(t.id));
-          const hasCustomAccountTests = userTests.some(
+        const userTests = parsed.filter((t: MathTest) => t && t.id && !deletedIds.has(t.id) && !isDeprecated(t));
+        setInMemoryTests(userId, userTests);
+        const hasCustomAccountTests = userTests.some(
+          (t) => t.authorId === userId || (!t.id.startsWith('sample-') && !t.id.startsWith('math-'))
+        );
+
+        if (hasCustomAccountTests) {
+          const userOnlyTests = userTests.filter(
             (t) => t.authorId === userId || (!t.id.startsWith('sample-') && !t.id.startsWith('math-'))
           );
-
-          if (hasCustomAccountTests) {
-            const userOnlyTests = userTests.filter(
-              (t) => t.authorId === userId || (!t.id.startsWith('sample-') && !t.id.startsWith('math-'))
-            );
-            if (userOnlyTests.length > 0) {
-              return userOnlyTests;
-            }
+          if (userOnlyTests.length > 0) {
+            return userOnlyTests;
           }
+        }
 
-          if (userTests.length > 0) {
-            return userTests;
-          }
+        if (userTests.length > 0) {
+          return userTests;
         }
       }
     }

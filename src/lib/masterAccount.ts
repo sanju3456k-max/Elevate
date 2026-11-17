@@ -10,6 +10,7 @@ import {
   checkIsOptionCorrect
 } from '../types';
 import { isOfflineLocalOnlyMode, getScopedKey, loadScopedTests } from './storage';
+import { SAMPLE_MATH_TESTS } from '../data/sampleTests';
 import { syncBatchTestToFirestore } from './batchCloudSync';
 import { getTestDurationMinutes } from '../utils/testFormatConverter';
 import { getAllAttemptsAcrossAllUsersFromIndexedDB } from './indexedDbStorage';
@@ -192,13 +193,36 @@ export function isRemedialTest(test: Partial<MathTest> | null | undefined): bool
   );
 }
 
+const DEPRECATED_TEST_IDS = new Set([
+  'imported-1789747405803',
+  'test-1794126289591',
+  'imported-1789747548377',
+  'test-1789812585463',
+  'test-1793116020776',
+  'imported-1789747440687',
+  'imported-1789747449650',
+]);
+
+const isDeprecatedTest = (t: any): boolean => {
+  if (!t || !t.id) return true;
+  if (DEPRECATED_TEST_IDS.has(t.id)) return true;
+  if (/^(Mix Test|Integration GCC|vector space GCC|New Mathematics Assessment)/i.test(t.title || '')) return true;
+  return false;
+};
+
 /**
  * Retrieve the set of test IDs marked as Master Published.
  */
 export function getMasterPublishedTestIds(): string[] {
   try {
     const raw = localStorage.getItem(MASTER_PUBLISHED_TESTS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed: string[] = JSON.parse(raw);
+    const cleaned = parsed.filter(id => !DEPRECATED_TEST_IDS.has(id));
+    if (cleaned.length !== parsed.length) {
+      localStorage.setItem(MASTER_PUBLISHED_TESTS_KEY, JSON.stringify(cleaned));
+    }
+    return cleaned;
   } catch {
     return [];
   }
@@ -210,7 +234,22 @@ export function getMasterPublishedTestIds(): string[] {
 export function getGlobalPublishedTestsMap(): Record<string, MathTest> {
   try {
     const raw = localStorage.getItem(GLOBAL_PUBLISHED_TESTS_KEY);
-    return raw ? JSON.parse(raw) : {};
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    const cleaned: Record<string, MathTest> = {};
+    let changed = false;
+    for (const [k, v] of Object.entries(parsed)) {
+      const t = v as MathTest;
+      if (isDeprecatedTest(t) || DEPRECATED_TEST_IDS.has(k)) {
+        changed = true;
+      } else {
+        cleaned[k] = t;
+      }
+    }
+    if (changed) {
+      localStorage.setItem(GLOBAL_PUBLISHED_TESTS_KEY, JSON.stringify(cleaned));
+    }
+    return cleaned;
   } catch {
     return {};
   }
@@ -223,7 +262,7 @@ export function getGlobalPublishedTests(): MathTest[] {
   const map = getGlobalPublishedTestsMap();
   const publishedIds = new Set(getMasterPublishedTestIds());
   return Object.values(map)
-    .filter((t) => t && t.id && publishedIds.has(t.id))
+    .filter((t) => t && t.id && publishedIds.has(t.id) && !isDeprecatedTest(t))
     .map((t) => {
       const qLen = Array.isArray(t.questions) && t.questions.length > 0 ? t.questions.length : 0;
       const count = qLen || t.questionCount || (t as any).questionsCount || t.timeLimitMinutes || 50;
@@ -627,6 +666,12 @@ export function mergePublishedMasterTests(
   isGuest: boolean = false
 ): MathTest[] {
   if (isUserMaster) return userTests;
+
+  // GUEST PRIVILEGE: In guest mode, visitors only see the 3 authoritative sample tests!
+  if (isGuest) {
+    const validSampleIds = new Set(SAMPLE_MATH_TESTS.map((s) => s.id));
+    return userTests.filter((t) => t && t.id && validSampleIds.has(t.id));
+  }
 
   const published = getGlobalPublishedTests();
   const testMap = new Map<string, MathTest>();
