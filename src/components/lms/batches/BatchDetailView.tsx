@@ -52,6 +52,7 @@ import type { PdfNote, Chapter, Lecture, Batch } from '../../../lms/types';
 import type { MathTest, TestAttempt, UserProfile } from '../../../types';
 import { M3TestCard } from '../../ui/M3TestCard';
 import { TestDetailModal } from '../../TestDetailModal';
+import { GoogleDriveFileViewerModal, type DriveViewerItem } from '../viewer/GoogleDriveFileViewerModal';
 import { useBackHandler, isBrowserFullscreen, exitBrowserFullscreen } from '../../../hooks/useBackNavigation';
 import {
   CreateOrEditFolderModal,
@@ -232,8 +233,44 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   // Active contextual menu dropdown
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
-  // Image preview modal state
-  const [previewImage, setPreviewImage] = useState<{ title: string; url: string } | null>(null);
+  // Google Drive In-App File & Image Viewer state
+  const [viewerItems, setViewerItems] = useState<DriveViewerItem[]>([]);
+  const [viewerInitialIndex, setViewerInitialIndex] = useState<number>(0);
+  const [isViewerOpen, setIsViewerOpen] = useState<boolean>(false);
+
+  // Helper to open PDF notes in Google Drive In-App Viewer
+  const handleOpenNoteViewer = useCallback((clickedNote: PdfNote, allNotes: PdfNote[] = []) => {
+    const list = allNotes.length > 0 ? allNotes : [clickedNote];
+    const formatted: DriveViewerItem[] = list.map((n) => ({
+      id: n.id,
+      title: n.title,
+      url: n.fileUrl || n.url || '',
+      fileUrl: n.fileUrl || n.url || '',
+      previewImageUrl: n.previewImageUrl,
+      type: 'pdf',
+      subtitle: selectedChapter?.name || selectedFolder?.name || currentBatch?.title || 'Chapter Resource',
+      uploadedAt: n.createdAt,
+    }));
+    const foundIdx = formatted.findIndex((it) => it.id === clickedNote.id);
+    setViewerItems(formatted);
+    setViewerInitialIndex(foundIdx >= 0 ? foundIdx : 0);
+    setIsViewerOpen(true);
+  }, [selectedChapter, selectedFolder, currentBatch]);
+
+  // Helper to open images in Google Drive In-App Viewer
+  const handleOpenImageViewer = useCallback((title: string, url: string) => {
+    setViewerItems([
+      {
+        id: `img_${Date.now()}`,
+        title,
+        url,
+        previewImageUrl: url,
+        type: 'image',
+      },
+    ]);
+    setViewerInitialIndex(0);
+    setIsViewerOpen(true);
+  }, []);
 
   // Live video player notes
   const [currentPlaybackSec, setCurrentPlaybackSec] = useState<number>(0);
@@ -740,7 +777,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
   // Centralized Back Navigation Stack Integration
   useBackHandler({
-    isOpen: currentStage !== 'batch_list' || Boolean(previewImage),
+    isOpen: currentStage !== 'batch_list' || isViewerOpen,
     priority: 25,
     id: 'batch_detail_stage_back',
     onBack: () => {
@@ -748,8 +785,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         exitBrowserFullscreen();
         return;
       }
-      if (previewImage) {
-        setPreviewImage(null);
+      if (isViewerOpen) {
+        setIsViewerOpen(false);
         return;
       }
       if (currentStage === 'lecture_view') {
@@ -1778,18 +1815,19 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   {folderNotesContent.map((note) => (
                     <div
                       key={note.id || note.fileUrl || note.url}
-                      className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition shadow-xs flex items-center justify-between group border-none"
+                      onClick={() => handleOpenNoteViewer(note, folderNotesContent)}
+                      className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition shadow-xs flex items-center justify-between group border-none cursor-pointer"
                     >
                       <div className="flex items-center space-x-3 min-w-0 flex-1">
                         <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                           <FileText className="w-5 h-5" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] truncate">
+                          <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] truncate group-hover:text-emerald-500 transition-colors">
                             {note.title}
                           </h4>
                           <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
-                            PDF Document
+                            PDF Document • Drive Viewer
                           </p>
                         </div>
                       </div>
@@ -1798,26 +1836,32 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                         {note.previewImageUrl && (
                           <button
                             type="button"
-                            onClick={() => setPreviewImage({ title: note.title, url: note.previewImageUrl! })}
-                            className="p-1.5 rounded-full hover:bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] border-none bg-transparent cursor-pointer"
-                            title="Preview Note"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenImageViewer(note.title, note.previewImageUrl!);
+                            }}
+                            className="p-1.5 rounded-full hover:bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)] border-none bg-transparent cursor-pointer"
+                            title="Preview Thumbnail"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                         )}
-                        <a
-                          href={note.fileUrl || note.url || '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 rounded-full hover:bg-[var(--md-sys-color-surface-container)] text-emerald-600 dark:text-emerald-400 border-none bg-transparent cursor-pointer"
-                          title="Open PDF"
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenNoteViewer(note, folderNotesContent);
+                          }}
+                          className="p-1.5 rounded-full hover:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-none bg-transparent cursor-pointer"
+                          title="Open in Google Drive Viewer"
                         >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
+                          <Eye className="w-4 h-4" />
+                        </button>
                         {isMaster && selectedChapterId && (
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               deletePdfNoteFromChapter(selectedChapterId, note.id);
                               showSecurityToast('Document removed.');
                             }}
@@ -1899,31 +1943,13 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         </div>
         )}
 
-        {/* Image Preview Modal */}
-        {previewImage && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-            <div className="bg-[var(--md-sys-color-surface-container)] rounded-3xl max-w-2xl w-full p-5 space-y-4 shadow-2xl relative">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-[var(--md-sys-color-on-surface)] truncate">
-                  {previewImage.title}
-                </h3>
-                <button
-                  onClick={() => setPreviewImage(null)}
-                  className="px-3 py-1 rounded-full text-xs font-bold m3-btn-tonal border-none outline-none cursor-pointer"
-                >
-                  Close
-                </button>
-              </div>
-              <div className="rounded-2xl overflow-hidden bg-black max-h-[70vh] flex items-center justify-center">
-                <img
-                  src={previewImage.url}
-                  alt={previewImage.title}
-                  className="max-h-[65vh] w-auto object-contain"
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Google Drive In-App File & Image Viewer Modal */}
+        <GoogleDriveFileViewerModal
+          isOpen={isViewerOpen}
+          items={viewerItems}
+          initialIndex={viewerInitialIndex}
+          onClose={() => setIsViewerOpen(false)}
+        />
 
         {/* MODAL 1: CREATE OR EDIT FOLDER */}
         <CreateOrEditFolderModal
@@ -2286,6 +2312,14 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           }
         }}
         onViewAttemptResult={onViewAttemptResult}
+      />
+
+      {/* Google Drive In-App File & Image Viewer Modal */}
+      <GoogleDriveFileViewerModal
+        isOpen={isViewerOpen}
+        items={viewerItems}
+        initialIndex={viewerInitialIndex}
+        onClose={() => setIsViewerOpen(false)}
       />
     </div>
   );

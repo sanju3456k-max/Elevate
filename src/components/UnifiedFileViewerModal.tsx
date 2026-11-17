@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { PdfCanvasViewer } from './PdfCanvasViewer';
 import { GoogleDocsNoteViewer } from './GoogleDocsNoteViewer';
+import { GoogleDriveFileViewerModal, type DriveViewerItem } from './lms/viewer/GoogleDriveFileViewerModal';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import {
@@ -608,6 +609,29 @@ export const UnifiedFileViewerModal: React.FC<UnifiedFileViewerModalProps> = ({ 
   };
 
   if (!file) return null;
+
+  // Delegate PDF and Image files to authentic Google Drive native lightbox
+  if (resolvedType === 'image' || resolvedType === 'pdf') {
+    const driveItem: DriveViewerItem = {
+      id: file.id || file.noteId || file.driveFileId,
+      title: displayTitle || file.fileName || file.name || 'Document',
+      url: activeMediaUrl || file.fileUrl || file.url || '',
+      fileUrl: activeMediaUrl || file.fileUrl || file.url || '',
+      previewImageUrl: activeMediaUrl || file.fileUrl || file.url,
+      type: resolvedType,
+      size: (file as any).size,
+      driveFileId: file.driveFileId,
+      uploadedAt: file.createdAt,
+    };
+    return (
+      <GoogleDriveFileViewerModal
+        isOpen={Boolean(file)}
+        items={[driveItem]}
+        initialIndex={0}
+        onClose={onClose}
+      />
+    );
+  }
 
   const driveEmbedUrl = file.driveFileId ? getDriveEmbedPreviewUrl(file.driveFileId) : '';
   const downloadUrl =
