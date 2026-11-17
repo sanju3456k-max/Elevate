@@ -1790,6 +1790,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           }}
           className="relative py-2 flex items-center cursor-pointer group/scrub"
         >
+          {/* Black strip extending strictly from the bottom edge of the streaming line down to the bottom of the player */}
+          <div className="absolute -inset-x-4 sm:-inset-x-6 top-[calc(50%+3px)] -bottom-24 bg-black pointer-events-none -z-10" />
+
           <input
             type="range"
             min="0"
