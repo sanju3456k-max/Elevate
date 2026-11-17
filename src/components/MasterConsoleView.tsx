@@ -448,6 +448,16 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     );
   };
 
+  const handleToggleWatermark = () => {
+    const next = securitySettings?.enableDynamicWatermark === false;
+    updateSecuritySettings({ enableDynamicWatermark: next });
+    showNotification(
+      next
+        ? 'Video dynamic watermark enabled.'
+        : 'Video dynamic watermark disabled.'
+    );
+  };
+
   // ==========================================
   // 1. Adaptive Remedial Engine State
   // ==========================================
@@ -1816,6 +1826,29 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                       <M3Switch
                         checked={Boolean(securitySettings?.enableDrmScreenProtection)}
                         onChange={handleToggleDrmShield}
+                      />
+                    </div>
+
+                    {/* Toggle: Add Watermark Over Video */}
+                    <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200/60 dark:border-zinc-800/60">
+                      <div className="space-y-0.5 flex-1 pr-2">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-bold text-slate-800 dark:text-zinc-200">
+                            Add Watermark Over Video
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            securitySettings?.enableDynamicWatermark !== false ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-200 dark:bg-zinc-800 text-slate-500'
+                          }`}>
+                            {securitySettings?.enableDynamicWatermark !== false ? 'Enabled' : 'Disabled'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                          Displays a dynamic drifting watermark (student name, email, UID, session token) over running lecture videos to deter screen recording and content leakage.
+                        </p>
+                      </div>
+                      <M3Switch
+                        checked={securitySettings?.enableDynamicWatermark !== false}
+                        onChange={handleToggleWatermark}
                       />
                     </div>
 

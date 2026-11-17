@@ -1404,6 +1404,32 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         <div className="absolute top-0 inset-x-0 h-24 sm:h-30 bg-gradient-to-b from-black from-75% via-black/90 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
       )}
 
+      {/* 1d. Forensic Dynamic Moving Watermark Overlay (Anti-Piracy Screen Recording Deterrent) */}
+      {securitySettings?.enableDynamicWatermark !== false && (
+        <div
+          id="cloaked-player-dynamic-watermark"
+          className={`absolute pointer-events-none select-none z-35 transition-all duration-1000 ease-in-out font-mono flex flex-col items-start px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg bg-black/70 backdrop-blur-xs border border-white/20 shadow-2xl ${
+            isMini && !isFullscreen ? 'scale-75 origin-top-left' : ''
+          }`}
+          style={{
+            top: `${watermarkPos.top}%`,
+            left: `${watermarkPos.left}%`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
+          <div className="flex items-center gap-1.5 font-bold tracking-wider text-[11px] sm:text-xs text-white">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>{user?.name || 'Elevate Student'}</span>
+          </div>
+          <span className="text-[9.5px] text-slate-200 font-medium">
+            {user?.email || user?.phone || `UID: ${user?.id ? user.id.slice(0, 8) : 'STUDENT'}`}
+          </span>
+          <span className="text-[8.5px] text-amber-300 font-mono tracking-wider">
+            ID: {playbackToken?.token ? playbackToken.token.slice(0, 8).toUpperCase() : (user?.id ? user.id.slice(0, 8).toUpperCase() : 'SECURE-STREAM')}
+          </span>
+        </div>
+      )}
+
       {(!isMini || isFullscreen) && (
         <>
       {/* 1c. High-Fidelity Pre-Playback Poster Curtain (Eliminates YouTube unstarted title, channel avatar, and red play button) */}
@@ -1459,21 +1485,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 1d. Dynamic Moving DRM Watermark Overlay (Anti-Piracy Screen Recording Deterrent) */}
-      {authStatus === 'authorized' && securitySettings?.enableDynamicWatermark !== false && (
-        <div
-          className="absolute pointer-events-none select-none z-22 transition-all duration-1000 ease-in-out opacity-40 font-mono text-[11px] sm:text-xs text-white/90 drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)] flex flex-col items-start"
-          style={{
-            top: `${watermarkPos.top}%`,
-            left: `${watermarkPos.left}%`,
-            transform: 'translate(-50%, -50%)',
-          }}
-        >
-          <span className="font-semibold tracking-wider">{user?.name || 'Student'}</span>
-          <span className="text-[9.5px] opacity-85">{user?.email || user?.phone || `UID: ${user?.id ? user.id.slice(0, 8) : 'STUDENT'}`}</span>
-          <span className="text-[8.5px] opacity-75">ID: {playbackToken?.token ? playbackToken.token.slice(0, 8).toUpperCase() : (user?.id ? user.id.slice(0, 8).toUpperCase() : 'SESSION')}</span>
-        </div>
-      )}
+
 
       {/* 1e. Snipping Tool / Screen Recording Focus Loss Blackout Shield */}
       {isWindowObscured && securitySettings?.enableDrmScreenProtection && isPlaying && (
@@ -1776,9 +1788,6 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           }}
           className="relative py-2 flex items-center cursor-pointer group/scrub"
         >
-          {/* Black strip extending strictly from the bottom edge of the streaming line down to the bottom of the player */}
-          <div className="absolute -inset-x-4 sm:-inset-x-6 top-[calc(50%+3px)] -bottom-24 bg-black pointer-events-none -z-10" />
-
           <input
             type="range"
             min="0"
@@ -1833,10 +1842,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         <div
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
-          className="relative flex items-center justify-between text-white pt-0.5"
+          className="relative flex items-center justify-between text-white pt-1"
         >
-          {/* Black backdrop strictly below the metric blue line */}
-          <div className="absolute -inset-x-4 sm:-inset-x-6 top-0 -bottom-4 bg-black pointer-events-none -z-10" />
+          {/* Black backdrop strictly below the metric blue line, covering controls and bottom shelf down to bottom edge */}
+          <div className="absolute -inset-x-4 sm:-inset-x-6 top-0 -bottom-8 bg-black pointer-events-none -z-10" />
           {/* Left Controls: Play, Skip (Desktop), Volume & Slider, Time */}
           <div className="flex items-center space-x-1 sm:space-x-2 pl-2 sm:pl-0">
             <button
