@@ -158,10 +158,26 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
     onUpdatePlayback((prev) => (prev ? { ...prev, isMinimized: false } : null));
   }, [onUpdatePlayback]);
 
-  const handleTogglePlay = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
+  // Desktop Miniplayer Controls Decay Timer (Keeps controls & bottom cloak active for 5s after play/pause/hover)
+  const [isMiniControlsActive, setIsMiniControlsActive] = useState(false);
+  const miniControlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const showMiniControlsForDuration = useCallback((duration = 5000) => {
+    setIsMiniControlsActive(true);
+    if (miniControlsTimeoutRef.current) {
+      clearTimeout(miniControlsTimeoutRef.current);
+    }
+    miniControlsTimeoutRef.current = setTimeout(() => {
+      setIsMiniControlsActive(false);
+      miniControlsTimeoutRef.current = null;
+    }, duration);
+  }, []);
+
+  const handleTogglePlay = useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    showMiniControlsForDuration(5000);
     onUpdatePlayback((prev) => (prev ? { ...prev, isPlaying: !prev.isPlaying } : null));
-  }, [onUpdatePlayback]);
+  }, [onUpdatePlayback, showMiniControlsForDuration]);
 
   const handlePlayStateChange = useCallback(
     (playing: boolean) => {
@@ -282,11 +298,22 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
           {/* YouTube Desktop Miniplayer Hover Controls Overlay */}
           {isMinimized && (
             <div
-              className="hidden md:flex absolute inset-0 z-30 bg-black/45 opacity-0 group-hover/minivid:opacity-100 transition-opacity duration-200 flex-col justify-between p-2.5 pointer-events-auto select-none"
-              onClick={(e) => e.stopPropagation()}
+              className={`hidden md:flex absolute inset-0 z-30 transition-opacity duration-200 flex-col justify-between pointer-events-auto select-none ${
+                !playback.isPlaying || isMiniControlsActive
+                  ? 'opacity-100'
+                  : 'opacity-0 group-hover/minivid:opacity-100'
+              }`}
+              onMouseEnter={() => showMiniControlsForDuration(5000)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleTogglePlay(e);
+              }}
             >
-              {/* Top Row: Expand icon on left, Close icon on right */}
-              <div className="flex items-center justify-between">
+              {/* Top Row: Opaque black gradient with edge shadow completely covering YouTube title and channel avatar */}
+              <div
+                className="w-full h-13 sm:h-14 bg-gradient-to-b from-black from-75% via-black/90 to-transparent flex items-start justify-between px-2.5 pt-2 z-10"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <button
                   type="button"
                   id="desktop-miniplayer-expand-btn"
@@ -294,7 +321,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                     e.stopPropagation();
                     handleExpand();
                   }}
-                  className="w-7 h-7 rounded-full bg-black/60 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center transition border-none cursor-pointer"
+                  className="w-7 h-7 rounded-full bg-black/60 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center transition border-none cursor-pointer shadow-md"
                   title="Expand to Full Video"
                   aria-label="Expand to Full Video"
                 >
@@ -305,9 +332,9 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                   id="desktop-miniplayer-close-btn"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleClose();
+                    handleClose(e);
                   }}
-                  className="w-7 h-7 rounded-full bg-black/60 hover:bg-rose-600 active:scale-90 text-white flex items-center justify-center transition border-none cursor-pointer"
+                  className="w-7 h-7 rounded-full bg-black/60 hover:bg-rose-600 active:scale-90 text-white flex items-center justify-center transition border-none cursor-pointer shadow-md"
                   title="Close Video"
                   aria-label="Close Video"
                 >
@@ -315,30 +342,33 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 </button>
               </div>
 
-              {/* Center: Play/Pause */}
-              <div className="flex items-center justify-center">
+              {/* Center: Play/Pause Big Button */}
+              <div className="flex items-center justify-center flex-1">
                 <button
                   type="button"
                   id="desktop-miniplayer-play-btn"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleTogglePlay();
+                    handleTogglePlay(e);
                   }}
-                  className="w-11 h-11 rounded-full bg-black/70 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center transition border-none cursor-pointer shadow-lg"
+                  className="w-13 h-13 rounded-full bg-black/80 hover:bg-black active:scale-90 text-white flex items-center justify-center transition border border-white/15 cursor-pointer shadow-2xl"
                   title={playback.isPlaying ? 'Pause' : 'Play'}
                   aria-label={playback.isPlaying ? 'Pause' : 'Play'}
                 >
                   {playback.isPlaying ? (
-                    <Pause className="w-5 h-5 fill-current" />
+                    <Pause className="w-6 h-6 fill-current" />
                   ) : (
-                    <Play className="w-5 h-5 fill-current ml-0.5" />
+                    <Play className="w-6 h-6 fill-current ml-0.5" />
                   )}
                 </button>
               </div>
 
-              {/* Bottom Row: Current time & Duration */}
-              <div className="flex items-center justify-between text-white text-[10.5px] font-mono px-0.5">
-                <span>
+              {/* Bottom Row: Elegant gradient shadow overlay strip with soft edge shadow completely hiding YouTube cards */}
+              <div
+                className="w-full h-14 sm:h-16 bg-gradient-to-t from-black from-60% via-black/85 to-transparent flex items-end justify-between px-3 pb-2 z-10 select-none"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span className="text-white text-[11px] font-mono font-medium drop-shadow">
                   {formatDuration(currentPlaybackSec)} / {formatDuration(totalDuration > 0 ? totalDuration : ((playback.durationMinutes || 0) * 60))}
                 </span>
               </div>
@@ -347,7 +377,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
 
           {/* Desktop Miniplayer Bottom Edge Linear Progress Line */}
           {isMinimized && (
-            <div className="hidden md:block absolute bottom-0 inset-x-0 h-[3px] bg-slate-400/40 dark:bg-zinc-700/80 overflow-hidden z-25 pointer-events-none">
+            <div className="hidden md:block absolute bottom-0 inset-x-0 h-[3px] bg-slate-400/40 dark:bg-zinc-700/80 overflow-hidden z-35 pointer-events-none">
               <div
                 className="h-full bg-[#0b57d0] dark:bg-[#a8c7fa] transition-all duration-200"
                 style={{
