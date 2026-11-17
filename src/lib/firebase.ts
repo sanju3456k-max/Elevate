@@ -1820,12 +1820,14 @@ export async function fetchTestsFromFirestore(limitCount = 50, forceRefresh = fa
     console.warn('Error fetching user tests:', e);
   }
 
-  // Merge with samples
-  SAMPLE_MATH_TESTS.forEach((st) => {
-    if (!resultsMap.has(st.id)) {
-      resultsMap.set(st.id, st);
-    }
-  });
+  // Merge with samples ONLY for unauthenticated guest mode
+  if (!currentUid || currentUid === 'guest-user' || currentUid === 'anonymous') {
+    SAMPLE_MATH_TESTS.forEach((st) => {
+      if (!resultsMap.has(st.id)) {
+        resultsMap.set(st.id, st);
+      }
+    });
+  }
 
   const finalTests = Array.from(resultsMap.values()).slice(0, limitCount);
   smartCoordinator.setLocalSyncRevision(currentUid, 'testsRev', Date.now());
@@ -1881,16 +1883,13 @@ export function subscribeToTests(
           }
         });
         if (customTests.length > 0) {
-          const mergedMap = new Map<string, MathTest>();
-          customTests.forEach((t) => mergedMap.set(t.id, t));
-          SAMPLE_MATH_TESTS.forEach((st) => {
-            if (!mergedMap.has(st.id)) mergedMap.set(st.id, st);
-          });
-          onUpdate(Array.from(mergedMap.values()));
+          onUpdate(customTests);
+        } else {
+          onUpdate([]);
         }
       })
       .catch(() => {
-        onUpdate(SAMPLE_MATH_TESTS);
+        onUpdate([]);
       });
 
     return () => {};
