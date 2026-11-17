@@ -1375,8 +1375,8 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
         </div>
       </div>
 
-      {/* Main Report Body Container */}
-      <main className="flex-1 max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-1 pb-10 space-y-4">
+      {/* Main Report Body Container: Optimized with bottom padding for mobile bottom nav header */}
+      <main className="flex-1 max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-1 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] md:pb-12 space-y-4">
         {/* ==================================================================== */}
         {/* 1. SCORECARD & PRIMARY KPI HERO SECTION                              */}
         {/* ==================================================================== */}
@@ -2266,7 +2266,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
           </header>
 
           {/* Main Full-Page Body Container with Pure White Background */}
-          <main className="flex-1 max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] space-y-4">
+          <main className="flex-1 max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] md:pb-12 space-y-4">
             {/* 1. Mastery Breakdown & Filter Controls Card */}
             <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#1e2024] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -2548,7 +2548,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
           </header>
 
           {/* Main Content Area */}
-          <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-6 py-4 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] space-y-4">
+          <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-6 py-4 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] md:pb-12 space-y-4">
             {/* Quick Diagnostic / Recommendation Banner with Solid High-Contrast Card */}
             {selectedSubtopicQuestionsModal.subtopicItem.recommendation && (
               <div className="p-3.5 sm:p-4 rounded-[24px] bg-white dark:bg-[#1e2024] border border-[#0b57d0]/25 dark:border-[#a8c7fa]/25 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-start gap-3">

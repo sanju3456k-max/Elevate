@@ -978,7 +978,7 @@ export const UnifiedFileViewerModal: React.FC<UnifiedFileViewerModalProps> = ({ 
             </div>
           ) : resolvedType === 'pdf' && (activeMediaUrl?.trim() || file.url?.trim()) ? (
             /* Canvas-Based PDF Viewer with Integrated Bottom Dock */
-            <div className="w-full h-full overflow-hidden bg-slate-950 flex flex-col">
+            <div className="w-full h-full overflow-hidden bg-[#f8fafc] dark:bg-[#090a0f] flex flex-col">
               <PdfCanvasViewer
                 url={activeMediaUrl?.trim() || file.url?.trim() || ''}
                 fileName={rawFileName || displayTitle}

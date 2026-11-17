@@ -16,6 +16,24 @@ router.get("/media/:fileId", async (req, res) => {
     const token = queryToken || (authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : "");
 
     if (!token) {
+      // Stream public / shared Google Drive files directly without requiring an OAuth token
+      const publicUrls = [
+        `https://drive.google.com/uc?export=download&confirm=t&id=${encodeURIComponent(fileId)}`,
+        `https://docs.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`,
+      ];
+      for (const pUrl of publicUrls) {
+        try {
+          const pubRes = await fetch(pUrl, { redirect: "follow" });
+          if (pubRes.ok) {
+            const cType = pubRes.headers.get("content-type") || "application/pdf";
+            res.setHeader("Content-Type", cType);
+            res.setHeader("Cache-Control", "public, max-age=3600");
+            res.setHeader("Access-Control-Allow-Origin", "*");
+            const arr = await pubRes.arrayBuffer();
+            return res.send(Buffer.from(arr));
+          }
+        } catch {}
+      }
       return res.status(401).json({ error: "Authentication token required to stream Google Drive file" });
     }
 

@@ -101,7 +101,7 @@ export const APP_STYLES = {
 
   // Centralized Performance Analytics Styling
   analytics: {
-    container: 'w-full max-w-[1750px] mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6',
+    container: 'w-full max-w-[1750px] mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 sm:pb-8 space-y-6',
     header: 'bg-white dark:bg-[#1e2024] p-6 sm:p-7 rounded-[28px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]',
     title: 'text-lg sm:text-xl font-bold text-[#1f1f1f] dark:text-[#e3e3e3]',
     subtitle: 'text-xs text-[#5e5e5e] dark:text-[#9aa0a6]',

@@ -1818,19 +1818,24 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                     <div
                       key={note.id || note.fileUrl || note.url}
                       onClick={() => handleOpenNoteViewer(note, folderNotesContent)}
-                      className="p-4 rounded-2xl bg-[var(--md-sys-color-surface-container)] hover:bg-[var(--md-sys-color-surface-container-high)] transition shadow-xs flex items-center justify-between group border-none cursor-pointer"
+                      className="p-3.5 sm:p-4 rounded-[24px] bg-white dark:bg-[#1e2024] hover:bg-[#fbfcfe] dark:hover:bg-[#23262c] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-all duration-200 flex items-center justify-between group cursor-pointer relative overflow-hidden"
                     >
                       <div className="flex items-center space-x-3 min-w-0 flex-1">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                        <div className="w-10 h-10 rounded-2xl bg-rose-500/10 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 shadow-xs">
                           <FileText className="w-5 h-5" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] truncate group-hover:text-emerald-500 transition-colors">
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
                             {note.title}
                           </h4>
-                          <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
-                            PDF Document • Drive Viewer
-                          </p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[9.5px] font-bold tracking-wide px-1.5 py-0.2 rounded-md bg-rose-500/10 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300">
+                              PDF
+                            </span>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                              Drive Viewer
+                            </span>
+                          </div>
                         </div>
                       </div>
 
@@ -1842,7 +1847,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                               e.stopPropagation();
                               handleOpenImageViewer(note.title, note.previewImageUrl!);
                             }}
-                            className="p-1.5 rounded-full hover:bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)] border-none bg-transparent cursor-pointer"
+                            className="w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white flex items-center justify-center transition border-0 bg-transparent cursor-pointer"
                             title="Preview Thumbnail"
                           >
                             <Eye className="w-4 h-4" />
@@ -1854,7 +1859,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                             e.stopPropagation();
                             handleOpenNoteViewer(note, folderNotesContent);
                           }}
-                          className="p-1.5 rounded-full hover:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-none bg-transparent cursor-pointer"
+                          className="w-8 h-8 rounded-full hover:bg-sky-50 dark:hover:bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center transition border-0 bg-transparent cursor-pointer"
                           title="Open in Google Drive Viewer"
                         >
                           <Eye className="w-4 h-4" />
@@ -1867,7 +1872,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                               deletePdfNoteFromChapter(selectedChapterId, note.id);
                               showSecurityToast('Document removed.');
                             }}
-                            className="p-1.5 rounded-full hover:bg-rose-500/10 text-rose-500 border-none bg-transparent cursor-pointer"
+                            className="w-8 h-8 rounded-full hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-600 flex items-center justify-center transition border-0 bg-transparent cursor-pointer"
                             title="Delete Note"
                           >
                             <Trash2 className="w-4 h-4" />
