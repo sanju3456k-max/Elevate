@@ -30,7 +30,8 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useApp } from '../../lms/LmsContext';
-import { fetchVideoMetadata, extractYouTubeVideoId } from '../../lms/videoMetadataService';
+import { fetchVideoMetadata, extractYouTubeVideoId, type VideoMetadata } from '../../lms/videoMetadataService';
+import { SyncedVideoPreviewCard } from './batches/SyncedVideoPreviewCard';
 import {
   extractYouTubeId,
   obfuscateVideoKey,
@@ -125,6 +126,7 @@ export const BatchAdminStudio: React.FC = () => {
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [newChapterDesc, setNewChapterDesc] = useState('');
   const [enrollAllowGuest, setEnrollAllowGuest] = useState(false);
+  const [batchVideoMeta, setBatchVideoMeta] = useState<VideoMetadata | null>(null);
   const [isAutoFetchingYt, setIsAutoFetchingYt] = useState(false);
   const lastFetchedBatchYtIdRef = useRef<string | null>(null);
 
@@ -136,15 +138,19 @@ export const BatchAdminStudio: React.FC = () => {
     setDetectedYtId(ytId);
     if (!ytId) {
       lastFetchedBatchYtIdRef.current = null;
+      setBatchVideoMeta(null);
       return;
     }
-    if (!force && ytId === lastFetchedBatchYtIdRef.current && lectureTitle) return;
+    if (!force && ytId === lastFetchedBatchYtIdRef.current) return;
     lastFetchedBatchYtIdRef.current = ytId;
     setIsAutoFetchingYt(true);
     try {
       const meta = await fetchVideoMetadata(ytId, force);
       if (meta) {
-        setLectureTitle(meta.title);
+        setBatchVideoMeta(meta);
+        if (meta.title && meta.title !== 'Lecture Video') {
+          setLectureTitle(meta.title);
+        }
         if (meta.durationMinutes && meta.durationMinutes > 0) {
           setDurationMinutes(meta.durationMinutes);
         }
@@ -231,6 +237,8 @@ export const BatchAdminStudio: React.FC = () => {
     showSecurityToast(`✅ Lecture "${lectureTitle}" added and cloaked successfully!`);
     setVideoUrlInput('');
     setDetectedYtId(null);
+    setBatchVideoMeta(null);
+    lastFetchedBatchYtIdRef.current = null;
     setLectureTitle('');
     setLectureDesc('');
     setPdfTitle('');
@@ -614,6 +622,18 @@ export const BatchAdminStudio: React.FC = () => {
                     </span>
                     <span>(Will be cloaked)</span>
                   </p>
+                )}
+
+                {/* YouTube Synced Details & Thumbnail Preview */}
+                {detectedYtId && (
+                  <div className="mt-2.5">
+                    <SyncedVideoPreviewCard
+                      videoId={detectedYtId}
+                      metadata={batchVideoMeta}
+                      isLoading={isAutoFetchingYt}
+                      onRefresh={() => handleVideoUrlChange(videoUrlInput, true)}
+                    />
+                  </div>
                 )}
               </div>
 

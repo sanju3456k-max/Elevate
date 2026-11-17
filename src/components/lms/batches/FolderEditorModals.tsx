@@ -18,7 +18,8 @@ import {
 import type { Lecture, PdfNote } from '../../../lms/types';
 import type { MathTest } from '../../../types';
 import { extractYouTubeId, obfuscateVideoKey } from '../../../lms/security';
-import { fetchVideoMetadata, extractYouTubeVideoId } from '../../../lms/videoMetadataService';
+import { fetchVideoMetadata, extractYouTubeVideoId, type VideoMetadata } from '../../../lms/videoMetadataService';
+import { SyncedVideoPreviewCard } from './SyncedVideoPreviewCard';
 import { M3Switch, M3CircularProgress } from '../../ui/Material3';
 import { getTestDurationMinutes } from '../../../utils/testFormatConverter';
 import { BatchThumbnailPicker, DEFAULT_HIGH_RES_BANNER } from './BatchThumbnailPicker';
@@ -225,6 +226,7 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
   const [isFreePreview, setIsFreePreview] = useState(false);
   const [pdfNoteTitle, setPdfNoteTitle] = useState('');
   const [pdfNoteUrl, setPdfNoteUrl] = useState('');
+  const [videoMeta, setVideoMeta] = useState<VideoMetadata | null>(null);
   const isInitializedRef = useRef(false);
   const activeVideoIdRef = useRef<string | null>(null);
   const [isAutoFetching, setIsAutoFetching] = useState(false);
@@ -235,15 +237,20 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
     const ytId = extractYouTubeVideoId(url);
     if (!ytId) {
       lastFetchedIdRef.current = null;
+      setVideoMeta(null);
       return;
     }
-    if (!force && ytId === lastFetchedIdRef.current && title) return;
+    if (!force && ytId === lastFetchedIdRef.current) return;
     lastFetchedIdRef.current = ytId;
     setIsAutoFetching(true);
     try {
       const meta = await fetchVideoMetadata(ytId, force);
       if (meta) {
-        setTitle(meta.title);
+        setVideoMeta(meta);
+        // Auto-generate title & duration, which the user can edit anytime
+        if (meta.title && meta.title !== 'Lecture Video') {
+          setTitle(meta.title);
+        }
         if (meta.durationMinutes && meta.durationMinutes > 0) {
           setDurationMinutes(meta.durationMinutes);
         }
@@ -270,8 +277,17 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
           const firstNote = initialData.pdfNotes?.[0];
           setPdfNoteTitle(firstNote?.title || '');
           setPdfNoteUrl(firstNote?.fileUrl || firstNote?.url || '');
+          const existingYtId = extractYouTubeVideoId(initialData.encryptedVideoId || '');
+          if (existingYtId) {
+            fetchVideoMetadata(existingYtId).then((meta) => {
+              if (meta) setVideoMeta(meta);
+            }).catch(() => {});
+          } else {
+            setVideoMeta(null);
+          }
         } else {
           lastFetchedIdRef.current = null;
+          setVideoMeta(null);
           setTitle('');
           setDescription('');
           setVideoUrl('');
@@ -380,6 +396,18 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
             <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] mt-1">
               Supports full YouTube links (including unlisted), Vimeo, or direct video URLs. Obfuscated automatically.
             </p>
+
+            {/* Live YouTube Synced Details & Thumbnail Preview */}
+            {extractYouTubeVideoId(videoUrl) && (
+              <div className="mt-3">
+                <SyncedVideoPreviewCard
+                  videoId={extractYouTubeVideoId(videoUrl)}
+                  metadata={videoMeta}
+                  isLoading={isAutoFetching}
+                  onRefresh={() => handleVideoUrlChange(videoUrl, true)}
+                />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

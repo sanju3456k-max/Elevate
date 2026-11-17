@@ -117,6 +117,49 @@ async function handleMetadataRequest(rawInput: string, res: Response) {
 
   const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;
   try {
+    // 1. Primary: YouTube InnerTube JSON API (Official web player endpoint, ultra-fast and returns exact title + lengthSeconds)
+    try {
+      const innertubeRes = await fetch("https://www.youtube.com/youtubei/v1/player", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
+        body: JSON.stringify({
+          videoId,
+          context: {
+            client: {
+              clientName: "WEB",
+              clientVersion: "2.20240101.00.00",
+            },
+          },
+        }),
+      });
+
+      if (innertubeRes.ok) {
+        const itData = (await innertubeRes.json()) as any;
+        const details = itData?.videoDetails;
+        if (details && details.title) {
+          const durationSeconds = parseInt(details.lengthSeconds || "0", 10);
+          const durationMinutes = durationSeconds > 0 ? Math.max(1, Math.round(durationSeconds / 60)) : 30;
+          return res.json({
+            success: true,
+            title: decodeHtmlEntities(details.title),
+            durationMinutes,
+            durationSeconds,
+            thumbnailUrl: cloakedThumbnailUrl,
+            rawThumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+            author: details.author || "",
+            token,
+          });
+        }
+      }
+    } catch (itErr) {
+      console.warn("InnerTube API lookup failed, falling back to HTML inspection:", itErr);
+    }
+
+    // 2. Secondary: YouTube Watch Page Scraper
     const ytRes = await fetch(ytUrl, {
       headers: {
         "User-Agent":
@@ -130,13 +173,14 @@ async function handleMetadataRequest(rawInput: string, res: Response) {
         const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(ytUrl)}&format=json`);
         if (oembedRes.ok) {
           const data = (await oembedRes.json()) as any;
-          // Notice: Video ID and raw YouTube CDN URLs are omitted from response
           return res.json({
             success: true,
             title: decodeHtmlEntities(data.title || "Lecture Video"),
             durationMinutes: 30,
             durationSeconds: 1800,
             thumbnailUrl: cloakedThumbnailUrl,
+            rawThumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+            author: data.author_name || "",
             token,
           });
         }
@@ -161,13 +205,13 @@ async function handleMetadataRequest(rawInput: string, res: Response) {
     const durationSeconds = parseDurationSeconds(html);
     const durationMinutes = durationSeconds > 0 ? Math.max(1, Math.round(durationSeconds / 60)) : 30;
 
-    // Notice: Video ID is NEVER sent back in plaintext
     return res.json({
       success: true,
       title: cleanTitle,
       durationMinutes,
       durationSeconds,
       thumbnailUrl: cloakedThumbnailUrl,
+      rawThumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
       token,
     });
   } catch (err: any) {

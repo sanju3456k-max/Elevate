@@ -25,7 +25,8 @@ import {
 import { useApp } from '../../../lms/LmsContext';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
 import { extractYouTubeId, obfuscateVideoKey, buildGoogleDrivePreviewUrl, extractGoogleDriveId } from '../../../lms/security';
-import { fetchVideoMetadata, extractYouTubeVideoId } from '../../../lms/videoMetadataService';
+import { fetchVideoMetadata, extractYouTubeVideoId, type VideoMetadata } from '../../../lms/videoMetadataService';
+import { SyncedVideoPreviewCard } from './SyncedVideoPreviewCard';
 import { M3CircularProgress } from '../../ui/Material3';
 import type { Batch, Chapter, Lecture, BatchTestCard } from '../../../lms/types';
 import { BatchEditorModal } from './BatchEditorModal';
@@ -88,6 +89,7 @@ export const InSituBatchWorkspace: React.FC<InSituBatchWorkspaceProps> = ({
   const [newLectureDuration, setNewLectureDuration] = useState('45');
   const [newLectureNotesTitle, setNewLectureNotesTitle] = useState('');
   const [newLectureNotesUrl, setNewLectureNotesUrl] = useState('');
+  const [newLectureVideoMeta, setNewLectureVideoMeta] = useState<VideoMetadata | null>(null);
   const [isAutoFetchingYt, setIsAutoFetchingYt] = useState(false);
   const lastFetchedYtIdRef = React.useRef<string | null>(null);
 
@@ -96,15 +98,19 @@ export const InSituBatchWorkspace: React.FC<InSituBatchWorkspaceProps> = ({
     const ytId = extractYouTubeVideoId(url);
     if (!ytId) {
       lastFetchedYtIdRef.current = null;
+      setNewLectureVideoMeta(null);
       return;
     }
-    if (!force && ytId === lastFetchedYtIdRef.current && newLectureTitle) return;
+    if (!force && ytId === lastFetchedYtIdRef.current) return;
     lastFetchedYtIdRef.current = ytId;
     setIsAutoFetchingYt(true);
     try {
       const meta = await fetchVideoMetadata(ytId, force);
       if (meta) {
-        setNewLectureTitle(meta.title);
+        setNewLectureVideoMeta(meta);
+        if (meta.title && meta.title !== 'Lecture Video') {
+          setNewLectureTitle(meta.title);
+        }
         if (meta.durationMinutes && meta.durationMinutes > 0) {
           setNewLectureDuration(String(meta.durationMinutes));
         }
@@ -204,6 +210,8 @@ export const InSituBatchWorkspace: React.FC<InSituBatchWorkspaceProps> = ({
 
     setNewLectureTitle('');
     setNewLectureVideoUrl('');
+    setNewLectureVideoMeta(null);
+    lastFetchedYtIdRef.current = null;
     setNewLectureNotesTitle('');
     setNewLectureNotesUrl('');
     setIsAddingLecture(false);
@@ -515,6 +523,18 @@ export const InSituBatchWorkspace: React.FC<InSituBatchWorkspaceProps> = ({
                     placeholder="https://www.youtube.com/watch?v=..."
                     className="w-full p-2.5 bg-[var(--md-sys-color-surface-container-highest)] rounded-xl text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none font-mono"
                   />
+
+                  {/* YouTube Synced Details & Thumbnail Preview */}
+                  {extractYouTubeVideoId(newLectureVideoUrl) && (
+                    <div className="mt-2.5">
+                      <SyncedVideoPreviewCard
+                        videoId={extractYouTubeVideoId(newLectureVideoUrl)}
+                        metadata={newLectureVideoMeta}
+                        isLoading={isAutoFetchingYt}
+                        onRefresh={() => handleVideoUrlChange(newLectureVideoUrl, true)}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 

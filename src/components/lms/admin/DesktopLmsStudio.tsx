@@ -49,7 +49,8 @@ import {
   Loader2,
 } from 'lucide-react';
 import { adminResetDeviceLock } from '../../../lib/deviceAuthService';
-import { fetchVideoMetadata, extractYouTubeVideoId } from '../../../lms/videoMetadataService';
+import { fetchVideoMetadata, extractYouTubeVideoId, type VideoMetadata } from '../../../lms/videoMetadataService';
+import { SyncedVideoPreviewCard } from '../batches/SyncedVideoPreviewCard';
 import { useApp } from '../../../lms/LmsContext';
 import { db, getCachedFullTest } from '../../../lib/firebase';
 import { loadFullTestOnDemand } from '../../../lib/storage';
@@ -2368,6 +2369,7 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
   const [lecChapterId, setLecChapterId] = useState<string>('');
   const [lecIsFreePreview, setLecIsFreePreview] = useState(false);
   const [lecMilestones, setLecMilestones] = useState<TimelineMilestone[]>([]);
+  const [lecVideoMeta, setLecVideoMeta] = useState<VideoMetadata | null>(null);
   const [isAutoFetchingMeta, setIsAutoFetchingMeta] = useState(false);
   const lastFetchedYtIdRef = useRef<string | null>(null);
 
@@ -2376,15 +2378,19 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
     const ytId = extractYouTubeVideoId(url);
     if (!ytId) {
       lastFetchedYtIdRef.current = null;
+      setLecVideoMeta(null);
       return;
     }
-    if (!force && ytId === lastFetchedYtIdRef.current && lecTitle) return;
+    if (!force && ytId === lastFetchedYtIdRef.current) return;
     lastFetchedYtIdRef.current = ytId;
     setIsAutoFetchingMeta(true);
     try {
       const meta = await fetchVideoMetadata(ytId, force);
       if (meta) {
-        setLecTitle(meta.title);
+        setLecVideoMeta(meta);
+        if (meta.title && meta.title !== 'Lecture Video') {
+          setLecTitle(meta.title);
+        }
         if (meta.durationMinutes && meta.durationMinutes > 0) {
           setLecDuration(meta.durationMinutes);
         }
@@ -2432,8 +2438,17 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
       setLecChapterId(targetLecture.chapterId || '');
       setLecIsFreePreview(targetLecture.isFreePreview);
       setLecMilestones(targetLecture.milestones || []);
+      const existingYtId = extractYouTubeVideoId(rawKey);
+      if (existingYtId) {
+        fetchVideoMetadata(existingYtId).then((meta) => {
+          if (meta) setLecVideoMeta(meta);
+        }).catch(() => {});
+      } else {
+        setLecVideoMeta(null);
+      }
     } else if (entity.type === 'new_lecture') {
       lastFetchedYtIdRef.current = null;
+      setLecVideoMeta(null);
       setLecTitle('');
       setLecDesc('');
       setLecVideoUrl('');
@@ -2638,6 +2653,18 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
                 <ShieldCheck className="w-3 h-3" />
                 <span>Zero-bandwidth streaming: Protected by Elevate DRM Curtain</span>
               </span>
+
+              {/* YouTube Synced Details & Thumbnail Preview */}
+              {extractYouTubeVideoId(lecVideoUrl) && (
+                <div className="mt-2.5">
+                  <SyncedVideoPreviewCard
+                    videoId={extractYouTubeVideoId(lecVideoUrl)}
+                    metadata={lecVideoMeta}
+                    isLoading={isAutoFetchingMeta}
+                    onRefresh={() => handleVideoUrlChange(lecVideoUrl, true)}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
