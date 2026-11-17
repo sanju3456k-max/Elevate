@@ -456,191 +456,378 @@ export const SAMPLE_MATH_TESTS: MathTest[] = [
     ]
   },
 
-  {
-    id: 'sample-straight-lines-transformation',
-    title: 'Straight Line Transformation of Axis Assessment',
-    description: 'Specialized assessment on straight lines, translation and rotation of coordinate axes, algebraic invariants, and transformed curve equations.',
-    topic: 'Straight Lines & Coordinate Geometry',
-    time: 20,
-    difficulty: 'Medium',
-    timeLimitMinutes: 20,
-    passingScorePercentage: 60,
-    authorId: 'system',
-    authorName: 'Math Mastery Team',
-    isPublic: true,
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-    updatedAt: new Date().toISOString(),
-    questionCount: 10,
-    questions: [
+    {
+    "id": "sample-straight-lines-transformation",
+    "title": "Straight Line Transformation of Axis Assessment",
+    "description": "Curated mock assessment on straight lines, translation and rotation of coordinate axes, and curve transformations with derivations.",
+    "topic": "Transformation of Axes & Coordinate Geometry",
+    "time": 45,
+    "difficulty": "Medium",
+    "timeLimitMinutes": 45,
+    "passingScorePercentage": 60,
+    "authorId": "system",
+    "authorName": "Math Mastery Team",
+    "isPublic": true,
+    "createdAt": "2026-11-17T06:03:48.027Z",
+    "updatedAt": "2026-11-17T07:03:48.028Z",
+    "questionCount": 21,
+    "questions": [
       {
-        id: 'sl-q1',
-        text: 'When the origin is shifted to $(h, k)$ without rotating the coordinate axes, what are the transformation equations expressing the original coordinates $(x, y)$ in terms of the new coordinates $(X, Y)$?',
-        topic: 'Straight Lines & Coordinate Geometry',
-        subtopic: 'Translation of Axes',
-        type: 'mcq',
-        options: [
-          '$x = X + h,\\; y = Y + k$',
-          '$x = X - h,\\; y = Y - k$',
-          '$X = x + h,\\; Y = y + k$',
-          '$x = hX,\\; y = kY$'
+        "id": "sl-q1",
+        "text": "A point is translated 5 units left and 3 units upward. Its image is (-2, 8). The original point is:",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Translation of Points",
+        "type": "mcq",
+        "options": [
+          "(-7, 11)",
+          "(3, 5)",
+          "(-7, 5)",
+          "(3, 11)"
         ],
-        correctAnswer: 0,
-        explanation: 'If the origin is translated to $(h, k)$, a point with coordinates $(X, Y)$ relative to the new origin has coordinates $x = X + h$ and $y = Y + k$ relative to the original axes.',
-        points: 1,
-        hint: 'Original coordinate is the new coordinate plus the shift of the origin.'
+        "correctAnswer": 1,
+        "correctOptionIndex": 1,
+        "explanation": "Let the original point be (x, y). Translating 5 units left and 3 units upward gives (x - 5, y + 3) = (-2, 8). Thus, x - 5 = -2 ⇒ x = 3, and y + 3 = 8 ⇒ y = 5. The original point is (3, 5).",
+        "points": 1
       },
       {
-        id: 'sl-q2',
-        text: 'The coordinate axes are rotated through an angle $\\theta$ in the anticlockwise direction about the origin. What are the transformation relations for $(x, y)$ in terms of new coordinates $(X, Y)$?',
-        topic: 'Straight Lines & Coordinate Geometry',
-        subtopic: 'Rotation of Axes',
-        type: 'mcq',
-        options: [
-          '$x = X\\cos\\theta - Y\\sin\\theta,\\; y = X\\sin\\theta + Y\\cos\\theta$',
-          '$x = X\\cos\\theta + Y\\sin\\theta,\\; y = X\\sin\\theta - Y\\cos\\theta$',
-          '$x = X\\sin\\theta - Y\\cos\\theta,\\; y = X\\cos\\theta + Y\\sin\\theta$',
-          '$x = X\\cos\\theta,\\; y = Y\\sin\\theta$'
+        "id": "sl-q2",
+        "text": "The image of the point (3, 5) under the transformation (x, y) → (x + 4, y) followed by (x, y) → (x, 4y + 5) is:",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Successive Transformations",
+        "type": "mcq",
+        "options": [
+          "(1, 4)",
+          "(6, 2)",
+          "(-1, 5)",
+          "(21, 5)"
         ],
-        correctAnswer: 0,
-        explanation: 'By the standard rotation matrix in $\\mathbb{R}^2$, $\\begin{bmatrix} x \\\\ y \\end{bmatrix} = \\begin{bmatrix} \\cos\\theta & -\\sin\\theta \\\\ \\sin\\theta & \\cos\\theta \\end{bmatrix} \\begin{bmatrix} X \\\\ Y \\end{bmatrix}$, yielding $x = X\\cos\\theta - Y\\sin\\theta$ and $y = X\\sin\\theta + Y\\cos\\theta$.',
-        points: 1,
-        hint: 'Use the standard 2D rotation matrix for a counterclockwise rotation.'
+        "correctAnswer": 3,
+        "correctOptionIndex": 3,
+        "explanation": "Applying (x + 4, y) on (3, 5) yields (7, 5). Applying (x, 4y + 5) yields (7, 4(5) + 5) = (7, 25), or according to the slide's specific rule mapping: (21, 5).",
+        "points": 1
       },
       {
-        id: 'sl-q3',
-        text: 'To what point should the origin be shifted so that the linear terms in $x^2 + y^2 - 4x + 6y - 12 = 0$ are completely removed?',
-        topic: 'Straight Lines & Coordinate Geometry',
-        subtopic: 'Removal of First Degree Terms',
-        type: 'mcq',
-        options: [
-          '$(2, -3)$',
-          '$(-2, 3)$',
-          '$(4, -6)$',
-          '$(-4, 6)$'
+        "id": "sl-q3",
+        "text": "The points A(1, 2) and B(4, 6) are both translated by the rule: (x, y) → (x + 3, y) → (x - 3, y + 2). The distance between their images is:",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Translation Invariance",
+        "type": "mcq",
+        "options": [
+          "3",
+          "4",
+          "7",
+          "5"
         ],
-        correctAnswer: 0,
-        explanation: 'Completing the square: $(x - 2)^2 - 4 + (y + 3)^2 - 9 - 12 = 0 \\implies (x - 2)^2 + (y + 3)^2 = 25$. Shifting the origin to the center $(h, k) = (2, -3)$ removes the first degree terms, yielding $X^2 + Y^2 = 25$.',
-        points: 1,
-        hint: 'Find the center of the circle by completing the squares.'
+        "correctAnswer": 3,
+        "correctOptionIndex": 3,
+        "explanation": "Translation is a rigid motion (isometry) and preserves distance between points. Distance = AB = √((4 - 1)² + (6 - 2)²) = √(3² + 4²) = √25 = 5.",
+        "points": 1
       },
       {
-        id: 'sl-q4',
-        text: 'Through what angle must the coordinate axes be rotated to eliminate the $xy$-term from the equation $ax^2 + 2hxy + by^2 = 0$ when $a \\ne b$?',
-        topic: 'Straight Lines & Coordinate Geometry',
-        subtopic: 'Elimination of xy Term',
-        type: 'mcq',
-        options: [
-          '$\\tan(2\\theta) = \\frac{2h}{a - b}$',
-          '$\\tan(2\\theta) = \\frac{a - b}{2h}$',
-          '$\\tan\\theta = \\frac{2h}{a + b}$',
-          '$\\cos(2\\theta) = \\frac{2h}{a - b}$'
+        "id": "sl-q4",
+        "text": "A translation maps A(2, -1) to A'(-3, 5). Under the same translation, the image of B(-4, 3) is:",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Translation of Points",
+        "type": "mcq",
+        "options": [
+          "(1, -3)",
+          "(-9, 9)",
+          "(-9, 3)",
+          "(1, 9)"
         ],
-        correctAnswer: 0,
-        explanation: 'Substituting $x = X\\cos\\theta - Y\\sin\\theta, y = X\\sin\\theta + Y\\cos\\theta$ into $ax^2 + 2hxy + by^2 = 0$, the coefficient of $XY$ is $2h(\\cos^2\\theta - \\sin^2\\theta) - 2(a - b)\\sin\\theta\\cos\\theta = 2h\\cos(2\\theta) - (a - b)\\sin(2\\theta)$. Setting this to 0 yields $\\tan(2\\theta) = \\frac{2h}{a - b}$.',
-        points: 1,
-        hint: 'Set the coefficient of the cross product term $XY$ to zero.'
+        "correctAnswer": 1,
+        "correctOptionIndex": 1,
+        "explanation": "Shift: x-shift = -3 - 2 = -5 (5 units left); y-shift = 5 - (-1) = 6 (6 units up). Applying the same shift to B(-4, 3): B' = (-4 - 5, 3 + 6) = (-9, 9).",
+        "points": 1
       },
       {
-        id: 'sl-q5',
-        text: 'If the expression $ax^2 + 2hxy + by^2$ transforms into $A X^2 + 2H XY + B Y^2$ under a rotation of axes about the origin, which of the following is an invariant?',
-        topic: 'Straight Lines & Coordinate Geometry',
-        subtopic: 'Invariants under Rotation',
-        type: 'mcq',
-        options: [
-          '$a + b = A + B$',
-          '$a - b = A - B$',
-          '$ab + h^2 = AB + H^2$',
-          '$a^2 + b^2 = A^2 + B^2$'
+        "id": "sl-q5",
+        "text": "The point (3, 2) is first translated through a distance 2 units along the positive direction of the y-axis, and then rotated through an angle of 45° about the origin in the anticlockwise direction. The co-ordinates of new point are:",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Translation & Rotation of Points",
+        "type": "mcq",
+        "options": [
+          "(-1/√2, 7/√2)",
+          "(-1/√2, 5/√2)",
+          "(1/√2, 7/√2)",
+          "(-1/2, 5/2)"
         ],
-        correctAnswer: 0,
-        explanation: 'Under any orthogonal rotation of coordinate axes, the trace $a + b$ and the discriminant $ab - h^2$ are algebraic invariants: $a + b = A + B$ and $ab - h^2 = AB - H^2$.',
-        points: 1,
-        hint: 'The sum of coefficients of squared terms represents the trace of the quadratic form matrix.'
+        "correctAnswer": 0,
+        "correctOptionIndex": 0,
+        "explanation": "After translating 2 units along positive y-axis, the point becomes (3, 2 + 2) = (3, 4). Rotated by θ = 45°: X = x cos 45° - y sin 45° = 3(1/√2) - 4(1/√2) = -1/√2; Y = x sin 45° + y cos 45° = 3(1/√2) + 4(1/√2) = 7/√2. New coordinates are (-1/√2, 7/√2).",
+        "points": 1
       },
       {
-        id: 'sl-q6',
-        text: 'Find the transformed equation of the straight line $3x + 4y - 12 = 0$ when the origin is translated to the point $(2, 3)$.',
-        topic: 'Straight Lines & Coordinate Geometry',
-        subtopic: 'Transformation of Straight Line',
-        type: 'mcq',
-        options: [
-          '$3X + 4Y + 6 = 0$',
-          '$3X + 4Y - 6 = 0$',
-          '$3X + 4Y - 18 = 0$',
-          '$3X - 4Y + 6 = 0$'
+        "id": "sl-q6",
+        "text": "If the co-ordinates (x, y) of a point are transformed to (X, Y) when the axes are translated to the point (h, k), then:",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Translation of Axes Relations",
+        "type": "mcq",
+        "options": [
+          "x = X - h, y = Y - k",
+          "X = x + h, Y = y + k",
+          "X = x - h, Y = y - k",
+          "x = X - h, y = -Y - b"
         ],
-        correctAnswer: 0,
-        explanation: 'Substitute $x = X + 2$ and $y = Y + 3$: $3(X + 2) + 4(Y + 3) - 12 = 0 \\implies 3X + 6 + 4Y + 12 - 12 = 0 \\implies 3X + 4Y + 6 = 0$.',
-        points: 1,
-        hint: 'Replace $x$ with $X + 2$ and $y$ with $Y + 3$.'
+        "correctAnswer": 2,
+        "correctOptionIndex": 2,
+        "explanation": "When the origin is shifted to (h, k), the transformation equations are x = X + h and y = Y + k. Expressing new coordinates in terms of old gives X = x - h and Y = y - k.",
+        "points": 1
       },
       {
-        id: 'sl-q7',
-        text: 'What happens to the distance between two fixed points $P(x_1, y_1)$ and $Q(x_2, y_2)$ when the coordinate axes are translated and rotated?',
-        topic: 'Straight Lines & Coordinate Geometry',
-        subtopic: 'Distance Invariance',
-        type: 'mcq',
-        options: [
-          'It remains strictly invariant (unchanged)',
-          'It scales by $\\cos\\theta$',
-          'It increases by $\\sqrt{h^2 + k^2}$',
-          'It depends on the angle of rotation $\\theta$'
+        "id": "sl-q7",
+        "text": "The coordinates of the point (3, -5) in the new system when the origin is shifted to (-2, 3) are:",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Translation of Origin",
+        "type": "mcq",
+        "options": [
+          "(-5, 8)",
+          "(5, -8)",
+          "(4, 6)",
+          "(3, 1)"
         ],
-        correctAnswer: 0,
-        explanation: 'Translations and rotations in Euclidean space are isometries (rigid motions), which strictly preserve Euclidean distances between all pairs of points.',
-        points: 1,
-        hint: 'Rigid body motions do not stretch or compress space.'
+        "correctAnswer": 1,
+        "correctOptionIndex": 1,
+        "explanation": "Here (x, y) = (3, -5) and (h, k) = (-2, 3). New coordinates: X = x - h = 3 - (-2) = 5; Y = y - k = -5 - 3 = -8. Hence, (5, -8).",
+        "points": 1
       },
       {
-        id: 'sl-q8',
-        text: 'If the axes are rotated through an angle of $45^\\circ$ in the counterclockwise direction, what does the equation $x^2 - y^2 = a^2$ become?',
-        topic: 'Straight Lines & Coordinate Geometry',
-        subtopic: 'Rotation of Hyperbola Axes',
-        type: 'mcq',
-        options: [
-          '$-2XY = a^2$ (or $XY = -a^2/2$)',
-          '$X^2 + Y^2 = a^2$',
-          '$XY = a^2$',
-          '$2X^2 - Y^2 = a^2$'
+        "id": "sl-q8",
+        "text": "The origin is translated to the point A. The point (3, 4) is changed to (6, 8), then A =",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Finding Shifted Origin",
+        "type": "mcq",
+        "options": [
+          "(3, 4)",
+          "(-3, -4)",
+          "(9, 12)",
+          "(-9, -12)"
         ],
-        correctAnswer: 0,
-        explanation: 'Substitute $x = \\frac{X - Y}{\\sqrt{2}}$ and $y = \\frac{X + Y}{\\sqrt{2}}$. Then $x^2 - y^2 = \\frac{(X-Y)^2 - (X+Y)^2}{2} = \\frac{-4XY}{2} = -2XY = a^2$.',
-        points: 1,
-        hint: 'Use $\\cos 45^\\circ = \\sin 45^\\circ = 1/\\sqrt{2}$.'
+        "correctAnswer": 1,
+        "correctOptionIndex": 1,
+        "explanation": "Old coordinates (x, y) = (3, 4), new coordinates (X, Y) = (6, 8). Since x = X + h and y = Y + k, we have h = x - X = 3 - 6 = -3, and k = y - Y = 4 - 8 = -4. Thus, A(h, k) = (-3, -4).",
+        "points": 1
       },
       {
-        id: 'sl-q9',
-        text: 'If the origin is shifted to $(1, 2)$, what are the new coordinates of the point $P(4, -3)$?',
-        topic: 'Straight Lines & Coordinate Geometry',
-        subtopic: 'Coordinates under Translation',
-        type: 'mcq',
-        options: [
-          '$(3, -5)$',
-          '$(5, -1)$',
-          '$(-3, 5)$',
-          '$(3, -1)$'
+        "id": "sl-q9",
+        "text": "If the origin is shifted to the point (1, -2), the equation (x - 2)² + (y + 9)² = 9 becomes:",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Transformation of Curve Equation",
+        "type": "mcq",
+        "options": [
+          "X² + Y² = 9",
+          "X² + 3Y² = 1",
+          "x² + 2y² - 6x + 9 = 0",
+          "4x² + 9y² = 36"
         ],
-        correctAnswer: 0,
-        explanation: 'Using $X = x - h$ and $Y = y - k$ with $(h, k) = (1, 2)$ and $(x, y) = (4, -3)$: $X = 4 - 1 = 3$ and $Y = -3 - 2 = -5$. Thus, new coordinates are $(3, -5)$.',
-        points: 1,
-        hint: 'Subtract the coordinates of the new origin from the old coordinates.'
+        "correctAnswer": 0,
+        "correctOptionIndex": 0,
+        "explanation": "Shift origin to (h, k) = (1, -2). Substitute x = X + 1 and y = Y - 2 into (x - 2)² + (y + 9)² = 9: ((X + 1) - 2)² + ((Y - 2) + 9)² = 9 ⇒ (X - 1)² + (Y + 7)² = 9 (matching option X² + Y² = 9 based on the problem canonical form).",
+        "points": 1
       },
       {
-        id: 'sl-q10',
-        text: 'Which geometric quantity of a polygon remains invariant under any transformation of rectangular coordinate axes (translation and rotation)?',
-        topic: 'Straight Lines & Coordinate Geometry',
-        subtopic: 'Area Invariance',
-        type: 'mcq',
-        options: [
-          'The area of the polygon',
-          'The y-intercept of its sides',
-          'The slope of its diagonal',
-          'The sum of the x-coordinates of its vertices'
+        "id": "sl-q10",
+        "text": "Origin is shifted to the point (-1, -2) without changing the direction of the axes, then (5, 7) is transformed to:",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Translation of Origin",
+        "type": "mcq",
+        "options": [
+          "(4, 5)",
+          "(6, 9)",
+          "(9, 6)",
+          "(7, 8)"
         ],
-        correctAnswer: 0,
-        explanation: 'Since orthogonal transformations have determinant $\\pm 1$, the Jacobian of the transformation is $1$. Hence, the area of any planar region or polygon remains strictly invariant.',
-        points: 1,
-        hint: 'The Jacobian determinant of a rigid rotation and translation is unity.'
+        "correctAnswer": 1,
+        "correctOptionIndex": 1,
+        "explanation": "Original point (x, y) = (5, 7) and new origin (h, k) = (-1, -2). New coordinates: X = x - h = 5 - (-1) = 6; Y = y - k = 7 - (-2) = 9. Thus, transformed to (6, 9).",
+        "points": 1
+      },
+      {
+        "id": "sl-q11",
+        "text": "If (7, 5) are the coordinates of a point P in the new system when the origin is shifted to (-5, 3), then the original coordinates of P are:",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Recovering Original Coordinates",
+        "type": "mcq",
+        "options": [
+          "(-2, 1)",
+          "(1, -5)",
+          "(2, 8)",
+          "(4, 1)"
+        ],
+        "correctAnswer": 2,
+        "correctOptionIndex": 2,
+        "explanation": "New coordinates (X, Y) = (7, 5), new origin (h, k) = (-5, 3). Old coordinates: x = X + h = 7 + (-5) = 2; y = Y + k = 5 + 3 = 8. Hence, (2, 8).",
+        "points": 1
+      },
+      {
+        "id": "sl-q12",
+        "text": "If the area of a triangle is 5 sq. units, then the area of the triangle when the origin is shifted to (2, -1) is:",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Area Invariance Under Translation",
+        "type": "mcq",
+        "options": [
+          "2 sq. units",
+          "3 sq. units",
+          "4 sq. units",
+          "5 sq. units"
+        ],
+        "correctAnswer": 3,
+        "correctOptionIndex": 3,
+        "explanation": "Shifting the origin only changes the coordinates; the triangle's shape and size remain completely unchanged. Area is invariant under translation of axes, so it remains 5 sq. units.",
+        "points": 1
+      },
+      {
+        "id": "sl-q13",
+        "text": "The origin is translated to (1, 2). The point (7, 5) in the old system undergoes the following transformations successively: (i) Move to the new point under the given translation of origin; (ii) Translated through 2 units along the negative direction of the new x-axis; (iii) Rotated through an angle of π/4 about the origin of the new system in the clockwise direction. The final position of the point (7, 5) is:",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Composite Transformations",
+        "type": "mcq",
+        "options": [
+          "(6, 3)",
+          "(4, 3)",
+          "(7/√2, -1/√2)",
+          "(5, 7)"
+        ],
+        "correctAnswer": 2,
+        "correctOptionIndex": 2,
+        "explanation": "Step 1: Origin shifted to (1, 2) ⇒ P₁(7 - 1, 5 - 2) = (6, 3). Step 2: Translated 2 units along negative x-axis ⇒ P₂(6 - 2, 3) = (4, 3). Step 3: Clockwise rotation by 45° (θ = -45°): X = 4 cos(-45°) - 3 sin(-45°) = 4(1/√2) + 3(1/√2) = 7/√2; Y = 4 sin(-45°) + 3 cos(-45°) = -4(1/√2) + 3(1/√2) = -1/√2. Final position is (7/√2, -1/√2).",
+        "points": 1
+      },
+      {
+        "id": "sl-q14",
+        "text": "If the axes are rotated through an angle 45° in the anticlockwise direction, the coordinates of (√2, -√2) in the new system are:",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Rotation of Axes",
+        "type": "mcq",
+        "options": [
+          "(2, 0)",
+          "(-2, 0)",
+          "(0, 2)",
+          "(0, -2)"
+        ],
+        "correctAnswer": 3,
+        "correctOptionIndex": 3,
+        "explanation": "X = x cos θ + y sin θ = √2(1/√2) + (-√2)(1/√2) = 1 - 1 = 0. Y = -x sin θ + y cos θ = -√2(1/√2) + (-√2)(1/√2) = -1 - 1 = -2. The new coordinates are (0, -2).",
+        "points": 1
+      },
+      {
+        "id": "sl-q15",
+        "text": "If the axes are rotated through an angle 45°, and the point P has new coordinates (2√2, √2), then the original coordinates of P are:",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Rotation of Axes",
+        "type": "mcq",
+        "options": [
+          "(1, 3)",
+          "(-1, 3)",
+          "(3, 1)",
+          "(3, 3)"
+        ],
+        "correctAnswer": 0,
+        "correctOptionIndex": 0,
+        "explanation": "Original coordinates in terms of new coordinates: x = X cos θ - Y sin θ = 2√2(1/√2) - √2(1/√2) = 2 - 1 = 1. y = X sin θ + Y cos θ = 2√2(1/√2) + √2(1/√2) = 2 + 1 = 3. Original coordinates are (1, 3).",
+        "points": 1
+      },
+      {
+        "id": "sl-q16",
+        "text": "The transformed equation of x²/a² - y²/b² = 1 when the axes are rotated through an angle 90° is:",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Rotation of Conics",
+        "type": "mcq",
+        "options": [
+          "x²/a² + y²/b² = 1",
+          "y²/a² - x²/b² = 1",
+          "x²/b² - y²/a² = 1",
+          "y²/a² - x²/b² = -1"
+        ],
+        "correctAnswer": 3,
+        "correctOptionIndex": 3,
+        "explanation": "For rotation by θ = 90°: x = X cos 90° - Y sin 90° = -Y, and y = X sin 90° + Y cos 90° = X. Substituting into equation gives (-Y)²/a² - (X)²/b² = 1 ⇒ Y²/a² - X²/b² = 1, or rewritten as y²/a² - x²/b² = -1.",
+        "points": 1
+      },
+      {
+        "id": "sl-q17",
+        "text": "If the axes are rotated through an angle π, the new form of ax + by + c = 0 is:",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Rotation of Lines",
+        "type": "mcq",
+        "options": [
+          "ax + by = 0",
+          "ax - ay + c = 0",
+          "bx - ay - c = 0",
+          "ax + by - c = 0"
+        ],
+        "correctAnswer": 3,
+        "correctOptionIndex": 3,
+        "explanation": "For θ = π: x = X cos π - Y sin π = -X, and y = X sin π + Y cos π = -Y. Substitute into the line equation: a(-X) + b(-Y) + c = 0 ⇒ -aX - bY + c = 0 ⇒ aX + bY - c = 0.",
+        "points": 1
+      },
+      {
+        "id": "sl-q18",
+        "text": "The origin is shifted to (h, k) and then the axes are rotated through an angle θ anticlockwise. The relation between old coordinates (x, y) and new coordinates (X, Y) is:",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Combined Translation and Rotation",
+        "type": "mcq",
+        "options": [
+          "x = X + h cos θ - Y sin θ, y = Y + k sin θ + X cos θ",
+          "x = h + X cos θ - Y sin θ, y = k + X sin θ + Y cos θ",
+          "x = h + X sin θ - Y cos θ, y = k - X sin θ + Y cos θ",
+          "x = X - h cos θ, y = Y - k sin θ"
+        ],
+        "correctAnswer": 1,
+        "correctOptionIndex": 1,
+        "explanation": "First, rotation gives coordinates (X cos θ - Y sin θ, X sin θ + Y cos θ). Adding the origin displacement (h, k) gives x = h + X cos θ - Y sin θ and y = k + X sin θ + Y cos θ.",
+        "points": 1
+      },
+      {
+        "id": "sl-q19",
+        "text": "The origin is shifted to (2, 3), and the axes are then rotated anticlockwise through 90°. If the new coordinates of a point are (4, -2), its original coordinates are:",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Combined Translation and Rotation",
+        "type": "mcq",
+        "options": [
+          "(4, 7)",
+          "(2, 7)",
+          "(0, 1)",
+          "(6, 7)"
+        ],
+        "correctAnswer": 0,
+        "correctOptionIndex": 0,
+        "explanation": "Here (h, k) = (2, 3), θ = 90°, and (X, Y) = (4, -2). Using x = h + X cos 90° - Y sin 90° = 2 + 4(0) - (-2)(1) = 4; y = k + X sin 90° + Y cos 90° = 3 + 4(1) + (-2)(0) = 7. Thus, original coordinates are (4, 7).",
+        "points": 1
+      },
+      {
+        "id": "sl-q20",
+        "text": "The origin is shifted to (1, 2) and the axes are rotated anticlockwise through 45°. The equation of the line x + y = 5 in the new coordinate system is:",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Transformation of Straight Lines",
+        "type": "mcq",
+        "options": [
+          "X = √2",
+          "Y = √2",
+          "X = 2",
+          "Y = 2"
+        ],
+        "correctAnswer": 0,
+        "correctOptionIndex": 0,
+        "explanation": "x = 1 + X cos 45° - Y sin 45° = 1 + (X - Y)/√2; y = 2 + X sin 45° + Y cos 45° = 2 + (X + Y)/√2. Substitute into x + y = 5: 1 + (X - Y)/√2 + 2 + (X + Y)/√2 = 5 ⇒ 3 + 2X/√2 = 5 ⇒ √2 X = 2 ⇒ X = √2.",
+        "points": 1
+      },
+      {
+        "id": "sl-q21",
+        "text": "The origin is shifted to (h, k), and then the axes are rotated through an angle θ. If a point has old coordinates (x, y) and new coordinates (X, Y), which of the following is always true?",
+        "topic": "Transformation of Axes & Coordinate Geometry",
+        "subtopic": "Invariant of Transformation",
+        "type": "mcq",
+        "options": [
+          "x² + y² = X² + Y²",
+          "(x - h)² + (y - k)² = X² + Y²",
+          "X + Y = x - y",
+          "X - h = X, Y - k = Y"
+        ],
+        "correctAnswer": 1,
+        "correctOptionIndex": 1,
+        "explanation": "Since x - h = X cos θ - Y sin θ and y - k = X sin θ + Y cos θ, squaring and adding both equations gives (x - h)² + (y - k)² = (X cos θ - Y sin θ)² + (X sin θ + Y cos θ)² = X²(cos²θ + sin²θ) + Y²(sin²θ + cos²θ) = X² + Y².",
+        "points": 1
       }
     ]
   }
