@@ -2109,20 +2109,15 @@ export default function App() {
             <>
               {/* Bottom Navigation Area Underlay: Pure White Seamless Field Merging with Android Navigation Area with 0 Partition Line */}
               <div
-                className="fixed -bottom-48 inset-x-0 h-64 bg-white dark:bg-[#0b0c10] z-[50] pointer-events-none md:hidden border-0 border-none outline-none ring-0 shadow-none transition-colors duration-200"
+                className="fixed -bottom-40 inset-x-0 h-56 bg-white dark:bg-[#0b0c10] z-[50] pointer-events-none md:hidden border-0 border-none outline-none ring-0 shadow-none transition-colors duration-200"
                 aria-hidden="true"
               />
               <nav
                 id="mobile-bottom-nav"
                 aria-label="Mobile Bottom Navigation"
-                className="fixed bottom-0 left-0 right-0 z-[51] md:hidden bg-white dark:bg-[#0b0c10] border-0 border-none shadow-none outline-none ring-0 px-2 pt-1.5 pb-[calc(max(1rem,env(safe-area-inset-bottom,0px))+12px)] transition-colors duration-200 relative"
+                className="fixed bottom-0 left-0 right-0 z-[51] md:hidden bg-white dark:bg-[#0b0c10] border-0 border-none shadow-none outline-none ring-0 px-2 pt-1.5 pb-[calc(max(1.15rem,env(safe-area-inset-bottom,0px))+14px)] transition-colors duration-200"
               >
-                {/* Extended seamless white backdrop to 100% cover the gesture bar and screen bottom */}
-                <div
-                  className="absolute inset-x-0 top-0 -bottom-48 bg-white dark:bg-[#0b0c10] -z-10 pointer-events-none border-0 border-none shadow-none outline-none"
-                  aria-hidden="true"
-                />
-              <div className="grid grid-cols-4 items-center justify-around max-w-md mx-auto relative z-10">
+              <div className="grid grid-cols-4 items-center justify-around max-w-md mx-auto">
                 {/* 1. Home */}
                 <button
                   id="mobile-nav-home"
