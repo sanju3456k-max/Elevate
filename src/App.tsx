@@ -2100,8 +2100,8 @@ export default function App() {
       {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'results' && activeTab !== 'create' && activeTab !== 'custom-builder' && activeTab !== 'master-console' && (
         <main className={`flex-1 min-w-0 bg-[#e5e9f0] dark:bg-[#0b0c10] ${
           ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && !isInsideBatch && !isChapterFullScreenActive
-            ? (persistentPlayback?.isMinimized ? 'pb-36 sm:pb-28' : 'pb-24 sm:pb-8')
-            : (persistentPlayback?.isMinimized ? 'pb-24 sm:pb-28' : 'pb-6 sm:pb-8')
+            ? (persistentPlayback?.isMinimized ? 'pb-40 sm:pb-28' : 'pb-28 sm:pb-8')
+            : (persistentPlayback?.isMinimized ? 'pb-28 sm:pb-28' : 'pb-6 sm:pb-8')
         }`}>
 
           {/* MOBILE BOTTOM NAVIGATION HEADER (Home, Courses, Tests, Analytics) - Completely plain and seamless with page body and navigation area */}
@@ -2109,15 +2109,20 @@ export default function App() {
             <>
               {/* Bottom Navigation Area Underlay: Pure White Seamless Field Merging with Android Navigation Area with 0 Partition Line */}
               <div
-                className="fixed -bottom-24 inset-x-0 h-36 bg-white dark:bg-[#0b0c10] z-39 pointer-events-none md:hidden border-0 border-none outline-none ring-0 shadow-none transition-colors duration-200"
+                className="fixed -bottom-48 inset-x-0 h-64 bg-white dark:bg-[#0b0c10] z-[50] pointer-events-none md:hidden border-0 border-none outline-none ring-0 shadow-none transition-colors duration-200"
                 aria-hidden="true"
               />
               <nav
                 id="mobile-bottom-nav"
                 aria-label="Mobile Bottom Navigation"
-                className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white dark:bg-[#0b0c10] border-0 border-none shadow-none outline-none ring-0 px-2 py-1.5 pb-[calc(max(0.65rem,env(safe-area-inset-bottom,0px)))] transition-colors duration-200"
+                className="fixed bottom-0 left-0 right-0 z-[51] md:hidden bg-white dark:bg-[#0b0c10] border-0 border-none shadow-none outline-none ring-0 px-2 pt-1.5 pb-[calc(max(1rem,env(safe-area-inset-bottom,0px))+12px)] transition-colors duration-200 relative"
               >
-              <div className="grid grid-cols-4 items-center justify-around max-w-md mx-auto">
+                {/* Extended seamless white backdrop to 100% cover the gesture bar and screen bottom */}
+                <div
+                  className="absolute inset-x-0 top-0 -bottom-48 bg-white dark:bg-[#0b0c10] -z-10 pointer-events-none border-0 border-none shadow-none outline-none"
+                  aria-hidden="true"
+                />
+              <div className="grid grid-cols-4 items-center justify-around max-w-md mx-auto relative z-10">
                 {/* 1. Home */}
                 <button
                   id="mobile-nav-home"

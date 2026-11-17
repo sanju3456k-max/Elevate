@@ -282,7 +282,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
       id="global-persistent-player-host"
       className={
         isMinimized
-          ? `fixed left-3 right-3 md:left-auto md:right-6 md:w-[360px] md:h-auto h-15 sm:h-16 z-50 bg-white dark:bg-[#1a1c22] backdrop-blur-2xl rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.22),0_4px_12px_rgba(0,0,0,0.12)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.75)] border border-slate-200/90 dark:border-zinc-800/90 p-0 transition-all duration-200 select-none cursor-pointer overflow-hidden md:!bottom-6 ${
+          ? `fixed left-3 right-3 md:left-auto md:right-6 md:w-[360px] md:h-auto h-15 sm:h-16 z-50 bg-white dark:bg-[#1a1c22] backdrop-blur-2xl rounded-2xl shadow-none md:shadow-[0_12px_40px_rgba(0,0,0,0.22),0_4px_12px_rgba(0,0,0,0.12)] dark:shadow-none dark:md:shadow-[0_16px_48px_rgba(0,0,0,0.75)] border border-slate-200/90 dark:border-zinc-800/90 p-0 transition-all duration-200 select-none cursor-pointer overflow-hidden md:!bottom-6 ${
               !isTestMode ? 'flex flex-row md:flex-col items-center md:items-stretch justify-between' : 'hidden'
             }`
           : 'fixed inset-x-0 bottom-0 top-0 md:top-[58px] z-50 md:z-40 bg-[var(--md-sys-color-background)] overflow-y-auto px-0 lg:px-8 py-0 lg:py-6 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 max-w-[1720px] mx-auto w-full items-start'
@@ -291,7 +291,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
         isMinimized
           ? {
               bottom: isBottomNavVisible
-                ? 'calc(76px + env(safe-area-inset-bottom, 0px))'
+                ? 'calc(82px + env(safe-area-inset-bottom, 0px))'
                 : 'calc(14px + env(safe-area-inset-bottom, 0px))',
             }
           : undefined
