@@ -148,15 +148,17 @@ const STORAGE_KEYS = {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
-    const saved = secureStorage.getItem(STORAGE_KEYS.THEME);
-    if (saved === 'light' || saved === 'dark') return saved;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    try {
+      const saved = secureStorage.getItem(STORAGE_KEYS.THEME);
+      if (saved === 'light' || saved === 'dark') return saved;
+    } catch {}
+    return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
   const [user, setUser] = useState<User>(() => {
-    const saved = secureStorage.getItem(STORAGE_KEYS.USER);
-    if (saved) {
-      try {
+    try {
+      const saved = secureStorage.getItem(STORAGE_KEYS.USER);
+      if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
           const batchIds = Array.isArray(parsed.enrolledBatchIds) && parsed.enrolledBatchIds.length > 0
@@ -168,15 +170,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             enrolledBatchIds: batchIds,
           };
         }
-      } catch {}
-    }
+      }
+    } catch {}
     return INITIAL_USER;
   });
 
   const [batches, setBatches] = useState<Batch[]>(() => {
-    const saved = secureStorage.getItem(STORAGE_KEYS.BATCHES);
-    if (saved) {
-      try {
+    try {
+      const saved = secureStorage.getItem(STORAGE_KEYS.BATCHES);
+      if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
           return parsed.map((b: Batch) => ({
@@ -187,31 +189,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             },
           }));
         }
-      } catch {}
-    }
+      }
+    } catch {}
     return INITIAL_BATCHES;
   });
 
   const [subjects, setSubjects] = useState<Subject[]>(() => {
-    const saved = secureStorage.getItem(STORAGE_KEYS.SUBJECTS);
-    if (saved) {
-      try {
+    try {
+      const saved = secureStorage.getItem(STORAGE_KEYS.SUBJECTS);
+      if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
-      } catch {}
-    }
+      }
+    } catch {}
     return INITIAL_SUBJECTS;
   });
 
   const [chapters, setChapters] = useState<Chapter[]>(() => {
-    const saved = secureStorage.getItem(STORAGE_KEYS.CHAPTERS);
     let parsed: Chapter[] = INITIAL_CHAPTERS;
-    if (saved) {
-      try {
+    try {
+      const saved = secureStorage.getItem(STORAGE_KEYS.CHAPTERS);
+      if (saved) {
         const raw = JSON.parse(saved);
         if (Array.isArray(raw)) parsed = raw;
-      } catch {}
-    }
+      }
+    } catch {}
     return parsed.map((c) => ({
       ...c,
       testIds: Array.isArray(c.testIds) ? c.testIds.filter((id) => !DEPRECATED_TEST_IDS.has(id) && !id.includes('mix_test') && !id.includes('imported-1789747440687')) : [],
@@ -219,59 +221,92 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [lectures, setLectures] = useState<Lecture[]>(() => {
-    const saved = secureStorage.getItem(STORAGE_KEYS.LECTURES);
-    if (saved) {
-      try {
+    try {
+      const saved = secureStorage.getItem(STORAGE_KEYS.LECTURES);
+      if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
-      } catch {}
-    }
+      }
+    } catch {}
     return INITIAL_LECTURES;
   });
 
   const [watchProgress, setWatchProgress] = useState<Record<string, WatchProgress>>(() => {
-    const saved = secureStorage.getItem(STORAGE_KEYS.PROGRESS);
-    return saved ? JSON.parse(saved) : {};
+    try {
+      const saved = secureStorage.getItem(STORAGE_KEYS.PROGRESS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch {}
+    return {};
   });
 
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
-    const saved = secureStorage.getItem(STORAGE_KEYS.ANNOUNCEMENTS);
-    return saved ? JSON.parse(saved) : INITIAL_ANNOUNCEMENTS;
+    try {
+      const saved = secureStorage.getItem(STORAGE_KEYS.ANNOUNCEMENTS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return INITIAL_ANNOUNCEMENTS;
   });
 
   const [personalNotes, setPersonalNotes] = useState<PersonalNote[]>(() => {
-    const saved = secureStorage.getItem(STORAGE_KEYS.NOTES);
-    return saved
-      ? JSON.parse(saved)
-      : [
-          {
-            id: 'note_init_1',
-            lectureId: 'lec_testing_01',
-            seconds: 95,
-            text: 'Key visual demonstration begins here. Great concept clarity!',
-            createdAt: 'Today, 11:45 AM',
-          },
-        ];
+    try {
+      const saved = secureStorage.getItem(STORAGE_KEYS.NOTES);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [
+      {
+        id: 'note_init_1',
+        lectureId: 'lec_testing_01',
+        seconds: 95,
+        text: 'Key visual demonstration begins here. Great concept clarity!',
+        createdAt: 'Today, 11:45 AM',
+      },
+    ];
   });
 
   const [students, setStudents] = useState<{ id: string; name: string; email?: string; phone?: string }[]>(() => {
-    const saved = secureStorage.getItem(STORAGE_KEYS.STUDENTS);
-    return saved ? JSON.parse(saved) : INITIAL_STUDENTS;
+    try {
+      const saved = secureStorage.getItem(STORAGE_KEYS.STUDENTS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return INITIAL_STUDENTS;
   });
 
   const [enrollments, setEnrollments] = useState<BatchEnrollment[]>(() => {
-    const saved = secureStorage.getItem(STORAGE_KEYS.ENROLLMENTS);
-    return saved ? JSON.parse(saved) : INITIAL_ENROLLMENTS;
+    try {
+      const saved = secureStorage.getItem(STORAGE_KEYS.ENROLLMENTS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return INITIAL_ENROLLMENTS;
   });
 
   const [batchTests, setBatchTests] = useState<BatchTestCard[]>(() => {
-    const saved = secureStorage.getItem(STORAGE_KEYS.BATCH_TESTS);
-    const parsed = saved ? JSON.parse(saved) : INITIAL_BATCH_TESTS;
-    const cleanList = Array.isArray(parsed) ? parsed.filter((t) => !isDeprecatedTest(t)) : [];
-    if (saved && Array.isArray(parsed) && cleanList.length !== parsed.length) {
-      try {
-        secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(cleanList));
-      } catch {}
+    let cleanList: BatchTestCard[] = [];
+    try {
+      const saved = secureStorage.getItem(STORAGE_KEYS.BATCH_TESTS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          cleanList = parsed.filter((t) => !isDeprecatedTest(t));
+        }
+      }
+    } catch {}
+    if (cleanList.length === 0) {
+      cleanList = INITIAL_BATCH_TESTS.filter((t) => !isDeprecatedTest(t));
     }
     return cleanList;
   });

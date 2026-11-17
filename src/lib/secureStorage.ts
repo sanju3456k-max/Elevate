@@ -16,28 +16,15 @@
 
 const CIPHER_PREFIX = 'enc_v2_';
 const APP_SECRET_SALT = 'ELEVATE_SECURE_VAULT_CIPHER_2026_ALPHA9';
+const MAGIC_PREFIX = 'ELV2_';
 
 /**
- * Derives a lightweight browser/device fingerprint salt for hardware binding.
+ * Derives dynamic pseudorandom keystream block for stream encryption.
+ * Uses a stable, deterministic salt to prevent corruption across device orientation,
+ * screen resize, and host variations.
  */
-function getDeviceSalt(): string {
-  if (typeof window === 'undefined') return APP_SECRET_SALT;
-  try {
-    const nav = window.navigator;
-    const host = window.location.hostname || 'localhost';
-    const lang = nav.language || 'en';
-    const screenRes = `${window.screen?.width || 0}x${window.screen?.height || 0}`;
-    return `${host}:${lang}:${screenRes}:${APP_SECRET_SALT}`;
-  } catch {
-    return APP_SECRET_SALT;
-  }
-}
-
-/**
- * Generates dynamic pseudorandom keystream block for stream encryption.
- */
-function generateKeyStream(nonce: string, length: number): Uint8Array {
-  const seed = `${nonce}:${getDeviceSalt()}`;
+export function generateKeyStream(nonce: string, length: number, salt: string = APP_SECRET_SALT): Uint8Array {
+  const seed = `${nonce}:${salt}`;
   const keyStream = new Uint8Array(length);
   
   // 32-bit FNV-1a hash chain expansion
@@ -79,23 +66,24 @@ export function encryptPayload(plainText: string): string {
   if (!plainText) return '';
 
   try {
-    // 1. Encode UTF-8 string to bytes safely
+    // 1. Prefix with magic marker so we can verify decryption with 100% certainty
+    const tagged = `${MAGIC_PREFIX}${plainText}`;
     const encoder = new TextEncoder();
-    const plainBytes = encoder.encode(plainText);
+    const plainBytes = encoder.encode(tagged);
 
     // 2. Generate random 6-character hex nonce
     const nonce = Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
 
-    // 3. Generate dynamic keystream
-    const keyStream = generateKeyStream(nonce, plainBytes.length);
+    // 3. Generate dynamic keystream using STABLE salt
+    const keyStream = generateKeyStream(nonce, plainBytes.length, APP_SECRET_SALT);
 
-    // 4. Encrypt with keystream XOR and byte rotation
+    // 4. Encrypt with keystream XOR
     const cipherBytes = new Uint8Array(plainBytes.length);
     for (let i = 0; i < plainBytes.length; i++) {
       cipherBytes[i] = plainBytes[i] ^ keyStream[i];
     }
 
-    // 5. Compute integrity checksum
+    // 5. Compute integrity checksum on cipherBytes
     const checksum = computeChecksum(cipherBytes);
 
     // 6. Base64 encode the binary cipher
@@ -114,8 +102,9 @@ export function encryptPayload(plainText: string): string {
 }
 
 /**
- * Synchronous client-side cipher decryption.
+ * Synchronous client-side cipher decryption with multi-salt fallback recovery.
  * If input is legacy plain JSON or non-encrypted string, gracefully returns it as-is.
+ * If decryption fails or data is corrupted, returns null (NEVER returns binary gibberish).
  */
 export function decryptPayload(cipherOrRaw: string | null): string | null {
   if (cipherOrRaw === null || typeof cipherOrRaw !== 'string') return null;
@@ -131,7 +120,7 @@ export function decryptPayload(cipherOrRaw: string | null): string | null {
   try {
     const payload = trimmed.slice(CIPHER_PREFIX.length);
     const parts = payload.split('_');
-    if (parts.length < 3) return trimmed;
+    if (parts.length < 3) return null;
 
     const nonce = parts[0];
     const expectedChecksum = parts[1];
@@ -144,25 +133,90 @@ export function decryptPayload(cipherOrRaw: string | null): string | null {
       cipherBytes[i] = binary.charCodeAt(i);
     }
 
-    // 3. Verify integrity checksum
+    // 3. Verify integrity checksum of ciphertext
     const actualChecksum = computeChecksum(cipherBytes);
     if (actualChecksum !== expectedChecksum) {
-      console.warn('[SecureStorage] Integrity checksum mismatch');
+      console.warn('[SecureStorage] Integrity checksum mismatch on ciphertext');
     }
 
-    // 4. Regenerate keystream & decrypt
-    const keyStream = generateKeyStream(nonce, cipherBytes.length);
-    const plainBytes = new Uint8Array(cipherBytes.length);
-    for (let i = 0; i < cipherBytes.length; i++) {
-      plainBytes[i] = cipherBytes[i] ^ keyStream[i];
+    // 4. Gather candidate salts: Stable salt first, followed by all known legacy combinations
+    const candidateSalts: string[] = [APP_SECRET_SALT];
+    if (typeof window !== 'undefined') {
+      try {
+        const nav = window.navigator;
+        const host = window.location.hostname || 'localhost';
+        const lang = nav.language || 'en';
+        const w = window.screen?.width || 0;
+        const h = window.screen?.height || 0;
+
+        // Legacy dynamic combinations from previous builds
+        candidateSalts.push(`${host}:${lang}:${w}x${h}:${APP_SECRET_SALT}`);
+        candidateSalts.push(`${host}:${lang}:${h}x${w}:${APP_SECRET_SALT}`);
+        candidateSalts.push(`${host}:${lang}:${APP_SECRET_SALT}`);
+        candidateSalts.push(`localhost:${lang}:${w}x${h}:${APP_SECRET_SALT}`);
+        candidateSalts.push(`localhost:${lang}:${h}x${w}:${APP_SECRET_SALT}`);
+        candidateSalts.push(`labselevate.vercel.app:${lang}:${w}x${h}:${APP_SECRET_SALT}`);
+        candidateSalts.push(`labselevate.vercel.app:${lang}:${h}x${w}:${APP_SECRET_SALT}`);
+      } catch {}
     }
 
-    // 5. Decode UTF-8 bytes back to string
-    const decoder = new TextDecoder();
-    return decoder.decode(plainBytes);
+    // 5. Try each candidate salt until valid plaintext is decoded
+    for (const salt of candidateSalts) {
+      try {
+        const keyStream = generateKeyStream(nonce, cipherBytes.length, salt);
+        const plainBytes = new Uint8Array(cipherBytes.length);
+        for (let i = 0; i < cipherBytes.length; i++) {
+          plainBytes[i] = cipherBytes[i] ^ keyStream[i];
+        }
+
+        // Fatal TextDecoder: throws immediately if bytes are not valid UTF-8
+        const decoder = new TextDecoder('utf-8', { fatal: true });
+        const decoded = decoder.decode(plainBytes);
+
+        // Check for new MAGIC_PREFIX
+        if (decoded.startsWith(MAGIC_PREFIX)) {
+          return decoded.slice(MAGIC_PREFIX.length);
+        }
+
+        // For legacy data without MAGIC_PREFIX:
+        // Must not contain null bytes or replacement characters
+        if (decoded.includes('\uFFFD') || decoded.includes('\u0000')) {
+          continue; // Corrupted byte sequence, try next salt
+        }
+
+        // If it starts with JSON indicators, verify it actually parses
+        const firstChar = decoded.trim().charAt(0);
+        if (firstChar === '{' || firstChar === '[' || firstChar === '"') {
+          try {
+            JSON.parse(decoded);
+            return decoded; // Successfully parsed as valid JSON!
+          } catch {
+            continue; // Not valid JSON, keep trying other salts
+          }
+        }
+
+        // If it's a known boolean/number or valid string
+        if (decoded === 'true' || decoded === 'false' || decoded === 'null' || !isNaN(Number(decoded))) {
+          return decoded;
+        }
+
+        // Check if string contains only printable characters
+        const isPrintable = /^[\x20-\x7E\s\u0900-\u097F\u2000-\u206F\u00A0-\u00FF]*$/.test(decoded);
+        if (isPrintable && decoded.trim().length > 0) {
+          return decoded;
+        }
+      } catch {
+        // Fatal decode failed for this salt, continue to next
+      }
+    }
+
+    // If none of the salts produced clean valid plaintext, return null
+    // (NEVER return corrupted binary strings or cipher blobs)
+    console.warn('[SecureStorage] Decryption failed for all candidate salts, returning null');
+    return null;
   } catch (err) {
-    console.warn('[SecureStorage] Decryption failed, returning raw string', err);
-    return trimmed;
+    console.warn('[SecureStorage] Decryption exception, returning null', err);
+    return null;
   }
 }
 
@@ -173,13 +227,23 @@ export function decryptPayload(cipherOrRaw: string | null): string | null {
 export const secureStorage = {
   /**
    * Retrieves and automatically decrypts a value from localStorage.
+   * If stored cipher is corrupted or undecryptable, purges it to prevent runtime crashes.
    */
   getItem(key: string): string | null {
     if (typeof localStorage === 'undefined') return null;
     try {
       const raw = localStorage.getItem(key);
       if (raw === null) return null;
-      return decryptPayload(raw);
+      const decrypted = decryptPayload(raw);
+      if (decrypted === null && typeof raw === 'string' && raw.trim().startsWith(CIPHER_PREFIX)) {
+        // Corrupted/lost key cipher blob: Purge it so the app self-heals immediately
+        console.warn(`[SecureStorage] Purging undecryptable cipher key: "${key}"`);
+        try {
+          localStorage.removeItem(key);
+        } catch {}
+        return null;
+      }
+      return decrypted;
     } catch (e) {
       console.warn(`[SecureStorage] Error reading key "${key}":`, e);
       return null;
