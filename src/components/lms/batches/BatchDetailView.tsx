@@ -49,7 +49,9 @@ import { getTestDurationMinutes } from '../../../utils/testFormatConverter';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
 import { formatDuration, extractYouTubeId, obfuscateVideoKey, getLectureThumbnailUrl, deobfuscateVideoKey } from '../../../lms/security';
 import type { PdfNote, Chapter, Lecture, Batch } from '../../../lms/types';
-import type { MathTest } from '../../../types';
+import type { MathTest, TestAttempt, UserProfile } from '../../../types';
+import { M3TestCard } from '../../ui/M3TestCard';
+import { TestDetailModal } from '../../TestDetailModal';
 import { useBackHandler, isBrowserFullscreen, exitBrowserFullscreen } from '../../../hooks/useBackNavigation';
 import {
   CreateOrEditFolderModal,
@@ -68,10 +70,18 @@ interface BatchDetailViewProps {
   initialFolderTab?: 'videos' | 'notes_content' | 'tests' | null;
   onBack?: () => void;
   availableTests?: MathTest[];
+  attempts?: TestAttempt[];
+  userProfile?: UserProfile | null;
+  currentUser?: any;
   onStartTest?: (
     test: MathTest,
     context?: { batchId: string; chapterId?: string | null; folderTab: 'videos' | 'notes_content' | 'tests' }
   ) => void;
+  onStartOmrTest?: (
+    test: MathTest,
+    context?: { batchId: string; chapterId?: string | null; folderTab: 'videos' | 'notes_content' | 'tests' }
+  ) => void;
+  onViewAttemptResult?: (attempt: TestAttempt) => void;
   initialFilter?: 'all' | 'my-batches';
   onStageChange?: (stage: 'batch_list' | 'folder_list' | 'folder_content' | 'lecture_view') => void;
   onBatchChange?: (batchId: string | null) => void;
@@ -91,7 +101,12 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   initialFolderTab,
   onBack,
   availableTests = [],
+  attempts = [],
+  userProfile = null,
+  currentUser = null,
   onStartTest,
+  onStartOmrTest,
+  onViewAttemptResult,
   initialFilter = 'all',
   onStageChange,
   onBatchChange,
@@ -147,6 +162,9 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   // Modal states for Editing Batch & Batch Roster (Master User)
   const [isEditBatchModalOpen, setIsEditBatchModalOpen] = useState(false);
   const [batchToEdit, setBatchToEdit] = useState<Batch | null>(null);
+
+  // Active Test for Detailed Test Overview & Dual Mode (OMR + Online) Modal
+  const [detailedTest, setDetailedTest] = useState<MathTest | null>(null);
 
   const [isBatchRosterModalOpen, setIsBatchRosterModalOpen] = useState(false);
   const [batchForRoster, setBatchForRoster] = useState<Batch | null>(null);
@@ -1849,95 +1867,21 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   </div>
                 )
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
-                  {folderTests.map((t) => (
-                    <div
-                      key={t.id}
-                      onClick={() => {
-                        if (onStartTest) {
-                          onStartTest(t, {
-                            batchId: selectedBatchId,
-                            chapterId: selectedChapterId,
-                            folderTab: 'tests',
-                          });
-                        } else {
-                          showSecurityToast('Opening test runner...');
-                        }
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3">
+                  {folderTests.map((t, idx) => (
+                    <M3TestCard
+                      key={t.id || `folder-test-${idx}`}
+                      test={t}
+                      attempts={attempts}
+                      index={idx}
+                      isMaster={isMaster && !!selectedChapterId}
+                      onDelete={() => {
+                        const targetBatchId = currentBatch?.id || selectedBatchId;
+                        deleteBatchTest(targetBatchId, t.id, t.title);
+                        showSecurityToast(`Test "${t.title}" removed from batch.`);
                       }}
-                      className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-0 border-none shadow-xs hover:shadow-md items-stretch relative"
-                    >
-                      <div className="relative w-36 sm:w-full aspect-video shrink-0 self-stretch overflow-hidden bg-gradient-to-br from-emerald-500/20 via-[var(--md-sys-color-surface-container-high)] to-teal-500/15 flex flex-col justify-between p-2.5 sm:p-4">
-                        <div className="flex items-center justify-between">
-                          <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-wider bg-emerald-500 text-white shadow-xs">
-                            {t.difficulty || 'Medium'}
-                          </span>
-                          <span className="px-1.5 py-0.5 rounded-md bg-white/80 dark:bg-black/60 font-mono text-[9px] sm:text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300">
-                            CBT
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-1.5 text-[10px] sm:text-xs text-emerald-700 dark:text-emerald-300 font-mono font-bold">
-                          <Timer className="w-3.5 h-3.5" />
-                          <span>{getTestDurationMinutes(t)} Mins</span>
-                        </div>
-
-                        {/* Master Unlink Test Button */}
-                        {isMaster && selectedChapterId && (
-                          <div 
-                            className="absolute top-2 right-2"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const targetBatchId = currentBatch?.id || selectedBatchId;
-                                deleteBatchTest(targetBatchId, t.id, t.title);
-                                showSecurityToast(`Test "${t.title}" removed from batch.`);
-                              }}
-                              className="p-1 rounded-full bg-black/60 hover:bg-rose-600 text-white transition border-none cursor-pointer"
-                              title="Delete Test from Batch"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="p-3 sm:p-4 flex-1 min-w-0 flex flex-col justify-between space-y-1.5 sm:space-y-3">
-                        <div>
-                          <h4 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition line-clamp-1 sm:line-clamp-2 leading-snug">
-                            {t.title}
-                          </h4>
-                          <p className="hidden sm:block text-[11px] text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 mt-1">
-                            {t.description || 'Test your conceptual understanding of this chapter.'}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center justify-between text-[10px] sm:text-[11px] pt-1 border-t border-[var(--md-sys-color-outline-variant)]/20 mt-auto">
-                          <div className="flex items-center space-x-1 text-[var(--md-sys-color-on-surface-variant)] truncate max-w-[120px] sm:max-w-none">
-                            <HelpCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                            <span>{(t.questions && t.questions.length > 0 ? t.questions.length : (t.questionCount || 20))} Questions</span>
-                          </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (onStartTest) {
-                                onStartTest(t, {
-                                  batchId: selectedBatchId || currentBatch?.id,
-                                  chapterId: selectedChapterId,
-                                  folderTab: 'tests',
-                                });
-                              } else {
-                                showSecurityToast('Opening test runner...');
-                              }
-                            }}
-                            className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center space-x-1 border-none bg-transparent cursor-pointer shrink-0"
-                          >
-                            <span>Start</span>
-                            <ChevronRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                      onClick={() => setDetailedTest(t)}
+                    />
                   ))}
                 </div>
               )}
@@ -2272,6 +2216,37 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Test Detail & Attempt Records Modal with Dual Mode Options (OMR + Online) */}
+      <TestDetailModal
+        test={detailedTest}
+        onClose={() => setDetailedTest(null)}
+        attempts={attempts}
+        userProfile={userProfile}
+        currentUser={auth.currentUser || (currentUser as any)}
+        allTests={allCandidateTests}
+        onStartTest={(testToStart) => {
+          if (onStartTest) {
+            onStartTest(testToStart, {
+              batchId: selectedBatchId || currentBatch?.id || '',
+              chapterId: selectedChapterId,
+              folderTab: 'tests',
+            });
+          }
+        }}
+        onStartOmrTest={(testToStart) => {
+          if (onStartOmrTest) {
+            onStartOmrTest(testToStart, {
+              batchId: selectedBatchId || currentBatch?.id || '',
+              chapterId: selectedChapterId,
+              folderTab: 'tests',
+            });
+          } else {
+            showSecurityToast('Opening OMR runner...');
+          }
+        }}
+        onViewAttemptResult={onViewAttemptResult}
+      />
     </div>
   );
 };

@@ -10,6 +10,7 @@ import {
   checkIsOptionCorrect
 } from '../types';
 import { isOfflineLocalOnlyMode, getScopedKey, loadScopedTests } from './storage';
+import { secureStorage } from './secureStorage';
 import { SAMPLE_MATH_TESTS } from '../data/sampleTests';
 import { syncBatchTestToFirestore } from './batchCloudSync';
 import { getTestDurationMinutes } from '../utils/testFormatConverter';
@@ -665,8 +666,6 @@ export function mergePublishedMasterTests(
   isUserMaster: boolean,
   isGuest: boolean = false
 ): MathTest[] {
-  if (isUserMaster) return userTests;
-
   // GUEST PRIVILEGE: In guest mode, visitors only see the 3 authoritative sample tests!
   if (isGuest) {
     const validSampleIds = new Set(SAMPLE_MATH_TESTS.map((s) => s.id));
@@ -676,7 +675,7 @@ export function mergePublishedMasterTests(
   const published = getGlobalPublishedTests();
   const testMap = new Map<string, MathTest>();
 
-  // 1. Add published master tests first so all students and guest batch users can access them
+  // 1. Add published master tests first so all students and batch users can access them
   published.forEach((t) => {
     if (t && t.id) {
       const qLen = Array.isArray(t.questions) && t.questions.length > 0 ? t.questions.length : 0;
@@ -692,7 +691,7 @@ export function mergePublishedMasterTests(
     }
   });
 
-  // 2. Add student tests
+  // 2. Add student / user tests
   userTests.forEach((t) => {
     if (t && t.id) {
       const existing = testMap.get(t.id);
@@ -712,6 +711,61 @@ export function mergePublishedMasterTests(
       });
     }
   });
+
+  // 3. Add Batch Tests (accessible in student's test library with batch identification badges)
+  try {
+    let rawBatchTests: any[] = [];
+    const savedBatchTests = secureStorage.getItem('elevatelabs_batch_tests_v2') || (typeof localStorage !== 'undefined' ? localStorage.getItem('elevatelabs_batch_tests_v2') : null);
+    if (savedBatchTests) {
+      rawBatchTests = JSON.parse(savedBatchTests);
+    }
+    let rawBatches: any[] = [];
+    const savedBatches = secureStorage.getItem('elevatelabs_batches_v2') || (typeof localStorage !== 'undefined' ? (localStorage.getItem('elevatelabs_batches_v2') || localStorage.getItem('elevatelabs_cloud_batches_cache')) : null);
+    if (savedBatches) {
+      rawBatches = JSON.parse(savedBatches);
+    }
+
+    if (Array.isArray(rawBatchTests) && rawBatchTests.length > 0) {
+      rawBatchTests.forEach((bt) => {
+        const tid = bt.testId || bt.id;
+        if (!tid) return;
+
+        const batchObj = Array.isArray(rawBatches) ? rawBatches.find((b: any) => b.id === bt.batchId) : null;
+        const batchTitle = batchObj?.title || (bt as any).batchTitle || null;
+
+        const existing = testMap.get(tid);
+        if (existing) {
+          if (!existing.batchTitle && batchTitle) {
+            existing.batchTitle = batchTitle;
+          }
+          if (!existing.batchId && bt.batchId) {
+            existing.batchId = bt.batchId;
+          }
+        } else {
+          const qLen = Array.isArray(bt.questions) && bt.questions.length > 0 ? bt.questions.length : 0;
+          const count = qLen || bt.questionCount || (bt as any).questionsCount || 20;
+          const dur = getTestDurationMinutes(bt) || 25;
+
+          testMap.set(tid, {
+            id: tid,
+            batchId: bt.batchId,
+            batchTitle,
+            title: bt.title || 'Mock Test',
+            topic: bt.topic || (batchTitle ? `${batchTitle} Test` : 'Batch Assessment'),
+            difficulty: ((bt.difficulty as any) || 'Medium') as any,
+            timeLimitMinutes: dur,
+            time: dur,
+            durationMinutes: dur,
+            questionCount: count,
+            questions: (Array.isArray(bt.questions) && bt.questions.length > 0) ? bt.questions : [],
+            isPublic: true,
+          } as any);
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('Error merging batch tests in masterAccount:', err);
+  }
 
   return Array.from(testMap.values());
 }

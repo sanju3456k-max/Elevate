@@ -75,6 +75,8 @@ export interface MathTest {
   testCode?: string;
   isPersonalizedRemedial?: boolean;
   remedialAssignment?: AssignedRemedialTest;
+  batchId?: string;
+  batchTitle?: string;
   _syncStatus?: 'synced' | 'pending' | 'failed';
 }
 

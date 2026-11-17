@@ -561,11 +561,15 @@ export default function App() {
       setTests(merged);
     };
     window.addEventListener('tests-published-updated', handlePublishedUpdated);
+    window.addEventListener('batch-tests-updated', handlePublishedUpdated);
+    window.addEventListener('batch-curriculum-updated', handlePublishedUpdated);
 
     return () => {
       unsubscribePublished();
       unsubscribeRemedial();
       window.removeEventListener('tests-published-updated', handlePublishedUpdated);
+      window.removeEventListener('batch-tests-updated', handlePublishedUpdated);
+      window.removeEventListener('batch-curriculum-updated', handlePublishedUpdated);
     };
   }, [currentUser, cachedUser]);
 
@@ -1309,8 +1313,16 @@ export default function App() {
     setActiveTab('take-test');
   };
 
-  const handleStartOmrTest = async (test: MathTest, initialTab: 'print' | 'scan' | 'keys' | 'review' = 'print') => {
-    captureOriginContext();
+  const handleStartOmrTest = async (
+    test: MathTest,
+    initialTab: 'print' | 'scan' | 'keys' | 'review' = 'print',
+    originContext?: any
+  ) => {
+    if (originContext) {
+      testOriginContextRef.current = originContext;
+    } else {
+      captureOriginContext();
+    }
     const isGuest = isGuestUser(currentUser || cachedUser);
     if (isGuest && isRemedialTest(test)) {
       showToast('Sign in required to access student-specific remedial tests.', 'warning');
@@ -2184,6 +2196,10 @@ export default function App() {
                 onLectureChange={setSelectedLectureId}
                 onFolderTabChange={setSelectedFolderTab}
                 availableTests={tests}
+                attempts={attempts}
+                userProfile={userProfile}
+                currentUser={currentUser}
+                onViewAttemptResult={handleViewAttemptResult}
                 initialFilter={batchesFilter}
                 onStartTest={(test, batchContext) => {
                   if (batchContext?.batchId) setSelectedBatchId(batchContext.batchId);
@@ -2192,6 +2208,21 @@ export default function App() {
                   handleStartTest(
                     test,
                     'timed',
+                    batchContext ? {
+                      tab: 'batches',
+                      batchId: batchContext.batchId,
+                      chapterId: batchContext.chapterId,
+                      folderTab: batchContext.folderTab || 'tests',
+                    } : undefined
+                  );
+                }}
+                onStartOmrTest={(test, batchContext) => {
+                  if (batchContext?.batchId) setSelectedBatchId(batchContext.batchId);
+                  if (batchContext?.chapterId) setSelectedChapterId(batchContext.chapterId);
+                  if (batchContext?.folderTab) setSelectedFolderTab(batchContext.folderTab);
+                  handleStartOmrTest(
+                    test,
+                    'print',
                     batchContext ? {
                       tab: 'batches',
                       batchId: batchContext.batchId,
