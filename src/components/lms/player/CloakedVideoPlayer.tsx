@@ -10,7 +10,6 @@ import {
   Maximize2,
   Minimize2,
   Gauge,
-  ShieldCheck,
   ShieldAlert,
   AlertTriangle,
   Lock,
@@ -1438,7 +1437,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
 
       {/* Dynamic Paused Security Guards: Top shadow/gradient cloak extending over native YouTube title and channel info */}
-      {!isPlaying && isPlayerReady && hasEverPlayed && (!isMini || isFullscreen) && (
+      {!isPlaying && isPlayerReady && (!isMini || isFullscreen) && (
         <div className="absolute top-0 inset-x-0 h-24 sm:h-30 bg-gradient-to-b from-black from-75% via-black/90 to-transparent z-25 pointer-events-none transition-opacity duration-200" />
       )}
 
@@ -1471,58 +1470,6 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
       {(!isMini || isFullscreen) && (
         <>
-      {/* 1c. High-Fidelity Pre-Playback Poster Curtain (Eliminates YouTube unstarted title, channel avatar, and red play button) */}
-      {authStatus === 'authorized' && !hasEverPlayed && (
-        <div className="absolute inset-0 z-25 bg-slate-950 flex flex-col items-center justify-center overflow-hidden select-none transition-opacity duration-300">
-          {/* High Definition Crystal Clear Poster Image / Backdrop */}
-          {activePosterImage && (
-            <img
-              src={activePosterImage}
-              alt={title}
-              onError={(e) => {
-                e.currentTarget.src = '/assets/default-course-banner.png';
-              }}
-              className="absolute inset-0 w-full h-full object-cover sm:object-contain bg-black brightness-95 transition-opacity duration-300 pointer-events-none"
-            />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/40 pointer-events-none" />
-
-          {/* Top DRM Badge */}
-          <div className="absolute top-3.5 left-4 z-10 flex items-center space-x-1.5 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 text-white text-[11px] font-semibold">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>DRM Cloaked Stream</span>
-          </div>
-
-          {/* Center Play Button & Spinner */}
-          <div className="relative z-10 flex flex-col items-center text-center px-4 max-w-md">
-            {isBufferingOrStarting ? (
-              <div className="flex flex-col items-center space-y-3">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-4 border-[var(--md-sys-color-primary)]/20 border-t-[var(--md-sys-color-primary)] animate-spin" />
-                <p className="text-xs sm:text-sm font-semibold text-white drop-shadow">
-                  Connecting to secure stream...
-                </p>
-              </div>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={handleStartPlayback}
-                  className="group relative flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[var(--md-sys-color-primary)] hover:bg-[var(--md-sys-color-primary)]/90 text-[var(--md-sys-color-on-primary)] shadow-2xl hover:scale-110 active:scale-95 transition-all cursor-pointer border-none"
-                  title="Start Lecture"
-                >
-                  <Play className="w-8 h-8 sm:w-10 sm:h-10 fill-current ml-1" />
-                </button>
-                <h3 className="mt-4 text-sm sm:text-base font-bold text-white drop-shadow line-clamp-2">
-                  {title}
-                </h3>
-                <p className="mt-1 text-[11px] text-slate-300 drop-shadow">
-                  Tap to begin encrypted video playback
-                </p>
-              </>
-            )}
-          </div>
-        </div>
-      )}
 
 
 
@@ -1681,46 +1628,50 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       )}
 
       {/* 4. Center Play/Pause Floating Control (Clean border, 0 black shadow) */}
-      {(isControlsVisible || !isPlaying) && isPlayerReady && authStatus === 'authorized' && hasEverPlayed && (
+      {(isControlsVisible || !isPlaying || isBufferingOrStarting) && isPlayerReady && authStatus === 'authorized' && (
         <div
           className="absolute inset-0 z-22 flex items-center justify-center pointer-events-none bg-transparent"
         >
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              // Prevent synthetic delayed click from firing togglePlay if touch just occurred
-              if (Date.now() - lastTouchHandledTimeRef.current < 600) {
-                return;
-              }
-              togglePlay();
-              showControlsForDuration(5000);
-            }}
-            onTouchStart={(e) => {
-              e.stopPropagation();
-              lastTouchHandledTimeRef.current = Date.now();
-              lastControlsRevealedAt.current = Date.now();
-              showControlsForDuration(5000);
-            }}
-            onTouchEnd={(e) => {
-              e.stopPropagation();
-              lastTouchHandledTimeRef.current = Date.now();
-              lastControlsRevealedAt.current = Date.now();
-              togglePlay();
-              showControlsForDuration(5000);
-            }}
-            onMouseDown={(e) => {
-              e.stopPropagation();
-            }}
-            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-zinc-950/95 text-white flex items-center justify-center border border-white/10 hover:border-white/25 hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer pointer-events-auto shadow-none"
-            title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
-          >
-            {isPlaying ? (
-              <Pause className="w-7 h-7 sm:w-8 sm:h-8 fill-current" />
-            ) : (
-              <Play className="w-7 h-7 sm:w-8 sm:h-8 fill-current ml-1" />
-            )}
-          </button>
+          {isBufferingOrStarting ? (
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-4 border-white/20 border-t-white animate-spin pointer-events-none" />
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                // Prevent synthetic delayed click from firing togglePlay if touch just occurred
+                if (Date.now() - lastTouchHandledTimeRef.current < 600) {
+                  return;
+                }
+                togglePlay();
+                showControlsForDuration(5000);
+              }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                lastTouchHandledTimeRef.current = Date.now();
+                lastControlsRevealedAt.current = Date.now();
+                showControlsForDuration(5000);
+              }}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                lastTouchHandledTimeRef.current = Date.now();
+                lastControlsRevealedAt.current = Date.now();
+                togglePlay();
+                showControlsForDuration(5000);
+              }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+              }}
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-zinc-950/95 text-white flex items-center justify-center border border-white/10 hover:border-white/25 hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer pointer-events-auto shadow-none"
+              title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+            >
+              {isPlaying ? (
+                <Pause className="w-7 h-7 sm:w-8 sm:h-8 fill-current" />
+              ) : (
+                <Play className="w-7 h-7 sm:w-8 sm:h-8 fill-current ml-1" />
+              )}
+            </button>
+          )}
         </div>
       )}
 
