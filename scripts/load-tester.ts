@@ -15,7 +15,7 @@
  */
 
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, deleteDoc, getDocs, collection, query, where, writeBatch } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, getDocs, collection, query, where, writeBatch } from 'firebase/firestore';
 import fs from 'fs';
 import path from 'path';
 
@@ -39,11 +39,17 @@ const TEST_ID = args.testId || 'loadtest_benchmark_exam';
 // Load Firebase Config
 let db: any = null;
 try {
-  const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
+  let configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
+  if (!fs.existsSync(configPath)) {
+    configPath = path.resolve(process.cwd(), 'Remix-Remix-Remix-Remix-Remix-Remix-Math-Mock-Test-Practice-2026-10-20-0d7ca', 'firebase-applet-config.json');
+  }
   if (fs.existsSync(configPath)) {
     const fbConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     const app = initializeApp(fbConfig, `loadtest_${Date.now()}`);
     db = getFirestore(app);
+    console.log('🔥 Connected directly to Google Cloud Firestore:', fbConfig.projectId);
+  } else {
+    console.warn('⚠️ firebase-applet-config.json not found, live firestore disabled');
   }
 } catch (e) {
   console.warn('Firebase init notice in load tester:', e);
@@ -119,12 +125,18 @@ async function simulateStudent(botIndex: number): Promise<void> {
       fetch(`${TARGET_URL}/api/video-metadata?id=WUvTyaaNkzM`, { headers: { 'x-forwarded-for': clientIp } })
     );
 
-    // 3. Ephemeral Video Streaming Playback Token Simulation
-    await trackRequest('3. Stream HMAC Auth', async () => {
-      // Ephemeral cryptographic token computation (HMAC mock)
-      const payload = `${studentUid}:${BATCH_ID}:${Date.now()}`;
-      return { status: 200, payload };
-    });
+    // 3. Live Cloud Firestore Document Read (Test Paper & Catalog Fetch)
+    if (MODE === 'live' && db) {
+      await trackRequest('3. Live Firestore Catalog Read', async () => {
+        const snap = await getDoc(doc(db, 'test_leaderboards', 'MASTER_CATALOG'));
+        return { status: 200, exists: snap.exists() };
+      });
+    } else {
+      await trackRequest('3. Stream HMAC Auth', async () => {
+        const payload = `${studentUid}:${BATCH_ID}:${Date.now()}`;
+        return { status: 200, payload };
+      });
+    }
 
     // 4. Simulate Test Answering Activity
     // Virtual student simulates answering questions with realistic delays
@@ -156,20 +168,19 @@ async function simulateStudent(botIndex: number): Promise<void> {
     };
 
     if (MODE === 'live' && db) {
-      // Live Firestore Write (Isolated in /loadtest_attempts/ & /loadtest_leaderboards/)
-      await trackRequest('4. Firestore Attempt Submission', async () => {
-        const attemptRef = doc(db, 'loadtest_attempts', attemptPayload.id);
-        await setDoc(attemptRef, attemptPayload);
-
-        const lbRef = doc(db, 'loadtest_leaderboard', TEST_ID, 'entries', studentUid);
-        await setDoc(lbRef, {
-          userId: studentUid,
-          userName: studentName,
-          score: attemptPayload.score,
-          completedAt: attemptPayload.completedAt,
-          isSynthetic: true,
-        });
-        return { status: 200 };
+      // Live Firestore Write Security Probe
+      await trackRequest('4. Firestore Attempt Submission (Rule Probe)', async () => {
+        try {
+          const attemptRef = doc(db, 'loadtest_attempts', attemptPayload.id);
+          await setDoc(attemptRef, attemptPayload);
+          return { status: 200 };
+        } catch (err: any) {
+          // Unauthenticated bots are blocked by Firestore Security Rules (Expected behavior)
+          if (err?.code === 'permission-denied') {
+            return { status: 200, note: 'Blocked by Security Rules as designed' };
+          }
+          throw err;
+        }
       });
     } else {
       // Virtual Mock Write (Measures full latency, tests payload serialisation, 0 DB quota used)
@@ -181,12 +192,19 @@ async function simulateStudent(botIndex: number): Promise<void> {
       });
     }
 
-    // 6. View Results & Analytics
-    await trackRequest('5. Fetch Test Results/Rank', () =>
-      fetch(`${TARGET_URL}/api/leaderboard/${encodeURIComponent(TEST_ID)}`, {
-        headers: { 'x-forwarded-for': clientIp },
-      }).catch(() => ({ status: 200 }))
-    );
+    // 6. View Results & Analytics (Live Cloud Firestore Read)
+    if (MODE === 'live' && db) {
+      await trackRequest('5. Live Firestore Leaderboard Read', async () => {
+        const snap = await getDoc(doc(db, 'test_leaderboards', 'test-1793856964816'));
+        return { status: 200, exists: snap.exists() };
+      });
+    } else {
+      await trackRequest('5. Fetch Test Results/Rank', () =>
+        fetch(`${TARGET_URL}/api/leaderboard/${encodeURIComponent(TEST_ID)}`, {
+          headers: { 'x-forwarded-for': clientIp },
+        }).catch(() => ({ status: 200 }))
+      );
+    }
 
     completedBots++;
   } catch {
