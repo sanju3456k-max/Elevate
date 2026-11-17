@@ -9,7 +9,8 @@
     "start": "node server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist build",
-    "lint": "tsc --noEmit --skipLibCheck"
+    "lint": "tsc --noEmit --skipLibCheck",
+    "test:load": "tsx scripts/load-tester.ts"
   },
   "dependencies": {
     "@google/genai": "^2.28.0",
