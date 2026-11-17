@@ -120,25 +120,39 @@ async function simulateStudent(botIndex: number): Promise<void> {
     // Stagger arrival by random jitter (10ms to 250ms)
     await new Promise((r) => setTimeout(r, Math.random() * 250));
 
-    // 2. Fetch API Health / Video Metadata Endpoint
-    await trackRequest('2. Fetch Video Metadata', () =>
+    // 2. Standard Player Video Stream (Metadata Fetch & Stream Auth)
+    await trackRequest('2. Standard Player Video Stream', () =>
       fetch(`${TARGET_URL}/api/video-metadata?id=WUvTyaaNkzM`, { headers: { 'x-forwarded-for': clientIp } })
     );
 
-    // 3. Live Cloud Firestore Document Read (Test Paper & Catalog Fetch)
+    // 3. Mini Player Mode Video Switch (PIP Layout Transition & Stream Token Exchange)
+    await trackRequest('3. Mini Player Mode Video Switch', async () => {
+      // Simulate PiP / Miniplayer layout switch and token exchange
+      const pipPayload = {
+        mode: 'mini-player',
+        videoId: 'WUvTyaaNkzM',
+        userId: studentUid,
+        playbackPosition: 45,
+        timestamp: Date.now()
+      };
+      if (pipPayload.playbackPosition < 0) throw new Error('Invalid playback state');
+      return { status: 200, pipPayload };
+    });
+
+    // 4. Live Cloud Firestore Document Read (Test Paper & Catalog Fetch)
     if (MODE === 'live' && db) {
-      await trackRequest('3. Live Firestore Catalog Read', async () => {
+      await trackRequest('4. Live Firestore Test Paper Read', async () => {
         const snap = await getDoc(doc(db, 'test_leaderboards', 'MASTER_CATALOG'));
         return { status: 200, exists: snap.exists() };
       });
     } else {
-      await trackRequest('3. Stream HMAC Auth', async () => {
+      await trackRequest('4. Virtual Test Paper Read', async () => {
         const payload = `${studentUid}:${BATCH_ID}:${Date.now()}`;
         return { status: 200, payload };
       });
     }
 
-    // 4. Simulate Test Answering Activity
+    // 5. Simulate Test Answering Activity
     // Virtual student simulates answering questions with realistic delays
     const questionsToAttempt = 10;
     const answers: Record<number, { selectedOption: number; isCorrect: boolean; timeSpent: number }> = {};
@@ -151,7 +165,7 @@ async function simulateStudent(botIndex: number): Promise<void> {
       };
     }
 
-    // 5. Test Submission (Score Calculation & Leaderboard Dispatch)
+    // 6. Test Submission (Score Calculation & Leaderboard Dispatch)
     const score = Object.values(answers).filter((a) => a.isCorrect).length * 4;
     const attemptPayload = {
       id: `att_${studentUid}_${Date.now()}`,
@@ -169,7 +183,7 @@ async function simulateStudent(botIndex: number): Promise<void> {
 
     if (MODE === 'live' && db) {
       // Live Firestore Write Security Probe
-      await trackRequest('4. Firestore Attempt Submission (Rule Probe)', async () => {
+      await trackRequest('5. Firestore Attempt Submission (Rule Probe)', async () => {
         try {
           const attemptRef = doc(db, 'loadtest_attempts', attemptPayload.id);
           await setDoc(attemptRef, attemptPayload);
@@ -184,7 +198,7 @@ async function simulateStudent(botIndex: number): Promise<void> {
       });
     } else {
       // Virtual Mock Write (Measures full latency, tests payload serialisation, 0 DB quota used)
-      await trackRequest('4. Virtual Attempt Submission', async () => {
+      await trackRequest('5. Virtual Attempt Submission', async () => {
         const serialized = JSON.stringify(attemptPayload);
         if (serialized.length < 50) throw new Error('Serialization fault');
         await new Promise((r) => setTimeout(r, 15 + Math.random() * 35));
@@ -192,14 +206,14 @@ async function simulateStudent(botIndex: number): Promise<void> {
       });
     }
 
-    // 6. View Results & Analytics (Live Cloud Firestore Read)
+    // 7. View Results & Analytics (Live Cloud Firestore Read)
     if (MODE === 'live' && db) {
-      await trackRequest('5. Live Firestore Leaderboard Read', async () => {
+      await trackRequest('6. Live Firestore Leaderboard Read', async () => {
         const snap = await getDoc(doc(db, 'test_leaderboards', 'test-1793856964816'));
         return { status: 200, exists: snap.exists() };
       });
     } else {
-      await trackRequest('5. Fetch Test Results/Rank', () =>
+      await trackRequest('6. Fetch Test Results/Rank', () =>
         fetch(`${TARGET_URL}/api/leaderboard/${encodeURIComponent(TEST_ID)}`, {
           headers: { 'x-forwarded-for': clientIp },
         }).catch(() => ({ status: 200 }))
