@@ -2183,14 +2183,14 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
         <div
           role="region"
           aria-label={`Full Page Analysis for ${fullScreenChapter.topic}`}
-          className="fixed inset-0 md:top-[58px] md:h-[calc(100dvh-58px)] z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150"
+          className="fixed inset-0 z-[60] md:top-[58px] md:h-[calc(100dvh-58px)] md:z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150"
         >
           {/* Transparent Clean Header Banner - Seamless with Page Body */}
-          <header className="sticky top-0 z-30 bg-[#e5e9f0]/95 dark:bg-[#0b0c10]/95 backdrop-blur-md border-b-0 shrink-0">
+          <header className="sticky top-0 z-30 bg-[#e5e9f0]/98 dark:bg-[#0b0c10]/98 backdrop-blur-md shadow-[0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.2)] border-b-0 shrink-0">
             <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] md:pt-3 md:pb-3">
               <div className="flex items-center justify-between gap-3 px-0.5 py-1">
                 {/* Left: Adjusted Back Button for White Surface & Chapter Title */}
-                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
                   <button
                     id="fullscreen-chapter-back-btn"
                     type="button"
@@ -2202,16 +2202,16 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                     <ArrowLeft className="w-4 h-4 text-slate-800 dark:text-zinc-100 stroke-[2.2]" />
                   </button>
 
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white truncate tracking-tight">
+                      <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white truncate max-w-[200px] xs:max-w-xs sm:max-w-none tracking-tight">
                         {fullScreenChapter.topic}
                       </h1>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold bg-[#0b57d0]/10 text-[#0b57d0] dark:text-[#a8c7fa]">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold bg-[#0b57d0]/10 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0">
                         {fullScreenChapter.subtopicItems.length} Concepts
                       </span>
                       <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold border-0 ring-0 ${
+                        className={`px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold border-0 ring-0 shrink-0 ${
                           fullScreenChapter.category === 'strong'
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                             : fullScreenChapter.category === 'moderate'
@@ -2244,7 +2244,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
           </header>
 
           {/* Main Full-Page Body Container with Pure White Background */}
-          <main className="flex-1 max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 pb-12 space-y-4">
+          <main className="flex-1 max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] space-y-4">
             {/* 1. Mastery Breakdown & Filter Controls Card */}
             <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#1e2024] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -2467,48 +2467,61 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
         <div
           role="dialog"
           aria-label={`Questions & Solutions for ${selectedSubtopicQuestionsModal.subtopic}`}
-          className="fixed inset-0 md:top-[58px] md:h-[calc(100dvh-58px)] z-40 bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150"
+          className="fixed inset-0 z-[70] md:top-[58px] md:h-[calc(100dvh-58px)] md:z-40 bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150"
         >
           {/* Header Bar - Seamless with Page Body */}
-          <header className="sticky top-0 z-30 bg-[#e5e9f0]/95 dark:bg-[#0b0c10]/95 backdrop-blur-md border-b-0 shrink-0">
+          <header className="sticky top-0 z-30 bg-[#e5e9f0]/98 dark:bg-[#0b0c10]/98 backdrop-blur-md shadow-[0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.2)] border-b-0 shrink-0">
             <div className="max-w-5xl w-full mx-auto px-3 sm:px-6 py-2.5 sm:py-3.5 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] md:pt-3 md:pb-3">
               <div className="flex items-center justify-between gap-3 px-0.5 py-1">
-                {/* Subtopic Title & Badges */}
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white truncate tracking-tight">
-                      {selectedSubtopicQuestionsModal.subtopic}
-                    </h2>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold bg-[#0b57d0]/10 text-[#0b57d0] dark:text-[#a8c7fa]">
-                      {selectedSubtopicQuestionsModal.chapter}
-                    </span>
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold border-0 ring-0 ${
-                        selectedSubtopicQuestionsModal.subtopicItem.category === 'strong'
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                          : selectedSubtopicQuestionsModal.subtopicItem.category === 'moderate'
-                          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                          : selectedSubtopicQuestionsModal.subtopicItem.category === 'unattempted'
-                          ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
-                          : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                      }`}
-                    >
-                      {selectedSubtopicQuestionsModal.subtopicItem.statusBadge}
-                    </span>
+                {/* Left: Back Button & Subtopic Title */}
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                  <button
+                    id="subtopic-questions-back-btn"
+                    type="button"
+                    onClick={() => setSelectedSubtopicQuestionsModal(null)}
+                    className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-slate-50 dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-100 border-0 ring-0 shadow-none flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 outline-none"
+                    title="Back to Chapter Concepts (Device Gesture / Esc)"
+                    aria-label="Back to Chapter Concepts"
+                  >
+                    <ArrowLeft className="w-4 h-4 text-slate-800 dark:text-zinc-100 stroke-[2.2]" />
+                  </button>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white truncate max-w-[200px] xs:max-w-xs sm:max-w-none tracking-tight">
+                        {selectedSubtopicQuestionsModal.subtopic}
+                      </h2>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold bg-[#0b57d0]/10 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0">
+                        {selectedSubtopicQuestionsModal.chapter}
+                      </span>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold border-0 ring-0 shrink-0 ${
+                          selectedSubtopicQuestionsModal.subtopicItem.category === 'strong'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                            : selectedSubtopicQuestionsModal.subtopicItem.category === 'moderate'
+                            ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                            : selectedSubtopicQuestionsModal.subtopicItem.category === 'unattempted'
+                            ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
+                            : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                        }`}
+                      >
+                        {selectedSubtopicQuestionsModal.subtopicItem.statusBadge}
+                      </span>
+                    </div>
+                    <p className="text-[11px] sm:text-xs text-slate-600 dark:text-zinc-300 font-medium truncate flex items-center gap-1.5 mt-0.5">
+                      <span>
+                        <strong className="font-bold text-[#0b57d0] dark:text-[#a8c7fa]">{selectedSubtopicQuestionsModal.subtopicItem.correctCount}/{selectedSubtopicQuestionsModal.subtopicItem.totalQuestions}</strong> Correct
+                      </span>
+                      <span>•</span>
+                      <span>
+                        <strong className="font-bold text-rose-600 dark:text-rose-400">{selectedSubtopicQuestionsModal.subtopicItem.wrongCount}</strong> Wrong
+                      </span>
+                      <span>•</span>
+                      <span>
+                        <strong className="font-bold text-slate-700 dark:text-zinc-200">{selectedSubtopicQuestionsModal.subtopicItem.skippedCount}</strong> Skipped
+                      </span>
+                    </p>
                   </div>
-                  <p className="text-[11px] sm:text-xs text-slate-600 dark:text-zinc-300 font-medium truncate flex items-center gap-1.5 mt-0.5">
-                    <span>
-                      <strong className="font-bold text-[#0b57d0] dark:text-[#a8c7fa]">{selectedSubtopicQuestionsModal.subtopicItem.correctCount}/{selectedSubtopicQuestionsModal.subtopicItem.totalQuestions}</strong> Correct
-                    </span>
-                    <span>•</span>
-                    <span>
-                      <strong className="font-bold text-rose-600 dark:text-rose-400">{selectedSubtopicQuestionsModal.subtopicItem.wrongCount}</strong> Wrong
-                    </span>
-                    <span>•</span>
-                    <span>
-                      <strong className="font-bold text-slate-700 dark:text-zinc-200">{selectedSubtopicQuestionsModal.subtopicItem.skippedCount}</strong> Skipped
-                    </span>
-                  </p>
                 </div>
 
                 {/* Close button */}
@@ -2526,7 +2539,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
           </header>
 
           {/* Main Content Area */}
-          <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-6 py-4 pb-16 space-y-4">
+          <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-6 py-4 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] space-y-4">
             {/* Quick Diagnostic / Recommendation Banner with Solid High-Contrast Card */}
             {selectedSubtopicQuestionsModal.subtopicItem.recommendation && (
               <div className="p-3.5 sm:p-4 rounded-[24px] bg-white dark:bg-[#1e2024] border border-[#0b57d0]/25 dark:border-[#a8c7fa]/25 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-start gap-3">
