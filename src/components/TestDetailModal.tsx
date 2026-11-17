@@ -689,7 +689,7 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
 
   return (
     <>
-      {typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent}
+      {!selectedReportAttempt && (typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent)}
 
       {/* Leaderboard Modal */}
       {isLeaderboardOpen && (
@@ -703,12 +703,46 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
 
       {/* Performance Report Analysis View */}
       {selectedReportAttempt && (
-        <TestReportAnalysisView
-          attempt={selectedReportAttempt}
-          test={test}
-          allTests={allTests.length > 0 ? allTests : [test]}
-          onClose={() => setSelectedReportAttempt(null)}
-        />
+        typeof document !== 'undefined' ? (
+          createPortal(
+            <TestReportAnalysisView
+              attempt={selectedReportAttempt}
+              test={test || allTests.find((t) => (t && t.id && t.id === selectedReportAttempt.testId) || (t && t.title && t.title === selectedReportAttempt.testTitle)) || { id: selectedReportAttempt.testId, title: selectedReportAttempt.testTitle, questions: [] }}
+              allTests={allTests.length > 0 ? allTests : [test || { id: selectedReportAttempt.testId, title: selectedReportAttempt.testTitle, questions: [] }]}
+              isFirstAttempt={testAttempts[0]?.id === selectedReportAttempt.id}
+              onClose={() => setSelectedReportAttempt(null)}
+              onRetakeTest={(t, m) => {
+                setSelectedReportAttempt(null);
+                onClose();
+                onStartTest(t, m || 'timed');
+              }}
+              onViewRawSolutions={(att) => {
+                setSelectedReportAttempt(null);
+                onClose();
+                onViewAttemptResult?.(att);
+              }}
+            />,
+            document.body
+          )
+        ) : (
+          <TestReportAnalysisView
+            attempt={selectedReportAttempt}
+            test={test || allTests.find((t) => (t && t.id && t.id === selectedReportAttempt.testId) || (t && t.title && t.title === selectedReportAttempt.testTitle)) || { id: selectedReportAttempt.testId, title: selectedReportAttempt.testTitle, questions: [] }}
+            allTests={allTests.length > 0 ? allTests : [test || { id: selectedReportAttempt.testId, title: selectedReportAttempt.testTitle, questions: [] }]}
+            isFirstAttempt={testAttempts[0]?.id === selectedReportAttempt.id}
+            onClose={() => setSelectedReportAttempt(null)}
+            onRetakeTest={(t, m) => {
+              setSelectedReportAttempt(null);
+              onClose();
+              onStartTest(t, m || 'timed');
+            }}
+            onViewRawSolutions={(att) => {
+              setSelectedReportAttempt(null);
+              onClose();
+              onViewAttemptResult?.(att);
+            }}
+          />
+        )
       )}
     </>
   );
