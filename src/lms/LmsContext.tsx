@@ -1192,18 +1192,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const isGuestAllowedForBatch = (batchId: string): boolean => {
     const b = batches.find((x) => x.id === batchId);
-    // DRAFT LOCK: If batch is unpublished (Draft), guests can NEVER access it!
-    if (b && b.isPublished === false) return false;
+    if (!b) return false;
 
-    // SECRET ROSTER LOCK: If batch is marked private/roster-exclusive, guests are locked out!
-    if (b && b.isPrivateRosterOnly === true) return false;
+    // Rule 1: DRAFT LOCK - Unpublished (Draft) batches can NEVER be accessed by guests!
+    if (b.isPublished === false) return false;
 
-    // EXPLICIT RESTRICTION: If batch explicitly has allowGuestAccess === false, guests are locked out!
-    if (b && b.allowGuestAccess === false) return false;
+    // Rule 2: SECRET ROSTER LOCK - Stealth/Private batches can NEVER be accessed by guests!
+    if (b.isPrivateRosterOnly === true) return false;
 
+    // Rule 3: Batch-Specific Guest Pass - If batch has allowGuestAccess === true, guests ALWAYS have access!
+    if (b.allowGuestAccess === true) return true;
+
+    // Rule 4: Explicit restriction - If batch specifically sets allowGuestAccess === false, guests are locked out
+    if (b.allowGuestAccess === false) return false;
+
+    // Rule 5: Fallback to global policy only if individual batch setting is unspecified
     if (globalGuestAccessMode === 'all_batches') return true;
-    if (globalGuestAccessMode === 'none') return false;
-    return !!b?.allowGuestAccess;
+    return false;
   };
 
   const toggleBatchGuestAccess = async (batchId: string) => {

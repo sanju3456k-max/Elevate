@@ -84,7 +84,20 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onOpenOmr,
   onOpenCustomBuilder,
 }) => {
-  const { batches, lectures, chapters, batchTests, watchProgress, isEnrolled, announcements, setActiveBatchId, setActiveLectureId } = useApp();
+  const {
+    batches,
+    lectures,
+    chapters,
+    batchTests,
+    watchProgress,
+    isEnrolled,
+    announcements,
+    setActiveBatchId,
+    setActiveLectureId,
+    isGuestAllowedForBatch,
+    enrollAsGuest,
+    showSecurityToast,
+  } = useApp();
   
   // Selected test for Test Details & Dual Mode (OMR + Online) Modal
   const [detailedTest, setDetailedTest] = useState<MathTest | null>(null);
@@ -375,10 +388,26 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
   const handleSelectBatchItem = (batchId: string) => {
     const target = batches.find((b) => b.id === batchId);
-    if (!isMaster && target && target.isPublished === false) {
-      alert(`Access Locked: "${target.title}" is in Draft mode and has not been published yet.`);
+    if (!target) return;
+    const hasEnrollment = isEnrolled(batchId);
+    const guestAllowed = isGuestAllowedForBatch(batchId);
+
+    // Rule 1: Draft or Secret Roster course strictly requires official roster enrollment
+    if (!isMaster && (target.isPublished === false || target.isPrivateRosterOnly === true) && !hasEnrollment) {
+      showSecurityToast(`Access Locked: "${target.title}" is private. Official student roster admission is required.`);
       return;
     }
+
+    // Rule 2: Live course with non-enrolled user
+    if (!isMaster && !hasEnrollment) {
+      if (guestAllowed) {
+        enrollAsGuest(batchId);
+      } else {
+        showSecurityToast(`Access Denied: You are not enrolled in "${target.title}". Admission required.`);
+        return;
+      }
+    }
+
     setActiveBatchId(batchId);
     setActiveLectureId(null);
     if (onSelectBatch) {
@@ -389,10 +418,26 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   };
 
   const handleSelectLectureItem = (batchId: string, lectureId: string) => {
+    const targetBatch = batches.find((b) => b.id === batchId);
+    const hasEnrollment = isEnrolled(batchId);
+    const guestAllowed = isGuestAllowedForBatch(batchId);
+
+    if (!isMaster && !hasEnrollment) {
+      if (targetBatch && (targetBatch.isPublished === false || targetBatch.isPrivateRosterOnly === true)) {
+        showSecurityToast(`Access Locked: This course is private. Official student roster admission is required.`);
+        return;
+      }
+      if (guestAllowed) {
+        enrollAsGuest(batchId);
+      } else {
+        showSecurityToast(`Access Denied: You are not enrolled in this batch.`);
+        return;
+      }
+    }
+
     setActiveBatchId(batchId);
     setActiveLectureId(lectureId);
     const targetLec = lectures.find((l) => l.id === lectureId);
-    const targetBatch = batches.find((b) => b.id === batchId);
     if (targetLec && targetBatch && onPlayLecture) {
       onPlayLecture(targetLec, targetBatch);
       return;

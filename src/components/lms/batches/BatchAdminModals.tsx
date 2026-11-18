@@ -248,21 +248,42 @@ export const EditBatchModal: React.FC<EditBatchModalProps> = ({
               />
             </div>
 
-            <div className="flex items-center justify-between p-3 rounded-2xl bg-[var(--md-sys-color-surface-container-high)]/60">
-              <div>
-                <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)] block flex items-center space-x-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Free Guest Mode Pass</span>
-                </span>
-                <span className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
-                  {allowGuestAccess ? 'Allowed: Visitors can preview without enrollment' : 'Strict: Official roster enrollment required'}
-                </span>
-              </div>
-              <M3Switch
-                checked={allowGuestAccess}
-                onChange={() => setAllowGuestAccess(!allowGuestAccess)}
-              />
-            </div>
+            {(() => {
+              const isGuestPassDisabled = !isPublished || isPrivateRosterOnly;
+              return (
+                <div className={`flex items-center justify-between p-3 rounded-2xl bg-[var(--md-sys-color-surface-container-high)]/60 transition ${
+                  isGuestPassDisabled ? 'opacity-60' : ''
+                }`}>
+                  <div>
+                    <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)] block flex items-center space-x-1.5">
+                      <Sparkles className={`w-3.5 h-3.5 ${!isGuestPassDisabled && allowGuestAccess ? 'text-amber-500' : 'text-slate-400'}`} />
+                      <span>Free Guest Mode Pass</span>
+                      {isGuestPassDisabled && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-500/20 text-slate-500 font-semibold">
+                          Disabled
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                      {!isPublished
+                        ? 'Inactive in Draft mode (Publish course to enable)'
+                        : isPrivateRosterOnly
+                        ? 'Inactive in Secret Roster mode (Course hidden from guests)'
+                        : allowGuestAccess
+                        ? 'Allowed: Visitors can explore curriculum for free'
+                        : 'Strict: Official roster enrollment required'}
+                    </span>
+                  </div>
+                  <M3Switch
+                    checked={!isGuestPassDisabled && allowGuestAccess}
+                    disabled={isGuestPassDisabled}
+                    onChange={() => {
+                      if (!isGuestPassDisabled) setAllowGuestAccess(!allowGuestAccess);
+                    }}
+                  />
+                </div>
+              );
+            })()}
 
             <div className="flex items-center justify-between p-3 rounded-2xl bg-[var(--md-sys-color-surface-container-high)]/60">
               <div>

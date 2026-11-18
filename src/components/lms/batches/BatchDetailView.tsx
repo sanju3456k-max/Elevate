@@ -447,12 +447,12 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   const displayedBatches = batchFilter === 'my-batches' ? enrolledBatches : visibleBatches;
   const currentBatch = batches.find((b) => b.id === selectedBatchId) || batches[0];
 
-  // Auto-protect: If non-admin user is NOT enrolled in a draft or private batch, return to catalog with alert
+  // Auto-protect: If non-admin user is NOT enrolled and batch does not allow guests, return to catalog with alert
   useEffect(() => {
     if (!isMaster && currentBatch && currentStage !== 'batch_list') {
       const isUserEnrolled = isEnrolled(currentBatch.id);
-      const isPublicWithGuest = currentBatch.isPublished !== false && !currentBatch.isPrivateRosterOnly && currentBatch.allowGuestAccess;
-      if (!isUserEnrolled && !isPublicWithGuest) {
+      const isGuestAllowed = isGuestAllowedForBatch(currentBatch.id);
+      if (!isUserEnrolled && !isGuestAllowed) {
         showSecurityToast(
           currentBatch.isPublished === false
             ? `Access Denied: "${currentBatch.title}" is in Draft mode. Official roster enrollment required.`
@@ -463,7 +463,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         onBatchChange?.(null);
       }
     }
-  }, [currentBatch, isMaster, currentStage, onBatchChange, showSecurityToast, isEnrolled]);
+  }, [currentBatch, isMaster, currentStage, onBatchChange, showSecurityToast, isEnrolled, isGuestAllowedForBatch]);
 
   // Dynamic Google Drive Breadcrumb Path
   const breadcrumbPath = useMemo(() => {
@@ -846,27 +846,28 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
   const goToBatchFolders = (batchId: string) => {
     const targetBatch = batches.find((b) => b.id === batchId);
+    if (!targetBatch) return;
     const hasEnrollment = isEnrolled(batchId);
-    if (!isMaster && targetBatch && (targetBatch.isPublished === false || targetBatch.isPrivateRosterOnly === true) && !hasEnrollment) {
+    const guestAllowed = isGuestAllowedForBatch(batchId);
+
+    // Rule 1: Draft or Secret Roster course strictly requires official roster enrollment
+    if (!isMaster && (targetBatch.isPublished === false || targetBatch.isPrivateRosterOnly === true) && !hasEnrollment) {
       showSecurityToast(`Access Locked: "${targetBatch.title}" is private. Official student roster admission is required.`);
       return;
     }
-    if (!hasEnrollment) {
-      if (isGuestAllowedForBatch(batchId)) {
+
+    // Rule 2: Non-enrolled user on a live public course
+    if (!isMaster && !hasEnrollment) {
+      if (guestAllowed) {
+        // Activate free guest pass and proceed
         enrollAsGuest(batchId);
-        setSelectedBatchId(batchId);
-        onBatchChange?.(batchId);
-        setSelectedChapterId(null);
-        onChapterChange?.(null);
-        setFolderActiveTab('videos');
-        onFolderTabChange?.('videos');
-        setCurrentStage('folder_content');
+      } else {
+        // Locked / Paid Course
+        showSecurityToast(`Access Denied: You are not enrolled in "${targetBatch.title}". Admission required.`);
         return;
       }
-      const bTitle = targetBatch?.title || 'this batch';
-      showSecurityToast(`Access Denied: You are not enrolled in "${bTitle}". Access is restricted to students on the official roster.`);
-      return;
     }
+
     setSelectedBatchId(batchId);
     onBatchChange?.(batchId);
     setSelectedChapterId(null);
@@ -1277,7 +1278,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
      ========================================================================= */
   if (currentStage === 'folder_content') {
     // Strict Gatekeeper: Non-admin users MUST be officially enrolled OR have guest pass on an active public course
-    const canAccessFolderContent = isMaster || isEnrolled(currentBatch.id) || (currentBatch.isPublished !== false && !currentBatch.isPrivateRosterOnly && currentBatch.allowGuestAccess);
+    const canAccessFolderContent = isMaster || isEnrolled(currentBatch.id) || isGuestAllowedForBatch(currentBatch.id);
     if (!canAccessFolderContent) {
       return (
         <div className="p-8 text-center max-w-md mx-auto my-12 rounded-3xl bg-[var(--md-sys-color-surface-container)] space-y-4">
@@ -1285,10 +1286,12 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             <Lock className="w-6 h-6" />
           </div>
           <h3 className="text-base font-bold text-[var(--md-sys-color-on-surface)]">
-            Roster Admission Required
+            {currentBatch.isPublished === false ? 'Draft Mode Course' : 'Roster Admission Required'}
           </h3>
           <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] leading-relaxed">
-            &quot;{currentBatch.title}&quot; is private and restricted to enrolled students. Your account is not on the active roster for this course.
+            {currentBatch.isPublished === false
+              ? `"${currentBatch.title}" is currently in Draft mode. Access is restricted to instructors and officially enrolled students.`
+              : `"${currentBatch.title}" is private and restricted to enrolled students. Your account is not on the active roster for this course.`}
           </p>
           <button
             type="button"

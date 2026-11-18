@@ -316,38 +316,59 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
           </div>
 
           {/* Guest Access Option Toggle */}
-          <div 
-            onClick={() => setAllowGuestAccess(!allowGuestAccess)}
-            className="flex items-center justify-between p-3.5 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] cursor-pointer hover:bg-[var(--md-sys-color-surface-container-highest)]/80 transition select-none"
-          >
-            <div className="flex items-center space-x-2.5">
-              <Users className={`w-4 h-4 ${allowGuestAccess ? 'text-indigo-500' : 'text-slate-400'}`} />
-              <div>
-                <p className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">
-                  {allowGuestAccess ? 'Guest Access Enabled (Open Free Enrollment)' : 'Restricted Roster Only (Master Admission Required)'}
-                </p>
-                <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
-                  {allowGuestAccess
-                    ? 'Visitors and guest users can freely enroll and access curriculum, video streams, and tests'
-                    : 'Strict roster mode: only students admitted by Master Admin have access'}
-                </p>
+          {(() => {
+            const isGuestPassDisabled = !isPublished || isPrivateRosterOnly;
+            return (
+              <div 
+                onClick={() => {
+                  if (!isGuestPassDisabled) setAllowGuestAccess(!allowGuestAccess);
+                }}
+                className={`flex items-center justify-between p-3.5 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] transition select-none ${
+                  isGuestPassDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-[var(--md-sys-color-surface-container-highest)]/80'
+                }`}
+              >
+                <div className="flex items-center space-x-2.5">
+                  <Users className={`w-4 h-4 ${!isGuestPassDisabled && allowGuestAccess ? 'text-indigo-500' : 'text-slate-400'}`} />
+                  <div>
+                    <p className="text-xs font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-1.5">
+                      <span>{allowGuestAccess ? 'Free Guest Mode Pass (Active)' : 'Restricted Roster Only (No Guests)'}</span>
+                      {isGuestPassDisabled && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-500 dark:text-slate-400 font-semibold">
+                          Overrides Inactive
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                      {!isPublished
+                        ? '🚫 Inactive in Draft mode: Course must be Published to allow guest access.'
+                        : isPrivateRosterOnly
+                        ? '🔒 Inactive in Secret Roster mode: Stealth courses are strictly hidden from guests.'
+                        : allowGuestAccess
+                        ? 'Visitors and guest users can freely explore and access curriculum, video streams, and tests.'
+                        : 'Strict roster mode: only students admitted by Master Admin have access.'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={isGuestPassDisabled}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!isGuestPassDisabled) setAllowGuestAccess(!allowGuestAccess);
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition border-none outline-none shadow-xs active:scale-95 flex items-center space-x-1 ${
+                    isGuestPassDisabled
+                      ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 cursor-not-allowed'
+                      : allowGuestAccess
+                      ? 'bg-indigo-600 text-white hover:bg-indigo-700 cursor-pointer'
+                      : 'bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)] cursor-pointer'
+                  }`}
+                >
+                  <span>{isGuestPassDisabled ? '🔒 Disabled' : allowGuestAccess ? '👥 Guests Allowed' : '🔒 Roster Only'}</span>
+                </button>
               </div>
-            </div>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setAllowGuestAccess(!allowGuestAccess);
-              }}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer border-none outline-none shadow-xs active:scale-95 flex items-center space-x-1 ${
-                allowGuestAccess
-                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                  : 'bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
-              }`}
-            >
-              <span>{allowGuestAccess ? '👥 Guests Allowed' : '🔒 Roster Only'}</span>
-            </button>
-          </div>
+            );
+          })()}
 
           {/* Secret / Roster-Exclusive Toggle */}
           <div 

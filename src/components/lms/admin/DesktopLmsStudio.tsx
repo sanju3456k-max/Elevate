@@ -1789,37 +1789,54 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                     </h4>
                   </div>
 
-                  <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)]/60 border border-[var(--md-sys-color-outline-variant)]/10">
-                    <div className="space-y-0.5 flex-1 pr-2">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">
-                          Allowed to Guest Users (Guest Mode)
-                        </span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          currentBatch.allowGuestAccess ? 'bg-emerald-500/15 text-emerald-600' : 'bg-amber-500/15 text-amber-600'
-                        }`}>
-                          {currentBatch.allowGuestAccess ? 'Enabled' : 'Disabled'}
-                        </span>
+                  {(() => {
+                    const isGuestPassDisabled = currentBatch.isPublished === false || Boolean(currentBatch.isPrivateRosterOnly);
+                    return (
+                      <div className={`flex items-center justify-between gap-4 p-3.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)]/60 border border-[var(--md-sys-color-outline-variant)]/10 transition ${
+                        isGuestPassDisabled ? 'opacity-60' : ''
+                      }`}>
+                        <div className="space-y-0.5 flex-1 pr-2">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">
+                              Allowed to Guest Users (Guest Mode)
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              isGuestPassDisabled
+                                ? 'bg-slate-500/15 text-slate-500'
+                                : currentBatch.allowGuestAccess
+                                ? 'bg-emerald-500/15 text-emerald-600'
+                                : 'bg-amber-500/15 text-amber-600'
+                            }`}>
+                              {isGuestPassDisabled ? 'Overrides Inactive' : currentBatch.allowGuestAccess ? 'Enabled' : 'Disabled'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] leading-normal">
+                            {currentBatch.isPublished === false
+                              ? '🚫 Inactive in Draft mode: Course must be Published to allow guest visitors.'
+                              : currentBatch.isPrivateRosterOnly
+                              ? '🔒 Inactive in Secret Roster mode: Course is 100% hidden from guest visitors.'
+                              : currentBatch.allowGuestAccess
+                              ? 'Guest Mode is enabled for this batch. Visitors without an account or login can explore videos and notes for free.'
+                              : 'Guest Mode is restricted. Only students officially admitted to the student roster can access this course.'}
+                          </p>
+                        </div>
+                        <M3Switch
+                          checked={!isGuestPassDisabled && Boolean(currentBatch.allowGuestAccess)}
+                          disabled={isGuestPassDisabled}
+                          onChange={() => {
+                            if (isGuestPassDisabled) return;
+                            const nextState = !currentBatch.allowGuestAccess;
+                            updateBatch(currentBatch.id, { allowGuestAccess: nextState });
+                            showSecurityToast(
+                              nextState
+                                ? `Guest Mode enabled for "${currentBatch.title}". Open to all visitors.`
+                                : `Guest Mode restricted for "${currentBatch.title}". Official roster admission required.`
+                            );
+                          }}
+                        />
                       </div>
-                      <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] leading-normal">
-                        {currentBatch.allowGuestAccess
-                          ? 'Guest Mode is enabled for this batch. Visitors without an account or login can explore videos and notes for free.'
-                          : 'Guest Mode is restricted. Only students officially admitted to the student roster can access this course.'}
-                      </p>
-                    </div>
-                    <M3Switch
-                      checked={Boolean(currentBatch.allowGuestAccess)}
-                      onChange={() => {
-                        const nextState = !currentBatch.allowGuestAccess;
-                        updateBatch(currentBatch.id, { allowGuestAccess: nextState });
-                        showSecurityToast(
-                          nextState
-                            ? `Guest Mode enabled for "${currentBatch.title}". Open to all visitors.`
-                            : `Guest Mode restricted for "${currentBatch.title}". Official roster admission required.`
-                        );
-                      }}
-                    />
-                  </div>
+                    );
+                  })()}
 
                   <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)]/60 border border-[var(--md-sys-color-outline-variant)]/10">
                     <div className="space-y-0.5 flex-1 pr-2">
