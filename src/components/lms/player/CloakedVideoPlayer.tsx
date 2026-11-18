@@ -1454,7 +1454,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           >
             <div
               id={playerContainerId.current}
-              className="w-full h-full [&>iframe]:w-full [&>iframe]:h-full [&>iframe]:pointer-events-none"
+              className="w-full h-full pointer-events-none [&>iframe]:w-full [&>iframe]:h-full [&>iframe]:pointer-events-none [&_iframe]:pointer-events-none"
             />
           </div>
         </div>
@@ -1584,7 +1584,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         onMouseUp={handleSurfaceMouseUp}
         onMouseLeave={handleSurfaceMouseLeave}
         onClick={handleSurfaceClick}
-        className="absolute inset-0 z-20 flex select-none cursor-pointer"
+        className="absolute inset-0 z-20 flex select-none cursor-pointer bg-transparent pointer-events-auto"
         style={{ touchAction: 'manipulation' }}
       >
         {/* Left 35%: double-tap rewind feedback (Ringless Minimal Modern UI) */}
