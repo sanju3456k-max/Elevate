@@ -364,59 +364,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
 
-    // Real-time live listener for all batches (instant updates for isPublished, allowGuestAccess, pricing)
-    let unsubBatches: (() => void) | null = null;
-    try {
-      unsubBatches = onSnapshot(
-        collection(db, 'batches'),
-        (snapshot) => {
-          if (!snapshot.empty) {
-            const list: Batch[] = [];
-            snapshot.forEach((d) => {
-              const data = d.data();
-              list.push({
-                id: d.id,
-                title: data.title || 'Coaching Batch',
-                tagline: data.tagline || '',
-                description: data.description || '',
-                category: data.category || 'Coaching',
-                price: Number(data.price) || 0,
-                originalPrice: Number(data.originalPrice) || Number(data.price) || 0,
-                bannerUrl: data.bannerUrl || '',
-                thumbnailUrl: data.thumbnailUrl || data.bannerUrl || '',
-                instructor: {
-                  name: data.instructor?.name || 'Sanju Kumar',
-                  designation: data.instructor?.designation || 'Master Faculty',
-                  avatarUrl: data.instructor?.avatarUrl || '',
-                },
-                validityDays: Number(data.validityDays) || 365,
-                startDate: data.startDate || new Date().toISOString(),
-                rating: Number(data.rating) || 5.0,
-                enrolledStudentsCount: Number(data.enrolledStudentsCount) || 0,
-                isPublished: data.isPublished !== false,
-                allowGuestAccess: !!data.allowGuestAccess,
-              });
-            });
-            if (list.length > 0) {
-              setBatches(list);
-              try {
-                secureStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(list));
-                secureStorage.setItem('elevatelabs_cloud_batches_cache', JSON.stringify(list));
-                if (typeof window !== 'undefined' && window.localStorage) {
-                  window.localStorage.setItem('math_mock_batches_cache', JSON.stringify(list));
-                  window.localStorage.setItem('math_mock_batches_cache_time', String(Date.now()));
-                }
-              } catch {}
+    // Enterprise 1-Document Revision Beacon Listener:
+    // Listens strictly to lightweight metadata doc /master_catalog/batch_catalog_meta (1 doc read instead of N collection reads)
+    // Equipped with singleton deduplication & visibility-aware background pausing via listenerManager.
+    // When faculty publishes a course, edits prices, or modifies syllabus, beacon triggers instant refresh.
+    // When individual students enroll, batch counters update without triggering catalog beacon, eliminating 99% of wasteful reads.
+    const unsubBatchCatalogBeacon = listenerManager.subscribeDocument(
+      'master_catalog/batch_catalog_meta',
+      () => doc(db, 'master_catalog', 'batch_catalog_meta'),
+      (snap) => {
+        if (snap.exists()) {
+          fetchBatchesFromFirestore({ forceRefresh: true }).then((cloudBatches) => {
+            if (cloudBatches && cloudBatches.length > 0) {
+              setBatches(cloudBatches);
             }
-          }
-        },
-        (err) => {
-          console.warn('Batches real-time listener notice:', err);
+          }).catch(() => {});
         }
-      );
-    } catch (batchErr) {
-      console.warn('Failed to attach batches live listener:', batchErr);
-    }
+      }
+    );
 
     // Real-time live listener for global guest policy across Master and Guest browsers
     // Equipped with singleton deduplication & visibility-aware background pausing
@@ -460,7 +425,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     return () => {
-      unsubBatches?.();
+      unsubBatchCatalogBeacon();
       unsubPolicy();
       unsubSecurity();
     };

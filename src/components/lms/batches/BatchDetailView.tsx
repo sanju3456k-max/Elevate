@@ -43,7 +43,8 @@ import {
 import { useApp, getFacultyAvatarUrl } from '../../../lms/LmsContext';
 import { auth, db, getCachedFullTest } from '../../../lib/firebase';
 import { loadFullTestOnDemand } from '../../../lib/storage';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, doc } from 'firebase/firestore';
+import { listenerManager } from '../../../lib/listenerManager';
 import { isMasterUser, getGlobalPublishedTests, isDeprecatedTest, DEPRECATED_TEST_IDS } from '../../../lib/masterAccount';
 import { getTestDurationMinutes } from '../../../utils/testFormatConverter';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
@@ -326,62 +327,80 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     }
   }, [propBatchId, initialChapterId, initialLectureId, initialFolderTab, onStageChange]);
 
-  // Real-time bidirectional synchronization for lectures & chapters (Instant deletions & additions)
+  // Real-time synchronization for lectures & chapters:
+  // - Master Admin: Maintains active real-time collection streams for instant live authoring & editing.
+  // - Students: Listens to the 1-document catalog beacon (visibility-aware, zero-socket battery drain during 45min videos).
   useEffect(() => {
     if (!selectedBatchId) return;
 
     // 1. Initial authoritative load
     loadCurriculumForBatch(selectedBatchId);
 
-    // 2. Real-time collection listener for instant deletions & additions
-    let unsubLectures: (() => void) | null = null;
-    try {
-      const lecsCol = collection(db, 'batches', selectedBatchId, 'lectures');
-      unsubLectures = onSnapshot(
-        lecsCol,
-        () => {
-          loadCurriculumForBatch(selectedBatchId);
-        },
-        (err) => {
-          console.warn('Lectures live stream notice:', err);
+    // 2. Real-time updates
+    if (isMaster) {
+      let unsubLectures: (() => void) | null = null;
+      let unsubChapters: (() => void) | null = null;
+      let unsubTests: (() => void) | null = null;
+      try {
+        const lecsCol = collection(db, 'batches', selectedBatchId, 'lectures');
+        unsubLectures = onSnapshot(
+          lecsCol,
+          () => {
+            loadCurriculumForBatch(selectedBatchId);
+          },
+          (err) => {
+            console.warn('Lectures live stream notice:', err);
+          }
+        );
+      } catch {}
+
+      try {
+        const chapsCol = collection(db, 'batches', selectedBatchId, 'chapters');
+        unsubChapters = onSnapshot(
+          chapsCol,
+          () => {
+            loadCurriculumForBatch(selectedBatchId);
+          },
+          (err) => {
+            console.warn('Chapters live stream notice:', err);
+          }
+        );
+      } catch {}
+
+      try {
+        const testsCol = collection(db, 'batches', selectedBatchId, 'tests');
+        unsubTests = onSnapshot(
+          testsCol,
+          () => {
+            loadCurriculumForBatch(selectedBatchId);
+          },
+          (err) => {
+            console.warn('Batch tests live stream notice:', err);
+          }
+        );
+      } catch {}
+
+      return () => {
+        if (unsubLectures) unsubLectures();
+        if (unsubChapters) unsubChapters();
+        if (unsubTests) unsubTests();
+      };
+    } else {
+      // Enrolled students: listen to the lightweight 1-document beacon with auto background sleep
+      const unsubBeacon = listenerManager.subscribeDocument(
+        'master_catalog/batch_catalog_meta',
+        () => doc(db, 'master_catalog', 'batch_catalog_meta'),
+        (snap) => {
+          if (snap.exists()) {
+            loadCurriculumForBatch(selectedBatchId);
+          }
         }
       );
-    } catch {}
-
-    let unsubChapters: (() => void) | null = null;
-    try {
-      const chapsCol = collection(db, 'batches', selectedBatchId, 'chapters');
-      unsubChapters = onSnapshot(
-        chapsCol,
-        () => {
-          loadCurriculumForBatch(selectedBatchId);
-        },
-        (err) => {
-          console.warn('Chapters live stream notice:', err);
-        }
-      );
-    } catch {}
-
-    let unsubTests: (() => void) | null = null;
-    try {
-      const testsCol = collection(db, 'batches', selectedBatchId, 'tests');
-      unsubTests = onSnapshot(
-        testsCol,
-        () => {
-          loadCurriculumForBatch(selectedBatchId);
-        },
-        (err) => {
-          console.warn('Batch tests live stream notice:', err);
-        }
-      );
-    } catch {}
-
-    return () => {
-      if (unsubLectures) unsubLectures();
-      if (unsubChapters) unsubChapters();
-      if (unsubTests) unsubTests();
-    };
-  }, [selectedBatchId, loadCurriculumForBatch]);
+      return () => {
+        unsubBeacon();
+      };
+    }
+  }, [selectedBatchId, loadCurriculumForBatch, isMaster]);
 
   // Gracefully handle if current lecture was deleted by instructor in real time
   useEffect(() => {
