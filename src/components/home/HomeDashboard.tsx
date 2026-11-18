@@ -402,10 +402,8 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     if (!isMaster && !hasEnrollment) {
       if (guestAllowed) {
         enrollAsGuest(batchId);
-      } else {
-        showSecurityToast(`Access Denied: You are not enrolled in "${target.title}". Admission required.`);
-        return;
       }
+      // If not guestAllowed, user is allowed to proceed to the batch detail view to explore the curriculum structure!
     }
 
     setActiveBatchId(batchId);
@@ -419,6 +417,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
   const handleSelectLectureItem = (batchId: string, lectureId: string) => {
     const targetBatch = batches.find((b) => b.id === batchId);
+    const targetLec = lectures.find((l) => l.id === lectureId);
     const hasEnrollment = isEnrolled(batchId);
     const guestAllowed = isGuestAllowedForBatch(batchId);
 
@@ -429,15 +428,14 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       }
       if (guestAllowed) {
         enrollAsGuest(batchId);
-      } else {
-        showSecurityToast(`Access Denied: You are not enrolled in this batch.`);
+      } else if (!targetLec?.isFreePreview) {
+        showSecurityToast(`Access Locked: "${targetLec?.title || 'This lecture'}" requires full course enrollment.`);
         return;
       }
     }
 
     setActiveBatchId(batchId);
     setActiveLectureId(lectureId);
-    const targetLec = lectures.find((l) => l.id === lectureId);
     if (targetLec && targetBatch && onPlayLecture) {
       onPlayLecture(targetLec, targetBatch);
       return;

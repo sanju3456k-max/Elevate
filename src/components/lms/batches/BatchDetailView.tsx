@@ -241,9 +241,14 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
   // Helper to open PDF notes in Google Drive In-App Viewer
   const handleOpenNoteViewer = useCallback((clickedNote: PdfNote, allNotes: PdfNote[] = []) => {
+    const currBatch = batches.find((b) => b.id === selectedBatchId) || batches[0];
+    const hasFullAccess = isMaster || (currBatch && (isEnrolled(currBatch.id) || isGuestAllowedForBatch(currBatch.id)));
+    if (!hasFullAccess) {
+      showSecurityToast(`Access Locked: PDF Note "${clickedNote.title}" is restricted to enrolled students.`);
+      return;
+    }
     const list = allNotes.length > 0 ? allNotes : [clickedNote];
     const currFold = selectedChapterId ? chapters.find((c) => c.id === selectedChapterId) : null;
-    const currBatch = batches.find((b) => b.id === selectedBatchId) || batches[0];
     const formatted: DriveViewerItem[] = list.map((n) => ({
       id: n.id,
       title: n.title,
@@ -258,7 +263,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     setViewerItems(formatted);
     setViewerInitialIndex(foundIdx >= 0 ? foundIdx : 0);
     setIsViewerOpen(true);
-  }, [selectedChapterId, chapters, selectedBatchId, batches]);
+  }, [selectedChapterId, chapters, selectedBatchId, batches, isMaster, isEnrolled, isGuestAllowedForBatch, showSecurityToast]);
 
   // Helper to open images in Google Drive In-App Viewer
   const handleOpenImageViewer = useCallback((title: string, url: string) => {
@@ -447,12 +452,12 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   const displayedBatches = batchFilter === 'my-batches' ? enrolledBatches : visibleBatches;
   const currentBatch = batches.find((b) => b.id === selectedBatchId) || batches[0];
 
-  // Auto-protect: If non-admin user is NOT enrolled and batch does not allow guests, return to catalog with alert
+  // Auto-protect: If non-admin user is in draft or secret batch and not enrolled, return to catalog with alert
   useEffect(() => {
     if (!isMaster && currentBatch && currentStage !== 'batch_list') {
       const isUserEnrolled = isEnrolled(currentBatch.id);
-      const isGuestAllowed = isGuestAllowedForBatch(currentBatch.id);
-      if (!isUserEnrolled && !isGuestAllowed) {
+      const isSecretOrDraft = currentBatch.isPublished === false || currentBatch.isPrivateRosterOnly === true;
+      if (isSecretOrDraft && !isUserEnrolled) {
         showSecurityToast(
           currentBatch.isPublished === false
             ? `Access Denied: "${currentBatch.title}" is in Draft mode. Official roster enrollment required.`
@@ -463,7 +468,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         onBatchChange?.(null);
       }
     }
-  }, [currentBatch, isMaster, currentStage, onBatchChange, showSecurityToast, isEnrolled, isGuestAllowedForBatch]);
+  }, [currentBatch, isMaster, currentStage, onBatchChange, showSecurityToast, isEnrolled]);
 
   // Dynamic Google Drive Breadcrumb Path
   const breadcrumbPath = useMemo(() => {
@@ -856,17 +861,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       return;
     }
 
-    // Rule 2: Non-enrolled user on a live public course
-    if (!isMaster && !hasEnrollment) {
-      if (guestAllowed) {
-        // Activate free guest pass and proceed
-        enrollAsGuest(batchId);
-      } else {
-        // Locked / Paid Course
-        showSecurityToast(`Access Denied: You are not enrolled in "${targetBatch.title}". Admission required.`);
-        return;
-      }
+    // Rule 2: Live course with non-enrolled user: if guest pass is enabled, activate free pass
+    if (!isMaster && !hasEnrollment && guestAllowed) {
+      enrollAsGuest(batchId);
     }
+    // If not enrolled and guest pass is off, user enters in Curriculum Preview / Exploration mode!
 
     setSelectedBatchId(batchId);
     onBatchChange?.(batchId);
@@ -929,6 +928,14 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
   const goToLectureView = (lectureId: string) => {
     const targetLecture = lectures.find((l) => l.id === lectureId) || folderLectures.find((l) => l.id === lectureId);
+    const hasFullAccess = isMaster || (currentBatch && (isEnrolled(currentBatch.id) || isGuestAllowedForBatch(currentBatch.id)));
+    const canPlay = hasFullAccess || Boolean(targetLecture?.isFreePreview);
+
+    if (!canPlay) {
+      showSecurityToast(`Access Locked: "${targetLecture?.title || 'This video'}" requires full course enrollment.`);
+      return;
+    }
+
     if (targetLecture && currentBatch && onPlayLecture) {
       onPlayLecture(targetLecture, currentBatch);
       setSelectedLectureId(lectureId);
@@ -1197,14 +1204,15 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                       </button>
                     ) : (
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          showSecurityToast(`Access Denied: You are not enrolled in "${b.title}". Contact Master Admin to be added to the roster.`);
+                          goToBatchFolders(b.id);
                         }}
-                        className="m3-btn-tonal px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold flex items-center space-x-1 text-slate-500 opacity-80 border-none outline-none cursor-pointer"
+                        className="m3-btn-tonal px-3 sm:px-3.5 py-1.5 sm:py-2 text-xs font-bold flex items-center space-x-1.5 text-indigo-700 dark:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border-none outline-none cursor-pointer rounded-full transition"
                       >
-                        <Lock className="w-3.5 h-3.5" />
-                        <span>Locked {b.price ? `(₹${b.price})` : ''}</span>
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Explore Syllabus</span>
                       </button>
                     )}
                   </div>
@@ -1277,8 +1285,9 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
      STAGE 2 & 3: GOOGLE DRIVE-STYLE HIERARCHICAL FOLDER & CONTENT EXPLORER
      ========================================================================= */
   if (currentStage === 'folder_content') {
-    // Strict Gatekeeper: Non-admin users MUST be officially enrolled OR have guest pass on an active public course
-    const canAccessFolderContent = isMaster || isEnrolled(currentBatch.id) || isGuestAllowedForBatch(currentBatch.id);
+    // Gatekeeper: Draft or Secret courses MUST be accessed ONLY by Master or enrolled students!
+    const isSecretOrDraft = currentBatch.isPublished === false || currentBatch.isPrivateRosterOnly === true;
+    const canAccessFolderContent = isMaster || isEnrolled(currentBatch.id) || !isSecretOrDraft;
     if (!canAccessFolderContent) {
       return (
         <div className="p-8 text-center max-w-md mx-auto my-12 rounded-3xl bg-[var(--md-sys-color-surface-container)] space-y-4">
@@ -1304,8 +1313,28 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       );
     }
 
+    const hasFullBatchAccess = isMaster || isEnrolled(currentBatch.id) || isGuestAllowedForBatch(currentBatch.id);
+
     return (
       <div className="space-y-5 pb-24 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
+        {/* Curriculum Preview Banner for Non-Enrolled Users */}
+        {!hasFullBatchAccess && (
+          <div className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 animate-fade-in">
+            <div className="flex items-center space-x-2.5">
+              <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <div>
+                <p className="text-xs font-bold">Curriculum Exploration Mode</p>
+                <p className="text-[11px] opacity-80">You can explore folders and syllabus preview. Full video playback, study notes, and mock tests are restricted to enrolled students.</p>
+              </div>
+            </div>
+            {currentBatch.price ? (
+              <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-500/20 text-amber-800 dark:text-amber-200 shrink-0">
+                ₹{currentBatch.price}
+              </span>
+            ) : null}
+          </div>
+        )}
+
         {/* Top Header: Back Button & Dynamic Google Drive Breadcrumbs */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-[var(--md-sys-color-outline-variant)]/20">
           <div className="flex items-center space-x-2 flex-wrap gap-y-1.5">
@@ -1744,7 +1773,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                         </span>
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/30">
                           <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] flex items-center justify-center shadow-lg">
-                            <Play className="w-3.5 h-3.5 sm:w-6 sm:h-6 fill-current ml-0.5" />
+                            {(!hasFullBatchAccess && !lec.isFreePreview) ? (
+                              <Lock className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                            ) : (
+                              <Play className="w-3.5 h-3.5 sm:w-6 sm:h-6 fill-current ml-0.5" />
+                            )}
                           </div>
                         </div>
 
@@ -1821,10 +1854,17 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                           <span className="text-[var(--md-sys-color-on-surface-variant)] truncate max-w-[120px] sm:max-w-none">
                             {lec.pdfNotes?.length || 0} Attached Notes
                           </span>
-                          <button className="text-[var(--md-sys-color-primary)] font-bold flex items-center space-x-1 border-none bg-transparent cursor-pointer shrink-0">
-                            <span>Watch</span>
-                            <ChevronRight className="w-3.5 h-3.5" />
-                          </button>
+                          {(!hasFullBatchAccess && !lec.isFreePreview) ? (
+                            <span className="text-amber-700 dark:text-amber-400 font-bold flex items-center space-x-1 shrink-0 text-[10px] sm:text-[11px]">
+                              <Lock className="w-3 h-3" />
+                              <span>Locked</span>
+                            </span>
+                          ) : (
+                            <button className="text-[var(--md-sys-color-primary)] font-bold flex items-center space-x-1 border-none bg-transparent cursor-pointer shrink-0">
+                              <span>Watch</span>
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1900,9 +1940,16 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                             <span className="text-[9.5px] font-bold tracking-wide px-1.5 py-0.2 rounded-md bg-rose-500/10 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300">
                               PDF
                             </span>
-                            <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                              Drive Viewer
-                            </span>
+                            {!hasFullBatchAccess ? (
+                              <span className="text-[9.5px] font-bold tracking-wide px-1.5 py-0.2 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 flex items-center space-x-0.5">
+                                <Lock className="w-2.5 h-2.5" />
+                                <span>Locked</span>
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                                Drive Viewer
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1927,10 +1974,14 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                             e.stopPropagation();
                             handleOpenNoteViewer(note, folderNotesContent);
                           }}
-                          className="w-8 h-8 rounded-full hover:bg-sky-50 dark:hover:bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center transition border-0 bg-transparent cursor-pointer"
-                          title="Open in Google Drive Viewer"
+                          className={`w-8 h-8 rounded-full flex items-center justify-center transition border-0 bg-transparent cursor-pointer ${
+                            !hasFullBatchAccess
+                              ? 'hover:bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                              : 'hover:bg-sky-50 dark:hover:bg-sky-500/15 text-sky-600 dark:text-sky-400'
+                          }`}
+                          title={!hasFullBatchAccess ? 'Locked Resource' : 'Open in Google Drive Viewer'}
                         >
-                          <Eye className="w-4 h-4" />
+                          {!hasFullBatchAccess ? <Lock className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                         {isMaster && selectedChapterId && (
                           <button
@@ -2200,6 +2251,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           currentUser={auth.currentUser || (currentUser as any)}
           allTests={allCandidateTests}
           onStartTest={(testToStart) => {
+            const hasFullAccess = isMaster || (currentBatch && (isEnrolled(currentBatch.id) || isGuestAllowedForBatch(currentBatch.id)));
+            if (!hasFullAccess) {
+              showSecurityToast(`Access Locked: Mock test "${testToStart.title}" requires full enrollment in "${currentBatch.title}".`);
+              return;
+            }
             if (onStartTest) {
               onStartTest(testToStart, {
                 batchId: selectedBatchId || currentBatch?.id || '',
@@ -2209,6 +2265,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             }
           }}
           onStartOmrTest={(testToStart) => {
+            const hasFullAccess = isMaster || (currentBatch && (isEnrolled(currentBatch.id) || isGuestAllowedForBatch(currentBatch.id)));
+            if (!hasFullAccess) {
+              showSecurityToast(`Access Locked: OMR exam mode requires full enrollment in "${currentBatch.title}".`);
+              return;
+            }
             if (onStartOmrTest) {
               onStartOmrTest(testToStart, {
                 batchId: selectedBatchId || currentBatch?.id || '',
@@ -2367,6 +2428,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         currentUser={auth.currentUser || (currentUser as any)}
         allTests={allCandidateTests}
         onStartTest={(testToStart) => {
+          const hasFullAccess = isMaster || (currentBatch && (isEnrolled(currentBatch.id) || isGuestAllowedForBatch(currentBatch.id)));
+          if (!hasFullAccess) {
+            showSecurityToast(`Access Locked: Mock test "${testToStart.title}" requires full enrollment in "${currentBatch.title}".`);
+            return;
+          }
           if (onStartTest) {
             onStartTest(testToStart, {
               batchId: selectedBatchId || currentBatch?.id || '',
@@ -2376,6 +2442,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           }
         }}
         onStartOmrTest={(testToStart) => {
+          const hasFullAccess = isMaster || (currentBatch && (isEnrolled(currentBatch.id) || isGuestAllowedForBatch(currentBatch.id)));
+          if (!hasFullAccess) {
+            showSecurityToast(`Access Locked: OMR exam mode requires full enrollment in "${currentBatch.title}".`);
+            return;
+          }
           if (onStartOmrTest) {
             onStartOmrTest(testToStart, {
               batchId: selectedBatchId || currentBatch?.id || '',
