@@ -168,6 +168,30 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     }
   }, [selectedBatchId, loadRosterForBatch, loadCurriculumForBatch]);
 
+  // Dynamic Browser / PWA Status Bar Synchronization (Pure White in Light Mode, #16181f in Dark Mode)
+  useEffect(() => {
+    const targetColor = isDarkMode ? '#16181f' : '#ffffff';
+    const metaTags = document.querySelectorAll('meta[name="theme-color"]');
+    const previousThemeColors: string[] = [];
+
+    metaTags.forEach((tag) => {
+      previousThemeColors.push(tag.getAttribute('content') || '');
+      tag.setAttribute('content', targetColor);
+    });
+
+    const originalBodyBg = document.body.style.backgroundColor;
+    document.body.style.backgroundColor = targetColor;
+
+    return () => {
+      metaTags.forEach((tag, idx) => {
+        if (previousThemeColors[idx]) {
+          tag.setAttribute('content', previousThemeColors[idx]);
+        }
+      });
+      document.body.style.backgroundColor = originalBodyBg;
+    };
+  }, [isDarkMode]);
+
   const currentBatch = useMemo(() => {
     return batches.find((b) => b.id === selectedBatchId) || batches[0] || ({
       id: 'batch_testing_01',
@@ -1320,7 +1344,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
               <button
                 type="button"
                 onClick={onToggleTheme}
-                className="w-8 h-8 rounded-full bg-white dark:bg-[#1e2026] border border-slate-200 dark:border-zinc-700 flex items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 transition shadow-xs"
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center cursor-pointer hover:bg-slate-200 dark:hover:bg-zinc-700 transition border-0"
                 title="Toggle Dark/Light Mode"
               >
                 {isDarkMode ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-[#0b57d0]" />}
@@ -1331,7 +1355,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
           <button
             type="button"
             onClick={onBack}
-            className="w-full py-2 rounded-xl bg-slate-200/70 dark:bg-zinc-800 hover:bg-slate-300 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer border-none transition active:scale-98"
+            className="w-full py-2.5 rounded-full bg-slate-200/70 dark:bg-zinc-800 hover:bg-slate-300 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer border-0 transition active:scale-98"
           >
             <X className="w-4 h-4" />
             <span>Exit Master Console</span>
@@ -1347,7 +1371,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen(true)}
-              className="p-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 lg:hidden border-none cursor-pointer shrink-0"
+              className="w-9 h-9 rounded-full bg-slate-100/90 dark:bg-zinc-800/90 text-slate-600 dark:text-zinc-300 lg:hidden border-0 flex items-center justify-center cursor-pointer shrink-0 transition active:scale-95"
               title="Open Navigation Menu"
             >
               <Menu className="w-4 h-4" />
@@ -1359,7 +1383,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
               <span className="font-extrabold text-xs sm:text-sm text-[#1f1f1f] dark:text-[#f0f3f8] truncate">
                 Master Console
               </span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#0b57d0]/10 text-[#0b57d0] dark:text-[#a8c7fa] font-bold truncate max-w-[110px]">
+              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#0b57d0]/10 text-[#0b57d0] dark:text-[#a8c7fa] font-bold truncate max-w-[110px]">
                 {currentBatch.title}
               </span>
             </div>
@@ -1389,7 +1413,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   onBack();
                   onOpenBatch(selectedBatchId);
                 }}
-                className="h-8 px-2.5 sm:px-3 rounded-full bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 text-[#0b57d0] dark:text-[#a8c7fa] text-xs font-bold flex items-center gap-1 cursor-pointer border border-blue-200/60 dark:border-blue-800/40 transition active:scale-95"
+                className="h-8 px-3 rounded-full bg-blue-50/90 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 text-[#0b57d0] dark:text-[#a8c7fa] text-xs font-bold flex items-center gap-1.5 cursor-pointer border-0 transition active:scale-95"
                 title="Manage Folders and Lectures in Course View"
               >
                 <Folder className="w-3.5 h-3.5" />
@@ -1411,7 +1435,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                     }
                   }
                 }}
-                className="h-8 px-2.5 sm:px-3 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border border-slate-200 dark:border-zinc-700 flex items-center gap-1.5 text-xs font-bold cursor-pointer transition shadow-xs"
+                className="h-8 px-3 rounded-full bg-slate-100/90 hover:bg-slate-200 dark:bg-zinc-800/90 dark:hover:bg-zinc-700 text-[#1f1f1f] dark:text-[#e3e3e3] border-0 flex items-center gap-1.5 text-xs font-bold cursor-pointer transition shadow-none"
               >
                 <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -1427,7 +1451,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
               <button
                 type="button"
                 onClick={onToggleTheme}
-                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center cursor-pointer border-none transition text-slate-700 dark:text-zinc-300"
+                className="w-8 h-8 rounded-full bg-slate-100/90 dark:bg-zinc-800/90 hover:bg-slate-200 dark:hover:bg-zinc-700 flex items-center justify-center cursor-pointer border-0 transition text-slate-700 dark:text-zinc-300"
                 title="Toggle Theme"
               >
                 {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-[#0b57d0]" />}
@@ -1437,7 +1461,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             <button
               type="button"
               onClick={onBack}
-              className="h-8 px-2.5 sm:px-3 rounded-full bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 text-xs font-bold flex items-center gap-1 cursor-pointer border border-rose-200/60 dark:border-rose-800/40 transition active:scale-95"
+              className="h-8 px-3 rounded-full bg-rose-50/90 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 text-xs font-bold flex items-center gap-1 cursor-pointer border-0 transition active:scale-95"
               title="Exit Master Console"
             >
               <X className="w-3.5 h-3.5" />
@@ -1446,8 +1470,8 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
           </div>
         </header>
 
-        {/* Mobile Material Design 3 Horizontal Tab Strip - Borderless and Plain */}
-        <div className="lg:hidden flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-[#16181f] border-0 overflow-x-auto scrollbar-none shrink-0 z-10">
+        {/* Mobile Material Design 3 Minimal Horizontal Tab Strip - Seamless and Borderless */}
+        <div className="lg:hidden flex items-center gap-2 px-3.5 py-2.5 bg-white dark:bg-[#16181f] border-0 overflow-x-auto scrollbar-none shrink-0 z-10">
           {[
             { id: 'roster', label: 'Students', icon: Users, badge: globalStudentsList.length },
             { id: 'remedial', label: 'Remedial', icon: Zap },
@@ -1462,17 +1486,17 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id as MasterConsoleNavTab)}
-                className={`h-8 px-3 rounded-full flex items-center gap-1.5 text-xs font-bold whitespace-nowrap shrink-0 transition cursor-pointer border-0 outline-none ${
+                className={`h-8.5 px-3.5 rounded-full flex items-center gap-1.5 text-xs whitespace-nowrap shrink-0 transition cursor-pointer border-0 outline-none ${
                   isActive
-                    ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] shadow-xs'
-                    : 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700'
+                    ? 'bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] font-bold shadow-none'
+                    : 'bg-slate-100/80 dark:bg-zinc-800/80 text-slate-700 dark:text-zinc-300 hover:bg-slate-200/80 dark:hover:bg-zinc-700/80 font-medium'
                 }`}
               >
                 <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-[#0b57d0] dark:text-[#a8c7fa]' : ''}`} />
                 <span>{tab.label}</span>
                 {typeof tab.badge === 'number' && (
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                    isActive ? 'bg-[#0b57d0]/20 text-[#041e49] dark:text-[#c2e7ff]' : 'bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-zinc-400'
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                    isActive ? 'bg-[#0b57d0]/20 text-[#041e49] dark:text-[#c2e7ff]' : 'bg-slate-200/80 dark:bg-zinc-700/80 text-slate-600 dark:text-zinc-400'
                   }`}>
                     {tab.badge}
                   </span>
@@ -1517,7 +1541,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsAddStudentModalOpen(true)}
-                    className="px-4 py-2 rounded-xl bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold border-none cursor-pointer flex items-center gap-1.5 shadow-xs transition active:scale-95"
+                    className="h-9.5 px-4.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold border-0 cursor-pointer flex items-center gap-2 shadow-none transition active:scale-95"
                   >
                     <UserPlus className="w-4 h-4" />
                     <span>+ Add Student / User</span>
@@ -1558,7 +1582,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                           <button
                             type="button"
                             onClick={() => handleApproveDeviceReset(req.uid || req.id, req.studentName || 'Student')}
-                            className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold border-none cursor-pointer transition shrink-0 active:scale-95"
+                            className="px-3.5 py-1.5 rounded-full bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold border-0 cursor-pointer transition shrink-0 active:scale-95"
                           >
                             Approve
                           </button>
@@ -1568,16 +1592,26 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   </div>
                 )}
 
-                {/* Search Bar */}
-                <div className="relative max-w-md">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                {/* Search Bar - Material 3 Minimal Rounded Pill */}
+                <div className="relative max-w-md w-full">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 pointer-events-none" />
                   <input
                     type="text"
                     value={rosterSearch}
                     onChange={(e) => setRosterSearch(e.target.value)}
                     placeholder="Search students by name, email or phone across all batches..."
-                    className="w-full pl-8 pr-3 py-2 rounded-xl bg-white dark:bg-[#16181f] text-xs font-medium text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0] transition shadow-xs"
+                    className="w-full h-11 pl-10 pr-9 rounded-full bg-slate-100/90 dark:bg-zinc-800/80 hover:bg-slate-200/70 dark:hover:bg-zinc-700/70 focus-within:bg-white dark:focus-within:bg-[#1e2026] text-xs font-medium text-slate-800 dark:text-zinc-200 placeholder:text-slate-400 dark:placeholder:text-zinc-500 border-0 outline-none focus:ring-2 focus:ring-[#0b57d0]/25 transition shadow-none"
                   />
+                  {rosterSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setRosterSearch('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-zinc-700/80 hover:bg-slate-300 dark:hover:bg-zinc-600 flex items-center justify-center text-slate-600 dark:text-zinc-300 border-0 cursor-pointer transition"
+                      title="Clear search"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Global Students Cards (Mobile) & Table (Desktop) */}
@@ -1595,7 +1629,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                             <span className="font-bold text-xs text-slate-900 dark:text-zinc-100">
                               {st.name || 'Student'}
                             </span>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600">
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-0">
                               {st.status || 'Active'}
                             </span>
                           </div>
@@ -1624,7 +1658,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                               <button
                                 type="button"
                                 onClick={() => setSelectedStudentFor360(st)}
-                                className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] bg-[#0b57d0]/10 hover:bg-[#0b57d0]/20 border-none cursor-pointer flex items-center space-x-1 transition active:scale-95"
+                                className="h-8 px-3.5 rounded-full text-[11px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 border-0 cursor-pointer flex items-center gap-1.5 transition active:scale-95"
                               >
                                 <BarChart2 className="w-3.5 h-3.5" />
                                 <span>360° Report</span>
@@ -1632,7 +1666,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleResetDeviceLock(st.id, st.name || 'Student')}
-                                className="px-2 py-1 rounded-lg text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 border-none bg-transparent cursor-pointer flex items-center space-x-1"
+                                className="h-8 px-3.5 rounded-full text-[11px] font-bold text-slate-700 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 border-0 cursor-pointer flex items-center gap-1.5 transition active:scale-95"
                               >
                                 <Smartphone className="w-3.5 h-3.5" />
                                 <span>Reset</span>
@@ -1694,7 +1728,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                                 {st.attemptCount} attempts
                               </td>
                               <td className="p-3">
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border-0 ${
                                   st.hasDeviceLock
                                     ? 'bg-emerald-500/15 text-emerald-600'
                                     : 'bg-slate-200 dark:bg-zinc-800 text-slate-500'
@@ -1708,7 +1742,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                                     type="button"
                                     title="View 360° Academic Performance, Past Test History & Video Analytics"
                                     onClick={() => setSelectedStudentFor360(st)}
-                                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] bg-[#0b57d0]/10 hover:bg-[#0b57d0]/20 border-none cursor-pointer inline-flex items-center space-x-1 transition active:scale-95"
+                                    className="h-7.5 px-3 rounded-full text-[11px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 border-0 cursor-pointer inline-flex items-center gap-1.5 transition active:scale-95"
                                   >
                                     <BarChart2 className="w-3.5 h-3.5" />
                                     <span>360° Report</span>
@@ -1717,7 +1751,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                                     type="button"
                                     title="Reset Device Lock (Allows student to register a new phone or laptop upon login)"
                                     onClick={() => handleResetDeviceLock(st.id, st.name || 'Student')}
-                                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 border-none bg-transparent cursor-pointer inline-flex items-center space-x-1 transition"
+                                    className="h-7.5 px-3 rounded-full text-[11px] font-bold text-slate-700 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 border-0 cursor-pointer inline-flex items-center gap-1.5 transition active:scale-95"
                                   >
                                     <Smartphone className="w-3.5 h-3.5" />
                                     <span>Reset</span>
@@ -1757,7 +1791,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 </div>
 
                 {/* Decentralized Batch Operations Card */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-transparent border border-blue-500/20 space-y-2.5">
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-transparent border-0 space-y-2.5">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center space-x-2">
                       <Folder className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
@@ -1779,7 +1813,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                         onBack();
                         onOpenBatch(selectedBatchId);
                       }}
-                      className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold border-none cursor-pointer shadow-xs transition"
+                      className="inline-flex items-center gap-2 h-9.5 px-4.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold border-0 cursor-pointer shadow-none transition"
                     >
                       <span>Open Course Batches Catalog</span>
                       <ExternalLink className="w-3.5 h-3.5" />
@@ -3408,10 +3442,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
       {/* ADD STUDENT / USER MODAL */}
       {isAddStudentModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 m3-fade-in">
-          <div className="bg-white dark:bg-[#1e2024] rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-zinc-800 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-zinc-800/60">
+          <div className="bg-white dark:bg-[#1e2024] rounded-[28px] max-w-md w-full p-6 shadow-2xl border-0 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-0">
               <div className="flex items-center space-x-2.5">
-                <div className="w-9 h-9 rounded-2xl bg-emerald-500/15 text-emerald-600 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-full bg-emerald-500/15 text-emerald-600 flex items-center justify-center">
                   <UserPlus className="w-5 h-5" />
                 </div>
                 <div>
@@ -3426,7 +3460,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsAddStudentModalOpen(false)}
-                className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400 border-none bg-transparent cursor-pointer"
+                className="w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400 border-0 bg-transparent cursor-pointer flex items-center justify-center"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -3440,7 +3474,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 <select
                   value={studentEnrollBatchId}
                   onChange={(e) => setStudentEnrollBatchId(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-900 text-xs font-bold text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0]"
+                  className="w-full px-4 py-2.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-xs font-bold text-slate-800 dark:text-zinc-200 border-0 outline-none focus:ring-2 focus:ring-[#0b57d0]/25 cursor-pointer"
                 >
                   {batches.map((b) => (
                     <option key={b.id} value={b.id}>
@@ -3460,7 +3494,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   value={studentContactInput}
                   onChange={(e) => setStudentContactInput(e.target.value)}
                   placeholder="e.g. student@gmail.com or +91 98765 43210"
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-900 text-xs text-slate-900 dark:text-zinc-100 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0] font-medium"
+                  className="w-full px-4 py-2.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-xs text-slate-900 dark:text-zinc-100 border-0 outline-none focus:ring-2 focus:ring-[#0b57d0]/25 font-medium"
                 />
               </div>
 
@@ -3473,7 +3507,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   value={studentNameInput}
                   onChange={(e) => setStudentNameInput(e.target.value)}
                   placeholder="e.g. Sanju Student"
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-900 text-xs text-slate-900 dark:text-zinc-100 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0]"
+                  className="w-full px-4 py-2.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-xs text-slate-900 dark:text-zinc-100 border-0 outline-none focus:ring-2 focus:ring-[#0b57d0]/25"
                 />
               </div>
 
@@ -3485,7 +3519,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   type="number"
                   value={studentValidityDays}
                   onChange={(e) => setStudentValidityDays(Number(e.target.value))}
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-900 text-xs text-slate-900 dark:text-zinc-100 border border-slate-200 dark:border-zinc-800 outline-none focus:border-[#0b57d0]"
+                  className="w-full px-4 py-2.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-xs text-slate-900 dark:text-zinc-100 border-0 outline-none focus:ring-2 focus:ring-[#0b57d0]/25 font-mono"
                 />
               </div>
 
@@ -3493,14 +3527,14 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAddStudentModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 border-none bg-transparent cursor-pointer"
+                  className="h-9.5 px-4.5 rounded-full text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 border-0 bg-transparent cursor-pointer transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isEnrollingStudent}
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold border-none cursor-pointer shadow-xs transition"
+                  className="h-9.5 px-5.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold border-0 cursor-pointer shadow-none transition active:scale-95"
                 >
                   {isEnrollingStudent ? 'Enrolling...' : 'Confirm Admission'}
                 </button>

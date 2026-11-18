@@ -225,7 +225,7 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
                 <button
                   type="button"
                   onClick={() => onSelectTierFilter(null)}
-                  className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-500/30 flex items-center gap-1 cursor-pointer"
+                  className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-0 flex items-center gap-1 cursor-pointer transition active:scale-95"
                 >
                   <X className="w-3 h-3" />
                   <span>Clear Filter ({selectedTierFilter})</span>
@@ -307,7 +307,7 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
                 <button
                   type="button"
                   onClick={() => onSelectQuadrantFilter(null)}
-                  className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-500/20 cursor-pointer"
+                  className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-0 cursor-pointer transition active:scale-95"
                 >
                   Reset
                 </button>
@@ -446,11 +446,11 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
               </div>
 
               {/* View Mode Toggle */}
-              <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl">
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-800 p-1 rounded-full border-0">
                 <button
                   type="button"
                   onClick={() => setQuestionViewMode('bars')}
-                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border-none cursor-pointer transition ${
+                  className={`px-3 py-1 rounded-full text-[10px] font-bold border-0 cursor-pointer transition ${
                     questionViewMode === 'bars'
                       ? 'bg-white dark:bg-zinc-700 text-[#0b57d0] dark:text-white shadow-2xs'
                       : 'bg-transparent text-slate-500'
@@ -461,7 +461,7 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
                 <button
                   type="button"
                   onClick={() => setQuestionViewMode('grid')}
-                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border-none cursor-pointer transition ${
+                  className={`px-3 py-1 rounded-full text-[10px] font-bold border-0 cursor-pointer transition ${
                     questionViewMode === 'grid'
                       ? 'bg-white dark:bg-zinc-700 text-[#0b57d0] dark:text-white shadow-2xs'
                       : 'bg-transparent text-slate-500'
