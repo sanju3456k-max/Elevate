@@ -13,7 +13,7 @@ import {
 } from './initialData';
 import { enableContentSecurityDeterrence, obfuscateVideoKey, initConsoleSecurityNotice } from './security';
 import { secureStorage } from '../lib/secureStorage';
-import { auth, db, getCachedFullTest } from '../lib/firebase';
+import { auth, db, getCachedFullTest, sanitizeForFirestore } from '../lib/firebase';
 import { isMasterUser, publishTestToBatchCatalog, isDeprecatedTest, DEPRECATED_TEST_IDS } from '../lib/masterAccount';
 import { hydrateQuestionsForTest } from '../lib/questionCatalogService';
 import { getTestDurationMinutes } from '../utils/testFormatConverter';
@@ -1114,16 +1114,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateWatchProgress = (lectureId: string, currentSeconds: number, totalSeconds: number) => {
     const isCompleted = totalSeconds > 0 && currentSeconds >= totalSeconds * 0.9;
-    setWatchProgress((prev) => ({
-      ...prev,
-      [lectureId]: {
-        lectureId,
-        watchedSeconds: currentSeconds,
-        totalSeconds,
-        isCompleted: prev[lectureId]?.isCompleted || isCompleted,
-        lastWatchedAt: new Date().toISOString(),
-      },
-    }));
+    setWatchProgress((prev) => {
+      const wasCompleted = prev[lectureId]?.isCompleted || false;
+      const nextCompleted = wasCompleted || isCompleted;
+
+      // Milestone Completion Sync: If newly completed, record lightweight completion status in Firestore (1 write per completed video, 0 during streaming)
+      if (!wasCompleted && nextCompleted) {
+        const studentUid = auth.currentUser?.uid || (user?.id && user.id !== 'guest' ? user.id : null);
+        if (studentUid) {
+          const progressDocRef = doc(db, 'users', studentUid, 'lecture_progress', lectureId);
+          setDoc(progressDocRef, sanitizeForFirestore({
+            lectureId,
+            batchId: activeBatchId || undefined,
+            isCompleted: true,
+            watchedSeconds: Math.round(currentSeconds),
+            totalSeconds: Math.round(totalSeconds),
+            completedAt: new Date().toISOString(),
+          }), { merge: true }).catch(() => {});
+        }
+      }
+
+      return {
+        ...prev,
+        [lectureId]: {
+          lectureId,
+          watchedSeconds: currentSeconds,
+          totalSeconds,
+          isCompleted: nextCompleted,
+          lastWatchedAt: new Date().toISOString(),
+        },
+      };
+    });
 
     if (totalSeconds > 0) {
       const roundedMins = Math.max(1, Math.round(totalSeconds / 60));

@@ -3708,7 +3708,9 @@ async function startServer() {
   if (fs2.existsSync(katexDistPath)) {
     app.use("/katex", express.static(katexDistPath));
   }
-  const isProduction = process.env.NODE_ENV === "production";
+  const distIndexPath = path3.join(process.cwd(), "dist", "index.html");
+  const hasDist = fs2.existsSync(distIndexPath);
+  const isProduction = process.env.NODE_ENV === "production" || hasDist && process.env.VITE_DEV !== "true";
   if (!isProduction) {
     try {
       const { createServer: createViteServer } = await import("vite");
@@ -3720,6 +3722,22 @@ async function startServer() {
         appType: "spa"
       });
       app.use(vite.middlewares);
+      app.use("*", async (req, res, next) => {
+        const url = req.originalUrl;
+        try {
+          const indexHtmlPath = path3.resolve(process.cwd(), "index.html");
+          if (fs2.existsSync(indexHtmlPath)) {
+            let template = fs2.readFileSync(indexHtmlPath, "utf-8");
+            template = await vite.transformIndexHtml(url, template);
+            res.status(200).set({ "Content-Type": "text/html" }).end(template);
+          } else {
+            next();
+          }
+        } catch (e) {
+          vite.ssrFixStacktrace(e);
+          next(e);
+        }
+      });
     } catch (viteErr) {
       console.warn("Vite middleware failed to initialize, falling back to static build:", viteErr);
       const distPath = path3.join(process.cwd(), "dist");

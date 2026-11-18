@@ -11,6 +11,7 @@ import {
   limit,
   arrayUnion,
   arrayRemove,
+  increment,
 } from 'firebase/firestore';
 import { db, sanitizeForFirestore } from './firebase';
 import type { Batch, BatchEnrollment, Chapter, Lecture } from '../lms/types';
@@ -356,17 +357,33 @@ export async function enrollStudentInFirestore(params: {
         status: 'active',
       };
 
+      // Keep roster document bounded to recent 200 students to strictly prevent exceeding Firestore's 1MB limit at 5k-50k scale.
+      // /batch_enrollments/{enrollmentKey} remains the 100% unbounded, authoritative record for every enrolled student.
+      const studentKeys = Object.keys(existingStudents);
+      let boundedStudents: Record<string, any> = {
+        ...existingStudents,
+        [cleanContactKey]: studentMapEntry,
+      };
+      if (studentKeys.length > 200) {
+        const sortedEntries = Object.entries(boundedStudents)
+          .sort((a, b) => ((b[1] as any)?.enrolledAt || '').localeCompare((a[1] as any)?.enrolledAt || ''))
+          .slice(0, 150);
+        boundedStudents = Object.fromEntries(sortedEntries);
+      }
+
+      const totalCalculated = Math.max(
+        (Number(existingRoster?.totalStudents) || 0) + (existingStudents[cleanContactKey] ? 0 : 1),
+        studentKeys.length + (existingStudents[cleanContactKey] ? 0 : 1)
+      );
+
       const updatedRoster = sanitizeForFirestore({
         batchId,
         batchTitle,
         updatedAt: now,
-        totalStudents: Object.keys(existingStudents).length + (existingStudents[cleanContactKey] ? 0 : 1),
-        allowedEmails: updatedEmails,
-        allowedPhones: updatedPhones,
-        students: {
-          ...existingStudents,
-          [cleanContactKey]: studentMapEntry,
-        },
+        totalStudents: totalCalculated,
+        allowedEmails: updatedEmails.slice(-300),
+        allowedPhones: updatedPhones.slice(-300),
+        students: boundedStudents,
       });
 
       await setDoc(rosterRef, updatedRoster, { merge: true });
@@ -374,23 +391,24 @@ export async function enrollStudentInFirestore(params: {
       console.warn('Batch access roster update notice:', rosterErr);
     }
 
-    // 3. Increment batch student count in Firestore
+    // 3. Atomically increment batch student count in Firestore (Zero-Read atomic mutation)
     try {
       const batchRef = doc(db, 'batches', batchId);
-      const batchSnap = await getDoc(batchRef);
-      if (batchSnap.exists()) {
-        const curCount = Number(batchSnap.data().enrolledStudentsCount) || 0;
-        await updateDoc(batchRef, { enrolledStudentsCount: curCount + 1, updatedAt: now });
-      } else {
-        await setDoc(batchRef, sanitizeForFirestore({
-          id: batchId,
-          title: batchTitle,
-          enrolledStudentsCount: 1,
-          updatedAt: now,
-          createdAt: now,
-          isPublished: true,
-        }), { merge: true });
-      }
+      await updateDoc(batchRef, {
+        enrolledStudentsCount: increment(1),
+        updatedAt: now,
+      }).catch(async (updErr: any) => {
+        if (updErr?.code === 'not-found' || String(updErr?.message || updErr).includes('No document to update')) {
+          await setDoc(batchRef, sanitizeForFirestore({
+            id: batchId,
+            title: batchTitle,
+            enrolledStudentsCount: 1,
+            updatedAt: now,
+            createdAt: now,
+            isPublished: true,
+          }), { merge: true });
+        }
+      });
     } catch (countErr) {
       console.warn('Batch student count update notice:', countErr);
     }
@@ -507,15 +525,15 @@ export async function revokeStudentInFirestore(batchId: string, contact: string)
       console.warn('Roster revoke update notice:', rErr);
     }
 
-    // 4. Update batch student count in Firestore (/batches/{batchId})
+    // 4. Atomically decrement batch student count in Firestore (Zero-Read atomic mutation)
     try {
       const batchRef = doc(db, 'batches', batchId);
-      const batchSnap = await getDoc(batchRef).catch(() => null);
-      if (batchSnap?.exists()) {
-        await updateDoc(batchRef, { enrolledStudentsCount: remainingCount, updatedAt: now }).catch(() => {});
-      }
+      await updateDoc(batchRef, {
+        enrolledStudentsCount: remainingCount > 0 ? remainingCount : increment(-1),
+        updatedAt: now,
+      }).catch(() => {});
     } catch (countErr) {
-      console.warn('Batch count update notice:', countErr);
+      console.warn('Batch count atomic decrement notice:', countErr);
     }
 
     // 5. Purge batchId from student's user profile document in Firestore (/users)
@@ -726,6 +744,7 @@ export async function fetchBatchEnrollmentsFromFirestore(batchId: string): Promi
       const rosterSnap = await getDoc(rosterRef);
       if (rosterSnap.exists()) {
         const rData = rosterSnap.data();
+        const totalReported = Number(rData?.totalStudents) || 0;
         if (rData && rData.students && typeof rData.students === 'object') {
           const list: BatchEnrollment[] = [];
           Object.values(rData.students).forEach((s: any) => {
@@ -743,14 +762,44 @@ export async function fetchBatchEnrollmentsFromFirestore(batchId: string): Promi
               });
             }
           });
-          if (list.length > 0) return list;
+          // If roster holds all students (medium batch), return immediately (1 read)
+          if (list.length > 0 && (totalReported === 0 || list.length >= totalReported)) {
+            return list;
+          }
         }
       }
     } catch (rosterErr) {
       console.warn(`Roster read fallback for batch ${batchId}:`, rosterErr);
     }
 
-    // 2. Subcollection fallback
+    // 2. Query global batch_enrollments index for complete roster (supports 5k-50k+ students)
+    try {
+      const batchEnrollmentsCol = collection(db, 'batch_enrollments');
+      const qBatch = query(batchEnrollmentsCol, where('batchId', '==', batchId), where('status', '==', 'active'));
+      const snapGlobal = await getDocs(qBatch).catch(() => null);
+      if (snapGlobal && !snapGlobal.empty) {
+        const result: BatchEnrollment[] = [];
+        snapGlobal.forEach((d) => {
+          const data = d.data();
+          result.push({
+            id: d.id,
+            batchId: data.batchId || batchId,
+            userId: data.userId || d.id,
+            studentName: data.studentName || 'Student',
+            studentEmail: data.studentEmail,
+            studentPhone: data.studentPhone,
+            enrolledAt: data.enrolledAt || new Date().toISOString(),
+            expiresAt: data.expiresAt,
+            status: 'active',
+          });
+        });
+        return result;
+      }
+    } catch (globalErr) {
+      console.warn(`Global batch_enrollments index query fallback for batch ${batchId}:`, globalErr);
+    }
+
+    // 3. Subcollection fallback
     const enrollmentsCol = collection(db, 'batches', batchId, 'enrollments');
     const snap = await getDocs(enrollmentsCol);
     const result: BatchEnrollment[] = [];
