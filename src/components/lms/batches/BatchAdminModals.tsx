@@ -20,6 +20,7 @@ import {
   Check,
   Smartphone,
   ChevronDown,
+  EyeOff,
 } from 'lucide-react';
 import type { Batch, BatchEnrollment } from '../../../lms/types';
 import { useApp } from '../../../lms/LmsContext';
@@ -54,6 +55,7 @@ export const EditBatchModal: React.FC<EditBatchModalProps> = ({
   const [bannerUrl, setBannerUrl] = useState('');
   const [isPublished, setIsPublished] = useState(true);
   const [allowGuestAccess, setAllowGuestAccess] = useState(false);
+  const [isPrivateRosterOnly, setIsPrivateRosterOnly] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -67,6 +69,7 @@ export const EditBatchModal: React.FC<EditBatchModalProps> = ({
       setBannerUrl(batch.bannerUrl || batch.thumbnailUrl || '');
       setIsPublished(batch.isPublished !== false);
       setAllowGuestAccess(Boolean(batch.allowGuestAccess));
+      setIsPrivateRosterOnly(Boolean(batch.isPrivateRosterOnly));
       setConfirmDelete(false);
     }
   }, [batch, isOpen]);
@@ -88,6 +91,7 @@ export const EditBatchModal: React.FC<EditBatchModalProps> = ({
       thumbnailUrl: bannerUrl.trim() || undefined,
       isPublished,
       allowGuestAccess,
+      isPrivateRosterOnly,
     });
     onClose();
   };
@@ -257,6 +261,22 @@ export const EditBatchModal: React.FC<EditBatchModalProps> = ({
               <M3Switch
                 checked={allowGuestAccess}
                 onChange={() => setAllowGuestAccess(!allowGuestAccess)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-[var(--md-sys-color-surface-container-high)]/60">
+              <div>
+                <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)] block flex items-center space-x-1.5">
+                  <EyeOff className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Secret Roster-Exclusive (Hidden from Catalog & Guests)</span>
+                </span>
+                <span className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                  {isPrivateRosterOnly ? 'Secret: 100% hidden from catalog and guests. Only enrolled students see & access it.' : 'Catalog: Listed in catalog per publish setting'}
+                </span>
+              </div>
+              <M3Switch
+                checked={isPrivateRosterOnly}
+                onChange={() => setIsPrivateRosterOnly(!isPrivateRosterOnly)}
               />
             </div>
           </div>

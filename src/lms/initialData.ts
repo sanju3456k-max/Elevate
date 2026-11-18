@@ -36,6 +36,7 @@ export const INITIAL_BATCHES: Batch[] = [
     enrolledStudentsCount: 1,
     isPublished: true,
     allowGuestAccess: true,
+    isPrivateRosterOnly: false,
   },
 ];
 

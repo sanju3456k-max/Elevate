@@ -1820,6 +1820,38 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                       }}
                     />
                   </div>
+
+                  <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)]/60 border border-[var(--md-sys-color-outline-variant)]/10">
+                    <div className="space-y-0.5 flex-1 pr-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">
+                          Secret Roster-Exclusive (Hidden from Catalog & Guests)
+                        </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          currentBatch.isPrivateRosterOnly ? 'bg-amber-500/15 text-amber-600' : 'bg-slate-500/15 text-slate-600'
+                        }`}>
+                          {currentBatch.isPrivateRosterOnly ? 'Secret Roster Only' : 'Catalog Listed'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] leading-normal">
+                        {currentBatch.isPrivateRosterOnly
+                          ? 'Completely invisible to guests and other learners. ONLY students explicitly enrolled via Master Console will see & access this batch.'
+                          : 'Visible in catalog according to your publish setting.'}
+                      </p>
+                    </div>
+                    <M3Switch
+                      checked={Boolean(currentBatch.isPrivateRosterOnly)}
+                      onChange={() => {
+                        const nextState = !currentBatch.isPrivateRosterOnly;
+                        updateBatch(currentBatch.id, { isPrivateRosterOnly: nextState });
+                        showSecurityToast(
+                          nextState
+                            ? `"${currentBatch.title}" is now Secret Roster-Exclusive. Completely hidden from catalog and guests.`
+                            : `"${currentBatch.title}" is now catalog visible according to publish settings.`
+                        );
+                      }}
+                    />
+                  </div>
                 </div>
 
                 {/* 3. COMMERCIALS & PRICING */}

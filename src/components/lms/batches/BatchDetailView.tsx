@@ -429,8 +429,15 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
   const visibleBatches = useMemo(() => {
     if (isMaster) return batches;
-    return batches.filter((b) => b.isPublished !== false);
-  }, [batches, isMaster]);
+    return batches.filter((b) => {
+      // An officially enrolled student can ALWAYS see their enrolled course, even if Draft or Secret Roster-Only!
+      if (isEnrolled(b.id)) return true;
+      // Non-enrolled visitors and guests can NEVER see Draft or Secret Roster-Only courses:
+      if (b.isPublished === false) return false;
+      if (b.isPrivateRosterOnly === true) return false;
+      return true;
+    });
+  }, [batches, isMaster, isEnrolled]);
 
   const enrolledBatches = useMemo(
     () => visibleBatches.filter((b) => isEnrolled(b.id)),
@@ -440,15 +447,23 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   const displayedBatches = batchFilter === 'my-batches' ? enrolledBatches : visibleBatches;
   const currentBatch = batches.find((b) => b.id === selectedBatchId) || batches[0];
 
-  // Auto-protect: If non-admin user is on an unpublished draft batch, return to catalog with alert
+  // Auto-protect: If non-admin user is NOT enrolled in a draft or private batch, return to catalog with alert
   useEffect(() => {
-    if (!isMaster && currentBatch && currentBatch.isPublished === false && currentStage !== 'batch_list') {
-      showSecurityToast(`Access Denied: "${currentBatch.title}" is currently in Draft mode and is locked.`);
-      setCurrentStage('batch_list');
-      setSelectedBatchId('');
-      onBatchChange?.(null);
+    if (!isMaster && currentBatch && currentStage !== 'batch_list') {
+      const isUserEnrolled = isEnrolled(currentBatch.id);
+      const isPublicWithGuest = currentBatch.isPublished !== false && !currentBatch.isPrivateRosterOnly && currentBatch.allowGuestAccess;
+      if (!isUserEnrolled && !isPublicWithGuest) {
+        showSecurityToast(
+          currentBatch.isPublished === false
+            ? `Access Denied: "${currentBatch.title}" is in Draft mode. Official roster enrollment required.`
+            : `Access Denied: You are not enrolled in "${currentBatch.title}". Official roster admission required.`
+        );
+        setCurrentStage('batch_list');
+        setSelectedBatchId('');
+        onBatchChange?.(null);
+      }
     }
-  }, [currentBatch, isMaster, currentStage, onBatchChange, showSecurityToast]);
+  }, [currentBatch, isMaster, currentStage, onBatchChange, showSecurityToast, isEnrolled]);
 
   // Dynamic Google Drive Breadcrumb Path
   const breadcrumbPath = useMemo(() => {
@@ -831,11 +846,12 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
   const goToBatchFolders = (batchId: string) => {
     const targetBatch = batches.find((b) => b.id === batchId);
-    if (!isMaster && targetBatch && targetBatch.isPublished === false) {
-      showSecurityToast(`Access Locked: "${targetBatch.title}" is in Draft mode and has not been published yet.`);
+    const hasEnrollment = isEnrolled(batchId);
+    if (!isMaster && targetBatch && (targetBatch.isPublished === false || targetBatch.isPrivateRosterOnly === true) && !hasEnrollment) {
+      showSecurityToast(`Access Locked: "${targetBatch.title}" is private. Official student roster admission is required.`);
       return;
     }
-    if (!isEnrolled(batchId)) {
+    if (!hasEnrollment) {
       if (isGuestAllowedForBatch(batchId)) {
         enrollAsGuest(batchId);
         setSelectedBatchId(batchId);
@@ -1008,6 +1024,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                     <span className={`absolute top-3 ${isMaster ? 'right-11' : 'right-3'} px-2.5 py-0.5 rounded-full bg-amber-600/90 text-white font-bold text-[9px] uppercase tracking-wider flex items-center space-x-1 shadow-xs`}>
                       <Lock className="w-3 h-3" />
                       <span>Draft</span>
+                    </span>
+                  ) : b.isPrivateRosterOnly ? (
+                    <span className={`absolute top-3 ${isMaster ? 'right-11' : 'right-3'} px-2.5 py-0.5 rounded-full bg-indigo-600/90 text-white font-bold text-[9px] uppercase tracking-wider flex items-center space-x-1 shadow-xs`}>
+                      <Lock className="w-3 h-3" />
+                      <span>Roster Only</span>
                     </span>
                   ) : b.allowGuestAccess ? (
                     <span className={`absolute top-3 ${isMaster ? 'right-11' : 'right-3'} px-2.5 py-0.5 rounded-full bg-emerald-600/90 text-white font-bold text-[9px] uppercase tracking-wider flex items-center space-x-1 shadow-xs`}>
@@ -1255,6 +1276,31 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
      STAGE 2 & 3: GOOGLE DRIVE-STYLE HIERARCHICAL FOLDER & CONTENT EXPLORER
      ========================================================================= */
   if (currentStage === 'folder_content') {
+    // Strict Gatekeeper: Non-admin users MUST be officially enrolled OR have guest pass on an active public course
+    const canAccessFolderContent = isMaster || isEnrolled(currentBatch.id) || (currentBatch.isPublished !== false && !currentBatch.isPrivateRosterOnly && currentBatch.allowGuestAccess);
+    if (!canAccessFolderContent) {
+      return (
+        <div className="p-8 text-center max-w-md mx-auto my-12 rounded-3xl bg-[var(--md-sys-color-surface-container)] space-y-4">
+          <div className="w-12 h-12 rounded-full bg-rose-500/15 text-rose-500 flex items-center justify-center mx-auto">
+            <Lock className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-[var(--md-sys-color-on-surface)]">
+            Roster Admission Required
+          </h3>
+          <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] leading-relaxed">
+            &quot;{currentBatch.title}&quot; is private and restricted to enrolled students. Your account is not on the active roster for this course.
+          </p>
+          <button
+            type="button"
+            onClick={handleGoToAllCourses}
+            className="px-5 py-2.5 rounded-full bg-[#0b57d0] text-white text-xs font-bold border-0 cursor-pointer transition active:scale-95"
+          >
+            Return to Courses
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-5 pb-24 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
         {/* Top Header: Back Button & Dynamic Google Drive Breadcrumbs */}

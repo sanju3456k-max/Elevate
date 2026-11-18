@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Layers, Sparkles, Image as ImageIcon, IndianRupee, Calendar, UserCheck, CheckCircle, Users } from 'lucide-react';
+import { X, Layers, Sparkles, Image as ImageIcon, IndianRupee, Calendar, UserCheck, CheckCircle, Users, EyeOff } from 'lucide-react';
 import type { Batch } from '../../../lms/types';
 
 interface BatchEditorModalProps {
@@ -30,6 +30,7 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
   const [thumbnailUrl, setThumbnailUrl] = useState('');
   const [isPublished, setIsPublished] = useState(true);
   const [allowGuestAccess, setAllowGuestAccess] = useState(false);
+  const [isPrivateRosterOnly, setIsPrivateRosterOnly] = useState(false);
 
   // Protection against live Firestore background sync & parent re-renders clearing user edits
   const isInitializedRef = useRef(false);
@@ -57,6 +58,7 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
           setThumbnailUrl(batchToEdit.thumbnailUrl || '');
           setIsPublished(batchToEdit.isPublished ?? true);
           setAllowGuestAccess(batchToEdit.allowGuestAccess ?? false);
+          setIsPrivateRosterOnly(batchToEdit.isPrivateRosterOnly ?? false);
         } else {
           setTitle('');
           setTagline('Comprehensive Test & Coaching Masterclass');
@@ -71,6 +73,7 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
           setThumbnailUrl(DEFAULT_HIGH_RES_BANNER);
           setIsPublished(true);
           setAllowGuestAccess(false);
+          setIsPrivateRosterOnly(false);
         }
       }
     } else {
@@ -103,6 +106,7 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
       },
       isPublished,
       allowGuestAccess,
+      isPrivateRosterOnly,
     };
 
     onSave(payload, batchToEdit?.id);
@@ -342,6 +346,40 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
               }`}
             >
               <span>{allowGuestAccess ? '👥 Guests Allowed' : '🔒 Roster Only'}</span>
+            </button>
+          </div>
+
+          {/* Secret / Roster-Exclusive Toggle */}
+          <div 
+            onClick={() => setIsPrivateRosterOnly(!isPrivateRosterOnly)}
+            className="flex items-center justify-between p-3.5 rounded-2xl bg-[var(--md-sys-color-surface-container-high)] cursor-pointer hover:bg-[var(--md-sys-color-surface-container-highest)]/80 transition select-none"
+          >
+            <div className="flex items-center space-x-2.5">
+              <EyeOff className={`w-4 h-4 ${isPrivateRosterOnly ? 'text-amber-500' : 'text-slate-400'}`} />
+              <div>
+                <p className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">
+                  {isPrivateRosterOnly ? 'Secret Roster-Exclusive (100% Hidden from Catalog & Guests)' : 'Catalog Visible Course'}
+                </p>
+                <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                  {isPrivateRosterOnly
+                    ? 'Completely invisible to guests and other learners. ONLY students enrolled via Master Console will see & access this batch.'
+                    : 'Appears in public catalog according to your publish & guest pass settings.'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsPrivateRosterOnly(!isPrivateRosterOnly);
+              }}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer border-none outline-none shadow-xs active:scale-95 flex items-center space-x-1 ${
+                isPrivateRosterOnly
+                  ? 'bg-amber-600 text-white hover:bg-amber-700'
+                  : 'bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+              }`}
+            >
+              <span>{isPrivateRosterOnly ? '👁️‍🗨️ Secret Roster Only' : '🌐 Catalog Listed'}</span>
             </button>
           </div>
 

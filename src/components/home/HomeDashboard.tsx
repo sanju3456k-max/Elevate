@@ -116,8 +116,15 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
   const visibleBatches = useMemo(() => {
     if (isMaster) return batches;
-    return batches.filter((b) => b.isPublished !== false);
-  }, [batches, isMaster]);
+    return batches.filter((b) => {
+      // An officially enrolled student can ALWAYS see their enrolled course, even if Draft or Secret Roster-Only!
+      if (isEnrolled(b.id)) return true;
+      // Non-enrolled visitors and guests can NEVER see Draft or Secret Roster-Only courses:
+      if (b.isPublished === false) return false;
+      if (b.isPrivateRosterOnly === true) return false;
+      return true;
+    });
+  }, [batches, isMaster, isEnrolled]);
 
   const enrolledBatches = useMemo(
     () => visibleBatches.filter((b) => isEnrolled(b.id)),

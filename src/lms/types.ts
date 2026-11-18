@@ -112,6 +112,7 @@ export interface Batch {
   enrolledStudentsCount: number;
   isPublished: boolean;
   allowGuestAccess?: boolean; // When true, guest visitors can access and self-enroll in this batch
+  isPrivateRosterOnly?: boolean; // When true, 100% hidden from catalog and guests; ONLY enrolled students and admin can see & access
 }
 
 export interface WatchProgress {

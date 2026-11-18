@@ -254,6 +254,7 @@ export async function fetchBatchesFromFirestore(options?: { forceRefresh?: boole
           enrolledStudentsCount: Number(data.enrolledStudentsCount) || 0,
           isPublished: data.isPublished !== false,
           allowGuestAccess: !!data.allowGuestAccess,
+          isPrivateRosterOnly: !!data.isPrivateRosterOnly,
         });
       });
 

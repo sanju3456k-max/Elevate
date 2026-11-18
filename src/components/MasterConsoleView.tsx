@@ -1151,8 +1151,14 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
               Active Batch Context
             </span>
-            <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
-              {currentBatch.isPublished ? '● Published' : '○ Draft'}
+            <span className={`text-[10px] font-mono font-bold ${
+              currentBatch.isPrivateRosterOnly
+                ? 'text-amber-600 dark:text-amber-400'
+                : currentBatch.isPublished ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'
+            }`}>
+              {currentBatch.isPrivateRosterOnly
+                ? '🔒 Secret Roster'
+                : currentBatch.isPublished ? '● Published' : '○ Draft'}
             </span>
           </div>
           <div className="relative">

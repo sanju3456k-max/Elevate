@@ -98,6 +98,7 @@ interface AppContextType {
   enrollAsGuest: (batchId: string) => { success: boolean; message: string };
   isGuestAllowedForBatch: (batchId: string) => boolean;
   toggleBatchGuestAccess: (batchId: string) => Promise<void>;
+  toggleBatchPrivateRosterOnly: (batchId: string) => Promise<void>;
   globalGuestAccessMode: 'specific_batches' | 'all_batches' | 'none';
   setGlobalGuestAccessMode: (mode: 'specific_batches' | 'all_batches' | 'none') => void;
   students: { id: string; name: string; email?: string; phone?: string }[];
@@ -1194,6 +1195,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // DRAFT LOCK: If batch is unpublished (Draft), guests can NEVER access it!
     if (b && b.isPublished === false) return false;
 
+    // SECRET ROSTER LOCK: If batch is marked private/roster-exclusive, guests are locked out!
+    if (b && b.isPrivateRosterOnly === true) return false;
+
     // EXPLICIT RESTRICTION: If batch explicitly has allowGuestAccess === false, guests are locked out!
     if (b && b.allowGuestAccess === false) return false;
 
@@ -1235,45 +1239,86 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const toggleBatchPrivateRosterOnly = async (batchId: string) => {
+    const targetBatch = batches.find((b) => b.id === batchId);
+    if (!targetBatch) return;
+    const nextState = !targetBatch.isPrivateRosterOnly;
+    const nowIso = new Date().toISOString();
+    const updated = { ...targetBatch, isPrivateRosterOnly: nextState, updatedAt: nowIso };
+    setBatches((prev) => {
+      const next = prev.map((b) => (b.id === batchId ? updated : b));
+      try {
+        secureStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(next));
+        secureStorage.setItem('elevatelabs_cloud_batches_cache', JSON.stringify(next));
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('math_mock_batches_cache', JSON.stringify(next));
+          window.localStorage.setItem('math_mock_batches_cache_time', String(Date.now()));
+        }
+      } catch {}
+      return next;
+    });
+    showSecurityToast(
+      nextState
+        ? `"${targetBatch.title}" is now Secret Roster-Exclusive. Completely hidden from catalog and guests.`
+        : `"${targetBatch.title}" is now catalog visible according to publish settings.`
+    );
+    try {
+      const batchRef = doc(db, 'batches', batchId);
+      await setDoc(batchRef, { isPrivateRosterOnly: nextState, updatedAt: nowIso }, { merge: true });
+      touchBatchCatalogBeacon().catch(() => {});
+      window.dispatchEvent(new CustomEvent('batch-catalog-updated', { detail: { batchId, updated: { isPrivateRosterOnly: nextState } } }));
+    } catch {
+      await syncBatchToFirestore(updated).catch(() => {});
+    }
+  };
+
   // 4. Multi-Factor Batch Enrollment Check (Supports Master Admin, Enrolled Students, and Active Guest Sessions)
   const isEnrolled = (batchId: string): boolean => {
     // 1. Authenticated Master Admin or Faculty always has preview and authoring rights
     if (isMasterUser(auth.currentUser) || user.role === 'admin' || (user as any)?.role === 'teacher') return true;
 
+    // 2. Check if student is explicitly enrolled in the roster (by email, phone, uid, or user profile state)
+    // CRITICAL FIX: An officially enrolled student ALWAYS has full access to their enrolled course,
+    // EVEN IF the batch is in Draft mode (isPublished === false) or Secret mode (isPrivateRosterOnly === true)!
+    const isRosterEnrolled = ((): boolean => {
+      // 2a. User profile state has active enrolled batch ID
+      if (Array.isArray(user.enrolledBatchIds) && user.enrolledBatchIds.includes(batchId)) return true;
+
+      // 2b. Authenticated students checked against Firestore enrollments roster
+      if (!auth.currentUser) return false;
+      const uEmail = (auth.currentUser.email || '').toLowerCase().trim();
+      const uPhone = (auth.currentUser.phoneNumber || '').trim();
+      const uUid = auth.currentUser.uid;
+
+      return enrollments.some(
+        (e) =>
+          e.batchId === batchId &&
+          e.status === 'active' &&
+          ((uEmail && e.studentEmail && e.studentEmail.toLowerCase().trim() === uEmail) ||
+            (uPhone && e.studentPhone && e.studentPhone.trim() === uPhone) ||
+            (uUid && e.userId === uUid))
+      );
+    })();
+
+    if (isRosterEnrolled) return true;
+
     const b = batches.find((x) => x.id === batchId);
-    // DRAFT LOCK: If batch is unpublished / in Draft mode, it is completely locked for students & guests!
-    if (b && b.isPublished === false) return false;
+    // DRAFT LOCK & SECRET ROSTER LOCK: Non-enrolled users and guests can NEVER access Draft or Secret Private batches!
+    if (b && (b.isPublished === false || b.isPrivateRosterOnly === true)) return false;
 
-    // 2. User has an active enrollment ID in state / localStorage (Authenticated student or guest who enrolled)
-    if (Array.isArray(user.enrolledBatchIds) && user.enrolledBatchIds.includes(batchId)) return true;
-
-    // 3. Batches open to guests: If this batch allows guest access (or global policy allows all), it is open to all visitor & guest accounts!
+    // 3. Batches open to guests: If this public batch allows guest access (or global policy allows all), it is open to all visitor & guest accounts!
     if (isGuestAllowedForBatch(batchId)) return true;
 
-    // 4. Authenticated students checked against Firestore roster
-    if (!auth.currentUser) return false;
-
-    const uEmail = (auth.currentUser.email || '').toLowerCase().trim();
-    const uPhone = (auth.currentUser.phoneNumber || '').trim();
-    const uUid = auth.currentUser.uid;
-
-    return enrollments.some(
-      (e) =>
-        e.batchId === batchId &&
-        e.status === 'active' &&
-        ((uEmail && e.studentEmail && e.studentEmail.toLowerCase().trim() === uEmail) ||
-          (uPhone && e.studentPhone && e.studentPhone.trim() === uPhone) ||
-          (uUid && e.userId === uUid))
-    );
+    return false;
   };
 
   const enrollAsGuest = (batchId: string) => {
     const targetBatch = batches.find((b) => b.id === batchId);
     if (!targetBatch) return { success: false, message: 'Batch not found' };
 
-    if (targetBatch.isPublished === false) {
-      showSecurityToast(`Access Denied: "${targetBatch.title}" is currently in Draft mode and is not published.`);
-      return { success: false, message: 'Batch is currently in Draft mode.' };
+    if (targetBatch.isPublished === false || targetBatch.isPrivateRosterOnly === true) {
+      showSecurityToast(`Access Denied: "${targetBatch.title}" is private. Official student roster enrollment is required.`);
+      return { success: false, message: 'Batch requires Master Console roster admission.' };
     }
 
     if (!isGuestAllowedForBatch(batchId)) {
@@ -1760,6 +1805,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         enrollAsGuest,
         isGuestAllowedForBatch,
         toggleBatchGuestAccess,
+        toggleBatchPrivateRosterOnly,
         globalGuestAccessMode,
         setGlobalGuestAccessMode,
         students,
