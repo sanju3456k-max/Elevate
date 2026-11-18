@@ -171,6 +171,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   const lastBackdropClickRef = useRef<number>(0);
   const [seekFeedback, setSeekFeedback] = useState<{ side: 'left' | 'right'; seconds: number } | null>(null);
   const seekFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const seekFeedbackRef = useRef(false);
 
   // Hold-to-2X Speed Gesture State & Refs (YouTube signature feature)
   const [is2xSpeedActive, setIs2xSpeedActive] = useState(false);
@@ -777,6 +778,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       if (isPlayingRef.current) {
         is2xSpeedActiveRef.current = true;
         setIs2xSpeedActive(true);
+        // Immediately hide controls so video is 100% full and unobstructed during 2X speed
+        hideControls();
         speedBefore2xRef.current = playbackSpeedRef.current;
         safeCallPlayer((p) => {
           if (p.setPlaybackRate) {
@@ -790,7 +793,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         }
       }
     }, 350);
-  }, [safeCallPlayer]);
+  }, [safeCallPlayer, hideControls]);
 
   const releaseHold2x = useCallback((): boolean => {
     if (longPressTimerRef.current) {
@@ -808,10 +811,12 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           p.setPlaybackRate(prevSpeed);
         }
       });
+      // Keep controls hidden after 2X speed release so video continues full-screen seamlessly
+      hideControls();
       return true;
     }
     return false;
-  }, [safeCallPlayer]);
+  }, [safeCallPlayer, hideControls]);
 
   // 2. Surface Tap & Double-Tap seek gestures (10s Rewind on Left, 10s Forward on Right, Instant toggle in Center)
   const handleSurfaceTap = useCallback((zone: 'left' | 'center' | 'right') => {
@@ -826,27 +831,18 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       return;
     }
 
-    // Protection window: If controls were just revealed within the last 800ms,
-    // protect against delayed synthetic clicks, touch release bounce, or accidental micro-taps.
-    // Always refresh the 5s timer rather than dismissing prematurely.
-    if (isControlsVisibleRef.current && now - lastControlsRevealedAt.current < 800) {
-      showControlsForDuration(5000);
-      return;
-    }
-
-    // Center zone: always reveal / extend controls for 5s (never prematurely hide on re-click)
-    if (zone === 'center') {
-      showControlsForDuration(5000);
-      return;
-    }
-
-    // Left or Right zone: Check if this tap is consecutive (within DOUBLE_TAP_WINDOW) on the same side
-    if (lastTapRef.current.side === zone && now - lastTapRef.current.time < DOUBLE_TAP_WINDOW) {
+    // Double-tap seek check (Left or Right zone):
+    // Checked FIRST: Consecutive taps on left/right immediately execute seek and hide all controls overlay
+    // so the video remains completely unobstructed and full
+    if (zone !== 'center' && lastTapRef.current.side === zone && now - lastTapRef.current.time < DOUBLE_TAP_WINDOW) {
       // Double tap (or 3rd/4th consecutive tap) detected!
       if (tapTimeoutRef.current) {
         clearTimeout(tapTimeoutRef.current);
         tapTimeoutRef.current = null;
       }
+
+      // Hide all controls overlay immediately so screen remains 100% full
+      hideControls();
 
       const delta = zone === 'left' ? -10 : 10;
       handleSkip(delta);
@@ -855,15 +851,30 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         const nextSeconds = prev && prev.side === zone ? prev.seconds + 10 : 10;
         return { side: zone, seconds: nextSeconds };
       });
+      seekFeedbackRef.current = true;
 
       if (seekFeedbackTimeoutRef.current) {
         clearTimeout(seekFeedbackTimeoutRef.current);
       }
       seekFeedbackTimeoutRef.current = setTimeout(() => {
         setSeekFeedback(null);
+        seekFeedbackRef.current = false;
       }, 750);
 
       lastTapRef.current = { time: now, side: zone };
+      return;
+    }
+
+    // Center zone: single tap toggles / extends controls for 5s (never prematurely hide on re-click)
+    if (zone === 'center') {
+      showControlsForDuration(5000);
+      lastTapRef.current = { time: 0, side: 'center' };
+      return;
+    }
+
+    // Protection window for single taps when controls are already visible
+    if (isControlsVisibleRef.current && now - lastControlsRevealedAt.current < 800) {
+      showControlsForDuration(5000);
       return;
     }
 
@@ -879,7 +890,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       lastTapRef.current = { time: 0, side: zone };
       tapTimeoutRef.current = null;
     }, DOUBLE_TAP_WINDOW);
-  }, [showControlsForDuration, handleSkip]);
+  }, [showControlsForDuration, hideControls, handleSkip]);
 
   const getZoneFromX = (clientX: number, target: HTMLElement): 'left' | 'center' | 'right' => {
     const rect = target.getBoundingClientRect();
@@ -1308,8 +1319,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     };
   }, []);
 
-  // Reveal controls on desktop mouse movement if currently hidden
+  // Reveal controls on desktop mouse movement if currently hidden (suppressed during 2X speed or double-tap seek)
   const handleMouseMove = () => {
+    if (is2xSpeedActiveRef.current || seekFeedbackRef.current) return;
     if (!isControlsVisibleRef.current && !isHoveringControlsRef.current) {
       showControlsForDuration(5000);
     }
@@ -1602,7 +1614,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         <div
           onClick={(e) => e.stopPropagation()}
           className={`absolute top-0 inset-x-0 z-30 px-3 pt-3 pb-8 sm:px-5 sm:pt-4 sm:pb-12 bg-gradient-to-b from-black from-75% via-black/90 to-transparent min-h-[92px] sm:min-h-[114px] flex items-center justify-between gap-3 transition-opacity duration-300 ${
-            isControlsVisible || !isPlaying ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+            !is2xSpeedActive && !seekFeedback && (isControlsVisible || !isPlaying) ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
         >
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -1628,7 +1640,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       )}
 
       {/* 4. Center Play/Pause Floating Control (Clean border, 0 black shadow) */}
-      {(isControlsVisible || !isPlaying || isBufferingOrStarting) && isPlayerReady && authStatus === 'authorized' && (
+      {!is2xSpeedActive && !seekFeedback && (isControlsVisible || !isPlaying || isBufferingOrStarting) && isPlayerReady && authStatus === 'authorized' && (
         <div
           className="absolute inset-0 z-22 flex items-center justify-center pointer-events-none bg-transparent"
         >
@@ -1730,7 +1742,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           }
         }}
         className={`absolute bottom-0 inset-x-0 z-30 px-4 sm:px-6 pt-0 pb-3 sm:pb-3.5 transition-opacity duration-300 flex flex-col space-y-1 ${
-          isControlsVisible || !isPlaying || optionsMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          !is2xSpeedActive && !seekFeedback && (isControlsVisible || !isPlaying || optionsMenuOpen) ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
         {/* TIMELINE MILESTONES (Topic Breakpoints) STRIP */}
