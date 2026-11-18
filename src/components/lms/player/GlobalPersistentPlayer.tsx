@@ -327,13 +327,11 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 handleTogglePlay(e);
               }}
             >
-              {/* Top Row: Solid black base with gradient completely covering YouTube title and channel avatar */}
+              {/* Top Row: Clean transparent shadow gradient */}
               <div
-                className="absolute top-0 inset-x-0 h-16 sm:h-18 bg-gradient-to-b from-black from-75% via-black/95 to-transparent flex items-start justify-between px-2.5 pt-2 z-10"
+                className="absolute top-0 inset-x-0 h-14 sm:h-16 bg-gradient-to-b from-black/75 via-black/35 to-transparent flex items-start justify-between px-2.5 pt-2 z-10"
                 onClick={(e) => e.stopPropagation()}
               >
-                {/* Solid Top Cloak (Zero bleed for YouTube title/channel header) */}
-                <div className="absolute top-0 inset-x-0 h-10 bg-black pointer-events-none -z-1" />
                 <button
                   type="button"
                   id="desktop-miniplayer-expand-btn"
@@ -341,7 +339,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                     e.stopPropagation();
                     handleExpand();
                   }}
-                  className="w-7 h-7 rounded-full bg-black/70 hover:bg-black active:scale-90 text-white flex items-center justify-center transition border-none cursor-pointer shadow-md relative z-10"
+                  className="w-7 h-7 rounded-full bg-black/60 hover:bg-black/80 active:scale-90 text-white flex items-center justify-center transition border-none cursor-pointer shadow-md relative z-10"
                   title="Expand to Full Video"
                   aria-label="Expand to Full Video"
                 >
@@ -354,7 +352,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                     e.stopPropagation();
                     handleClose(e);
                   }}
-                  className="w-7 h-7 rounded-full bg-black/70 hover:bg-rose-600 active:scale-90 text-white flex items-center justify-center transition border-none cursor-pointer shadow-md relative z-10"
+                  className="w-7 h-7 rounded-full bg-black/60 hover:bg-rose-600 active:scale-90 text-white flex items-center justify-center transition border-none cursor-pointer shadow-md relative z-10"
                   title="Close Video"
                   aria-label="Close Video"
                 >
@@ -383,13 +381,11 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 </button>
               </div>
 
-              {/* Bottom Row: Solid jet-black base + gradient completely covering YouTube official buttons, share, alerts & endcards for 5s */}
+              {/* Bottom Row: Clean transparent shadow gradient */}
               <div
-                className="absolute bottom-0 inset-x-0 h-16 sm:h-20 bg-gradient-to-t from-black from-70% via-black/95 to-transparent flex items-end justify-between px-3 pb-2.5 z-10 select-none"
+                className="absolute bottom-0 inset-x-0 h-14 sm:h-16 bg-gradient-to-t from-black/85 via-black/40 to-transparent flex items-end justify-between px-3 pb-2.5 z-10 select-none"
                 onClick={(e) => e.stopPropagation()}
               >
-                {/* 100% Solid Black Bottom Shield (Completely hides YouTube share, alerts strip and related video boxes) */}
-                <div className="absolute bottom-0 inset-x-0 h-11 bg-black pointer-events-none -z-1" />
                 <span className="text-white text-[11px] font-mono font-medium drop-shadow relative z-10">
                   {formatDuration(currentPlaybackSec)} / {formatDuration(totalDuration > 0 ? totalDuration : ((playback.durationMinutes || 0) * 60))}
                 </span>
