@@ -1087,14 +1087,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!wasCompleted && nextCompleted) {
         const studentUid = auth.currentUser?.uid || (user?.id && user.id !== 'guest' ? user.id : null);
         if (studentUid) {
-          const progressDocRef = doc(db, 'users', studentUid, 'lecture_progress', lectureId);
-          setDoc(progressDocRef, sanitizeForFirestore({
+          const payload = {
             lectureId,
             batchId: activeBatchId || undefined,
             isCompleted: true,
             watchedSeconds: Math.round(currentSeconds),
             totalSeconds: Math.round(totalSeconds),
             completedAt: new Date().toISOString(),
+          };
+
+          const progressDocRef = doc(db, 'users', studentUid, 'lecture_progress', lectureId);
+          setDoc(progressDocRef, sanitizeForFirestore(payload), { merge: true }).catch(() => {});
+
+          // Zero-Waste Compact Document Summary (Enables 1 single read for Admin Master Console)
+          const summaryDocRef = doc(db, 'user_progress', studentUid);
+          setDoc(summaryDocRef, sanitizeForFirestore({
+            [`lectures.${lectureId}`]: payload,
+            'stats.lastActiveAt': Date.now()
           }), { merge: true }).catch(() => {});
         }
       }

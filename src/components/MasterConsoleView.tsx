@@ -24,6 +24,7 @@ import {
   Search,
   Filter,
   Check,
+  BarChart2,
   BarChart3,
   Award,
   Zap,
@@ -87,6 +88,8 @@ import { M3Switch } from './ui/Material3';
 import { useApp } from '../lms/LmsContext';
 import { auth, signInWithGoogle, db } from '../lib/firebase';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { Student360Modal } from './Student360Modal';
+import { CohortAnalyticsVisualDashboard } from './CohortAnalyticsVisualDashboard';
 
 interface MasterConsoleViewProps {
   onBack: () => void;
@@ -219,6 +222,13 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   // ==========================================
   const [rosterSearch, setRosterSearch] = useState('');
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
+  const [selectedStudentFor360, setSelectedStudentFor360] = useState<{
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    enrolledBatches: { batchId: string; batchTitle: string; status?: string }[];
+  } | null>(null);
   const [studentContactInput, setStudentContactInput] = useState('');
   const [studentNameInput, setStudentNameInput] = useState('');
   const [studentValidityDays, setStudentValidityDays] = useState(365);
@@ -825,6 +835,8 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   const [analyticsTestSearchFilter, setAnalyticsTestSearchFilter] = useState<string>('');
   const [showAllTestsList, setShowAllTestsList] = useState<boolean>(false);
   const [heatmapDisplayMode, setHeatmapDisplayMode] = useState<'firstRow' | 'full'>('firstRow');
+  const [selectedTierFilter, setSelectedTierFilter] = useState<string | null>(null);
+  const [selectedQuadrantFilter, setSelectedQuadrantFilter] = useState<string | null>(null);
 
   const filteredAnalyticsTests = useMemo(() => {
     const valid = tests.filter((t) => !isDeprecatedTest(t));
@@ -942,9 +954,33 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
       const matchesSearch = row.studentName.toLowerCase().includes(analyticsSearchQuery.toLowerCase()) ||
         (row.studentEmail && row.studentEmail.toLowerCase().includes(analyticsSearchQuery.toLowerCase()));
       const matchesMode = analyticsModeFilter === 'all' || row.attemptMode === analyticsModeFilter;
-      return matchesSearch && matchesMode;
+
+      // Score Tier filter from interactive histogram bars
+      let matchesTier = true;
+      if (selectedTierFilter) {
+        const p = row.percentage;
+        if (selectedTierFilter === 'top') matchesTier = p >= 90;
+        else if (selectedTierFilter === 'good') matchesTier = p >= 75 && p < 90;
+        else if (selectedTierFilter === 'avg') matchesTier = p >= 60 && p < 75;
+        else if (selectedTierFilter === 'dev') matchesTier = p >= 40 && p < 60;
+        else if (selectedTierFilter === 'critical') matchesTier = p < 40;
+      }
+
+      // Cognitive Speed vs Accuracy Quadrant filter
+      let matchesQuadrant = true;
+      if (selectedQuadrantFilter) {
+        const medianTime = testCohortAnalytics.averageTimeSeconds || 1800;
+        const isAccurate = row.percentage >= 60;
+        const isFast = row.timeSpentSeconds <= medianTime;
+        if (selectedQuadrantFilter === 'q1') matchesQuadrant = isFast && isAccurate;
+        else if (selectedQuadrantFilter === 'q2') matchesQuadrant = !isFast && isAccurate;
+        else if (selectedQuadrantFilter === 'q3') matchesQuadrant = isFast && !isAccurate;
+        else if (selectedQuadrantFilter === 'q4') matchesQuadrant = !isFast && !isAccurate;
+      }
+
+      return matchesSearch && matchesMode && matchesTier && matchesQuadrant;
     });
-  }, [testCohortAnalytics, analyticsSearchQuery, analyticsModeFilter]);
+  }, [testCohortAnalytics, analyticsSearchQuery, analyticsModeFilter, selectedTierFilter, selectedQuadrantFilter]);
 
   const handleExportCsv = () => {
     if (!testCohortAnalytics || testCohortAnalytics.studentRows.length === 0) {
@@ -1054,12 +1090,12 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
 
       {/* Left Command Rail (Enterprise Academic Admin Sidebar) */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 w-72 bg-white dark:bg-[#16181f] border-r border-slate-200/80 dark:border-zinc-800/80 flex flex-col z-50 lg:z-20 transition-transform duration-300 ease-in-out shrink-0 ${
+        className={`fixed lg:static inset-y-0 left-0 w-72 bg-white dark:bg-[#16181f] border-0 shadow-[1px_0_8px_rgba(0,0,0,0.03)] flex flex-col z-50 lg:z-20 transition-transform duration-300 ease-in-out shrink-0 ${
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         {/* Sidebar Top: Superadmin Brand Header */}
-        <div className="p-4 border-b border-slate-200/60 dark:border-zinc-800/60 flex items-center justify-between shrink-0">
+        <div className="p-4 border-0 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center shrink-0 shadow-xs">
               <Crown className="w-5 h-5" />
@@ -1086,7 +1122,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
         </div>
 
         {/* Centralized Active Batch Context Card (Single Source of Truth) */}
-        <div className="p-3 border-b border-slate-200/60 dark:border-zinc-800/60 shrink-0 bg-slate-50/50 dark:bg-zinc-900/40">
+        <div className="p-3 border-0 shrink-0 bg-slate-50/50 dark:bg-zinc-900/40">
           <div className="flex items-center justify-between mb-1 px-1">
             <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
               Active Batch Context
@@ -1270,7 +1306,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
         </div>
 
         {/* Sidebar Bottom: Admin Email, Theme & Close */}
-        <div className="p-3 border-t border-slate-200/60 dark:border-zinc-800/60 shrink-0 space-y-2 bg-slate-50/50 dark:bg-zinc-900/40">
+        <div className="p-3 border-0 shrink-0 space-y-2 bg-slate-50/50 dark:bg-zinc-900/40">
           <div className="flex items-center justify-between">
             <div className="min-w-0 pr-2">
               <p className="text-xs font-bold text-slate-800 dark:text-zinc-200 truncate">
@@ -1304,9 +1340,9 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
       </aside>
 
       {/* Main Right Administrative Workstation */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
-        {/* Sleek Master Command Bar */}
-        <header className="h-14 px-3 sm:px-6 bg-white dark:bg-[#16181f] border-b border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-between gap-2 sm:gap-3 shrink-0 z-10 shadow-xs">
+      <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0 bg-[#f4f6fa] dark:bg-[#0d0f14]">
+        {/* Sleek Master Command Bar - Seamless Status Bar Matching without Partition Line */}
+        <header className="pt-[env(safe-area-inset-top,0px)] min-h-[56px] sm:min-h-[58px] px-3 sm:px-6 bg-white dark:bg-[#16181f] border-0 flex items-center justify-between gap-2 sm:gap-3 shrink-0 z-10">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               type="button"
@@ -1410,8 +1446,8 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
           </div>
         </header>
 
-        {/* Mobile Material Design 3 Horizontal Tab Strip */}
-        <div className="lg:hidden flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-[#16181f] border-b border-slate-200/80 dark:border-zinc-800/80 overflow-x-auto scrollbar-none shrink-0 z-10">
+        {/* Mobile Material Design 3 Horizontal Tab Strip - Borderless and Plain */}
+        <div className="lg:hidden flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-[#16181f] border-0 overflow-x-auto scrollbar-none shrink-0 z-10">
           {[
             { id: 'roster', label: 'Students', icon: Users, badge: globalStudentsList.length },
             { id: 'remedial', label: 'Remedial', icon: Zap },
@@ -1468,7 +1504,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             <div className="w-full h-full overflow-y-auto px-3 sm:px-6 md:px-8 py-3.5 sm:py-5 space-y-4 sm:space-y-6 [scrollbar-width:thin]">
               <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
                 {/* Header Card */}
-                <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-between gap-3 flex-wrap shadow-xs">
+                <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#16181f] border-0 flex items-center justify-between gap-3 flex-wrap shadow-xs">
                   <div>
                     <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
                       <Users className="w-4 h-4 text-emerald-500" />
@@ -1545,7 +1581,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 </div>
 
                 {/* Global Students Cards (Mobile) & Table (Desktop) */}
-                <div className="rounded-2xl overflow-hidden bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 shadow-xs">
+                <div className="rounded-2xl overflow-hidden bg-white dark:bg-[#16181f] border-0 shadow-xs">
                   {/* Mobile Card List */}
                   <div className="sm:hidden divide-y divide-slate-100 dark:divide-zinc-800/60">
                     {filteredGlobalStudents.length === 0 ? (
@@ -1584,14 +1620,24 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                             <span className="text-[10px] text-slate-500 dark:text-zinc-400">
                               Tests Taken: <strong>{st.attemptCount}</strong>
                             </span>
-                            <button
-                              type="button"
-                              onClick={() => handleResetDeviceLock(st.id, st.name || 'Student')}
-                              className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 border-none bg-transparent cursor-pointer flex items-center space-x-1"
-                            >
-                              <Smartphone className="w-3.5 h-3.5" />
-                              <span>Reset Device</span>
-                            </button>
+                            <div className="flex items-center space-x-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedStudentFor360(st)}
+                                className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] bg-[#0b57d0]/10 hover:bg-[#0b57d0]/20 border-none cursor-pointer flex items-center space-x-1 transition active:scale-95"
+                              >
+                                <BarChart2 className="w-3.5 h-3.5" />
+                                <span>360° Report</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleResetDeviceLock(st.id, st.name || 'Student')}
+                                className="px-2 py-1 rounded-lg text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 border-none bg-transparent cursor-pointer flex items-center space-x-1"
+                              >
+                                <Smartphone className="w-3.5 h-3.5" />
+                                <span>Reset</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))
@@ -1657,15 +1703,26 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                                 </span>
                               </td>
                               <td className="p-3 pr-4 text-right">
-                                <button
-                                  type="button"
-                                  title="Reset Device Lock (Allows student to register a new phone or laptop upon login)"
-                                  onClick={() => handleResetDeviceLock(st.id, st.name || 'Student')}
-                                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 border-none bg-transparent cursor-pointer inline-flex items-center space-x-1 transition"
-                                >
-                                  <Smartphone className="w-3.5 h-3.5" />
-                                  <span>Reset Device</span>
-                                </button>
+                                <div className="flex items-center justify-end space-x-1.5">
+                                  <button
+                                    type="button"
+                                    title="View 360° Academic Performance, Past Test History & Video Analytics"
+                                    onClick={() => setSelectedStudentFor360(st)}
+                                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] bg-[#0b57d0]/10 hover:bg-[#0b57d0]/20 border-none cursor-pointer inline-flex items-center space-x-1 transition active:scale-95"
+                                  >
+                                    <BarChart2 className="w-3.5 h-3.5" />
+                                    <span>360° Report</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="Reset Device Lock (Allows student to register a new phone or laptop upon login)"
+                                    onClick={() => handleResetDeviceLock(st.id, st.name || 'Student')}
+                                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 border-none bg-transparent cursor-pointer inline-flex items-center space-x-1 transition"
+                                  >
+                                    <Smartphone className="w-3.5 h-3.5" />
+                                    <span>Reset</span>
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))
@@ -1683,7 +1740,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             <div className="w-full h-full overflow-y-auto px-3 sm:px-6 md:px-8 py-3.5 sm:py-5 space-y-4 sm:space-y-6 [scrollbar-width:thin]">
               <div className="max-w-4xl mx-auto w-full space-y-5 sm:space-y-6">
                 {/* Header Card */}
-                <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 flex items-center justify-between gap-4 flex-wrap shadow-xs">
+                <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#16181f] border-0 flex items-center justify-between gap-4 flex-wrap shadow-xs">
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                       <ShieldCheck className="w-5 h-5" />
@@ -1731,7 +1788,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 </div>
 
                 {/* Global Guest Mode Institutional Policy */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 space-y-3 shadow-xs">
+                <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#16181f] border-0 space-y-3 shadow-xs">
                   <div>
                     <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider flex items-center space-x-2">
                       <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -1788,7 +1845,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 </div>
 
                 {/* Visual DRM & Offline Storage Encryption Security Center */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800/80 space-y-4 shadow-xs">
+                <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#16181f] border-0 space-y-4 shadow-xs">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center space-x-2">
                       <ShieldAlert className="w-4 h-4 text-amber-500" />
@@ -1886,7 +1943,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
               <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
             
             {/* Batch Context Banner */}
-            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-500/15 to-indigo-500/15 border border-blue-500/20 text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-between flex-wrap gap-2 text-xs">
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-500/15 to-indigo-500/15 border-0 text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-between flex-wrap gap-2 text-xs">
               <div className="flex items-center space-x-2">
                 <span className="font-bold text-[#0b57d0] dark:text-[#a8c7fa]">Target Batch:</span>
                 <span className="font-extrabold">{currentBatch.title}</span>
@@ -2574,7 +2631,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             <div className="max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
             
             {/* Batch Context Banner */}
-            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-500/15 to-indigo-500/15 border border-blue-500/20 text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-between flex-wrap gap-2 text-xs">
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-500/15 to-indigo-500/15 border-0 text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-between flex-wrap gap-2 text-xs">
               <div className="flex items-center space-x-2">
                 <span className="font-bold text-[#0b57d0] dark:text-[#a8c7fa]">Batch Scope:</span>
                 <span className="font-extrabold">{currentBatch.title}</span>
@@ -2844,99 +2901,25 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
               </div>
             )}
 
-            {/* Question Error Rate Heatmap */}
-            {testCohortAnalytics && testCohortAnalytics.questionErrorStats.length > 0 && (() => {
-              const totalHeatmapQuestions = testCohortAnalytics.questionErrorStats.length;
-              const displayedStats = heatmapDisplayMode === 'firstRow'
-                ? testCohortAnalytics.questionErrorStats.slice(0, 10)
-                : testCohortAnalytics.questionErrorStats;
-
-              return (
-                <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#1e2024] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-3.5">
-                  <div className="flex items-center justify-between flex-wrap gap-2.5">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
-                          Question Mistake Heatmap
-                        </h3>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#f0f4f9] dark:bg-[#141619] text-[#5e5e5e] dark:text-[#9aa0a6] font-mono border-0">
-                          {displayedStats.length} of {totalHeatmapQuestions} shown
-                        </span>
-                      </div>
-                      <p className="text-xs text-[#5e5e5e] dark:text-[#9aa0a6] mt-0.5">
-                        Shows question-by-question mistake rates across the student cohort.
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-[11px] font-mono text-[#5e5e5e] dark:text-[#9aa0a6] hidden sm:inline">
-                        Red &gt; 50% Error Rate
-                      </span>
-
-                      {/* Dropdown to switch between First Row and Full View */}
-                      <div className="flex items-center gap-1.5 bg-[#f0f4f9] dark:bg-[#141619] px-3 py-1 rounded-full border-0">
-                        <label className="text-[11px] font-bold text-[#5e5e5e] dark:text-[#9aa0a6] shrink-0">
-                          View:
-                        </label>
-                        <select
-                          value={heatmapDisplayMode}
-                          onChange={(e) => setHeatmapDisplayMode(e.target.value as 'firstRow' | 'full')}
-                          className="text-xs font-semibold bg-transparent text-[#1f1f1f] dark:text-[#e3e3e3] py-0.5 pr-1 rounded-lg cursor-pointer focus:outline-none border-0"
-                        >
-                          <option value="firstRow">First Row Only (Q1–Q10)</option>
-                          <option value="full">Full Heatmap (All {totalHeatmapQuestions} Questions)</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 pt-1">
-                    {displayedStats.map((q) => {
-                      const isHighError = q.errorRatePercentage >= 50;
-                      return (
-                        <div
-                          key={q.questionNumber}
-                          className={`p-2.5 rounded-[16px] text-center border-0 transition-all ${
-                            isHighError
-                              ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200'
-                              : q.errorRatePercentage > 0
-                              ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200'
-                              : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200'
-                          }`}
-                        >
-                          <p className="text-[11px] font-bold">Q{q.questionNumber}</p>
-                          <p className="text-xs font-mono font-bold mt-0.5">{q.errorRatePercentage}%</p>
-                          <p className="text-[9.5px] text-[#5e5e5e] dark:text-[#9aa0a6] mt-0.5">
-                            {q.wrongCount + q.unattemptedCount} err
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Toggle Bottom Expand/Collapse Action Banner */}
-                  {totalHeatmapQuestions > 10 && (
-                    <button
-                      type="button"
-                      onClick={() => setHeatmapDisplayMode((prev) => (prev === 'firstRow' ? 'full' : 'firstRow'))}
-                      className="w-full py-2.5 px-3 rounded-full bg-[#f0f4f9] dark:bg-[#141619] hover:bg-[#e9eef6] dark:hover:bg-[#22252a] text-xs font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center gap-1.5 transition-colors cursor-pointer border-0 outline-none"
-                    >
-                      {heatmapDisplayMode === 'firstRow' ? (
-                        <>
-                          <ChevronDown className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                          <span>Show Full Heatmap (Expand {totalHeatmapQuestions - 10} more questions: Q11–Q{totalHeatmapQuestions})</span>
-                        </>
-                      ) : (
-                        <>
-                          <ChevronUp className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                          <span>Collapse to First Row Only (Q1–Q10)</span>
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-              );
-            })()}
+            {/* Enterprise Visual Analytics Dashboard (Graphs, Histograms & Diagnostic Bars) */}
+            {testCohortAnalytics && selectedAnalyticsTest && (
+              <CohortAnalyticsVisualDashboard
+                analytics={testCohortAnalytics}
+                test={selectedAnalyticsTest}
+                selectedTierFilter={selectedTierFilter}
+                onSelectTierFilter={setSelectedTierFilter}
+                selectedQuadrantFilter={selectedQuadrantFilter}
+                onSelectQuadrantFilter={setSelectedQuadrantFilter}
+                onOpenStudent360={(stu) => {
+                  setSelectedStudentFor360({
+                    id: stu.id,
+                    name: stu.name,
+                    email: stu.email,
+                    enrolledBatches: []
+                  });
+                }}
+              />
+            )}
 
             {/* Detailed Student Attempt Mappings Table */}
             <div className="p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#1e2024] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-3.5">
@@ -2971,6 +2954,36 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 </div>
               </div>
 
+              {/* Active Graph Tier / Quadrant Filter Banner */}
+              {(selectedTierFilter || selectedQuadrantFilter) && (
+                <div className="flex items-center gap-2 p-2.5 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-500/20 text-xs">
+                  <Filter className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                  <span className="font-semibold text-slate-700 dark:text-zinc-300">
+                    Active Graph Filter:
+                  </span>
+                  {selectedTierFilter && (
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#0b57d0]/15 text-[#0b57d0] dark:text-[#a8c7fa]">
+                      Score Tier: {selectedTierFilter.toUpperCase()}
+                    </span>
+                  )}
+                  {selectedQuadrantFilter && (
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/15 text-purple-700 dark:text-purple-300">
+                      Cognitive Quadrant: {selectedQuadrantFilter.toUpperCase()}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTierFilter(null);
+                      setSelectedQuadrantFilter(null);
+                    }}
+                    className="ml-auto text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline border-none bg-transparent cursor-pointer"
+                  >
+                    Clear Filter
+                  </button>
+                </div>
+              )}
+
               <div className="overflow-x-auto rounded-[20px] bg-[#f0f4f9]/50 dark:bg-[#141619]/50 border-0">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
@@ -2995,9 +3008,24 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                       filteredStudentRows.map((r, i) => (
                         <tr key={r.attemptId + i} className="hover:bg-white/60 dark:hover:bg-[#1e2024]/60 transition-colors">
                           <td className="py-3 px-3.5 font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
-                            {r.studentName}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedStudentFor360({
+                                  id: r.studentId || '',
+                                  name: r.studentName || 'Student',
+                                  email: r.studentEmail,
+                                  enrolledBatches: []
+                                });
+                              }}
+                              className="text-left font-bold text-[#1f1f1f] dark:text-[#e3e3e3] hover:text-[#0b57d0] dark:hover:text-[#a8c7fa] transition flex items-center gap-1.5 group border-none bg-transparent cursor-pointer p-0"
+                              title="Click to view full 360° student profile & history"
+                            >
+                              <span>{r.studentName}</span>
+                              <BarChart2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] opacity-60 group-hover:opacity-100 transition-opacity" />
+                            </button>
                             {r.studentEmail && (
-                              <span className="block text-[10px] font-normal text-[#5e5e5e] dark:text-[#9aa0a6] font-mono">
+                              <span className="block text-[10px] font-normal text-[#5e5e5e] dark:text-[#9aa0a6] font-mono mt-0.5">
                                 {r.studentEmail}
                               </span>
                             )}
@@ -3015,15 +3043,25 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                             {r.score} / {r.totalPoints}
                           </td>
                           <td className="py-3 px-3.5 font-mono">
-                            <span className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border-0 ${
-                              r.percentage >= 70
-                                ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                                : r.percentage >= 40
-                                ? 'bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-                                : 'bg-rose-50 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
-                            }`}>
-                              {r.percentage}%
-                            </span>
+                            <div className="space-y-1">
+                              <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border-0 ${
+                                r.percentage >= 70
+                                  ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                  : r.percentage >= 40
+                                  ? 'bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                                  : 'bg-rose-50 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                              }`}>
+                                {r.percentage}%
+                              </span>
+                              <div className="w-16 bg-slate-200 dark:bg-zinc-800 h-1 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    r.percentage >= 70 ? 'bg-emerald-500' : r.percentage >= 40 ? 'bg-amber-500' : 'bg-rose-500'
+                                  }`}
+                                  style={{ width: `${Math.min(100, Math.max(5, r.percentage))}%` }}
+                                />
+                              </div>
+                            </div>
                           </td>
                           <td className="py-3 px-3.5 font-mono text-[#5e5e5e] dark:text-[#9aa0a6]">
                             {Math.round(r.timeSpentSeconds / 60)}m
@@ -3470,6 +3508,16 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Student 360° Academic Analytics & Exam Sheet Inspection Modal */}
+      {selectedStudentFor360 && (
+        <Student360Modal
+          isOpen={Boolean(selectedStudentFor360)}
+          onClose={() => setSelectedStudentFor360(null)}
+          student={selectedStudentFor360}
+          allTests={tests}
+        />
       )}
 
     </div>
