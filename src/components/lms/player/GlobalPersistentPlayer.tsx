@@ -313,7 +313,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
       id="global-persistent-player-host"
       className={
         isMinimized
-          ? `fixed right-3 sm:right-5 md:right-6 w-[280px] xs:w-[300px] sm:w-[340px] md:w-[380px] z-50 bg-[#16181d] text-white rounded-2xl md:rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.65),0_4px_16px_rgba(0,0,0,0.35)] border border-slate-700/60 dark:border-zinc-800 p-0 transition-all duration-300 select-none overflow-hidden ${
+          ? `fixed right-3 sm:right-5 md:right-6 w-[280px] xs:w-[300px] sm:w-[340px] md:w-[380px] z-50 bg-[#16181d] text-white rounded-2xl md:rounded-3xl shadow-none border border-slate-300 dark:border-zinc-700/80 p-0 transition-all duration-300 select-none overflow-hidden ${
               !isTestMode ? 'flex flex-col' : 'hidden'
             }`
           : 'fixed inset-x-0 bottom-0 top-0 md:top-[58px] z-50 md:z-40 bg-[var(--md-sys-color-background)] overflow-y-auto px-0 lg:px-8 py-0 lg:py-6 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 max-w-[1720px] mx-auto w-full items-start'
@@ -359,9 +359,9 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 handleTogglePlay(e);
               }}
             >
-              {/* Top Row: Expand, External OS PiP, Close buttons */}
+              {/* Top Row: Expand, External OS PiP, Close buttons (Clean, 0 black gradient/shadow) */}
               <div
-                className="absolute top-0 inset-x-0 h-14 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-start justify-between px-2.5 pt-2 z-10"
+                className="absolute top-0 inset-x-0 flex items-start justify-between px-2.5 pt-2 z-10 pointer-events-none"
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
@@ -371,13 +371,13 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                     e.stopPropagation();
                     handleExpand();
                   }}
-                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/60 hover:bg-black/80 active:scale-90 text-white flex items-center justify-center transition border border-white/10 cursor-pointer shadow-md"
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/70 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center transition border border-white/20 cursor-pointer shadow-none pointer-events-auto"
                   title="Expand to Full Video"
                   aria-label="Expand to Full Video"
                 >
                   <Maximize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 pointer-events-auto">
                   {isNativeAndroid() && (
                     <button
                       type="button"
@@ -386,7 +386,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                         e.stopPropagation();
                         enterNativePip();
                       }}
-                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/60 hover:bg-black/80 active:scale-90 text-white flex items-center justify-center transition border border-white/10 cursor-pointer shadow-md"
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/70 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center transition border border-white/20 cursor-pointer shadow-none"
                       title="Float on Android Home Screen (OS PiP)"
                       aria-label="Float on Android Home Screen"
                     >
@@ -400,7 +400,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                       e.stopPropagation();
                       handleClose(e);
                     }}
-                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/60 hover:bg-rose-600 active:scale-90 text-white flex items-center justify-center transition border border-white/10 cursor-pointer shadow-md"
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/70 hover:bg-rose-600 active:scale-90 text-white flex items-center justify-center transition border border-white/20 cursor-pointer shadow-none"
                     title="Close Video"
                     aria-label="Close Video"
                   >
@@ -409,12 +409,12 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 </div>
               </div>
 
-              {/* Center Controls: 10s Rewind | Big Play/Pause | 10s Skip */}
+              {/* Center Controls: 10s Rewind | Big Play/Pause | 10s Skip (Clean border, 0 black shadow) */}
               <div className="absolute inset-0 flex items-center justify-center gap-3 sm:gap-5 pointer-events-none z-20">
                 <button
                   type="button"
                   onClick={(e) => handleSkip10(-10, e)}
-                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/60 hover:bg-black/80 active:scale-90 text-white flex items-center justify-center transition border border-white/10 cursor-pointer shadow-md pointer-events-auto"
+                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/70 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center transition border border-white/20 cursor-pointer shadow-none pointer-events-auto"
                   title="Rewind 10s"
                   aria-label="Rewind 10s"
                 >
@@ -428,7 +428,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                     e.stopPropagation();
                     handleTogglePlay(e);
                   }}
-                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-zinc-950/95 hover:bg-zinc-900 active:scale-95 text-white flex items-center justify-center transition border border-white/20 cursor-pointer shadow-[0_8px_24px_rgba(0,0,0,0.85)] pointer-events-auto select-none"
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-zinc-950/95 hover:bg-zinc-900 active:scale-95 text-white flex items-center justify-center transition border border-white/25 cursor-pointer shadow-none pointer-events-auto select-none"
                   title={playback.isPlaying ? 'Pause' : 'Play'}
                   aria-label={playback.isPlaying ? 'Pause' : 'Play'}
                 >
@@ -442,7 +442,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 <button
                   type="button"
                   onClick={(e) => handleSkip10(10, e)}
-                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/60 hover:bg-black/80 active:scale-90 text-white flex items-center justify-center transition border border-white/10 cursor-pointer shadow-md pointer-events-auto"
+                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/70 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center transition border border-white/20 cursor-pointer shadow-none pointer-events-auto"
                   title="Skip 10s"
                   aria-label="Skip 10s"
                 >
@@ -450,12 +450,12 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 </button>
               </div>
 
-              {/* Bottom Row: Duration Text */}
+              {/* Bottom Row: Duration Badge (Clean pill, 0 black gradient) */}
               <div
-                className="absolute bottom-0 inset-x-0 h-10 bg-gradient-to-t from-black/85 via-black/40 to-transparent flex items-end justify-between px-3 pb-1.5 z-10 select-none"
+                className="absolute bottom-2 left-2.5 z-10 select-none pointer-events-none"
                 onClick={(e) => e.stopPropagation()}
               >
-                <span className="text-white text-[10.5px] font-mono font-medium drop-shadow relative z-10">
+                <span className="text-white text-[10px] font-mono font-medium bg-black/75 backdrop-blur-xs px-2 py-0.5 rounded-md border border-white/15 select-none pointer-events-auto">
                   {formatDuration(currentPlaybackSec)} / {formatDuration(totalDuration > 0 ? totalDuration : ((playback.durationMinutes || 0) * 60))}
                 </span>
               </div>
