@@ -13,11 +13,15 @@ import {
   BookOpen,
   ListVideo,
   Maximize2,
+  RotateCcw,
+  RotateCw,
+  PictureInPicture2,
 } from 'lucide-react';
 import { CloakedVideoPlayer } from './CloakedVideoPlayer';
 import { useApp } from '../../../lms/LmsContext';
 import { formatDuration, getLectureThumbnailUrl } from '../../../lms/security';
 import { useBackHandler, isBrowserFullscreen, exitBrowserFullscreen } from '../../../hooks/useBackNavigation';
+import { enterNativePip, isNativeAndroid } from '../../../lib/nativeHardwareBridge';
 import type { TimelineMilestone, Lecture } from '../../../lms/types';
 
 export interface PersistentPlaybackData {
@@ -209,6 +213,33 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
     onUpdatePlayback((prev) => (prev ? { ...prev, isPlaying: nextIsPlaying } : null));
   }, [onUpdatePlayback, showMiniControlsForDuration, playback?.isPlaying]);
 
+  const handleSkip10 = useCallback(
+    (deltaSeconds: number, e?: React.MouseEvent) => {
+      e?.stopPropagation();
+      showMiniControlsForDuration(5000);
+      const effectiveDur = totalDuration > 0 ? totalDuration : ((playback?.durationMinutes || 0) * 60);
+      const targetSec = Math.max(0, Math.min(effectiveDur || 999999, currentPlaybackSec + deltaSeconds));
+      setSeekSeconds(targetSec);
+      setCurrentPlaybackSec(targetSec);
+      try {
+        const iframes = document.querySelectorAll('iframe');
+        iframes.forEach((ifr) => {
+          if (ifr.src && (ifr.src.includes('youtube') || ifr.src.includes('youtu.be'))) {
+            ifr.contentWindow?.postMessage(
+              JSON.stringify({
+                event: 'command',
+                func: 'seekTo',
+                args: [targetSec, true],
+              }),
+              '*'
+            );
+          }
+        });
+      } catch {}
+    },
+    [currentPlaybackSec, totalDuration, playback, showMiniControlsForDuration]
+  );
+
   const handlePlayStateChange = useCallback(
     (playing: boolean) => {
       onUpdatePlayback((prev) => (prev && prev.isPlaying !== playing ? { ...prev, isPlaying: playing } : prev));
@@ -282,8 +313,8 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
       id="global-persistent-player-host"
       className={
         isMinimized
-          ? `fixed left-3 right-3 md:left-auto md:right-6 md:w-[360px] md:h-auto h-15 sm:h-16 z-50 bg-white dark:bg-[#1a1c22] backdrop-blur-2xl rounded-2xl shadow-none md:shadow-[0_12px_40px_rgba(0,0,0,0.22),0_4px_12px_rgba(0,0,0,0.12)] dark:shadow-none dark:md:shadow-[0_16px_48px_rgba(0,0,0,0.75)] border border-slate-200/90 dark:border-zinc-800/90 p-0 transition-all duration-200 select-none cursor-pointer overflow-hidden md:!bottom-6 ${
-              !isTestMode ? 'flex flex-row md:flex-col items-center md:items-stretch justify-between' : 'hidden'
+          ? `fixed right-3 sm:right-5 md:right-6 w-[280px] xs:w-[300px] sm:w-[340px] md:w-[380px] z-50 bg-[#16181d] text-white rounded-2xl md:rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.65),0_4px_16px_rgba(0,0,0,0.35)] border border-slate-700/60 dark:border-zinc-800 p-0 transition-all duration-300 select-none overflow-hidden ${
+              !isTestMode ? 'flex flex-col' : 'hidden'
             }`
           : 'fixed inset-x-0 bottom-0 top-0 md:top-[58px] z-50 md:z-40 bg-[var(--md-sys-color-background)] overflow-y-auto px-0 lg:px-8 py-0 lg:py-6 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 max-w-[1720px] mx-auto w-full items-start'
       }
@@ -292,7 +323,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
           ? {
               bottom: isBottomNavVisible
                 ? 'calc(76px + env(safe-area-inset-bottom, 0px))'
-                : 'calc(14px + env(safe-area-inset-bottom, 0px))',
+                : 'calc(16px + env(safe-area-inset-bottom, 0px))',
             }
           : undefined
       }
@@ -302,7 +333,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
       <div
         className={
           isMinimized
-            ? 'w-24 sm:w-28 md:w-full h-full md:h-auto md:aspect-video shrink-0 rounded-l-2xl md:rounded-l-none md:rounded-t-2xl overflow-hidden relative bg-black border-r md:border-r-0 md:border-b border-slate-200/50 dark:border-zinc-800/50 group/minivid'
+            ? 'w-full aspect-video shrink-0 rounded-t-2xl md:rounded-t-3xl overflow-hidden relative bg-black group/minivid'
             : 'lg:col-span-8 space-y-4 w-full pt-0'
         }
       >
@@ -313,98 +344,121 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
               : 'aspect-video w-full sticky top-0 z-40 bg-black shadow-none rounded-none lg:rounded-3xl lg:shadow-lg overflow-hidden group lg:static'
           }
         >
-          {/* YouTube Desktop Miniplayer Hover Controls Overlay */}
+          {/* In-App Floating PiP Player Controls Overlay (Unified Mobile, Tablet & Desktop) */}
           {isMinimized && (
             <div
-              className={`hidden md:block absolute inset-0 z-30 transition-opacity duration-200 pointer-events-auto select-none ${
+              className={`absolute inset-0 z-30 transition-opacity duration-200 pointer-events-auto select-none ${
                 !playback.isPlaying || isMiniControlsActive
                   ? 'opacity-100'
                   : 'opacity-0 group-hover/minivid:opacity-100'
               }`}
               onMouseEnter={() => showMiniControlsForDuration(5000)}
+              onTouchStart={() => showMiniControlsForDuration(5000)}
               onClick={(e) => {
                 e.stopPropagation();
                 handleTogglePlay(e);
               }}
             >
-              {/* Top Row: Clean transparent shadow gradient */}
+              {/* Top Row: Expand, External OS PiP, Close buttons */}
               <div
-                className="absolute top-0 inset-x-0 h-14 sm:h-16 bg-gradient-to-b from-black/75 via-black/35 to-transparent flex items-start justify-between px-2.5 pt-2 z-10"
+                className="absolute top-0 inset-x-0 h-14 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-start justify-between px-2.5 pt-2 z-10"
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
                   type="button"
-                  id="desktop-miniplayer-expand-btn"
+                  id="pip-expand-btn"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleExpand();
                   }}
-                  className="w-7 h-7 rounded-full bg-black/60 hover:bg-black/80 active:scale-90 text-white flex items-center justify-center transition border-none cursor-pointer shadow-md relative z-10"
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/60 hover:bg-black/80 active:scale-90 text-white flex items-center justify-center transition border border-white/10 cursor-pointer shadow-md"
                   title="Expand to Full Video"
                   aria-label="Expand to Full Video"
                 >
-                  <Maximize2 className="w-3.5 h-3.5" />
+                  <Maximize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
-                <button
-                  type="button"
-                  id="desktop-miniplayer-close-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleClose(e);
-                  }}
-                  className="w-7 h-7 rounded-full bg-black/60 hover:bg-rose-600 active:scale-90 text-white flex items-center justify-center transition border-none cursor-pointer shadow-md relative z-10"
-                  title="Close Video"
-                  aria-label="Close Video"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center gap-1.5">
+                  {isNativeAndroid() && (
+                    <button
+                      type="button"
+                      id="pip-external-os-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        enterNativePip();
+                      }}
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/60 hover:bg-black/80 active:scale-90 text-white flex items-center justify-center transition border border-white/10 cursor-pointer shadow-md"
+                      title="Float on Android Home Screen (OS PiP)"
+                      aria-label="Float on Android Home Screen"
+                    >
+                      <PictureInPicture2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    id="pip-close-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleClose(e);
+                    }}
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/60 hover:bg-rose-600 active:scale-90 text-white flex items-center justify-center transition border border-white/10 cursor-pointer shadow-md"
+                    title="Close Video"
+                    aria-label="Close Video"
+                  >
+                    <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </button>
+                </div>
               </div>
 
-              {/* Center: Play/Pause Big Button (Mathematically 50% x 50% Centered to completely cover YouTube's native button without border rings) */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+              {/* Center Controls: 10s Rewind | Big Play/Pause | 10s Skip */}
+              <div className="absolute inset-0 flex items-center justify-center gap-3 sm:gap-5 pointer-events-none z-20">
                 <button
                   type="button"
-                  id="desktop-miniplayer-play-btn"
+                  onClick={(e) => handleSkip10(-10, e)}
+                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/60 hover:bg-black/80 active:scale-90 text-white flex items-center justify-center transition border border-white/10 cursor-pointer shadow-md pointer-events-auto"
+                  title="Rewind 10s"
+                  aria-label="Rewind 10s"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                </button>
+
+                <button
+                  type="button"
+                  id="pip-play-btn"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleTogglePlay(e);
                   }}
-                  className="w-[74px] h-[74px] sm:w-[78px] sm:h-[78px] rounded-full bg-zinc-950/95 hover:bg-zinc-900 active:scale-95 text-white flex items-center justify-center transition-all duration-150 border-none cursor-pointer shadow-[0_8px_32px_rgba(0,0,0,0.85)] pointer-events-auto select-none"
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-zinc-950/95 hover:bg-zinc-900 active:scale-95 text-white flex items-center justify-center transition border border-white/20 cursor-pointer shadow-[0_8px_24px_rgba(0,0,0,0.85)] pointer-events-auto select-none"
                   title={playback.isPlaying ? 'Pause' : 'Play'}
                   aria-label={playback.isPlaying ? 'Pause' : 'Play'}
                 >
                   {playback.isPlaying ? (
-                    <Pause className="w-7 h-7 sm:w-8 sm:h-8 fill-current" />
+                    <Pause className="w-5 h-5 sm:w-6 sm:h-6 fill-current" />
                   ) : (
-                    <Play className="w-7 h-7 sm:w-8 sm:h-8 fill-current ml-1" />
+                    <Play className="w-5 h-5 sm:w-6 sm:h-6 fill-current ml-0.5" />
                   )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(e) => handleSkip10(10, e)}
+                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/60 hover:bg-black/80 active:scale-90 text-white flex items-center justify-center transition border border-white/10 cursor-pointer shadow-md pointer-events-auto"
+                  title="Skip 10s"
+                  aria-label="Skip 10s"
+                >
+                  <RotateCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
               </div>
 
-              {/* Bottom Row: Clean transparent shadow gradient */}
+              {/* Bottom Row: Duration Text */}
               <div
-                className="absolute bottom-0 inset-x-0 h-14 sm:h-16 bg-gradient-to-t from-black/85 via-black/40 to-transparent flex items-end justify-between px-3 pb-2.5 z-10 select-none"
+                className="absolute bottom-0 inset-x-0 h-10 bg-gradient-to-t from-black/85 via-black/40 to-transparent flex items-end justify-between px-3 pb-1.5 z-10 select-none"
                 onClick={(e) => e.stopPropagation()}
               >
-                <span className="text-white text-[11px] font-mono font-medium drop-shadow relative z-10">
+                <span className="text-white text-[10.5px] font-mono font-medium drop-shadow relative z-10">
                   {formatDuration(currentPlaybackSec)} / {formatDuration(totalDuration > 0 ? totalDuration : ((playback.durationMinutes || 0) * 60))}
                 </span>
               </div>
-            </div>
-          )}
-
-          {/* Desktop Miniplayer Bottom Edge Linear Progress Line */}
-          {isMinimized && (
-            <div className="hidden md:block absolute bottom-0 inset-x-0 h-[3px] bg-slate-400/40 dark:bg-zinc-700/80 overflow-hidden z-35 pointer-events-none">
-              <div
-                className="h-full bg-[#0b57d0] dark:bg-[#a8c7fa] transition-all duration-200"
-                style={{
-                  width: `${(() => {
-                    const effectiveDur = totalDuration > 0 ? totalDuration : ((playback.durationMinutes || 0) * 60);
-                    return effectiveDur > 0 ? Math.min(100, Math.max(0, (currentPlaybackSec / effectiveDur) * 100)) : 0;
-                  })()}%`,
-                }}
-              />
             </div>
           )}
 
@@ -490,98 +544,42 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
         )}
       </div>
 
-      {/* 2. In Minimized View: Strip Content (Title, Batch, Length Count, Play/Pause, Close) */}
+      {/* 2. In Minimized View: Unified PiP Bottom Metadata Card & Glowing Progress Bar */}
       {isMinimized && (
-        <>
-          {/* DESKTOP MINIPLAYER BOTTOM CARD (Metadata & Expand Chevron) */}
-          <div
-            className="hidden md:flex px-4 py-3 items-center justify-between gap-3 bg-white dark:bg-[#1a1c22] cursor-pointer"
-            onClick={handleExpand}
-          >
-            <div className="min-w-0 flex-1">
-              <h4 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-zinc-100 truncate leading-snug tracking-tight">
-                {playback.lectureTitle}
-              </h4>
-              <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate mt-0.5">
-                {playback.batchTitle}
-              </p>
-            </div>
-            <button
-              type="button"
-              id="desktop-miniplayer-expand-chevron-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleExpand();
-              }}
-              className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-600 dark:text-zinc-300 border-none bg-transparent cursor-pointer transition active:scale-90 shrink-0"
-              title="Expand to Full Video"
-              aria-label="Expand to Full Video"
-            >
-              <ChevronUp className="w-4 h-4 stroke-[2.2]" />
-            </button>
-          </div>
-
-          {/* MOBILE MINIPLAYER STRIP CONTENT */}
-          <div className="md:hidden flex-1 min-w-0 pl-3 sm:pl-3.5 pr-2 py-1 flex flex-col justify-center">
+        <div
+          className="px-3 py-2.5 sm:px-3.5 sm:py-2.5 flex items-center justify-between gap-2.5 bg-white dark:bg-[#1a1c22] cursor-pointer relative"
+          onClick={handleExpand}
+        >
+          <div className="min-w-0 flex-1">
             <h4 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-zinc-100 truncate leading-snug tracking-tight">
               {playback.lectureTitle}
             </h4>
             <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-zinc-400 truncate mt-0.5">
-              <span className="truncate max-w-[120px] sm:max-w-[170px] font-medium">{playback.batchTitle}</span>
-              {(() => {
-                const effectiveDur = totalDuration > 0 ? totalDuration : ((playback.durationMinutes || 0) * 60);
-                return effectiveDur > 0 ? (
-                  <>
-                    <span className="text-slate-300 dark:text-zinc-600 font-bold">•</span>
-                    <span className="font-mono font-semibold text-[10px] text-slate-600 dark:text-zinc-400">
-                      {formatDuration(currentPlaybackSec)} / {formatDuration(effectiveDur)}
-                    </span>
-                  </>
-                ) : null;
-              })()}
+              <span className="truncate max-w-[120px] sm:max-w-[180px] font-medium">{playback.batchTitle}</span>
+              <span className="text-slate-300 dark:text-zinc-600 font-bold">•</span>
+              <span className="font-mono font-semibold text-[10px] text-slate-600 dark:text-zinc-400">
+                {formatDuration(currentPlaybackSec)} / {formatDuration(totalDuration > 0 ? totalDuration : ((playback.durationMinutes || 0) * 60))}
+              </span>
             </div>
           </div>
+          <button
+            type="button"
+            id="pip-bottom-expand-chevron-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleExpand();
+            }}
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-600 dark:text-zinc-300 border-none bg-transparent cursor-pointer transition active:scale-90 shrink-0"
+            title="Expand to Full Video"
+            aria-label="Expand to Full Video"
+          >
+            <ChevronUp className="w-4 h-4 sm:w-4.5 sm:h-4.5 stroke-[2.2]" />
+          </button>
 
-          {/* MOBILE ACTION BUTTONS */}
-          <div className="md:hidden flex items-center gap-1 pr-2 sm:pr-3 shrink-0" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              id="miniplayer-expand-to-full-btn"
-              onClick={handleExpand}
-              className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 border-none bg-transparent cursor-pointer transition active:scale-90"
-              title="Expand to Full Video"
-              aria-label="Expand to Full Video"
-            >
-              <ChevronUp className="w-4.5 h-4.5 stroke-[2.2]" />
-            </button>
-            <button
-              type="button"
-              id="miniplayer-toggle-play-btn"
-              onClick={handleTogglePlay}
-              className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 border-none bg-transparent cursor-pointer transition active:scale-90"
-              title={playback.isPlaying ? 'Pause' : 'Play'}
-            >
-              {playback.isPlaying ? (
-                <Pause className="w-4.5 h-4.5 fill-current" />
-              ) : (
-                <Play className="w-4.5 h-4.5 fill-current ml-0.5" />
-              )}
-            </button>
-            <button
-              type="button"
-              id="miniplayer-close-strip-btn"
-              onClick={handleClose}
-              className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 hover:text-rose-500 dark:text-zinc-500 dark:hover:text-rose-400 border-none bg-transparent cursor-pointer transition active:scale-90"
-              title="Close video"
-            >
-              <X className="w-4.5 h-4.5 stroke-[2.2]" />
-            </button>
-          </div>
-
-          {/* Mobile linear progress bar embedded strictly inside the card */}
-          <div className="md:hidden absolute bottom-0 left-0 right-0 h-[2.5px] bg-slate-100 dark:bg-zinc-800/80 overflow-hidden rounded-b-2xl pointer-events-none">
+          {/* Embedded linear progress bar */}
+          <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-slate-200 dark:bg-zinc-800 overflow-hidden pointer-events-none">
             <div
-              className="h-full bg-[#0b57d0] dark:bg-[#a8c7fa] transition-all duration-200 rounded-r-full"
+              className="h-full bg-[#0b57d0] dark:bg-[#a8c7fa] transition-all duration-200"
               style={{
                 width: `${(() => {
                   const effectiveDur = totalDuration > 0 ? totalDuration : ((playback.durationMinutes || 0) * 60);
@@ -590,7 +588,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
               }}
             />
           </div>
-        </>
+        </div>
       )}
 
       {/* 3. In Expanded View: Right Sidebar (Course Playlist Queue + Lecture Notes) */}

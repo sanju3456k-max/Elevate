@@ -2196,18 +2196,18 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
               )}
             </div>
 
-            {/* Picture-in-Picture Button */}
+            {/* Picture-in-Picture / Floating In-App PiP Button */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (isNativeAndroid()) {
-                  enterNativePip();
-                } else if (onMinimize) {
+                if (onMinimize) {
                   onMinimize();
+                } else if (isNativeAndroid()) {
+                  enterNativePip();
                 }
               }}
               className="p-1.5 sm:p-2 rounded-full hover:bg-white/15 text-slate-300 hover:text-white transition border-none outline-none cursor-pointer"
-              title="Picture-in-Picture (PiP)"
+              title="Picture-in-Picture (In-App PiP)"
               aria-label="Picture-in-Picture"
             >
               <PictureInPicture2 className="w-4 h-4 sm:w-5 sm:h-5" />
