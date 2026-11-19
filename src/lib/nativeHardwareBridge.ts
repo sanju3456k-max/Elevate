@@ -15,6 +15,9 @@ import { App as CapApp } from '@capacitor/app';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { ScreenOrientation } from '@capacitor/screen-orientation';
+import { triggerBack } from '../hooks/useBackNavigation';
+
+let isNativeVideoPlayingState = false;
 
 export const isNativeAndroid = (): boolean => {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
@@ -28,16 +31,16 @@ export function initNativeHardwareIntegration(callbacks?: {
 }): () => void {
   if (!isNativeAndroid()) return () => {};
 
-  // 1. Configure Immersive Edge-to-Edge Status Bar
+  // 1. Configure Solid Non-Overlapping Status Bar (Fits naturally below system status bar)
   try {
-    StatusBar.setOverlaysWebView({ overlay: true }).catch(() => {});
+    StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
     StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
-    StatusBar.setBackgroundColor({ color: '#00000000' }).catch(() => {});
+    StatusBar.setBackgroundColor({ color: '#0b0c10' }).catch(() => {});
   } catch (err) {
     console.warn('[NativeHardware] StatusBar setup notice:', err);
   }
 
-  // 2. Hardware Back Button Listener
+  // 2. Hardware Back Button Listener (YouTube Android experience)
   let backListenerRemove: (() => void) | null = null;
   CapApp.addListener('backButton', ({ canGoBack }) => {
     if (callbacks?.onHardwareBack) {
@@ -45,12 +48,24 @@ export function initNativeHardwareIntegration(callbacks?: {
       if (handled) return;
     }
 
+    // A. Check if our in-app React back stack (fullscreen exit, video player minimize, open modals) handles it
+    const handled = triggerBack();
+    if (handled) return;
+
+    // B. If browser navigation history exists, navigate back
     if (canGoBack) {
       window.history.back();
-    } else {
-      // Exit app if at top-level root
-      CapApp.exitApp();
+      return;
     }
+
+    // C. YouTube Style: If at root of app and video is playing, enter Android OS PiP on tablet home screen!
+    if (isNativeVideoPlayingState) {
+      enterNativePip().catch(() => {});
+      return;
+    }
+
+    // D. Otherwise exit app cleanly
+    CapApp.exitApp();
   }).then((handle) => {
     backListenerRemove = () => handle.remove();
   }).catch(() => {});
@@ -141,8 +156,49 @@ export async function isNativePipSupported(): Promise<boolean> {
  * Updates video playback status to enable auto-PiP when student hits Home button.
  */
 export function setNativePlaybackPlaying(isPlaying: boolean): void {
+  isNativeVideoPlayingState = isPlaying;
   if (!isNativeAndroid()) return;
   try {
     (Capacitor as any).Plugins?.PipBridge?.setPlaybackState({ isPlaying });
+  } catch {}
+}
+
+export function getIsNativePlaybackPlaying(): boolean {
+  return isNativeVideoPlayingState;
+}
+
+/**
+ * Synchronizes the native Android status bar with current theme color and brightness.
+ * Keeps WebView safely below the status bar (overlay: false) so no UI ever overlaps clock/battery.
+ */
+export function syncNativeStatusBar(color?: string, isDark: boolean = true): void {
+  if (!isNativeAndroid()) return;
+  try {
+    StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
+    StatusBar.setStyle({ style: isDark ? Style.Dark : Style.Light }).catch(() => {});
+    if (color) {
+      StatusBar.setBackgroundColor({ color }).catch(() => {});
+    }
+  } catch {}
+}
+
+/**
+ * Hides status bar for immersive video playback.
+ */
+export function hideNativeStatusBar(): void {
+  if (!isNativeAndroid()) return;
+  try {
+    StatusBar.hide().catch(() => {});
+  } catch {}
+}
+
+/**
+ * Restores status bar when exiting video fullscreen.
+ */
+export function showNativeStatusBar(): void {
+  if (!isNativeAndroid()) return;
+  try {
+    StatusBar.show().catch(() => {});
+    StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
   } catch {}
 }

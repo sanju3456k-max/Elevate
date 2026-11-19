@@ -48,7 +48,7 @@ import {
   publishTestToBatchCatalog,
 } from './lib/masterAccount';
 import { syncBatchTestToFirestore, touchBatchCatalogBeacon } from './lib/batchCloudSync';
-import { initNativeHardwareIntegration } from './lib/nativeHardwareBridge';
+import { initNativeHardwareIntegration, syncNativeStatusBar } from './lib/nativeHardwareBridge';
 import { TestDetailModal } from './components/TestDetailModal';
 import type { User } from 'firebase/auth';
 import { normalizeQuestions, type ActiveTab, type MathTest, type TestAttempt, type ActiveTestSession, type UserProfile, type TestHistoryEntry } from './types';
@@ -504,6 +504,9 @@ export default function App() {
       if (appleStatusBar) {
         appleStatusBar.setAttribute('content', isDarkMode ? 'black-translucent' : 'default');
       }
+
+      // Update Android Native Status Bar (Fits naturally below system status bar)
+      syncNativeStatusBar(statusBarColor, isDarkMode);
     } catch (e) {
       console.warn('Theme storage and status bar sync error:', e);
     }

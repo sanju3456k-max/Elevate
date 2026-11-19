@@ -26,7 +26,7 @@ import { deobfuscateVideoKey, extractYouTubeId, formatDuration, getLectureThumbn
 import { requestPlaybackToken } from '../../../lms/playbackTokenService';
 import { useApp } from '../../../lms/LmsContext';
 import { useBackHandler, isBrowserFullscreen, exitBrowserFullscreen } from '../../../hooks/useBackNavigation';
-import { enterNativePip, setNativePlaybackPlaying, isNativeAndroid } from '../../../lib/nativeHardwareBridge';
+import { enterNativePip, setNativePlaybackPlaying, isNativeAndroid, hideNativeStatusBar, showNativeStatusBar } from '../../../lib/nativeHardwareBridge';
 import type { User, TimelineMilestone, PlaybackSessionToken } from '../../../lms/types';
 
 declare global {
@@ -1303,6 +1303,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         }
 
         setIsFullscreen(true);
+        hideNativeStatusBar();
 
         // Lock screen to landscape in full screen
         try {
@@ -1341,6 +1342,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         }
 
         setIsFullscreen(false);
+        showNativeStatusBar();
       }
     } catch (err) {
       console.error('Error toggling fullscreen:', err);

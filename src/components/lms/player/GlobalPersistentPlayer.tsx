@@ -21,7 +21,7 @@ import { CloakedVideoPlayer } from './CloakedVideoPlayer';
 import { useApp } from '../../../lms/LmsContext';
 import { formatDuration, getLectureThumbnailUrl } from '../../../lms/security';
 import { useBackHandler, isBrowserFullscreen, exitBrowserFullscreen } from '../../../hooks/useBackNavigation';
-import { enterNativePip, isNativeAndroid } from '../../../lib/nativeHardwareBridge';
+import { enterNativePip, isNativeAndroid, setNativePlaybackPlaying } from '../../../lib/nativeHardwareBridge';
 import type { TimelineMilestone, Lecture } from '../../../lms/types';
 
 export interface PersistentPlaybackData {
@@ -132,10 +132,10 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
     }
   }, [activeTab, playback, onUpdatePlayback]);
 
-  // Back handler when expanded: If fullscreen, exit fullscreen first; otherwise minimize to strip (YouTube style)
+  // Back handler when expanded: If fullscreen, exit fullscreen first; otherwise minimize to floating mini player (YouTube style)
   useBackHandler({
     isOpen: Boolean(playback && !playback.isMinimized),
-    priority: 50,
+    priority: 85,
     id: 'global_persistent_player_back',
     onBack: () => {
       if (isBrowserFullscreen()) {
@@ -145,6 +145,15 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
       onUpdatePlayback((prev) => (prev ? { ...prev, isMinimized: true } : null));
     },
   });
+
+  // Keep native hardware bridge in sync with active playback
+  useEffect(() => {
+    if (playback?.isPlaying) {
+      setNativePlaybackPlaying(true);
+    } else {
+      setNativePlaybackPlaying(false);
+    }
+  }, [playback?.isPlaying]);
 
   const isTestMode = activeTab === 'take-test' || activeTab === 'omr-test';
   const isBottomNavVisible = !isInsideBatch && ['home', 'batches', 'tests', 'analytics'].includes(activeTab);
@@ -313,10 +322,10 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
       id="global-persistent-player-host"
       className={
         isMinimized
-          ? `fixed right-3 sm:right-5 md:right-6 w-[280px] xs:w-[300px] sm:w-[340px] md:w-[380px] z-50 bg-[#16181d] text-white rounded-2xl md:rounded-3xl shadow-none border border-slate-300 dark:border-zinc-700/80 p-0 transition-all duration-300 select-none overflow-hidden ${
+          ? `fixed right-3 sm:right-5 md:right-6 w-[280px] xs:w-[300px] sm:w-[340px] md:w-[380px] z-50 bg-[#16181d] text-white rounded-2xl md:rounded-3xl shadow-none border border-slate-300 dark:border-zinc-700/80 p-0 transition-all duration-300 ease-in-out select-none overflow-hidden ${
               !isTestMode ? 'flex flex-col' : 'hidden'
             }`
-          : 'fixed inset-x-0 bottom-0 top-0 md:top-[58px] z-50 md:z-40 bg-[var(--md-sys-color-background)] overflow-y-auto px-0 lg:px-8 py-0 lg:py-6 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 max-w-[1720px] mx-auto w-full items-start'
+          : 'fixed inset-x-0 bottom-0 top-[env(safe-area-inset-top,0px)] md:top-[58px] z-50 md:z-40 bg-[var(--md-sys-color-background)] overflow-y-auto px-0 lg:px-8 py-0 lg:py-6 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 max-w-[1720px] mx-auto w-full items-start transition-all duration-300 ease-in-out'
       }
       style={
         isMinimized
