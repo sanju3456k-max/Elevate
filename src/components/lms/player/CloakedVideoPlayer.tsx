@@ -9,6 +9,7 @@ import {
   VolumeX,
   Maximize2,
   Minimize2,
+  PictureInPicture2,
   Gauge,
   ShieldAlert,
   AlertTriangle,
@@ -25,6 +26,7 @@ import { deobfuscateVideoKey, extractYouTubeId, formatDuration, getLectureThumbn
 import { requestPlaybackToken } from '../../../lms/playbackTokenService';
 import { useApp } from '../../../lms/LmsContext';
 import { useBackHandler, isBrowserFullscreen, exitBrowserFullscreen } from '../../../hooks/useBackNavigation';
+import { enterNativePip, setNativePlaybackPlaying, isNativeAndroid } from '../../../lib/nativeHardwareBridge';
 import type { User, TimelineMilestone, PlaybackSessionToken } from '../../../lms/types';
 
 declare global {
@@ -166,6 +168,31 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
   // Double-tap seek gesture state (10s Rewind/Forward)
   const lastTapRef = useRef<{ time: number; side: 'left' | 'right' }>({ time: 0, side: 'left' });
+
+  // Native Android PiP (Picture-in-Picture) state & bridge
+  const [isInNativePip, setIsInNativePip] = useState(false);
+
+  useEffect(() => {
+    setNativePlaybackPlaying(isPlaying);
+  }, [isPlaying]);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      const inPip = Boolean(e?.detail?.inPip);
+      setIsInNativePip(inPip);
+      if (inPip) {
+        document.body.classList.add('in-native-pip');
+      } else {
+        document.body.classList.remove('in-native-pip');
+      }
+    };
+    window.addEventListener('nativePipChanged', handler);
+    return () => {
+      window.removeEventListener('nativePipChanged', handler);
+      document.body.classList.remove('in-native-pip');
+      setNativePlaybackPlaying(false);
+    };
+  }, []);
   const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastBackdropClickRef = useRef<number>(0);
@@ -1429,11 +1456,13 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         touchAction: 'manipulation',
       }}
       className={`relative w-full bg-black overflow-hidden border-none select-none transition-all duration-200 ${
-        isFullscreen
-          ? 'h-full w-full aspect-auto rounded-none flex items-center justify-center'
-          : isMini
-            ? 'h-full w-full rounded-none'
-            : 'aspect-video rounded-none lg:rounded-3xl shadow-none group'
+        isInNativePip
+          ? '!fixed !inset-0 !z-[9999999] !w-screen !h-screen !rounded-none flex items-center justify-center'
+          : isFullscreen
+            ? 'h-full w-full aspect-auto rounded-none flex items-center justify-center'
+            : isMini
+              ? 'h-full w-full rounded-none'
+              : 'aspect-video rounded-none lg:rounded-3xl shadow-none group'
       }`}
     >
       {/* 1. HD Scaled YouTube Iframe Engine (Adapts cleanly to UI & device width without artificial zoom distortion) */}
@@ -1638,7 +1667,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       )}
 
       {/* 3. Top Header Bar (Minimize Button & Video Title) */}
-      {(!isMini || isFullscreen) && (
+      {(!isMini || isFullscreen) && !isInNativePip && (
         <div
           onClick={(e) => e.stopPropagation()}
           className={`absolute top-0 inset-x-0 z-30 px-3 pt-3 pb-8 sm:px-5 sm:pt-4 sm:pb-10 bg-gradient-to-b from-black/75 via-black/35 to-transparent flex items-center justify-between gap-3 transition-opacity duration-300 ${
@@ -1770,7 +1799,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           }
         }}
         className={`absolute bottom-0 inset-x-0 z-30 px-4 sm:px-6 pt-8 sm:pt-10 pb-3 sm:pb-3.5 bg-gradient-to-t from-black/85 via-black/40 to-transparent transition-opacity duration-300 flex flex-col space-y-1 ${
-          !is2xSpeedActive && !seekFeedback && (isControlsVisible || optionsMenuOpen) ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          !isInNativePip && !is2xSpeedActive && !seekFeedback && (isControlsVisible || optionsMenuOpen) ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
         {/* TIMELINE MILESTONES (Topic Breakpoints) STRIP */}
@@ -2166,6 +2195,23 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Picture-in-Picture Button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isNativeAndroid()) {
+                  enterNativePip();
+                } else if (onMinimize) {
+                  onMinimize();
+                }
+              }}
+              className="p-1.5 sm:p-2 rounded-full hover:bg-white/15 text-slate-300 hover:text-white transition border-none outline-none cursor-pointer"
+              title="Picture-in-Picture (PiP)"
+              aria-label="Picture-in-Picture"
+            >
+              <PictureInPicture2 className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
 
             {/* Fullscreen Button */}
             <button

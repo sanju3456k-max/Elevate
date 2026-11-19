@@ -109,3 +109,40 @@ export async function unlockOrientationPortrait(): Promise<void> {
     await ScreenOrientation.lock({ orientation: 'portrait' });
   } catch {}
 }
+
+/**
+ * Triggers native Android Picture-in-Picture (PiP) mode.
+ */
+export async function enterNativePip(): Promise<boolean> {
+  if (!isNativeAndroid()) return false;
+  try {
+    const res = await (Capacitor as any).Plugins?.PipBridge?.enterPip();
+    return res?.success ?? true;
+  } catch (err) {
+    console.warn('[NativeHardware] enterPip failed:', err);
+    return false;
+  }
+}
+
+/**
+ * Checks if native PiP is supported on the current device.
+ */
+export async function isNativePipSupported(): Promise<boolean> {
+  if (!isNativeAndroid()) return false;
+  try {
+    const res = await (Capacitor as any).Plugins?.PipBridge?.isPipSupported();
+    return Boolean(res?.supported);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Updates video playback status to enable auto-PiP when student hits Home button.
+ */
+export function setNativePlaybackPlaying(isPlaying: boolean): void {
+  if (!isNativeAndroid()) return;
+  try {
+    (Capacitor as any).Plugins?.PipBridge?.setPlaybackState({ isPlaying });
+  } catch {}
+}

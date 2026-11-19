@@ -1290,6 +1290,19 @@ table td .katex .mclose {
   }
 }
 
+/* Native Android Picture-in-Picture (PiP) Window Full-Bleed */
+body.in-native-pip {
+  overflow: hidden !important;
+  background-color: #000000 !important;
+}
+body.in-native-pip #app-navbar-wrapper,
+body.in-native-pip #mobile-bottom-nav,
+body.in-native-pip header,
+body.in-native-pip nav,
+body.in-native-pip footer {
+  display: none !important;
+}
+
 
 
 
