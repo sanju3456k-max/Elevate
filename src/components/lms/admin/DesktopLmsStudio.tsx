@@ -1115,7 +1115,12 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                                 alt={lec.title}
                                 className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                                 onError={(e) => {
-                                  (e.currentTarget as HTMLImageElement).src = '/assets/default-course-banner.png';
+                                  const target = e.currentTarget as HTMLImageElement;
+                                  if (target.src.includes('i.ytimg.com')) {
+                                    target.src = target.src.replace('i.ytimg.com', 'img.youtube.com');
+                                  } else if (!target.src.includes('default-course-banner.png')) {
+                                    target.src = '/assets/default-course-banner.png';
+                                  }
                                 }}
                               />
                               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
@@ -2128,7 +2133,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                     durationMinutes: data.durationMinutes || 45,
                     videoSourceType: 'youtube',
                     encryptedVideoId: data.encryptedVideoId,
-                    thumbnailUrl: data.thumbnailUrl || (data.encryptedVideoId ? getLectureThumbnailUrl(data) : '') || currentBatch?.thumbnailUrl || '',
+                    thumbnailUrl: (data.encryptedVideoId ? getLectureThumbnailUrl(data) : '') || data.thumbnailUrl || currentBatch?.thumbnailUrl || '',
                     order: batchLectures.length + 1,
                     isFreePreview: Boolean(data.isFreePreview),
                     pdfNotes: [],
@@ -2791,7 +2796,7 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
                   if (!lecTitle.trim() || !lecVideoUrl.trim()) return;
                   const ytId = extractYouTubeId(lecVideoUrl.trim()) || 'WUvTyaaNkzM';
                   const encKey = obfuscateVideoKey(ytId);
-                  const generatedThumb = `/api/video-thumbnail?token=${encodeURIComponent(encKey)}`;
+                  const generatedThumb = `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`;
 
                   if (entity.type === 'new_lecture') {
                     onAddLecture({

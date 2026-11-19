@@ -111,6 +111,7 @@ import { BatchAdminStudio } from './components/lms/BatchAdminStudio';
 import { HomeDashboard } from './components/home/HomeDashboard';
 import { NotificationsView } from './components/notifications/NotificationsView';
 import { LmsProvider } from './lms/LmsContext';
+import { getLectureThumbnailUrl } from './lms/security';
 import { usePWAInstall } from './hooks/usePWAInstall';
 import { useUIScale } from './hooks/useUIScale';
 import { useViewHistory, useBackHandler } from './hooks/useBackNavigation';
@@ -208,7 +209,7 @@ export default function App() {
         batchId: batch.id,
         batchTitle: batch.title,
         chapterId: chapterId || null,
-        thumbnailUrl: lecture.thumbnailUrl,
+        thumbnailUrl: getLectureThumbnailUrl(lecture) || lecture.thumbnailUrl,
         durationMinutes: lecture.durationMinutes,
         encryptedVideoId: lecture.encryptedVideoId,
         milestones: lecture.milestones,

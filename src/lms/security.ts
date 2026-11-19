@@ -116,31 +116,58 @@ export function deobfuscateVideoKey(encryptedKey: string): string {
 
 /**
  * Resolves the genuine high-res thumbnail for a lecture.
- * If lecture has a custom YouTube thumbnail, returns it.
- * If lecture has an Unsplash generic banner or missing thumbnail,
- * derives the real YouTube thumbnail from its encrypted video key.
+ * - Extracts and deobfuscates the YouTube video ID directly to resolve official YouTube CDN thumbnails (i.ytimg.com).
+ * - Fully compatible with native Android/Capacitor (which has no localhost /api server).
+ * - Resolves legacy cloaked /api/video-thumbnail tokens.
+ * - Preserves custom uploaded thumbnails (Firebase Storage, Cloudinary, etc.) while prioritizing real video thumbnails over generic batch/course placeholders.
  */
-export function getLectureThumbnailUrl(lecture: { encryptedVideoId?: string; thumbnailUrl?: string } | null | undefined): string {
+export function getLectureThumbnailUrl(
+  lecture: { encryptedVideoId?: string; thumbnailUrl?: string; videoId?: string } | null | undefined
+): string {
   if (!lecture) return '/assets/default-course-banner.png';
 
-  // 1. If lecture has an encrypted video ID, ALWAYS route through cloaked server thumbnail proxy
-  if (lecture.encryptedVideoId) {
-    return `/api/video-thumbnail?token=${encodeURIComponent(lecture.encryptedVideoId)}`;
-  }
-
-  // 2. If legacy thumbnailUrl contains img.youtube.com, cloak it immediately
-  if (lecture.thumbnailUrl && lecture.thumbnailUrl.includes('img.youtube.com')) {
-    const m = lecture.thumbnailUrl.match(/\/vi\/([a-zA-Z0-9_-]{11})\//);
-    if (m && m[1]) {
-      return `/api/video-thumbnail?token=${encodeURIComponent(obfuscateVideoKey(m[1]))}`;
+  // 1. Prioritize encrypted or direct video ID to get the genuine YouTube video thumbnail
+  const rawKey = lecture.encryptedVideoId || (lecture as any).videoId;
+  if (rawKey && typeof rawKey === 'string' && rawKey.trim()) {
+    const ytId = deobfuscateVideoKey(rawKey.trim());
+    if (ytId && /^[a-zA-Z0-9_-]{11}$/.test(ytId)) {
+      return `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`;
     }
   }
 
-  // 3. Custom internal or uploaded thumbnail
-  if (lecture.thumbnailUrl && !lecture.thumbnailUrl.includes('unsplash.com') && lecture.thumbnailUrl.trim() !== '') {
+  // 2. If thumbnailUrl is a legacy cloaked token route (/api/video-thumbnail?token=...), decode the token
+  if (lecture.thumbnailUrl && lecture.thumbnailUrl.includes('/api/video-thumbnail')) {
+    const m = lecture.thumbnailUrl.match(/[?&](?:token|id)=([^&]+)/);
+    if (m && m[1]) {
+      const decodedToken = decodeURIComponent(m[1]);
+      const ytId = deobfuscateVideoKey(decodedToken);
+      if (ytId && /^[a-zA-Z0-9_-]{11}$/.test(ytId)) {
+        return `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`;
+      }
+    }
+  }
+
+  // 3. If thumbnailUrl contains a direct YouTube thumbnail or YouTube video link
+  if (lecture.thumbnailUrl) {
+    const ytMatch =
+      lecture.thumbnailUrl.match(/\/vi\/([a-zA-Z0-9_-]{11})\//) ||
+      lecture.thumbnailUrl.match(/(?:vi\/|v=|\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if (ytMatch && ytMatch[1]) {
+      return `https://i.ytimg.com/vi/${ytMatch[1]}/hqdefault.jpg`;
+    }
+  }
+
+  // 4. Custom uploaded, Cloudinary, Firebase Storage, or user-uploaded image thumbnail
+  if (
+    lecture.thumbnailUrl &&
+    !lecture.thumbnailUrl.includes('unsplash.com') &&
+    lecture.thumbnailUrl !== '/assets/default-course-banner.png' &&
+    lecture.thumbnailUrl.trim() !== ''
+  ) {
     return lecture.thumbnailUrl;
   }
 
+  // 5. Final fallback
   return lecture.thumbnailUrl || '/assets/default-course-banner.png';
 }
 

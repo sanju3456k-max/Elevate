@@ -633,7 +633,12 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                           alt={lec.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).src = '/assets/default-course-banner.png';
+                            const target = e.currentTarget as HTMLImageElement;
+                            if (target.src.includes('i.ytimg.com')) {
+                              target.src = target.src.replace('i.ytimg.com', 'img.youtube.com');
+                            } else if (!target.src.includes('default-course-banner.png')) {
+                              target.src = '/assets/default-course-banner.png';
+                            }
                           }}
                         />
                         {isCurrent ? (

@@ -1752,7 +1752,12 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                           alt={lec.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                           onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).src = '/assets/default-course-banner.png';
+                            const target = e.currentTarget as HTMLImageElement;
+                            if (target.src.includes('i.ytimg.com')) {
+                              target.src = target.src.replace('i.ytimg.com', 'img.youtube.com');
+                            } else if (!target.src.includes('default-course-banner.png')) {
+                              target.src = '/assets/default-course-banner.png';
+                            }
                           }}
                         />
                         {lec.isFreePreview && (
@@ -2132,7 +2137,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 encryptedVideoId: obfuscated,
                 durationMinutes,
                 isFreePreview,
-                thumbnailUrl: `/api/video-thumbnail?token=${encodeURIComponent(obfuscated)}`,
+                thumbnailUrl: `https://i.ytimg.com/vi/${rawYtId}/hqdefault.jpg`,
                 pdfNotes: notes.length > 0 ? notes : editingLecture.pdfNotes,
               });
               showSecurityToast(`Lecture "${title}" updated.`);
@@ -2148,7 +2153,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 durationMinutes,
                 isFreePreview,
                 order: folderLectures.length + 1,
-                thumbnailUrl: `/api/video-thumbnail?token=${encodeURIComponent(obfuscated)}`,
+                thumbnailUrl: `https://i.ytimg.com/vi/${rawYtId}/hqdefault.jpg`,
                 pdfNotes: notes,
               });
               showSecurityToast(`Lecture "${title}" added.`);

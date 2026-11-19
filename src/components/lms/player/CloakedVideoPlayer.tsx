@@ -21,7 +21,7 @@ import {
   ChevronLeft,
   ChevronDown,
 } from 'lucide-react';
-import { deobfuscateVideoKey, extractYouTubeId, formatDuration, initDevToolsDetector, initFocusLossProtector } from '../../../lms/security';
+import { deobfuscateVideoKey, extractYouTubeId, formatDuration, getLectureThumbnailUrl, initDevToolsDetector, initFocusLossProtector } from '../../../lms/security';
 import { requestPlaybackToken } from '../../../lms/playbackTokenService';
 import { useApp } from '../../../lms/LmsContext';
 import { useBackHandler, isBrowserFullscreen, exitBrowserFullscreen } from '../../../hooks/useBackNavigation';
@@ -287,15 +287,13 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     extractYouTubeId(rawVideoId) ||
     (/^[a-zA-Z0-9_-]{11}$/.test(rawVideoId) ? rawVideoId : 'WUvTyaaNkzM');
 
-  // Multi-tier HD thumbnail resolution via cloaked server thumbnail proxy
-  const cloakedPoster = encryptedVideoId
-    ? `/api/video-thumbnail?token=${encodeURIComponent(encryptedVideoId)}`
-    : (thumbnailUrl && !thumbnailUrl.includes('img.youtube.com') ? thumbnailUrl : '');
-
+  // High-res YouTube thumbnail resolution (native Android and web compatible)
+  const resolvedThumbnail = getLectureThumbnailUrl({ encryptedVideoId, thumbnailUrl: thumbnailUrl || posterUrl });
   const posterSource =
+    resolvedThumbnail ||
+    (safeVideoId ? `https://i.ytimg.com/vi/${safeVideoId}/hqdefault.jpg` : '') ||
     posterUrl ||
-    cloakedPoster ||
-    (thumbnailUrl && !thumbnailUrl.includes('img.youtube.com') ? thumbnailUrl : '') ||
+    thumbnailUrl ||
     '/assets/default-course-banner.png';
 
   const [activePosterImage, setActivePosterImage] = useState<string>(posterSource);

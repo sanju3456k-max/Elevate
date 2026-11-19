@@ -123,7 +123,7 @@ export async function syncBatchToFirestore(batch: Batch): Promise<{ success: boo
           durationMinutes: 45,
           videoSourceType: 'youtube',
           encryptedVideoId: obfuscateVideoKey('WUvTyaaNkzM'), // High quality visual sample video key
-          thumbnailUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500&auto=format&fit=crop&q=80',
+          thumbnailUrl: 'https://i.ytimg.com/vi/WUvTyaaNkzM/hqdefault.jpg',
           order: 1,
           isFreePreview: false,
           pdfNotes: [

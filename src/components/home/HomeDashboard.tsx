@@ -489,6 +489,14 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                     src={getLectureThumbnailUrl(latestLecture)}
                     alt={latestLecture.title || 'Video Class'}
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                    onError={(e) => {
+                      const target = e.currentTarget as HTMLImageElement;
+                      if (target.src.includes('i.ytimg.com')) {
+                        target.src = target.src.replace('i.ytimg.com', 'img.youtube.com');
+                      } else if (!target.src.includes('default-course-banner.png')) {
+                        target.src = '/assets/default-course-banner.png';
+                      }
+                    }}
                   />
                   <span className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 px-2 py-0.5 rounded-full bg-pink-100 text-pink-700 dark:bg-purple-900/60 dark:text-purple-300 font-bold text-[8.5px] sm:text-[9.5px] uppercase tracking-wider backdrop-blur-xs">
                     Latest Class

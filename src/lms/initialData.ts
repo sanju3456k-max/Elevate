@@ -81,7 +81,7 @@ export const INITIAL_LECTURES: Lecture[] = [
     durationMinutes: 15,
     videoSourceType: 'youtube',
     encryptedVideoId: obfuscateVideoKey('WUvTyaaNkzM'), // High quality visual sample video
-    thumbnailUrl: '/assets/default-course-banner.png',
+    thumbnailUrl: 'https://i.ytimg.com/vi/WUvTyaaNkzM/hqdefault.jpg',
     order: 1,
     isFreePreview: false,
     pdfNotes: [
@@ -122,7 +122,7 @@ export const INITIAL_LECTURES: Lecture[] = [
     durationMinutes: 18,
     videoSourceType: 'youtube',
     encryptedVideoId: obfuscateVideoKey('WUvTyaaNkzM'),
-    thumbnailUrl: '/assets/default-course-banner.png',
+    thumbnailUrl: 'https://i.ytimg.com/vi/WUvTyaaNkzM/hqdefault.jpg',
     order: 1,
     isFreePreview: false,
     pdfNotes: [
