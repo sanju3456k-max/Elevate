@@ -1,0 +1,10 @@
+{
+  "appId": "com.elevatelabs.app",
+  "appName": "Elevate",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  }
+}

@@ -48,6 +48,7 @@ import {
   publishTestToBatchCatalog,
 } from './lib/masterAccount';
 import { syncBatchTestToFirestore, touchBatchCatalogBeacon } from './lib/batchCloudSync';
+import { initNativeHardwareIntegration } from './lib/nativeHardwareBridge';
 import { TestDetailModal } from './components/TestDetailModal';
 import type { User } from 'firebase/auth';
 import { normalizeQuestions, type ActiveTab, type MathTest, type TestAttempt, type ActiveTestSession, type UserProfile, type TestHistoryEntry } from './types';
@@ -792,6 +793,12 @@ export default function App() {
     if (splashEl && splashEl.parentNode) {
       splashEl.parentNode.removeChild(splashEl);
     }
+
+    // Initialize Native Android Hardware Integration (Back Button, Haptics, Status Bar)
+    const cleanupNative = initNativeHardwareIntegration();
+    return () => {
+      cleanupNative();
+    };
   }, []);
 
   // Firebase Auth Listener & Mobile Redirect Result Check
