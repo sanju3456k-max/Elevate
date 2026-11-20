@@ -5,6 +5,14 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+:root {
+  --android-status-bar-height: env(safe-area-inset-top, 0px);
+  --android-cutout-left: env(safe-area-inset-left, 0px);
+  --android-cutout-right: env(safe-area-inset-right, 0px);
+  --android-cutout-top: env(safe-area-inset-top, 0px);
+  --android-cutout-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* Splash Screen Initial Load Animation */
 @keyframes splash-pulse {
   0%, 100% { transform: scale(1); opacity: 1; }
@@ -130,6 +138,12 @@
     overflow-x: clip;
     overscroll-behavior-x: none;
     background-color: var(--color-bg);
+  }
+
+  /* Immutably lock persistent player host so it never lifts or scrolls to status bar */
+  #global-persistent-player-host {
+    overscroll-behavior: none !important;
+    overscroll-behavior-y: none !important;
   }
 
   /* Crisp subpixel rendering: Prevent offscreen GPU texture downsampling & fractional pixel blurring on full-screen layouts */
@@ -1252,33 +1266,7 @@ table td .katex .mclose {
   font-size: 1.05em !important;
 }
 
-/* Desktop Site Enhancement: Globally suppress back & close buttons on desktop viewports */
-@media (min-width: 768px) {
-  .desktop-hide-back-btn,
-  .desktop-site .desktop-hide-back-btn,
-  [data-desktop-hide-back="true"],
-  #video-player-collapse-btn {
-    display: none !important;
-  }
-}
 
-/* Ensure App Header is always visible on Desktop Site */
-@media (min-width: 768px) {
-  .desktop-site #app-navbar-wrapper,
-  html.desktop-site #app-navbar-wrapper {
-    display: block !important;
-  }
-}
-
-/* Strictly hide dropdown/back/collapse buttons on Desktop Site */
-.desktop-site .desktop-hide-back-btn,
-.desktop-site [data-desktop-hide-back="true"],
-.desktop-site #video-player-collapse-btn,
-.desktop-site [title="Minimize to MiniPlayer"],
-.desktop-site [title="Minimize to bottom strip"],
-.desktop-site [aria-label="Collapse video"] {
-  display: none !important;
-}
 
 /* Distraction-free mobile view for Chapter Full Screen and Subtopic Questions */
 @media (max-width: 767px) {

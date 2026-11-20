@@ -583,52 +583,14 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
   }
 
   return (
-    <div className={APP_STYLES.analytics.container}>
-      {/* Top Action Controls: Clean layout with proper spacing and no card overlapping */}
-      {(onOpenCustomBuilder || onNavigateToTests) && (
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pb-1">
-          <div className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider hidden sm:block">
-            Student Performance Overview
-          </div>
-          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
-            {onOpenCustomBuilder && (
-              <button
-                id="analytics-custom-builder-btn"
-                onClick={onOpenCustomBuilder}
-                className="h-9 px-3 sm:px-4 rounded-full bg-white hover:bg-[#f0f4f9] dark:bg-[#1e2024] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] border border-slate-200/80 dark:border-zinc-700/80 flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer outline-none shrink-0"
-              >
-                <Zap className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] fill-[#0b57d0]/20 dark:fill-[#a8c7fa]/20 shrink-0" />
-                <span className="truncate">Custom Test</span>
-              </button>
-            )}
-
-            <button
-              id="analytics-take-test-btn"
-              onClick={() => {
-                if (onNavigateTab) {
-                  onNavigateTab('tests');
-                } else if (onNavigateToTests) {
-                  onNavigateToTests();
-                } else if (handleBack) {
-                  handleBack();
-                }
-              }}
-              className="h-9 px-3 sm:px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold shadow-[0_2px_6px_rgba(11,87,208,0.25)] border-0 flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer outline-none shrink-0"
-            >
-              <BookOpen className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">Practice Tests</span>
-            </button>
-          </div>
-        </div>
-      )}
-
+    <div className={`${APP_STYLES.analytics.container} pt-3 md:pt-6`}>
       {/* Merged Performance Analytics & Student Activity Card */}
       <div id="analytics-student-activity-section" className="bg-white dark:bg-[#1e2024] rounded-[24px] p-4 sm:p-6 border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-5 transition-all duration-200">
         
         {/* Row 1: KPI Metrics Grid (Tests, Accuracy, Precision, Active Time, Videos, Streak) */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
           {/* 1. Tests Taken */}
-          <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 flex flex-col items-center justify-center text-center">
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200/70 dark:bg-[#282a30] transition-colors border-0 flex flex-col items-center justify-center text-center">
             <div className="text-[10px] sm:text-xs font-bold tracking-wider text-slate-500 dark:text-zinc-400 uppercase mb-0.5 flex items-center justify-center gap-1">
               <BookOpen className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
               <span>Tests Taken</span>
@@ -642,7 +604,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
           </div>
 
           {/* 2. Accuracy */}
-          <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 flex flex-col items-center justify-center text-center">
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200/70 dark:bg-[#282a30] transition-colors border-0 flex flex-col items-center justify-center text-center">
             <div className="text-[10px] sm:text-xs font-bold tracking-wider text-slate-500 dark:text-zinc-400 uppercase mb-0.5 flex items-center justify-center gap-1">
               <Target className="w-3.5 h-3.5 text-emerald-500" />
               <span>Accuracy</span>
@@ -656,7 +618,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
           </div>
 
           {/* 3. Precision */}
-          <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 flex flex-col items-center justify-center text-center">
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200/70 dark:bg-[#282a30] transition-colors border-0 flex flex-col items-center justify-center text-center">
             <div className="text-[10px] sm:text-xs font-bold tracking-wider text-slate-500 dark:text-zinc-400 uppercase mb-0.5 flex items-center justify-center gap-1">
               <Percent className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
               <span>Precision</span>
@@ -670,7 +632,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
           </div>
 
           {/* 4. Active Time */}
-          <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 flex flex-col items-center justify-center text-center">
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200/70 dark:bg-[#282a30] transition-colors border-0 flex flex-col items-center justify-center text-center">
             <div className="text-[10px] sm:text-xs font-bold tracking-wider text-slate-500 dark:text-zinc-400 uppercase mb-0.5 flex items-center justify-center gap-1">
               <Clock className="w-3.5 h-3.5 text-purple-500" />
               <span>Active Time</span>
@@ -684,7 +646,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
           </div>
 
           {/* 5. Videos Completed */}
-          <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 flex flex-col items-center justify-center text-center">
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200/70 dark:bg-[#282a30] transition-colors border-0 flex flex-col items-center justify-center text-center">
             <div className="text-[10px] sm:text-xs font-bold tracking-wider text-slate-500 dark:text-zinc-400 uppercase mb-0.5 flex items-center justify-center gap-1">
               <Video className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
               <span>Videos</span>
@@ -698,7 +660,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
           </div>
 
           {/* 6. Active Streak */}
-          <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/40 flex flex-col items-center justify-center text-center">
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200/70 dark:bg-[#282a30] transition-colors border-0 flex flex-col items-center justify-center text-center">
             <div className="text-[10px] sm:text-xs font-bold tracking-wider text-slate-500 dark:text-zinc-400 uppercase mb-0.5 flex items-center justify-center gap-1">
               <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
               <span>Streak</span>

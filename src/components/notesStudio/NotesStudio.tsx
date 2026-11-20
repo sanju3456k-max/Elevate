@@ -619,7 +619,7 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
       )}
 
       {activeMode === 'html' && (
-        <div className="flex-1 w-full flex flex-col h-full overflow-hidden">
+        <div className="flex-1 min-h-0 w-full flex flex-col overflow-hidden">
           <HtmlNotesErrorBoundary onResetToHome={() => setHtmlStudioView('home')}>
             <HtmlNotesStudio
               onBack={onBack}

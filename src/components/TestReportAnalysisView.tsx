@@ -30,7 +30,8 @@ import {
   Maximize2,
   Minimize2,
   Trophy,
-  AlertCircle
+  AlertCircle,
+  ChevronLeft
 } from 'lucide-react';
 import type { TestAttempt, MathTest, MathQuestion, TestLeaderboardSummary } from '../types';
 import { getQuestionExplanation } from '../types';
@@ -403,6 +404,22 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
     priority: 20,
     id: 'test_report_analysis_view',
   });
+
+  // Notify parent App shell to hide app navbar & bottom nav while analysis report is active
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('report-analysis-view-active', { detail: { isOpen: true } }));
+    return () => {
+      window.dispatchEvent(new CustomEvent('report-analysis-view-active', { detail: { isOpen: false } }));
+    };
+  }, []);
+
+  // Synchronize global app layout: suppress universal navbar when report analysis is open
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('reportAnalysisToggle', { detail: { isOpen: true } }));
+    return () => {
+      window.dispatchEvent(new CustomEvent('reportAnalysisToggle', { detail: { isOpen: false } }));
+    };
+  }, []);
 
   // Synchronize status bar theme-color for web app / mobile PWA to match page body in both light and dark modes
   useEffect(() => {
@@ -1273,7 +1290,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
   }, [attempt]);
 
   return (
-    <div className={`fixed inset-0 md:top-[58px] md:h-[calc(100dvh-58px)] z-30 ${APP_STYLES.page} overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin]`}>
+    <div className={`fixed inset-0 z-50 ${APP_STYLES.page} overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin]`}>
       {/* Anti-Screenshot & Screen Blackout Veil */}
       {isWindowObscured && (
         <div
@@ -1296,84 +1313,76 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
           </div>
         </div>
       )}
-      {/* Transparent Clean Header Banner (Minimal, No Subtopic Tags at Top) */}
-      <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] md:pt-3">
-        <div className="flex items-center justify-between gap-3 px-0.5 py-1">
-          {/* Left: Icon-Only Back Button & Test Title */}
-          <div className="flex items-center gap-2.5 min-w-0">
-            <button
-              id="report-back-btn"
-              type="button"
-              onClick={onClose}
-              className={`${APP_STYLES.button.icon} md:hidden desktop-hide-back-btn`}
-              title="Back to History"
-              aria-label="Back to History"
-            >
-              <ArrowLeft className="w-4 h-4 text-slate-700 dark:text-zinc-200" />
-            </button>
+      {/* Transparent Clean Sticky Header Banner (Fixed, No border line, plain surface) */}
+      <header className="sticky top-0 z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] shadow-none border-none border-0 shrink-0 transition-colors">
+        <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2.5 sm:pb-3">
+          <div className="flex items-center justify-between gap-3 px-0.5 py-1">
+            {/* Left: Back Arrow ("back array") & Test Title */}
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                id="report-back-btn"
+                type="button"
+                onClick={onClose}
+                className="p-1.5 -ml-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-800 dark:text-zinc-100 border-none bg-transparent cursor-pointer flex items-center justify-center transition active:scale-95 shrink-0"
+                title="Back to History"
+                aria-label="Back"
+              >
+                <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
+              </button>
 
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white truncate tracking-tight">
-                  {attempt.testTitle || 'Test Report & Analysis'}
-                </h1>
-                {isOmr ? (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold bg-[#ffe8d9] dark:bg-[#432313] text-[#ea580c] dark:text-[#ff9d5c] shrink-0 border-0 outline-none">
-                    OMR
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] shrink-0 border-0 outline-none">
-                    Online
-                  </span>
-                )}
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white truncate tracking-tight">
+                    {attempt.testTitle || 'Test Report & Analysis'}
+                  </h1>
+                  {isOmr ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold bg-[#ffe8d9] dark:bg-[#432313] text-[#ea580c] dark:text-[#ff9d5c] shrink-0 border-0 outline-none">
+                      OMR
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff] shrink-0 border-0 outline-none">
+                      Online
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5 mt-0.5">
+                  <span>{attempt.testTopic || 'Mathematics'}</span>
+                  <span>•</span>
+                  <span>{formattedDate}</span>
+                </p>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5 mt-0.5">
-                <span>{attempt.testTopic || 'Mathematics'}</span>
-                <span>•</span>
-                <span>{formattedDate}</span>
-              </p>
+            </div>
+
+            {/* Right: Actions (View Solutions, Leaderboard without close button) */}
+            <div className="flex items-center gap-2">
+              {!isRemedial && (
+                <button
+                  id="report-top-leaderboard-btn"
+                  type="button"
+                  onClick={() => setIsLeaderboardOpen(true)}
+                  className="w-9 h-9 sm:w-auto sm:h-9 sm:px-3.5 rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 font-bold text-xs border-0 ring-0 shadow-none flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all outline-none"
+                  title="View Test Leaderboard & Rankings"
+                >
+                  <Trophy className="w-4 h-4 sm:w-3.5 sm:h-3.5 stroke-[2.2]" />
+                  <span className="hidden sm:inline">Leaderboard</span>
+                </button>
+              )}
+              {onViewRawSolutions && (
+                <button
+                  id="report-top-view-solutions-btn"
+                  type="button"
+                  onClick={() => onViewRawSolutions(attempt)}
+                  className="w-9 h-9 sm:w-auto sm:h-9 sm:px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white font-bold text-xs shadow-xs border-0 flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all outline-none"
+                  title="View full step-by-step solutions"
+                >
+                  <Eye className="w-4 h-4 sm:w-3.5 sm:h-3.5 stroke-[2.2]" />
+                  <span className="hidden sm:inline">View Solutions</span>
+                </button>
+              )}
             </div>
           </div>
-
-          {/* Right: Actions (View Solutions, Leaderboard without border ring) */}
-          <div className="flex items-center gap-2">
-            {!isRemedial && (
-              <button
-                id="report-top-leaderboard-btn"
-                type="button"
-                onClick={() => setIsLeaderboardOpen(true)}
-                className="w-9 h-9 sm:w-auto sm:h-9 sm:px-3.5 rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 font-bold text-xs border-0 ring-0 shadow-none flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all outline-none"
-                title="View Test Leaderboard & Rankings"
-              >
-                <Trophy className="w-4 h-4 sm:w-3.5 sm:h-3.5 stroke-[2.2]" />
-                <span className="hidden sm:inline">Leaderboard</span>
-              </button>
-            )}
-            {onViewRawSolutions && (
-              <button
-                id="report-top-view-solutions-btn"
-                type="button"
-                onClick={() => onViewRawSolutions(attempt)}
-                className="w-9 h-9 sm:w-auto sm:h-9 sm:px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white font-bold text-xs shadow-xs border-0 flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all outline-none"
-                title="View full step-by-step solutions"
-              >
-                <Eye className="w-4 h-4 sm:w-3.5 sm:h-3.5 stroke-[2.2]" />
-                <span className="hidden sm:inline">View Solutions</span>
-              </button>
-            )}
-            <button
-              id="report-top-close-btn"
-              type="button"
-              onClick={onClose}
-              className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-center justify-center shrink-0 cursor-pointer active:scale-95 transition-all outline-none"
-              title="Close Report (Esc)"
-              aria-label="Close Report"
-            >
-              <X className="w-4 h-4 stroke-[2.2]" />
-            </button>
-          </div>
         </div>
-      </div>
+      </header>
 
       {/* Main Report Body Container: Optimized with bottom padding for mobile bottom nav header */}
       <main className="flex-1 max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-1 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] md:pb-12 space-y-4">
@@ -2218,15 +2227,24 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
         <div
           role="region"
           aria-label={`Full Page Analysis for ${fullScreenChapter.topic}`}
-          className="fixed inset-0 z-[60] md:top-[58px] md:h-[calc(100dvh-58px)] md:z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150"
+          className="fixed inset-0 z-[60] bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150"
         >
           {/* Transparent Clean Header Banner - Seamless with Page Body (No border line, plain surface) */}
           <header className="sticky top-0 z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] shadow-none border-none border-0 shrink-0">
-            <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] md:pt-3 md:pb-3">
+            <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2.5 sm:pb-3.5">
               <div className="flex items-center justify-between gap-3 px-0.5 py-1">
-                {/* Left: Chapter Title & Badges */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
+                {/* Left: Back Arrow ("back array"), Chapter Title & Badges */}
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setFullScreenChapterId(null)}
+                    className="p-1.5 -ml-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-800 dark:text-zinc-100 border-none bg-transparent cursor-pointer flex items-center justify-center transition active:scale-95 shrink-0"
+                    title="Back to Analysis"
+                    aria-label="Back"
+                  >
+                    <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
+                  </button>
+                  <div className="flex items-center gap-2 flex-wrap min-w-0">
                     <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white truncate max-w-[200px] xs:max-w-xs sm:max-w-none tracking-tight">
                       {fullScreenChapter.topic}
                     </h1>
@@ -2250,17 +2268,6 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                     </span>
                   </div>
                 </div>
-
-                {/* Right: Close button */}
-                <button
-                  type="button"
-                  onClick={() => setFullScreenChapterId(null)}
-                  className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-slate-50 dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-100 border-0 ring-0 shadow-none flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 outline-none"
-                  title="Close Chapter View"
-                  aria-label="Close"
-                >
-                  <X className="w-4 h-4 text-slate-800 dark:text-zinc-100 stroke-[2.2]" />
-                </button>
               </div>
             </div>
           </header>
@@ -2489,60 +2496,60 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
         <div
           role="dialog"
           aria-label={`Questions & Solutions for ${selectedSubtopicQuestionsModal.subtopic}`}
-          className="fixed inset-0 z-[70] md:top-[58px] md:h-[calc(100dvh-58px)] md:z-40 bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150"
+          className="fixed inset-0 z-[70] bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin] animate-in fade-in duration-150"
         >
           {/* Header Bar - Seamless with Page Body (No border line, plain surface) */}
           <header className="sticky top-0 z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] shadow-none border-none border-0 shrink-0">
-            <div className="max-w-5xl w-full mx-auto px-3 sm:px-6 py-2.5 sm:py-3.5 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] md:pt-3 md:pb-3">
+            <div className="max-w-5xl w-full mx-auto px-3 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2.5 sm:pb-3.5">
               <div className="flex items-center justify-between gap-3 px-0.5 py-1">
-                {/* Left: Subtopic Title & Metrics */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white truncate max-w-[200px] xs:max-w-xs sm:max-w-none tracking-tight">
-                      {selectedSubtopicQuestionsModal.subtopic}
-                    </h2>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold bg-[#0b57d0]/10 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0">
-                      {selectedSubtopicQuestionsModal.chapter}
-                    </span>
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold border-0 ring-0 shrink-0 ${
-                        selectedSubtopicQuestionsModal.subtopicItem.category === 'strong'
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                          : selectedSubtopicQuestionsModal.subtopicItem.category === 'moderate'
-                          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                          : selectedSubtopicQuestionsModal.subtopicItem.category === 'unattempted'
-                          ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
-                          : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                      }`}
-                    >
-                      {selectedSubtopicQuestionsModal.subtopicItem.statusBadge}
-                    </span>
+                {/* Left: Back Arrow ("back array"), Subtopic Title & Metrics */}
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSubtopicQuestionsModal(null)}
+                    className="p-1.5 -ml-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-800 dark:text-zinc-100 border-none bg-transparent cursor-pointer flex items-center justify-center transition active:scale-95 shrink-0"
+                    title="Back to Chapter"
+                    aria-label="Back"
+                  >
+                    <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-base sm:text-xl font-bold text-slate-900 dark:text-white truncate max-w-[200px] xs:max-w-xs sm:max-w-none tracking-tight">
+                        {selectedSubtopicQuestionsModal.subtopic}
+                      </h2>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold bg-[#0b57d0]/10 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0">
+                        {selectedSubtopicQuestionsModal.chapter}
+                      </span>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-extrabold border-0 ring-0 shrink-0 ${
+                          selectedSubtopicQuestionsModal.subtopicItem.category === 'strong'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                            : selectedSubtopicQuestionsModal.subtopicItem.category === 'moderate'
+                            ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                            : selectedSubtopicQuestionsModal.subtopicItem.category === 'unattempted'
+                            ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
+                            : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                        }`}
+                      >
+                        {selectedSubtopicQuestionsModal.subtopicItem.statusBadge}
+                      </span>
+                    </div>
+                    <p className="text-[11px] sm:text-xs text-slate-600 dark:text-zinc-300 font-medium truncate flex items-center gap-1.5 mt-0.5">
+                      <span>
+                        <strong className="font-bold text-[#0b57d0] dark:text-[#a8c7fa]">{selectedSubtopicQuestionsModal.subtopicItem.correctCount}/{selectedSubtopicQuestionsModal.subtopicItem.totalQuestions}</strong> Correct
+                      </span>
+                      <span>•</span>
+                      <span>
+                        <strong className="font-bold text-rose-600 dark:text-rose-400">{selectedSubtopicQuestionsModal.subtopicItem.wrongCount}</strong> Wrong
+                      </span>
+                      <span>•</span>
+                      <span>
+                        <strong className="font-bold text-slate-700 dark:text-zinc-200">{selectedSubtopicQuestionsModal.subtopicItem.skippedCount}</strong> Skipped
+                      </span>
+                    </p>
                   </div>
-                  <p className="text-[11px] sm:text-xs text-slate-600 dark:text-zinc-300 font-medium truncate flex items-center gap-1.5 mt-0.5">
-                    <span>
-                      <strong className="font-bold text-[#0b57d0] dark:text-[#a8c7fa]">{selectedSubtopicQuestionsModal.subtopicItem.correctCount}/{selectedSubtopicQuestionsModal.subtopicItem.totalQuestions}</strong> Correct
-                    </span>
-                    <span>•</span>
-                    <span>
-                      <strong className="font-bold text-rose-600 dark:text-rose-400">{selectedSubtopicQuestionsModal.subtopicItem.wrongCount}</strong> Wrong
-                    </span>
-                    <span>•</span>
-                    <span>
-                      <strong className="font-bold text-slate-700 dark:text-zinc-200">{selectedSubtopicQuestionsModal.subtopicItem.skippedCount}</strong> Skipped
-                    </span>
-                  </p>
                 </div>
-
-                {/* Right: Close button */}
-                <button
-                  type="button"
-                  onClick={() => setSelectedSubtopicQuestionsModal(null)}
-                  className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-slate-50 dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-100 border-0 ring-0 shadow-none flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 outline-none"
-                  title="Close (Device Gesture / Esc)"
-                  aria-label="Close"
-                >
-                  <X className="w-4 h-4 text-slate-800 dark:text-zinc-100 stroke-[2.2]" />
-                </button>
               </div>
             </div>
           </header>

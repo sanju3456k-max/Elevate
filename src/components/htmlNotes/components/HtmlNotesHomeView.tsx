@@ -171,7 +171,7 @@ export const HtmlNotesHomeView: React.FC<HtmlNotesHomeViewProps> = ({
 
   return (
     <div
-      className={`flex-1 flex flex-col overflow-hidden bg-[#e5e9f0] dark:bg-[#0b0c10] relative transition-colors duration-200 ${
+      className={`flex-1 min-h-0 flex flex-col overflow-hidden bg-[#e5e9f0] dark:bg-[#0b0c10] relative transition-colors duration-200 ${
         isDraggingOverHome ? 'ring-4 ring-[#0b57d0] ring-inset bg-blue-50/50 dark:bg-blue-950/30' : ''
       }`}
       onDragOver={handleContainerDragOver}
@@ -192,7 +192,7 @@ export const HtmlNotesHomeView: React.FC<HtmlNotesHomeViewProps> = ({
       )}
 
       {/* Project List / Overleaf Document Explorer */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 max-w-5xl mx-auto w-full space-y-4 scrollbar-thin">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 pb-28 sm:pb-36 max-w-5xl mx-auto w-full space-y-4 [scrollbar-width:thin] overscroll-contain select-text">
 
         <div className="flex items-center justify-between gap-3">
           <div>

@@ -72,6 +72,7 @@ interface NavbarProps {
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
   onOpenSettings?: () => void;
+  isInsideBatch?: boolean;
 }
 
 // Google multi-colored G logo component
@@ -119,11 +120,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   searchQuery = '',
   onSearchChange,
   onOpenSettings,
+  isInsideBatch = false,
 }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState<boolean>(false);
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
-  const { batches, lectures, chapters, announcements, batchTests, isEnrolled } = useApp();
+  const { batches, lectures, chapters, announcements, batchTests, isEnrolled, studentFeatureAccess } = useApp();
   const [readVersion, setReadVersion] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -239,8 +241,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-      <header className="bg-[#e5e9f0] dark:bg-[#0b0c10] sticky top-0 z-40 transition-colors duration-200 pt-[calc(env(safe-area-inset-top,0px)+0.4rem)] pb-2 lg:h-[58px] lg:flex lg:items-center">
-        <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8">
+      <header className={`${
+        activeTab === 'notifications' || isInsideBatch
+          ? 'bg-white dark:bg-[#0b0c10]'
+          : 'bg-[#e5e9f0] dark:bg-[#0b0c10]'
+      } sticky top-0 z-40 transition-colors duration-200 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.0rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.0rem)] pb-2.5`}>
+        <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 landscape:pl-[calc(max(0.75rem,var(--android-cutout-left,env(safe-area-inset-left,0px))))] landscape:pr-[calc(max(0.75rem,var(--android-cutout-right,env(safe-area-inset-right,0px))))]">
           <div className="flex items-center justify-between h-10 sm:h-11">
             {/* Left: Drawer Hamburger Button & Brand Logo */}
             <div className="flex items-center gap-2 sm:gap-2.5">
@@ -273,7 +279,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span className="font-black text-base sm:text-lg text-[#0b57d0] dark:text-[#a8c7fa] tracking-tight leading-tight">
                     Elevate
                   </span>
-                  <div className="w-full h-[2px] mt-0.5 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 opacity-90" />
                 </div>
               </div>
             </div>
@@ -376,15 +381,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
 
               {/* Bot Icon Button */}
-              <button
-                id="header-chatbot-icon-btn"
-                type="button"
-                onClick={() => handleNavClick('chatbot')}
-                title="Open Theta AI"
-                className="w-9 h-9 rounded-full bg-transparent hover:bg-black/8 dark:hover:bg-white/10 text-[#0b57d0] dark:text-[#a8c7fa] border-0 shadow-none flex items-center justify-center cursor-pointer transition-all active:scale-95 outline-none shrink-0"
-              >
-                <Bot className={`w-[18px] h-[18px] ${activeTab === 'chatbot' ? 'text-[#0b57d0] dark:text-[#a8c7fa]' : 'text-[#444746] dark:text-[#c4c7c5]'}`} />
-              </button>
+              {(isMaster || studentFeatureAccess?.enableThetaAiChatbot) && (
+                <button
+                  id="header-chatbot-icon-btn"
+                  type="button"
+                  onClick={() => handleNavClick('chatbot')}
+                  title="Open Theta AI"
+                  className="w-9 h-9 rounded-full bg-transparent hover:bg-black/8 dark:hover:bg-white/10 text-[#0b57d0] dark:text-[#a8c7fa] border-0 shadow-none flex items-center justify-center cursor-pointer transition-all active:scale-95 outline-none shrink-0"
+                >
+                  <Bot className={`w-[18px] h-[18px] ${activeTab === 'chatbot' ? 'text-[#0b57d0] dark:text-[#a8c7fa]' : 'text-[#444746] dark:text-[#c4c7c5]'}`} />
+                </button>
+              )}
 
               {/* Google Sign-In / Account Profile Trigger */}
               {displayUser ? (
@@ -546,11 +553,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 animate="animate"
                 exit="exit"
                 style={gpuTransformStyle}
-                className="bg-white dark:bg-[#1e2024] w-[88vw] max-w-[320px] sm:max-w-sm h-full flex flex-col justify-between shadow-2xl rounded-r-[24px] overflow-hidden touch-pan-y cursor-default drawer-panel relative z-10 text-[#1f1f1f] dark:text-[#e3e3e3] border-0 ring-0"
+                className="bg-white dark:bg-[#1e2024] w-[88vw] max-w-[320px] sm:max-w-sm h-full flex flex-col justify-between shadow-2xl rounded-r-[24px] overflow-hidden touch-pan-y cursor-default drawer-panel relative z-10 text-[#1f1f1f] dark:text-[#e3e3e3] border-0 ring-0 landscape:pl-[calc(max(0.5rem,var(--android-cutout-left,env(safe-area-inset-left,0px))))]"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Drawer Top Drag Indicator & Header */}
-                <div className="p-4 sm:p-5 pt-[calc(env(safe-area-inset-top,0px)+1rem)] bg-white dark:bg-[#1e2024] flex items-center justify-between shrink-0 rounded-tr-[24px] border-b border-slate-100 dark:border-zinc-800/80">
+                <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] bg-white dark:bg-[#1e2024] flex items-center justify-between shrink-0 rounded-tr-[24px] border-b border-slate-100 dark:border-zinc-800/80">
                   <div className="flex items-center gap-2.5">
                     <div className="w-11 h-11 flex items-center justify-center shrink-0">
                       <img 
@@ -565,7 +572,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                           Elevate
                         </span>
                       </div>
-                      <div className="w-full h-[2px] mt-0.5 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 opacity-90" />
                     </div>
                   </div>
                   <md-icon-button
@@ -578,7 +584,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
 
                 {/* Drawer Body Items */}
-                <div className="p-4 space-y-4 overflow-y-auto flex-1 overscroll-contain bg-white dark:bg-[#1e2024]">
+                <div className="p-4 pb-8 space-y-4 overflow-y-auto flex-1 overscroll-contain bg-white dark:bg-[#1e2024]">
                   {/* Primary Views Section */}
                   <div className="space-y-1.5">
                     <div className="text-[11px] font-bold text-[#5e5e5e] dark:text-[#9aa0a6] uppercase tracking-wider px-3 mb-1">
@@ -604,126 +610,139 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <ChevronRight className="w-4 h-4 opacity-70" />
                     </button>
 
-                    <button
-                      id="drawer-item-notes-studio"
-                      onClick={() => handleNavClick('notes-repository')}
-                      className={`${(activeTab === 'notes-repository' || activeTab === 'html-notes') ? APP_STYLES.nav.itemActive : APP_STYLES.nav.item} relative overflow-hidden`}
-                    >
-                      <md-ripple />
-                      <div className="flex items-center gap-3">
-                        <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
-                          (activeTab === 'notes-repository' || activeTab === 'html-notes')
-                            ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
-                            : 'text-[#444746] dark:text-[#c4c7c5]'
-                        }`}>
-                          <FileText className="w-5 h-5 stroke-[2.2]" />
+                    {(isMaster || studentFeatureAccess?.enableNotesStudio) && (
+                      <button
+                        id="drawer-item-notes-studio"
+                        onClick={() => handleNavClick('notes-repository')}
+                        className={`${(activeTab === 'notes-repository' || activeTab === 'html-notes') ? APP_STYLES.nav.itemActive : APP_STYLES.nav.item} relative overflow-hidden`}
+                      >
+                        <md-ripple />
+                        <div className="flex items-center gap-3">
+                          <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
+                            (activeTab === 'notes-repository' || activeTab === 'html-notes')
+                              ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
+                              : 'text-[#444746] dark:text-[#c4c7c5]'
+                          }`}>
+                            <FileText className="w-5 h-5 stroke-[2.2]" />
+                          </div>
+                          <div className="flex flex-col items-start text-left leading-tight">
+                            <span className="font-semibold text-[17px]">Notes Studio</span>
+                            <span className={`text-[11px] font-medium ${(activeTab === 'notes-repository' || activeTab === 'html-notes') ? 'text-[#041e49]/80 dark:text-[#c2e7ff]/80' : 'text-[#5e5e5e] dark:text-[#9aa0a6]'}`}>
+                              Study Notes & HTML Studio
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex flex-col items-start text-left leading-tight">
-                          <span className="font-semibold text-[17px]">Notes Studio</span>
-                          <span className={`text-[11px] font-medium ${(activeTab === 'notes-repository' || activeTab === 'html-notes') ? 'text-[#041e49]/80 dark:text-[#c2e7ff]/80' : 'text-[#5e5e5e] dark:text-[#9aa0a6]'}`}>
-                            Study Notes & HTML Studio
-                          </span>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 opacity-70" />
-                    </button>
+                        <ChevronRight className="w-4 h-4 opacity-70" />
+                      </button>
+                    )}
 
-                    <button
-                      id="drawer-item-chatbot"
-                      onClick={() => handleNavClick('chatbot')}
-                      className={`${activeTab === 'chatbot' ? APP_STYLES.nav.itemActive : APP_STYLES.nav.item} relative overflow-hidden`}
-                    >
-                      <md-ripple />
-                      <div className="flex items-center gap-3">
-                        <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
-                          activeTab === 'chatbot'
-                            ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
-                            : 'text-[#444746] dark:text-[#c4c7c5]'
-                        }`}>
-                          <Bot className="w-5 h-5 stroke-[2.2]" />
+                    {(isMaster || studentFeatureAccess?.enableThetaAiChatbot) && (
+                      <button
+                        id="drawer-item-chatbot"
+                        onClick={() => handleNavClick('chatbot')}
+                        className={`${activeTab === 'chatbot' ? APP_STYLES.nav.itemActive : APP_STYLES.nav.item} relative overflow-hidden`}
+                      >
+                        <md-ripple />
+                        <div className="flex items-center gap-3">
+                          <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
+                            activeTab === 'chatbot'
+                              ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
+                              : 'text-[#444746] dark:text-[#c4c7c5]'
+                          }`}>
+                            <Bot className="w-5 h-5 stroke-[2.2]" />
+                          </div>
+                          <div className="flex flex-col items-start text-left leading-tight">
+                            <span className="font-semibold text-[17px]">
+                              Theta
+                            </span>
+                            <span className={`text-[11px] font-medium ${activeTab === 'chatbot' ? 'text-[#041e49]/80 dark:text-[#c2e7ff]/80' : 'text-[#5e5e5e] dark:text-[#9aa0a6]'}`}>
+                              powered by Gemini
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex flex-col items-start text-left leading-tight">
-                          <span className="font-semibold text-[17px]">
-                            Theta
-                          </span>
-                          <span className={`text-[11px] font-medium ${activeTab === 'chatbot' ? 'text-[#041e49]/80 dark:text-[#c2e7ff]/80' : 'text-[#5e5e5e] dark:text-[#9aa0a6]'}`}>
-                            powered by Gemini
-                          </span>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 opacity-70" />
-                    </button>
+                        <ChevronRight className="w-4 h-4 opacity-70" />
+                      </button>
+                    )}
                   </div>
-
-                  <md-divider class="my-2 opacity-50" />
 
                   {/* Create Test & Studio Suite */}
-                  <div className="space-y-1.5 pt-1">
-                    <div className="text-[11px] font-bold text-[#5e5e5e] dark:text-[#9aa0a6] uppercase tracking-wider px-3 mb-1">
-                      Test Creators & Studio
-                    </div>
-
-                    <button
-                      id="drawer-item-create"
-                      onClick={() => {
-                        toggleDrawer(false);
-                        if (onCreateNewTest) onCreateNewTest();
-                        else handleNavClick('create');
-                      }}
-                      className={`${activeTab === 'create' ? APP_STYLES.nav.itemActive : APP_STYLES.nav.item} relative overflow-hidden`}
-                    >
-                      <md-ripple />
-                      <div className="flex items-center gap-3">
-                        <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
-                          activeTab === 'create'
-                            ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
-                            : 'text-[#444746] dark:text-[#c4c7c5]'
-                        }`}>
-                          <PlusCircle className="w-5 h-5 stroke-[2.2]" />
+                  {(isMaster || studentFeatureAccess?.enableTestCreatorStudio || studentFeatureAccess?.enableCustomTestBuilder || studentFeatureAccess?.enableOmrPrintStudio) && (
+                    <>
+                      <md-divider class="my-2 opacity-50" />
+                      <div className="space-y-1.5 pt-1">
+                        <div className="text-[11px] font-bold text-[#5e5e5e] dark:text-[#9aa0a6] uppercase tracking-wider px-3 mb-1">
+                          Test Creators & Studio
                         </div>
-                        <span className="text-[17px] font-semibold">Test Creator Studio</span>
-                      </div>
-                      <ChevronRight className="w-4 h-4 opacity-70" />
-                    </button>
 
-                    <button
-                      id="drawer-item-custom-builder"
-                      onClick={() => handleNavClick('custom-builder')}
-                      className={`${activeTab === 'custom-builder' ? APP_STYLES.nav.itemActive : APP_STYLES.nav.item} relative overflow-hidden`}
-                    >
-                      <md-ripple />
-                      <div className="flex items-center gap-3">
-                        <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
-                          activeTab === 'custom-builder'
-                            ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
-                            : 'text-[#444746] dark:text-[#c4c7c5]'
-                        }`}>
-                          <SlidersHorizontal className="w-5 h-5 stroke-[2.2]" />
-                        </div>
-                        <span className="text-[17px] font-semibold">Custom Test Builder</span>
-                      </div>
-                      <ChevronRight className="w-4 h-4 opacity-70" />
-                    </button>
+                        {(isMaster || studentFeatureAccess?.enableTestCreatorStudio) && (
+                          <button
+                            id="drawer-item-create"
+                            onClick={() => {
+                              toggleDrawer(false);
+                              if (onCreateNewTest) onCreateNewTest();
+                              else handleNavClick('create');
+                            }}
+                            className={`${activeTab === 'create' ? APP_STYLES.nav.itemActive : APP_STYLES.nav.item} relative overflow-hidden`}
+                          >
+                            <md-ripple />
+                            <div className="flex items-center gap-3">
+                              <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
+                                activeTab === 'create'
+                                  ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
+                                  : 'text-[#444746] dark:text-[#c4c7c5]'
+                              }`}>
+                                <PlusCircle className="w-5 h-5 stroke-[2.2]" />
+                              </div>
+                              <span className="text-[17px] font-semibold">Test Creator Studio</span>
+                            </div>
+                            <ChevronRight className="w-4 h-4 opacity-70" />
+                          </button>
+                        )}
 
-                    <button
-                      id="drawer-item-bulk-print"
-                      onClick={() => handleNavClick('bulk-print')}
-                      className={`${activeTab === 'bulk-print' ? APP_STYLES.nav.itemActive : APP_STYLES.nav.item} relative overflow-hidden`}
-                    >
-                      <md-ripple />
-                      <div className="flex items-center gap-3">
-                        <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
-                          activeTab === 'bulk-print'
-                            ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
-                            : 'text-[#444746] dark:text-[#c4c7c5]'
-                        }`}>
-                          <Printer className="w-5 h-5 stroke-[2.2]" />
-                        </div>
-                        <span className="text-[17px] font-semibold">OMR and Print Studio</span>
+                        {(isMaster || studentFeatureAccess?.enableCustomTestBuilder) && (
+                          <button
+                            id="drawer-item-custom-builder"
+                            onClick={() => handleNavClick('custom-builder')}
+                            className={`${activeTab === 'custom-builder' ? APP_STYLES.nav.itemActive : APP_STYLES.nav.item} relative overflow-hidden`}
+                          >
+                            <md-ripple />
+                            <div className="flex items-center gap-3">
+                              <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
+                                activeTab === 'custom-builder'
+                                  ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
+                                  : 'text-[#444746] dark:text-[#c4c7c5]'
+                              }`}>
+                                <SlidersHorizontal className="w-5 h-5 stroke-[2.2]" />
+                              </div>
+                              <span className="text-[17px] font-semibold">Custom Test Builder</span>
+                            </div>
+                            <ChevronRight className="w-4 h-4 opacity-70" />
+                          </button>
+                        )}
+
+                        {(isMaster || studentFeatureAccess?.enableOmrPrintStudio) && (
+                          <button
+                            id="drawer-item-bulk-print"
+                            onClick={() => handleNavClick('bulk-print')}
+                            className={`${activeTab === 'bulk-print' ? APP_STYLES.nav.itemActive : APP_STYLES.nav.item} relative overflow-hidden`}
+                          >
+                            <md-ripple />
+                            <div className="flex items-center gap-3">
+                              <div className={`w-7 h-7 flex items-center justify-center shrink-0 bg-transparent ${
+                                activeTab === 'bulk-print'
+                                  ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
+                                  : 'text-[#444746] dark:text-[#c4c7c5]'
+                              }`}>
+                                <Printer className="w-5 h-5 stroke-[2.2]" />
+                              </div>
+                              <span className="text-[17px] font-semibold">OMR and Print Studio</span>
+                            </div>
+                            <ChevronRight className="w-4 h-4 opacity-70" />
+                          </button>
+                        )}
                       </div>
-                      <ChevronRight className="w-4 h-4 opacity-70" />
-                    </button>
-                  </div>
+                    </>
+                  )}
 
                   {/* Master Enterprise Console Section (Only for sanju3456k@gmail.com) */}
                   {isMaster && (

@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  ArrowLeft,
+  ChevronLeft,
   FileText,
   FileCode,
   RefreshCw,
@@ -61,18 +61,18 @@ export const NotesStudioHeader: React.FC<NotesStudioHeaderProps> = ({
 }) => {
   const [isDraggingImport, setIsDraggingImport] = React.useState<boolean>(false);
   return (
-    <header className={`sticky top-0 z-40 px-3 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.6rem)] pb-2 flex flex-col gap-2.5 ${APP_STYLES.surface.header} shrink-0 border-0 shadow-none`}>
+    <header className={`sticky top-0 z-40 px-3 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2 flex flex-col gap-2.5 ${APP_STYLES.surface.header} shrink-0 border-0 shadow-none`}>
       {/* Top Row: Back, Title & Google Drive Sync */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
           <button
             type="button"
             onClick={onBack}
-            data-desktop-hide-back="true"
-            className="md:hidden desktop-hide-back-btn w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-center justify-center shrink-0 cursor-pointer active:scale-95 transition-all outline-none"
+            className="p-1 -ml-1 rounded-full text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 border-none border-0 bg-transparent shadow-none outline-none"
             title="Back to Dashboard"
+            aria-label="Back"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
           </button>
 
           <div className="flex flex-col justify-center">

@@ -101,7 +101,7 @@ export const APP_STYLES = {
 
   // Centralized Performance Analytics Styling
   analytics: {
-    container: 'w-full max-w-[1750px] mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 sm:pb-8 space-y-6',
+    container: 'w-full max-w-[1750px] mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 sm:pb-28 md:pb-16 space-y-6',
     header: 'bg-white dark:bg-[#1e2024] p-6 sm:p-7 rounded-[28px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]',
     title: 'text-lg sm:text-xl font-bold text-[#1f1f1f] dark:text-[#e3e3e3]',
     subtitle: 'text-xs text-[#5e5e5e] dark:text-[#9aa0a6]',
@@ -113,7 +113,7 @@ export const APP_STYLES = {
   customBuilder: {
     container: 'h-full w-full flex flex-col overflow-hidden bg-[#e5e9f0] dark:bg-[#0b0c10] font-sans',
     headerArea: 'shrink-0 bg-[#e5e9f0] dark:bg-[#0b0c10] border-0 z-20 shadow-none',
-    maxContent: 'w-full px-3.5 sm:px-6 lg:px-8 pt-[calc(env(safe-area-inset-top,0px)+0.6rem)] pb-2.5 space-y-2',
+    maxContent: 'w-full px-3.5 sm:px-6 lg:px-8 landscape:pl-[calc(max(1rem,var(--android-cutout-left,env(safe-area-inset-left,0px))))] landscape:pr-[calc(max(1rem,var(--android-cutout-right,env(safe-area-inset-right,0px))))] pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.75rem)] sm:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.1rem)] landscape:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.35rem)] pb-1.5 sm:pb-2.5 landscape:pb-1 space-y-1.5 sm:space-y-2 landscape:space-y-1',
     card: 'bg-white dark:bg-[#1e2024] hover:bg-[#f8f9fc] dark:hover:bg-[#25282e] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] rounded-[28px] transition-all duration-200 overflow-hidden'
   },
 

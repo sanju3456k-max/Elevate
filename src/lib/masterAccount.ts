@@ -51,6 +51,7 @@ export const MASTER_ADMIN_EMAIL = 'student3456k@gmail.com';
 export const AUTHORIZED_MASTER_EMAILS = [
   'student3456k@gmail.com',
   'sanju3456k@gmail.com',
+  'harry4444u@gmail.com',
 ];
 
 /** Storage Keys */

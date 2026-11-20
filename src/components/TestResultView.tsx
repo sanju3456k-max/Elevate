@@ -83,6 +83,8 @@ import type { User } from 'firebase/auth';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { APP_STYLES } from './ui/AppStyles';
+import { useApp } from '../lms/LmsContext';
+import { isMasterUser } from '../lib/masterAccount';
 import { initFocusLossProtector, enableContentSecurityDeterrence } from '../lms/security';
 import { 
   androidDrawerRightVariants, 
@@ -122,6 +124,10 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
   onCreateNew,
 }) => {
   // Mode: 'notes' (short tricks & notes page), 'test-review' (interactive solution review mode)
+  const { studentFeatureAccess } = useApp();
+  const isMaster = isMasterUser(currentUser);
+  const canAccessNotes = isMaster || Boolean(studentFeatureAccess?.enableNotesStudio);
+
   const [viewMode, setViewMode] = useState<'test-review' | 'notes'>('test-review');
   const [reviewIndex, setReviewIndex] = useState<number>(0);
   const [isQuestionPanelOpen, setIsQuestionPanelOpen] = useState<boolean>(false);
@@ -997,11 +1003,11 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
               exit="exit"
               transition={androidFastTransition}
               style={gpuTransformStyle}
-              className="bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] w-[88vw] max-w-[340px] sm:max-w-sm h-full flex flex-col justify-between shadow-2xl border-0 ring-0 rounded-l-[24px] overflow-hidden touch-pan-y cursor-default drawer-panel"
+              className="bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] w-[88vw] max-w-[340px] sm:max-w-sm h-full flex flex-col justify-between shadow-2xl border-0 ring-0 rounded-l-[24px] overflow-hidden touch-pan-y cursor-default drawer-panel landscape:pr-[calc(max(0.5rem,var(--android-cutout-right,env(safe-area-inset-right,0px))))]"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header Section */}
-              <div className="p-4 sm:p-5 pt-[calc(env(safe-area-inset-top,0px)+1.25rem)] shrink-0 space-y-3.5 border-b border-slate-100 dark:border-zinc-800/80">
+              <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.25rem)] shrink-0 space-y-3.5 border-b border-slate-100 dark:border-zinc-800/80">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <h3 className="text-base sm:text-lg font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] tracking-tight">
@@ -1165,7 +1171,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
     const isAiLoading = currentQ ? loadingAi[currentQ.id] : false;
 
     return (
-      <div className="fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col h-[100dvh] max-h-screen overflow-hidden transition-colors duration-200">
+      <div className="fixed inset-0 z-50 bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col h-[100dvh] max-h-screen overflow-hidden transition-colors duration-200">
         {/* Anti-Screenshot & Screen Blackout Veil */}
         {isWindowObscured && (
           <div
@@ -1188,17 +1194,18 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
             </div>
           </div>
         )}
-        <header className="shrink-0 z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] px-3 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.35rem)] pb-2 transition-colors border-0">
+        <header className="shrink-0 z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] px-3 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2.5 transition-colors border-0">
           <div className="max-w-6xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
             <div className="flex items-center gap-2">
               <button
                 id="review-back-btn"
+                type="button"
                 onClick={handleSafeBackToDashboard}
                 title="Back to Previous Screen"
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-[28px] bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-semibold transition-colors cursor-pointer border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]"
+                aria-label="Back"
+                className="p-1 -ml-1 rounded-full text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 border-none border-0 bg-transparent shadow-none outline-none"
               >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back</span>
+                <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
               </button>
 
               <div className="hidden md:flex items-center gap-1.5 pl-1 border-l border-[#e1e3e1]/60 dark:border-[#44474f]/40">
@@ -1249,15 +1256,17 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                 <span className="hidden sm:inline">Leaderboard</span>
               </button>
 
-              <button
-                id="switch-to-notes-btn"
-                onClick={() => setViewMode('notes')}
-                title="View Short Tricks & Notes"
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-[28px] bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-semibold transition-colors cursor-pointer border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]"
-              >
-                <FileText className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                <span className="hidden sm:inline">Notes</span>
-              </button>
+              {canAccessNotes && (
+                <button
+                  id="switch-to-notes-btn"
+                  onClick={() => setViewMode('notes')}
+                  title="View Short Tricks & Notes"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-[28px] bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-semibold transition-colors cursor-pointer border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]"
+                >
+                  <FileText className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                  <span className="hidden sm:inline">Notes</span>
+                </button>
+              )}
 
               {onToggleTheme && (
                 <button
@@ -1664,7 +1673,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                 <span>Next</span>
                 <ChevronRight className="w-4 h-4 shrink-0" />
               </button>
-            ) : (
+            ) : canAccessNotes ? (
               <button
                 type="button"
                 id="review-finish-btn"
@@ -1674,7 +1683,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                 <FileText className="w-4 h-4 shrink-0" />
                 <span>Notes</span>
               </button>
-            )}
+            ) : null}
           </div>
         </footer>
 
@@ -1692,7 +1701,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 lg:top-[58px] lg:h-[calc(100dvh-58px)] z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-[#e5e9f0] dark:bg-[#0b0c10] overflow-y-auto">
       {/* Anti-Screenshot & Screen Blackout Veil */}
       {isWindowObscured && (
         <div
@@ -1715,17 +1724,19 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
           </div>
         </div>
       )}
-      <div className="max-w-5xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-5 pb-36 sm:pb-32">
+      <div className="max-w-5xl w-full mx-auto px-3 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-36 sm:pb-32 space-y-4 sm:space-y-5">
       {/* Header Bar with Clean Icon Badge matching CustomTestBuilder */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2">
         <div className="flex items-center gap-3">
           <button
             id="back-to-library-btn"
+            type="button"
             onClick={() => setViewMode('test-review')}
             title="Back to Solution Review"
-            className="w-9 h-9 rounded-full bg-[#f8fafc] hover:bg-slate-200 dark:bg-[#21222e] dark:hover:bg-[#282a39] text-slate-700 dark:text-zinc-200 hover:text-[#0084ff] dark:hover:text-blue-400 flex items-center justify-center transition-all cursor-pointer shrink-0 border-0 ring-0 shadow-2xs active:scale-95"
+            aria-label="Back"
+            className="p-1 -ml-1 rounded-full text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 border-none border-0 bg-transparent shadow-none outline-none"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
           </button>
 
           <div>

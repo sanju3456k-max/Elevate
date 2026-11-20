@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { unlockOrientationPortrait, showNativeStatusBar } from '../lib/nativeHardwareBridge';
 
 // Centralized Back Navigation Stack
 type BackHandler = () => boolean | void;
@@ -11,6 +12,10 @@ interface StackItem {
 
 const backStack: StackItem[] = [];
 let isInitialized = false;
+
+const isNativePlatform = (): boolean => {
+  return typeof window !== 'undefined' && Boolean((window as any).Capacitor?.isNativePlatform?.());
+};
 
 /**
  * Checks whether the browser document is currently in HTML5 fullscreen mode.
@@ -31,6 +36,8 @@ export function isBrowserFullscreen(): boolean {
 export function exitBrowserFullscreen(): boolean {
   if (typeof document === 'undefined') return false;
   try {
+    unlockOrientationPortrait().catch(() => {});
+    showNativeStatusBar();
     if (document.exitFullscreen) {
       document.exitFullscreen().catch(() => {});
       return true;
@@ -176,6 +183,7 @@ export function useBackHandler(options: {
   onBackRef.current = onBack;
 
   useEffect(() => {
+    if (isNativePlatform()) return;
     initGlobalListeners();
   }, []);
 
@@ -195,9 +203,11 @@ export function useBackHandler(options: {
     // Push to stack
     backStack.push(item);
 
-    // Push a dummy history state to catch browser/device back gesture
+    // Push a dummy history state to catch browser/device back gesture on web
     try {
-      window.history.pushState({ mockmc_layer: currentId }, '');
+      if (!isNativePlatform()) {
+        window.history.pushState({ mockmc_layer: currentId }, '');
+      }
     } catch {
       // Ignore in environments where pushState might fail
     }
@@ -225,6 +235,7 @@ export function useViewHistory<T extends string>(
   currentViewRef.current = currentView;
 
   useEffect(() => {
+    if (isNativePlatform()) return;
     initGlobalListeners();
 
     // Initial state setup
@@ -265,6 +276,7 @@ export function useViewHistory<T extends string>(
 
   // When currentView changes organically from user interaction, push to browser history
   useEffect(() => {
+    if (isNativePlatform()) return;
     if (isNavigatingBackRef.current) return;
     try {
       if (window.history.state?.mockmc_view !== currentView) {
@@ -278,7 +290,7 @@ export function useViewHistory<T extends string>(
     if (backStack.length > 0) {
       triggerBack();
     } else if (currentViewRef.current !== defaultView) {
-      if (typeof window !== 'undefined' && window.history.length > 1) {
+      if (!isNativePlatform() && typeof window !== 'undefined' && window.history.length > 1) {
         window.history.back();
       } else {
         onViewChange(defaultView);

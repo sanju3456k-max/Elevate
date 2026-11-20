@@ -3,6 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <script>
+      // Immediate Theme Pre-hydration: Eliminates white flash on launch before React hydration
+      (function() {
+        try {
+          var savedTheme = localStorage.getItem('math_mock_theme_v1') || localStorage.getItem('elevatelabs_theme_mode_v2');
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
+          var bg = isDark ? '#0b0c10' : '#e5e9f0';
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+          document.documentElement.style.backgroundColor = bg;
+        } catch (e) {}
+      })();
+    </script>
+    <script>
       // Prevent benign sandbox Vite HMR/WebSocket errors and database closing/hidden errors from bubbling
       (function() {
         var ignorePatterns = [
@@ -96,8 +113,11 @@
       (function() {
         function updateDesktopState() {
           var ua = navigator.userAgent || '';
-          // Chrome/Firefox/Safari on Android/iOS when "Desktop site" is toggled omit 'Mobile' from userAgent
-          var isDesktopUA = !/Mobile|Android.*Mobile|iPhone|iPod/i.test(ua);
+          if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
+            document.documentElement.classList.remove('desktop-site');
+            if (document.body) document.body.classList.remove('desktop-site');
+            return;
+          }
           var isDesktop = window.innerWidth >= 768;
           if (isDesktop) {
             document.documentElement.classList.add('desktop-site');
@@ -130,9 +150,9 @@
     <link rel="apple-touch-icon" sizes="512x512" href="./icon-512.png?v=17" />
     
     <!-- Chrome / Android PWA APK & Theme Colors (Matching Header Background Exactly with Pure White and No Partition Line) -->
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#16181f" media="(prefers-color-scheme: dark)" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#e5e9f0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0b0c10" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#e5e9f0" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -151,8 +171,8 @@
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/contrib/auto-render.min.js"></script>
   </head>
-  <body class="bg-white dark:bg-[#16181f]">
-    <div id="root" class="min-h-screen bg-white dark:bg-[#16181f]"></div>
+  <body class="bg-[#e5e9f0] dark:bg-[#0b0c10]">
+    <div id="root" class="min-h-screen bg-[#e5e9f0] dark:bg-[#0b0c10]"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

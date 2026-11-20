@@ -461,7 +461,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   );
 
   return (
-    <div className="space-y-6 sm:space-y-8 pb-24 md:pb-16 max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-2 sm:py-3">
+    <div className="space-y-6 sm:space-y-8 pb-28 sm:pb-28 md:pb-16 max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-2 sm:py-3">
       {/* 1. LATEST UPDATES (Featured Lecture Full Preview & Mock Test) - Strictly shown for enrolled batches only */}
       {(latestLecture || latestTest) && (
         <div className="space-y-2.5 sm:space-y-3">
@@ -617,7 +617,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 ))}
               </div>
             ) : (
-              <div className="p-8 text-center bg-[var(--md-sys-color-surface-container)] rounded-3xl space-y-3">
+              <div className="p-8 text-center bg-white dark:bg-[#1e2024] rounded-3xl border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-3">
                 <BookOpen className="w-10 h-10 text-[var(--md-sys-color-outline)] mx-auto opacity-50" />
                 <h3 className="text-base font-bold text-[var(--md-sys-color-on-surface)]">
                   No Enrolled Batches
@@ -631,7 +631,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                     setActiveView('all-batches');
                     if (onOpenBatches) onOpenBatches('all');
                   }}
-                  className="m3-btn-filled px-5 py-2 text-xs font-bold rounded-full border-none cursor-pointer"
+                  className="px-5 py-2 text-xs font-bold rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white border-none cursor-pointer shadow-sm transition"
                 >
                   Explore All Batches
                 </button>
@@ -677,7 +677,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
           {/* 4 Summary Score Metric Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-black/25 border-none space-y-1">
+            <div className="p-4 rounded-2xl bg-slate-100 hover:bg-slate-200/70 dark:bg-[#282a30] transition-colors border-0 space-y-1">
               <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
                 <span>Videos Completed</span>
                 <Video className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
@@ -690,7 +690,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-black/25 border-none space-y-1">
+            <div className="p-4 rounded-2xl bg-slate-100 hover:bg-slate-200/70 dark:bg-[#282a30] transition-colors border-0 space-y-1">
               <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
                 <span>Tests Attempted</span>
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
@@ -703,7 +703,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-black/25 border-none space-y-1">
+            <div className="p-4 rounded-2xl bg-slate-100 hover:bg-slate-200/70 dark:bg-[#282a30] transition-colors border-0 space-y-1">
               <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
                 <span>Avg Performance</span>
                 <Award className="w-4 h-4 text-amber-500" />
@@ -716,7 +716,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-black/25 border-none space-y-1">
+            <div className="p-4 rounded-2xl bg-slate-100 hover:bg-slate-200/70 dark:bg-[#282a30] transition-colors border-0 space-y-1">
               <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
                 <span>Active Streak</span>
                 <Flame className="w-4 h-4 text-orange-500 fill-orange-500" />
@@ -731,7 +731,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           </div>
 
           {/* Day-Wise Visual Interactive Bar Chart */}
-          <div className="p-5 sm:p-6 rounded-3xl bg-slate-50 dark:bg-black/25 border-none space-y-4">
+          <div className="p-5 sm:p-6 rounded-3xl bg-slate-100 dark:bg-[#282a30] border-0 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-[var(--md-sys-color-primary)] shrink-0" />
@@ -832,7 +832,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   );
 };
 
-// Authentic M3 Batch Card Component (Concise, zero clutter, mobile-optimized)
+// Authentic Batch Card Component (Matches Activity & Performance / Test Card UI: rounded-3xl, border-0, default app buttons)
 const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: boolean }> = ({
   batch,
   onSelect,
@@ -841,9 +841,9 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
   return (
     <div
       onClick={onSelect}
-      className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl overflow-hidden group cursor-pointer transition flex flex-row sm:flex-col p-0 border-none shadow-xs hover:shadow-md items-stretch"
+      className="bg-white dark:bg-[#1e2024] rounded-3xl border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] overflow-hidden group cursor-pointer transition-all duration-200 flex flex-col justify-between"
     >
-      <div className="relative w-36 sm:w-full aspect-video shrink-0 self-stretch overflow-hidden bg-slate-900/10 dark:bg-black/40">
+      <div className="relative w-full aspect-video shrink-0 overflow-hidden bg-slate-900/10 dark:bg-black/40">
         <img
           src={batch.bannerUrl || batch.thumbnailUrl || DEFAULT_HIGH_RES_BANNER}
           alt={batch.title}
@@ -852,52 +852,57 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
             (e.currentTarget as HTMLImageElement).src = DEFAULT_HIGH_RES_BANNER;
           }}
         />
-        <span className="absolute top-1.5 left-1.5 sm:top-3 sm:left-3 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-[var(--md-sys-color-surface-container-highest)]/90 backdrop-blur-md text-[var(--md-sys-color-on-surface)] text-[9px] sm:text-xs font-semibold border-none">
+        <span className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 px-2.5 py-1 rounded-full bg-white/90 dark:bg-black/75 backdrop-blur-md text-[#1f1f1f] dark:text-[#e3e3e3] text-[10px] sm:text-xs font-bold border-0 shadow-xs">
           {batch.category || 'Batch #01'}
         </span>
         {batch.isPublished === false ? (
-          <span className="absolute top-1.5 right-1.5 sm:top-3 sm:right-3 px-2 sm:px-2.5 py-0.5 rounded-full bg-amber-600/90 backdrop-blur-md text-white font-bold text-[9px] sm:text-[10px] uppercase tracking-wider flex items-center space-x-1 shadow-xs">
+          <span className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 px-2.5 py-1 rounded-full bg-amber-500/90 backdrop-blur-md text-white font-bold text-[9px] sm:text-[10px] uppercase tracking-wider flex items-center space-x-1 border-0 shadow-xs">
             <Lock className="w-3 h-3" />
             <span>Draft</span>
           </span>
         ) : batch.allowGuestAccess ? (
-          <span className="absolute top-1.5 right-1.5 sm:top-3 sm:right-3 px-2 sm:px-2.5 py-0.5 rounded-full bg-emerald-600/90 backdrop-blur-md text-white font-bold text-[9px] sm:text-[10px] uppercase tracking-wider flex items-center space-x-1 shadow-xs">
+          <span className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 px-2.5 py-1 rounded-full bg-emerald-600/90 backdrop-blur-md text-white font-bold text-[9px] sm:text-[10px] uppercase tracking-wider flex items-center space-x-1 border-0 shadow-xs">
             <Sparkles className="w-3 h-3" />
             <span>Guest Pass</span>
           </span>
         ) : null}
-        <div className="absolute bottom-1.5 left-1.5 right-1.5 sm:bottom-3 sm:left-3 sm:right-3 flex items-center justify-between text-[9px] sm:text-xs text-white">
-          <span className="flex items-center space-x-1 bg-black/60 backdrop-blur-xs px-1.5 sm:px-2.5 py-0.5 rounded-full">
+        <div className="absolute bottom-2.5 left-2.5 right-2.5 sm:bottom-3 sm:left-3 sm:right-3 flex items-center justify-between text-[10px] sm:text-xs text-white">
+          <span className="flex items-center space-x-1 bg-black/65 backdrop-blur-xs px-2.5 py-0.5 rounded-full font-bold">
             <Star className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-amber-400 fill-current" />
-            <span className="font-bold">{batch.rating}</span>
+            <span>{batch.rating}</span>
           </span>
-          <span className="hidden sm:flex items-center space-x-1 bg-black/60 backdrop-blur-xs px-2.5 py-0.5 rounded-full">
+          <span className="flex items-center space-x-1 bg-black/65 backdrop-blur-xs px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium">
             <Users className="w-3.5 h-3.5 text-slate-300" />
             <span>Interactive Cohort</span>
           </span>
         </div>
       </div>
 
-      <div className="p-3 sm:p-5 flex-1 min-w-0 flex flex-col justify-between space-y-1.5 sm:space-y-3">
+      <div className="p-4 sm:p-5 flex-1 min-w-0 flex flex-col justify-between space-y-3">
         <div>
-          <h3 className="text-xs sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition leading-snug line-clamp-1 sm:line-clamp-2">
+          <h3 className="text-base sm:text-lg font-bold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition leading-snug line-clamp-2">
             {batch.title}
           </h3>
+          {batch.description && (
+            <p className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-2 mt-1">
+              {batch.description}
+            </p>
+          )}
         </div>
 
         {/* Instructor info with faculty profile icon */}
-        <div className="flex items-center space-x-2 sm:space-x-3 pt-1 sm:pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
+        <div className="flex items-center space-x-2.5 pt-2.5 border-t border-[var(--md-sys-color-outline-variant)]/20">
           <img
             src={getFacultyAvatarUrl(batch.instructor?.avatarUrl)}
             alt={batch.instructor?.name || 'Faculty'}
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover shrink-0 border-none"
+            className="w-8 h-8 rounded-full object-cover shrink-0 border-0"
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).src = '/assets/default-profile.png';
             }}
           />
           <div className="text-[11px] sm:text-xs min-w-0">
-            <p className="font-bold text-[var(--md-sys-color-on-surface)] truncate">{batch.instructor?.name || 'Elevate Faculty'}</p>
-            <p className="text-[9px] sm:text-[10px] text-[var(--md-sys-color-on-surface-variant)] truncate">
+            <p className="font-bold text-[#1f1f1f] dark:text-[#e3e3e3] truncate">{batch.instructor?.name || 'Elevate Faculty'}</p>
+            <p className="text-[10px] text-slate-500 dark:text-zinc-400 truncate">
               {batch.instructor?.designation || 'Master Educator'}
             </p>
           </div>
@@ -906,8 +911,8 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
         {/* Footer: Enrolled Status & Open Batch Button */}
         <div className="flex items-center justify-between pt-1">
           {isEnrolled ? (
-            <div className="flex items-center space-x-1 sm:space-x-1.5 text-[10px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full border-none">
-              <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
+            <div className="flex items-center space-x-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border-0">
+              <CheckCircle className="w-3.5 h-3.5" />
               <span>Full Access</span>
             </div>
           ) : (
@@ -916,14 +921,16 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
 
           {isEnrolled ? (
             <button
-              className="m3-btn-filled px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold flex items-center space-x-1 shadow-sm border-none outline-none cursor-pointer"
+              type="button"
+              className="h-9 px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold flex items-center space-x-1.5 border-0 shadow-[0_2px_6px_rgba(11,87,208,0.25)] outline-none cursor-pointer active:scale-95 transition-all"
             >
               <span>Continue</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           ) : (
             <button
-              className="m3-btn-tonal px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold flex items-center space-x-1 text-slate-500 opacity-80 border-none outline-none cursor-pointer"
+              type="button"
+              className="h-9 px-4 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-xs font-bold flex items-center space-x-1.5 border-0 outline-none cursor-pointer"
             >
               <Lock className="w-3.5 h-3.5" />
               <span>Locked</span>

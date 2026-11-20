@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  ChevronLeft,
   ArrowLeft,
   Save,
   Check,
@@ -226,15 +227,16 @@ const HtmlNotesHeaderComponent: React.FC<HtmlNotesHeaderProps> = ({
     <>
       {/* COMPACT TOPBAR (Header Row 1: Back, Title, Viewport switcher, Save, Menu) */}
       {!hideTopBar && (
-        <header className="topbar sticky top-0 z-30 bg-white dark:bg-[#0b0c10] border-b border-slate-200 dark:border-zinc-800/80 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-2.5 px-3 sm:px-6 flex items-center justify-between gap-2 shrink-0">
+        <header className="topbar sticky top-0 z-30 bg-white dark:bg-[#0b0c10] border-b border-slate-200 dark:border-zinc-800/80 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2.5 px-3 sm:px-6 flex items-center justify-between gap-2 shrink-0">
           {/* Left: Clean Back Arrow & Brand Title */}
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
             <button
               onClick={onGoHome || onBack}
-              className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-[#32353c] dark:hover:bg-[#3f424c] text-[#1f1f1f] dark:text-[#e3e3e3] border-0 flex items-center justify-center shrink-0 cursor-pointer active:scale-95 transition-all outline-none"
+              className="p-1 -ml-1 rounded-full text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 border-none border-0 bg-transparent shadow-none outline-none"
               title="Back to Projects"
+              aria-label="Back"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
             </button>
 
             <div className="brand cursor-pointer truncate font-semibold text-[17px]" onClick={onGoHome}>

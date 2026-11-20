@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import type { User, Batch, Subject, Chapter, Lecture, WatchProgress, Announcement, PersonalNote, BatchEnrollment, BatchTestCard, PdfNote, SecuritySettingsConfig } from './types';
+import type { User, Batch, Subject, Chapter, Lecture, WatchProgress, Announcement, PersonalNote, BatchEnrollment, BatchTestCard, PdfNote, SecuritySettingsConfig, StudentFeatureAccessConfig } from './types';
+import { DEFAULT_STUDENT_FEATURE_ACCESS } from './types';
 import {
   INITIAL_USER,
   INITIAL_BATCHES,
@@ -126,6 +127,8 @@ interface AppContextType {
   getTestsForBatch: (batchId: string) => BatchTestCard[];
   securitySettings: SecuritySettingsConfig;
   updateSecuritySettings: (newSettings: Partial<SecuritySettingsConfig>) => void;
+  studentFeatureAccess: StudentFeatureAccessConfig;
+  updateStudentFeatureAccess: (newSettings: Partial<StudentFeatureAccessConfig>) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -145,6 +148,7 @@ const STORAGE_KEYS = {
   BATCH_TESTS: 'elevatelabs_batch_tests_v2',
   GUEST_ACCESS_MODE: 'elevatelabs_guest_access_mode_v2',
   SECURITY_SETTINGS: 'elevatelabs_security_settings_v2',
+  STUDENT_FEATURE_ACCESS: 'elevatelabs_student_feature_access_v2',
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -352,6 +356,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showSecurityToast('Security policy updated');
   }, []);
 
+  const [studentFeatureAccess, setStudentFeatureAccess] = useState<StudentFeatureAccessConfig>(() => {
+    try {
+      const saved = secureStorage.getItem(STORAGE_KEYS.STUDENT_FEATURE_ACCESS);
+      if (saved) {
+        return {
+          ...DEFAULT_STUDENT_FEATURE_ACCESS,
+          ...JSON.parse(saved),
+        };
+      }
+    } catch {}
+    return DEFAULT_STUDENT_FEATURE_ACCESS;
+  });
+
+  const updateStudentFeatureAccess = useCallback((newSettings: Partial<StudentFeatureAccessConfig>) => {
+    setStudentFeatureAccess((prev) => {
+      const next: StudentFeatureAccessConfig = {
+        ...prev,
+        ...newSettings,
+        updatedAt: new Date().toISOString(),
+      };
+      try {
+        secureStorage.setItem(STORAGE_KEYS.STUDENT_FEATURE_ACCESS, JSON.stringify(next));
+      } catch {}
+      setDoc(doc(db, 'master_catalog', 'student_feature_access'), next, { merge: true }).catch(() => {});
+      return next;
+    });
+    showSecurityToast('Student module access updated');
+  }, []);
+
   // 1. Initial Load: Fetch all active published batches and global guest access policy from Cloud Firestore
   useEffect(() => {
     // Inject legal and compliance notice into DevTools console (DPDP Act 2023 & IT Act 2000)
@@ -425,10 +458,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     );
 
+    // Live listener for Master Console student feature access configuration
+    const unsubStudentFeatures = listenerManager.subscribeDocument(
+      'master_catalog/student_feature_access',
+      () => doc(db, 'master_catalog', 'student_feature_access'),
+      (snap) => {
+        if (snap.exists()) {
+          const val = snap.data() as Partial<StudentFeatureAccessConfig>;
+          if (val) {
+            setStudentFeatureAccess((prev) => ({ ...prev, ...val }));
+            try {
+              secureStorage.setItem(STORAGE_KEYS.STUDENT_FEATURE_ACCESS, JSON.stringify(val));
+            } catch {}
+          }
+        }
+      },
+      (err) => {
+        console.warn('LMS student feature access live listener notice:', err);
+      }
+    );
+
     return () => {
       unsubBatchCatalogBeacon();
       unsubPolicy();
       unsubSecurity();
+      unsubStudentFeatures();
     };
   }, []);
 
@@ -1827,6 +1881,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         getTestsForBatch,
         securitySettings,
         updateSecuritySettings,
+        studentFeatureAccess,
+        updateStudentFeatureAccess,
       }}
     >
       {children}

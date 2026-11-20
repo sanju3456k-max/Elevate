@@ -48,7 +48,8 @@ import {
   publishTestToBatchCatalog,
 } from './lib/masterAccount';
 import { syncBatchTestToFirestore, touchBatchCatalogBeacon } from './lib/batchCloudSync';
-import { initNativeHardwareIntegration } from './lib/nativeHardwareBridge';
+import { initNativeHardwareIntegration, syncNativeStatusBarTheme, getIsNativePlaybackPlaying, enterNativePip, exitNativeApp, isNativeAndroid } from './lib/nativeHardwareBridge';
+import { triggerBack } from './hooks/useBackNavigation';
 import { TestDetailModal } from './components/TestDetailModal';
 import type { User } from 'firebase/auth';
 import { normalizeQuestions, type ActiveTab, type MathTest, type TestAttempt, type ActiveTestSession, type UserProfile, type TestHistoryEntry } from './types';
@@ -111,6 +112,8 @@ import { BatchAdminStudio } from './components/lms/BatchAdminStudio';
 import { HomeDashboard } from './components/home/HomeDashboard';
 import { NotificationsView } from './components/notifications/NotificationsView';
 import { LmsProvider } from './lms/LmsContext';
+import { secureStorage } from './lib/secureStorage';
+import { DEFAULT_STUDENT_FEATURE_ACCESS } from './lms/types';
 import { getLectureThumbnailUrl } from './lms/security';
 import { usePWAInstall } from './hooks/usePWAInstall';
 import { useUIScale } from './hooks/useUIScale';
@@ -184,6 +187,8 @@ export default function App() {
 
   // YouTube-style Persistent Live Playback Engine
   const [persistentPlayback, setPersistentPlayback] = useState<PersistentPlaybackData | null>(null);
+  const persistentPlaybackRef = useRef<PersistentPlaybackData | null>(null);
+  persistentPlaybackRef.current = persistentPlayback;
 
   const handlePlayLecture = useCallback(
     (
@@ -219,12 +224,40 @@ export default function App() {
     },
     []
   );
+
+  // Listen for programmatic video playback requests
+  useEffect(() => {
+    const handleElevatePlay = (e: any) => {
+      const { lecture, batch, chapterId } = e.detail || {};
+      if (lecture && batch) {
+        handlePlayLecture(lecture, batch, chapterId);
+      }
+    };
+    window.addEventListener('elevate:play-lecture', handleElevatePlay);
+    return () => window.removeEventListener('elevate:play-lecture', handleElevatePlay);
+  }, [handlePlayLecture]);
+
+  // Listen for programmatic tab navigation requests
+  useEffect(() => {
+    const handleElevateNav = (e: any) => {
+      const tab = e.detail?.tab;
+      if (tab) setActiveTab(tab);
+    };
+    window.addEventListener('elevate:nav', handleElevateNav);
+    return () => window.removeEventListener('elevate:nav', handleElevateNav);
+  }, []);
+
   const [initialSeekSeconds, setInitialSeekSeconds] = useState<number | null>(null);
   const [deviceLockStatus, setDeviceLockStatus] = useState<DeviceLockStatus | null>(null);
 
   // In batches section, user is "inside" a batch when viewing folders, chapter contents, or lecture player
   const isInsideBatch = activeTab === 'batches' && (Boolean(selectedBatchId) || batchesStage !== 'batch_list');
   const isFullVideoPlayerActive = Boolean(persistentPlayback && !persistentPlayback.isMinimized);
+
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+  const isInsideBatchRef = useRef(isInsideBatch);
+  isInsideBatchRef.current = isInsideBatch;
 
   // Track whether Chapter Full Screen or Subtopic Questions view is active (to hide mobile app header & bottom nav)
   const [isChapterFullScreenActive, setIsChapterFullScreenActive] = useState<boolean>(() => {
@@ -245,6 +278,19 @@ export default function App() {
     };
   }, []);
 
+  // Track whether Test Report & Analysis View is open (to hide app header & bottom nav)
+  const [isReportAnalysisActive, setIsReportAnalysisActive] = useState(false);
+
+  useEffect(() => {
+    const handleReportAnalysis = (e: any) => {
+      setIsReportAnalysisActive(Boolean(e.detail?.isOpen));
+    };
+    window.addEventListener('report-analysis-view-active', handleReportAnalysis);
+    return () => {
+      window.removeEventListener('report-analysis-view-active', handleReportAnalysis);
+    };
+  }, []);
+
   // Enterprise Omni-Channel Origin Context Engine (Guarantees seamless back navigation to exact origin)
   interface NavigationOriginContext {
     tab: ActiveTab;
@@ -258,7 +304,6 @@ export default function App() {
   const testOriginContextRef = useRef<NavigationOriginContext | null>(null);
 
   // Track reactive navigation state in refs for synchronous, rock-solid context capture
-  const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
   const selectedBatchIdRef = useRef(selectedBatchId);
   selectedBatchIdRef.current = selectedBatchId;
@@ -504,6 +549,9 @@ export default function App() {
       if (appleStatusBar) {
         appleStatusBar.setAttribute('content', isDarkMode ? 'black-translucent' : 'default');
       }
+
+      // Synchronize Android Edge-to-Edge Status Bar with current theme
+      syncNativeStatusBarTheme(isDarkMode);
     } catch (e) {
       console.warn('Theme storage and status bar sync error:', e);
     }
@@ -529,9 +577,35 @@ export default function App() {
     return () => window.removeEventListener('theme-changed', handleThemeChanged);
   }, []);
 
-  // Guard Master Console route strictly to sanju3456k@gmail.com
+  // Guard Master Console & Student Feature Access
   useEffect(() => {
-    if (activeTab === 'master-console' && !isMasterUser(currentUser || cachedUser)) {
+    const isMaster = isMasterUser(currentUser || cachedUser);
+    if (isMaster) return; // Master Admin always has 100% full access
+
+    // Block Master Console for non-master accounts
+    if (activeTab === 'master-console') {
+      setActiveTab('home');
+      return;
+    }
+
+    // Check student feature flags
+    let access = DEFAULT_STUDENT_FEATURE_ACCESS;
+    try {
+      const saved = secureStorage.getItem('elevatelabs_student_feature_access_v2');
+      if (saved) {
+        access = { ...DEFAULT_STUDENT_FEATURE_ACCESS, ...JSON.parse(saved) };
+      }
+    } catch {}
+
+    if (activeTab === 'create' && !access.enableTestCreatorStudio) {
+      setActiveTab('home');
+    } else if (activeTab === 'custom-builder' && !access.enableCustomTestBuilder) {
+      setActiveTab('home');
+    } else if (activeTab === 'bulk-print' && !access.enableOmrPrintStudio) {
+      setActiveTab('home');
+    } else if ((activeTab === 'notes-repository' || activeTab === 'html-notes') && !access.enableNotesStudio) {
+      setActiveTab('home');
+    } else if (activeTab === 'chatbot' && !access.enableThetaAiChatbot) {
       setActiveTab('home');
     }
   }, [activeTab, currentUser, cachedUser, setActiveTab]);
@@ -794,9 +868,48 @@ export default function App() {
     if (splashEl && splashEl.parentNode) {
       splashEl.parentNode.removeChild(splashEl);
     }
+  }, []);
 
-    // Initialize Native Android Hardware Integration (Back Button, Haptics, Status Bar)
-    const cleanupNative = initNativeHardwareIntegration();
+  // Top-Level Native Android Hardware Integration (Active for both Guest & Authenticated users)
+  useEffect(() => {
+    const cleanupNative = initNativeHardwareIntegration({
+      onHardwareBack: () => {
+        // 1. If in-app back stack (modals, drawers, fullscreen exit) handled it
+        if (triggerBack()) return true;
+
+        // 2. If video player is expanded, minimize to miniplayer first
+        if (persistentPlaybackRef.current && !persistentPlaybackRef.current.isMinimized) {
+          setPersistentPlayback((prev) => prev ? { ...prev, isMinimized: true } : null);
+          return true;
+        }
+
+        // 3. If inside a batch, step back to batch catalog
+        if (activeTabRef.current === 'batches' && isInsideBatchRef.current) {
+          setSelectedChapterId(null);
+          setSelectedLectureId(null);
+          setSelectedBatchId(null);
+          return true;
+        }
+
+        // 4. If in other tabs than home, navigate back to home
+        if (activeTabRef.current !== 'home') {
+          setActiveTab('home');
+          return true;
+        }
+
+        // 5. User is on HOME screen:
+        // If video is playing in miniplayer, smoothly transition to Android OS PiP on exit!
+        if (getIsNativePlaybackPlaying() || (persistentPlaybackRef.current && persistentPlaybackRef.current.isPlaying)) {
+          enterNativePip().catch(() => {});
+          return true;
+        }
+
+        // 6. Otherwise exit the app cleanly
+        exitNativeApp();
+        return true;
+      },
+    });
+
     return () => {
       cleanupNative();
     };
@@ -1944,15 +2057,21 @@ export default function App() {
           - Desktop Viewing Experience (md:): Header is visible across all standard pages.
           - Mobile & Tablet Apps (< md): Top Header is displayed on primary tabs: Home, Batches, Tests, and Analytics.
           - When inside a batch (viewing folders, contents, or video), or inside full-screen Chapter/Subtopics view, top header is hidden on mobile & tablet to maximize workspace focus. */}
-      {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'chatbot' && activeTab !== 'master-console' && (
+      {activeTab !== 'take-test' &&
+       activeTab !== 'custom-builder' &&
+       activeTab !== 'master-console' &&
+       activeTab !== 'chatbot' &&
+       !isFullVideoPlayerActive &&
+       !isReportAnalysisActive &&
+       !isChapterFullScreenActive && (
         <div
           id="app-navbar-wrapper"
           className={`sticky top-0 z-50 transition-all duration-200 shrink-0 ${
-            isChapterFullScreenActive || isFullVideoPlayerActive
-              ? 'hidden md:block'
+            activeTab === 'results' || (activeTab === 'batches' && isInsideBatch)
+              ? (isNativeAndroid() ? 'hidden' : 'hidden md:block')
               : ['home', 'batches', 'tests', 'analytics'].includes(activeTab)
-              ? (activeTab === 'batches' && isInsideBatch ? 'hidden md:block' : 'block')
-              : 'hidden md:block'
+              ? 'block'
+              : (isNativeAndroid() ? 'hidden' : 'hidden md:block')
           }`}
         >
           <Navbar
@@ -1970,6 +2089,7 @@ export default function App() {
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             onOpenSettings={() => setIsSettingsModalOpen((prev) => !prev)}
+            isInsideBatch={isInsideBatch}
           />
         </div>
       )}
@@ -2083,7 +2203,7 @@ export default function App() {
       )}
 
       {activeTab === 'custom-builder' && (
-        <div className="fixed inset-0 md:top-[64px] md:h-[calc(100dvh-64px)] bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
+        <div className="fixed inset-0 w-full h-full min-h-0 bg-[#e5e9f0] dark:bg-[#0b0c10] overflow-hidden flex flex-col z-40 font-sans">
           <CustomTestBuilder
             tests={tests}
             attempts={attempts}
@@ -2106,14 +2226,20 @@ export default function App() {
 
       {/* Main Content Area */}
       {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'results' && activeTab !== 'create' && activeTab !== 'custom-builder' && activeTab !== 'master-console' && (
-        <main className={`flex-1 min-w-0 bg-[#e5e9f0] dark:bg-[#0b0c10] ${
+        <main className={`flex-1 min-w-0 ${
+          isInsideBatch || activeTab === 'notifications'
+            ? 'bg-white dark:bg-[#0b0c10]'
+            : 'bg-[#e5e9f0] dark:bg-[#0b0c10]'
+        } ${
+          isInsideBatch ? 'pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.75rem)] md:pt-4 px-3 sm:px-6' : ''
+        } ${
           ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && !isInsideBatch && !isChapterFullScreenActive
-            ? (persistentPlayback?.isMinimized ? 'pb-36 sm:pb-28' : 'pb-24 sm:pb-8')
-            : (persistentPlayback?.isMinimized ? 'pb-24 sm:pb-28' : 'pb-6 sm:pb-8')
+            ? (persistentPlayback?.isMinimized ? 'pb-40 sm:pb-36 md:pb-24' : 'pb-28 sm:pb-28 md:pb-16')
+            : (persistentPlayback?.isMinimized ? 'pb-32 sm:pb-28 md:pb-16' : 'pb-12 sm:pb-12 md:pb-8')
         }`}>
 
           {/* MOBILE BOTTOM NAVIGATION HEADER (Home, Courses, Tests, Analytics) - Completely plain and seamless with page body and navigation area */}
-          {isAppLoaded && !isFullVideoPlayerActive && !isChapterFullScreenActive && ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && !isInsideBatch && (
+          {isAppLoaded && !isFullVideoPlayerActive && !isChapterFullScreenActive && !isReportAnalysisActive && ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && !isInsideBatch && (
             <nav
               id="mobile-bottom-nav"
               aria-label="Mobile Bottom Navigation"
@@ -2391,7 +2517,7 @@ export default function App() {
 
           {/* Dedicated Gemini Multi-Turn Chatbot (Full-Screen Immersive Canvas without top header offset) */}
           {activeTab === 'chatbot' && (
-            <div className="fixed inset-0 bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
+            <div className="fixed inset-0 w-full h-full bg-[#e5e9f0] dark:bg-[#0b0c10] pb-[calc(max(0.5rem,env(safe-area-inset-bottom,0px)))] overflow-hidden flex flex-col z-40">
               <GeminiChatbotView 
                 isDarkMode={isDarkMode} 
                 tests={tests}
@@ -2411,7 +2537,7 @@ export default function App() {
 
           {/* Unified Notes Studio (Formula Notes, Study Repository & HTML Notes with Google Drive Sync) */}
           {activeTab === 'notes-repository' && (
-            <div className="fixed inset-0 md:top-[64px] md:h-[calc(100dvh-64px)] bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
+            <div className="fixed inset-0 w-full h-full bg-[#e5e9f0] dark:bg-[#0b0c10] overflow-hidden flex flex-col z-30">
               <NotesStudio
                 tests={tests}
                 currentUser={currentUser}
@@ -2426,7 +2552,7 @@ export default function App() {
 
           {/* Unified Notes Studio - HTML Projects & Code Mode */}
           {activeTab === 'html-notes' && (
-            <div className="fixed inset-0 md:top-[64px] md:h-[calc(100dvh-64px)] bg-[#e5e9f0] dark:bg-[#0b0c10] h-[100dvh] max-h-screen overflow-hidden flex flex-col z-30">
+            <div className="fixed inset-0 w-full h-full bg-[#e5e9f0] dark:bg-[#0b0c10] overflow-hidden flex flex-col z-30">
               <NotesStudio
                 tests={tests}
                 currentUser={currentUser}

@@ -2741,7 +2741,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
 
   return (
     <div 
-      className={`h-[100dvh] md:h-[calc(100dvh-64px)] max-h-screen w-full flex flex-col bg-[#e5e9f0] dark:bg-[#0b0c10] text-slate-900 dark:text-zinc-100 p-2 sm:p-3 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] pb-[calc(max(0.5rem,env(safe-area-inset-bottom,0px))+0.25rem)] overflow-hidden font-sans relative transition-colors ${
+      className={`fixed inset-0 bg-[#e5e9f0] dark:bg-[#0b0c10] text-slate-900 dark:text-zinc-100 h-[100dvh] max-h-screen px-2 sm:px-4 md:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-[calc(max(0.5rem,env(safe-area-inset-bottom,0px))+0.25rem)] overflow-hidden flex flex-col z-40 font-sans transition-colors ${
         isDraggingImport ? 'ring-4 ring-[#0b57d0] ring-inset bg-blue-50/40 dark:bg-blue-950/20' : ''
       }`}
       onDragOver={handleImportDragOver}
@@ -2777,18 +2777,27 @@ export const TestEditor: React.FC<TestEditorProps> = ({
       />
 
       {/* TOP HEADER (Card background removed to match main body background) */}
-      <header className="bg-transparent px-1 sm:px-2 py-1.5 flex flex-col gap-2 shrink-0 mb-2 z-30 border-0 ring-0 shadow-none">
+      <header className="bg-transparent px-1 sm:px-2 pt-1 pb-2 flex flex-col gap-2 shrink-0 mb-2 z-30 border-0 ring-0 shadow-none">
         
-        {/* ROW 1: Test Creator Studio Title (Left) + Split | Canva | Editor Switcher & Close button (Right) */}
+        {/* ROW 1: Back Array + Test Creator Studio Title (Left) + Split | Canva | Editor Switcher (Right) */}
         <div className="flex items-center justify-between gap-2 w-full">
-          {/* Left: Test Creator Studio Title (No Background) */}
-          <div className="flex items-center gap-2">
+          {/* Left: Back Array Button + Test Creator Studio Title */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <button
+              type="button"
+              id="test-editor-back-btn"
+              onClick={onCancel}
+              title="Back to Tests"
+              className="p-1 -ml-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-[#1f1f1f] dark:text-[#e3e3e3] border-none border-0 bg-transparent shadow-none flex items-center justify-center transition active:scale-95 cursor-pointer shrink-0"
+            >
+              <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
+            </button>
             <span className="text-[17px] font-bold text-[#1f1f1f] dark:text-[#e3e3e3] tracking-tight">
               Test Creator Studio
             </span>
           </div>
 
-          {/* Right: Split | Canva | Editor Segmented Switcher & Close button */}
+          {/* Right: Split | Canva | Editor Segmented Switcher */}
           <div className="flex items-center gap-1.5 sm:gap-2">
             {/* Split | Canva | Editor Segmented Switcher (Clean White Pill) */}
             <div className="flex items-center bg-white dark:bg-[#1e2024] p-1 rounded-full text-xs font-bold shrink-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] border-0">
@@ -2846,18 +2855,6 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                 <span>Editor</span>
               </button>
             </div>
-
-            {/* Back Arrow Button (Smartly hidden on desktop site, touch-friendly on mobile) */}
-            <button
-              type="button"
-              id="test-editor-close-btn"
-              onClick={onCancel}
-              title="Back to Tests"
-              data-desktop-hide-back="true"
-              className="md:hidden desktop-hide-back-btn w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
           </div>
         </div>
 
@@ -4282,16 +4279,16 @@ export const TestEditor: React.FC<TestEditorProps> = ({
             onClick={(e) => e.stopPropagation()}
           >
               {/* Full-View Header (Matching App Header Background #e5e9f0 / #0b0c10 with Safe-Area Inset) */}
-              <div className="px-4 py-2.5 sm:px-6 sm:py-3 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] border-0 flex items-center justify-between gap-4 bg-[#e5e9f0] dark:bg-[#0b0c10] shrink-0 transition-colors duration-200">
+              <div className="px-4 py-2.5 sm:px-6 sm:py-3 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] border-0 flex items-center justify-between gap-4 bg-[#e5e9f0] dark:bg-[#0b0c10] shrink-0 transition-colors duration-200">
                 <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
                   <button
                     type="button"
                     onClick={() => setIsHistoryDrawerOpen(false)}
-                    className="flex items-center gap-1.5 py-1.5 px-3.5 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] cursor-pointer transition-all shrink-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] border-0 ring-0 outline-none text-xs font-bold active:scale-95"
-                    title="Return to Studio"
+                    className="p-1.5 -ml-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-800 dark:text-zinc-100 border-none bg-transparent cursor-pointer flex items-center justify-center transition active:scale-95 shrink-0"
+                    title="Back to Studio"
+                    aria-label="Back to Studio"
                   >
-                    <ArrowLeft className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                    <span className="hidden sm:inline text-xs font-bold">Back to Studio</span>
+                    <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
                   </button>
 
                   <div className="min-w-0">
@@ -4433,7 +4430,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
             </div>
 
             {/* Assessment Cards Grid Container (Matching Main Body Color) */}
-            <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-[#e5e9f0] dark:bg-[#0b0c10]">
+            <div className="p-4 sm:p-6 pb-28 sm:pb-36 overflow-y-auto flex-1 bg-[#e5e9f0] dark:bg-[#0b0c10] overscroll-contain select-text [scrollbar-width:thin]">
               {filteredAllTests.length === 0 ? (
                 <div className="py-16 px-4 text-center space-y-3">
                   <div className="w-14 h-14 rounded-full bg-blue-50 dark:bg-blue-950/60 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center mx-auto border border-blue-500/20 shadow-xs">
@@ -4463,7 +4460,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                   )}
                 </div>
               ) : (
-                <div className="space-y-2 max-w-4xl mx-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-w-6xl mx-auto">
                   {filteredAllTests.map((t) => {
                     const isCurrent = t.id === editingTestId;
                     const qCount = t.questions?.length || 0;

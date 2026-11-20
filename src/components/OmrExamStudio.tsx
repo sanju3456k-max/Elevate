@@ -657,16 +657,16 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
     <div 
       className="fixed inset-0 bg-[#e5e9f0] dark:bg-[#0b0c10] text-slate-900 dark:text-zinc-100 h-[100dvh] max-h-screen pb-[calc(max(0.5rem,env(safe-area-inset-bottom,0px)))] overflow-hidden flex flex-col z-40 font-sans"
     >
-      {/* Top Header Navigation (Clean & Simple: OMR Mode & Back Button) */}
-      <header className="bg-transparent px-3.5 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.6rem)] pb-2.5 sm:py-3 flex items-center justify-between shrink-0 z-30">
-        <div className="flex items-center gap-3">
+      {/* Top Header Navigation (Clean & Simple: OMR Mode & Back Array Button) */}
+      <header className="bg-transparent px-4 sm:px-6 md:px-8 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2.5 flex items-center justify-between shrink-0 z-30">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <button
             type="button"
             onClick={onExit}
-            className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 border-0 outline-none shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
-            title="Exit OMR Mode"
+            className="p-1 -ml-1 rounded-full text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 border-none border-0 bg-transparent shadow-none outline-none"
+            title="Back to Tests"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
           </button>
 
           <span className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-zinc-100">
@@ -1666,18 +1666,18 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
 
                 return (
                   <>
-                    <div className="px-6 py-4 border-b border-slate-100 dark:border-zinc-800/80 flex items-center justify-between gap-3 shrink-0 bg-white dark:bg-[#1e2024]">
-                      <h3 className="text-base font-semibold text-slate-900 dark:text-zinc-100 truncate">
-                        Question {solutionModalQIndex + 1} Solution
-                      </h3>
+                    <div className="px-6 py-4 border-b border-slate-100 dark:border-zinc-800/80 flex items-center gap-2 shrink-0 bg-white dark:bg-[#1e2024]">
                       <button
                         type="button"
                         onClick={() => setSolutionModalQIndex(null)}
-                        className="w-9 h-9 rounded-full bg-[#f0f4f9] hover:bg-slate-200 dark:bg-[#141619] dark:hover:bg-[#282a30] text-slate-700 dark:text-zinc-300 flex items-center justify-center transition-all cursor-pointer shrink-0 border-0 outline-none"
+                        className="p-1 -ml-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-700 dark:text-zinc-300 flex items-center justify-center transition-all cursor-pointer shrink-0 border-none border-0 bg-transparent shadow-none outline-none"
                         title="Back"
                       >
-                        <ArrowLeft className="w-4 h-4" />
+                        <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
                       </button>
+                      <h3 className="text-base font-semibold text-slate-900 dark:text-zinc-100 truncate">
+                        Question {solutionModalQIndex + 1} Solution
+                      </h3>
                     </div>
 
                     {/* Modal Scrollable Content */}
@@ -1823,6 +1823,14 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
             >
               <div className="px-6 py-3 border-b border-slate-800 flex items-center justify-between text-white bg-slate-900/80">
                 <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsImageFullscreen(false)}
+                    title="Back"
+                    className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition-all cursor-pointer border-0 ring-0 shadow-none shrink-0"
+                  >
+                    <ChevronLeft className="w-5 h-5 stroke-[2.2]" />
+                  </button>
                   <h4 className="text-sm font-bold">Scanned OMR Full Resolution Verification</h4>
                   <div className="hidden sm:flex items-center gap-2 text-xs">
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800 font-medium">
@@ -1836,14 +1844,6 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                     </span>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setIsImageFullscreen(false)}
-                  title="Back"
-                  className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition-all cursor-pointer border-0 ring-0 shadow-none"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                </button>
               </div>
 
               <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-black">

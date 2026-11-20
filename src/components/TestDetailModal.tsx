@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
+  ChevronLeft,
   Share2,
   Check,
   Trophy,
@@ -508,8 +509,18 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header Bar */}
-          <div className="px-4 py-3.5 sm:px-6 sm:py-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] flex items-center justify-between gap-4 bg-transparent border-0 shadow-none shrink-0">
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+          <div className="px-4 sm:px-6 md:px-8 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2.5 flex items-center justify-between gap-4 bg-transparent border-0 shadow-none shrink-0">
+            <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+              <button
+                type="button"
+                id="close-detailed-modal-btn"
+                onClick={onClose}
+                className="p-1 -ml-1 rounded-full text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 border-none border-0 bg-transparent shadow-none outline-none"
+                title="Back"
+                aria-label="Back"
+              >
+                <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
+              </button>
               <div className="min-w-0">
                 {isRemedial && (
                   <span className="text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider text-orange-600 dark:text-orange-400 block truncate">
@@ -549,10 +560,6 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
                   <Trophy className="w-5 h-5 text-amber-500 hover:text-amber-600 transition-colors" />
                 </md-icon-button>
               )}
-
-              <md-icon-button id="close-detailed-modal-btn" onClick={onClose} title="Close">
-                <X className="w-5 h-5 text-[#5e5e5e] dark:text-[#9aa0a6]" />
-              </md-icon-button>
             </div>
           </div>
 

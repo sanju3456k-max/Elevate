@@ -192,3 +192,21 @@ export const DEFAULT_SECURITY_SETTINGS: SecuritySettingsConfig = {
   enableDevToolsDeterrence: true,
   enableStorageEncryption: true,
 };
+
+export interface StudentFeatureAccessConfig {
+  enableTestCreatorStudio: boolean; // Controls student visibility of Test Creator Studio
+  enableCustomTestBuilder: boolean; // Controls student visibility of Custom Test Builder
+  enableOmrPrintStudio: boolean;    // Controls student visibility of OMR & Print Studio
+  enableNotesStudio: boolean;       // Controls student visibility of Notes Studio (including Results page)
+  enableThetaAiChatbot: boolean;    // Controls student visibility of Theta AI Chatbot
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export const DEFAULT_STUDENT_FEATURE_ACCESS: StudentFeatureAccessConfig = {
+  enableTestCreatorStudio: false,
+  enableCustomTestBuilder: false,
+  enableOmrPrintStudio: false,
+  enableNotesStudio: false,
+  enableThetaAiChatbot: false,
+};

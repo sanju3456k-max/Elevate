@@ -26,7 +26,7 @@ import { deobfuscateVideoKey, extractYouTubeId, formatDuration, getLectureThumbn
 import { requestPlaybackToken } from '../../../lms/playbackTokenService';
 import { useApp } from '../../../lms/LmsContext';
 import { useBackHandler, isBrowserFullscreen, exitBrowserFullscreen } from '../../../hooks/useBackNavigation';
-import { enterNativePip, setNativePlaybackPlaying, isNativeAndroid } from '../../../lib/nativeHardwareBridge';
+import { enterNativePip, setNativePlaybackPlaying, isNativeAndroid, hideNativeStatusBar, showNativeStatusBar, lockOrientationLandscape, unlockOrientationPortrait } from '../../../lib/nativeHardwareBridge';
 import type { User, TimelineMilestone, PlaybackSessionToken } from '../../../lms/types';
 
 declare global {
@@ -1252,7 +1252,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       setIsFullscreen(isNowFullscreen);
 
       if (!isNowFullscreen) {
-        // When exiting fullscreen, restore original orientation
+        // When exiting fullscreen, restore original orientation and status bar
+        unlockOrientationPortrait().catch(() => {});
+        showNativeStatusBar();
         try {
           if (screen.orientation && typeof (screen.orientation as any).unlock === 'function') {
             (screen.orientation as any).unlock();
@@ -1262,6 +1264,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         } catch (e) {
           // Ignore unlock errors
         }
+      } else {
+        lockOrientationLandscape().catch(() => {});
+        hideNativeStatusBar();
       }
     };
 
@@ -1271,6 +1276,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     document.addEventListener('MSFullscreenChange', handleFullscreenChange);
 
     return () => {
+      unlockOrientationPortrait().catch(() => {});
+      showNativeStatusBar();
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
       document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
@@ -1286,23 +1293,26 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       document.fullscreenElement ||
       (document as any).webkitFullscreenElement ||
       (document as any).mozFullScreenElement ||
-      (document as any).msFullscreenElement
+      (document as any).msFullscreenElement ||
+      isFullscreen
     );
 
     try {
       if (!isCurrentlyFullscreen) {
         // Request fullscreen on container
         if (el.requestFullscreen) {
-          await el.requestFullscreen();
+          await el.requestFullscreen().catch(() => {});
         } else if (el.webkitRequestFullscreen) {
-          await el.webkitRequestFullscreen();
+          await el.webkitRequestFullscreen().catch(() => {});
         } else if (el.mozRequestFullScreen) {
-          await el.mozRequestFullScreen();
+          await el.mozRequestFullScreen().catch(() => {});
         } else if (el.msRequestFullscreen) {
-          await el.msRequestFullscreen();
+          await el.msRequestFullscreen().catch(() => {});
         }
 
         setIsFullscreen(true);
+        hideNativeStatusBar();
+        await lockOrientationLandscape();
 
         // Lock screen to landscape in full screen
         try {
@@ -1322,6 +1332,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         }
       } else {
         // Exit fullscreen
+        await unlockOrientationPortrait();
+        showNativeStatusBar();
         try {
           if (screen.orientation && typeof (screen.orientation as any).unlock === 'function') {
             (screen.orientation as any).unlock();
@@ -1331,13 +1343,13 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         } catch (e) {}
 
         if (document.exitFullscreen) {
-          await document.exitFullscreen();
+          await document.exitFullscreen().catch(() => {});
         } else if ((document as any).webkitExitFullscreen) {
-          await (document as any).webkitExitFullscreen();
+          await (document as any).webkitExitFullscreen().catch(() => {});
         } else if ((document as any).mozCancelFullScreen) {
-          await (document as any).mozCancelFullScreen();
+          await (document as any).mozCancelFullScreen().catch(() => {});
         } else if ((document as any).msExitFullscreen) {
-          await (document as any).msExitFullscreen();
+          await (document as any).msExitFullscreen().catch(() => {});
         }
 
         setIsFullscreen(false);
@@ -1361,16 +1373,20 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   useEffect(() => {
     if (isMini && (isFullscreen || isBrowserFullscreen())) {
       exitBrowserFullscreen();
+      unlockOrientationPortrait().catch(() => {});
+      showNativeStatusBar();
       setIsFullscreen(false);
     }
   }, [isMini, isFullscreen]);
 
-  // Safety Guard: On unmount, ensure browser is not left trapped in fullscreen
+  // Safety Guard: On unmount, ensure browser is not left trapped in fullscreen and orientation is unlocked
   useEffect(() => {
     return () => {
       if (isBrowserFullscreen()) {
         exitBrowserFullscreen();
       }
+      unlockOrientationPortrait().catch(() => {});
+      showNativeStatusBar();
     };
   }, []);
 
@@ -1443,6 +1459,15 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [togglePlay, handleSkip, toggleFullscreen, toggleMute, isMuted, showNoticeWithDecay]);
+
+  // Native Android PiP RemoteAction Play/Pause listener
+  useEffect(() => {
+    const handleNativePipToggle = () => {
+      togglePlay();
+    };
+    window.addEventListener('nativePipTogglePlayPause', handleNativePipToggle);
+    return () => window.removeEventListener('nativePipTogglePlayPause', handleNativePipToggle);
+  }, [togglePlay]);
 
   const availableSpeeds = [0.75, 1, 1.25, 1.5, 1.75, 2];
 
@@ -1689,23 +1714,17 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                 <ChevronDown className="w-5 h-5 stroke-[2.5]" />
               </button>
             )}
-            <h2 className="text-white text-xs sm:text-sm font-semibold truncate drop-shadow-md">
-              {title}
-            </h2>
           </div>
         </div>
       )}
 
-      {/* 4. Center Play/Pause Floating Control (Clean border, 0 black shadow) */}
-      {!is2xSpeedActive && !seekFeedback && (isControlsVisible || isBufferingOrStarting) && isPlayerReady && authStatus === 'authorized' && (
+      {/* 4. Center Play/Pause Floating Control (YouTube frame handles its own native loading effect) */}
+      {!is2xSpeedActive && !seekFeedback && isControlsVisible && !isBufferingOrStarting && isPlayerReady && authStatus === 'authorized' && (
         <div
           className="absolute inset-0 z-22 flex items-center justify-center pointer-events-none bg-transparent"
         >
-          {isBufferingOrStarting ? (
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-4 border-white/20 border-t-white animate-spin pointer-events-none" />
-          ) : (
-            <button
-              type="button"
+          <button
+            type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 // Prevent synthetic delayed click from firing togglePlay if touch just occurred
@@ -1740,7 +1759,6 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                 <Play className="w-7 h-7 sm:w-8 sm:h-8 fill-current ml-1" />
               )}
             </button>
-          )}
         </div>
       )}
 
@@ -2195,23 +2213,6 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                 </div>
               )}
             </div>
-
-            {/* Picture-in-Picture / Floating In-App PiP Button */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onMinimize) {
-                  onMinimize();
-                } else if (isNativeAndroid()) {
-                  enterNativePip();
-                }
-              }}
-              className="p-1.5 sm:p-2 rounded-full hover:bg-white/15 text-slate-300 hover:text-white transition border-none outline-none cursor-pointer"
-              title="Picture-in-Picture (In-App PiP)"
-              aria-label="Picture-in-Picture"
-            >
-              <PictureInPicture2 className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
 
             {/* Fullscreen Button */}
             <button

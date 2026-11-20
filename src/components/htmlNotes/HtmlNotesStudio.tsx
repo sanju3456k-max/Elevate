@@ -1467,7 +1467,7 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
   }, [handleAddFileToProject, activeProjectId]);
 
   return (
-    <div className={`studio ${isDark ? 'dark' : ''} ${isResizing ? 'is-resizing' : ''} ${studioView === 'home' ? 'is-home-view' : ''}`}>
+    <div className={`studio ${isDark ? 'dark' : ''} ${isResizing ? 'is-resizing' : ''} ${studioView === 'home' ? 'is-home-view flex-1 min-h-0 h-full w-full' : ''}`}>
 
       {/* 1. OVERLEAF-STYLE HOMEPAGE */}
       {studioView === 'home' ? (
@@ -1831,7 +1831,7 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
       {isFullScreenPreview && (
         <div className="fixed inset-0 z-[100] bg-white dark:bg-[#0b0c10] flex flex-col overflow-hidden m3-fade-in">
           {/* Compact Top Bar directly under Device Status Bar */}
-          <div className="min-h-[38px] px-3 sm:px-5 pt-[calc(env(safe-area-inset-top,0px)+0.15rem)] pb-1 bg-white/95 dark:bg-[#0b0c10]/95 backdrop-blur-md border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-2 shrink-0 z-20">
+          <div className="min-h-[38px] px-3 sm:px-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.15rem)] pb-1 bg-white/95 dark:bg-[#0b0c10]/95 backdrop-blur-md border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-2 shrink-0 z-20">
             <div className="flex items-center gap-2 min-w-0">
               <FileCode className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
               <span className="font-bold text-xs sm:text-sm text-slate-800 dark:text-zinc-200 truncate max-w-[150px] sm:max-w-[400px]">

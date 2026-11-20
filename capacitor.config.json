@@ -1,5 +1,5 @@
 {
-  "appId": "com.elevatelabs.app",
+  "appId": "com.elevate.app",
   "appName": "Elevate",
   "webDir": "dist",
   "bundledWebRuntime": false,
