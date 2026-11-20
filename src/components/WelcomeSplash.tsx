@@ -7,26 +7,16 @@ interface WelcomeSplashProps {
 }
 
 export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({
-  durationMs = 1200,
+  durationMs = 1250,
   onFinish,
 }) => {
   const [isVisible, setIsVisible] = useState<boolean>(true);
 
   useEffect(() => {
-    // Detect standalone PWA mode (where Android already displayed the OS native splash screen)
-    const isStandalone = typeof window !== 'undefined' && (
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as any).standalone === true ||
-      document.referrer.includes('android-app://')
-    );
-
-    // In standalone mode, transition out quickly to avoid duplicate splash screens
-    const effectiveDuration = isStandalone ? 350 : durationMs;
-
     const timer = setTimeout(() => {
       setIsVisible(false);
       if (onFinish) onFinish();
-    }, effectiveDuration);
+    }, durationMs);
 
     return () => clearTimeout(timer);
   }, [durationMs, onFinish]);
@@ -41,34 +31,31 @@ export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({
           className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#0f172a] dark:text-[#f8fafc] select-none pointer-events-none transition-colors"
         >
           <motion.div
-            initial={{ scale: 0.92, opacity: 0, y: 6 }}
-            animate={{ scale: 1, opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] } }}
-            className="flex flex-col items-center justify-center gap-4 text-center p-6"
+            initial={{ scale: 0.92, opacity: 0, y: 4 }}
+            animate={{ scale: 1, opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } }}
+            className="flex flex-col items-center justify-center text-center p-6"
           >
-            {/* Authentic Static Aperture Lens Emblem - Pure edge without clipping artifacts */}
-            <div className="relative w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center">
+            {/* Authentic Elevate Aperture Emblem */}
+            <div className="relative w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center drop-shadow-sm">
               <img
-                src="./assets/preplens-icon.svg?v=17"
+                src="./assets/preplens-icon.svg?v=22"
                 alt="Elevate"
-                className="w-full h-full object-contain"
+                className="w-full h-full object-contain dark:brightness-125"
               />
             </div>
 
-            {/* Brand Wordmark & Calibration Arc */}
-            <div className="flex flex-col items-center">
-              <h1 className="text-3xl sm:text-4xl font-black text-[#0b57d0] dark:text-[#a8c7fa] tracking-tight leading-tight">
-                Elevate
-              </h1>
-              <div className="w-32 h-[2.5px] mt-2 mb-1 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 opacity-90" />
-            </div>
+            {/* Brand Wordmark (Clean without any bluish bar underneath) */}
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-[#0b57d0] dark:text-[#a8c7fa] tracking-tight leading-tight mt-3">
+              Elevate
+            </h1>
 
-            {/* Subtle Progress Bar */}
-            <div className="w-36 h-1 mt-3 bg-slate-300/60 dark:bg-zinc-800 rounded-full overflow-hidden">
+            {/* Smooth Indeterminate Progress / Loading Bar */}
+            <div className="w-36 sm:w-40 h-1 mt-4 bg-slate-300/60 dark:bg-zinc-800 rounded-full overflow-hidden">
               <motion.div
                 initial={{ x: '-100%' }}
                 animate={{ x: '100%' }}
-                transition={{ repeat: Infinity, duration: 1, ease: 'easeInOut' }}
-                className="w-1/2 h-full bg-gradient-to-r from-cyan-400 to-sky-500 rounded-full"
+                transition={{ repeat: Infinity, duration: 1.1, ease: 'easeInOut' }}
+                className="w-1/2 h-full bg-[#0b57d0] dark:bg-[#a8c7fa] rounded-full"
               />
             </div>
           </motion.div>

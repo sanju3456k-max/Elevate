@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "649642031919",
+    "project_id": "mock-math-test",
+    "storage_bucket": "mock-math-test.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:649642031919:android:9e978c74e45b40b590bfda",
+        "android_client_info": {
+          "package_name": "com.elevate.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "649642031919-tmtgoi10dbdq6jka2662pqdrnkdkpp9s.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC2uVBDx_Rm4R56n9yJWHRhBxt4u17R7pE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "649642031919-tmtgoi10dbdq6jka2662pqdrnkdkpp9s.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

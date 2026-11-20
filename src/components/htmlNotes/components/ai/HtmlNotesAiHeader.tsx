@@ -13,7 +13,7 @@ export const HtmlNotesAiHeader: React.FC<HtmlNotesAiHeaderProps> = ({
   onClose,
 }) => {
   return (
-    <header className="px-5 pt-[calc(env(safe-area-inset-top,0px)+1rem)] pb-3 bg-white dark:bg-[#141619] flex items-center justify-between shrink-0 z-10 select-none border-0 shadow-none">
+    <header className="px-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1rem)] pb-3 bg-white dark:bg-[#141619] flex items-center justify-between shrink-0 z-10 select-none border-0 shadow-none">
       {/* Brand & Assistant Identity: Exactly Matching the Requested Style */}
       <div className="flex flex-col justify-center min-w-0 leading-tight">
         <span className="font-bold text-lg sm:text-xl tracking-tight bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent leading-none">

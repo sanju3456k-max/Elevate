@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
+  ChevronLeft,
   Trophy, 
   Clock, 
   X, 
@@ -280,9 +281,19 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
           className="fixed inset-0 z-[60] bg-white dark:bg-[#0c0e12] overflow-y-auto flex flex-col font-sans pb-10 select-text [scrollbar-width:thin]"
         >
           {/* Top Header - Seamless Fixed Background Without Heavy Blur Shader */}
-          <header className="sticky top-0 z-20 bg-white dark:bg-[#0c0e12] border-0 shadow-none shrink-0">
-          <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-2.5 sm:py-3.5 flex items-center justify-between gap-3 sm:gap-4">
-            <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
+          <header className="sticky top-0 z-20 bg-white dark:bg-[#0c0e12] border-0 shadow-none shrink-0 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)]">
+          <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 pb-2.5 sm:pb-3.5 flex items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1 -ml-1 rounded-full text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 border-none border-0 bg-transparent shadow-none outline-none"
+                title="Back"
+                aria-label="Back"
+              >
+                <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
+              </button>
+
               <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-amber-950 flex items-center justify-center shadow-xs shrink-0">
                 <Trophy className="w-4.5 h-4.5 sm:w-6 sm:h-6 stroke-[2.2]" />
               </div>
@@ -311,14 +322,6 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                 ) : (
                   <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isRefreshing ? 'animate-spin text-[#0b57d0]' : ''}`} />
                 )}
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800/90 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 flex items-center justify-center transition-all active:scale-95 cursor-pointer"
-                title="Close"
-              >
-                <X className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
           </div>

@@ -841,7 +841,7 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
     return (
       <div className="min-h-screen bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col justify-between transition-colors duration-200">
         {/* Top Header */}
-        <header className="bg-[#e5e9f0] dark:bg-[#0b0c10] border-b-0 px-4 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] pb-2.5 sm:pb-3 flex items-center justify-between gap-2.5 max-w-full shrink-0 sticky top-0 z-20 transition-colors">
+        <header className="bg-[#e5e9f0] dark:bg-[#0b0c10] border-b-0 px-4 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.5rem)] pb-2.5 sm:pb-3 flex items-center justify-between gap-2.5 max-w-full shrink-0 sticky top-0 z-20 transition-colors">
           <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
             <span className="w-3 h-3 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa] shrink-0" />
             <h1 className="text-base sm:text-lg font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] truncate min-w-0" title={test.title}>
@@ -961,7 +961,7 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
       )}
 
       {/* Top Active Header */}
-      <header className="bg-[#e5e9f0] dark:bg-[#0b0c10] px-4 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] pb-2.5 sm:pb-3 flex items-center justify-between gap-2.5 shrink-0 z-20 transition-colors max-w-full border-0">
+      <header className="bg-[#e5e9f0] dark:bg-[#0b0c10] px-4 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.5rem)] pb-2.5 sm:pb-3 flex items-center justify-between gap-2.5 shrink-0 z-20 transition-colors max-w-full border-0">
         <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
           <span className="w-3 h-3 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa] shrink-0" />
           <h2 className="text-base sm:text-lg font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] truncate min-w-0" title={test.title}>
@@ -1432,11 +1432,11 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
               animate="animate"
               exit="exit"
               style={gpuTransformStyle}
-              className="bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] w-[88vw] max-w-[340px] sm:max-w-sm h-full flex flex-col justify-between shadow-2xl rounded-l-[24px] overflow-hidden touch-pan-y cursor-default drawer-panel relative border-0 ring-0"
+              className="bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] w-[88vw] max-w-[340px] sm:max-w-sm h-full flex flex-col justify-between shadow-2xl rounded-l-[24px] overflow-hidden touch-pan-y cursor-default drawer-panel relative border-0 ring-0 landscape:pr-[calc(max(0.5rem,var(--android-cutout-right,env(safe-area-inset-right,0px))))]"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header Section */}
-              <div className="p-4 sm:p-5 pt-[calc(env(safe-area-inset-top,0px)+1.25rem)] shrink-0 space-y-3.5 border-b border-slate-100 dark:border-zinc-800/80">
+              <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.25rem)] shrink-0 space-y-3.5 border-b border-slate-100 dark:border-zinc-800/80">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <h3 className="text-base sm:text-lg font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] tracking-tight">

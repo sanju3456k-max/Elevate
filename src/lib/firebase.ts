@@ -8,6 +8,7 @@ import {
   browserPopupRedirectResolver,
   signInWithPopup, 
   signInWithRedirect,
+  signInWithCredential,
   getRedirectResult,
   GoogleAuthProvider, 
   signOut, 
@@ -71,6 +72,7 @@ import { deleteTestFromIndexedDB } from './indexedDbStorage';
 import { listenerManager } from './listenerManager';
 import { toCompactChatSession, smartCoordinator } from './smartLocalCoordinator';
 import { optimizeTestForFirestore } from './imageOptimization';
+import { isNativeAndroid } from './nativeHardwareBridge';
 
 // Suppress transient offline logs in dev iframe
 try {
@@ -933,106 +935,172 @@ export async function signInWithGoogle(): Promise<User | null> {
   }
 
   activeSignInPromise = (async () => {
-    const start = performance.now();
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const duration = Math.round(performance.now() - start);
-      
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      if (credential?.accessToken) {
-        setCachedGoogleAccessToken(credential.accessToken, result.user?.uid, 3600, result.user?.email);
-        initGoogleDriveAutoRefreshDaemon();
-      }
-      
-      if (result.user) {
-        firestoreTelemetry.setAuthContext({
-          uid: result.user.uid,
-          email: result.user.email,
-          displayName: result.user.displayName,
-          isAnonymous: result.user.isAnonymous,
-        });
+      const start = performance.now();
 
+      // 1. Native Android Device Accounts: Use Google Play Services native bottom sheet (No Chrome redirect!)
+      if (isNativeAndroid()) {
+        try {
+          const pipPlugin = (window as any).Capacitor?.Plugins?.PipBridge;
+          if (pipPlugin && typeof pipPlugin.nativeGoogleSignIn === 'function') {
+            console.log('[NativeAuth] Launching device Google account picker...');
+            const res = await pipPlugin.nativeGoogleSignIn({
+              serverClientId: GOOGLE_OAUTH_CLIENT_ID,
+            });
+            if (res?.idToken) {
+              console.log('[NativeAuth] Received idToken, authenticating Firebase session...');
+              const credential = GoogleAuthProvider.credential(res.idToken);
+              const userCred = await signInWithCredential(auth, credential);
+              const duration = Math.round(performance.now() - start);
+
+              if (userCred.user) {
+                firestoreTelemetry.setAuthContext({
+                  uid: userCred.user.uid,
+                  email: userCred.user.email,
+                  displayName: userCred.user.displayName,
+                  isAnonymous: userCred.user.isAnonymous,
+                });
+
+                firestoreTelemetry.record({
+                  type: 'AUTH',
+                  collection: 'auth',
+                  path: 'auth/nativeGoogleSignIn',
+                  operation: 'signInWithCredential',
+                  durationMs: duration,
+                  data: {
+                    uid: userCred.user.uid,
+                    email: userCred.user.email,
+                    displayName: userCred.user.displayName,
+                    providerId: userCred.providerId,
+                  },
+                  caller: 'Native Android Google Account Chooser',
+                  status: 'success',
+                  statusCode: 'AUTH_SUCCESS',
+                });
+
+                syncUserProfile(userCred.user).catch((err) => {
+                  console.warn('Background sync user profile warning:', err);
+                });
+
+                return userCred.user;
+              }
+            }
+          }
+        } catch (nativeErr: any) {
+          console.warn('[NativeAuth] Native Google Sign-In notice:', nativeErr);
+          const errMsg = String(nativeErr?.message || nativeErr || '').toLowerCase();
+          // If user dismissed the account chooser dialog without selecting, return null quietly
+          if (errMsg.includes('cancelled') || errMsg.includes('12501')) {
+            return null;
+          }
+          console.error('[NativeAuth] Native Google Sign-In failed on Android:', nativeErr);
+          throw new Error(`Google Sign-In failed: ${nativeErr?.message || 'Authentication error'}`);
+        }
+        // On Native Android, never fall through to web popup / Chrome redirect
+        return null;
+      }
+
+      // 2. Web / Fallback Popup Sign-In
+      try {
+        const result = await signInWithPopup(auth, googleProvider);
+        const duration = Math.round(performance.now() - start);
+        
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        if (credential?.accessToken) {
+          setCachedGoogleAccessToken(credential.accessToken, result.user?.uid, 3600, result.user?.email);
+          initGoogleDriveAutoRefreshDaemon();
+        }
+        
+        if (result.user) {
+          firestoreTelemetry.setAuthContext({
+            uid: result.user.uid,
+            email: result.user.email,
+            displayName: result.user.displayName,
+            isAnonymous: result.user.isAnonymous,
+          });
+
+          firestoreTelemetry.record({
+            type: 'AUTH',
+            collection: 'auth',
+            path: 'auth/signInWithPopup',
+            operation: 'signInWithPopup',
+            durationMs: duration,
+            data: {
+              uid: result.user.uid,
+              email: result.user.email,
+              displayName: result.user.displayName,
+              providerId: result.providerId,
+            },
+            caller: 'Google Authentication Popup',
+            status: 'success',
+            statusCode: 'AUTH_SUCCESS',
+          });
+
+          syncUserProfile(result.user).catch((err) => {
+            console.warn('Background sync user profile warning:', err);
+          });
+        }
+        return result.user;
+      } catch (error: any) {
+        const errCode = error?.code || '';
+        const errMsg = (error?.message || String(error || '')).toLowerCase();
+
+        // Silently handle user closing popup manually or duplicate concurrent popup request cancellation
+        if (
+          errCode === 'auth/popup-closed-by-user' ||
+          errCode === 'auth/cancelled-popup-request' ||
+          errMsg.includes('closed-by-user') ||
+          errMsg.includes('cancelled-popup-request')
+        ) {
+          return null;
+        }
+
+        const duration = Math.round(performance.now() - start);
+        console.warn('Popup sign in encountered error/blocked:', error);
+        
         firestoreTelemetry.record({
           type: 'AUTH',
           collection: 'auth',
           path: 'auth/signInWithPopup',
           operation: 'signInWithPopup',
           durationMs: duration,
-          data: {
-            uid: result.user.uid,
-            email: result.user.email,
-            displayName: result.user.displayName,
-            providerId: result.providerId,
-          },
           caller: 'Google Authentication Popup',
-          status: 'success',
-          statusCode: 'AUTH_SUCCESS',
+          status: 'error',
+          statusCode: error?.code || 'AUTH_FAILED',
+          error: String(error?.message || error),
         });
 
-        syncUserProfile(result.user).catch((err) => {
-          console.warn('Background sync user profile warning:', err);
-        });
-      }
-      return result.user;
-    } catch (error: any) {
-      const errCode = error?.code || '';
-      const errMsg = (error?.message || String(error || '')).toLowerCase();
-
-      // Silently handle user closing popup manually or duplicate concurrent popup request cancellation
-      if (
-        errCode === 'auth/popup-closed-by-user' ||
-        errCode === 'auth/cancelled-popup-request' ||
-        errMsg.includes('closed-by-user') ||
-        errMsg.includes('cancelled-popup-request')
-      ) {
-        return null;
-      }
-
-      const duration = Math.round(performance.now() - start);
-      console.warn('Popup sign in encountered error/blocked:', error);
-      
-      firestoreTelemetry.record({
-        type: 'AUTH',
-        collection: 'auth',
-        path: 'auth/signInWithPopup',
-        operation: 'signInWithPopup',
-        durationMs: duration,
-        caller: 'Google Authentication Popup',
-        status: 'error',
-        statusCode: error?.code || 'AUTH_FAILED',
-        error: String(error?.message || error),
-      });
-
-      // Catch network request failed error cleanly
-      if (
-        errCode === 'auth/network-request-failed' ||
-        errMsg.includes('network-request-failed') ||
-        errMsg.includes('network error')
-      ) {
-        console.warn('Firebase authentication network request failed.');
-        throw new Error('Network request failed during authentication. Please check your internet connection or try opening the app in a new tab.');
-      }
-
-      // Detect iframe environment where signInWithRedirect will fail with cross-origin errors
-      const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
-
-      if (
-        errCode === 'auth/popup-blocked' ||
-        errMsg.includes('database is closing') ||
-        errMsg.includes('closing/hidden')
-      ) {
-        if (isInIframe) {
-          throw new Error('Sign-in popup was blocked by your browser. Please allow popups for this site or open the app in a new browser tab.');
+        // Catch network request failed error cleanly
+        if (
+          errCode === 'auth/network-request-failed' ||
+          errMsg.includes('network-request-failed') ||
+          errMsg.includes('network error')
+        ) {
+          console.warn('Firebase authentication network request failed.');
+          throw new Error('Network request failed during authentication. Please check your internet connection or try opening the app in a new tab.');
         }
-        try {
-          await signInWithRedirect(auth, googleProvider);
-          return null;
-        } catch (redirectError: any) {
-          console.warn('Redirect sign-in fallback error:', redirectError);
-          throw new Error('Sign-in popup was blocked and redirect failed. Please allow popups for this site or open the app in a new window.');
+
+        // Detect iframe environment where signInWithRedirect will fail with cross-origin errors
+        const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
+
+        if (
+          errCode === 'auth/popup-blocked' ||
+          errMsg.includes('database is closing') ||
+          errMsg.includes('closing/hidden')
+        ) {
+          if (isInIframe) {
+            throw new Error('Sign-in popup was blocked by your browser. Please allow popups for this site or open the app in a new browser tab.');
+          }
+          try {
+            await signInWithRedirect(auth, googleProvider);
+            return null;
+          } catch (redirectError: any) {
+            console.warn('Redirect sign-in fallback error:', redirectError);
+            throw new Error('Sign-in popup was blocked and redirect failed. Please allow popups for this site or open the app in a new window.');
+          }
         }
+        throw error;
       }
-      throw error;
     } finally {
       activeSignInPromise = null;
     }
@@ -1085,8 +1153,25 @@ export async function checkRedirectResult(): Promise<User | null> {
 export async function signOutUser(): Promise<void> {
   const start = performance.now();
   try {
+    activeSignInPromise = null;
     invalidateFirestoreCaches();
     clearGoogleDriveAuth(false);
+
+    // On native Android, revoke access and sign out from Google Play Services client
+    if (isNativeAndroid()) {
+      try {
+        const pipPlugin = (window as any).Capacitor?.Plugins?.PipBridge;
+        if (pipPlugin && typeof pipPlugin.nativeGoogleSignOut === 'function') {
+          console.log('[NativeAuth] Signing out and revoking access from native Google client...');
+          await pipPlugin.nativeGoogleSignOut({
+            serverClientId: GOOGLE_OAUTH_CLIENT_ID,
+          });
+        }
+      } catch (nativeSignOutErr) {
+        console.warn('[NativeAuth] Native Google Sign-Out notice:', nativeSignOutErr);
+      }
+    }
+
     await signOut(auth);
     const duration = Math.round(performance.now() - start);
     

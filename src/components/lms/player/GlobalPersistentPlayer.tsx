@@ -21,7 +21,7 @@ import { CloakedVideoPlayer } from './CloakedVideoPlayer';
 import { useApp } from '../../../lms/LmsContext';
 import { formatDuration, getLectureThumbnailUrl } from '../../../lms/security';
 import { useBackHandler, isBrowserFullscreen, exitBrowserFullscreen } from '../../../hooks/useBackNavigation';
-import { enterNativePip, isNativeAndroid, setNativePlaybackPlaying } from '../../../lib/nativeHardwareBridge';
+import { enterNativePip, isNativeAndroid, setNativePlaybackPlaying, unlockOrientationPortrait, showNativeStatusBar } from '../../../lib/nativeHardwareBridge';
 import type { TimelineMilestone, Lecture } from '../../../lms/types';
 
 export interface PersistentPlaybackData {
@@ -132,10 +132,10 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
     }
   }, [activeTab, playback, onUpdatePlayback]);
 
-  // Back handler when expanded: If fullscreen, exit fullscreen first; otherwise minimize to floating mini player (YouTube style)
+  // Back handler when expanded: If fullscreen, exit fullscreen first; otherwise minimize to strip (YouTube style)
   useBackHandler({
     isOpen: Boolean(playback && !playback.isMinimized),
-    priority: 85,
+    priority: 50,
     id: 'global_persistent_player_back',
     onBack: () => {
       if (isBrowserFullscreen()) {
@@ -146,14 +146,30 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
     },
   });
 
-  // Keep native hardware bridge in sync with active playback
+  // Keep native Android PiP bridge informed of active playback
   useEffect(() => {
-    if (playback?.isPlaying) {
-      setNativePlaybackPlaying(true);
-    } else {
-      setNativePlaybackPlaying(false);
-    }
+    setNativePlaybackPlaying(Boolean(playback && playback.isPlaying));
   }, [playback?.isPlaying]);
+
+  // Track system-level Android OS Picture-in-Picture window transitions
+  const [isInNativePip, setIsInNativePip] = useState(false);
+  const wasInNativePipRef = useRef(false);
+
+  useEffect(() => {
+    const handleNativePip = (e: any) => {
+      const inPip = Boolean(e?.detail?.inPip);
+      setIsInNativePip(inPip);
+
+      if (wasInNativePipRef.current && !inPip) {
+        // User tapped the expand / fullscreen button on the native Android PiP window!
+        // Redirect directly to the full video player page in the app instead of staying in mini-player.
+        onUpdatePlayback((prev) => (prev ? { ...prev, isMinimized: false } : null));
+      }
+      wasInNativePipRef.current = inPip;
+    };
+    window.addEventListener('nativePipChanged', handleNativePip);
+    return () => window.removeEventListener('nativePipChanged', handleNativePip);
+  }, [onUpdatePlayback]);
 
   const isTestMode = activeTab === 'take-test' || activeTab === 'omr-test';
   const isBottomNavVisible = !isInsideBatch && ['home', 'batches', 'tests', 'analytics'].includes(activeTab);
@@ -269,6 +285,8 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
 
   const handleClose = useCallback((e?: React.MouseEvent) => {
     e?.stopPropagation();
+    unlockOrientationPortrait().catch(() => {});
+    showNativeStatusBar();
     onClose();
   }, [onClose]);
 
@@ -315,20 +333,57 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
     setCurrentPlaybackSec(0);
   };
 
+  // Lock window/body/html scrolling when full persistent player is open on mobile to eliminate any overscroll lift
+  useEffect(() => {
+    if (!playback || isMinimized || isInNativePip) {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      return;
+    }
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    window.scrollTo(0, 0);
+
+    const handleScrollLock = () => {
+      if (window.scrollY !== 0) {
+        window.scrollTo(0, 0);
+      }
+    };
+
+    window.addEventListener('scroll', handleScrollLock, { passive: false });
+
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      window.removeEventListener('scroll', handleScrollLock);
+    };
+  }, [playback, isMinimized, isInNativePip]);
+
   if (!playback) return null;
 
   return (
-    <div
-      id="global-persistent-player-host"
-      className={
-        isMinimized
-          ? `fixed right-3 sm:right-5 md:right-6 w-[280px] xs:w-[300px] sm:w-[340px] md:w-[380px] z-50 bg-[#16181d] text-white rounded-2xl md:rounded-3xl shadow-none border border-slate-300 dark:border-zinc-700/80 p-0 transition-all duration-300 ease-in-out select-none overflow-hidden ${
-              !isTestMode ? 'flex flex-col' : 'hidden'
-            }`
-          : 'fixed inset-x-0 bottom-0 top-[env(safe-area-inset-top,0px)] md:top-[58px] z-50 md:z-40 bg-[var(--md-sys-color-background)] overflow-y-auto px-0 lg:px-8 py-0 lg:py-6 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 max-w-[1720px] mx-auto w-full items-start transition-all duration-300 ease-in-out'
-      }
+    <>
+      {/* Mobile & Tablet Status Bar Background Guard (Ensures seamless plain top area) */}
+      {!isMinimized && !isInNativePip && (
+        <div className="fixed top-0 inset-x-0 h-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] bg-[#e5e9f0] dark:bg-[#0b0c10] z-50 pointer-events-none transition-colors" />
+      )}
+      <div
+        id="global-persistent-player-host"
+        className={
+          isInNativePip
+            ? 'fixed inset-0 w-full h-full z-[99999] bg-black overflow-hidden flex items-center justify-center p-0 m-0'
+            : isMinimized
+            ? `fixed right-3 sm:right-5 md:right-6 w-[280px] xs:w-[300px] sm:w-[340px] md:w-[380px] z-50 bg-[#16181d] text-white rounded-2xl md:rounded-3xl shadow-none border-0 border-none ring-0 p-0 transition-all duration-300 select-none overflow-hidden ${
+                !isTestMode ? 'flex flex-col' : 'hidden'
+              }`
+            : 'fixed inset-0 top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] md:top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] z-40 bg-[#e5e9f0] dark:bg-[#0b0c10] flex flex-col lg:grid lg:grid-cols-12 lg:gap-6 max-w-[1720px] mx-auto w-full items-start overflow-hidden lg:overflow-y-auto lg:px-8 lg:pt-3 lg:pb-24 overscroll-contain select-text'
+        }
       style={
-        isMinimized
+        isInNativePip
+          ? undefined
+          : isMinimized
           ? {
               bottom: isBottomNavVisible
                 ? 'calc(76px + env(safe-area-inset-bottom, 0px))'
@@ -336,25 +391,23 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             }
           : undefined
       }
-      onClick={isMinimized ? handleExpand : undefined}
+      onClick={isMinimized && !isInNativePip ? handleExpand : undefined}
     >
-      {/* 1. THE PERSISTENT VIDEO PLAYER FRAME & WATCH INFO (Left 8 cols on desktop, NEVER UNMOUNTS) */}
+      {/* 1. THE PERSISTENT VIDEO PLAYER FRAME (NEVER UNMOUNTS) */}
       <div
         className={
-          isMinimized
+          isInNativePip
+            ? 'w-full h-full bg-black flex items-center justify-center p-0 m-0 overflow-hidden'
+            : isMinimized
             ? 'w-full aspect-video shrink-0 rounded-t-2xl md:rounded-t-3xl overflow-hidden relative bg-black group/minivid'
-            : 'lg:col-span-8 space-y-4 w-full pt-0'
+            : 'w-full aspect-video shrink-0 bg-black z-40 lg:col-span-7 xl:col-span-8 lg:col-start-1 lg:row-start-1 shadow-none rounded-none lg:rounded-3xl lg:shadow-lg overflow-hidden group relative sticky top-0'
         }
       >
         <div
-          className={
-            isMinimized
-              ? 'w-full h-full relative overflow-hidden flex items-center justify-center bg-black'
-              : 'aspect-video w-full sticky top-0 z-40 bg-black shadow-none rounded-none lg:rounded-3xl lg:shadow-lg overflow-hidden group lg:static'
-          }
+          className="w-full h-full relative overflow-hidden flex items-center justify-center bg-black"
         >
           {/* In-App Floating PiP Player Controls Overlay (Unified Mobile, Tablet & Desktop) */}
-          {isMinimized && (
+          {isMinimized && !isInNativePip && (
             <div
               className={`absolute inset-0 z-30 transition-opacity duration-200 pointer-events-auto select-none ${
                 !playback.isPlaying || isMiniControlsActive
@@ -368,9 +421,9 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 handleTogglePlay(e);
               }}
             >
-              {/* Top Row: Expand, External OS PiP, Close buttons (Clean, 0 black gradient/shadow) */}
+              {/* Top Row: Expand, External OS PiP, Close buttons */}
               <div
-                className="absolute top-0 inset-x-0 flex items-start justify-between px-2.5 pt-2 z-10 pointer-events-none"
+                className="absolute top-0 inset-x-0 h-14 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-start justify-between px-2.5 pt-2 z-10"
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
@@ -380,13 +433,13 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                     e.stopPropagation();
                     handleExpand();
                   }}
-                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/70 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center transition border border-white/20 cursor-pointer shadow-none pointer-events-auto"
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/60 hover:bg-black/80 active:scale-90 text-white flex items-center justify-center transition border border-white/10 cursor-pointer shadow-md"
                   title="Expand to Full Video"
                   aria-label="Expand to Full Video"
                 >
                   <Maximize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
-                <div className="flex items-center gap-1.5 pointer-events-auto">
+                <div className="flex items-center gap-1.5">
                   {isNativeAndroid() && (
                     <button
                       type="button"
@@ -395,7 +448,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                         e.stopPropagation();
                         enterNativePip();
                       }}
-                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/70 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center transition border border-white/20 cursor-pointer shadow-none"
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/60 hover:bg-black/80 active:scale-90 text-white flex items-center justify-center transition border border-white/10 cursor-pointer shadow-md"
                       title="Float on Android Home Screen (OS PiP)"
                       aria-label="Float on Android Home Screen"
                     >
@@ -409,7 +462,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                       e.stopPropagation();
                       handleClose(e);
                     }}
-                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/70 hover:bg-rose-600 active:scale-90 text-white flex items-center justify-center transition border border-white/20 cursor-pointer shadow-none"
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/60 hover:bg-rose-600 active:scale-90 text-white flex items-center justify-center transition border border-white/10 cursor-pointer shadow-md"
                     title="Close Video"
                     aria-label="Close Video"
                   >
@@ -418,12 +471,12 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 </div>
               </div>
 
-              {/* Center Controls: 10s Rewind | Big Play/Pause | 10s Skip (Clean border, 0 black shadow) */}
+              {/* Center Controls: 10s Rewind | Big Play/Pause | 10s Skip */}
               <div className="absolute inset-0 flex items-center justify-center gap-3 sm:gap-5 pointer-events-none z-20">
                 <button
                   type="button"
                   onClick={(e) => handleSkip10(-10, e)}
-                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/70 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center transition border border-white/20 cursor-pointer shadow-none pointer-events-auto"
+                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/60 hover:bg-black/80 active:scale-90 text-white flex items-center justify-center transition border border-white/10 cursor-pointer shadow-md pointer-events-auto"
                   title="Rewind 10s"
                   aria-label="Rewind 10s"
                 >
@@ -437,7 +490,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                     e.stopPropagation();
                     handleTogglePlay(e);
                   }}
-                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-zinc-950/95 hover:bg-zinc-900 active:scale-95 text-white flex items-center justify-center transition border border-white/25 cursor-pointer shadow-none pointer-events-auto select-none"
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-zinc-950/95 hover:bg-zinc-900 active:scale-95 text-white flex items-center justify-center transition border border-white/20 cursor-pointer shadow-[0_8px_24px_rgba(0,0,0,0.85)] pointer-events-auto select-none"
                   title={playback.isPlaying ? 'Pause' : 'Play'}
                   aria-label={playback.isPlaying ? 'Pause' : 'Play'}
                 >
@@ -451,7 +504,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 <button
                   type="button"
                   onClick={(e) => handleSkip10(10, e)}
-                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/70 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center transition border border-white/20 cursor-pointer shadow-none pointer-events-auto"
+                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/60 hover:bg-black/80 active:scale-90 text-white flex items-center justify-center transition border border-white/10 cursor-pointer shadow-md pointer-events-auto"
                   title="Skip 10s"
                   aria-label="Skip 10s"
                 >
@@ -459,12 +512,12 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 </button>
               </div>
 
-              {/* Bottom Row: Duration Badge (Clean pill, 0 black gradient) */}
+              {/* Bottom Row: Duration Text */}
               <div
-                className="absolute bottom-2 left-2.5 z-10 select-none pointer-events-none"
+                className="absolute bottom-0 inset-x-0 h-10 bg-gradient-to-t from-black/85 via-black/40 to-transparent flex items-end justify-between px-3 pb-1.5 z-10 select-none"
                 onClick={(e) => e.stopPropagation()}
               >
-                <span className="text-white text-[10px] font-mono font-medium bg-black/75 backdrop-blur-xs px-2 py-0.5 rounded-md border border-white/15 select-none pointer-events-auto">
+                <span className="text-white text-[10.5px] font-mono font-medium drop-shadow relative z-10">
                   {formatDuration(currentPlaybackSec)} / {formatDuration(totalDuration > 0 ? totalDuration : ((playback.durationMinutes || 0) * 60))}
                 </span>
               </div>
@@ -489,72 +542,10 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             onMinimize={handleMinimize}
           />
         </div>
-
-        {/* When Expanded: Lecture Title, Badge, Duration, and YouTube-style Description Card */}
-        {!isMinimized && (
-          <div className="space-y-4 px-3.5 sm:px-6 lg:px-0">
-            {/* Title & Actions row */}
-            <div className="space-y-2 pt-1">
-              <h1 className="text-base sm:text-xl md:text-2xl font-bold text-[var(--md-sys-color-on-surface)] leading-snug tracking-tight">
-                {playback.lectureTitle}
-              </h1>
-              <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
-                <div className="flex items-center flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] text-xs font-bold shadow-2xs">
-                    <BookOpen className="w-3.5 h-3.5" />
-                    <span className="truncate max-w-[200px]">{playback.batchTitle}</span>
-                  </span>
-                  {(totalDuration > 0 || Boolean(playback.durationMinutes)) && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] text-xs font-medium">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>
-                        {totalDuration > 0
-                          ? formatDuration(totalDuration)
-                          : `${playback.durationMinutes} mins`}
-                      </span>
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* YouTube-style Description Card */}
-            <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-2 border border-[var(--md-sys-color-outline-variant)]/10 shadow-xs">
-              <div className="flex items-center justify-between text-xs font-bold text-[var(--md-sys-color-on-surface-variant)]">
-                <span>Lecture Overview</span>
-                <span className="text-[11px] font-medium opacity-80">{playback.batchTitle}</span>
-              </div>
-              <p className="text-xs sm:text-[13px] text-[var(--md-sys-color-on-surface)] leading-relaxed whitespace-pre-wrap">
-                {playback.lectureDescription || 'Comprehensive recorded session and conceptual curriculum module with practice problems, real-time study notes, and chapter milestones.'}
-              </p>
-
-              {playback.milestones && playback.milestones.length > 0 && (
-                <div className="pt-2 border-t border-[var(--md-sys-color-outline-variant)]/15">
-                  <p className="text-[11px] font-bold text-[var(--md-sys-color-on-surface-variant)] mb-1.5 uppercase tracking-wider">
-                    Chapters & Milestones
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {playback.milestones.map((m, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setSeekSeconds(m.seconds)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--md-sys-color-surface-container-high)] hover:bg-[var(--md-sys-color-primary-container)] hover:text-[var(--md-sys-color-on-primary-container)] text-[11px] font-medium text-[var(--md-sys-color-on-surface)] border-none cursor-pointer transition"
-                      >
-                        <span className="font-mono text-[var(--md-sys-color-primary)] font-bold">{formatDuration(m.seconds)}</span>
-                        <span>{m.title}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 2. In Minimized View: Unified PiP Bottom Metadata Card & Glowing Progress Bar */}
-      {isMinimized && (
+      {isMinimized && !isInNativePip && (
         <div
           className="px-3 py-2.5 sm:px-3.5 sm:py-2.5 flex items-center justify-between gap-2.5 bg-white dark:bg-[#1a1c22] cursor-pointer relative"
           onClick={handleExpand}
@@ -600,25 +591,90 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
         </div>
       )}
 
-      {/* 3. In Expanded View: Right Sidebar (Course Playlist Queue + Lecture Notes) */}
-      {!isMinimized && (
-        <div className="lg:col-span-4 space-y-5 w-full px-3.5 sm:px-6 lg:px-0">
+      {/* 3. In Expanded View: Mobile Scrollable Body / Desktop Grid Placement */}
+      {!isMinimized && !isInNativePip && (
+        <div 
+          className="flex-1 min-h-0 w-full overflow-y-auto overscroll-contain lg:overflow-visible lg:contents space-y-4 lg:space-y-0 px-3.5 sm:px-6 lg:px-0 py-3 lg:py-0 pb-12 lg:pb-0"
+          style={{ overscrollBehavior: 'contain', overscrollBehaviorY: 'contain' }}
+        >
+          {/* Main/Left Column: Title, Badges & Overview */}
+          <div className="space-y-4 lg:col-span-8 lg:col-start-1 lg:row-start-2 w-full">
+            {/* Title & Actions row */}
+            <div className="space-y-2 pt-1 sm:pt-2">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 dark:text-zinc-100 leading-snug tracking-tight">
+                {playback.lectureTitle}
+              </h1>
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-1 border-0">
+                <div className="flex items-center flex-wrap gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-[#1e2024] text-[#0b57d0] dark:text-[#a8c7fa] text-xs font-bold border-0 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]">
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span className="truncate max-w-[200px]">{playback.batchTitle}</span>
+                  </span>
+                  {(totalDuration > 0 || Boolean(playback.durationMinutes)) && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white dark:bg-[#1e2024] text-slate-700 dark:text-zinc-300 text-xs font-semibold border-0 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>
+                        {totalDuration > 0
+                          ? formatDuration(totalDuration)
+                          : `${playback.durationMinutes} mins`}
+                      </span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* YouTube-style Description Card */}
+            <div className="bg-white dark:bg-[#1e2024] rounded-3xl p-4 sm:p-5 space-y-2.5 border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-zinc-400">
+                <span>Lecture Overview</span>
+                <span className="text-[11px] font-medium opacity-80">{playback.batchTitle}</span>
+              </div>
+              <p className="text-xs sm:text-[13px] text-slate-700 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">
+                {playback.lectureDescription || 'Comprehensive recorded session and conceptual curriculum module with practice problems, real-time study notes, and chapter milestones.'}
+              </p>
+
+              {playback.milestones && playback.milestones.length > 0 && (
+                <div className="pt-2.5 border-t border-slate-100 dark:border-zinc-800">
+                  <p className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 mb-2 uppercase tracking-wider">
+                    Chapters & Milestones
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {playback.milestones.map((m, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSeekSeconds(m.seconds)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-blue-50 dark:bg-zinc-800 dark:hover:bg-blue-950/50 text-[11px] font-semibold text-slate-800 dark:text-zinc-200 border-0 cursor-pointer transition active:scale-95"
+                      >
+                        <span className="font-mono text-[#0b57d0] dark:text-[#a8c7fa] font-bold">{formatDuration(m.seconds)}</span>
+                        <span>{m.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right/Secondary Column (More in this Course + Lecture Notes) */}
+          <div className="space-y-5 lg:col-span-5 xl:col-span-4 lg:col-start-8 xl:col-start-9 lg:row-start-1 lg:row-span-2 w-full">
           {/* YouTube-style Course Playlist Queue (Top on Desktop) */}
           {batchLectures.length > 0 && (
-            <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs space-y-3 border border-[var(--md-sys-color-outline-variant)]/10">
-              <div className="flex items-center justify-between pb-2 border-b border-[var(--md-sys-color-outline-variant)]/15">
+            <div className="bg-white dark:bg-[#1e2024] rounded-3xl p-4 sm:p-5 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-3 border-0">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
                 <div className="flex items-center space-x-2">
-                  <ListVideo className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
-                  <h3 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)]">
+                  <ListVideo className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100">
                     More in this Course
                   </h3>
                 </div>
-                <span className="text-[11px] font-semibold text-[var(--md-sys-color-on-surface-variant)]">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">
                   {batchLectures.length} Lectures
                 </span>
               </div>
 
-              <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
                 {batchLectures.map((lec) => {
                   const isCurrent = lec.id === playback.lectureId;
                   return (
@@ -627,10 +683,10 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                       onClick={() => {
                         if (!isCurrent) switchLecture(lec);
                       }}
-                      className={`rounded-2xl sm:rounded-3xl overflow-hidden flex flex-row items-stretch p-0 border transition cursor-pointer group shadow-2xs hover:shadow-xs relative ${
+                      className={`rounded-2xl overflow-hidden flex flex-row items-stretch p-0 border-0 transition cursor-pointer group relative ${
                         isCurrent
-                          ? 'bg-[var(--md-sys-color-primary-container)]/25 border-[var(--md-sys-color-primary)]/40'
-                          : 'bg-[var(--md-sys-color-surface)] hover:bg-[var(--md-sys-color-surface-container-high)] border-[var(--md-sys-color-outline-variant)]/15'
+                          ? 'bg-blue-50 dark:bg-blue-950/40 shadow-xs'
+                          : 'bg-slate-50 dark:bg-[#141619] hover:bg-slate-100 dark:hover:bg-[#25272c]'
                       }`}
                     >
                       {/* Left: Full edge-to-edge flush video preview on card side */}
@@ -650,7 +706,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                         />
                         {isCurrent ? (
                           <div className="absolute inset-0 bg-black/50 backdrop-blur-2xs flex items-center justify-center">
-                            <div className="w-6 h-6 rounded-full bg-[var(--md-sys-color-primary)] text-white flex items-center justify-center shadow-md">
+                            <div className="w-6 h-6 rounded-full bg-[#0b57d0] text-white flex items-center justify-center shadow-md">
                               <Play className="w-3 h-3 fill-current ml-0.5" />
                             </div>
                           </div>
@@ -669,25 +725,25 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                       <div className="flex-1 min-w-0 p-3 sm:p-3.5 flex items-center justify-between gap-2.5">
                         <div className="min-w-0 flex-1 space-y-0.5">
                           {isCurrent && (
-                            <span className="text-[10px] font-bold text-[var(--md-sys-color-primary)] tracking-wider uppercase block">
+                            <span className="text-[10px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] tracking-wider uppercase block">
                               Playing
                             </span>
                           )}
                           <p
                             className={`text-xs sm:text-[13px] font-bold truncate leading-snug ${
                               isCurrent
-                                ? 'text-[var(--md-sys-color-primary)]'
-                                : 'text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)]'
+                                ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
+                                : 'text-slate-900 dark:text-zinc-100 group-hover:text-[#0b57d0]'
                             }`}
                           >
                             {lec.title}
                           </p>
-                          <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] truncate leading-normal">
+                          <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate leading-normal">
                             {lec.description || playback.batchTitle}
                           </p>
                         </div>
                         {!isCurrent && (
-                          <ChevronRight className="w-4 h-4 text-[var(--md-sys-color-outline)] group-hover:text-[var(--md-sys-color-primary)] group-hover:translate-x-0.5 transition shrink-0" />
+                          <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#0b57d0] group-hover:translate-x-0.5 transition shrink-0" />
                         )}
                       </div>
                     </div>
@@ -698,23 +754,23 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
           )}
 
           {/* Lecture Notes Card (Bottom on Desktop) */}
-          <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs space-y-4 border border-[var(--md-sys-color-outline-variant)]/10">
-            <div className="flex items-center justify-between pb-2 border-b border-[var(--md-sys-color-outline-variant)]/15">
+          <div className="bg-white dark:bg-[#1e2024] rounded-3xl p-4 sm:p-5 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-4 border-0">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
               <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-950/60 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0">
                   <FileText className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] leading-tight">
+                  <h2 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100 leading-tight">
                     Lecture Notes
                   </h2>
-                  <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                  <p className="text-[10px] text-slate-500 dark:text-zinc-400">
                     Personal study notes & key takeaways
                   </p>
                 </div>
               </div>
               {currentLectureNotes.length > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-[var(--md-sys-color-surface-container-high)] text-[10px] font-bold text-[var(--md-sys-color-on-surface-variant)]">
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-[10px] font-bold text-slate-600 dark:text-zinc-400">
                   {currentLectureNotes.length} saved
                 </span>
               )}
@@ -727,13 +783,13 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 value={noteInputText}
                 onChange={(e) => setNoteInputText(e.target.value)}
                 placeholder="Write your study notes, formulas, or key concepts freely..."
-                className="w-full px-3 py-2.5 rounded-xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs text-[var(--md-sys-color-on-surface)] placeholder:text-[var(--md-sys-color-on-surface-variant)]/60 resize-none focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition"
+                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border-0 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 resize-none focus:outline-hidden focus:ring-1 focus:ring-[#0b57d0] transition"
               />
               <div className="flex items-center justify-end">
                 <button
                   type="submit"
                   disabled={!noteInputText.trim()}
-                  className="px-4 py-2 rounded-xl bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] text-xs font-bold border-none cursor-pointer disabled:opacity-50 flex items-center space-x-1.5 hover:opacity-95 active:scale-95 transition shrink-0 shadow-2xs"
+                  className="px-4 py-2 rounded-full bg-[#0b57d0] text-white text-xs font-bold border-none cursor-pointer disabled:opacity-50 flex items-center space-x-1.5 hover:bg-[#0842a0] active:scale-95 transition shrink-0 shadow-2xs"
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                   <span>Save Note</span>
@@ -742,13 +798,13 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             </form>
 
             {/* Saved Notes List */}
-            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-64 sm:max-h-72 lg:max-h-80 overflow-y-auto pr-1">
               {currentLectureNotes.length === 0 ? (
-                <div className="p-4 text-center rounded-2xl bg-[var(--md-sys-color-surface)]/60 border border-[var(--md-sys-color-outline-variant)]/10 space-y-1">
-                  <p className="text-xs font-semibold text-[var(--md-sys-color-on-surface)]">
+                <div className="p-4 text-center rounded-2xl bg-slate-50 dark:bg-zinc-800/40 border-0 space-y-1">
+                  <p className="text-xs font-semibold text-slate-800 dark:text-zinc-200">
                     No notes saved yet
                   </p>
-                  <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                  <p className="text-[10px] text-slate-500 dark:text-zinc-400">
                     Write key concepts or formulas above to review them anytime.
                   </p>
                 </div>
@@ -756,7 +812,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 currentLectureNotes.map((note) => (
                   <div
                     key={note.id}
-                    className="p-3 rounded-2xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/20 flex items-start justify-between gap-2.5 transition hover:shadow-xs group"
+                    className="p-3 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border-0 flex items-start justify-between gap-2.5 transition hover:shadow-xs group"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="text-xs sm:text-[13px] text-[var(--md-sys-color-on-surface)] break-words leading-relaxed whitespace-pre-wrap">
@@ -777,7 +833,9 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             </div>
           </div>
         </div>
+      </div>
       )}
     </div>
+    </>
   );
 };

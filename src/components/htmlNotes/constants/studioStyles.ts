@@ -50,17 +50,12 @@ export const STUDIO_CSS_STYLES = `
     background-color: rgba(161, 161, 170, 0.9) !important;
   }
 
-  .studio.is-home-view,
-  .studio.is-home-view * {
-    scrollbar-width: none !important;
-    -ms-overflow-style: none !important;
-  }
-
-  .studio.is-home-view::-webkit-scrollbar,
-  .studio.is-home-view *::-webkit-scrollbar {
-    display: none !important;
-    width: 0px !important;
-    height: 0px !important;
+  .studio.is-home-view {
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    flex: 1 1 0% !important;
+    overflow: hidden !important;
   }
 
   .studio {

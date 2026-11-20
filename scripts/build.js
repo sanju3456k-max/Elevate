@@ -4,6 +4,11 @@ import fs from 'fs';
 try {
   console.log('0. Generating PWA icons...');
   execSync('node scripts/generate-icons.js', { stdio: 'inherit' });
+  try {
+    execSync('python scripts/generate-android-assets.py', { stdio: 'inherit' });
+  } catch (e) {
+    // Graceful fallback if python/pymupdf is not available in environment
+  }
 
   console.log('1. Building Vite frontend assets...');
   execSync('npx vite build', { stdio: 'inherit' });

@@ -17,6 +17,7 @@ import {
   FileCheck2,
   Save, 
   ArrowLeft, 
+  ChevronLeft,
   ChevronDown, 
   ChevronUp, 
   Bookmark, 
@@ -562,35 +563,35 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
       <div className={APP_STYLES.customBuilder.headerArea}>
         <div className={APP_STYLES.customBuilder.maxContent}>
         {/* Header Bar with clean icon badge */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 pb-0.5 sm:pb-1">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-row items-center justify-between gap-2 pb-0.5 sm:pb-1">
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
           <button
+            type="button"
             onClick={onCancel}
             title="Back to Tests"
-            data-desktop-hide-back="true"
-            className="md:hidden desktop-hide-back-btn w-9 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all duration-200 cursor-pointer shrink-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] border-0 ring-0 outline-none select-none active:scale-95"
+            className="p-1 -ml-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all duration-200 cursor-pointer shrink-0 border-none border-0 bg-transparent shadow-none ring-0 outline-none select-none active:scale-95"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
           </button>
           
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold text-[#1f1f1f] dark:text-[#e3e3e3] tracking-tight">
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-lg lg:text-xl landscape:text-base font-bold text-[#1f1f1f] dark:text-[#e3e3e3] tracking-tight truncate">
               Custom Test Generator
             </h1>
-            <p className="text-xs text-[#5e5e5e] dark:text-[#9aa0a6] mt-0.5 font-medium">
+            <p className="text-xs text-[#5e5e5e] dark:text-[#9aa0a6] mt-0.5 font-medium truncate hidden sm:block landscape:!hidden">
               Build high-yield custom exams from your question bank by category, topic, or wrong answers.
             </p>
           </div>
         </div>
 
         {/* Global Quick Bulk Selection & Status Filters Dropdown */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2 shrink-0">
           <div className="relative" ref={filterDropdownRef}>
             <button
               type="button"
               id="custom-test-bulk-filter-btn"
               onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
-              className="flex items-center gap-2 px-4 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] border-0 ring-0 outline-none select-none text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-semibold shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] cursor-pointer active:scale-95 transition-all duration-200 shrink-0"
+              className="flex items-center gap-2 px-3.5 sm:px-4 h-9 landscape:h-8 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] border-0 ring-0 outline-none select-none text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-semibold shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] cursor-pointer active:scale-95 transition-all duration-200 shrink-0"
               title="Bulk filter and select questions by status"
             >
               <Filter className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
@@ -600,7 +601,7 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
 
             {/* Dropdown Menu Popover */}
             {isFilterDropdownOpen && (
-              <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-[#1e2024] rounded-[28px] shadow-[0_4px_16px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.6)] p-2.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-100 border-0 ring-0">
+              <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] max-h-64 landscape:max-h-48 overflow-y-auto bg-white dark:bg-[#1e2024] rounded-[28px] shadow-[0_4px_16px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.6)] p-2.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-100 border-0 ring-0">
                 <div className="px-3 py-1.5 text-[10px] font-bold text-[#5e5e5e] dark:text-[#9aa0a6] uppercase tracking-wider">
                   Bulk Select by Question Status
                 </div>
@@ -739,7 +740,7 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
             type="button"
             id="choose-topic-btn"
             onClick={() => setIsTopicDropdownOpen(!isTopicDropdownOpen)}
-            className="flex items-center justify-between gap-2 px-4 h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] border-0 ring-0 outline-none select-none text-[#1f1f1f] dark:text-[#e3e3e3] max-w-[170px] sm:max-w-none text-xs font-semibold shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] cursor-pointer active:scale-95 transition-all duration-200 shrink-0"
+            className="flex items-center justify-between gap-2 px-3.5 sm:px-4 h-9 landscape:h-8 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] border-0 ring-0 outline-none select-none text-[#1f1f1f] dark:text-[#e3e3e3] max-w-[170px] sm:max-w-none text-xs font-semibold shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] cursor-pointer active:scale-95 transition-all duration-200 shrink-0"
           >
             <SlidersHorizontal className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] shrink-0" />
             <div className="flex items-center gap-1 truncate">
@@ -751,7 +752,7 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
 
           {/* Dropdown Menu Popover */}
           {isTopicDropdownOpen && (
-            <div className="absolute top-full left-0 right-auto mt-2 w-72 max-w-[calc(100vw-2rem)] max-h-64 overflow-y-auto bg-white dark:bg-[#1e2024] rounded-[24px] shadow-[0_4px_16px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.6)] p-2.5 z-40 space-y-1 animate-in fade-in duration-100 border-0 ring-0">
+            <div className="absolute top-full left-0 right-auto mt-2 w-72 max-w-[calc(100vw-2rem)] max-h-64 landscape:max-h-48 overflow-y-auto bg-white dark:bg-[#1e2024] rounded-[24px] shadow-[0_4px_16px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.6)] p-2.5 z-40 space-y-1 animate-in fade-in duration-100 border-0 ring-0">
               <div className="px-3 py-1.5 text-[10px] font-bold text-[#5e5e5e] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">
                 Filter Assessments by Topic
               </div>
@@ -791,7 +792,7 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
         </div>
 
         {/* Search Box (Right Side) matching Test Card Style */}
-        <div className="relative flex-1 max-w-xs sm:max-w-sm flex items-center h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f8f9fc] dark:hover:bg-[#25282e] border-0 ring-0 outline-none shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] px-4 transition-all duration-200">
+        <div className="relative flex-1 max-w-xs sm:max-w-sm flex items-center h-9 landscape:h-8 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f8f9fc] dark:hover:bg-[#25282e] border-0 ring-0 outline-none shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] px-4 transition-all duration-200">
           <Search className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] shrink-0" />
           <input
             type="text"
@@ -815,7 +816,7 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
   </div>
 
       {/* Scrollable Test Card Area / Test Body (Full Screen Width with Responsive Columns) */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-3.5 sm:px-6 lg:px-8 py-3.5 w-full overscroll-contain">
+      <div className="flex-1 min-h-0 overflow-y-auto px-3.5 sm:px-6 lg:px-8 landscape:pl-[calc(max(1rem,var(--android-cutout-left,env(safe-area-inset-left,0px))))] landscape:pr-[calc(max(1rem,var(--android-cutout-right,env(safe-area-inset-right,0px))))] py-3.5 w-full overscroll-contain">
         <div className="columns-1 md:columns-2 xl:columns-3 gap-4 sm:gap-5 pb-8 [column-fill:_balance]">
         {filteredTests.length === 0 ? (
           <div className="[column-span:all] w-full bg-white dark:bg-[#1e2024] border-0 ring-0 rounded-[28px] text-center py-12 px-4 shadow-[0_2px_6px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
@@ -1043,13 +1044,13 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
       </div>
 
       {/* Fixed Bottom Custom Generator Bar with Full Screen Width & Responsive Layout */}
-      <div className="shrink-0 bg-white dark:bg-[#1e2024] p-3 sm:p-4 pb-[calc(max(0.85rem,env(safe-area-inset-bottom,0px))+0.5rem)] sm:pb-4 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_16px_rgba(0,0,0,0.4)] border-0 ring-0 z-30">
-        <div className="w-full px-1 sm:px-2 flex flex-col md:flex-row md:items-center justify-between gap-2.5 sm:gap-3.5">
+      <div className="shrink-0 bg-white dark:bg-[#1e2024] px-3.5 sm:px-6 landscape:pl-[calc(max(1rem,var(--android-cutout-left,env(safe-area-inset-left,0px))))] landscape:pr-[calc(max(1rem,var(--android-cutout-right,env(safe-area-inset-right,0px))))] py-2.5 sm:py-3 landscape:py-1.5 pb-[calc(max(0.75rem,env(safe-area-inset-bottom,0px))+0.25rem)] landscape:pb-[calc(max(0.35rem,env(safe-area-inset-bottom,0px))+0.15rem)] shadow-[0_-4px_16px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_16px_rgba(0,0,0,0.4)] border-t border-slate-200/50 dark:border-zinc-800/50 z-30">
+        <div className="w-full flex flex-col landscape:flex-row md:flex-row md:items-center justify-between gap-2 sm:gap-3.5 landscape:gap-2">
           {/* Title, Time limit & Count selection group - Forced single row on mobile */}
-          <div className="flex flex-row items-center gap-1.5 sm:gap-2 w-full md:w-auto flex-1 min-w-0">
+          <div className="flex flex-row items-center gap-1.5 sm:gap-2 w-full landscape:w-auto md:w-auto flex-1 min-w-0">
             {/* Test title input */}
-            <div className="flex items-center gap-2 flex-1 min-w-0 bg-[#f0f4f9] dark:bg-[#141619] border-0 ring-0 px-4 py-2 rounded-[24px] shadow-none h-9">
-              <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0 hidden sm:inline" />
+            <div className="flex items-center gap-2 flex-1 min-w-0 bg-[#f0f4f9] dark:bg-[#141619] border-0 ring-0 px-3 sm:px-4 py-1.5 rounded-[24px] shadow-none h-9 landscape:h-8">
+              <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0 hidden sm:inline landscape:hidden" />
               <input
                 type="text"
                 value={customTitle}
@@ -1060,7 +1061,7 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
             </div>
 
             {/* Time limit selector */}
-            <div className="flex items-center gap-1.5 px-3 bg-[#f0f4f9] dark:bg-[#141619] border-0 ring-0 rounded-full text-xs font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] shrink-0 max-w-[140px] sm:max-w-none shadow-none h-9">
+            <div className="flex items-center gap-1.5 px-3 bg-[#f0f4f9] dark:bg-[#141619] border-0 ring-0 rounded-full text-xs font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] shrink-0 max-w-[140px] sm:max-w-none shadow-none h-9 landscape:h-8">
               <Clock className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
               <select
                 value={timeLimitMinutes}
@@ -1090,18 +1091,18 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
             </div>
 
             {/* Questions badge */}
-            <div className="h-9 px-3.5 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#0b57d0] dark:text-[#c2e7ff] font-mono text-xs font-bold shrink-0 whitespace-nowrap border-0 flex items-center">
+            <div className="h-9 landscape:h-8 px-3 sm:px-3.5 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#0b57d0] dark:text-[#c2e7ff] font-mono text-xs font-bold shrink-0 whitespace-nowrap border-0 flex items-center">
               {selectedCount} Qs
             </div>
           </div>
 
           {/* Action Buttons: Save, OMR, Start Exam - Standardized to Home Screen Pill Buttons */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0 w-full md:w-auto justify-end">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0 w-full landscape:w-auto md:w-auto justify-end">
             <button
               type="button"
               onClick={handleSaveOnly}
               disabled={selectedCount === 0}
-              className="flex-1 md:flex-initial h-9 px-4 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-center justify-center gap-1.5 text-xs font-bold transition-all active:scale-95 disabled:opacity-40 cursor-pointer outline-none"
+              className="flex-1 landscape:flex-initial md:flex-initial h-9 landscape:h-8 px-3.5 sm:px-4 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-center justify-center gap-1.5 text-xs font-bold transition-all active:scale-95 disabled:opacity-40 cursor-pointer outline-none"
               title="Save custom test to your library"
             >
               <Save className="w-3.5 h-3.5" />
@@ -1113,7 +1114,7 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
                 type="button"
                 onClick={handleLaunchOmrTest}
                 disabled={selectedCount === 0}
-                className="flex-1 md:flex-initial h-9 px-4 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-center justify-center gap-1.5 text-xs font-bold transition-all active:scale-95 disabled:opacity-40 cursor-pointer outline-none"
+                className="flex-1 landscape:flex-initial md:flex-initial h-9 landscape:h-8 px-3.5 sm:px-4 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-center justify-center gap-1.5 text-xs font-bold transition-all active:scale-95 disabled:opacity-40 cursor-pointer outline-none"
                 title="Open in OMR Mode (Print Question Paper & Optical Evaluation)"
               >
                 <FileCheck2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
@@ -1125,7 +1126,7 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
               type="button"
               onClick={() => handleLaunchTest('timed')}
               disabled={selectedCount === 0}
-              className="flex-1 md:flex-initial h-9 px-5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white border-0 shadow-[0_2px_6px_rgba(11,87,208,0.25)] flex items-center justify-center gap-1.5 text-xs font-bold transition-all active:scale-95 disabled:opacity-40 cursor-pointer outline-none"
+              className="flex-1 landscape:flex-initial md:flex-initial h-9 landscape:h-8 px-4 sm:px-5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white border-0 shadow-[0_2px_6px_rgba(11,87,208,0.25)] flex items-center justify-center gap-1.5 text-xs font-bold transition-all active:scale-95 disabled:opacity-40 cursor-pointer outline-none"
               title="Launch test in timed assessment mode"
             >
               <Play className="w-3.5 h-3.5 fill-current" />

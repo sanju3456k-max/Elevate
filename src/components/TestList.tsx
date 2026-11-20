@@ -736,7 +736,7 @@ export const TestList: React.FC<TestListProps> = ({
   }
 
   return (
-    <div className="w-full max-w-[1750px] mx-auto px-3 sm:px-6 lg:px-8 pt-1 sm:pt-2 pb-10 sm:pb-12 space-y-2.5 sm:space-y-3">
+    <div className="w-full max-w-[1750px] mx-auto px-3 sm:px-6 lg:px-8 pt-1 sm:pt-2 pb-28 sm:pb-28 md:pb-16 space-y-2.5 sm:space-y-3">
       {/* Google Material 3 Search & Filter Controls Header */}
       <div className="space-y-2 sm:space-y-2.5">
         {/* ROW 1: All Topics Button (left) + Tests Available Count immediately to its right & Search on far right */}

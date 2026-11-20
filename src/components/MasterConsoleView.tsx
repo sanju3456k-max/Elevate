@@ -51,7 +51,11 @@ import {
   IndianRupee,
   Globe,
   Lock,
-  ExternalLink
+  ExternalLink,
+  Printer,
+  Bot,
+  SlidersHorizontal,
+  FileEdit
 } from 'lucide-react';
 import type { MathTest, TestAttempt, RemedialFilterType, AssignedRemedialTest } from '../types';
 import { getTestDurationMinutes } from '../utils/testFormatConverter';
@@ -152,6 +156,8 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     showSecurityToast,
     securitySettings,
     updateSecuritySettings,
+    studentFeatureAccess,
+    updateStudentFeatureAccess,
     getTestsForBatch,
     addTestToBatchCatalog,
     deleteBatchTest,
@@ -1102,7 +1108,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 h-[100dvh] w-screen bg-[#f4f6fa] dark:bg-[#0d0f14] overflow-hidden flex z-30 select-none">
+    <div className="fixed inset-0 h-[100dvh] w-screen bg-white dark:bg-[#0b0c10] overflow-hidden flex z-30 select-none">
       
       {/* Mobile Menu Backdrop */}
       {isMobileMenuOpen && (
@@ -1118,10 +1124,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        {/* Sidebar Top: Superadmin Brand Header */}
-        <div className="p-4 border-0 flex items-center justify-between shrink-0">
+        {/* Sidebar Top: Superadmin Brand Header with Safe Area Status Bar Clearance */}
+        <div className="p-4 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] lg:pt-4 border-0 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center shrink-0 shadow-xs">
+            <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center shrink-0 shadow-xs">
               <Crown className="w-5 h-5" />
             </div>
             <div className="min-w-0">
@@ -1139,7 +1145,8 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(false)}
-            className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400 lg:hidden border-none cursor-pointer"
+            aria-label="Close Navigation"
+            className="w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-500 dark:text-zinc-400 lg:hidden flex items-center justify-center border-none cursor-pointer transition active:scale-95"
           >
             <X className="w-4 h-4" />
           </button>
@@ -1319,24 +1326,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
               </span>
             </button>
           </div>
-
-          {/* Group 3: Storage & Single Instance Architecture */}
-          <div className="p-3 rounded-2xl bg-slate-100/70 dark:bg-zinc-900/60 border border-slate-200/60 dark:border-zinc-800/60 space-y-2">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-zinc-300">
-              <span className="flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                <span>Single-Instance Engine</span>
-              </span>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            </div>
-            <p className="text-[10px] text-slate-500 dark:text-zinc-400 font-mono leading-tight">
-              Tests (~40 KB) • Attempts (~1 KB) • Pointers (&lt;0.5 KB) • 750 KB Bin-Pack Sync
-            </p>
-          </div>
         </div>
 
         {/* Sidebar Bottom: Admin Email, Theme & Close */}
-        <div className="p-3 border-0 shrink-0 space-y-2 bg-slate-50/50 dark:bg-zinc-900/40">
+        <div className="p-3 border-0 shrink-0 space-y-2 bg-slate-50/50 dark:bg-zinc-900/40 pb-[calc(max(0.75rem,env(safe-area-inset-bottom,0px)))]">
           <div className="flex items-center justify-between">
             <div className="min-w-0 pr-2">
               <p className="text-xs font-bold text-slate-800 dark:text-zinc-200 truncate">
@@ -1370,9 +1363,9 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
       </aside>
 
       {/* Main Right Administrative Workstation */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0 bg-[#f4f6fa] dark:bg-[#0d0f14]">
+      <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0 bg-white dark:bg-[#0b0c10]">
         {/* Sleek Master Command Bar - Seamless Status Bar Matching without Partition Line */}
-        <header className="pt-[env(safe-area-inset-top,0px)] min-h-[56px] sm:min-h-[58px] px-3 sm:px-6 bg-white dark:bg-[#16181f] border-0 flex items-center justify-between gap-2 sm:gap-3 shrink-0 z-10">
+        <header className="pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.75rem)] lg:pt-3 pb-2.5 px-3 sm:px-6 bg-white dark:bg-[#16181f] border-0 flex items-center justify-between gap-2 sm:gap-3 shrink-0 z-10">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               type="button"
@@ -1779,10 +1772,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
           {activeTab === 'settings' && (
             <div className="w-full h-full overflow-y-auto px-3 sm:px-6 md:px-8 py-3.5 sm:py-5 space-y-4 sm:space-y-6 [scrollbar-width:thin]">
               <div className="max-w-4xl mx-auto w-full space-y-5 sm:space-y-6">
-                {/* Header Card */}
-                <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#16181f] border-0 flex items-center justify-between gap-4 flex-wrap shadow-xs">
+                {/* Header Row */}
+                <div className="p-3 sm:p-4 rounded-2xl bg-transparent border-0 flex items-center justify-between gap-4 flex-wrap">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                       <ShieldCheck className="w-5 h-5" />
                     </div>
                     <div>
@@ -1797,11 +1790,13 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 </div>
 
                 {/* Decentralized Batch Operations Card */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-transparent border-0 space-y-2.5">
+                <div className="p-4 sm:p-5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 space-y-2.5">
                   <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center space-x-2">
-                      <Folder className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100">
+                    <div className="flex items-center space-x-2.5">
+                      <div className="w-8 h-8 rounded-full bg-blue-500/15 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0">
+                        <Folder className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100">
                         Batch Metadata, Folders & Lectures Management
                       </h4>
                     </div>
@@ -1819,7 +1814,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                         onBack();
                         onOpenBatch(selectedBatchId);
                       }}
-                      className="inline-flex items-center gap-2 h-9.5 px-4.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold border-0 cursor-pointer shadow-none transition"
+                      className="inline-flex items-center gap-2 h-9 px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold border-0 cursor-pointer shadow-none transition"
                     >
                       <span>Open Course Batches Catalog</span>
                       <ExternalLink className="w-3.5 h-3.5" />
@@ -1828,18 +1823,18 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 </div>
 
                 {/* Global Guest Mode Institutional Policy */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#16181f] border-0 space-y-3 shadow-xs">
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider flex items-center space-x-2">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Global Guest Visitor Policy</span>
+                <div className="space-y-2.5 bg-transparent p-1 sm:p-2">
+                  <div className="flex items-center gap-2 pb-1.5 border-b border-slate-100 dark:border-zinc-800/80">
+                    <Sparkles className="w-4 h-4 text-amber-500" />
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider">
+                      Global Guest Visitor Policy
                     </h4>
-                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
-                      Configure how non-logged-in guest learners access your curriculum courses.
-                    </p>
                   </div>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    Configure how non-logged-in guest learners access your curriculum courses.
+                  </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
                     {[
                       {
                         mode: 'specific_batches' as const,
@@ -1860,10 +1855,10 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                       <div
                         key={opt.mode}
                         onClick={() => setGlobalGuestAccessMode(opt.mode)}
-                        className={`p-3.5 rounded-xl border-2 cursor-pointer transition flex flex-col justify-between space-y-2 ${
+                        className={`p-3.5 rounded-2xl border cursor-pointer transition-colors flex flex-col justify-between space-y-2 ${
                           globalGuestAccessMode === opt.mode
-                            ? 'border-[#0b57d0] bg-[#0b57d0]/10 shadow-xs'
-                            : 'border-slate-200 dark:border-zinc-800 hover:border-slate-300'
+                            ? 'border-[#0b57d0] bg-[#0b57d0]/10 dark:bg-[#0b57d0]/15'
+                            : 'border-slate-100 dark:border-zinc-800/80 bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50'
                         }`}
                       >
                         <div>
@@ -1885,8 +1880,8 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 </div>
 
                 {/* Visual DRM & Offline Storage Encryption Security Center */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#16181f] border-0 space-y-4 shadow-xs">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="space-y-2.5 bg-transparent p-1 sm:p-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2 pb-1.5 border-b border-slate-100 dark:border-zinc-800/80">
                     <div className="flex items-center space-x-2">
                       <ShieldAlert className="w-4 h-4 text-amber-500" />
                       <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider">
@@ -1898,27 +1893,32 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                     </span>
                   </div>
 
-                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
                     Elevate activates these security barriers strictly when a student is watching a video lecture or attempting a live test.
                   </p>
 
-                  <div className="space-y-3 pt-1">
+                  <div className="divide-y divide-slate-100 dark:divide-zinc-800/80 bg-transparent rounded-2xl pt-1">
                     {/* Toggle: Visual DRM Screen Shield */}
-                    <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200/60 dark:border-zinc-800/60">
-                      <div className="space-y-0.5 flex-1 pr-2">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs font-bold text-slate-800 dark:text-zinc-200">
-                            Visual DRM Screen Shield (Snipping Tool & Focus Loss Blackout)
-                          </span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            securitySettings?.enableDrmScreenProtection ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-200 dark:bg-zinc-800 text-slate-500'
-                          }`}>
-                            {securitySettings?.enableDrmScreenProtection ? 'Enabled' : 'Disabled'}
-                          </span>
+                    <div className="flex items-center justify-between gap-4 p-3 sm:p-3.5 rounded-2xl bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 transition-colors">
+                      <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-zinc-800 text-[#1a1b1f] dark:text-[#e3e2e6] flex items-center justify-center shrink-0 border-0">
+                          <ShieldCheck className="w-5 h-5 text-indigo-500" />
                         </div>
-                        <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                          Instantly blacks out canvas whenever Snipping Tool, PrintScreen, screen recorders, or window focus loss occurs.
-                        </p>
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-zinc-200 truncate">
+                              Visual DRM Screen Shield (Snipping Tool & Focus Loss Blackout)
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                              securitySettings?.enableDrmScreenProtection ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+                            }`}>
+                              {securitySettings?.enableDrmScreenProtection ? 'Enabled' : 'Disabled'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                            Instantly blacks out canvas whenever Snipping Tool, PrintScreen, screen recorders, or window focus loss occurs.
+                          </p>
+                        </div>
                       </div>
                       <M3Switch
                         checked={Boolean(securitySettings?.enableDrmScreenProtection)}
@@ -1927,21 +1927,26 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                     </div>
 
                     {/* Toggle: Add Watermark Over Video */}
-                    <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200/60 dark:border-zinc-800/60">
-                      <div className="space-y-0.5 flex-1 pr-2">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs font-bold text-slate-800 dark:text-zinc-200">
-                            Add Watermark Over Video
-                          </span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            securitySettings?.enableDynamicWatermark !== false ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-200 dark:bg-zinc-800 text-slate-500'
-                          }`}>
-                            {securitySettings?.enableDynamicWatermark !== false ? 'Enabled' : 'Disabled'}
-                          </span>
+                    <div className="flex items-center justify-between gap-4 p-3 sm:p-3.5 rounded-2xl bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 transition-colors">
+                      <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-zinc-800 text-[#1a1b1f] dark:text-[#e3e2e6] flex items-center justify-center shrink-0 border-0">
+                          <Eye className="w-5 h-5 text-blue-500" />
                         </div>
-                        <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                          Displays a dynamic drifting watermark (student name, email, UID, session token) over running lecture videos to deter screen recording and content leakage.
-                        </p>
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-zinc-200 truncate">
+                              Add Watermark Over Video
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                              securitySettings?.enableDynamicWatermark !== false ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+                            }`}>
+                              {securitySettings?.enableDynamicWatermark !== false ? 'Enabled' : 'Disabled'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                            Displays a dynamic drifting watermark (student name, email, UID, session token) over running lecture videos to deter screen recording.
+                          </p>
+                        </div>
                       </div>
                       <M3Switch
                         checked={securitySettings?.enableDynamicWatermark !== false}
@@ -1950,25 +1955,211 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                     </div>
 
                     {/* Toggle: Storage Encryption */}
-                    <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200/60 dark:border-zinc-800/60">
-                      <div className="space-y-0.5 flex-1 pr-2">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs font-bold text-slate-800 dark:text-zinc-200">
-                            Client Offline Storage Encryption (IndexedDB / Cache)
-                          </span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            securitySettings?.enableStorageEncryption !== false ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-200 dark:bg-zinc-800 text-slate-500'
-                          }`}>
-                            {securitySettings?.enableStorageEncryption !== false ? 'Encrypted' : 'Standard'}
-                          </span>
+                    <div className="flex items-center justify-between gap-4 p-3 sm:p-3.5 rounded-2xl bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 transition-colors">
+                      <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-zinc-800 text-[#1a1b1f] dark:text-[#e3e2e6] flex items-center justify-center shrink-0 border-0">
+                          <Lock className="w-5 h-5 text-emerald-500" />
                         </div>
-                        <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                          Encrypts question blueprints, study notes, and video tokens before storing in the browser.
-                        </p>
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-zinc-200 truncate">
+                              Client Offline Storage Encryption (IndexedDB / Cache)
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                              securitySettings?.enableStorageEncryption !== false ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+                            }`}>
+                              {securitySettings?.enableStorageEncryption !== false ? 'Encrypted' : 'Standard'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                            Encrypts question blueprints, study notes, and video tokens before storing in the browser.
+                          </p>
+                        </div>
                       </div>
                       <M3Switch
                         checked={securitySettings?.enableStorageEncryption !== false}
                         onChange={handleToggleEncryption}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dynamic Student Feature & Module Access Control */}
+                <div className="space-y-2.5 bg-transparent p-1 sm:p-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2 pb-1.5 border-b border-slate-100 dark:border-zinc-800/80">
+                    <div className="flex items-center space-x-2">
+                      <SlidersHorizontal className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider">
+                        Student Feature & Module Access Control
+                      </h4>
+                    </div>
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-500/15 text-[#0b57d0] dark:text-[#a8c7fa] border border-blue-500/30 flex items-center space-x-1">
+                      <span>● Dynamic Cloud Feature Flags</span>
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    Control which experimental or in-progress studio modules are visible to student and guest accounts. Master Admin accounts always retain 100% full access to all features regardless of these settings.
+                  </p>
+
+                  <div className="divide-y divide-slate-100 dark:divide-zinc-800/80 bg-transparent rounded-2xl pt-1">
+                    {/* 1. Test Creator Studio */}
+                    <div className="flex items-center justify-between gap-4 p-3 sm:p-3.5 rounded-2xl bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 transition-colors">
+                      <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-zinc-800 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0 border-0">
+                          <FileEdit className="w-5 h-5" />
+                        </div>
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-zinc-200 truncate">
+                              Test Creator Studio (Question Authoring & AI Import)
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                              studentFeatureAccess?.enableTestCreatorStudio ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+                            }`}>
+                              {studentFeatureAccess?.enableTestCreatorStudio ? 'Live for Students' : 'Admin Only'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                            Controls whether students see the Test Creator Studio in navigation drawers and menus.
+                          </p>
+                        </div>
+                      </div>
+                      <M3Switch
+                        checked={Boolean(studentFeatureAccess?.enableTestCreatorStudio)}
+                        onChange={() => {
+                          const next = !studentFeatureAccess?.enableTestCreatorStudio;
+                          updateStudentFeatureAccess({ enableTestCreatorStudio: next });
+                          showNotification(next ? 'Test Creator Studio enabled for students.' : 'Test Creator Studio restricted to Admins.');
+                        }}
+                      />
+                    </div>
+
+                    {/* 2. Custom Test Builder */}
+                    <div className="flex items-center justify-between gap-4 p-3 sm:p-3.5 rounded-2xl bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 transition-colors">
+                      <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
+                        <div className="w-10 h-10 rounded-full bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 border-0">
+                          <Sparkles className="w-5 h-5" />
+                        </div>
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-zinc-200 truncate">
+                              Custom Test Builder (High-Yield Custom Exams)
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                              studentFeatureAccess?.enableCustomTestBuilder ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+                            }`}>
+                              {studentFeatureAccess?.enableCustomTestBuilder ? 'Live for Students' : 'Admin Only'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                            Controls student access to generate custom tests from question banks and mistake history.
+                          </p>
+                        </div>
+                      </div>
+                      <M3Switch
+                        checked={Boolean(studentFeatureAccess?.enableCustomTestBuilder)}
+                        onChange={() => {
+                          const next = !studentFeatureAccess?.enableCustomTestBuilder;
+                          updateStudentFeatureAccess({ enableCustomTestBuilder: next });
+                          showNotification(next ? 'Custom Test Builder enabled for students.' : 'Custom Test Builder restricted to Admins.');
+                        }}
+                      />
+                    </div>
+
+                    {/* 3. OMR & Print Studio */}
+                    <div className="flex items-center justify-between gap-4 p-3 sm:p-3.5 rounded-2xl bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 transition-colors">
+                      <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
+                        <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border-0">
+                          <Printer className="w-5 h-5" />
+                        </div>
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-zinc-200 truncate">
+                              OMR & Print Studio (Offline Paper & Optical Grading)
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                              studentFeatureAccess?.enableOmrPrintStudio ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+                            }`}>
+                              {studentFeatureAccess?.enableOmrPrintStudio ? 'Live for Students' : 'Admin Only'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                            Controls whether students can open the OMR Print Studio and bulk question paper printer.
+                          </p>
+                        </div>
+                      </div>
+                      <M3Switch
+                        checked={Boolean(studentFeatureAccess?.enableOmrPrintStudio)}
+                        onChange={() => {
+                          const next = !studentFeatureAccess?.enableOmrPrintStudio;
+                          updateStudentFeatureAccess({ enableOmrPrintStudio: next });
+                          showNotification(next ? 'OMR & Print Studio enabled for students.' : 'OMR & Print Studio restricted to Admins.');
+                        }}
+                      />
+                    </div>
+
+                    {/* 4. Notes Studio */}
+                    <div className="flex items-center justify-between gap-4 p-3 sm:p-3.5 rounded-2xl bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 transition-colors">
+                      <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
+                        <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border-0">
+                          <BookOpen className="w-5 h-5" />
+                        </div>
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-zinc-200 truncate">
+                              Notes Studio (Interactive HTML Notes & Repository)
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                              studentFeatureAccess?.enableNotesStudio ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+                            }`}>
+                              {studentFeatureAccess?.enableNotesStudio ? 'Live for Students' : 'Admin Only'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                            Controls student access to Notes Studio from the navigation drawer and the top Notes button on Test Results.
+                          </p>
+                        </div>
+                      </div>
+                      <M3Switch
+                        checked={Boolean(studentFeatureAccess?.enableNotesStudio)}
+                        onChange={() => {
+                          const next = !studentFeatureAccess?.enableNotesStudio;
+                          updateStudentFeatureAccess({ enableNotesStudio: next });
+                          showNotification(next ? 'Notes Studio enabled for students.' : 'Notes Studio restricted to Admins.');
+                        }}
+                      />
+                    </div>
+
+                    {/* 5. Theta AI Chatbot */}
+                    <div className="flex items-center justify-between gap-4 p-3 sm:p-3.5 rounded-2xl bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 transition-colors">
+                      <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
+                        <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border-0">
+                          <Bot className="w-5 h-5" />
+                        </div>
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-zinc-200 truncate">
+                              Theta AI (Multimodal Mathematical Assistant)
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                              studentFeatureAccess?.enableThetaAiChatbot ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+                            }`}>
+                              {studentFeatureAccess?.enableThetaAiChatbot ? 'Live for Students' : 'Admin Only'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                            Controls the Theta AI chatbot button in the top navigation header and drawer.
+                          </p>
+                        </div>
+                      </div>
+                      <M3Switch
+                        checked={Boolean(studentFeatureAccess?.enableThetaAiChatbot)}
+                        onChange={() => {
+                          const next = !studentFeatureAccess?.enableThetaAiChatbot;
+                          updateStudentFeatureAccess({ enableThetaAiChatbot: next });
+                          showNotification(next ? 'Theta AI enabled for students.' : 'Theta AI restricted to Admins.');
+                        }}
                       />
                     </div>
                   </div>

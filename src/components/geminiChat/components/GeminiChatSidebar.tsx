@@ -2,6 +2,7 @@ import React from 'react';
 import { 
   Sparkles, 
   ArrowLeft, 
+  ChevronLeft,
   Plus, 
   Search, 
   RotateCcw, 
@@ -57,15 +58,23 @@ export const GeminiChatSidebar: React.FC<GeminiChatSidebarProps> = ({
 }) => {
   return (
     <aside
-      className={`fixed inset-y-0 right-0 z-50 h-full w-[88vw] max-w-[340px] sm:max-w-sm bg-white dark:bg-[#1e2024] shadow-2xl rounded-l-[28px] flex flex-col justify-between overflow-hidden touch-pan-y cursor-default drawer-panel relative z-10 text-[#1f1f1f] dark:text-[#e3e3e3] border-0 ring-0 transition-transform duration-200 ease-out ${
+      className={`fixed inset-y-0 right-0 z-50 h-full w-[88vw] max-w-[340px] sm:max-w-sm bg-white dark:bg-[#1e2024] shadow-2xl rounded-l-[28px] flex flex-col justify-between overflow-hidden touch-pan-y cursor-default drawer-panel relative z-10 text-[#1f1f1f] dark:text-[#e3e3e3] border-0 ring-0 landscape:pr-[calc(max(0.5rem,var(--android-cutout-right,env(safe-area-inset-right,0px))))] transition-transform duration-200 ease-out ${
         isSidebarOpen ? 'translate-x-0' : 'translate-x-full'
       }`}
     >
       {/* Sidebar Header */}
-      <div className="p-4 sm:p-5 pt-[calc(env(safe-area-inset-top,0px)+1rem)] bg-white dark:bg-[#1e2024] flex items-center justify-between shrink-0 rounded-tl-[28px] border-b border-slate-100 dark:border-zinc-800/80">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0 shadow-xs">
-            <Sparkles className="w-5 h-5 stroke-[2.2]" />
+      <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1rem)] bg-white dark:bg-[#1e2024] flex items-center gap-3 shrink-0 rounded-tl-[28px] border-b border-slate-100 dark:border-zinc-800/80">
+        <button
+          onClick={() => setIsSidebarOpen(false)}
+          className="w-9 h-9 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] hover:bg-[#e2e8f0] dark:hover:bg-[#32363d] text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all cursor-pointer active:scale-95 border-0 shadow-none shrink-0"
+          title="Back to chat (Esc)"
+          aria-label="Back to chat"
+        >
+          <ChevronLeft className="w-5 h-5 stroke-[2.2]" />
+        </button>
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-full bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0 shadow-xs">
+            <Sparkles className="w-4.5 h-4.5 stroke-[2.2]" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
@@ -78,14 +87,6 @@ export const GeminiChatSidebar: React.FC<GeminiChatSidebarProps> = ({
             </span>
           </div>
         </div>
-        <button
-          onClick={() => setIsSidebarOpen(false)}
-          className="w-9 h-9 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] hover:bg-[#e2e8f0] dark:hover:bg-[#32363d] text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all cursor-pointer active:scale-95 border-0 shadow-none"
-          title="Close chat history (Esc)"
-          aria-label="Close chat history"
-        >
-          <ArrowLeft className="w-4.5 h-4.5" />
-        </button>
       </div>
 
       <div className="p-3 sm:p-4 bg-white dark:bg-[#1e2024] border-b border-slate-100 dark:border-zinc-800/80 shrink-0">

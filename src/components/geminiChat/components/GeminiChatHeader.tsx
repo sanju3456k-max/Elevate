@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  ArrowLeft, 
+  ChevronLeft,
   GraduationCap, 
   ChevronDown, 
   Check, 
@@ -48,7 +48,7 @@ export const GeminiChatHeader: React.FC<GeminiChatHeaderProps> = ({
   const activeRoleObj = PRESET_ROLES.find((r) => r.id === selectedRole) || PRESET_ROLES[0];
 
   return (
-    <header className="relative z-30 flex items-center justify-between gap-1 sm:gap-2 px-3 sm:px-6 md:px-8 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] pb-2 bg-white dark:bg-[#131314] shrink-0 border-0 shadow-none">
+    <header className="relative z-30 flex items-center justify-between gap-1 sm:gap-2 px-3 sm:px-6 md:px-8 landscape:pl-[calc(max(0.75rem,var(--android-cutout-left,env(safe-area-inset-left,0px))))] landscape:pr-[calc(max(0.75rem,var(--android-cutout-right,env(safe-area-inset-right,0px))))] pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2 bg-white dark:bg-[#131314] shrink-0 border-0 shadow-none">
       <div className="flex items-center gap-1 sm:gap-2 min-w-0 shrink-0">
         {(onBack || onNavigateTab) && (
           <button
@@ -62,10 +62,10 @@ export const GeminiChatHeader: React.FC<GeminiChatHeaderProps> = ({
                 onNavigateTab('home');
               }
             }}
-            className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[#1f1f1f] dark:text-[#e3e3e3] bg-transparent hover:bg-slate-100 dark:hover:bg-[#282a30] border-0 shadow-none transition-all cursor-pointer active:scale-95 shrink-0"
+            className="p-1 -ml-1 rounded-full flex items-center justify-center text-[#1f1f1f] dark:text-[#e3e3e3] bg-transparent hover:bg-black/5 dark:hover:bg-white/10 border-0 border-none shadow-none transition-all cursor-pointer active:scale-95 shrink-0"
             title="Back"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
           </button>
         )}
 
@@ -106,7 +106,7 @@ export const GeminiChatHeader: React.FC<GeminiChatHeaderProps> = ({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 6, scale: 0.98 }}
                   transition={{ duration: 0.15 }}
-                  className="fixed left-1/2 -translate-x-1/2 top-[calc(env(safe-area-inset-top,0px)+3.25rem)] sm:absolute sm:right-0 sm:left-auto sm:translate-x-0 sm:top-full sm:mt-2 w-[calc(100vw-1.5rem)] max-w-sm sm:w-80 max-h-[75vh] overflow-y-auto bg-white dark:bg-[#1e2024] rounded-[28px] shadow-[0_4px_16px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.6)] border border-slate-200 dark:border-zinc-700 p-3 z-50 space-y-1 modal-content-smooth"
+                  className="fixed left-1/2 -translate-x-1/2 top-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+3.25rem)] sm:absolute sm:right-0 sm:left-auto sm:translate-x-0 sm:top-full sm:mt-2 w-[calc(100vw-1.5rem)] max-w-sm sm:w-80 max-h-[75vh] overflow-y-auto bg-white dark:bg-[#1e2024] rounded-[28px] shadow-[0_4px_16px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.6)] border border-slate-200 dark:border-zinc-700 p-3 z-50 space-y-1 modal-content-smooth"
                 >
                   <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
                     Select Gemini Model

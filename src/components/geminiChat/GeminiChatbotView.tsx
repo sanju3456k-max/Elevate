@@ -17,6 +17,7 @@ import {
   ChevronDown, 
   ChevronUp,
   ChevronRight,
+  ChevronLeft,
   ArrowDown, 
   ArrowLeft,
   Paperclip, 
@@ -1232,7 +1233,7 @@ export const GeminiImageLightbox: React.FC<GeminiImageLightboxProps> = ({ src, o
         title="Back to Chat (Esc)"
         aria-label="Back to Chat"
       >
-        <ArrowLeft className="w-4 h-4" />
+        <ChevronLeft className="w-5 h-5 stroke-[2.2]" />
         <span className="hidden xs:inline">Back to Chat</span>
       </button>
 
@@ -3810,10 +3811,19 @@ MANDATORY INSTRUCTIONS:
               onClick={(e) => e.stopPropagation()}
             >
               {/* Drawer Top Header */}
-              <div className="p-4 sm:p-5 pt-[calc(env(safe-area-inset-top,0px)+1rem)] bg-white dark:bg-[#1e2024] flex items-center justify-between shrink-0 rounded-tl-[28px] border-b border-slate-100 dark:border-zinc-800/80">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0 shadow-xs">
-                    <Clock className="w-5 h-5 stroke-[2.2]" />
+              <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] bg-white dark:bg-[#1e2024] flex items-center gap-3 shrink-0 rounded-tl-[28px] border-b border-slate-100 dark:border-zinc-800/80">
+                <button
+                  id="close-chat-history-drawer-btn"
+                  onClick={() => setIsSidebarOpen(false)}
+                  className="p-1.5 -ml-1 text-[#1f1f1f] dark:text-[#e3e3e3] hover:opacity-70 flex items-center justify-center transition-all cursor-pointer active:scale-95 border-0 bg-transparent shadow-none shrink-0"
+                  title="Back to chat (Esc)"
+                  aria-label="Back to chat"
+                >
+                  <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
+                </button>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-[#d3e3fd]/60 dark:bg-[#004a77]/40 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0 shadow-xs">
+                    <Clock className="w-4.5 h-4.5 stroke-[2.2]" />
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5">
@@ -3826,15 +3836,6 @@ MANDATORY INSTRUCTIONS:
                     </span>
                   </div>
                 </div>
-                <button
-                  id="close-chat-history-drawer-btn"
-                  onClick={() => setIsSidebarOpen(false)}
-                  className="w-9 h-9 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] hover:bg-[#e2e8f0] dark:hover:bg-[#32363d] text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all cursor-pointer active:scale-95 border-0 shadow-none"
-                  title="Back to chat (Esc)"
-                  aria-label="Back to chat"
-                >
-                  <ArrowLeft className="w-4.5 h-4.5" />
-                </button>
               </div>
 
               {/* Drawer Action Bar: Search, Clear Messages & New Conversation in ONE ROW */}
@@ -3894,7 +3895,7 @@ MANDATORY INSTRUCTIONS:
               </div>
 
               {/* Scrollable Sessions List (Transparent entries against white background) */}
-              <div className="p-3 sm:p-4 space-y-1 overflow-y-auto flex-1 overscroll-contain bg-white dark:bg-[#1e2024] [scrollbar-width:thin]">
+              <div className="p-3 sm:p-4 pb-8 space-y-1 overflow-y-auto flex-1 overscroll-contain bg-white dark:bg-[#1e2024] [scrollbar-width:thin]">
                 {filteredSessions.length === 0 ? (
                   <div className="py-12 text-center text-xs text-[#5e5e5e] dark:text-[#9aa0a6]">
                     No conversations found.
@@ -3981,7 +3982,7 @@ MANDATORY INSTRUCTIONS:
       {/* RIGHT: Main Clean Gemini Chat Panel */}
       <div className="flex-1 flex flex-col h-full bg-white dark:bg-[#131314] text-[#1f1f1f] dark:text-[#e3e3e3] min-w-0 overflow-hidden">
         {/* Top Minimal Header & Controls - Transparent & Compact Header Buttons */}
-        <header className="relative z-30 flex items-center justify-between gap-1 sm:gap-2 px-3 sm:px-6 md:px-8 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] pb-2 bg-white dark:bg-[#131314] shrink-0 border-0 shadow-none">
+        <header className="relative z-30 flex items-center justify-between gap-1 sm:gap-2 px-3 sm:px-6 md:px-8 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2 bg-white dark:bg-[#131314] shrink-0 border-0 shadow-none">
           <div className="flex items-center gap-1 sm:gap-2 min-w-0 shrink-0">
             {/* Back to Home / Tests Dashboard Button */}
             {onNavigateTab && (
@@ -4004,10 +4005,10 @@ MANDATORY INSTRUCTIONS:
                     onNavigateTab('home');
                   }
                 }}
-                className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-[#1f1f1f] dark:text-[#e3e3e3] bg-transparent hover:bg-slate-100 dark:hover:bg-[#282a30] border-0 shadow-none transition-all cursor-pointer active:scale-95 shrink-0"
+                className="p-1 -ml-1 rounded-full flex items-center justify-center text-[#1f1f1f] dark:text-[#e3e3e3] bg-transparent hover:bg-black/5 dark:hover:bg-white/10 border-none border-0 shadow-none transition-all cursor-pointer active:scale-95 shrink-0"
                 title="Back"
               >
-                <ArrowLeft className="w-5 h-5" />
+                <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
               </button>
             )}
 
@@ -4056,7 +4057,7 @@ MANDATORY INSTRUCTIONS:
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 6, scale: 0.98 }}
                       transition={{ duration: 0.15 }}
-                      className="fixed left-1/2 -translate-x-1/2 top-[calc(env(safe-area-inset-top,0px)+3.25rem)] sm:absolute sm:right-0 sm:left-auto sm:translate-x-0 sm:top-full sm:mt-2 w-[calc(100vw-1.5rem)] max-w-sm sm:w-80 max-h-[75vh] overflow-y-auto bg-white dark:bg-[#1e2024] rounded-[28px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.6)] border border-slate-200/80 dark:border-zinc-800 p-2.5 z-50 space-y-1 modal-content-smooth"
+                      className="fixed left-1/2 -translate-x-1/2 top-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+3.25rem)] sm:absolute sm:right-0 sm:left-auto sm:translate-x-0 sm:top-full sm:mt-2 w-[calc(100vw-1.5rem)] max-w-sm sm:w-80 max-h-[75vh] overflow-y-auto bg-white dark:bg-[#1e2024] rounded-[28px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.6)] border border-slate-200/80 dark:border-zinc-800 p-2.5 z-50 space-y-1 modal-content-smooth"
                     >
                       <div className="px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
                         Select Gemini Model
@@ -5519,7 +5520,7 @@ MANDATORY INSTRUCTIONS:
             className="bg-white dark:bg-[#1e2024] rounded-[28px] sm:rounded-[32px] max-w-2xl w-full p-5 sm:p-6 space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.12),0_1px_4px_rgba(0,0,0,0.06)] dark:shadow-[0_12px_44px_rgba(0,0,0,0.6)] border-0 animate-in zoom-in-98 duration-150 modal-content-smooth"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-zinc-800/80">
+            <div className="flex items-center pb-1 border-b border-slate-100 dark:border-zinc-800/80">
               <div className="flex items-center gap-2.5 min-w-0">
                 <button
                   type="button"
@@ -5528,20 +5529,13 @@ MANDATORY INSTRUCTIONS:
                   title="Back to Chat (Esc)"
                   aria-label="Back to Chat"
                 >
-                  <ArrowLeft className="w-4.5 h-4.5 stroke-[2.2]" />
+                  <ChevronLeft className="w-5 h-5 stroke-[2.2]" />
                 </button>
                 <div className="w-10 h-10 rounded-full bg-[#d3e3fd] text-[#0b57d0] dark:bg-[#004a77] dark:text-[#c2e7ff] flex items-center justify-center shrink-0 border-0 shadow-none">
                   {getFileIcon(selectedPreviewAttachment.name, selectedPreviewAttachment.mimeType)}
                 </div>
                 <span className="font-bold text-[14.5px] sm:text-[15px] text-[#1f1f1f] dark:text-[#e3e3e3] truncate">{selectedPreviewAttachment.name}</span>
               </div>
-              <button
-                onClick={() => setSelectedPreviewAttachment(null)}
-                className="w-9 h-9 rounded-full flex items-center justify-center bg-[#edf2f9] hover:bg-[#e1e9f5] dark:bg-[#26282e] dark:hover:bg-[#30333b] text-[#5e5e5e] hover:text-[#1f1f1f] dark:text-[#c4c7c5] dark:hover:text-[#e3e3e3] cursor-pointer transition-all border-0 shadow-none active:scale-95"
-                title="Close preview (Esc)"
-              >
-                <X className="w-4.5 h-4.5 stroke-[2.2]" />
-              </button>
             </div>
 
             {selectedPreviewAttachment.previewUrl && selectedPreviewAttachment.previewUrl.trim() ? (
