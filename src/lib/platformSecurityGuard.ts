@@ -100,14 +100,11 @@ export function checkPlatformAccess(isMasterAccount: boolean = false): PlatformG
     } catch {}
   }
 
-  // Check enforcement switch:
-  // Can be enabled via Vite env VITE_ENFORCE_ANDROID_ONLY='true'
-  // OR via runtime toggle in localStorage for testing: 'elevate_test_enforce_android_guard' === 'true'
-  const isEnvEnforced = import.meta.env.VITE_ENFORCE_ANDROID_ONLY === 'true';
-  const isRuntimeEnforced = typeof window !== 'undefined' && localStorage.getItem('elevate_test_enforce_android_guard') === 'true';
-  const enforcementActive = isEnvEnforced || isRuntimeEnforced;
-
-  if (!enforcementActive) {
+  // Production web guard enforcement:
+  // Active by default on public web domains (e.g. labselevate.vercel.app)
+  // Local development (localhost) and Native Android builds remain automatically whitelisted.
+  const isExplicitlyDisabled = import.meta.env.VITE_ENFORCE_ANDROID_ONLY === 'false';
+  if (isExplicitlyDisabled) {
     return {
       isBlocked: false,
       isNativeAndroid,
@@ -116,24 +113,34 @@ export function checkPlatformAccess(isMasterAccount: boolean = false): PlatformG
     };
   }
 
-  // If enforcement is active:
-  // Allow if Native Android, Localhost, or Verified Web Bypass / Master Account
-  if (isNativeAndroid || isLocalDevelopment || hasWebBypass) {
+  // If running inside native Android app -> Authorized
+  if (isNativeAndroid) {
     return {
       isBlocked: false,
-      isNativeAndroid,
+      isNativeAndroid: true,
       isLocalDevelopment,
       hasWebBypass,
     };
   }
 
-  // Otherwise, block unauthorized standard web browser access
+  // If running in local development (localhost) -> Authorized
+  if (isLocalDevelopment) {
+    return {
+      isBlocked: false,
+      isNativeAndroid: false,
+      isLocalDevelopment: true,
+      hasWebBypass,
+    };
+  }
+
+  // Otherwise, on public web browsers without master authorization:
+  // Intercept and display the Welcome to Elevate Learning portal
   return {
     isBlocked: true,
-    isNativeAndroid,
-    isLocalDevelopment,
-    hasWebBypass,
-    reason: 'Standard web browser access restricted. Elevate is secured exclusively for the official Android native app.'
+    isNativeAndroid: false,
+    isLocalDevelopment: false,
+    hasWebBypass: false,
+    reason: 'Elevate Learning Portal: Verification required for web access.'
   };
 }
 
