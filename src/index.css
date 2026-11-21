@@ -161,16 +161,14 @@
       top: 62px !important;
       height: calc(100vh - 62px) !important;
       bottom: 0 !important;
+      overflow-y: auto !important;
+      overscroll-behavior-y: contain !important;
     }
   }
 
-  @media (max-width: 767px) {
-    #app-navbar-wrapper.video-player-desktop-header {
-      display: none !important;
-    }
-  }
   @media (min-width: 1024px) {
     #global-persistent-player-host.is-expanded {
+      grid-template-rows: max-content minmax(0, 1fr) !important;
       overflow-y: auto !important;
       overscroll-behavior-y: contain !important;
       padding-left: max(2rem, calc((100vw - 1720px) / 2)) !important;

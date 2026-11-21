@@ -436,9 +436,13 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
               } w-[280px] xs:w-[300px] sm:w-[340px] md:w-[380px] z-50 bg-[#16181d] text-white rounded-2xl md:rounded-3xl shadow-2xl ring-1 ring-black/10 dark:ring-white/10 border-0 border-none p-0 transition-all duration-300 select-none overflow-hidden ${
                 !isTestMode ? 'flex flex-col' : 'hidden'
               }`
-            : `is-expanded fixed inset-x-0 bottom-0 w-full top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] md:top-[62px] md:h-[calc(100vh-62px)] z-[48] bg-[#e5e9f0] dark:bg-[#0b0c10] flex flex-col lg:grid lg:grid-cols-12 lg:gap-6 xl:gap-8 items-start overflow-hidden lg:overflow-y-auto px-0 lg:px-8 xl:px-10 pt-0 lg:pt-4 pb-16 lg:pb-24 overscroll-contain select-text max-w-[1750px] mx-auto`
+            : `is-expanded fixed inset-x-0 bottom-0 w-full top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] md:top-[62px] md:h-[calc(100vh-62px)] z-[48] bg-[#e5e9f0] dark:bg-[#0b0c10] flex flex-col lg:grid lg:grid-cols-12 lg:grid-rows-[max-content_minmax(0,1fr)] lg:gap-6 xl:gap-8 items-start overflow-hidden lg:overflow-y-auto px-0 lg:px-8 xl:px-10 pt-0 lg:pt-4 pb-16 lg:pb-24 overscroll-contain select-text max-w-[1750px] mx-auto`
         }
-      style={undefined}
+      style={
+        !isMinimized && !isInNativePip
+          ? { gridTemplateRows: 'max-content minmax(0, 1fr)' }
+          : undefined
+      }
       onClick={isMinimized && !isInNativePip ? handleExpand : undefined}
     >
       {/* 1. THE PERSISTENT VIDEO PLAYER FRAME (NEVER UNMOUNTS) */}
@@ -448,7 +452,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             ? 'w-full h-full bg-black flex items-center justify-center p-0 m-0 overflow-hidden'
             : isMinimized
             ? 'w-full aspect-video shrink-0 rounded-t-2xl md:rounded-t-3xl overflow-hidden relative bg-black group/minivid'
-            : 'w-full aspect-video max-h-[min(540px,62vh)] xl:max-h-[600px] min-h-[220px] bg-black z-10 rounded-none lg:rounded-3xl shadow-none lg:shadow-xl overflow-hidden group relative lg:relative min-w-0 lg:col-span-7 xl:col-span-8 lg:col-start-1 lg:row-start-1'
+            : 'w-full aspect-video max-h-[min(500px,54vh)] xl:max-h-[580px] bg-black rounded-none lg:rounded-3xl shadow-none lg:shadow-xl overflow-hidden group relative min-w-0 lg:col-span-7 xl:col-span-8 lg:col-start-1 lg:row-start-1'
         }
       >
         <div
@@ -646,7 +650,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
           style={{ overscrollBehavior: 'contain', overscrollBehaviorY: 'contain' }}
         >
           {/* Main/Left Column: Title, Badges & Overview */}
-          <div className="space-y-4 lg:col-span-7 xl:col-span-8 lg:col-start-1 lg:row-start-2 w-full min-w-0 pt-2 lg:pt-3">
+          <div className="space-y-3 lg:col-span-7 xl:col-span-8 lg:col-start-1 lg:row-start-2 w-full min-w-0 pt-1 lg:pt-1.5">
             {/* Title & Actions row */}
             <div className="space-y-2.5 pt-1 sm:pt-2">
               <div className="flex items-start justify-between gap-3">
