@@ -190,10 +190,17 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
     const sent = await sendDeviceNotification({
       title: testTitle,
       body: testBody,
-      id: Math.floor(Math.random() * 100000),
+      id: sample?.id || Math.floor(Math.random() * 100000),
+      category: sample?.category || 'lecture',
+      targetBatchId: sample?.targetBatchId,
+      targetChapterId: sample?.targetChapterId,
+      targetLectureId: sample?.targetLectureId,
+      targetTestId: sample?.targetTestId,
+      actionLabel: sample?.actionLabel || 'Watch Lecture',
+      batchTitle: sample?.batchTitle,
     });
     if (sent) {
-      showToast('Test notification sent to your device!');
+      showToast('Notification pop-up dispatched!');
     } else {
       // If permission wasn't granted yet, prompt user
       handleEnableNotifications();

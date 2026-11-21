@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   onAuthStateChanged, 
@@ -111,7 +111,9 @@ import { GlobalPersistentPlayer, type PersistentPlaybackData } from './component
 import { BatchAdminStudio } from './components/lms/BatchAdminStudio';
 import { HomeDashboard } from './components/home/HomeDashboard';
 import { NotificationsView } from './components/notifications/NotificationsView';
-import { LmsProvider } from './lms/LmsContext';
+import { InAppNotificationBanner } from './components/notifications/InAppNotificationBanner';
+import { useNotificationWatcher } from './hooks/useNotificationWatcher';
+import { LmsProvider, useApp } from './lms/LmsContext';
 import { secureStorage } from './lib/secureStorage';
 import { DEFAULT_STUDENT_FEATURE_ACCESS } from './lms/types';
 import { getLectureThumbnailUrl } from './lms/security';
@@ -171,6 +173,50 @@ function areAttemptsEqual(a: TestAttempt[], b: TestAttempt[]): boolean {
   }
   return true;
 }
+
+interface NotificationWatcherHostProps {
+  isAppLoaded: boolean;
+  onNavigateTab: (tab: ActiveTab) => void;
+  onOpenBatchLecture: (batchId: string, chapterId: string | null, lectureId: string) => void;
+  onOpenBatch: (batchId: string) => void;
+  onOpenTest: (testId: string) => void;
+  availableTests: MathTest[];
+}
+
+const NotificationWatcherHost: React.FC<NotificationWatcherHostProps> = ({
+  isAppLoaded,
+  onNavigateTab,
+  onOpenBatchLecture,
+  onOpenBatch,
+  onOpenTest,
+  availableTests,
+}) => {
+  const { user, batches, lectures, chapters, announcements, batchTests, isEnrolled } = useApp();
+  const isMaster = user?.role === 'admin' || (user?.role as string) === 'superadmin' || isMasterUser(user);
+  const enrolledBatches = useMemo(() => batches.filter((b) => isEnrolled(b.id)), [batches, isEnrolled]);
+  const enrolledBatchIds = useMemo(() => enrolledBatches.map((b) => b.id), [enrolledBatches]);
+
+  useNotificationWatcher({
+    batches,
+    lectures,
+    chapters,
+    announcements,
+    batchTests,
+    availableTests,
+    enrolledBatchIds,
+    isMaster,
+    isAppLoaded,
+  });
+
+  return (
+    <InAppNotificationBanner
+      onNavigateTab={onNavigateTab}
+      onOpenBatchLecture={onOpenBatchLecture}
+      onOpenBatch={onOpenBatch}
+      onOpenTest={onOpenTest}
+    />
+  );
+};
 
 export default function App() {
   const [activeTab, setActiveTabState] = useState<ActiveTab>('home');
@@ -2040,6 +2086,30 @@ export default function App() {
       <div className="min-h-screen bg-[#ededed] dark:bg-[#111318] text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col font-sans antialiased selection:bg-[#0b57d0]/20 selection:text-[#0b57d0] dark:selection:text-[#a8c7fa] transition-colors duration-200">
       {/* Brand Welcome Screen on App Opening */}
       <WelcomeSplash onFinish={() => setIsAppLoaded(true)} />
+      {/* Real-time In-App Notification Pop-up Manager for Web App */}
+      <NotificationWatcherHost
+        isAppLoaded={isAppLoaded}
+        onNavigateTab={(tab) => setActiveTab(tab)}
+        onOpenBatchLecture={(batchId, chapterId, lectureId) => {
+          setSelectedBatchId(batchId);
+          setSelectedChapterId(chapterId || null);
+          setSelectedLectureId(lectureId);
+          setActiveTab('batches');
+        }}
+        onOpenBatch={(batchId) => {
+          setSelectedBatchId(batchId);
+          setActiveTab('batches');
+        }}
+        onOpenTest={(testId) => {
+          const found = tests.find((t) => t.id === testId);
+          if (found) {
+            handleStartTest(found, 'timed');
+          } else {
+            showToast('Original test was deleted or unavailable.', 'error');
+          }
+        }}
+        availableTests={tests}
+      />
       {/* Toast Notification */}
       {notification && (
         <div 

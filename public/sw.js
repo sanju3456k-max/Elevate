@@ -147,3 +147,51 @@ self.addEventListener('message', (event) => {
     self.skipWaiting();
   }
 });
+
+// Handle notification click on Web / PWA
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || '/';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // If a window is already open, focus it
+      for (const client of clientList) {
+        if (client.url && 'focus' in client) {
+          if (event.notification.data?.actionTab) {
+            client.postMessage({
+              type: 'NAVIGATE_NOTIFICATION',
+              payload: event.notification.data,
+            });
+          }
+          return client.focus();
+        }
+      }
+      // Otherwise open a new window
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+
+// Handle push notification if web push payload arrives
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+  try {
+    const data = event.data.json();
+    const title = data.title || 'Elevate Updates';
+    const options = {
+      body: data.body || '',
+      icon: data.icon || '/icon-192.png',
+      badge: data.badge || '/icon-192.png',
+      tag: data.tag || `elevate-${Date.now()}`,
+      data: data.data || {},
+      vibrate: [200, 100, 200],
+    };
+    event.waitUntil(self.registration.showNotification(title, options));
+  } catch (err) {
+    console.warn('[SW] Push parse error:', err);
+  }
+});
+
