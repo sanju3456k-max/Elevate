@@ -1775,8 +1775,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                       className="group cursor-pointer bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 transition-colors p-2.5 sm:p-3.5 rounded-2xl flex flex-row items-center justify-between gap-3 sm:gap-4 relative"
                     >
                       <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                        {/* Compact 16:9 Thumbnail with Rounded-xl */}
-                        <div className="relative w-28 sm:w-44 aspect-video shrink-0 rounded-xl overflow-hidden bg-slate-900/10 dark:bg-black/30 shadow-xs">
+                        {/* 16:9 Thumbnail with Rounded-xl */}
+                        <div className="relative w-36 sm:w-48 md:w-56 aspect-video shrink-0 rounded-xl sm:rounded-2xl overflow-hidden bg-slate-900/10 dark:bg-black/30 shadow-xs">
                           <img
                             src={getLectureThumbnailUrl(lec)}
                             alt={lec.title}

@@ -763,7 +763,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                       }`}
                     >
                       {/* Left: Responsive edge-to-edge video preview thumbnail */}
-                      <div className="relative w-28 sm:w-32 xl:w-36 aspect-video shrink-0 self-stretch overflow-hidden bg-black">
+                      <div className="relative w-32 sm:w-36 xl:w-40 aspect-video shrink-0 self-stretch overflow-hidden bg-black">
                         <img
                           src={getLectureThumbnailUrl(lec)}
                           alt={lec.title}
