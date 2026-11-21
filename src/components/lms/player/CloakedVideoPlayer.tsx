@@ -1487,7 +1487,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             ? 'h-full w-full aspect-auto rounded-none flex items-center justify-center'
             : isMini
               ? 'h-full w-full rounded-none'
-              : 'aspect-video rounded-none lg:rounded-3xl shadow-none group'
+              : 'w-full h-full aspect-video rounded-none lg:rounded-3xl shadow-none group'
       }`}
     >
       {/* 1. HD Scaled YouTube Iframe Engine (Adapts cleanly to UI & device width without artificial zoom distortion) */}

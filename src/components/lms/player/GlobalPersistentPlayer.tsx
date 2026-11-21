@@ -367,7 +367,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             ? `is-minimized fixed right-3 sm:right-5 md:right-6 w-[280px] xs:w-[300px] sm:w-[340px] md:w-[380px] z-50 bg-[#16181d] text-white rounded-2xl md:rounded-3xl shadow-none border-0 border-none ring-0 p-0 transition-all duration-300 select-none overflow-hidden ${
                 !isTestMode ? 'flex flex-col' : 'hidden'
               }`
-            : `is-expanded fixed inset-x-0 bottom-0 w-full top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] md:top-[62px] md:h-[calc(100vh-62px)] z-40 bg-[#e5e9f0] dark:bg-[#0b0c10] flex flex-col lg:grid lg:grid-cols-12 lg:gap-6 items-start overflow-hidden lg:overflow-y-auto lg:px-8 lg:pt-3 lg:pb-24 overscroll-contain select-text`
+            : `is-expanded fixed inset-x-0 bottom-0 w-full top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] md:top-[62px] md:h-[calc(100vh-62px)] z-40 bg-[#e5e9f0] dark:bg-[#0b0c10] flex flex-col lg:grid lg:grid-cols-12 lg:gap-6 xl:gap-8 items-start overflow-hidden lg:overflow-y-auto px-0 lg:px-8 xl:px-10 pt-0 lg:pt-4 pb-16 lg:pb-24 overscroll-contain select-text max-w-[1750px] mx-auto`
         }
       style={
         isInNativePip
@@ -389,7 +389,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             ? 'w-full h-full bg-black flex items-center justify-center p-0 m-0 overflow-hidden'
             : isMinimized
             ? 'w-full aspect-video shrink-0 rounded-t-2xl md:rounded-t-3xl overflow-hidden relative bg-black group/minivid'
-            : 'w-full aspect-video shrink-0 bg-black z-40 lg:col-span-7 xl:col-span-8 lg:col-start-1 lg:row-start-1 shadow-none rounded-none lg:rounded-3xl lg:shadow-lg overflow-hidden group relative sticky top-0 lg:static lg:top-auto'
+            : 'w-full aspect-video max-h-[min(540px,62vh)] xl:max-h-[600px] min-h-[220px] bg-black z-10 rounded-none lg:rounded-3xl shadow-none lg:shadow-xl overflow-hidden group relative lg:relative min-w-0 lg:col-span-7 xl:col-span-8 lg:col-start-1 lg:row-start-1'
         }
       >
         <div
@@ -587,20 +587,35 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
           style={{ overscrollBehavior: 'contain', overscrollBehaviorY: 'contain' }}
         >
           {/* Main/Left Column: Title, Badges & Overview */}
-          <div className="space-y-4 lg:col-span-7 xl:col-span-8 lg:col-start-1 lg:row-start-2 w-full">
+          <div className="space-y-4 lg:col-span-7 xl:col-span-8 lg:col-start-1 lg:row-start-2 w-full min-w-0 pt-2 lg:pt-3">
             {/* Title & Actions row */}
-            <div className="space-y-2 pt-1 sm:pt-2">
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 dark:text-zinc-100 leading-snug tracking-tight">
-                {playback.lectureTitle}
-              </h1>
+            <div className="space-y-2.5 pt-1 sm:pt-2">
+              <div className="flex items-start justify-between gap-3">
+                <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 dark:text-zinc-100 leading-snug tracking-tight break-words flex-1 min-w-0">
+                  {playback.lectureTitle}
+                </h1>
+                {/* Desktop Minimize to PiP button */}
+                <button
+                  type="button"
+                  id="desktop-minimize-pip-btn"
+                  onClick={handleMinimize}
+                  className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-[#1e2024] hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-xs font-semibold border-0 shadow-xs cursor-pointer transition active:scale-95 shrink-0"
+                  title="Minimize video to PiP miniplayer"
+                >
+                  <ChevronDown className="w-4 h-4 text-slate-500 dark:text-zinc-400" />
+                  <span>Minimize</span>
+                </button>
+              </div>
+
+              {/* Badges: Batch, Duration, and Playlist position */}
               <div className="flex flex-wrap items-center justify-between gap-3 pb-1 border-0">
                 <div className="flex items-center flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-[#1e2024] text-[#0b57d0] dark:text-[#a8c7fa] text-xs font-bold border-0 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-[#1e2024] text-[#0b57d0] dark:text-[#a8c7fa] text-xs font-bold border-0 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]">
                     <BookOpen className="w-3.5 h-3.5" />
-                    <span className="truncate max-w-[200px]">{playback.batchTitle}</span>
+                    <span className="truncate max-w-[240px]">{playback.batchTitle}</span>
                   </span>
                   {(totalDuration > 0 || Boolean(playback.durationMinutes)) && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white dark:bg-[#1e2024] text-slate-700 dark:text-zinc-300 text-xs font-semibold border-0 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white dark:bg-[#1e2024] text-slate-700 dark:text-zinc-300 text-xs font-semibold border-0 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]">
                       <Clock className="w-3.5 h-3.5" />
                       <span>
                         {totalDuration > 0
@@ -609,35 +624,41 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                       </span>
                     </span>
                   )}
+                  {batchLectures.length > 0 && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white dark:bg-[#1e2024] text-slate-600 dark:text-zinc-400 text-xs font-medium border-0 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]">
+                      <ListVideo className="w-3.5 h-3.5" />
+                      <span>Lecture {batchLectures.findIndex(l => l.id === playback.lectureId) + 1} of {batchLectures.length}</span>
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* YouTube-style Description Card */}
-            <div className="bg-white dark:bg-[#1e2024] rounded-3xl p-4 sm:p-5 space-y-2.5 border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
+            <div className="bg-white dark:bg-[#1e2024] rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-3 border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] w-full min-w-0">
               <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-zinc-400">
-                <span>Lecture Overview</span>
-                <span className="text-[11px] font-medium opacity-80">{playback.batchTitle}</span>
+                <span className="uppercase tracking-wider text-[11px] font-bold">Lecture Overview</span>
+                <span className="text-[11px] font-medium opacity-80 truncate max-w-[220px]">{playback.batchTitle}</span>
               </div>
-              <p className="text-xs sm:text-[13px] text-slate-700 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">
+              <p className="text-xs sm:text-[13px] text-slate-700 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap break-words">
                 {playback.lectureDescription || 'Comprehensive recorded session and conceptual curriculum module with practice problems, real-time study notes, and chapter milestones.'}
               </p>
 
               {playback.milestones && playback.milestones.length > 0 && (
-                <div className="pt-2.5 border-t border-slate-100 dark:border-zinc-800">
+                <div className="pt-3 border-t border-slate-100 dark:border-zinc-800">
                   <p className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 mb-2 uppercase tracking-wider">
                     Chapters & Milestones
                   </p>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-2">
                     {playback.milestones.map((m, idx) => (
                       <button
                         key={idx}
                         type="button"
                         onClick={() => setSeekSeconds(m.seconds)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-blue-50 dark:bg-zinc-800 dark:hover:bg-blue-950/50 text-[11px] font-semibold text-slate-800 dark:text-zinc-200 border-0 cursor-pointer transition active:scale-95"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-blue-50 dark:bg-zinc-800 dark:hover:bg-blue-950/50 text-[11px] font-semibold text-slate-800 dark:text-zinc-200 border-0 cursor-pointer transition active:scale-95"
                       >
                         <span className="font-mono text-[#0b57d0] dark:text-[#a8c7fa] font-bold">{formatDuration(m.seconds)}</span>
-                        <span>{m.title}</span>
+                        <span className="truncate max-w-[180px]">{m.title}</span>
                       </button>
                     ))}
                   </div>
@@ -647,23 +668,23 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
           </div>
 
           {/* Right/Secondary Column (More in this Course + Lecture Notes) */}
-          <div className="space-y-5 lg:col-span-5 xl:col-span-4 lg:col-start-8 xl:col-start-9 lg:row-start-1 lg:row-span-2 w-full">
+          <div className="space-y-5 lg:col-span-5 xl:col-span-4 lg:col-start-8 xl:col-start-9 lg:row-start-1 lg:row-span-2 w-full min-w-0">
           {/* YouTube-style Course Playlist Queue (Top on Desktop) */}
           {batchLectures.length > 0 && (
-            <div className="bg-white dark:bg-[#1e2024] rounded-3xl p-4 sm:p-5 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-3 border-0">
+            <div className="bg-white dark:bg-[#1e2024] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-3 border-0 w-full min-w-0">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
-                <div className="flex items-center space-x-2">
-                  <ListVideo className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100">
+                <div className="flex items-center space-x-2 min-w-0">
+                  <ListVideo className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100 truncate">
                     More in this Course
                   </h3>
                 </div>
-                <span className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 shrink-0">
                   {batchLectures.length} Lectures
                 </span>
               </div>
 
-              <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[380px] xl:max-h-[440px] overflow-y-auto pr-1">
                 {batchLectures.map((lec) => {
                   const isCurrent = lec.id === playback.lectureId;
                   return (
@@ -672,14 +693,14 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                       onClick={() => {
                         if (!isCurrent) switchLecture(lec);
                       }}
-                      className={`rounded-2xl overflow-hidden flex flex-row items-stretch p-0 border-0 transition cursor-pointer group relative ${
+                      className={`rounded-2xl overflow-hidden flex flex-row items-stretch p-0 border-0 transition cursor-pointer group relative min-w-0 ${
                         isCurrent
-                          ? 'bg-blue-50 dark:bg-blue-950/40 shadow-xs'
+                          ? 'bg-blue-50 dark:bg-blue-950/40 shadow-xs ring-1 ring-[#0b57d0]/30'
                           : 'bg-slate-50 dark:bg-[#141619] hover:bg-slate-100 dark:hover:bg-[#25272c]'
                       }`}
                     >
-                      {/* Left: Full edge-to-edge flush video preview on card side */}
-                      <div className="relative w-32 sm:w-36 aspect-video shrink-0 self-stretch overflow-hidden bg-black">
+                      {/* Left: Responsive edge-to-edge video preview thumbnail */}
+                      <div className="relative w-28 sm:w-32 xl:w-36 aspect-video shrink-0 self-stretch overflow-hidden bg-black">
                         <img
                           src={getLectureThumbnailUrl(lec)}
                           alt={lec.title}
@@ -711,7 +732,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                       </div>
 
                       {/* Right: Content & Metadata */}
-                      <div className="flex-1 min-w-0 p-3 sm:p-3.5 flex items-center justify-between gap-2.5">
+                      <div className="flex-1 min-w-0 p-2.5 sm:p-3 flex items-center justify-between gap-2">
                         <div className="min-w-0 flex-1 space-y-0.5">
                           {isCurrent && (
                             <span className="text-[10px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] tracking-wider uppercase block">
@@ -724,6 +745,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                                 ? 'text-[#0b57d0] dark:text-[#a8c7fa]'
                                 : 'text-slate-900 dark:text-zinc-100 group-hover:text-[#0b57d0]'
                             }`}
+                            title={lec.title}
                           >
                             {lec.title}
                           </p>
@@ -743,23 +765,23 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
           )}
 
           {/* Lecture Notes Card (Bottom on Desktop) */}
-          <div className="bg-white dark:bg-[#1e2024] rounded-3xl p-4 sm:p-5 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-4 border-0">
+          <div className="bg-white dark:bg-[#1e2024] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-4 border-0 w-full min-w-0">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
-              <div className="flex items-center space-x-2.5">
+              <div className="flex items-center space-x-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-950/60 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0">
                   <FileText className="w-4 h-4" />
                 </div>
-                <div>
-                  <h2 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100 leading-tight">
+                <div className="min-w-0">
+                  <h2 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100 leading-tight truncate">
                     Lecture Notes
                   </h2>
-                  <p className="text-[10px] text-slate-500 dark:text-zinc-400">
+                  <p className="text-[10px] text-slate-500 dark:text-zinc-400 truncate">
                     Personal study notes & key takeaways
                   </p>
                 </div>
               </div>
               {currentLectureNotes.length > 0 && (
-                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-[10px] font-bold text-slate-600 dark:text-zinc-400">
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-[10px] font-bold text-slate-600 dark:text-zinc-400 shrink-0">
                   {currentLectureNotes.length} saved
                 </span>
               )}
@@ -787,7 +809,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             </form>
 
             {/* Saved Notes List */}
-            <div className="space-y-2 max-h-64 sm:max-h-72 lg:max-h-80 overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-56 sm:max-h-64 overflow-y-auto pr-1">
               {currentLectureNotes.length === 0 ? (
                 <div className="p-4 text-center rounded-2xl bg-slate-50 dark:bg-zinc-800/40 border-0 space-y-1">
                   <p className="text-xs font-semibold text-slate-800 dark:text-zinc-200">

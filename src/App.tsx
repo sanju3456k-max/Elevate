@@ -575,6 +575,8 @@ export default function App() {
         statusBarColor = isDarkMode ? '#0b0c10' : '#ffffff';
       } else if (activeTab === 'master-console') {
         statusBarColor = isDarkMode ? '#16181f' : '#ffffff';
+      } else if (isFullVideoPlayerActive) {
+        statusBarColor = isDarkMode ? '#0b0c10' : '#e5e9f0';
       } else if (activeTab === 'notifications' || (activeTab === 'batches' && isInsideBatch)) {
         statusBarColor = isDarkMode ? '#0b0c10' : '#ffffff';
       } else if (activeTab === 'chatbot') {
@@ -598,7 +600,7 @@ export default function App() {
     } catch (e) {
       console.warn('Theme storage and status bar sync error:', e);
     }
-  }, [isDarkMode, activeTab, isInsideBatch, isSettingsModalOpen, isAppLoaded]);
+  }, [isDarkMode, activeTab, isInsideBatch, isSettingsModalOpen, isAppLoaded, isFullVideoPlayerActive]);
 
   const toggleTheme = useCallback(() => {
     setIsDarkMode((prev) => !prev);
@@ -2141,7 +2143,7 @@ export default function App() {
         <div
           id="app-navbar-wrapper"
           className={`sticky top-0 z-50 transition-all duration-200 shrink-0 ${
-            (activeTab === 'notifications' || (activeTab === 'batches' && isInsideBatch))
+            ((activeTab === 'notifications' || (activeTab === 'batches' && isInsideBatch)) && !isFullVideoPlayerActive)
               ? 'bg-white dark:bg-[#0b0c10]'
               : 'bg-[#e5e9f0] dark:bg-[#0b0c10]'
           } ${
