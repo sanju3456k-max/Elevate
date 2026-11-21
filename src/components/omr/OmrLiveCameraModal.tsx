@@ -71,6 +71,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
   const [hasTorchCapability, setHasTorchCapability] = useState(false);
   const [detectionState, setDetectionState] = useState<LiveOmrDetectionFrame | null>(null);
   const [isProcessingFinalWarp, setIsProcessingFinalWarp] = useState(false);
+  const [captureFlash, setCaptureFlash] = useState(false);
   const [frameMetrics, setFrameMetrics] = useState<FrameLayoutMetrics | null>(null);
   const frameMetricsRef = useRef<FrameLayoutMetrics | null>(null);
 
@@ -291,6 +292,8 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
 
       triggerHaptic();
       playCaptureSound();
+      setCaptureFlash(true);
+      setTimeout(() => setCaptureFlash(false), 200);
 
       const video = videoRef.current;
       if (!video || video.videoWidth <= 0 || video.videoHeight <= 0) {
@@ -465,6 +468,11 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
   const streakProgress = detectionState?.stabilityProgress || 0;
   const fiducials = detectionState?.fiducials;
   const outerCorners = detectionState?.outerCorners;
+  const detectedBoxes = detectionState?.detectedBoxes;
+  const isTL = Boolean(detectedBoxes?.tl);
+  const isTR = Boolean(detectedBoxes?.tr);
+  const isBR = Boolean(detectedBoxes?.br);
+  const isBL = Boolean(detectedBoxes?.bl);
 
   let polygonStroke = '#eab308'; // Yellow searching
   let polygonFill = 'rgba(234, 179, 8, 0.05)';
@@ -583,6 +591,11 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
               className="absolute inset-0 w-full h-full object-cover"
             />
 
+            {/* Instant Camera Shutter Flash */}
+            {captureFlash && (
+              <div className="absolute inset-0 bg-white pointer-events-none z-30 transition-opacity duration-200" />
+            )}
+
             {/* 3. Screen Viewfinder Vignette & Frame Guide Overlay */}
             {frameMetrics && (
               <div className="absolute inset-0 pointer-events-none z-10">
@@ -623,9 +636,9 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                   />
                 </svg>
 
-                {/* Corner Guide Reticles positioned inside the frame */}
+                {/* 4 Corner Target Boxes & Alignment Guides */}
                 <div 
-                  className="absolute"
+                  className="absolute pointer-events-none"
                   style={{
                     left: `${frameMetrics.frameLeft}px`,
                     top: `${frameMetrics.frameTop}px`,
@@ -633,26 +646,74 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                     height: `${frameMetrics.frameHeight}px`,
                   }}
                 >
-                  {/* Top-Left Target Bracket */}
+                  {/* Top Guide Indicator */}
+                  <div className="absolute top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 text-[11px] font-bold text-white uppercase tracking-wider select-none">
+                    Top
+                  </div>
+
+                  {/* Top-Left Target Box */}
                   <div 
-                    className="absolute w-8 h-8 border-t-3 border-l-3 border-emerald-400 rounded-tl-lg pointer-events-none transition-all"
+                    className={`absolute w-12 h-12 sm:w-14 sm:h-14 rounded-xl pointer-events-none transition-all duration-150 flex items-center justify-center ${
+                      isTL 
+                        ? 'border-2 border-emerald-400 bg-emerald-500/20 shadow-[0_0_16px_rgba(52,211,153,0.6)] scale-105' 
+                        : 'border-2 border-white/80 bg-black/35 shadow-md'
+                    }`}
                     style={{ left: `${marginPctX}%`, top: `${marginPctTop}%`, transform: 'translate(-50%, -50%)' }}
-                  />
-                  {/* Top-Right Target Bracket */}
+                  >
+                    {isTL ? (
+                      <div className="w-4 h-4 bg-emerald-400 rounded-xs shadow-sm animate-pulse" />
+                    ) : (
+                      <div className="w-3 h-3 border border-dashed border-white/40 rounded-xs" />
+                    )}
+                  </div>
+
+                  {/* Top-Right Target Box */}
                   <div 
-                    className="absolute w-8 h-8 border-t-3 border-r-3 border-emerald-400 rounded-tr-lg pointer-events-none transition-all"
+                    className={`absolute w-12 h-12 sm:w-14 sm:h-14 rounded-xl pointer-events-none transition-all duration-150 flex items-center justify-center ${
+                      isTR 
+                        ? 'border-2 border-emerald-400 bg-emerald-500/20 shadow-[0_0_16px_rgba(52,211,153,0.6)] scale-105' 
+                        : 'border-2 border-white/80 bg-black/35 shadow-md'
+                    }`}
                     style={{ left: `${100 - marginPctX}%`, top: `${marginPctTop}%`, transform: 'translate(50%, -50%)' }}
-                  />
-                  {/* Bottom-Right Target Bracket */}
+                  >
+                    {isTR ? (
+                      <div className="w-4 h-4 bg-emerald-400 rounded-xs shadow-sm animate-pulse" />
+                    ) : (
+                      <div className="w-3 h-3 border border-dashed border-white/40 rounded-xs" />
+                    )}
+                  </div>
+
+                  {/* Bottom-Right Target Box */}
                   <div 
-                    className="absolute w-8 h-8 border-b-3 border-r-3 border-emerald-400 rounded-br-lg pointer-events-none transition-all"
+                    className={`absolute w-12 h-12 sm:w-14 sm:h-14 rounded-xl pointer-events-none transition-all duration-150 flex items-center justify-center ${
+                      isBR 
+                        ? 'border-2 border-emerald-400 bg-emerald-500/20 shadow-[0_0_16px_rgba(52,211,153,0.6)] scale-105' 
+                        : 'border-2 border-white/80 bg-black/35 shadow-md'
+                    }`}
                     style={{ left: `${100 - marginPctX}%`, top: `${100 - marginPctBottom}%`, transform: 'translate(50%, 50%)' }}
-                  />
-                  {/* Bottom-Left Target Bracket */}
+                  >
+                    {isBR ? (
+                      <div className="w-4 h-4 bg-emerald-400 rounded-xs shadow-sm animate-pulse" />
+                    ) : (
+                      <div className="w-3 h-3 border border-dashed border-white/40 rounded-xs" />
+                    )}
+                  </div>
+
+                  {/* Bottom-Left Target Box */}
                   <div 
-                    className="absolute w-8 h-8 border-b-3 border-l-3 border-emerald-400 rounded-bl-lg pointer-events-none transition-all"
+                    className={`absolute w-12 h-12 sm:w-14 sm:h-14 rounded-xl pointer-events-none transition-all duration-150 flex items-center justify-center ${
+                      isBL 
+                        ? 'border-2 border-emerald-400 bg-emerald-500/20 shadow-[0_0_16px_rgba(52,211,153,0.6)] scale-105' 
+                        : 'border-2 border-white/80 bg-black/35 shadow-md'
+                    }`}
                     style={{ left: `${marginPctX}%`, top: `${100 - marginPctBottom}%`, transform: 'translate(-50%, 50%)' }}
-                  />
+                  >
+                    {isBL ? (
+                      <div className="w-4 h-4 bg-emerald-400 rounded-xs shadow-sm animate-pulse" />
+                    ) : (
+                      <div className="w-3 h-3 border border-dashed border-white/40 rounded-xs" />
+                    )}
+                  </div>
                 </div>
               </div>
             )}

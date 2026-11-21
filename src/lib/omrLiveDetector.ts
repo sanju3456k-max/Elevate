@@ -29,6 +29,14 @@ export interface ContainerDim {
   height: number;
 }
 
+export interface DetectedBoxesState {
+  tl: boolean;
+  tr: boolean;
+  br: boolean;
+  bl: boolean;
+  count: number;
+}
+
 export interface LiveOmrDetectionFrame {
   status: LiveScannerStatus;
   detected: boolean;
@@ -43,6 +51,7 @@ export interface LiveOmrDetectionFrame {
   tiltAngleDeg: number;
   ratioMatchPercentage: number;
   shouldAutoSnap: boolean;
+  detectedBoxes: DetectedBoxesState;
 }
 
 interface PatchCandidate {
@@ -64,16 +73,16 @@ export class OmrLiveDetector {
   // Offscreen canvas for extracting high-res corner patches
   private patchCanvas: HTMLCanvasElement;
   private patchCtx: CanvasRenderingContext2D | null;
-  private readonly patchRadius = 45; // 90x90 pixel search window in video coordinates
+  private readonly patchRadius = 55; // 110x110 pixel search window in video coordinates
 
   // Temporal coordinate smoothing
   private smoothedVideoFiducials: LiveQuadCorners | null = null;
   private smoothedVideoOuter: LiveQuadCorners | null = null;
   private stableStreak = 0;
-  private readonly requiredStableFrames = 5; // ~350ms hold
-  private readonly maxMovementThresholdSq = 6.0 * 6.0; // In video pixels
+  private readonly requiredStableFrames = 1; // Instant snap the moment all 4 boxes detect markers
+  private readonly maxMovementThresholdSq = 12.0 * 12.0; // In video pixels
   private lastProcessTimestamp = 0;
-  private readonly minProcessIntervalMs = 40; // ~25 FPS
+  private readonly minProcessIntervalMs = 25; // ~40 FPS for ultra-responsive live detection
 
   constructor(layoutConfigOrQuestionCount: OmrLayoutConfig | number = 50) {
     if (typeof layoutConfigOrQuestionCount === 'number') {
@@ -196,13 +205,22 @@ export class OmrLiveDetector {
       bl: screenToVideo(screenFrame.left, screenFrame.top + screenFrame.height),
     };
 
-    // 3. Extract high-res 90x90 patches from video and locate the hollow square in each corner
+    // 3. Extract high-res patches from video and locate the hollow square in each corner
     const candTL = this.detectCornerInPatch(video, expVideoFiducials.tl, vw, vh);
     const candTR = this.detectCornerInPatch(video, expVideoFiducials.tr, vw, vh);
     const candBR = this.detectCornerInPatch(video, expVideoFiducials.br, vw, vh);
     const candBL = this.detectCornerInPatch(video, expVideoFiducials.bl, vw, vh);
 
-    const allDetected = Boolean(candTL && candTR && candBR && candBL);
+    const boxCount = (candTL ? 1 : 0) + (candTR ? 1 : 0) + (candBR ? 1 : 0) + (candBL ? 1 : 0);
+    const detectedBoxes: DetectedBoxesState = {
+      tl: Boolean(candTL),
+      tr: Boolean(candTR),
+      br: Boolean(candBR),
+      bl: Boolean(candBL),
+      count: boxCount,
+    };
+
+    const allDetected = boxCount === 4 && Boolean(candTL && candTR && candBR && candBL);
 
     if (!allDetected || !candTL || !candTR || !candBR || !candBL) {
       this.decayStreak();
@@ -215,20 +233,25 @@ export class OmrLiveDetector {
         bl: { x: (expScreenFiducials.bl.x / cw) * 100, y: (expScreenFiducials.bl.y / ch) * 100 },
       };
 
+      const guidanceMsg = boxCount === 0 
+        ? 'Align 4 corner boxes with markers' 
+        : `${boxCount} of 4 boxes detected...`;
+
       return {
         status: 'searching',
         detected: false,
-        confidence: 0,
+        confidence: boxCount * 25,
         fiducials: fallbackScreenFiducials,
         outerCorners: frameCornersScreenPct,
         videoFiducials: expVideoFiducials,
         videoOuterCorners: frameCornersVideo,
         frameCorners: frameCornersScreenPct,
-        stabilityProgress: 0,
-        guidanceMessage: 'Align OMR sheet inside frame',
+        stabilityProgress: boxCount / 4,
+        guidanceMessage: guidanceMsg,
         tiltAngleDeg: 0,
         ratioMatchPercentage: 0,
         shouldAutoSnap: false,
+        detectedBoxes,
       };
     }
 
@@ -266,17 +289,18 @@ export class OmrLiveDetector {
       return {
         status: 'searching',
         detected: false,
-        confidence: 25,
+        confidence: 40,
         fiducials: frameCornersScreenPct,
         outerCorners: frameCornersScreenPct,
         videoFiducials: expVideoFiducials,
         videoOuterCorners: frameCornersVideo,
         frameCorners: frameCornersScreenPct,
-        stabilityProgress: 0,
+        stabilityProgress: 0.5,
         guidanceMessage: 'Keep sheet flat and parallel to camera',
         tiltAngleDeg: Math.round((Math.atan2(topDy, topDx) * 180) / Math.PI),
         ratioMatchPercentage: Math.round(Math.max(0, 1 - ratioDiff / maxRatioTolerance) * 100),
         shouldAutoSnap: false,
+        detectedBoxes: { tl: true, tr: true, br: true, bl: true, count: 4 },
       };
     }
 
@@ -307,68 +331,23 @@ export class OmrLiveDetector {
       },
     };
 
-    // 6. Temporal Coordinate Smoothing (EMA filter, alpha = 0.35)
-    if (!this.smoothedVideoFiducials || !this.smoothedVideoOuter) {
-      this.smoothedVideoFiducials = rawVideoFiducials;
-      this.smoothedVideoOuter = rawVideoOuter;
-    } else {
-      const alpha = 0.35;
-      this.smoothedVideoFiducials = {
-        tl: smoothPt(this.smoothedVideoFiducials.tl, rawVideoFiducials.tl, alpha),
-        tr: smoothPt(this.smoothedVideoFiducials.tr, rawVideoFiducials.tr, alpha),
-        br: smoothPt(this.smoothedVideoFiducials.br, rawVideoFiducials.br, alpha),
-        bl: smoothPt(this.smoothedVideoFiducials.bl, rawVideoFiducials.bl, alpha),
-      };
-      this.smoothedVideoOuter = {
-        tl: smoothPt(this.smoothedVideoOuter.tl, rawVideoOuter.tl, alpha),
-        tr: smoothPt(this.smoothedVideoOuter.tr, rawVideoOuter.tr, alpha),
-        br: smoothPt(this.smoothedVideoOuter.br, rawVideoOuter.br, alpha),
-        bl: smoothPt(this.smoothedVideoOuter.bl, rawVideoOuter.bl, alpha),
-      };
-    }
-
-    // 7. Stability hold detector
-    const movementSq = Math.max(
-      distSq(rawVideoFiducials.tl, this.smoothedVideoFiducials.tl),
-      distSq(rawVideoFiducials.tr, this.smoothedVideoFiducials.tr),
-      distSq(rawVideoFiducials.br, this.smoothedVideoFiducials.br),
-      distSq(rawVideoFiducials.bl, this.smoothedVideoFiducials.bl)
-    );
-
-    const isStable = movementSq < this.maxMovementThresholdSq;
-    if (isStable) {
-      this.stableStreak = Math.min(this.requiredStableFrames, this.stableStreak + 1);
-    } else {
-      this.stableStreak = Math.max(0, this.stableStreak - 2);
-    }
-
-    const progress = this.stableStreak / this.requiredStableFrames;
-    const isLocked = this.stableStreak >= this.requiredStableFrames;
-    const status: LiveScannerStatus = isLocked ? 'locked' : (this.stableStreak > 1 ? 'stabilizing' : 'tracking');
-
-    // 8. Convert video coordinates to screen % coordinates for crisp UI reticles & polygon
+    // 6. Convert video coordinates to screen % coordinates for crisp UI reticles & polygon
     const screenFiducials: LiveQuadCorners = {
-      tl: toScreenPct(videoToScreen(this.smoothedVideoFiducials.tl.x, this.smoothedVideoFiducials.tl.y), cw, ch),
-      tr: toScreenPct(videoToScreen(this.smoothedVideoFiducials.tr.x, this.smoothedVideoFiducials.tr.y), cw, ch),
-      br: toScreenPct(videoToScreen(this.smoothedVideoFiducials.br.x, this.smoothedVideoFiducials.br.y), cw, ch),
-      bl: toScreenPct(videoToScreen(this.smoothedVideoFiducials.bl.x, this.smoothedVideoFiducials.bl.y), cw, ch),
+      tl: toScreenPct(videoToScreen(rawVideoFiducials.tl.x, rawVideoFiducials.tl.y), cw, ch),
+      tr: toScreenPct(videoToScreen(rawVideoFiducials.tr.x, rawVideoFiducials.tr.y), cw, ch),
+      br: toScreenPct(videoToScreen(rawVideoFiducials.br.x, rawVideoFiducials.br.y), cw, ch),
+      bl: toScreenPct(videoToScreen(rawVideoFiducials.bl.x, rawVideoFiducials.bl.y), cw, ch),
     };
 
     const screenOuter: LiveQuadCorners = {
-      tl: toScreenPct(videoToScreen(this.smoothedVideoOuter.tl.x, this.smoothedVideoOuter.tl.y), cw, ch),
-      tr: toScreenPct(videoToScreen(this.smoothedVideoOuter.tr.x, this.smoothedVideoOuter.tr.y), cw, ch),
-      br: toScreenPct(videoToScreen(this.smoothedVideoOuter.br.x, this.smoothedVideoOuter.br.y), cw, ch),
-      bl: toScreenPct(videoToScreen(this.smoothedVideoOuter.bl.x, this.smoothedVideoOuter.bl.y), cw, ch),
+      tl: toScreenPct(videoToScreen(rawVideoOuter.tl.x, rawVideoOuter.tl.y), cw, ch),
+      tr: toScreenPct(videoToScreen(rawVideoOuter.tr.x, rawVideoOuter.tr.y), cw, ch),
+      br: toScreenPct(videoToScreen(rawVideoOuter.br.x, rawVideoOuter.br.y), cw, ch),
+      bl: toScreenPct(videoToScreen(rawVideoOuter.bl.x, rawVideoOuter.bl.y), cw, ch),
     };
 
-    let guidance = '4 Corner markers detected';
-    if (isLocked) {
-      guidance = 'Locked! Auto-scanning...';
-    } else if (status === 'stabilizing') {
-      guidance = 'Hold steady...';
-    } else if (Math.abs(tiltDeg) > 10) {
-      guidance = tiltDeg > 0 ? 'Rotate slightly counter-clockwise' : 'Rotate slightly clockwise';
-    }
+    // 7. Instant Auto-Snap: All 4 boxes detected and verified!
+    const status: LiveScannerStatus = 'locked';
 
     return {
       status,
@@ -376,14 +355,15 @@ export class OmrLiveDetector {
       confidence: Math.round(ratioMatch * 100),
       fiducials: screenFiducials,
       outerCorners: screenOuter,
-      videoFiducials: this.smoothedVideoFiducials,
-      videoOuterCorners: this.smoothedVideoOuter,
+      videoFiducials: rawVideoFiducials,
+      videoOuterCorners: rawVideoOuter,
       frameCorners: frameCornersScreenPct,
-      stabilityProgress: progress,
-      guidanceMessage: guidance,
+      stabilityProgress: 1.0,
+      guidanceMessage: 'All 4 markers detected! Capturing...',
       tiltAngleDeg: Math.round(tiltDeg),
       ratioMatchPercentage: Math.round(ratioMatch * 100),
-      shouldAutoSnap: isLocked,
+      shouldAutoSnap: true, // Immediate capture like ZipGrade!
+      detectedBoxes: { tl: true, tr: true, br: true, bl: true, count: 4 },
     };
   }
 
@@ -518,8 +498,8 @@ function findHollowSquareInPatch(gray: Uint8Array, w: number, h: number): PatchC
         const bh = maxY - minY + 1;
         const aspect = bw / bh;
 
-        // Fiducial squares are ~12px to 40px in typical camera feeds, aspect ratio ~1.0
-        if (bw >= 10 && bw <= 45 && bh >= 10 && bh <= 45 && aspect >= 0.70 && aspect <= 1.40) {
+        // Fiducial squares are ~10px to 55px in typical camera feeds, aspect ratio ~1.0
+        if (bw >= 8 && bw <= 65 && bh >= 8 && bh <= 65 && aspect >= 0.60 && aspect <= 1.60) {
           const cx = (minX + maxX) / 2;
           const cy = (minY + maxY) / 2;
           const midXInt = Math.round(cx);
