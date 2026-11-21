@@ -173,6 +173,7 @@
       overscroll-behavior-y: contain !important;
       padding-left: max(2rem, calc((100vw - 1720px) / 2)) !important;
       padding-right: max(2rem, calc((100vw - 1720px) / 2)) !important;
+      padding-bottom: max(6rem, calc(4rem + env(safe-area-inset-bottom, 0px))) !important;
     }
   }
 
