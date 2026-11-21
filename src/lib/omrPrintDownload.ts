@@ -6,9 +6,101 @@ import { generateOmrSheetBlueprint } from './omrGeometry';
 const MM_TO_PX = 3.779527559; // 96 DPI CSS pixels per millimeter
 
 /**
- * Trigger browser file download of Blob or Data URL safely across all browser environments
+ * Checks if the current environment is running inside Capacitor native Android
  */
-export function triggerBlobDownload(blob: Blob | string, filename: string) {
+export function isAndroidNative(): boolean {
+  try {
+    const cap = (window as any).Capacitor;
+    if (cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform()) {
+      return cap.getPlatform ? cap.getPlatform() === 'android' : true;
+    }
+  } catch {}
+  return false;
+}
+
+/**
+ * Access the PipBridge native plugin instance
+ */
+export function getPipBridge() {
+  try {
+    return (window as any).Capacitor?.Plugins?.PipBridge;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Helper to determine MIME type from filename extension or explicit override
+ */
+function guessMimeType(filename: string, fallback?: string): string {
+  if (fallback && fallback.includes('/')) return fallback;
+  const lower = filename.toLowerCase();
+  if (lower.endsWith('.pdf')) return 'application/pdf';
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  if (lower.endsWith('.json')) return 'application/json';
+  if (lower.endsWith('.txt')) return 'text/plain';
+  if (lower.endsWith('.csv')) return 'text/csv';
+  return 'application/octet-stream';
+}
+
+/**
+ * Convert a Blob to a base64 Data URL using FileReader
+ */
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      resolve(reader.result as string);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Trigger browser file download of Blob or Data URL safely across all browser and native Android environments
+ */
+export async function triggerBlobDownload(blob: Blob | string, filename: string, mimeType?: string): Promise<void> {
+  const determinedMime = guessMimeType(filename, mimeType || (blob instanceof Blob ? blob.type : undefined));
+
+  // 1. Android Native Environment: Route through PipBridge native downloadFile
+  if (isAndroidNative()) {
+    try {
+      const bridge = getPipBridge();
+      if (bridge && typeof bridge.downloadFile === 'function') {
+        let base64 = '';
+        if (typeof blob === 'string') {
+          if (blob.startsWith('data:')) {
+            base64 = blob;
+          } else if (blob.startsWith('blob:')) {
+            const resp = await fetch(blob);
+            const b = await resp.blob();
+            base64 = await blobToDataUrl(b);
+          } else {
+            const textBlob = new Blob([blob], { type: determinedMime });
+            base64 = await blobToDataUrl(textBlob);
+          }
+        } else {
+          base64 = await blobToDataUrl(blob);
+        }
+
+        if (base64) {
+          await bridge.downloadFile({
+            filename,
+            base64,
+            mimeType: determinedMime,
+            openShare: true,
+          });
+          return;
+        }
+      }
+    } catch (nativeErr) {
+      console.warn('Native PipBridge.downloadFile failed, attempting browser fallback:', nativeErr);
+    }
+  }
+
+  // 2. Standard Web Browser Environment
   try {
     let url: string;
     let isObjectUrl = false;
@@ -17,7 +109,7 @@ export function triggerBlobDownload(blob: Blob | string, filename: string) {
       if (blob.startsWith('data:') || blob.startsWith('blob:') || blob.startsWith('http')) {
         url = blob;
       } else {
-        const textBlob = new Blob([blob], { type: 'text/plain;charset=utf-8' });
+        const textBlob = new Blob([blob], { type: determinedMime });
         url = URL.createObjectURL(textBlob);
         isObjectUrl = true;
       }
@@ -560,6 +652,22 @@ export async function triggerSystemPrint(
 </body>
 </html>`;
 
+  // 0. Native Android Print Engine via Capacitor PipBridge (Native Print Spooler / Save as PDF)
+  if (isAndroidNative()) {
+    const bridge = getPipBridge();
+    if (bridge && typeof bridge.print === 'function') {
+      try {
+        await bridge.print({
+          title: documentTitle || 'Elevate Question Paper',
+          html: fullHtml,
+        });
+        return;
+      } catch (nativeErr) {
+        console.warn('Native PipBridge.print failed, falling back to in-page print:', nativeErr);
+      }
+    }
+  }
+
   // =========================================================================
   // Primary Method: In-Page Seamless Print Portal (Never opens a new tab or blob URL)
   // =========================================================================
@@ -866,11 +974,18 @@ export async function exportOmrSheetToPdf(
   // Fit to full 210mm A4 width at the top with exact ISO page height
   pdf.addImage(imgData, 'JPEG', 0, 0, 210, layout.pageHeightMm, undefined, 'FAST');
 
+  // In native Android WebView, pdf.save fails silently; route through native downloader
+  if (isAndroidNative()) {
+    const blob = pdf.output('blob');
+    await triggerBlobDownload(blob, filename, 'application/pdf');
+    return;
+  }
+
   try {
     pdf.save(filename);
   } catch {
     const blob = pdf.output('blob');
-    triggerBlobDownload(blob, filename);
+    await triggerBlobDownload(blob, filename, 'application/pdf');
   }
 }
 
@@ -966,6 +1081,22 @@ export async function triggerOmrSheetPrint(
   </script>
 </body>
 </html>`;
+
+  // 0. Native Android Print Engine via Capacitor PipBridge (Native Print Spooler / Save as PDF)
+  if (isAndroidNative()) {
+    const bridge = getPipBridge();
+    if (bridge && typeof bridge.print === 'function') {
+      try {
+        await bridge.print({
+          title: examTitle || 'OMR Bubble Sheet',
+          html: fullHtml,
+        });
+        return;
+      } catch (nativeErr) {
+        console.warn('Native PipBridge.print for OMR failed, falling back to in-page print:', nativeErr);
+      }
+    }
+  }
 
   // Direct In-Page Print Portal (Never opens a new tab or blob URL)
   const existingPortal = document.getElementById('omr-print-active-portal');
@@ -1104,12 +1235,19 @@ export async function exportElementToA4Pdf(
     pdf.addImage(imgData, 'JPEG', 0, 0, itemWidthMm, itemHeightMm, undefined, 'FAST');
   }
 
+  // In native Android WebView, pdf.save fails silently; route through native downloader
+  if (isAndroidNative()) {
+    const blob = pdf.output('blob');
+    await triggerBlobDownload(blob, filename, 'application/pdf');
+    return;
+  }
+
   // Download PDF via native jsPDF saver with blob fallback
   try {
     pdf.save(filename);
   } catch {
     const blob = pdf.output('blob');
-    triggerBlobDownload(blob, filename);
+    await triggerBlobDownload(blob, filename, 'application/pdf');
   }
 }
 
@@ -1389,6 +1527,22 @@ export async function triggerMultiUpOmrPrint(
   </script>
 </body>
 </html>`;
+
+  // 0. Native Android Print Engine via Capacitor PipBridge (Native Print Spooler / Save as PDF)
+  if (isAndroidNative()) {
+    const bridge = getPipBridge();
+    if (bridge && typeof bridge.print === 'function') {
+      try {
+        await bridge.print({
+          title: examTitle || 'OMR Bubble Sheet',
+          html: fullHtml,
+        });
+        return;
+      } catch (nativeErr) {
+        console.warn('Native PipBridge.print for OMR failed, falling back to in-page print:', nativeErr);
+      }
+    }
+  }
 
   // Direct In-Page Print Portal (Never opens a new tab or blob URL)
   const portalId = 'omr-print-active-portal';

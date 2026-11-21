@@ -278,7 +278,25 @@ export function printNoteDocument(options: PrintNoteDocumentOptions): Promise<vo
         return Promise.resolve();
       };
 
-      Promise.all([awaitFonts(), awaitImages()]).then(() => {
+      Promise.all([awaitFonts(), awaitImages()]).then(async () => {
+        // Native Android Print Engine via Capacitor PipBridge
+        const cap = (window as any).Capacitor;
+        if (cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform()) {
+          const bridge = cap.Plugins?.PipBridge;
+          if (bridge && typeof bridge.print === 'function') {
+            try {
+              await bridge.print({
+                title: cleanTitle,
+                html: fullHtml,
+              });
+              cleanup();
+              return;
+            } catch (nativeErr) {
+              console.warn('Native PipBridge.print failed for note, falling back to iframe print:', nativeErr);
+            }
+          }
+        }
+
         setTimeout(() => {
           try {
             printFrame?.contentWindow?.focus();

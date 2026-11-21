@@ -24,6 +24,25 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.Task;
+import android.content.ContentResolver;
+import android.content.ContentValues;
+import android.media.MediaScannerConnection;
+import android.net.Uri;
+import android.os.Environment;
+import android.print.PrintAttributes;
+import android.print.PrintDocumentAdapter;
+import android.print.PrintJob;
+import android.print.PrintManager;
+import android.provider.MediaStore;
+import android.util.Base64;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.Toast;
+import androidx.core.content.FileProvider;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 
 @CapacitorPlugin(name = "PipBridge")
 public class PipPlugin extends Plugin {
@@ -369,5 +388,216 @@ public class PipPlugin extends Plugin {
         JSObject ret = new JSObject();
         ret.put("success", true);
         call.resolve(ret);
+    }
+
+    private WebView printWebView;
+
+    @PluginMethod
+    public void print(PluginCall call) {
+        if (getActivity() == null) {
+            call.reject("Activity not available");
+            return;
+        }
+
+        String title = call.getString("title", "Elevate Document");
+        String html = call.getString("html", "");
+
+        if (html == null || html.trim().isEmpty()) {
+            call.reject("HTML content is required for printing");
+            return;
+        }
+
+        getActivity().runOnUiThread(() -> {
+            try {
+                // Keep strong reference on UI thread so GC does not collect WebView while spooling
+                printWebView = new WebView(getActivity());
+                WebSettings settings = printWebView.getSettings();
+                settings.setJavaScriptEnabled(true);
+                settings.setDomStorageEnabled(true);
+                settings.setAllowFileAccess(true);
+                settings.setAllowContentAccess(true);
+
+                printWebView.setWebViewClient(new WebViewClient() {
+                    private boolean hasPrinted = false;
+
+                    @Override
+                    public void onPageFinished(WebView view, String url) {
+                        super.onPageFinished(view, url);
+                        if (hasPrinted) return;
+                        hasPrinted = true;
+
+                        try {
+                            PrintManager printManager = (PrintManager) getActivity().getSystemService(Context.PRINT_SERVICE);
+                            if (printManager == null) {
+                                call.reject("PrintManager service not available");
+                                return;
+                            }
+
+                            String jobName = (title != null && !title.trim().isEmpty())
+                                ? title.trim()
+                                : "Elevate Document";
+
+                            PrintDocumentAdapter printAdapter = view.createPrintDocumentAdapter(jobName);
+                            PrintAttributes attributes = new PrintAttributes.Builder()
+                                .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                                .setResolution(new PrintAttributes.Resolution("elevate_print_res", "Elevate Print", 300, 300))
+                                .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+                                .build();
+
+                            PrintJob printJob = printManager.print(jobName, printAdapter, attributes);
+
+                            JSObject ret = new JSObject();
+                            ret.put("success", true);
+                            ret.put("started", printJob != null);
+                            call.resolve(ret);
+                        } catch (Exception ex) {
+                            android.util.Log.e("PipPlugin", "Native printing failed: " + ex.getMessage(), ex);
+                            call.reject("Native printing failed: " + ex.getMessage());
+                        }
+                    }
+                });
+
+                // Load with base URL so relative paths or local assets work
+                printWebView.loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null);
+            } catch (Exception e) {
+                android.util.Log.e("PipPlugin", "Setup printing WebView error: " + e.getMessage(), e);
+                call.reject("Setup printing WebView error: " + e.getMessage());
+            }
+        });
+    }
+
+    @PluginMethod
+    public void downloadFile(PluginCall call) {
+        Context context = getContext();
+        if (context == null || getActivity() == null) {
+            call.reject("Context or Activity not available");
+            return;
+        }
+
+        String filename = call.getString("filename", "downloaded_file");
+        String base64Data = call.getString("base64", "");
+        String mimeType = call.getString("mimeType", "application/octet-stream");
+        boolean openShare = call.getBoolean("openShare", true);
+
+        if (base64Data == null || base64Data.trim().isEmpty()) {
+            call.reject("Base64 data is required");
+            return;
+        }
+
+        // Clean base64 data if it contains a Data URL prefix (e.g., data:image/png;base64,...)
+        String cleanBase64 = base64Data;
+        int commaIndex = cleanBase64.indexOf(",");
+        if (commaIndex != -1 && cleanBase64.substring(0, commaIndex).contains(";base64")) {
+            cleanBase64 = cleanBase64.substring(commaIndex + 1);
+        }
+        cleanBase64 = cleanBase64.replaceAll("\\s+", "");
+
+        byte[] fileBytes;
+        try {
+            fileBytes = Base64.decode(cleanBase64, Base64.DEFAULT);
+        } catch (Exception e) {
+            call.reject("Failed to decode base64 data: " + e.getMessage());
+            return;
+        }
+
+        getActivity().runOnUiThread(() -> {
+            try {
+                boolean savedToDownloads = false;
+
+                // 1. Save directly to device public Downloads directory
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    try {
+                        ContentValues values = new ContentValues();
+                        values.put(MediaStore.MediaColumns.DISPLAY_NAME, filename);
+                        values.put(MediaStore.MediaColumns.MIME_TYPE, mimeType);
+                        values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+                        values.put(MediaStore.MediaColumns.IS_PENDING, 1);
+
+                        ContentResolver resolver = context.getContentResolver();
+                        Uri collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+                        Uri itemUri = resolver.insert(collection, values);
+
+                        if (itemUri != null) {
+                            try (OutputStream os = resolver.openOutputStream(itemUri)) {
+                                if (os != null) {
+                                    os.write(fileBytes);
+                                    os.flush();
+                                    savedToDownloads = true;
+                                }
+                            }
+                            values.clear();
+                            values.put(MediaStore.MediaColumns.IS_PENDING, 0);
+                            resolver.update(itemUri, values, null, null);
+                        }
+                    } catch (Exception e) {
+                        android.util.Log.w("PipPlugin", "MediaStore.Downloads write failed: " + e.getMessage());
+                    }
+                }
+
+                if (!savedToDownloads) {
+                    try {
+                        File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                        if (!downloadsDir.exists()) {
+                            downloadsDir.mkdirs();
+                        }
+                        File destFile = new File(downloadsDir, filename);
+                        try (FileOutputStream fos = new FileOutputStream(destFile)) {
+                            fos.write(fileBytes);
+                            fos.flush();
+                            savedToDownloads = true;
+                        }
+                        MediaScannerConnection.scanFile(context, new String[]{destFile.getAbsolutePath()}, new String[]{mimeType}, null);
+                    } catch (Exception e) {
+                        android.util.Log.w("PipPlugin", "Public directory write failed: " + e.getMessage());
+                    }
+                }
+
+                // 2. Also save to app cache directory to generate a FileProvider URI for immediate viewing/sharing
+                File cacheFile = new File(context.getCacheDir(), filename);
+                try (FileOutputStream fos = new FileOutputStream(cacheFile)) {
+                    fos.write(fileBytes);
+                    fos.flush();
+                }
+
+                Uri shareUri = null;
+                try {
+                    shareUri = FileProvider.getUriForFile(
+                        context,
+                        context.getPackageName() + ".fileprovider",
+                        cacheFile
+                    );
+                } catch (Exception e) {
+                    android.util.Log.w("PipPlugin", "FileProvider getUriForFile failed: " + e.getMessage());
+                }
+
+                // Show native Toast confirmation
+                Toast.makeText(context, "Saved to Downloads: " + filename, Toast.LENGTH_SHORT).show();
+
+                // 3. Open Android system Share / View chooser so user can open in PDF viewer, save to Drive, send to WhatsApp, etc.
+                if (openShare && shareUri != null) {
+                    try {
+                        Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                        shareIntent.setType(mimeType);
+                        shareIntent.putExtra(Intent.EXTRA_STREAM, shareUri);
+                        shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                        Intent chooser = Intent.createChooser(shareIntent, "Save or Share: " + filename);
+                        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        context.startActivity(chooser);
+                    } catch (Exception e) {
+                        android.util.Log.w("PipPlugin", "Share chooser launch failed: " + e.getMessage());
+                    }
+                }
+
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                ret.put("savedToDownloads", savedToDownloads);
+                ret.put("filename", filename);
+                call.resolve(ret);
+            } catch (Exception ex) {
+                android.util.Log.e("PipPlugin", "downloadFile failed: " + ex.getMessage(), ex);
+                call.reject("Download failed: " + ex.getMessage());
+            }
+        });
     }
 }

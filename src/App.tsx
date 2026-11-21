@@ -306,6 +306,29 @@ export default function App() {
     return () => window.removeEventListener('elevate:nav', handleElevateNav);
   }, []);
 
+  // Global Android Native File Download Interceptor: guarantees all <a download> clicks across the app route to native downloader
+  useEffect(() => {
+    const handleGlobalDownloadClick = async (e: MouseEvent) => {
+      const target = (e.target as HTMLElement)?.closest('a[download]') as HTMLAnchorElement | null;
+      if (!target || !target.href) return;
+
+      const cap = (window as any).Capacitor;
+      const isNative = cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform();
+      if (!isNative) return;
+
+      const href = target.href;
+      if (href.startsWith('blob:') || href.startsWith('data:')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const filename = target.getAttribute('download') || 'downloaded_file';
+        await triggerBlobDownload(href, filename);
+      }
+    };
+
+    document.addEventListener('click', handleGlobalDownloadClick, true);
+    return () => document.removeEventListener('click', handleGlobalDownloadClick, true);
+  }, []);
+
   const [initialSeekSeconds, setInitialSeekSeconds] = useState<number | null>(null);
   const [deviceLockStatus, setDeviceLockStatus] = useState<DeviceLockStatus | null>(null);
 
