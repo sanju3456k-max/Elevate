@@ -1,10 +1,12 @@
 /**
  * High-Precision Real-time OMR Frame Detector & Tracker
  * 
- * Uses targeted 4-corner ROI patch extraction to detect hollow corner fiducials
- * with strict geometry, dimension span, and stability verification.
- * Eliminates false positive snaps on question bubbles or roll number grids.
- * Runs at optimized ~13 FPS for CV processing to eliminate all mobile camera frame lag.
+ * Uses targeted 4-corner ROI patch extraction with dual-mode fiducial detection:
+ * 1. Dark hollow square component with bright center
+ * 2. Enclosed white hollow core surrounded by black registration rim
+ * 
+ * Accurately aligns custom question paper OMR layouts, handles shadows and paper boundaries,
+ * and auto-captures reliably without frame lag or false-positive snaps.
  */
 
 import { OMR_GEOMETRY, OmrLayoutConfig, getOmrLayoutConfig } from './omrGeometry';
@@ -61,7 +63,6 @@ interface PatchCandidate {
   cy: number;
   bw: number;
   bh: number;
-  isHollow: boolean;
   score: number;
 }
 
@@ -75,19 +76,19 @@ export class OmrLiveDetector {
   // Offscreen canvas for extracting high-res corner patches
   private patchCanvas: HTMLCanvasElement;
   private patchCtx: CanvasRenderingContext2D | null;
-  // Patch radius of 42 (84x84 px) perfectly matches the corner container box without bleeding into bubbles
-  private readonly patchRadius = 42; 
+  // Radius of 55 (110x110 px) covers the viewfinder container box with comfortable natural margin
+  private readonly patchRadius = 55; 
 
   // Temporal coordinate smoothing & stability gate
   private smoothedVideoFiducials: LiveQuadCorners | null = null;
-  private smoothedVideoOuter: LiveQuadCorners | null = null;
   private stableStreak = 0;
-  // 3 consecutive stable frames (~225ms of steady alignment) prevents instant false-triggers
-  private readonly requiredStableFrames = 3; 
-  private readonly maxMovementThresholdSq = 12.0 * 12.0; // In video pixels
+  // 2 consecutive stable frames (~140ms of steady alignment) allows fast, responsive auto-snap
+  private readonly requiredStableFrames = 2; 
+  // 30.0 px threshold accommodates natural human hand vibration without falsely resetting
+  private readonly maxMovementThresholdSq = 30.0 * 30.0; 
   private lastProcessTimestamp = 0;
-  // ~13 FPS for computer vision: leaves 85% of CPU idle, eliminating mobile frame lag completely
-  private readonly minProcessIntervalMs = 75; 
+  // 70ms interval (~14 FPS) keeps CPU/GPU light, preserving smooth 60 FPS camera feed
+  private readonly minProcessIntervalMs = 70; 
 
   constructor(layoutConfigOrQuestionCount: OmrLayoutConfig | number = 50) {
     if (typeof layoutConfigOrQuestionCount === 'number') {
@@ -123,7 +124,6 @@ export class OmrLiveDetector {
 
   public resetTracking(): void {
     this.smoothedVideoFiducials = null;
-    this.smoothedVideoOuter = null;
     this.stableStreak = 0;
     this.lastProcessTimestamp = 0;
   }
@@ -138,7 +138,7 @@ export class OmrLiveDetector {
   ): LiveOmrDetectionFrame | null {
     const now = performance.now();
     if (now - this.lastProcessTimestamp < this.minProcessIntervalMs) {
-      return null; // Throttle to eliminate frame lag and conserve mobile battery
+      return null;
     }
     this.lastProcessTimestamp = now;
 
@@ -202,7 +202,7 @@ export class OmrLiveDetector {
       bl: screenToVideo(expScreenFiducials.bl.x, expScreenFiducials.bl.y),
     };
 
-    // Expected fiducial physical span in video pixels
+    // Expected physical fiducial span in video pixels
     const expTopDx = expVideoFiducials.tr.x - expVideoFiducials.tl.x;
     const expTopDy = expVideoFiducials.tr.y - expVideoFiducials.tl.y;
     const expLeftDx = expVideoFiducials.bl.x - expVideoFiducials.tl.x;
@@ -218,7 +218,7 @@ export class OmrLiveDetector {
       bl: screenToVideo(screenFrame.left, screenFrame.top + screenFrame.height),
     };
 
-    // 3. Extract high-res patches from video and locate the hollow square in each corner container
+    // 3. Extract high-res patches from video and locate fiducial markers inside the 4 containers
     const candTL = this.detectCornerInPatch(video, expVideoFiducials.tl, vw, vh);
     const candTR = this.detectCornerInPatch(video, expVideoFiducials.tr, vw, vh);
     const candBR = this.detectCornerInPatch(video, expVideoFiducials.br, vw, vh);
@@ -247,7 +247,7 @@ export class OmrLiveDetector {
 
       const guidanceMsg = boxCount === 0 
         ? 'Align 4 corner boxes with markers' 
-        : `${boxCount} of 4 corners in position...`;
+        : `${boxCount} of 4 corners aligned...`;
 
       return {
         status: 'searching',
@@ -258,7 +258,7 @@ export class OmrLiveDetector {
         videoFiducials: expVideoFiducials,
         videoOuterCorners: frameCornersVideo,
         frameCorners: frameCornersScreenPct,
-        stabilityProgress: (boxCount / 4) * 0.3,
+        stabilityProgress: (boxCount / 4) * 0.4,
         guidanceMessage: guidanceMsg,
         tiltAngleDeg: 0,
         ratioMatchPercentage: 0,
@@ -292,11 +292,11 @@ export class OmrLiveDetector {
     const avgW = (topLen + botLen) / 2;
     const avgH = (leftLen + rightLen) / 2;
 
-    // Strict physical span check: detected corners MUST span the alignment frame within +-16%
-    // This strictly rejects false snaps on question bubbles or inner roll number tables!
+    // Physical span check: must span alignment frame within +-28%
+    // Rejects false triggers on small bubble clusters or text blocks inside the sheet
     const spanDiffW = Math.abs(avgW - expW) / Math.max(1, expW);
     const spanDiffH = Math.abs(avgH - expH) / Math.max(1, expH);
-    if (spanDiffW > 0.16 || spanDiffH > 0.16) {
+    if (spanDiffW > 0.28 || spanDiffH > 0.28) {
       this.decayStreak();
       return {
         status: 'searching',
@@ -307,7 +307,7 @@ export class OmrLiveDetector {
         videoFiducials: expVideoFiducials,
         videoOuterCorners: frameCornersVideo,
         frameCorners: frameCornersScreenPct,
-        stabilityProgress: 0.2,
+        stabilityProgress: 0.3,
         guidanceMessage: 'Fit corner squares inside the 4 boxes',
         tiltAngleDeg: 0,
         ratioMatchPercentage: 0,
@@ -318,7 +318,7 @@ export class OmrLiveDetector {
 
     const measuredRatio = avgW / Math.max(1, avgH);
     const ratioDiff = Math.abs(measuredRatio - this.expectedRatio);
-    const maxRatioTolerance = this.expectedRatio * 0.18;
+    const maxRatioTolerance = this.expectedRatio * 0.25;
 
     if (ratioDiff > maxRatioTolerance) {
       this.decayStreak();
@@ -331,7 +331,7 @@ export class OmrLiveDetector {
         videoFiducials: expVideoFiducials,
         videoOuterCorners: frameCornersVideo,
         frameCorners: frameCornersScreenPct,
-        stabilityProgress: 0.3,
+        stabilityProgress: 0.4,
         guidanceMessage: 'Keep sheet flat and parallel to camera',
         tiltAngleDeg: Math.round((Math.atan2(topDy, topDx) * 180) / Math.PI),
         ratioMatchPercentage: Math.round(Math.max(0, 1 - ratioDiff / maxRatioTolerance) * 100),
@@ -340,10 +340,10 @@ export class OmrLiveDetector {
       };
     }
 
-    // Border parallelism & tilt check
+    // Straightness check (reject severely skewed or non-convex quads)
     const dotTopBot = (topDx * botDx + topDy * botDy) / Math.max(1, topLen * botLen);
     const dotLeftRight = (leftDx * rightDx + leftDy * rightDy) / Math.max(1, leftLen * rightLen);
-    if (dotTopBot < 0.90 || dotLeftRight < 0.90) {
+    if (dotTopBot < 0.82 || dotLeftRight < 0.82) {
       this.decayStreak();
       return {
         status: 'searching',
@@ -354,7 +354,7 @@ export class OmrLiveDetector {
         videoFiducials: expVideoFiducials,
         videoOuterCorners: frameCornersVideo,
         frameCorners: frameCornersScreenPct,
-        stabilityProgress: 0.25,
+        stabilityProgress: 0.35,
         guidanceMessage: 'Straighten camera alignment',
         tiltAngleDeg: 0,
         ratioMatchPercentage: 50,
@@ -367,7 +367,6 @@ export class OmrLiveDetector {
     const tiltDeg = (Math.atan2(topDy, topDx) * 180) / Math.PI;
 
     // 5. Stability & timing verification:
-    // Require consecutive frames of low jitter before auto-snapping (~225ms steady hold)
     if (this.smoothedVideoFiducials) {
       const maxJitterSq = Math.max(
         distSq(this.smoothedVideoFiducials.tl, rawVideoFiducials.tl),
@@ -379,14 +378,13 @@ export class OmrLiveDetector {
       if (maxJitterSq < this.maxMovementThresholdSq) {
         this.stableStreak++;
       } else {
-        // Reset streak on sudden hand shake or movement
         this.stableStreak = 1;
       }
     } else {
       this.stableStreak = 1;
     }
 
-    // Exponential smoothing for steady capture coordinates
+    // Smooth coordinates for steady final capture
     const smoothAlpha = 0.50;
     this.smoothedVideoFiducials = {
       tl: smoothPt(this.smoothedVideoFiducials ? this.smoothedVideoFiducials.tl : rawVideoFiducials.tl, rawVideoFiducials.tl, smoothAlpha),
@@ -449,7 +447,7 @@ export class OmrLiveDetector {
 
     const status: LiveScannerStatus = isLocked ? 'locked' : 'stabilizing';
     const guidanceMessage = isLocked 
-      ? 'All 4 corners detected! Scanning...' 
+      ? 'All 4 corners aligned! Capturing...' 
       : 'Hold steady...';
 
     return {
@@ -465,7 +463,7 @@ export class OmrLiveDetector {
       guidanceMessage,
       tiltAngleDeg: Math.round(tiltDeg),
       ratioMatchPercentage: Math.round(ratioMatch * 100),
-      shouldAutoSnap: isLocked, // Snap automatically once stable for 3 frames!
+      shouldAutoSnap: isLocked,
       detectedBoxes: { tl: true, tr: true, br: true, bl: true, count: 4 },
     };
   }
@@ -516,7 +514,9 @@ export class OmrLiveDetector {
 }
 
 /**
- * Fast sub-millisecond hollow square detector in an isolated grayscale patch
+ * Dual-Mode Sub-Millisecond Hollow Square Detector:
+ * Mode 1: Dark hollow square component with bright interior
+ * Mode 2: Enclosed white hollow core surrounded by black registration rim
  */
 function findHollowSquareInPatch(gray: Uint8Array, w: number, h: number): PatchCandidate | null {
   // 1. Compute integral image
@@ -546,30 +546,35 @@ function findHollowSquareInPatch(gray: Uint8Array, w: number, h: number): PatchC
     return sum / count;
   }
 
-  // 2. Binary adaptive thresholding
-  const binary = new Uint8Array(w * h);
+  // 2. Binary adaptive thresholding: Dark pixels (border) & Bright pixels (hollow core)
+  const binaryDark = new Uint8Array(w * h);
+  const binaryBright = new Uint8Array(w * h);
+
   for (let y = 0; y < h; y++) {
     const yRow = y * w;
     for (let x = 0; x < w; x++) {
-      const mean = getLocalMean(x, y, 6);
-      if (gray[yRow + x] < mean - 12) {
-        binary[yRow + x] = 1;
+      const mean = getLocalMean(x, y, 7);
+      const val = gray[yRow + x];
+      if (val < mean - 10) {
+        binaryDark[yRow + x] = 1;
+      } else if (val > mean + 4) {
+        binaryBright[yRow + x] = 1;
       }
     }
   }
 
-  // 3. Connected component labeling with BFS
-  const visited = new Uint8Array(w * h);
-  const candidates: PatchCandidate[] = [];
   const patchMidX = w / 2;
   const patchMidY = h / 2;
+  const candidates: PatchCandidate[] = [];
 
+  // Helper BFS
+  const visitedDark = new Uint8Array(w * h);
   for (let y = 2; y < h - 2; y++) {
     const yRow = y * w;
     for (let x = 2; x < w - 2; x++) {
-      if (binary[yRow + x] === 1 && visited[yRow + x] === 0) {
+      if (binaryDark[yRow + x] === 1 && visitedDark[yRow + x] === 0) {
         const queue = [x, y];
-        visited[yRow + x] = 1;
+        visitedDark[yRow + x] = 1;
         let head = 0;
         let minX = x, maxX = x, minY = y, maxY = y;
 
@@ -592,8 +597,8 @@ function findHollowSquareInPatch(gray: Uint8Array, w: number, h: number): PatchC
             const ny = nbrs[i][1];
             if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
               const nidx = ny * w + nx;
-              if (binary[nidx] === 1 && visited[nidx] === 0) {
-                visited[nidx] = 1;
+              if (binaryDark[nidx] === 1 && visitedDark[nidx] === 0) {
+                visitedDark[nidx] = 1;
                 queue.push(nx, ny);
               }
             }
@@ -604,65 +609,106 @@ function findHollowSquareInPatch(gray: Uint8Array, w: number, h: number): PatchC
         const bh = maxY - minY + 1;
         const aspect = bw / bh;
 
-        // Fiducial squares are ~12px to 50px with aspect ratio ~1.0
-        if (bw >= 12 && bw <= 50 && bh >= 12 && bh <= 50 && aspect >= 0.72 && aspect <= 1.38) {
+        // Dark square ring: 8px to 42px
+        if (bw >= 8 && bw <= 42 && bh >= 8 && bh <= 42 && aspect >= 0.60 && aspect <= 1.65) {
           const cx = (minX + maxX) / 2;
           const cy = (minY + maxY) / 2;
-
-          // Square must be inside container box (reject items near outer edge of search patch)
           const distToPatchCenter = Math.hypot(cx - patchMidX, cy - patchMidY);
-          if (distToPatchCenter > w * 0.44) {
-            continue;
+
+          if (distToPatchCenter <= w * 0.55) {
+            const midXInt = Math.round(cx);
+            const midYInt = Math.round(cy);
+            const centerVal = gray[midYInt * w + midXInt];
+            const localMean = getLocalMean(midXInt, midYInt, 6);
+
+            // Center should be hollow (not solid filled bubble)
+            if (centerVal >= localMean - 8) {
+              const distScore = 1.0 / (1.0 + distToPatchCenter * 0.05);
+              const aspectScore = 1.0 - Math.abs(1.0 - aspect);
+              const score = distScore * 0.60 + aspectScore * 0.40;
+              candidates.push({ cx, cy, bw, bh, score });
+            }
           }
-
-          const midXInt = Math.round(cx);
-          const midYInt = Math.round(cy);
-
-          // Center brightness (sample cross of 5 pixels)
-          const centerVal = (
-            gray[midYInt * w + midXInt] +
-            gray[midYInt * w + Math.max(0, midXInt - 1)] +
-            gray[midYInt * w + Math.min(w - 1, midXInt + 1)] +
-            gray[Math.max(0, midYInt - 1) * w + midXInt] +
-            gray[Math.min(h - 1, midYInt + 1) * w + midXInt]
-          ) / 5;
-
-          const localMean = getLocalMean(midXInt, midYInt, 6);
-
-          // Center must be bright (white paper interior of hollow square)
-          if (centerVal < localMean - 5) {
-            continue; // Rejects solid dark bubbles!
-          }
-
-          // Sample all 4 outer border edges
-          const topRim = gray[Math.min(h - 1, Math.max(0, minY)) * w + midXInt];
-          const botRim = gray[Math.min(h - 1, Math.max(0, maxY)) * w + midXInt];
-          const leftRim = gray[midYInt * w + Math.min(w - 1, Math.max(0, minX))];
-          const rightRim = gray[midYInt * w + Math.min(w - 1, Math.max(0, maxX))];
-
-          const avgRim = (topRim + botRim + leftRim + rightRim) / 4;
-          const maxRim = Math.max(topRim, botRim, leftRim, rightRim);
-          const coreContrast = centerVal - avgRim;
-
-          // A true hollow square MUST have a bright white center and dark black borders on all 4 sides!
-          // This rejects solid bubbles, question text, and single line borders completely.
-          if (coreContrast < 18 || (centerVal - maxRim) < 8) {
-            continue;
-          }
-
-          const distScore = 1.0 / (1.0 + distToPatchCenter * 0.04);
-          const aspectScore = 1.0 - Math.abs(1.0 - aspect);
-          const contrastScore = Math.min(1.0, coreContrast / 80);
-          const totalScore = distScore * 0.45 + aspectScore * 0.25 + contrastScore * 0.30;
-
-          candidates.push({ cx, cy, bw, bh, isHollow: true, score: totalScore });
         }
       }
     }
   }
 
+  // 3. Mode 2: Search for enclosed white hollow cores
+  const visitedBright = new Uint8Array(w * h);
+  for (let y = 2; y < h - 2; y++) {
+    const yRow = y * w;
+    for (let x = 2; x < w - 2; x++) {
+      if (binaryBright[yRow + x] === 1 && visitedBright[yRow + x] === 0) {
+        const queue = [x, y];
+        visitedBright[yRow + x] = 1;
+        let head = 0;
+        let minX = x, maxX = x, minY = y, maxY = y;
+
+        while (head < queue.length) {
+          const qx = queue[head++];
+          const qy = queue[head++];
+          if (qx < minX) minX = qx;
+          if (qx > maxX) maxX = qx;
+          if (qy < minY) minY = qy;
+          if (qy > maxY) maxY = qy;
+
+          const nbrs = [
+            [qx + 1, qy],
+            [qx - 1, qy],
+            [qx, qy + 1],
+            [qx, qy - 1],
+          ];
+          for (let i = 0; i < 4; i++) {
+            const nx = nbrs[i][0];
+            const ny = nbrs[i][1];
+            if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+              const nidx = ny * w + nx;
+              if (binaryBright[nidx] === 1 && visitedBright[nidx] === 0) {
+                visitedBright[nidx] = 1;
+                queue.push(nx, ny);
+              }
+            }
+          }
+        }
+
+        const bw = maxX - minX + 1;
+        const bh = maxY - minY + 1;
+        const aspect = bw / bh;
+
+        // White core: 5px to 28px
+        if (bw >= 5 && bw <= 28 && bh >= 5 && bh <= 28 && aspect >= 0.60 && aspect <= 1.65) {
+          const cx = (minX + maxX) / 2;
+          const cy = (minY + maxY) / 2;
+          const distToPatchCenter = Math.hypot(cx - patchMidX, cy - patchMidY);
+
+          if (distToPatchCenter <= w * 0.55) {
+            const midXInt = Math.round(cx);
+            const midYInt = Math.round(cy);
+
+            // Sample rim around white core to verify dark boundary
+            const topRim = gray[Math.max(0, minY - 2) * w + midXInt];
+            const botRim = gray[Math.min(h - 1, maxY + 2) * w + midXInt];
+            const leftRim = gray[midYInt * w + Math.max(0, minX - 2)];
+            const rightRim = gray[midYInt * w + Math.min(w - 1, maxX + 2)];
+            const avgRim = (topRim + botRim + leftRim + rightRim) / 4;
+
+            if (gray[midYInt * w + midXInt] > avgRim + 8) {
+              const distScore = 1.0 / (1.0 + distToPatchCenter * 0.05);
+              const aspectScore = 1.0 - Math.abs(1.0 - aspect);
+              // Slight boost for enclosed white cores
+              const score = distScore * 0.60 + aspectScore * 0.40 + 0.15;
+              candidates.push({ cx, cy, bw, bh, score });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (candidates.length === 0) return null;
   candidates.sort((a, b) => b.score - a.score);
-  return candidates[0] || null;
+  return candidates[0];
 }
 
 function smoothPt(prev: QuadPoint, target: QuadPoint, alpha: number): QuadPoint {

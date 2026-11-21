@@ -459,13 +459,21 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
     if (isOpen) {
       isCapturingRef.current = false;
       setIsProcessingFinalWarp(false);
+      setCapturedPreview(null);
+      setDetectionState(null);
+      if (detectorRef.current) {
+        detectorRef.current.resetTracking();
+      }
       initCamera();
     } else {
       stopCameraStream();
+      setCapturedPreview(null);
+      setDetectionState(null);
     }
 
     return () => {
       stopCameraStream();
+      setCapturedPreview(null);
     };
   }, [isOpen, initCamera, stopCameraStream]);
 
@@ -594,8 +602,8 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
               <div className="absolute inset-0 bg-white pointer-events-none z-30 transition-opacity duration-200" />
             )}
 
-            {/* Frozen captured preview on snap (prevents any black flash) */}
-            {capturedPreview && (
+            {/* Frozen captured preview ONLY while processing final warp (cleared on retake/live feed) */}
+            {isProcessingFinalWarp && capturedPreview && (
               <img 
                 src={capturedPreview} 
                 alt="Captured Frame" 
