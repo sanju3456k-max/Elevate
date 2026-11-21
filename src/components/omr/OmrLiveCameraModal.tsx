@@ -72,6 +72,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
   const [detectionState, setDetectionState] = useState<LiveOmrDetectionFrame | null>(null);
   const [isProcessingFinalWarp, setIsProcessingFinalWarp] = useState(false);
   const [captureFlash, setCaptureFlash] = useState(false);
+  const [capturedPreview, setCapturedPreview] = useState<string | null>(null);
   const [frameMetrics, setFrameMetrics] = useState<FrameLayoutMetrics | null>(null);
   const frameMetricsRef = useRef<FrameLayoutMetrics | null>(null);
 
@@ -91,9 +92,14 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
     // Physical aspect ratio of this specific test paper (e.g. 210mm / 118.25mm = 1.776, or 210mm / 297mm = 0.707)
     const sheetAspect = activeLayout.pageWidthMm / activeLayout.pageHeightMm;
 
-    // Safe maximum screen utilization (up to 92% width or 82% height)
-    const maxAvailableW = contW * 0.92;
-    const maxAvailableH = contH * 0.82;
+    // Safe screen utilization with comfortable margins on mobile phones so corner boxes never clip
+    const isMobilePortrait = contW < 600 && contH > contW;
+    const maxAvailableW = isMobilePortrait 
+      ? Math.min(contW - 68, contW * 0.84)
+      : contW * 0.90;
+    const maxAvailableH = isMobilePortrait 
+      ? contH * 0.70
+      : contH * 0.82;
 
     let fWidth = 0;
     let fHeight = 0;
@@ -372,10 +378,10 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
         { x: 0, y: dstHeight },
       ];
 
+      setCapturedPreview(rawCapturedDataUrl);
+
       // 5. Apply Homography Bilinear Perspective Rectification
       const warpedCanvas = warpPerspectiveCanvas(snapCanvas, srcQuad, dstWidth, dstHeight, dstQuad);
-
-      stopCameraStream();
 
       if (warpedCanvas) {
         const rectifiedDataUrl = warpedCanvas.toDataURL('image/jpeg', 0.94);
@@ -474,21 +480,13 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
   const isBR = Boolean(detectedBoxes?.br);
   const isBL = Boolean(detectedBoxes?.bl);
 
-  let polygonStroke = '#eab308'; // Yellow searching
-  let polygonFill = 'rgba(234, 179, 8, 0.05)';
   let statusBadgeBg = 'bg-zinc-800/80 text-zinc-300';
 
   if (status === 'locked') {
-    polygonStroke = '#10b981'; // Emerald
-    polygonFill = 'rgba(16, 185, 129, 0.16)';
     statusBadgeBg = 'bg-emerald-600 text-white';
   } else if (status === 'stabilizing') {
-    polygonStroke = '#06b6d4'; // Cyan
-    polygonFill = 'rgba(6, 182, 212, 0.12)';
     statusBadgeBg = 'bg-cyan-600 text-white';
   } else if (status === 'tracking') {
-    polygonStroke = '#3b82f6'; // Blue
-    polygonFill = 'rgba(59, 130, 246, 0.08)';
     statusBadgeBg = 'bg-blue-600 text-white';
   }
 
@@ -596,46 +594,18 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
               <div className="absolute inset-0 bg-white pointer-events-none z-30 transition-opacity duration-200" />
             )}
 
-            {/* 3. Screen Viewfinder Vignette & Frame Guide Overlay */}
+            {/* Frozen captured preview on snap (prevents any black flash) */}
+            {capturedPreview && (
+              <img 
+                src={capturedPreview} 
+                alt="Captured Frame" 
+                className="absolute inset-0 w-full h-full object-cover z-25 pointer-events-none" 
+              />
+            )}
+
+            {/* 3. Screen Viewfinder: 4 Corner Target Box Containers (ZipGrade Style) */}
             {frameMetrics && (
               <div className="absolute inset-0 pointer-events-none z-10">
-                {/* SVG Mask: darkens the area outside the maximum sheet frame */}
-                <svg className="w-full h-full" preserveAspectRatio="none">
-                  <defs>
-                    <mask id="omr-viewfinder-mask">
-                      <rect width="100%" height="100%" fill="white" />
-                      <rect 
-                        x={frameMetrics.frameLeft} 
-                        y={frameMetrics.frameTop} 
-                        width={frameMetrics.frameWidth} 
-                        height={frameMetrics.frameHeight} 
-                        rx="16" 
-                        fill="black" 
-                      />
-                    </mask>
-                  </defs>
-
-                  {/* Darkened outer vignette */}
-                  <rect 
-                    width="100%" 
-                    height="100%" 
-                    fill="rgba(0, 0, 0, 0.60)" 
-                    mask="url(#omr-viewfinder-mask)" 
-                  />
-
-                  {/* Viewfinder Frame Border */}
-                  <rect 
-                    x={frameMetrics.frameLeft} 
-                    y={frameMetrics.frameTop} 
-                    width={frameMetrics.frameWidth} 
-                    height={frameMetrics.frameHeight} 
-                    rx="16" 
-                    fill="none" 
-                    stroke="rgba(255, 255, 255, 0.75)" 
-                    strokeWidth="2.5" 
-                  />
-                </svg>
-
                 {/* 4 Corner Target Boxes & Alignment Guides */}
                 <div 
                   className="absolute pointer-events-none"
@@ -647,7 +617,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                   }}
                 >
                   {/* Top Guide Indicator */}
-                  <div className="absolute top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 text-[11px] font-bold text-white uppercase tracking-wider select-none">
+                  <div className="absolute top-1 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 text-[10px] font-bold text-white uppercase tracking-wider select-none">
                     Top
                   </div>
 
@@ -674,7 +644,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                         ? 'border-2 border-emerald-400 bg-emerald-500/20 shadow-[0_0_16px_rgba(52,211,153,0.6)] scale-105' 
                         : 'border-2 border-white/80 bg-black/35 shadow-md'
                     }`}
-                    style={{ left: `${100 - marginPctX}%`, top: `${marginPctTop}%`, transform: 'translate(50%, -50%)' }}
+                    style={{ left: `${100 - marginPctX}%`, top: `${marginPctTop}%`, transform: 'translate(-50%, -50%)' }}
                   >
                     {isTR ? (
                       <div className="w-4 h-4 bg-emerald-400 rounded-xs shadow-sm animate-pulse" />
@@ -690,7 +660,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                         ? 'border-2 border-emerald-400 bg-emerald-500/20 shadow-[0_0_16px_rgba(52,211,153,0.6)] scale-105' 
                         : 'border-2 border-white/80 bg-black/35 shadow-md'
                     }`}
-                    style={{ left: `${100 - marginPctX}%`, top: `${100 - marginPctBottom}%`, transform: 'translate(50%, 50%)' }}
+                    style={{ left: `${100 - marginPctX}%`, top: `${100 - marginPctBottom}%`, transform: 'translate(-50%, -50%)' }}
                   >
                     {isBR ? (
                       <div className="w-4 h-4 bg-emerald-400 rounded-xs shadow-sm animate-pulse" />
@@ -706,7 +676,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                         ? 'border-2 border-emerald-400 bg-emerald-500/20 shadow-[0_0_16px_rgba(52,211,153,0.6)] scale-105' 
                         : 'border-2 border-white/80 bg-black/35 shadow-md'
                     }`}
-                    style={{ left: `${marginPctX}%`, top: `${100 - marginPctBottom}%`, transform: 'translate(-50%, 50%)' }}
+                    style={{ left: `${marginPctX}%`, top: `${100 - marginPctBottom}%`, transform: 'translate(-50%, -50%)' }}
                   >
                     {isBL ? (
                       <div className="w-4 h-4 bg-emerald-400 rounded-xs shadow-sm animate-pulse" />
@@ -716,35 +686,6 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                   </div>
                 </div>
               </div>
-            )}
-
-            {/* 4. Real-time SVG Tracking Polygon (Over Video Feed with viewBox 0 0 100 100) */}
-            {cameraReady && (
-              <svg 
-                className="absolute inset-0 w-full h-full pointer-events-none z-20" 
-                viewBox="0 0 100 100" 
-                preserveAspectRatio="none"
-              >
-                {outerCorners && detectionState?.detected && (
-                  <polygon
-                    points={`${outerCorners.tl.x},${outerCorners.tl.y} ${outerCorners.tr.x},${outerCorners.tr.y} ${outerCorners.br.x},${outerCorners.br.y} ${outerCorners.bl.x},${outerCorners.bl.y}`}
-                    fill={polygonFill}
-                    stroke={polygonStroke}
-                    strokeWidth={status === 'locked' ? '0.7' : '0.4'}
-                    strokeDasharray={status === 'searching' ? '1.5 1' : 'none'}
-                    className="transition-all duration-100 ease-out"
-                  />
-                )}
-
-                {fiducials && detectionState?.detected && (
-                  <>
-                    <ScreenReticle x={fiducials.tl.x} y={fiducials.tl.y} stroke={polygonStroke} corner="tl" />
-                    <ScreenReticle x={fiducials.tr.x} y={fiducials.tr.y} stroke={polygonStroke} corner="tr" />
-                    <ScreenReticle x={fiducials.br.x} y={fiducials.br.y} stroke={polygonStroke} corner="br" />
-                    <ScreenReticle x={fiducials.bl.x} y={fiducials.bl.y} stroke={polygonStroke} corner="bl" />
-                  </>
-                )}
-              </svg>
             )}
 
             {/* Fullscreen processing indicator during final warp */}
@@ -858,45 +799,4 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
   );
 };
 
-/**
- * Screen corner reticle indicator in SVG percentage space
- */
-const ScreenReticle: React.FC<{
-  x: number;
-  y: number;
-  stroke: string;
-  corner: 'tl' | 'tr' | 'br' | 'bl';
-}> = ({ x, y, stroke, corner }) => {
-  const armLen = 2.5; // in % viewBox units
-  let d = '';
 
-  switch (corner) {
-    case 'tl':
-      d = `M ${armLen} 0 L 0 0 L 0 ${armLen}`;
-      break;
-    case 'tr':
-      d = `M ${-armLen} 0 L 0 0 L 0 ${armLen}`;
-      break;
-    case 'br':
-      d = `M ${-armLen} 0 L 0 0 L 0 ${-armLen}`;
-      break;
-    case 'bl':
-      d = `M ${armLen} 0 L 0 0 L 0 ${-armLen}`;
-      break;
-  }
-
-  return (
-    <g transform={`translate(${x}, ${y})`}>
-      <circle r="0.8" fill={stroke} opacity="0.6" />
-      <circle r="0.5" fill="#ffffff" />
-      <path
-        d={d}
-        fill="none"
-        stroke={stroke}
-        strokeWidth="0.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </g>
-  );
-};

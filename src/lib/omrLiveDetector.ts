@@ -79,7 +79,7 @@ export class OmrLiveDetector {
   private smoothedVideoFiducials: LiveQuadCorners | null = null;
   private smoothedVideoOuter: LiveQuadCorners | null = null;
   private stableStreak = 0;
-  private readonly requiredStableFrames = 1; // Instant snap the moment all 4 boxes detect markers
+  private readonly requiredStableFrames = 3; // ~90ms hold of all 4 markers
   private readonly maxMovementThresholdSq = 12.0 * 12.0; // In video pixels
   private lastProcessTimestamp = 0;
   private readonly minProcessIntervalMs = 25; // ~40 FPS for ultra-responsive live detection
@@ -346,8 +346,14 @@ export class OmrLiveDetector {
       bl: toScreenPct(videoToScreen(rawVideoOuter.bl.x, rawVideoOuter.bl.y), cw, ch),
     };
 
-    // 7. Instant Auto-Snap: All 4 boxes detected and verified!
-    const status: LiveScannerStatus = 'locked';
+    // 7. Auto-Snap with rapid 3-frame hold (~90ms) to ensure sharpness and eliminate false blips
+    this.stableStreak = Math.min(this.requiredStableFrames, this.stableStreak + 1);
+    const isLocked = this.stableStreak >= this.requiredStableFrames;
+    const status: LiveScannerStatus = isLocked ? 'locked' : (this.stableStreak > 1 ? 'stabilizing' : 'tracking');
+
+    const guidance = isLocked 
+      ? 'All 4 markers detected! Capturing...'
+      : 'Hold steady...';
 
     return {
       status,
@@ -358,11 +364,11 @@ export class OmrLiveDetector {
       videoFiducials: rawVideoFiducials,
       videoOuterCorners: rawVideoOuter,
       frameCorners: frameCornersScreenPct,
-      stabilityProgress: 1.0,
-      guidanceMessage: 'All 4 markers detected! Capturing...',
+      stabilityProgress: this.stableStreak / this.requiredStableFrames,
+      guidanceMessage: guidance,
       tiltAngleDeg: Math.round(tiltDeg),
       ratioMatchPercentage: Math.round(ratioMatch * 100),
-      shouldAutoSnap: true, // Immediate capture like ZipGrade!
+      shouldAutoSnap: isLocked,
       detectedBoxes: { tl: true, tr: true, br: true, bl: true, count: 4 },
     };
   }
@@ -499,7 +505,7 @@ function findHollowSquareInPatch(gray: Uint8Array, w: number, h: number): PatchC
         const aspect = bw / bh;
 
         // Fiducial squares are ~10px to 55px in typical camera feeds, aspect ratio ~1.0
-        if (bw >= 8 && bw <= 65 && bh >= 8 && bh <= 65 && aspect >= 0.60 && aspect <= 1.60) {
+        if (bw >= 10 && bw <= 55 && bh >= 10 && bh <= 55 && aspect >= 0.70 && aspect <= 1.40) {
           const cx = (minX + maxX) / 2;
           const cy = (minY + maxY) / 2;
           const midXInt = Math.round(cx);
@@ -509,13 +515,28 @@ function findHollowSquareInPatch(gray: Uint8Array, w: number, h: number): PatchC
 
           // Center must be bright (hollow square)
           const isHollow = centerVal > localMean - 6;
+
+          // Sample average of dark outer border rim vs bright white hollow center
+          const rimSamples = [
+            gray[Math.min(h - 1, Math.max(0, minY)) * w + midXInt],
+            gray[Math.min(h - 1, Math.max(0, maxY)) * w + midXInt],
+            gray[midYInt * w + Math.min(w - 1, Math.max(0, minX))],
+            gray[midYInt * w + Math.min(w - 1, Math.max(0, maxX))],
+          ];
+          const avgRim = (rimSamples[0] + rimSamples[1] + rimSamples[2] + rimSamples[3]) / 4;
+          const coreContrast = centerVal - avgRim;
+
+          // A true hollow square MUST have bright center and dark border (reject solid bubbles!)
+          if (!isHollow || coreContrast < 16) {
+            continue;
+          }
+
           const distToPatchCenter = Math.hypot(cx - patchMidX, cy - patchMidY);
           const distScore = 1.0 / (1.0 + distToPatchCenter * 0.05);
           const aspectScore = 1.0 - Math.abs(1.0 - aspect);
-          const hollowBonus = isHollow ? 0.35 : 0.0;
-          const totalScore = distScore * 0.45 + aspectScore * 0.20 + hollowBonus;
+          const totalScore = distScore * 0.50 + aspectScore * 0.30 + (coreContrast / 255) * 0.20;
 
-          candidates.push({ cx, cy, bw, bh, isHollow, score: totalScore });
+          candidates.push({ cx, cy, bw, bh, isHollow: true, score: totalScore });
         }
       }
     }
