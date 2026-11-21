@@ -36,6 +36,7 @@ import { TestReportAnalysisView } from './TestReportAnalysisView';
 import { APP_STYLES } from './ui/AppStyles';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { studioBackdropVariants, studioModalVariants, gpuAcceleratedStyle } from '../lib/animationConfig';
+import { setAppThemeColor } from '../lib/appThemeColor';
 
 export interface TestDetailModalProps {
   test: MathTest | null;
@@ -67,31 +68,9 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
   // Sync mobile status bar theme-color
   useEffect(() => {
     if (!test) return;
-    const syncStatusBar = () => {
-      try {
-        const isDark = document.documentElement.classList.contains('dark');
-        const targetColor = isDark ? '#0b0c10' : '#e5e9f0';
-        let meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) {
-          meta.setAttribute('content', targetColor);
-        } else {
-          meta = document.createElement('meta');
-          meta.setAttribute('name', 'theme-color');
-          meta.setAttribute('content', targetColor);
-          document.head.appendChild(meta);
-        }
-      } catch (err) {
-        console.warn('Status bar sync error in TestDetailModal:', err);
-      }
-    };
-
-    syncStatusBar();
-    const observer = new MutationObserver(() => syncStatusBar());
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-
-    return () => {
-      observer.disconnect();
-    };
+    const isDark = document.documentElement.classList.contains('dark');
+    const targetColor = isDark ? '#0b0c10' : '#e5e9f0';
+    setAppThemeColor(targetColor);
   }, [test]);
 
   // Back Navigation handler for the modal

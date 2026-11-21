@@ -9,6 +9,7 @@ import { RepositoryFilesView } from './components/repository/RepositoryFilesView
 import { HtmlNotesStudio } from '../htmlNotes/HtmlNotesStudio';
 import { HtmlNotesErrorBoundary } from '../htmlNotes/components/HtmlNotesErrorBoundary';
 import { UnifiedFileViewerModal, type PreviewableFile } from '../UnifiedFileViewerModal';
+import { setAppThemeColor } from '../../lib/appThemeColor';
 import {
   getAllNotesFromIDB,
   saveAllNotesToIDB,
@@ -90,44 +91,13 @@ export const NotesStudio: React.FC<NotesStudioProps> = ({
 
   // Synchronize status bar theme-color for PWA web app in both light (#ffffff in editor / #e5e9f0 in home) and dark (#0b0c10) modes
   useEffect(() => {
-    const updateThemeColor = () => {
-      try {
-        const isDocDark = typeof document !== 'undefined' ? document.documentElement.classList.contains('dark') : isDarkMode;
-        const targetHeaderColor = isDocDark ? '#0b0c10' : (activeMode === 'html' && htmlStudioView === 'editor' ? '#ffffff' : '#e5e9f0');
-        const metaThemeColors = document.querySelectorAll('meta[name="theme-color"]');
-        if (metaThemeColors.length > 0) {
-          metaThemeColors.forEach((el) => {
-            el.removeAttribute('media');
-            el.setAttribute('content', targetHeaderColor);
-          });
-        } else {
-          const newMeta = document.createElement('meta');
-          newMeta.name = 'theme-color';
-          newMeta.content = targetHeaderColor;
-          document.head.appendChild(newMeta);
-        }
-        const appleStatusBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-        if (appleStatusBar) {
-          appleStatusBar.setAttribute('content', isDocDark ? 'black-translucent' : 'default');
-        }
-      } catch {
-        // Ignore
-      }
-    };
-
-    updateThemeColor();
-
-    window.addEventListener('theme-changed', updateThemeColor);
-    let observer: MutationObserver | null = null;
-    if (typeof document !== 'undefined' && document.documentElement) {
-      observer = new MutationObserver(updateThemeColor);
-      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    try {
+      const isDocDark = typeof document !== 'undefined' ? document.documentElement.classList.contains('dark') : isDarkMode;
+      const targetHeaderColor = isDocDark ? '#0b0c10' : (activeMode === 'html' && htmlStudioView === 'editor' ? '#ffffff' : '#e5e9f0');
+      setAppThemeColor(targetHeaderColor);
+    } catch {
+      // Ignore
     }
-
-    return () => {
-      window.removeEventListener('theme-changed', updateThemeColor);
-      if (observer) observer.disconnect();
-    };
   }, [isDarkMode, activeMode, htmlStudioView]);
 
   // 2. User Revision Notes State

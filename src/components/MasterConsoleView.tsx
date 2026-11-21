@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { setAppThemeColor } from '../lib/appThemeColor';
 import {
   ArrowLeft,
   Crown,
@@ -196,24 +197,12 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   // Dynamic Browser / PWA Status Bar Synchronization (Pure White in Light Mode, #16181f in Dark Mode)
   useEffect(() => {
     const targetColor = isDarkMode ? '#16181f' : '#ffffff';
-    const metaTags = document.querySelectorAll('meta[name="theme-color"]');
-    const previousThemeColors: string[] = [];
-
-    metaTags.forEach((tag) => {
-      previousThemeColors.push(tag.getAttribute('content') || '');
-      tag.removeAttribute('media');
-      tag.setAttribute('content', targetColor);
-    });
+    setAppThemeColor(targetColor);
 
     const originalBodyBg = document.body.style.backgroundColor;
     document.body.style.backgroundColor = targetColor;
 
     return () => {
-      metaTags.forEach((tag, idx) => {
-        if (previousThemeColors[idx]) {
-          tag.setAttribute('content', previousThemeColors[idx]);
-        }
-      });
       document.body.style.backgroundColor = originalBodyBg;
     };
   }, [isDarkMode]);

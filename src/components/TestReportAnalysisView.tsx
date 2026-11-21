@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { setAppThemeColor } from '../lib/appThemeColor';
 import {
   ArrowLeft,
   Award,
@@ -423,51 +424,9 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
 
   // Synchronize status bar theme-color for web app / mobile PWA to match page body in both light and dark modes
   useEffect(() => {
-    const syncStatusBar = () => {
-      try {
-        const isDark = document.documentElement.classList.contains('dark');
-        // Match question page body (#e5e9f0 light / #0b0c10 dark) across all views including subtopic question view and chapter view
-        const targetColor = isDark ? '#0b0c10' : '#e5e9f0';
-
-        const metaThemeColors = document.querySelectorAll('meta[name="theme-color"]');
-        if (metaThemeColors.length > 0) {
-          metaThemeColors.forEach((el) => {
-            el.removeAttribute('media');
-            el.setAttribute('content', targetColor);
-          });
-        } else {
-          const newMeta = document.createElement('meta');
-          newMeta.name = 'theme-color';
-          newMeta.content = targetColor;
-          document.head.appendChild(newMeta);
-        }
-
-        const appleStatusBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-        if (appleStatusBar) {
-          appleStatusBar.setAttribute('content', isDark ? 'black-translucent' : 'default');
-        }
-      } catch (err) {
-        console.warn('Status bar theme color sync error:', err);
-      }
-    };
-
-    syncStatusBar();
-
-    const observer = new MutationObserver(() => syncStatusBar());
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-
-    return () => {
-      observer.disconnect();
-      try {
-        const isDark = document.documentElement.classList.contains('dark');
-        const defaultColor = isDark ? '#0b0c10' : '#e5e9f0';
-        const metaThemeColors = document.querySelectorAll('meta[name="theme-color"]');
-        metaThemeColors.forEach((el) => {
-          el.removeAttribute('media');
-          el.setAttribute('content', defaultColor);
-        });
-      } catch {}
-    };
+    const isDark = document.documentElement.classList.contains('dark');
+    const targetColor = isDark ? '#0b0c10' : '#e5e9f0';
+    setAppThemeColor(targetColor);
   }, [fullScreenChapterId, selectedSubtopicQuestionsModal]);
 
   // Synchronize mobile fullscreen state for Chapter Full Screen and Subtopic Questions modal

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import { setAppThemeColor } from '../lib/appThemeColor';
 import { 
   Clock, 
   ChevronLeft, 
@@ -277,33 +278,7 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
   // Status bar theme color synchronization for Test Runner header (#e5e9f0 light / #0b0c10 dark)
   useEffect(() => {
     const testRunnerStatusBarColor = isDarkMode ? '#0b0c10' : '#e5e9f0';
-    const metaThemeColors = document.querySelectorAll('meta[name="theme-color"]');
-    if (metaThemeColors.length > 0) {
-      metaThemeColors.forEach((el) => {
-        el.removeAttribute('media');
-        el.setAttribute('content', testRunnerStatusBarColor);
-      });
-    } else {
-      const newMeta = document.createElement('meta');
-      newMeta.name = 'theme-color';
-      newMeta.content = testRunnerStatusBarColor;
-      document.head.appendChild(newMeta);
-    }
-
-    const appleStatusBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-    if (appleStatusBar) {
-      appleStatusBar.setAttribute('content', isDarkMode ? 'black-translucent' : 'default');
-    }
-
-    return () => {
-      // Revert back to default app status bar color on exit (#e5e9f0 light / #0b0c10 dark)
-      const defaultStatusBarColor = isDarkMode ? '#0b0c10' : '#e5e9f0';
-      const currentMetas = document.querySelectorAll('meta[name="theme-color"]');
-      currentMetas.forEach((el) => {
-        el.removeAttribute('media');
-        el.setAttribute('content', defaultStatusBarColor);
-      });
-    };
+    setAppThemeColor(testRunnerStatusBarColor);
   }, [isDarkMode]);
 
   const currentQuestion: MathQuestion = normalizedQuestions[currentIndex] || normalizedQuestions[0] || {

@@ -16,6 +16,10 @@
             document.documentElement.classList.remove('dark');
           }
           document.documentElement.style.backgroundColor = bg;
+          var metaTheme = document.getElementById('app-theme-color-meta') || document.querySelector('meta[name="theme-color"]');
+          if (metaTheme) {
+            metaTheme.setAttribute('content', isDark ? '#0b0c10' : '#e5e9f0');
+          }
         } catch (e) {}
       })();
     </script>
@@ -150,9 +154,7 @@
     <link rel="apple-touch-icon" sizes="512x512" href="./icon-512.png?v=17" />
     
     <!-- Chrome / Android PWA APK & Theme Colors (Matching Welcome Splash and Theme Colors Seamlessly) -->
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0b0c10" media="(prefers-color-scheme: dark)" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" id="app-theme-color-meta" content="#e5e9f0" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />

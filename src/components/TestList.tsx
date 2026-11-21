@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import { setAppThemeColor } from '../lib/appThemeColor';
 import { 
   Play, 
   Clock, 
@@ -507,51 +508,9 @@ export const TestList: React.FC<TestListProps> = ({
   // Synchronize status bar theme-color for Detailed Test overlay to match page body (#e5e9f0 light / #0b0c10 dark)
   useEffect(() => {
     if (!detailedTest) return;
-
-    const syncDetailStatusBar = () => {
-      try {
-        const isDark = document.documentElement.classList.contains('dark');
-        const targetColor = isDark ? '#0b0c10' : '#e5e9f0';
-
-        const metaThemeColors = document.querySelectorAll('meta[name="theme-color"]');
-        if (metaThemeColors.length > 0) {
-          metaThemeColors.forEach((el) => {
-            el.removeAttribute('media');
-            el.setAttribute('content', targetColor);
-          });
-        } else {
-          const newMeta = document.createElement('meta');
-          newMeta.name = 'theme-color';
-          newMeta.content = targetColor;
-          document.head.appendChild(newMeta);
-        }
-
-        const appleStatusBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-        if (appleStatusBar) {
-          appleStatusBar.setAttribute('content', isDark ? 'black-translucent' : 'default');
-        }
-      } catch (err) {
-        console.warn('Status bar theme color sync error in TestList detail:', err);
-      }
-    };
-
-    syncDetailStatusBar();
-
-    const observer = new MutationObserver(() => syncDetailStatusBar());
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-
-    return () => {
-      observer.disconnect();
-      try {
-        const isDark = document.documentElement.classList.contains('dark');
-        const defaultColor = isDark ? '#0b0c10' : '#e5e9f0';
-        const metaThemeColors = document.querySelectorAll('meta[name="theme-color"]');
-        metaThemeColors.forEach((el) => {
-          el.removeAttribute('media');
-          el.setAttribute('content', defaultColor);
-        });
-      } catch {}
-    };
+    const isDark = document.documentElement.classList.contains('dark');
+    const targetColor = isDark ? '#0b0c10' : '#e5e9f0';
+    setAppThemeColor(targetColor);
   }, [detailedTest]);
 
   // Group attempts by testId, normalized test identifier, and test title

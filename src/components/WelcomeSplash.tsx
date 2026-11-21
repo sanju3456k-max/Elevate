@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { setAppThemeColor } from '../lib/appThemeColor';
 
 interface WelcomeSplashProps {
   durationMs?: number;
@@ -19,12 +20,7 @@ export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({
       window.matchMedia('(prefers-color-scheme: dark)').matches
     );
     const targetColor = isDark ? '#0b0c10' : '#ffffff';
-
-    const metaTags = document.querySelectorAll('meta[name="theme-color"]');
-    metaTags.forEach((tag) => {
-      tag.removeAttribute('media');
-      tag.setAttribute('content', targetColor);
-    });
+    setAppThemeColor(targetColor);
 
     const timer = setTimeout(() => {
       setIsVisible(false);

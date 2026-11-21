@@ -32,50 +32,10 @@ export interface InAppNotificationPayload {
 }
 
 /**
- * Plays a subtle, pleasant harmonic notification bell chime using Web Audio API.
- * 100% offline, requires zero external sound files.
+ * Notification chime no-op (Custom audio chime disabled in web app in favor of native system notifications)
  */
 export function playNotificationChime(): void {
-  try {
-    if (typeof window === 'undefined') return;
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
-    if (ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
-    }
-
-    const now = ctx.currentTime;
-    // Harmonic note 1 (E6 / 1318 Hz)
-    const osc1 = ctx.createOscillator();
-    const gain1 = ctx.createGain();
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(880, now); // A5
-    osc1.frequency.exponentialRampToValueAtTime(1318.51, now + 0.08); // E6
-    gain1.gain.setValueAtTime(0.0001, now);
-    gain1.gain.exponentialRampToValueAtTime(0.15, now + 0.03);
-    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
-    osc1.connect(gain1);
-    gain1.connect(ctx.destination);
-    osc1.start(now);
-    osc1.stop(now + 0.45);
-
-    // Harmonic overtone note 2 (B6 / 1975 Hz)
-    const osc2 = ctx.createOscillator();
-    const gain2 = ctx.createGain();
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(1318.51, now + 0.08);
-    osc2.frequency.exponentialRampToValueAtTime(1975.53, now + 0.16);
-    gain2.gain.setValueAtTime(0.0001, now + 0.08);
-    gain2.gain.exponentialRampToValueAtTime(0.08, now + 0.12);
-    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.65);
-    osc2.connect(gain2);
-    gain2.connect(ctx.destination);
-    osc2.start(now + 0.08);
-    osc2.stop(now + 0.65);
-  } catch {
-    // Audio context may be restricted by autoplay policy before user interaction
-  }
+  // No-op: Native system notifications handle alert sounds
 }
 
 export async function getDeviceNotificationPermission(): Promise<'granted' | 'denied' | 'default'> {
@@ -139,25 +99,7 @@ export async function requestDeviceNotificationPermission(): Promise<boolean> {
 export async function sendDeviceNotification(params: InAppNotificationPayload): Promise<boolean> {
   const { title, body, id, icon = '/icon-192.png' } = params;
 
-  // 1. Always trigger in-app interactive notification banner on Web & PWA
-  if (typeof window !== 'undefined') {
-    try {
-      window.dispatchEvent(
-        new CustomEvent(ELEVATE_INAPP_NOTIF_EVENT, {
-          detail: {
-            ...params,
-            id: id || `notif-auto-${Date.now()}`,
-            timestamp: params.timestamp || new Date().toISOString(),
-          },
-        })
-      );
-      playNotificationChime();
-    } catch (err) {
-      console.warn('Error dispatching in-app notification event:', err);
-    }
-  }
-
-  // 2. Android Native via Capacitor PipBridge (for native Android app)
+  // 1. Android Native via Capacitor PipBridge (for native Android app)
   if (isNativeAndroid()) {
     try {
       const pip = (Capacitor as any).Plugins?.PipBridge || (window as any).Capacitor?.Plugins?.PipBridge;

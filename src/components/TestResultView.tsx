@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import { setAppThemeColor } from '../lib/appThemeColor';
 import confetti from 'canvas-confetti';
 import { 
   Award, 
@@ -279,33 +280,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
   // Status bar theme color synchronization for Solution / Test Review screen (#e5e9f0 light / #0b0c10 dark)
   useEffect(() => {
     const solutionHeaderStatusBarColor = isDarkMode ? '#0b0c10' : '#e5e9f0';
-    const metaThemeColors = document.querySelectorAll('meta[name="theme-color"]');
-    if (metaThemeColors.length > 0) {
-      metaThemeColors.forEach((el) => {
-        el.removeAttribute('media');
-        el.setAttribute('content', solutionHeaderStatusBarColor);
-      });
-    } else {
-      const newMeta = document.createElement('meta');
-      newMeta.name = 'theme-color';
-      newMeta.content = solutionHeaderStatusBarColor;
-      document.head.appendChild(newMeta);
-    }
-
-    const appleStatusBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-    if (appleStatusBar) {
-      appleStatusBar.setAttribute('content', isDarkMode ? 'black-translucent' : 'default');
-    }
-
-    return () => {
-      // Revert back to default app status bar color on exit
-      const defaultStatusBarColor = isDarkMode ? '#0b0c10' : '#e5e9f0';
-      const currentMetas = document.querySelectorAll('meta[name="theme-color"]');
-      currentMetas.forEach((el) => {
-        el.removeAttribute('media');
-        el.setAttribute('content', defaultStatusBarColor);
-      });
-    };
+    setAppThemeColor(solutionHeaderStatusBarColor);
   }, [isDarkMode, viewMode]);
 
   // System navigation back gesture & button handling

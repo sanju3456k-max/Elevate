@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { setAppThemeColor } from '../lib/appThemeColor';
 import {
   X,
   RotateCw,
@@ -85,22 +86,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     const targetColor = isDarkMode ? '#0b0c10' : '#ffffff';
-    const metaTags = document.querySelectorAll('meta[name="theme-color"]');
-    const prevColors: string[] = [];
-
-    metaTags.forEach((tag) => {
-      prevColors.push(tag.getAttribute('content') || '');
-      tag.removeAttribute('media');
-      tag.setAttribute('content', targetColor);
-    });
-
-    return () => {
-      metaTags.forEach((tag, idx) => {
-        if (prevColors[idx]) {
-          tag.setAttribute('content', prevColors[idx]);
-        }
-      });
-    };
+    setAppThemeColor(targetColor);
   }, [isOpen, isDarkMode]);
 
   // Hardware Back Navigation (Priority 60 ensures it closes this view smoothly)

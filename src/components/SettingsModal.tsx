@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { setAppThemeColor } from '../lib/appThemeColor';
 import { 
   ChevronLeft,
   ArrowLeft,
@@ -113,22 +114,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     const targetColor = isDarkMode ? '#0b0c10' : '#ffffff';
-    const metaTags = document.querySelectorAll('meta[name="theme-color"]');
-    const prevColors: string[] = [];
-
-    metaTags.forEach((tag) => {
-      prevColors.push(tag.getAttribute('content') || '');
-      tag.removeAttribute('media');
-      tag.setAttribute('content', targetColor);
-    });
-
-    return () => {
-      metaTags.forEach((tag, idx) => {
-        if (prevColors[idx]) {
-          tag.setAttribute('content', prevColors[idx]);
-        }
-      });
-    };
+    setAppThemeColor(targetColor);
   }, [isOpen, isDarkMode]);
 
   const handleExportJsonArchive = async () => {

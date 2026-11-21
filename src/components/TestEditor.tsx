@@ -9,6 +9,7 @@ import {
   gpuTransformStyle
 } from '../lib/animationConfig';
 import { triggerBlobDownload, triggerSystemPrint } from '../lib/omrPrintDownload';
+import { setAppThemeColor } from '../lib/appThemeColor';
 import { 
   Save, 
   Eye, 
@@ -813,13 +814,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     try {
       const isDark = document.documentElement.classList.contains('dark');
       const targetHeaderColor = isDark ? '#0b0c10' : '#e5e9f0';
-      const metaThemeColors = document.querySelectorAll('meta[name="theme-color"]');
-      if (metaThemeColors.length > 0) {
-        metaThemeColors.forEach((el) => {
-          el.removeAttribute('media');
-          el.setAttribute('content', targetHeaderColor);
-        });
-      }
+      setAppThemeColor(targetHeaderColor);
     } catch {
       // Ignore in non-browser environments
     }

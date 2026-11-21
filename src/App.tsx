@@ -111,8 +111,8 @@ import { GlobalPersistentPlayer, type PersistentPlaybackData } from './component
 import { BatchAdminStudio } from './components/lms/BatchAdminStudio';
 import { HomeDashboard } from './components/home/HomeDashboard';
 import { NotificationsView } from './components/notifications/NotificationsView';
-import { InAppNotificationBanner } from './components/notifications/InAppNotificationBanner';
 import { useNotificationWatcher } from './hooks/useNotificationWatcher';
+import { setAppThemeColor } from './lib/appThemeColor';
 import { LmsProvider, useApp } from './lms/LmsContext';
 import { secureStorage } from './lib/secureStorage';
 import { DEFAULT_STUDENT_FEATURE_ACCESS } from './lms/types';
@@ -208,14 +208,7 @@ const NotificationWatcherHost: React.FC<NotificationWatcherHostProps> = ({
     isAppLoaded,
   });
 
-  return (
-    <InAppNotificationBanner
-      onNavigateTab={onNavigateTab}
-      onOpenBatchLecture={onOpenBatchLecture}
-      onOpenBatch={onOpenBatch}
-      onOpenTest={onOpenTest}
-    />
-  );
+  return null;
 };
 
 export default function App() {
@@ -566,7 +559,7 @@ export default function App() {
 
       // Dynamically update status bar theme-color to match app page header background exactly
       // Gemini Chatbot header: #ffffff (light) / #131314 (dark)
-      // Note Studio header: #ffffff (light) / #0b0c10 (dark)
+      // Note Studio header: #e5e9f0 (light) / #0b0c10 (dark)
       // Master Console header: #ffffff (light) / #16181f (dark)
       // Welcome Splash Screen: #ffffff (light) / #0b0c10 (dark)
       // Settings & Storage modal: #ffffff (light) / #0b0c10 (dark)
@@ -584,23 +577,12 @@ export default function App() {
       } else if (activeTab === 'chatbot') {
         statusBarColor = isDarkMode ? '#131314' : '#ffffff';
       } else if (activeTab === 'html-notes' || activeTab === 'notes-repository') {
-        statusBarColor = isDarkMode ? '#0b0c10' : '#ffffff';
+        statusBarColor = isDarkMode ? '#0b0c10' : '#e5e9f0';
       } else {
         statusBarColor = isDarkMode ? '#0b0c10' : '#e5e9f0';
       }
 
-      const metaThemeColors = document.querySelectorAll('meta[name="theme-color"]');
-      if (metaThemeColors.length > 0) {
-        metaThemeColors.forEach((el) => {
-          el.removeAttribute('media');
-          el.setAttribute('content', statusBarColor);
-        });
-      } else {
-        const newMeta = document.createElement('meta');
-        newMeta.name = 'theme-color';
-        newMeta.content = statusBarColor;
-        document.head.appendChild(newMeta);
-      }
+      setAppThemeColor(statusBarColor);
 
       // Update iOS status bar appearance
       const appleStatusBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
