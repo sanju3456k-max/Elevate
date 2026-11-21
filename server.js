@@ -10,79 +10,212 @@ import { Router as Router11 } from "express";
 
 // server/routes/drive.ts
 import { Router } from "express";
+import crypto from "crypto";
 var router = Router();
-router.get("/media/:fileId", async (req, res) => {
-  try {
-    const { fileId } = req.params;
-    if (!fileId || typeof fileId !== "string") {
-      return res.status(400).json({ error: "Missing or invalid fileId parameter" });
+var fileCache = /* @__PURE__ */ new Map();
+var MAX_CACHE_ENTRIES = 40;
+var MAX_CACHED_FILE_SIZE = 25 * 1024 * 1024;
+function getFromCache(key) {
+  const item = fileCache.get(key);
+  if (!item) return null;
+  if (Date.now() - item.timestamp > 2 * 60 * 60 * 1e3) {
+    fileCache.delete(key);
+    return null;
+  }
+  return item;
+}
+function setToCache(key, buffer, contentType, etag) {
+  if (buffer.length > MAX_CACHED_FILE_SIZE) return;
+  if (fileCache.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = fileCache.keys().next().value;
+    if (oldestKey) fileCache.delete(oldestKey);
+  }
+  fileCache.set(key, {
+    buffer,
+    contentType,
+    etag,
+    timestamp: Date.now()
+  });
+}
+function detectMimeType(buf, fallback = "application/octet-stream") {
+  if (buf.length >= 4) {
+    if (buf[0] === 37 && buf[1] === 80 && buf[2] === 68 && buf[3] === 70) {
+      return "application/pdf";
     }
+    if (buf[0] === 255 && buf[1] === 216 && buf[2] === 255) {
+      return "image/jpeg";
+    }
+    if (buf[0] === 137 && buf[1] === 80 && buf[2] === 78 && buf[3] === 71) {
+      return "image/png";
+    }
+    if (buf[0] === 71 && buf[1] === 73 && buf[2] === 70 && buf[3] === 56) {
+      return "image/gif";
+    }
+    if (buf.length >= 12 && buf[0] === 82 && buf[1] === 73 && buf[2] === 70 && buf[3] === 70 && buf[8] === 87 && buf[9] === 69 && buf[10] === 66 && buf[11] === 80) {
+      return "image/webp";
+    }
+  }
+  const headStr = buf.slice(0, 500).toString("utf-8").trim().toLowerCase();
+  if (headStr.startsWith("<!doctype html") || headStr.startsWith("<html")) {
+    return "text/html";
+  }
+  return fallback;
+}
+async function fetchPublicDriveFile(fileId) {
+  const candidateUrls = [
+    // 1. Direct Google Usercontent Download endpoint
+    `https://drive.usercontent.google.com/download?id=${encodeURIComponent(fileId)}&export=download&authuser=0&confirm=t`,
+    // 2. Google Docs export endpoint for PDF
+    `https://docs.google.com/document/d/${encodeURIComponent(fileId)}/export?format=pdf`,
+    // 3. Google Spreadsheets export
+    `https://docs.google.com/spreadsheets/d/${encodeURIComponent(fileId)}/export?format=pdf`,
+    // 4. Standard uc?export=download
+    `https://drive.google.com/uc?export=download&confirm=t&id=${encodeURIComponent(fileId)}`,
+    // 5. Alternate docs.google.com uc export
+    `https://docs.google.com/uc?export=download&confirm=t&id=${encodeURIComponent(fileId)}`,
+    // 6. Direct thumbnail / high-res CDN for images
+    `https://lh3.googleusercontent.com/d/${encodeURIComponent(fileId)}`,
+    `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w2560`
+  ];
+  for (const url of candidateUrls) {
+    try {
+      const response = await fetch(url, {
+        redirect: "follow",
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept: "application/pdf,image/*,*/*;q=0.8"
+        }
+      });
+      if (!response.ok) continue;
+      const rawBuffer = Buffer.from(await response.arrayBuffer());
+      if (rawBuffer.length === 0) continue;
+      const detected = detectMimeType(rawBuffer, response.headers.get("content-type") || "application/octet-stream");
+      if (detected === "text/html") {
+        const html = rawBuffer.toString("utf-8");
+        const confirmMatch = html.match(/href="(\/download\?[^"]*confirm=[^"]*)"/) || html.match(/action="([^"]*drive\.usercontent\.google\.com\/download[^"]*)"/) || html.match(/id="uc-download-link"\s+href="([^"]+)"/);
+        if (confirmMatch && confirmMatch[1]) {
+          let nextUrl = confirmMatch[1].replace(/&amp;/g, "&");
+          if (nextUrl.startsWith("/")) {
+            nextUrl = `https://drive.google.com${nextUrl}`;
+          }
+          const confirmedRes = await fetch(nextUrl, {
+            redirect: "follow",
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+          });
+          if (confirmedRes.ok) {
+            const confirmedBuf = Buffer.from(await confirmedRes.arrayBuffer());
+            const confirmedType = detectMimeType(confirmedBuf, "application/pdf");
+            if (confirmedType !== "text/html") {
+              return { buffer: confirmedBuf, contentType: confirmedType };
+            }
+          }
+        }
+        continue;
+      }
+      return { buffer: rawBuffer, contentType: detected };
+    } catch {
+    }
+  }
+  return null;
+}
+async function handleStream(req, res, fileId, externalUrl) {
+  const cacheKey = externalUrl ? `url_${externalUrl}` : `drive_${fileId}`;
+  const cached = getFromCache(cacheKey);
+  if (cached) {
+    if (req.headers["if-none-match"] === cached.etag) {
+      return res.status(304).end();
+    }
+    res.setHeader("Content-Type", cached.contentType);
+    res.setHeader("ETag", cached.etag);
+    res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    return res.send(cached.buffer);
+  }
+  let fileBuffer = null;
+  let mimeType = "application/octet-stream";
+  if (externalUrl && !fileId) {
+    try {
+      const extRes = await fetch(externalUrl, { redirect: "follow" });
+      if (extRes.ok) {
+        fileBuffer = Buffer.from(await extRes.arrayBuffer());
+        mimeType = detectMimeType(fileBuffer, extRes.headers.get("content-type") || "application/pdf");
+      }
+    } catch (e) {
+      return res.status(502).json({ error: "Failed to fetch external document", details: e?.message });
+    }
+  }
+  if (!fileBuffer && fileId) {
     const authHeader = req.headers.authorization;
     const queryToken = req.query.token;
     const token = queryToken || (authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : "");
-    if (!token) {
-      const publicUrls = [
-        `https://drive.google.com/uc?export=download&confirm=t&id=${encodeURIComponent(fileId)}`,
-        `https://docs.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`
-      ];
-      for (const pUrl of publicUrls) {
-        try {
-          const pubRes = await fetch(pUrl, { redirect: "follow" });
-          if (pubRes.ok) {
-            const cType = pubRes.headers.get("content-type") || "application/pdf";
-            res.setHeader("Content-Type", cType);
-            res.setHeader("Cache-Control", "public, max-age=3600");
-            res.setHeader("Access-Control-Allow-Origin", "*");
-            const arr = await pubRes.arrayBuffer();
-            return res.send(Buffer.from(arr));
-          }
-        } catch {
-        }
-      }
-      return res.status(401).json({ error: "Authentication token required to stream Google Drive file" });
-    }
-    let metaMime = "";
-    try {
-      const metaRes = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=mimeType,name,size&supportsAllDrives=true`,
-        {
+    if (token) {
+      try {
+        let fetchUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true&acknowledgeAbuse=true`;
+        const driveRes = await fetch(fetchUrl, {
           headers: { Authorization: `Bearer ${token}` }
+        });
+        if (driveRes.ok) {
+          fileBuffer = Buffer.from(await driveRes.arrayBuffer());
+          mimeType = detectMimeType(fileBuffer, driveRes.headers.get("content-type") || "application/pdf");
         }
-      );
-      if (metaRes.ok) {
-        const meta = await metaRes.json();
-        metaMime = meta?.mimeType || "";
+      } catch {
       }
-    } catch (e) {
     }
-    let fetchUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true&acknowledgeAbuse=true`;
-    if (metaMime.startsWith("application/vnd.google-apps")) {
-      fetchUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/export?mimeType=application/pdf`;
-    }
-    const driveRes = await fetch(fetchUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`
+    if (!fileBuffer) {
+      const publicResult = await fetchPublicDriveFile(fileId);
+      if (publicResult) {
+        fileBuffer = publicResult.buffer;
+        mimeType = publicResult.contentType;
       }
-    });
-    if (!driveRes.ok) {
-      const errBody = await driveRes.text();
-      return res.status(driveRes.status).json({
-        error: "Google Drive request failed",
-        status: driveRes.status,
-        details: errBody
-      });
     }
-    const contentType = driveRes.headers.get("content-type") || metaMime || "application/octet-stream";
-    res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", "private, max-age=3600");
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    const arrayBuffer = await driveRes.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    return res.send(buffer);
-  } catch (err) {
-    console.error("Error in /api/drive/media/:fileId:", err);
-    return res.status(500).json({ error: err.message || "Internal server error streaming Drive file" });
   }
+  if (!fileBuffer || fileBuffer.length === 0) {
+    return res.status(404).json({
+      error: "Unable to load document",
+      message: "The document could not be retrieved from Google Drive or source URL."
+    });
+  }
+  const etag = `"${crypto.createHash("md5").update(fileBuffer).digest("hex")}"`;
+  setToCache(cacheKey, fileBuffer, mimeType, etag);
+  if (req.headers["if-none-match"] === etag) {
+    return res.status(304).end();
+  }
+  res.setHeader("Content-Type", mimeType);
+  res.setHeader("ETag", etag);
+  res.setHeader("Content-Length", fileBuffer.length);
+  res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "*");
+  return res.send(fileBuffer);
+}
+router.get("/stream", async (req, res) => {
+  const fileId = req.query.fileId || "";
+  const url = req.query.url || "";
+  return handleStream(req, res, fileId, url);
+});
+router.get("/media/:fileId", async (req, res) => {
+  const { fileId } = req.params;
+  return handleStream(req, res, fileId);
+});
+router.get("/thumbnail/:fileId", async (req, res) => {
+  const { fileId } = req.params;
+  const sz = req.query.sz || "w2000";
+  const cdnUrl = `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=${sz}`;
+  try {
+    const thumbRes = await fetch(cdnUrl, { redirect: "follow" });
+    if (thumbRes.ok) {
+      const buf = Buffer.from(await thumbRes.arrayBuffer());
+      res.setHeader("Content-Type", thumbRes.headers.get("content-type") || "image/jpeg");
+      res.setHeader("Cache-Control", "public, max-age=604800");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      return res.send(buf);
+    }
+  } catch {
+  }
+  return res.redirect(`https://lh3.googleusercontent.com/d/${encodeURIComponent(fileId)}`);
 });
 var drive_default = router;
 

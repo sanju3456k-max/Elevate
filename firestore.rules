@@ -13,7 +13,9 @@ service cloud.firestore {
 
     function isMasterAdmin() {
       return isSignedIn() && request.auth.token.email != null && 
-        (request.auth.token.email.lower() == 'student3456k@gmail.com' || request.auth.token.email.lower() == 'sanju3456k@gmail.com');
+        (request.auth.token.email.lower() == 'student3456k@gmail.com' || 
+         request.auth.token.email.lower() == 'sanju3456k@gmail.com' || 
+         request.auth.token.email.lower() == 'harry4444u@gmail.com');
     }
 
     // Default deny

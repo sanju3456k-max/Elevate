@@ -37,6 +37,17 @@ try {
     fs.copyFileSync('dist/server.js', 'server.js');
   }
 
+  // Clean heavy redundant binary assets from android assets directory
+  const androidPublic = 'android/app/src/main/assets/public';
+  if (fs.existsSync(androidPublic)) {
+    ['elevate.apk', 'elevate.apk.idsig', 'server.js'].forEach((f) => {
+      const p = `${androidPublic}/${f}`;
+      if (fs.existsSync(p)) {
+        try { fs.unlinkSync(p); } catch {}
+      }
+    });
+  }
+
   console.log('Build finished successfully!');
 } catch (error) {
   console.error('Build step failed:', error);

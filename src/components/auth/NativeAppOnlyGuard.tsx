@@ -29,23 +29,42 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
     const isMaster = isMasterUser({ email: cleanEmail });
 
     if (isMaster) {
-      setStatus('master_verified');
-      unlockWebAccess('elevate_admin_pass');
-      setFeedbackMsg(`Welcome back, Master Educator (${cleanEmail})! Unlocking full web access...`);
-      setTimeout(() => {
-        try {
-          const url = new URL(window.location.href);
-          if (url.searchParams.has('test_lock')) {
-            url.searchParams.delete('test_lock');
-            window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+      // Require actual cryptographic Google OAuth authentication before unlocking master access
+      setFeedbackMsg(`Master Educator recognized (${cleanEmail}). Please sign in with Google to confirm ownership.`);
+      setIsSigningInGoogle(true);
+      signInWithGoogle()
+        .then((user) => {
+          if (user && isMasterUser({ email: user.email })) {
+            setStatus('master_verified');
+            unlockWebAccess('elevate_admin_pass');
+            setFeedbackMsg(`Welcome back, Master Educator (${user.email})! Unlocking full web access...`);
+            setTimeout(() => {
+              try {
+                const url = new URL(window.location.href);
+                if (url.searchParams.has('test_lock')) {
+                  url.searchParams.delete('test_lock');
+                  window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+                }
+              } catch {}
+              if (onUnlocked) {
+                onUnlocked();
+              } else {
+                window.location.reload();
+              }
+            }, 700);
+          } else if (user) {
+            setStatus('student');
+          } else {
+            setStatus('idle');
           }
-        } catch {}
-        if (onUnlocked) {
-          onUnlocked();
-        } else {
-          window.location.reload();
-        }
-      }, 700);
+        })
+        .catch((err: any) => {
+          setStatus('error');
+          setFeedbackMsg(err?.message || 'Google Sign-In required to verify master educator credentials.');
+        })
+        .finally(() => {
+          setIsSigningInGoogle(false);
+        });
     } else {
       // Normal student or standard user
       setStatus('student');

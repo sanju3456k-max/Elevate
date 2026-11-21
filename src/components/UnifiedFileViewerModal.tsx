@@ -986,14 +986,15 @@ export const UnifiedFileViewerModal: React.FC<UnifiedFileViewerModalProps> = ({ 
                 hideTopToolbar={true}
               />
             </div>
-          ) : resolvedType === 'pdf' && driveEmbedUrl ? (
-            /* PDF Fallback to Embedded Drive Viewer */
-            <div className="w-full h-full overflow-hidden bg-[#14161f] flex flex-col">
-              <iframe
-                src={driveEmbedUrl}
-                title={displayTitle}
-                className="w-full h-full border-0"
-                allow="autoplay"
+          ) : resolvedType === 'pdf' && (file.driveFileId || driveEmbedUrl) ? (
+            /* PDF In-App Canvas Viewer via Stream Proxy */
+            <div className="w-full h-full overflow-hidden bg-[#f8fafc] dark:bg-[#090a0f] flex flex-col">
+              <PdfCanvasViewer
+                url={file.driveFileId ? `/api/drive/media/${file.driveFileId}` : (activeMediaUrl?.trim() || file.url?.trim() || '')}
+                fallbackEmbedUrl={driveEmbedUrl}
+                fileName={rawFileName || displayTitle}
+                onClose={onClose}
+                hideTopToolbar={true}
               />
             </div>
           ) : (
