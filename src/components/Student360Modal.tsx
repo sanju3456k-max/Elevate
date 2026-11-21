@@ -369,12 +369,12 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
             </div>
           </div>
 
-          {/* Filter / Category Pills matching App UI */}
-          <div className="flex items-center space-x-1.5 border-none pb-0.5 overflow-x-auto scrollbar-none">
+          {/* Filter / Category Pills: Optimized with responsive mobile labels & shrink-0 whitespace-nowrap */}
+          <div className="flex items-center gap-1.5 sm:gap-2 border-none pb-0.5 overflow-x-auto scrollbar-none w-full max-w-full">
             {[
-              { id: 'overview', label: 'Overview & Analytics', icon: Sparkles },
-              { id: 'tests', label: 'Recent Test Submissions', icon: BookOpen, count: profile?.totalTests },
-              { id: 'videos', label: 'Video Streaming', icon: Video, count: profile?.videoStats?.totalCompleted },
+              { id: 'overview', label: 'Overview & Analytics', mobileLabel: 'Overview', icon: Sparkles },
+              { id: 'tests', label: 'Recent Test Submissions', mobileLabel: 'Recent Tests', icon: BookOpen, count: profile?.totalTests },
+              { id: 'videos', label: 'Video Streaming', mobileLabel: 'Videos', icon: Video, count: profile?.videoStats?.totalCompleted },
             ].map((tab) => {
               const isSelected = activeTab === tab.id;
               const TabIcon = tab.icon;
@@ -383,17 +383,18 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`h-8.5 px-4 rounded-full text-xs transition-all flex items-center space-x-1.5 outline-none cursor-pointer active:scale-95 border-0 ${
+                  className={`h-8 sm:h-8.5 px-3 sm:px-4 rounded-full text-xs transition-all flex items-center justify-center gap-1.5 outline-none cursor-pointer active:scale-95 border-0 shrink-0 whitespace-nowrap ${
                     isSelected
                       ? 'bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#062e6f] font-bold shadow-xs'
                       : 'bg-[#f0f4f9] hover:bg-[#e1e7f0] text-[#444746] hover:text-[#1f1f1f] dark:bg-[#1e1f20] dark:hover:bg-[#2a2b2c] dark:text-[#c4c7c5] dark:hover:text-white font-semibold'
                   }`}
                 >
                   <TabIcon className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
-                  <span>{tab.label}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="sm:hidden">{tab.mobileLabel}</span>
                   {tab.count !== undefined && tab.count > 0 && (
                     <span
-                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold tabular-nums ${
+                      className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold tabular-nums shrink-0 leading-none ${
                         isSelected
                           ? 'bg-white/25 dark:bg-[#062e6f]/25 text-white dark:text-[#062e6f]'
                           : 'bg-black/8 dark:bg-white/10 text-[#444746] dark:text-[#c4c7c5]'
@@ -990,11 +991,12 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                             <button
                               type="button"
                               onClick={() => setSelectedAttemptForView(att)}
-                              className="h-8.5 px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white dark:bg-[#a8c7fa] dark:text-[#062e6f] dark:hover:bg-[#c2e7ff] text-xs font-bold border-0 cursor-pointer flex items-center gap-1.5 shadow-xs transition active:scale-95"
+                              className="h-8 sm:h-8.5 px-3 sm:px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white dark:bg-[#a8c7fa] dark:text-[#062e6f] dark:hover:bg-[#c2e7ff] text-xs font-bold border-0 cursor-pointer flex items-center gap-1.5 shadow-xs transition active:scale-95 shrink-0 whitespace-nowrap"
                               title="Open full student answer sheet with solutions and time breakdown"
                             >
-                              <Eye className="w-3.5 h-3.5" />
-                              <span>View Solved Sheet</span>
+                              <Eye className="w-3.5 h-3.5 shrink-0" />
+                              <span className="hidden sm:inline">View Solved Sheet</span>
+                              <span className="sm:hidden">Solved Sheet</span>
                             </button>
                           </div>
                         </div>

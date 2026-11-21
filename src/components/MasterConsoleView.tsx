@@ -1762,7 +1762,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   )}
                 </div>
 
-                {/* Global Students Cards (Mobile) & Table (Desktop) */}
+                {/* Global Students Cards (Mobile) & Table (Tablet/Desktop) */}
                 <div className="rounded-2xl overflow-hidden bg-white dark:bg-[#16181f] border-0 shadow-xs">
                   {/* Mobile Card List */}
                   <div className="sm:hidden divide-y divide-slate-100 dark:divide-zinc-800/60">
@@ -1777,9 +1777,18 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                             <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-zinc-100">
                               {st.name || 'Student'}
                             </span>
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-0">
-                              {st.status || 'Active'}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                st.hasDeviceLock
+                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                  : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'
+                              }`}>
+                                {st.hasDeviceLock ? '🔒 Locked' : '● Open'}
+                              </span>
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-0">
+                                {st.status || 'Active'}
+                              </span>
+                            </div>
                           </div>
                           <p className="text-xs font-medium text-slate-700 dark:text-zinc-300 truncate">
                             {st.email || st.phone || 'N/A'}
@@ -1826,82 +1835,93 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                     )}
                   </div>
 
-                  {/* Desktop Table View */}
-                  <div className="hidden sm:block overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                  {/* Tablet & Desktop Responsive Table View: Optimized to eliminate horizontal scroll on tablet */}
+                  <div className="hidden sm:block overflow-x-auto w-full">
+                    <table className="w-full text-left border-collapse table-auto">
                       <thead>
                         <tr className="border-b border-slate-200/80 dark:border-zinc-800/80 bg-slate-50/70 dark:bg-zinc-900/40 text-[10px] font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
-                          <th className="p-3 pl-4">Student</th>
-                          <th className="p-3">Contact</th>
-                          <th className="p-3">Enrolled Batches</th>
-                          <th className="p-3">Tests Attempted</th>
-                          <th className="p-3">Device Lock</th>
-                          <th className="p-3 pr-4 text-right">Actions</th>
+                          <th className="p-3 pl-4 min-w-[170px] lg:w-1/4">Student & Contact</th>
+                          <th className="p-3 min-w-[140px] lg:w-1/4">Enrolled Batches</th>
+                          <th className="p-3 min-w-[120px] lg:w-1/6">Tests & Security</th>
+                          <th className="p-3 pr-4 text-right min-w-[140px] lg:w-1/3">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60 text-xs">
                         {filteredGlobalStudents.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="p-8 text-center text-slate-700 dark:text-zinc-300">
+                            <td colSpan={4} className="p-8 text-center text-slate-700 dark:text-zinc-300">
                               {globalStudentsList.length === 0 ? 'No registered students found.' : 'No students matching search.'}
                             </td>
                           </tr>
                         ) : (
                           filteredGlobalStudents.map((st) => (
                             <tr key={st.id} className="hover:bg-slate-50/60 dark:hover:bg-zinc-900/30 transition">
-                              <td className="p-3.5 pl-4 font-bold text-sm text-slate-900 dark:text-zinc-100">
-                                {st.name || 'Student'}
+                              <td className="p-3.5 pl-4 align-top">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-bold text-sm text-slate-900 dark:text-zinc-100">
+                                      {st.name || 'Student'}
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                                      {st.status || 'Active'}
+                                    </span>
+                                  </div>
+                                  <p className="font-medium text-xs text-slate-600 dark:text-zinc-400 select-all truncate max-w-[180px] lg:max-w-xs" title={st.email || st.phone || 'N/A'}>
+                                    {st.email || st.phone || 'N/A'}
+                                  </p>
+                                </div>
                               </td>
-                              <td className="p-3.5 font-medium text-xs text-slate-600 dark:text-zinc-300 select-all">
-                                {st.email || st.phone || 'N/A'}
-                              </td>
-                              <td className="p-3.5">
-                                <div className="flex flex-wrap gap-1.5 max-w-xs">
+                              <td className="p-3.5 align-top">
+                                <div className="flex flex-wrap gap-1 max-w-[180px] lg:max-w-xs">
                                   {st.enrolledBatches.length > 0 ? (
                                     st.enrolledBatches.map((b) => (
                                       <span
                                         key={b.batchId}
-                                        className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-[#0b57d0] dark:text-[#a8c7fa] border border-blue-500/10 truncate max-w-[140px]"
+                                        className="text-[10px] lg:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-[#0b57d0] dark:text-[#a8c7fa] border border-blue-500/10 truncate max-w-[130px] lg:max-w-[150px]"
                                         title={b.batchTitle}
                                       >
                                         {b.batchTitle}
                                       </span>
                                     ))
                                   ) : (
-                                    <span className="text-xs text-slate-600 italic">No batches</span>
+                                    <span className="text-xs text-slate-500 italic">No batches</span>
                                   )}
                                 </div>
                               </td>
-                              <td className="p-3.5 font-semibold text-xs text-slate-700 dark:text-zinc-300 tabular-nums">
-                                {st.attemptCount} attempts
+                              <td className="p-3.5 align-top">
+                                <div className="space-y-1">
+                                  <div className="font-semibold text-xs text-slate-700 dark:text-zinc-300 tabular-nums">
+                                    {st.attemptCount} {st.attemptCount === 1 ? 'attempt' : 'attempts'}
+                                  </div>
+                                  <div>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border-0 ${
+                                      st.hasDeviceLock
+                                        ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                        : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'
+                                    }`}>
+                                      {st.hasDeviceLock ? '🔒 Locked' : '● Open'}
+                                    </span>
+                                  </div>
+                                </div>
                               </td>
-                              <td className="p-3.5">
-                                <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border-0 ${
-                                  st.hasDeviceLock
-                                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                                    : 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300'
-                                }`}>
-                                  {st.hasDeviceLock ? '🔒 Locked' : '● Open'}
-                                </span>
-                              </td>
-                              <td className="p-3.5 pr-4 text-right">
-                                <div className="flex items-center justify-end space-x-2">
+                              <td className="p-3.5 pr-4 text-right align-top">
+                                <div className="flex items-center justify-end gap-1.5 flex-wrap">
                                   <button
                                     type="button"
                                     title="View 360° Academic Performance, Past Test History & Video Analytics"
                                     onClick={() => setSelectedStudentFor360(st)}
-                                    className="h-8 px-3.5 rounded-full text-xs font-bold text-white bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:text-[#062e6f] dark:hover:bg-[#c2e7ff] border-0 cursor-pointer inline-flex items-center gap-1.5 transition active:scale-95 shadow-xs"
+                                    className="h-8 px-2.5 lg:px-3.5 rounded-full text-xs font-bold text-white bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:text-[#062e6f] dark:hover:bg-[#c2e7ff] border-0 cursor-pointer inline-flex items-center gap-1.5 transition active:scale-95 shadow-xs shrink-0"
                                   >
-                                    <BarChart2 className="w-3.5 h-3.5" />
+                                    <BarChart2 className="w-3.5 h-3.5 shrink-0" />
                                     <span>360° Report</span>
                                   </button>
                                   <button
                                     type="button"
                                     title="Reset Device Lock (Allows student to register a new phone or laptop upon login)"
                                     onClick={() => handleResetDeviceLock(st.id, st.name || 'Student')}
-                                    className="h-8 px-3.5 rounded-full text-xs font-bold text-[#1f1f1f] dark:text-[#e3e3e3] bg-[#f0f4f9] hover:bg-[#e1e7f0] dark:bg-[#1e1f20] dark:hover:bg-[#2a2b2c] border-0 cursor-pointer inline-flex items-center gap-1.5 transition active:scale-95"
+                                    className="h-8 px-2.5 lg:px-3 rounded-full text-xs font-bold text-[#1f1f1f] dark:text-[#e3e3e3] bg-[#f0f4f9] hover:bg-[#e1e7f0] dark:bg-[#1e1f20] dark:hover:bg-[#2a2b2c] border-0 cursor-pointer inline-flex items-center gap-1 transition active:scale-95 shrink-0"
                                   >
-                                    <Smartphone className="w-3.5 h-3.5" />
+                                    <Smartphone className="w-3.5 h-3.5 shrink-0" />
                                     <span>Reset</span>
                                   </button>
                                 </div>
