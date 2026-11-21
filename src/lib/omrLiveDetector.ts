@@ -73,14 +73,14 @@ export class OmrLiveDetector {
   // Offscreen canvas for extracting high-res corner patches
   private patchCanvas: HTMLCanvasElement;
   private patchCtx: CanvasRenderingContext2D | null;
-  private readonly patchRadius = 55; // 110x110 pixel search window in video coordinates
+  private readonly patchRadius = 75; // 150x150 pixel search window covering full corner box container
 
   // Temporal coordinate smoothing
   private smoothedVideoFiducials: LiveQuadCorners | null = null;
   private smoothedVideoOuter: LiveQuadCorners | null = null;
   private stableStreak = 0;
-  private readonly requiredStableFrames = 3; // ~90ms hold of all 4 markers
-  private readonly maxMovementThresholdSq = 12.0 * 12.0; // In video pixels
+  private readonly requiredStableFrames = 1; // Instant snap the moment all 4 boxes have corner squares inside
+  private readonly maxMovementThresholdSq = 16.0 * 16.0; // In video pixels
   private lastProcessTimestamp = 0;
   private readonly minProcessIntervalMs = 25; // ~40 FPS for ultra-responsive live detection
 
@@ -346,14 +346,10 @@ export class OmrLiveDetector {
       bl: toScreenPct(videoToScreen(rawVideoOuter.bl.x, rawVideoOuter.bl.y), cw, ch),
     };
 
-    // 7. Auto-Snap with rapid 3-frame hold (~90ms) to ensure sharpness and eliminate false blips
-    this.stableStreak = Math.min(this.requiredStableFrames, this.stableStreak + 1);
-    const isLocked = this.stableStreak >= this.requiredStableFrames;
-    const status: LiveScannerStatus = isLocked ? 'locked' : (this.stableStreak > 1 ? 'stabilizing' : 'tracking');
-
-    const guidance = isLocked 
-      ? 'All 4 markers detected! Capturing...'
-      : 'Hold steady...';
+    // 7. Instant Auto-Snap the moment all 4 boxes have corner squares inside
+    this.stableStreak = this.requiredStableFrames;
+    const isLocked = true;
+    const status: LiveScannerStatus = 'locked';
 
     return {
       status,
@@ -364,11 +360,11 @@ export class OmrLiveDetector {
       videoFiducials: rawVideoFiducials,
       videoOuterCorners: rawVideoOuter,
       frameCorners: frameCornersScreenPct,
-      stabilityProgress: this.stableStreak / this.requiredStableFrames,
-      guidanceMessage: guidance,
+      stabilityProgress: 1.0,
+      guidanceMessage: 'All 4 corners detected! Capturing...',
       tiltAngleDeg: Math.round(tiltDeg),
       ratioMatchPercentage: Math.round(ratioMatch * 100),
-      shouldAutoSnap: isLocked,
+      shouldAutoSnap: true, // Immediate capture without needing micro-alignment!
       detectedBoxes: { tl: true, tr: true, br: true, bl: true, count: 4 },
     };
   }
@@ -532,9 +528,9 @@ function findHollowSquareInPatch(gray: Uint8Array, w: number, h: number): PatchC
           }
 
           const distToPatchCenter = Math.hypot(cx - patchMidX, cy - patchMidY);
-          const distScore = 1.0 / (1.0 + distToPatchCenter * 0.05);
+          const distScore = 1.0 / (1.0 + distToPatchCenter * 0.015);
           const aspectScore = 1.0 - Math.abs(1.0 - aspect);
-          const totalScore = distScore * 0.50 + aspectScore * 0.30 + (coreContrast / 255) * 0.20;
+          const totalScore = distScore * 0.40 + aspectScore * 0.30 + (coreContrast / 255) * 0.30;
 
           candidates.push({ cx, cy, bw, bh, isHollow: true, score: totalScore });
         }

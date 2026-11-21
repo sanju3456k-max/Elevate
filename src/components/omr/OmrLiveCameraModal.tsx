@@ -621,69 +621,45 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                     Top
                   </div>
 
-                  {/* Top-Left Target Box */}
+                  {/* Top-Left Target Box Container */}
                   <div 
-                    className={`absolute w-12 h-12 sm:w-14 sm:h-14 rounded-xl pointer-events-none transition-all duration-150 flex items-center justify-center ${
+                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-150 ${
                       isTL 
-                        ? 'border-2 border-emerald-400 bg-emerald-500/20 shadow-[0_0_16px_rgba(52,211,153,0.6)] scale-105' 
-                        : 'border-2 border-white/80 bg-black/35 shadow-md'
+                        ? 'border-[3px] border-emerald-400 bg-emerald-500/25 shadow-[0_0_20px_rgba(52,211,153,0.75)] scale-105 ring-2 ring-emerald-400/40' 
+                        : 'border-2 border-white/85 bg-black/30 shadow-md'
                     }`}
                     style={{ left: `${marginPctX}%`, top: `${marginPctTop}%`, transform: 'translate(-50%, -50%)' }}
-                  >
-                    {isTL ? (
-                      <div className="w-4 h-4 bg-emerald-400 rounded-xs shadow-sm animate-pulse" />
-                    ) : (
-                      <div className="w-3 h-3 border border-dashed border-white/40 rounded-xs" />
-                    )}
-                  </div>
+                  />
 
-                  {/* Top-Right Target Box */}
+                  {/* Top-Right Target Box Container */}
                   <div 
-                    className={`absolute w-12 h-12 sm:w-14 sm:h-14 rounded-xl pointer-events-none transition-all duration-150 flex items-center justify-center ${
+                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-150 ${
                       isTR 
-                        ? 'border-2 border-emerald-400 bg-emerald-500/20 shadow-[0_0_16px_rgba(52,211,153,0.6)] scale-105' 
-                        : 'border-2 border-white/80 bg-black/35 shadow-md'
+                        ? 'border-[3px] border-emerald-400 bg-emerald-500/25 shadow-[0_0_20px_rgba(52,211,153,0.75)] scale-105 ring-2 ring-emerald-400/40' 
+                        : 'border-2 border-white/85 bg-black/30 shadow-md'
                     }`}
                     style={{ left: `${100 - marginPctX}%`, top: `${marginPctTop}%`, transform: 'translate(-50%, -50%)' }}
-                  >
-                    {isTR ? (
-                      <div className="w-4 h-4 bg-emerald-400 rounded-xs shadow-sm animate-pulse" />
-                    ) : (
-                      <div className="w-3 h-3 border border-dashed border-white/40 rounded-xs" />
-                    )}
-                  </div>
+                  />
 
-                  {/* Bottom-Right Target Box */}
+                  {/* Bottom-Right Target Box Container */}
                   <div 
-                    className={`absolute w-12 h-12 sm:w-14 sm:h-14 rounded-xl pointer-events-none transition-all duration-150 flex items-center justify-center ${
+                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-150 ${
                       isBR 
-                        ? 'border-2 border-emerald-400 bg-emerald-500/20 shadow-[0_0_16px_rgba(52,211,153,0.6)] scale-105' 
-                        : 'border-2 border-white/80 bg-black/35 shadow-md'
+                        ? 'border-[3px] border-emerald-400 bg-emerald-500/25 shadow-[0_0_20px_rgba(52,211,153,0.75)] scale-105 ring-2 ring-emerald-400/40' 
+                        : 'border-2 border-white/85 bg-black/30 shadow-md'
                     }`}
                     style={{ left: `${100 - marginPctX}%`, top: `${100 - marginPctBottom}%`, transform: 'translate(-50%, -50%)' }}
-                  >
-                    {isBR ? (
-                      <div className="w-4 h-4 bg-emerald-400 rounded-xs shadow-sm animate-pulse" />
-                    ) : (
-                      <div className="w-3 h-3 border border-dashed border-white/40 rounded-xs" />
-                    )}
-                  </div>
+                  />
 
-                  {/* Bottom-Left Target Box */}
+                  {/* Bottom-Left Target Box Container */}
                   <div 
-                    className={`absolute w-12 h-12 sm:w-14 sm:h-14 rounded-xl pointer-events-none transition-all duration-150 flex items-center justify-center ${
+                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-150 ${
                       isBL 
-                        ? 'border-2 border-emerald-400 bg-emerald-500/20 shadow-[0_0_16px_rgba(52,211,153,0.6)] scale-105' 
-                        : 'border-2 border-white/80 bg-black/35 shadow-md'
+                        ? 'border-[3px] border-emerald-400 bg-emerald-500/25 shadow-[0_0_20px_rgba(52,211,153,0.75)] scale-105 ring-2 ring-emerald-400/40' 
+                        : 'border-2 border-white/85 bg-black/30 shadow-md'
                     }`}
                     style={{ left: `${marginPctX}%`, top: `${100 - marginPctBottom}%`, transform: 'translate(-50%, -50%)' }}
-                  >
-                    {isBL ? (
-                      <div className="w-4 h-4 bg-emerald-400 rounded-xs shadow-sm animate-pulse" />
-                    ) : (
-                      <div className="w-3 h-3 border border-dashed border-white/40 rounded-xs" />
-                    )}
-                  </div>
+                  />
                 </div>
               </div>
             )}
