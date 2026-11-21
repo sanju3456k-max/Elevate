@@ -436,6 +436,9 @@ export default function App() {
   const [omrSessionKey, setOmrSessionKey] = useState<string>(() => `omr_session_${Date.now()}`);
   const [isLectureViewActive, setIsLectureViewActive] = useState<boolean>(false);
   const [isAppLoaded, setIsAppLoaded] = useState<boolean>(false);
+  const handleWelcomeFinish = useCallback(() => {
+    setIsAppLoaded(true);
+  }, []);
 
   // Instant synchronous auth hydration from local cache to prevent awakening/flickering effect
   const [cachedUser, setCachedUser] = useState<CachedAuthUser | null>(() => getCachedAuthUser());
@@ -567,7 +570,7 @@ export default function App() {
       // Standard page headers (home, batches catalog, tests, analytics): #e5e9f0 (light) / #0b0c10 (dark)
       let statusBarColor = isDarkMode ? '#0b0c10' : '#e5e9f0';
       if (!isAppLoaded) {
-        statusBarColor = isDarkMode ? '#0b0c10' : '#ffffff';
+        statusBarColor = isDarkMode ? '#0b0c10' : '#e5e9f0';
       } else if (isSettingsModalOpen) {
         statusBarColor = isDarkMode ? '#0b0c10' : '#ffffff';
       } else if (activeTab === 'master-console') {
@@ -2065,9 +2068,11 @@ export default function App() {
 
   return (
     <LmsProvider>
-      <div className="min-h-screen bg-[#ededed] dark:bg-[#111318] text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col font-sans antialiased selection:bg-[#0b57d0]/20 selection:text-[#0b57d0] dark:selection:text-[#a8c7fa] transition-colors duration-200">
+      <div className="min-h-screen bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col font-sans antialiased selection:bg-[#0b57d0]/20 selection:text-[#0b57d0] dark:selection:text-[#a8c7fa] transition-colors duration-200">
       {/* Brand Welcome Screen on App Opening */}
-      <WelcomeSplash onFinish={() => setIsAppLoaded(true)} />
+      {!isAppLoaded && (
+        <WelcomeSplash onFinish={handleWelcomeFinish} />
+      )}
       {/* Real-time In-App Notification Pop-up Manager for Web App */}
       <NotificationWatcherHost
         isAppLoaded={isAppLoaded}
@@ -2136,6 +2141,10 @@ export default function App() {
         <div
           id="app-navbar-wrapper"
           className={`sticky top-0 z-50 transition-all duration-200 shrink-0 ${
+            (activeTab === 'notifications' || (activeTab === 'batches' && isInsideBatch))
+              ? 'bg-white dark:bg-[#0b0c10]'
+              : 'bg-[#e5e9f0] dark:bg-[#0b0c10]'
+          } ${
             isFullVideoPlayerActive
               ? (isNativeAndroid() ? 'hidden' : 'hidden md:fixed md:top-0 md:inset-x-0 md:z-50 md:block video-player-desktop-header')
               : activeTab === 'results' || (activeTab === 'batches' && isInsideBatch)

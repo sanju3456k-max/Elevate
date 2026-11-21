@@ -9,7 +9,7 @@
           var savedTheme = localStorage.getItem('math_mock_theme_v1') || localStorage.getItem('elevatelabs_theme_mode_v2');
           var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
           var isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
-          var bg = isDark ? '#0b0c10' : '#ffffff';
+          var bg = isDark ? '#0b0c10' : '#e5e9f0';
           if (isDark) {
             document.documentElement.classList.add('dark');
           } else {
@@ -18,7 +18,7 @@
           document.documentElement.style.backgroundColor = bg;
           var metaTheme = document.getElementById('app-theme-color-meta') || document.querySelector('meta[name="theme-color"]');
           if (metaTheme) {
-            metaTheme.setAttribute('content', isDark ? '#0b0c10' : '#e5e9f0');
+            metaTheme.setAttribute('content', bg);
           }
         } catch (e) {}
       })();
@@ -173,8 +173,8 @@
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/contrib/auto-render.min.js"></script>
   </head>
-  <body class="bg-white dark:bg-[#0b0c10]">
-    <div id="root" class="min-h-screen bg-white dark:bg-[#0b0c10]"></div>
+  <body class="bg-[#e5e9f0] dark:bg-[#0b0c10]">
+    <div id="root" class="min-h-screen bg-[#e5e9f0] dark:bg-[#0b0c10]"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

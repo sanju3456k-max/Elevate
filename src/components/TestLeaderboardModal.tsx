@@ -145,6 +145,10 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
     const isDark = document.documentElement.classList.contains('dark');
     const targetColor = isDark ? '#0c0e12' : '#ffffff';
     setAppThemeColor(targetColor);
+    return () => {
+      const restoreColor = isDark ? '#0b0c10' : '#e5e9f0';
+      setAppThemeColor(restoreColor);
+    };
   }, [isOpen]);
 
   const [displayLimit, setDisplayLimit] = useState<number>(100);

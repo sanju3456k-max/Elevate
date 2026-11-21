@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { setAppThemeColor } from '../lib/appThemeColor';
 
@@ -12,23 +12,29 @@ export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({
   onFinish,
 }) => {
   const [isVisible, setIsVisible] = useState<boolean>(true);
+  const onFinishRef = useRef(onFinish);
+  onFinishRef.current = onFinish;
+  const hasRunRef = useRef<boolean>(false);
 
   useEffect(() => {
-    // Synchronize status bar theme-color directly with the welcome splash screen card (#ffffff light / #0b0c10 dark)
+    if (hasRunRef.current) return;
+    hasRunRef.current = true;
+
+    // Synchronize status bar theme-color directly with the app launch theme (#e5e9f0 light / #0b0c10 dark)
     const isDark = typeof document !== 'undefined' && (
       document.documentElement.classList.contains('dark') ||
       window.matchMedia('(prefers-color-scheme: dark)').matches
     );
-    const targetColor = isDark ? '#0b0c10' : '#ffffff';
+    const targetColor = isDark ? '#0b0c10' : '#e5e9f0';
     setAppThemeColor(targetColor);
 
     const timer = setTimeout(() => {
       setIsVisible(false);
-      if (onFinish) onFinish();
+      if (onFinishRef.current) onFinishRef.current();
     }, durationMs);
 
     return () => clearTimeout(timer);
-  }, [durationMs, onFinish]);
+  }, [durationMs]);
 
   return (
     <AnimatePresence>
@@ -37,7 +43,7 @@ export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({
           key="elevate-welcome-splash"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.25, ease: 'easeInOut' } }}
-          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white dark:bg-[#0b0c10] text-[#0f172a] dark:text-[#f8fafc] select-none pointer-events-none transition-colors"
+          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#0f172a] dark:text-[#f8fafc] select-none pointer-events-none transition-colors"
         >
           <motion.div
             initial={{ scale: 0.95, opacity: 0, y: 2 }}

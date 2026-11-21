@@ -87,6 +87,10 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
     if (!isOpen) return;
     const targetColor = isDarkMode ? '#0b0c10' : '#ffffff';
     setAppThemeColor(targetColor);
+    return () => {
+      const restoreColor = isDarkMode ? '#0b0c10' : '#e5e9f0';
+      setAppThemeColor(restoreColor);
+    };
   }, [isOpen, isDarkMode]);
 
   // Hardware Back Navigation (Priority 60 ensures it closes this view smoothly)

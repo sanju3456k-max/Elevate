@@ -11,8 +11,8 @@
     "minimal-ui"
   ],
   "orientation": "any",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "background_color": "#e5e9f0",
+  "theme_color": "#e5e9f0",
   "lang": "en",
   "dir": "ltr",
   "prefer_related_applications": false,

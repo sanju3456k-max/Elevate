@@ -115,6 +115,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (!isOpen) return;
     const targetColor = isDarkMode ? '#0b0c10' : '#ffffff';
     setAppThemeColor(targetColor);
+    return () => {
+      const restoreColor = isDarkMode ? '#0b0c10' : '#e5e9f0';
+      setAppThemeColor(restoreColor);
+    };
   }, [isOpen, isDarkMode]);
 
   const handleExportJsonArchive = async () => {

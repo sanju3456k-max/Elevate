@@ -10,10 +10,19 @@ let lastAppliedColor = '';
 export function setAppThemeColor(color: string): void {
   if (typeof document === 'undefined') return;
 
-  // Avoid redundant DOM updates if the color hasn't changed
-  if (lastAppliedColor.toLowerCase() === color.toLowerCase()) return;
-
   try {
+    // Keep root HTML and body background color synchronized with the active status bar theme
+    // This ensures desktop & mobile PWA window frames and canvas overscroll match seamlessly
+    if (document.documentElement && document.documentElement.style.backgroundColor !== color) {
+      document.documentElement.style.backgroundColor = color;
+    }
+    if (document.body && document.body.style.backgroundColor !== color) {
+      document.body.style.backgroundColor = color;
+    }
+
+    // Avoid redundant DOM updates to meta tags if the color hasn't changed
+    if (lastAppliedColor.toLowerCase() === color.toLowerCase()) return;
+
     let meta = document.getElementById('app-theme-color-meta') as HTMLMetaElement | null;
     if (!meta) {
       meta = document.querySelector('meta[name="theme-color"]');
