@@ -436,7 +436,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
               } w-[280px] xs:w-[300px] sm:w-[340px] md:w-[380px] z-50 bg-[#16181d] text-white rounded-2xl md:rounded-3xl shadow-2xl ring-1 ring-black/10 dark:ring-white/10 border-0 border-none p-0 transition-all duration-300 select-none overflow-hidden ${
                 !isTestMode ? 'flex flex-col' : 'hidden'
               }`
-            : `is-expanded fixed inset-x-0 bottom-0 w-full top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] md:top-[62px] md:h-[calc(100vh-62px)] z-[48] bg-[#e5e9f0] dark:bg-[#0b0c10] flex flex-col lg:grid lg:grid-cols-12 lg:grid-rows-[max-content_minmax(0,1fr)] lg:gap-6 xl:gap-8 items-start overflow-hidden lg:overflow-y-auto px-0 lg:px-8 xl:px-10 pt-0 lg:pt-4 pb-28 lg:pb-36 overscroll-contain select-text max-w-[1750px] mx-auto`
+            : `is-expanded fixed inset-x-0 bottom-0 w-full top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] md:top-[62px] md:h-[calc(100vh-62px)] z-[48] bg-[#e5e9f0] dark:bg-[#0b0c10] flex flex-col lg:grid lg:grid-cols-12 lg:grid-rows-[max-content_minmax(0,1fr)] lg:gap-6 xl:gap-8 items-start overflow-hidden lg:overflow-y-auto px-0 lg:px-8 xl:px-10 pt-0 lg:pt-4 pb-0 overscroll-contain select-text max-w-[1750px] mx-auto`
         }
       style={
         !isMinimized && !isInNativePip
@@ -646,11 +646,11 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
       {/* 3. In Expanded View: Mobile Scrollable Body / Desktop Grid Placement */}
       {!isMinimized && !isInNativePip && (
         <div 
-          className="flex-1 min-h-0 w-full overflow-y-auto overscroll-contain lg:overflow-visible lg:contents space-y-4 lg:space-y-0 px-3.5 sm:px-6 lg:px-0 py-3 lg:py-0 pb-12 lg:pb-0"
+          className="flex-1 min-h-0 w-full overflow-y-auto overscroll-contain lg:overflow-visible lg:contents space-y-4 lg:space-y-0 px-3.5 sm:px-6 lg:px-0 py-3 lg:py-0 pb-20 sm:pb-24 lg:pb-0"
           style={{ overscrollBehavior: 'contain', overscrollBehaviorY: 'contain' }}
         >
           {/* Main/Left Column: Title, Badges & Overview */}
-          <div className="space-y-3 lg:col-span-7 xl:col-span-8 lg:col-start-1 lg:row-start-2 w-full min-w-0 pt-1 lg:pt-1.5 pb-20 lg:pb-32">
+          <div className="space-y-3.5 lg:col-span-7 xl:col-span-8 lg:col-start-1 lg:row-start-2 w-full min-w-0 pt-1 lg:pt-1.5 pb-0">
             {/* Title & Actions row */}
             <div className="space-y-2.5 pt-1 sm:pt-2">
               <div className="flex items-start justify-between gap-3">
@@ -728,13 +728,10 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 </div>
               )}
             </div>
-
-            {/* Scrollable safety space at the bottom of lecture overview */}
-            <div className="h-16 sm:h-20 lg:h-28 w-full shrink-0 pointer-events-none select-none" aria-hidden="true" />
           </div>
 
           {/* Right/Secondary Column (More in this Course + Lecture Notes) */}
-          <div className="space-y-5 lg:col-span-5 xl:col-span-4 lg:col-start-8 xl:col-start-9 lg:row-start-1 lg:row-span-2 w-full min-w-0 pb-20 lg:pb-32">
+          <div className="space-y-4 sm:space-y-5 lg:col-span-5 xl:col-span-4 lg:col-start-8 xl:col-start-9 lg:row-start-1 lg:row-span-2 w-full min-w-0 pb-0">
           {/* YouTube-style Course Playlist Queue (Top on Desktop) */}
           {batchLectures.length > 0 && (
             <div className="bg-white dark:bg-[#1e2024] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-3 border-0 w-full min-w-0">
@@ -908,10 +905,11 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 ))
               )}
             </div>
-            {/* Scrollable safety space at the bottom of right sidebar */}
-            <div className="h-16 sm:h-20 lg:h-28 w-full shrink-0 pointer-events-none select-none" aria-hidden="true" />
           </div>
         </div>
+
+        {/* Mobile/Tablet Bottom Scroll Clearance Buffer */}
+        <div className="h-6 sm:h-8 lg:hidden w-full shrink-0 pointer-events-none select-none" aria-hidden="true" />
       </div>
       )}
     </div>

@@ -161,19 +161,23 @@
       top: 62px !important;
       height: calc(100vh - 62px) !important;
       bottom: 0 !important;
-      overflow-y: auto !important;
-      overscroll-behavior-y: contain !important;
+      overflow: hidden !important;
     }
   }
 
   @media (min-width: 1024px) {
+    body:not(.is-native-android) #global-persistent-player-host.is-expanded {
+      overflow-y: auto !important;
+      overscroll-behavior-y: contain !important;
+    }
+
     #global-persistent-player-host.is-expanded {
       grid-template-rows: max-content minmax(0, 1fr) !important;
       overflow-y: auto !important;
       overscroll-behavior-y: contain !important;
-      padding-left: max(2rem, calc((100vw - 1720px) / 2)) !important;
-      padding-right: max(2rem, calc((100vw - 1720px) / 2)) !important;
-      padding-bottom: max(6rem, calc(4rem + env(safe-area-inset-bottom, 0px))) !important;
+      padding-left: max(1.5rem, calc((100vw - 1720px) / 2)) !important;
+      padding-right: max(1.5rem, calc((100vw - 1720px) / 2)) !important;
+      padding-bottom: max(5rem, calc(3.5rem + env(safe-area-inset-bottom, 0px))) !important;
     }
   }
 
