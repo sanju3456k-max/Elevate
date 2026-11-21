@@ -122,7 +122,7 @@ export function computeUnifiedTopicMastery(tests: MathTest[] = [], attempts: Tes
       const qId = q?.id || `q_${qNum}`;
       const ans = answersMap[qId] || answersMap[String(qNum)] || answersMap[String(i)] || null;
 
-      const isAttempted = Boolean(ans && ans.selectedOption && ans.selectedOption.trim() !== '');
+      const isAttempted = Boolean(ans && ans.selectedOption !== undefined && ans.selectedOption !== null && String(ans.selectedOption).trim() !== '');
       const isCorrect = Boolean(ans && ans.isCorrect);
 
       const topic = q?.topic?.trim() || parentTest?.topic?.trim() || att.testTopic?.trim() || 'General Math';

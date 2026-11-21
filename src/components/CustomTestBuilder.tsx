@@ -214,7 +214,7 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
 
     allQs.forEach((q) => {
       const ans = attempt.answers[q.id];
-      if (!ans || !ans.selectedOption || ans.selectedOption.trim() === '') {
+      if (!ans || ans.selectedOption === undefined || ans.selectedOption === null || String(ans.selectedOption).trim() === '') {
         unattempted.push(q);
       } else if (!ans.isCorrect) {
         wrong.push(q);

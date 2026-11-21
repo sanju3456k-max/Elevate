@@ -287,7 +287,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
             const qNum = idx + 1;
             const qId = q.id || `q_${qNum}`;
             const ans = answersMap[qId] || answersMap[String(qNum)] || answersMap[String(idx)];
-            const isAtt = Boolean(ans && ans.selectedOption && ans.selectedOption.trim() !== '');
+            const isAtt = Boolean(ans && ans.selectedOption !== undefined && ans.selectedOption !== null && String(ans.selectedOption).trim() !== '');
             const isCorr = Boolean(ans && ans.isCorrect);
 
             localQCount++;
@@ -322,7 +322,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
           });
         } else {
           const correct = answersList.filter((a) => a.isCorrect).length;
-          const attempted = answersList.filter((a) => a.selectedOption && a.selectedOption.trim() !== '').length;
+          const attempted = answersList.filter((a) => a && a.selectedOption !== undefined && a.selectedOption !== null && String(a.selectedOption).trim() !== '').length;
           const wrong = Math.max(0, attempted - correct);
 
           localCorr += correct;
@@ -986,7 +986,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                 : (latest.totalPoints || 10);
 
               const correctCount = answersList.filter((a) => a.isCorrect).length || Math.round((latest.score / (latest.totalPoints || 1)) * totalQuestions);
-              const attemptedCount = answersList.filter((a) => a.selectedOption && a.selectedOption.trim() !== '').length || correctCount;
+              const attemptedCount = answersList.filter((a) => a && a.selectedOption !== undefined && a.selectedOption !== null && String(a.selectedOption).trim() !== '').length || correctCount;
               const wrongCount = Math.max(0, attemptedCount - correctCount);
               const unansweredCount = Math.max(0, totalQuestions - attemptedCount);
 
@@ -1179,7 +1179,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
                             const attAnswers = Object.values(att.answers || {}) as any[];
                             const attTotalQs = attAnswers.length || att.totalPoints || 10;
                             const attCorrect = attAnswers.filter((a: any) => a.isCorrect).length || Math.round((att.score / (att.totalPoints || 1)) * attTotalQs);
-                            const attAttempted = attAnswers.filter((a: any) => a.selectedOption && a.selectedOption.trim() !== '').length || attCorrect;
+                            const attAttempted = attAnswers.filter((a: any) => a && a.selectedOption !== undefined && a.selectedOption !== null && String(a.selectedOption).trim() !== '').length || attCorrect;
                             const attWrong = Math.max(0, attAttempted - attCorrect);
                             const attSkipped = Math.max(0, attTotalQs - attAttempted);
                             const attAcc = attAttempted > 0 ? Math.round((attCorrect / attAttempted) * 100) : 0;

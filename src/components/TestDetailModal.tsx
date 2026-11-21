@@ -297,7 +297,7 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
       answersList.filter((a) => a.isCorrect).length ||
       Math.round((attemptItem.score / (attemptItem.totalPoints || 1)) * totalQs);
     const answeredCount =
-      answersList.filter((a) => a.selectedOption && a.selectedOption.trim() !== '').length || correctCount;
+      answersList.filter((a) => a && a.selectedOption !== undefined && a.selectedOption !== null && String(a.selectedOption).trim() !== '').length || correctCount;
     const wrongCount = Math.max(0, answeredCount - correctCount);
     const unansweredCount = Math.max(0, totalQs - answeredCount);
     const accuracy = answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 0;

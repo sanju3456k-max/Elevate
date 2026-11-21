@@ -584,7 +584,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
       const qId = q?.id || `q_${qNum}`;
       const ans = answersMap[qId] || answersMap[String(qNum)] || answersMap[String(i)] || null;
 
-      const isAttempted = Boolean(ans && ans.selectedOption && ans.selectedOption.trim() !== '');
+      const isAttempted = Boolean(ans && ans.selectedOption !== undefined && ans.selectedOption !== null && String(ans.selectedOption).trim() !== '');
       const isCorrect = Boolean(ans && ans.isCorrect);
       const isWrong = isAttempted && !isCorrect;
       const isSkipped = !isAttempted;

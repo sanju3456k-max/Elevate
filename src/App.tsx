@@ -1499,7 +1499,7 @@ export default function App() {
     const existingSession = loadScopedActiveSession(targetUid, fullTest.id);
 
     // Verify if this session is truly an unfinished in-progress session with actual progress
-    const hasAnswers = existingSession && existingSession.answers && Object.values(existingSession.answers).some((a) => a && a.selectedOption && a.selectedOption.trim() !== '');
+    const hasAnswers = existingSession && existingSession.answers && Object.values(existingSession.answers).some((a) => a && a.selectedOption !== undefined && a.selectedOption !== null && String(a.selectedOption).trim() !== '');
     const hasMeaningfulTime = existingSession && (existingSession.elapsedTime || 0) > 5;
     const isValidInProgressSession = Boolean(
       existingSession && 
