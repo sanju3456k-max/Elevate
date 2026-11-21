@@ -72,36 +72,35 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
   };
 
   return (
-    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-[#0e1117] text-slate-100 select-none overflow-y-auto">
-      {/* Background soft ambient gradient matching Elevate brand */}
-      <div className="absolute top-1/4 -left-20 w-80 h-80 bg-[#0b57d0]/20 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-indigo-600/15 rounded-full blur-[100px] pointer-events-none" />
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-50/95 text-slate-800 select-none overflow-y-auto">
+      {/* Soft light ambient background accents */}
+      <div className="absolute top-1/4 -left-20 w-80 h-80 bg-blue-200/40 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-indigo-200/40 rounded-full blur-[100px] pointer-events-none" />
 
-      <div className="w-full max-w-md bg-[#161b26] border border-slate-800 rounded-3xl p-7 sm:p-8 shadow-2xl relative overflow-hidden animate-fade-in flex flex-col items-center text-center">
+      <div className="w-full max-w-md bg-white border border-slate-200/90 rounded-3xl p-7 sm:p-8 shadow-xl shadow-slate-200/60 relative overflow-hidden animate-fade-in flex flex-col items-center text-center">
         
         {/* Brand Logo & Pill */}
         <div className="flex items-center gap-2.5 mb-4">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#0b57d0] to-indigo-600 p-2 flex items-center justify-center shadow-lg shadow-[#0b57d0]/20">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#0b57d0] to-indigo-600 p-2 flex items-center justify-center shadow-md shadow-[#0b57d0]/20">
             <img 
               src="./assets/preplens-icon.svg?v=21" 
               alt="Elevate" 
               className="w-full h-full object-contain brightness-200"
               onError={(e) => {
-                // Fallback icon if svg path differs
                 e.currentTarget.style.display = 'none';
               }}
             />
           </div>
-          <span className="text-xl font-black text-white tracking-tight">
-            Elevate <span className="text-[#a8c7fa] font-semibold">Learning</span>
+          <span className="text-xl font-black text-slate-900 tracking-tight">
+            Elevate <span className="text-[#0b57d0] font-bold">Learning</span>
           </span>
         </div>
 
         {/* Clean Welcome Title */}
-        <h1 className="text-2xl font-extrabold text-white tracking-tight mb-2">
+        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight mb-2">
           Welcome to Elevate
         </h1>
-        <p className="text-xs sm:text-sm text-slate-300 max-w-xs leading-relaxed mb-6">
+        <p className="text-xs sm:text-sm text-slate-600 max-w-xs leading-relaxed mb-6">
           Your centralized learning portal for mathematics mock tests, remedial tracking, and mastery assessments.
         </p>
 
@@ -109,13 +108,13 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
         {status === 'student' ? (
           // Friendly Student Download State
           <div className="w-full space-y-4 animate-fade-in text-left">
-            <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-200 space-y-2">
-              <div className="flex items-center gap-2 font-bold text-white text-sm">
-                <CheckCircle2 className="w-4.5 h-4.5 text-emerald-400 shrink-0" />
+            <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-xs text-blue-900 space-y-2">
+              <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
+                <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600 shrink-0" />
                 Student Account Verified
               </div>
-              <p className="text-slate-300 leading-relaxed">
-                For offline mock practice, anti-cheat test environments, and live OMR grading, all student activities are hosted on the <strong className="text-white">official Elevate Android App</strong>.
+              <p className="text-slate-600 leading-relaxed">
+                For offline mock practice, anti-cheat test environments, and live OMR grading, all student activities are hosted on the <strong className="text-slate-900">official Elevate Android App</strong>.
               </p>
             </div>
 
@@ -134,7 +133,7 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
                 setStatus('idle');
                 setEmail('');
               }}
-              className="w-full py-2 text-xs text-slate-400 hover:text-white transition-colors flex items-center justify-center gap-1"
+              className="w-full py-2 text-xs text-slate-500 hover:text-slate-800 transition-colors flex items-center justify-center gap-1"
             >
               <RefreshCw className="w-3 h-3" />
               Use a different email address
@@ -142,12 +141,12 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
           </div>
         ) : status === 'master_verified' ? (
           // Master Account Success State
-          <div className="w-full p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex flex-col items-center gap-2 animate-fade-in">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+          <div className="w-full p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex flex-col items-center gap-2 animate-fade-in">
+            <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
               <ShieldCheck className="w-6 h-6" />
             </div>
-            <div className="font-bold text-sm text-white">Master Account Verified</div>
-            <p className="text-center">{feedbackMsg}</p>
+            <div className="font-bold text-sm text-slate-900">Master Account Verified</div>
+            <p className="text-center text-slate-600">{feedbackMsg}</p>
           </div>
         ) : (
           // Default Welcome Email Input Form
@@ -166,19 +165,19 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
                     setEmail(e.target.value);
                     if (status === 'error') setStatus('idle');
                   }}
-                  className="w-full pl-10 pr-4 py-3 rounded-2xl bg-slate-900 border border-slate-700/80 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#0b57d0] transition-all"
+                  className="w-full pl-10 pr-4 py-3 rounded-2xl bg-slate-50 border border-slate-300 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0b57d0] transition-all"
                   autoFocus
                 />
               </div>
 
               {status === 'error' && (
-                <p className="text-xs text-red-400 text-left font-medium px-1">{feedbackMsg}</p>
+                <p className="text-xs text-red-500 text-left font-medium px-1">{feedbackMsg}</p>
               )}
 
               <button
                 type="submit"
                 disabled={status === 'checking'}
-                className="w-full py-3 px-5 rounded-2xl bg-[#0b57d0] hover:bg-[#0947a8] text-white font-bold text-sm shadow-lg shadow-[#0b57d0]/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
+                className="w-full py-3 px-5 rounded-2xl bg-[#0b57d0] hover:bg-[#0947a8] text-white font-bold text-sm shadow-md shadow-[#0b57d0]/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
               >
                 <span>Continue</span>
                 <ArrowRight className="w-4 h-4" />
@@ -186,8 +185,8 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
             </form>
 
             <div className="relative flex items-center justify-center my-3">
-              <div className="border-t border-slate-800 w-full" />
-              <span className="bg-[#161b26] px-3 text-[11px] text-slate-500 uppercase tracking-wider font-semibold">
+              <div className="border-t border-slate-200 w-full" />
+              <span className="bg-white px-3 text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
                 or
               </span>
             </div>
@@ -196,7 +195,7 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
               type="button"
               onClick={handleGoogleSignIn}
               disabled={isSigningInGoogle}
-              className="w-full py-2.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800/80 border border-slate-700/70 text-slate-200 text-xs font-semibold flex items-center justify-center gap-2.5 transition-all active:scale-[0.98]"
+              className="w-full py-2.5 px-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold flex items-center justify-center gap-2.5 shadow-sm transition-all active:scale-[0.98]"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -209,8 +208,8 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
           </div>
         )}
 
-        <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
-          <Sparkles className="w-3 h-3 text-[#a8c7fa]" />
+        <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
+          <Sparkles className="w-3 h-3 text-[#0b57d0]" />
           <span>Elevate Learning Platform</span>
         </div>
       </div>
