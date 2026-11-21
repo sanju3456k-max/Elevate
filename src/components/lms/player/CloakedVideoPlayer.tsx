@@ -133,6 +133,31 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     return cleanup;
   }, [securitySettings?.enableDrmScreenProtection]);
 
+  // Anti-Inspection & Anti-Proxy/VPN Protection (Blocks HTTP Toolkit, Charles Proxy & packet sniffers)
+  const [isProxyVpnDetected, setIsProxyVpnDetected] = useState(false);
+
+  useEffect(() => {
+    const handleNativeSecurityStatus = (e: any) => {
+      const active = Boolean(e?.detail?.isProxyOrVpnActive);
+      setIsProxyVpnDetected(active);
+      if (active) {
+        safeCallPlayer((p) => {
+          if (p.pauseVideo) p.pauseVideo();
+        });
+        setIsPlaying(false);
+      }
+    };
+
+    if (typeof window !== 'undefined' && (window as any).__ELEVATE_NETWORK_SECURITY?.isProxyOrVpnActive) {
+      setIsProxyVpnDetected(true);
+    }
+
+    window.addEventListener('elevate_security_status', handleNativeSecurityStatus);
+    return () => {
+      window.removeEventListener('elevate_security_status', handleNativeSecurityStatus);
+    };
+  }, [safeCallPlayer]);
+
   // 3. Playback lifecycle states & Cloaking Curtain
   const [hasEverPlayed, setHasEverPlayed] = useState(false);
   const [isBufferingOrStarting, setIsBufferingOrStarting] = useState(false);
@@ -1620,6 +1645,38 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             <span>•</span>
             <span>Anti-Piracy Enforcement</span>
           </div>
+        </div>
+      )}
+
+      {/* 1f. Network Security Shield: Anti-Proxy / VPN / HTTP Toolkit Detection */}
+      {isProxyVpnDetected && (
+        <div className="absolute inset-0 z-50 bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center p-6 text-center text-white select-none animate-in fade-in duration-200">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center mb-4 ring-4 ring-amber-500/10">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <h3 className="text-base sm:text-lg font-bold text-white mb-2">
+            Network Security Protection
+          </h3>
+          <p className="text-xs sm:text-sm text-slate-300 max-w-sm mb-4 leading-relaxed">
+            An active proxy, VPN, or network inspection tool (e.g. HTTP Toolkit) was detected. To protect proprietary lectures, playback is disabled while network sniffers are active.
+          </p>
+          <div className="flex items-center space-x-2 text-[10px] font-medium text-amber-400/90 bg-amber-950/60 px-3 py-1.5 rounded-full border border-amber-500/30 mb-5">
+            <span>Anti-Inspection Shield</span>
+            <span>•</span>
+            <span>Disconnect Proxy/VPN to Continue</span>
+          </div>
+          <button
+            onClick={() => {
+              const active = Boolean((window as any).__ELEVATE_NETWORK_SECURITY?.isProxyOrVpnActive);
+              setIsProxyVpnDetected(active);
+              if (!active) {
+                showNoticeWithDecay('Network verified. Resuming stream...', 3000);
+              }
+            }}
+            className="px-5 py-2.5 rounded-xl bg-white text-black font-semibold text-xs sm:text-sm hover:bg-zinc-200 active:scale-95 transition-all shadow-md"
+          >
+            Check & Resume
+          </button>
         </div>
       )}
 

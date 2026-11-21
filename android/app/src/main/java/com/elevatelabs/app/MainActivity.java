@@ -22,6 +22,10 @@ import androidx.core.view.DisplayCutoutCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
+import android.os.Handler;
+import android.os.Looper;
+import java.net.NetworkInterface;
+import java.util.Enumeration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +34,8 @@ public class MainActivity extends BridgeActivity {
     public static final String ACTION_PIP_PLAY_PAUSE = "com.elevatelabs.app.ACTION_PIP_PLAY_PAUSE";
 
     private BroadcastReceiver pipActionReceiver;
+    private Handler securityHandler;
+    private Runnable securityCheckRunnable;
 
     public static void applyAppNightMode(Context context, String theme) {
         if (context == null) return;
@@ -183,7 +189,105 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+        startNetworkSecurityMonitoring();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        stopNetworkSecurityMonitoring();
+    }
+
+    private void startNetworkSecurityMonitoring() {
+        if (securityHandler == null) {
+            securityHandler = new Handler(Looper.getMainLooper());
+        }
+        if (securityCheckRunnable == null) {
+            securityCheckRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    checkNetworkSecurityViolations();
+                    if (securityHandler != null) {
+                        securityHandler.postDelayed(this, 3500);
+                    }
+                }
+            };
+        }
+        securityHandler.removeCallbacks(securityCheckRunnable);
+        securityHandler.post(securityCheckRunnable);
+    }
+
+    private void stopNetworkSecurityMonitoring() {
+        if (securityHandler != null && securityCheckRunnable != null) {
+            securityHandler.removeCallbacks(securityCheckRunnable);
+        }
+    }
+
+    public boolean isProxyOrVpnActive() {
+        try {
+            // 1. Check system HTTP proxy
+            String proxyHost = System.getProperty("http.proxyHost");
+            String proxyPort = System.getProperty("http.proxyPort");
+            if (proxyHost != null && !proxyHost.isEmpty() && !"0".equals(proxyPort)) {
+                return true;
+            }
+
+            // 2. Check ConnectivityManager active network capabilities and default proxy
+            android.net.ConnectivityManager cm = (android.net.ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (cm != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    android.net.Network activeNetwork = cm.getActiveNetwork();
+                    if (activeNetwork != null) {
+                        android.net.NetworkCapabilities caps = cm.getNetworkCapabilities(activeNetwork);
+                        if (caps != null && caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)) {
+                            return true;
+                        }
+                    }
+                }
+                android.net.ProxyInfo proxyInfo = cm.getDefaultProxy();
+                if (proxyInfo != null && proxyInfo.getHost() != null && !proxyInfo.getHost().isEmpty()) {
+                    return true;
+                }
+            }
+
+            // 3. Check NetworkInterface for tun/tap/ppp interfaces (used by HTTP Toolkit, Charles, Packet Capture)
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces != null && interfaces.hasMoreElements()) {
+                NetworkInterface intf = interfaces.nextElement();
+                if (intf.isUp()) {
+                    String name = intf.getName().toLowerCase();
+                    if (name.contains("tun") || name.contains("tap") || name.contains("ppp") || name.contains("p2p")) {
+                        return true;
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return false;
+    }
+
+    private void checkNetworkSecurityViolations() {
+        boolean violation = isProxyOrVpnActive();
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            final String js = String.format(
+                "(function() {" +
+                "  window.__ELEVATE_NETWORK_SECURITY = { isProxyOrVpnActive: %b };" +
+                "  window.dispatchEvent(new CustomEvent('elevate_security_status', { detail: { isProxyOrVpnActive: %b } }));" +
+                "})();",
+                violation, violation
+            );
+            getBridge().getWebView().post(() -> {
+                getBridge().getWebView().evaluateJavascript(js, null);
+            });
+        }
+    }
+
+    @Override
     public void onDestroy() {
+        stopNetworkSecurityMonitoring();
+        securityHandler = null;
+        securityCheckRunnable = null;
         if (pipActionReceiver != null) {
             try {
                 unregisterReceiver(pipActionReceiver);
