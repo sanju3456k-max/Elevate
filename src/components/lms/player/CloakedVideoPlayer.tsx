@@ -136,28 +136,6 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   // Anti-Inspection & Anti-Proxy/VPN Protection (Blocks HTTP Toolkit, Charles Proxy & packet sniffers)
   const [isProxyVpnDetected, setIsProxyVpnDetected] = useState(false);
 
-  useEffect(() => {
-    const handleNativeSecurityStatus = (e: any) => {
-      const active = Boolean(e?.detail?.isProxyOrVpnActive);
-      setIsProxyVpnDetected(active);
-      if (active) {
-        safeCallPlayer((p) => {
-          if (p.pauseVideo) p.pauseVideo();
-        });
-        setIsPlaying(false);
-      }
-    };
-
-    if (typeof window !== 'undefined' && (window as any).__ELEVATE_NETWORK_SECURITY?.isProxyOrVpnActive) {
-      setIsProxyVpnDetected(true);
-    }
-
-    window.addEventListener('elevate_security_status', handleNativeSecurityStatus);
-    return () => {
-      window.removeEventListener('elevate_security_status', handleNativeSecurityStatus);
-    };
-  }, [safeCallPlayer]);
-
   // 3. Playback lifecycle states & Cloaking Curtain
   const [hasEverPlayed, setHasEverPlayed] = useState(false);
   const [isBufferingOrStarting, setIsBufferingOrStarting] = useState(false);
@@ -333,6 +311,28 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       // Safely swallow any widgetapi postMessage / unmounted iframe errors
     }
   }, []);
+
+  useEffect(() => {
+    const handleNativeSecurityStatus = (e: any) => {
+      const active = Boolean(e?.detail?.isProxyOrVpnActive);
+      setIsProxyVpnDetected(active);
+      if (active) {
+        safeCallPlayer((p) => {
+          if (p.pauseVideo) p.pauseVideo();
+        });
+        setIsPlaying(false);
+      }
+    };
+
+    if (typeof window !== 'undefined' && (window as any).__ELEVATE_NETWORK_SECURITY?.isProxyOrVpnActive) {
+      setIsProxyVpnDetected(true);
+    }
+
+    window.addEventListener('elevate_security_status', handleNativeSecurityStatus);
+    return () => {
+      window.removeEventListener('elevate_security_status', handleNativeSecurityStatus);
+    };
+  }, [safeCallPlayer]);
 
   const rawVideoId = deobfuscateVideoKey(encryptedVideoId);
   const safeVideoId =
