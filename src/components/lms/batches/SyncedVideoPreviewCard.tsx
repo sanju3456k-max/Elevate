@@ -22,7 +22,7 @@ export const SyncedVideoPreviewCard: React.FC<SyncedVideoPreviewCardProps> = ({
 
   const thumbnailSrc =
     metadata?.rawThumbnailUrl ||
-    `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+    '/assets/default-course-banner.png';
 
   const durationText = metadata?.durationSeconds
     ? formatDurationLabel(metadata.durationSeconds, true)
@@ -39,11 +39,10 @@ export const SyncedVideoPreviewCard: React.FC<SyncedVideoPreviewCardProps> = ({
         <div className="relative w-full sm:w-36 aspect-video rounded-xl overflow-hidden bg-black shrink-0 shadow-xs border border-white/10 group">
           <img
             src={thumbnailSrc}
-            alt={metadata?.title || 'YouTube Video Thumbnail'}
+            alt={metadata?.title || 'Lecture Video'}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
             onError={(e) => {
-              // Fallback to standard quality if maxres or hq is unavailable
-              (e.currentTarget as HTMLImageElement).src = `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
+              (e.currentTarget as HTMLImageElement).src = '/assets/default-course-banner.png';
             }}
           />
           {durationText && (

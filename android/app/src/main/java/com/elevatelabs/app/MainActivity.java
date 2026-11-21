@@ -223,10 +223,15 @@ public class MainActivity extends BridgeActivity {
 
     public boolean isProxyOrVpnActive() {
         try {
-            // 1. Check system HTTP proxy
+            // 1. Check system HTTP and HTTPS proxy properties
             String proxyHost = System.getProperty("http.proxyHost");
             String proxyPort = System.getProperty("http.proxyPort");
             if (proxyHost != null && !proxyHost.isEmpty() && !"0".equals(proxyPort)) {
+                return true;
+            }
+            String httpsProxyHost = System.getProperty("https.proxyHost");
+            String httpsProxyPort = System.getProperty("https.proxyPort");
+            if (httpsProxyHost != null && !httpsProxyHost.isEmpty() && !"0".equals(httpsProxyPort)) {
                 return true;
             }
 
@@ -237,8 +242,11 @@ public class MainActivity extends BridgeActivity {
                     android.net.Network activeNetwork = cm.getActiveNetwork();
                     if (activeNetwork != null) {
                         android.net.NetworkCapabilities caps = cm.getNetworkCapabilities(activeNetwork);
-                        if (caps != null && caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)) {
-                            return true;
+                        if (caps != null) {
+                            if (caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) ||
+                                !caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) {
+                                return true;
+                            }
                         }
                     }
                 }

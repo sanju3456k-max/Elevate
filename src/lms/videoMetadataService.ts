@@ -190,9 +190,9 @@ export async function fetchVideoMetadata(inputUrlOrId: string, forceRefresh = fa
 
   // Generate scrambled token so plaintext YouTube ID is never broadcast over HTTP query string
   const token = obfuscateVideoKey(videoId);
-  const cloakedThumbnailUrl = `/api/video-thumbnail?token=${encodeURIComponent(token)}`;
-  const directThumbnailUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-  const maxResThumbnailUrl = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+  const cloakedThumbnailUrl = '/assets/default-course-banner.png';
+  const directThumbnailUrl = '/assets/default-course-banner.png';
+  const maxResThumbnailUrl = '/assets/default-course-banner.png';
 
   // Tier 1: Backend video-metadata API via POST with encrypted token
   try {
@@ -205,7 +205,7 @@ export async function fetchVideoMetadata(inputUrlOrId: string, forceRefresh = fa
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify({ token, id: videoId, url: `https://www.youtube.com/watch?v=${videoId}` }),
+      body: JSON.stringify({ token, id: token }),
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -232,74 +232,20 @@ export async function fetchVideoMetadata(inputUrlOrId: string, forceRefresh = fa
       }
     }
   } catch (err) {
-    console.warn('Backend video-metadata API request failed or timed out, trying direct client oEmbed:', err);
+    // In offline or native mode, avoid leaking plaintext URLs over network
   }
 
-  // Tier 2: Direct Client-Side YouTube oEmbed API (CORS enabled, highly reliable)
-  try {
-    const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
-    const oembedRes = await fetch(oembedUrl);
-    if (oembedRes.ok) {
-      const odata = await oembedRes.json();
-      if (odata && odata.title) {
-        // Trigger non-blocking duration probe in background
-        const durationSec = await probeYouTubeDuration(videoId, 2500).catch(() => null);
-        const durationMin = durationSec && durationSec > 0 ? Math.max(1, Math.round(durationSec / 60)) : 15;
-
-        const result: VideoMetadata = {
-          videoId,
-          token,
-          title: odata.title,
-          durationMinutes: durationMin,
-          durationSeconds: durationSec || undefined,
-          thumbnailUrl: odata.thumbnail_url || directThumbnailUrl,
-          rawThumbnailUrl: odata.thumbnail_url || directThumbnailUrl,
-          author: odata.author_name || '',
-          isAutoDetected: true,
-        };
-        metadataCache.set(videoId, result);
-        return result;
-      }
-    }
-  } catch (oembedErr) {
-    console.warn('Direct YouTube oEmbed request failed, trying NoEmbed proxy:', oembedErr);
-  }
-
-  // Tier 3: NoEmbed Fallback
-  try {
-    const noembedUrl = `https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`;
-    const noembedRes = await fetch(noembedUrl);
-    if (noembedRes.ok) {
-      const ndata = await noembedRes.json();
-      if (ndata && ndata.title) {
-        const result: VideoMetadata = {
-          videoId,
-          token,
-          title: ndata.title,
-          durationMinutes: 15,
-          thumbnailUrl: ndata.thumbnail_url || directThumbnailUrl,
-          rawThumbnailUrl: ndata.thumbnail_url || directThumbnailUrl,
-          author: ndata.author_name || '',
-          isAutoDetected: true,
-        };
-        metadataCache.set(videoId, result);
-        return result;
-      }
-    }
-  } catch (noembedErr) {
-    console.warn('Noembed fallback failed:', noembedErr);
-  }
-
-  // Tier 4: Graceful fallback with direct YouTube thumbnail
+  // Safe fallback without issuing public network inspection requests
   const fallbackResult: VideoMetadata = {
     videoId,
     token,
     title: 'Lecture Video',
     durationMinutes: 15,
-    durationSeconds: 900,
     thumbnailUrl: directThumbnailUrl,
     rawThumbnailUrl: directThumbnailUrl,
+    author: '',
     isAutoDetected: false,
   };
+  metadataCache.set(videoId, fallbackResult);
   return fallbackResult;
 }

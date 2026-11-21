@@ -126,49 +126,19 @@ export function getLectureThumbnailUrl(
 ): string {
   if (!lecture) return '/assets/default-course-banner.png';
 
-  // 1. Prioritize encrypted or direct video ID to get the genuine YouTube video thumbnail
-  const rawKey = lecture.encryptedVideoId || (lecture as any).videoId;
-  if (rawKey && typeof rawKey === 'string' && rawKey.trim()) {
-    const ytId = deobfuscateVideoKey(rawKey.trim());
-    if (ytId && /^[a-zA-Z0-9_-]{11}$/.test(ytId)) {
-      return `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`;
-    }
-  }
-
-  // 2. If thumbnailUrl is a legacy cloaked token route (/api/video-thumbnail?token=...), decode the token
-  if (lecture.thumbnailUrl && lecture.thumbnailUrl.includes('/api/video-thumbnail')) {
-    const m = lecture.thumbnailUrl.match(/[?&](?:token|id)=([^&]+)/);
-    if (m && m[1]) {
-      const decodedToken = decodeURIComponent(m[1]);
-      const ytId = deobfuscateVideoKey(decodedToken);
-      if (ytId && /^[a-zA-Z0-9_-]{11}$/.test(ytId)) {
-        return `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`;
-      }
-    }
-  }
-
-  // 3. If thumbnailUrl contains a direct YouTube thumbnail or YouTube video link
-  if (lecture.thumbnailUrl) {
-    const ytMatch =
-      lecture.thumbnailUrl.match(/\/vi\/([a-zA-Z0-9_-]{11})\//) ||
-      lecture.thumbnailUrl.match(/(?:vi\/|v=|\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    if (ytMatch && ytMatch[1]) {
-      return `https://i.ytimg.com/vi/${ytMatch[1]}/hqdefault.jpg`;
-    }
-  }
-
-  // 4. Custom uploaded, Cloudinary, Firebase Storage, or user-uploaded image thumbnail
+  // 1. If a custom uploaded thumbnail (Firebase Storage, Cloudinary, internal asset) exists:
   if (
     lecture.thumbnailUrl &&
-    !lecture.thumbnailUrl.includes('unsplash.com') &&
-    lecture.thumbnailUrl !== '/assets/default-course-banner.png' &&
+    !lecture.thumbnailUrl.includes('i.ytimg.com') &&
+    !lecture.thumbnailUrl.includes('img.youtube.com') &&
+    !lecture.thumbnailUrl.includes('youtube.com') &&
     lecture.thumbnailUrl.trim() !== ''
   ) {
     return lecture.thumbnailUrl;
   }
 
-  // 5. Final fallback
-  return lecture.thumbnailUrl || '/assets/default-course-banner.png';
+  // 2. Anti-Leak Default: Never construct plain i.ytimg.com URLs that expose video IDs to HTTP sniffers
+  return '/assets/default-course-banner.png';
 }
 
 /**

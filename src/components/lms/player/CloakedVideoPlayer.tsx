@@ -317,10 +317,18 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       const active = Boolean(e?.detail?.isProxyOrVpnActive);
       setIsProxyVpnDetected(active);
       if (active) {
-        safeCallPlayer((p) => {
-          if (p.pauseVideo) p.pauseVideo();
-        });
+        try {
+          if (playerRef.current && typeof playerRef.current.destroy === 'function') {
+            playerRef.current.destroy();
+          }
+        } catch {}
+        playerRef.current = null;
+        setIsPlayerReady(false);
         setIsPlaying(false);
+        const container = document.getElementById(playerContainerId.current);
+        if (container) {
+          container.innerHTML = '';
+        }
       }
     };
 
@@ -339,11 +347,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     extractYouTubeId(rawVideoId) ||
     (/^[a-zA-Z0-9_-]{11}$/.test(rawVideoId) ? rawVideoId : 'WUvTyaaNkzM');
 
-  // High-res YouTube thumbnail resolution (native Android and web compatible)
+  // Secure thumbnail resolution: Never construct raw i.ytimg.com links directly to prevent video ID leakage
   const resolvedThumbnail = getLectureThumbnailUrl({ encryptedVideoId, thumbnailUrl: thumbnailUrl || posterUrl });
   const posterSource =
     resolvedThumbnail ||
-    (safeVideoId ? `https://i.ytimg.com/vi/${safeVideoId}/hqdefault.jpg` : '') ||
     posterUrl ||
     thumbnailUrl ||
     '/assets/default-course-banner.png';
@@ -382,6 +389,14 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   // Ephemeral Batch Token Verification Gateway
   useEffect(() => {
     let isCancelled = false;
+
+    // Strict Anti-Sniffer Guard: Never request or exchange tokens if network interception is active
+    if (isProxyVpnDetected) {
+      setAuthStatus('denied');
+      setAuthError('Security Violation: Active network proxy / VPN detected.');
+      return;
+    }
+
     setAuthStatus('verifying');
 
     requestPlaybackToken(user, batchId, {
@@ -413,7 +428,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [user, batchId, lectureId, encryptedVideoId, isGuestAllowed]);
+  }, [user, batchId, lectureId, encryptedVideoId, isGuestAllowed, isProxyVpnDetected]);
 
   // Seamless 45-second background token renewal
   useEffect(() => {
@@ -530,7 +545,18 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   useEffect(() => {
     let checkInterval: any = null;
 
-    if (authStatus !== 'authorized') {
+    if (authStatus !== 'authorized' || isProxyVpnDetected) {
+      try {
+        if (playerRef.current && typeof playerRef.current.destroy === 'function') {
+          playerRef.current.destroy();
+        }
+      } catch {}
+      playerRef.current = null;
+      setIsPlayerReady(false);
+      const container = document.getElementById(playerContainerId.current);
+      if (container) {
+        container.innerHTML = '';
+      }
       return;
     }
 
@@ -813,7 +839,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       } catch {}
       playerRef.current = null;
     };
-  }, [rawVideoId, authStatus]);
+  }, [rawVideoId, authStatus, isProxyVpnDetected]);
 
   // Update current time every 500ms when playing
   useEffect(() => {
@@ -1648,7 +1674,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         </div>
       )}
 
-      {/* 1f. Network Security Shield: Anti-Proxy / VPN / HTTP Toolkit Detection */}
+      {/* 1f. Network Security Shield: Anti-Proxy / VPN Detection */}
       {isProxyVpnDetected && (
         <div className="absolute inset-0 z-50 bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center p-6 text-center text-white select-none animate-in fade-in duration-200">
           <div className="w-16 h-16 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center mb-4 ring-4 ring-amber-500/10">
@@ -1658,12 +1684,12 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             Network Security Protection
           </h3>
           <p className="text-xs sm:text-sm text-slate-300 max-w-sm mb-4 leading-relaxed">
-            An active proxy, VPN, or network inspection tool (e.g. HTTP Toolkit) was detected. To protect proprietary lectures, playback is disabled while network sniffers are active.
+            An active proxy, VPN, or network inspection tool was detected. To protect proprietary course content, video playback and data streaming are paused while network interceptors are active.
           </p>
           <div className="flex items-center space-x-2 text-[10px] font-medium text-amber-400/90 bg-amber-950/60 px-3 py-1.5 rounded-full border border-amber-500/30 mb-5">
             <span>Anti-Inspection Shield</span>
             <span>•</span>
-            <span>Disconnect Proxy/VPN to Continue</span>
+            <span>Disconnect Proxy or VPN to Continue</span>
           </div>
           <button
             onClick={() => {

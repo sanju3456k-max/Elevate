@@ -2170,7 +2170,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 encryptedVideoId: obfuscated,
                 durationMinutes,
                 isFreePreview,
-                thumbnailUrl: `https://i.ytimg.com/vi/${rawYtId}/hqdefault.jpg`,
+                thumbnailUrl: '/assets/default-course-banner.png',
                 pdfNotes: notes.length > 0 ? notes : editingLecture.pdfNotes,
               });
               showSecurityToast(`Lecture "${title}" updated.`);
@@ -2186,7 +2186,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 durationMinutes,
                 isFreePreview,
                 order: folderLectures.length + 1,
-                thumbnailUrl: `https://i.ytimg.com/vi/${rawYtId}/hqdefault.jpg`,
+                thumbnailUrl: '/assets/default-course-banner.png',
                 pdfNotes: notes,
               });
               showSecurityToast(`Lecture "${title}" added.`);
