@@ -307,6 +307,58 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
     return lectures.filter((l) => l.batchId === playback.batchId);
   }, [lectures, playback]);
 
+  // Current active lecture reference from local course catalog or overall lectures list
+  const currentLecture = useMemo(() => {
+    if (!playback) return null;
+    return (
+      batchLectures.find((l) => l.id === playback.lectureId) ||
+      lectures.find((l) => l.id === playback.lectureId) ||
+      null
+    );
+  }, [batchLectures, lectures, playback?.lectureId]);
+
+  // Fail-safe robust active lecture title resolution (never blank/hidden)
+  const activeLectureTitle = useMemo(() => {
+    const fromPlayback = (playback?.lectureTitle || '').trim();
+    if (fromPlayback) return fromPlayback;
+    const fromCur = (
+      currentLecture?.title ||
+      (currentLecture as any)?.lectureTitle ||
+      (currentLecture as any)?.name ||
+      ''
+    ).trim();
+    if (fromCur) return fromCur;
+    const fromRawPlayback = (
+      (playback as any)?.title ||
+      (playback as any)?.name ||
+      ''
+    ).trim();
+    if (fromRawPlayback) return fromRawPlayback;
+    return 'Video Lecture';
+  }, [playback?.lectureTitle, currentLecture, (playback as any)?.title, (playback as any)?.name]);
+
+  // Fail-safe active lecture description resolution
+  const activeLectureDescription = useMemo(() => {
+    const fromPlayback = (playback?.lectureDescription || '').trim();
+    if (fromPlayback) return fromPlayback;
+    const fromCur = (
+      currentLecture?.description ||
+      (currentLecture as any)?.lectureDescription ||
+      ''
+    ).trim();
+    if (fromCur) return fromCur;
+    return 'Comprehensive recorded session and conceptual curriculum module with practice problems, real-time study notes, and chapter milestones.';
+  }, [playback?.lectureDescription, currentLecture]);
+
+  // Fail-safe active batch title resolution
+  const activeBatchTitle = useMemo(() => {
+    const fromPlayback = (playback?.batchTitle || '').trim();
+    if (fromPlayback) return fromPlayback;
+    const fromBatch = batches.find((b) => b.id === playback?.batchId)?.title?.trim();
+    if (fromBatch) return fromBatch;
+    return 'Course Batch';
+  }, [playback?.batchTitle, playback?.batchId, batches]);
+
   const currentLectureNotes = useMemo(() => {
     if (!playback) return [];
     return personalNotes.filter((n) => n.lectureId === playback.lectureId);
@@ -314,13 +366,25 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
 
   const switchLecture = (lec: Lecture) => {
     if (!playback) return;
+    const resolvedTitle = (
+      lec.title ||
+      (lec as any)?.lectureTitle ||
+      (lec as any)?.name ||
+      'Video Lecture'
+    ).toString().trim() || 'Video Lecture';
+    const resolvedDescription = (
+      lec.description ||
+      (lec as any)?.lectureDescription ||
+      ''
+    ).toString().trim();
+
     onUpdatePlayback((prev) =>
       prev
         ? {
             ...prev,
             lectureId: lec.id,
-            lectureTitle: lec.title,
-            lectureDescription: lec.description,
+            lectureTitle: resolvedTitle,
+            lectureDescription: resolvedDescription,
             encryptedVideoId: lec.encryptedVideoId,
             thumbnailUrl: lec.thumbnailUrl,
             durationMinutes: lec.durationMinutes,
@@ -371,7 +435,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
               } w-[280px] xs:w-[300px] sm:w-[340px] md:w-[380px] z-50 bg-[#16181d] text-white rounded-2xl md:rounded-3xl shadow-2xl ring-1 ring-black/10 dark:ring-white/10 border-0 border-none p-0 transition-all duration-300 select-none overflow-hidden ${
                 !isTestMode ? 'flex flex-col' : 'hidden'
               }`
-            : `is-expanded fixed inset-x-0 bottom-0 w-full top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] md:top-[62px] md:h-[calc(100vh-62px)] z-40 bg-[#e5e9f0] dark:bg-[#0b0c10] flex flex-col lg:grid lg:grid-cols-12 lg:gap-6 xl:gap-8 items-start overflow-hidden lg:overflow-y-auto px-0 lg:px-8 xl:px-10 pt-0 lg:pt-4 pb-16 lg:pb-24 overscroll-contain select-text max-w-[1750px] mx-auto`
+            : `is-expanded fixed inset-x-0 bottom-0 w-full top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] md:top-[62px] md:h-[calc(100vh-62px)] z-[48] bg-[#e5e9f0] dark:bg-[#0b0c10] flex flex-col lg:grid lg:grid-cols-12 lg:gap-6 xl:gap-8 items-start overflow-hidden lg:overflow-y-auto px-0 lg:px-8 xl:px-10 pt-0 lg:pt-4 pb-16 lg:pb-24 overscroll-contain select-text max-w-[1750px] mx-auto`
         }
       style={undefined}
       onClick={isMinimized && !isInNativePip ? handleExpand : undefined}
@@ -509,7 +573,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
 
           <CloakedVideoPlayer
             encryptedVideoId={playback.encryptedVideoId}
-            title={playback.lectureTitle}
+            title={activeLectureTitle}
             user={effectiveUser}
             batchId={playback.batchId}
             lectureId={playback.lectureId}
@@ -535,10 +599,10 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
         >
           <div className="min-w-0 flex-1">
             <h4 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-zinc-100 truncate leading-snug tracking-tight">
-              {playback.lectureTitle}
+              {activeLectureTitle}
             </h4>
             <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-zinc-400 truncate mt-0.5">
-              <span className="truncate max-w-[120px] sm:max-w-[180px] font-medium">{playback.batchTitle}</span>
+              <span className="truncate max-w-[120px] sm:max-w-[180px] font-medium">{activeBatchTitle}</span>
               <span className="text-slate-300 dark:text-zinc-600 font-bold">•</span>
               <span className="font-mono font-semibold text-[10px] text-slate-600 dark:text-zinc-400">
                 {formatDuration(currentPlaybackSec)} / {formatDuration(totalDuration > 0 ? totalDuration : ((playback.durationMinutes || 0) * 60))}
@@ -586,7 +650,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             <div className="space-y-2.5 pt-1 sm:pt-2">
               <div className="flex items-start justify-between gap-3">
                 <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 dark:text-zinc-100 leading-snug tracking-tight break-words flex-1 min-w-0">
-                  {playback.lectureTitle}
+                  {activeLectureTitle}
                 </h1>
                 {/* Desktop Minimize to PiP button */}
                 <button
@@ -606,7 +670,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 <div className="flex items-center flex-wrap gap-2">
                   <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-[#1e2024] text-[#0b57d0] dark:text-[#a8c7fa] text-xs font-bold border-0 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]">
                     <BookOpen className="w-3.5 h-3.5" />
-                    <span className="truncate max-w-[240px]">{playback.batchTitle}</span>
+                    <span className="truncate max-w-[240px]">{activeBatchTitle}</span>
                   </span>
                   {(totalDuration > 0 || Boolean(playback.durationMinutes)) && (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white dark:bg-[#1e2024] text-slate-700 dark:text-zinc-300 text-xs font-semibold border-0 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]">
@@ -632,10 +696,10 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             <div className="bg-white dark:bg-[#1e2024] rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-3 border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] w-full min-w-0">
               <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-zinc-400">
                 <span className="uppercase tracking-wider text-[11px] font-bold">Lecture Overview</span>
-                <span className="text-[11px] font-medium opacity-80 truncate max-w-[220px]">{playback.batchTitle}</span>
+                <span className="text-[11px] font-medium opacity-80 truncate max-w-[220px]">{activeBatchTitle}</span>
               </div>
               <p className="text-xs sm:text-[13px] text-slate-700 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap break-words">
-                {playback.lectureDescription || 'Comprehensive recorded session and conceptual curriculum module with practice problems, real-time study notes, and chapter milestones.'}
+                {activeLectureDescription}
               </p>
 
               {playback.milestones && playback.milestones.length > 0 && (

@@ -246,12 +246,30 @@ export default function App() {
       },
       chapterId?: string | null
     ) => {
+      const resolvedTitle = (
+        (lecture as any)?.lectureTitle ||
+        lecture?.title ||
+        (lecture as any)?.name ||
+        'Video Lecture'
+      ).toString().trim() || 'Video Lecture';
+      const resolvedDescription = (
+        (lecture as any)?.lectureDescription ||
+        lecture?.description ||
+        ''
+      ).toString().trim();
+      const resolvedBatchTitle = (
+        (batch as any)?.batchTitle ||
+        batch?.title ||
+        (batch as any)?.name ||
+        'Course Batch'
+      ).toString().trim() || 'Course Batch';
+
       setPersistentPlayback({
         lectureId: lecture.id,
-        lectureTitle: lecture.title,
-        lectureDescription: lecture.description,
+        lectureTitle: resolvedTitle,
+        lectureDescription: resolvedDescription,
         batchId: batch.id,
-        batchTitle: batch.title,
+        batchTitle: resolvedBatchTitle,
         chapterId: chapterId || null,
         thumbnailUrl: getLectureThumbnailUrl(lecture) || lecture.thumbnailUrl,
         durationMinutes: lecture.durationMinutes,
