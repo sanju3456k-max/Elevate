@@ -3,6 +3,11 @@ import { OMR_GEOMETRY, generateOmrSheetBlueprint, OmrSheetBlueprint } from './om
 const MM_TO_PX_BASE = 3.779527559; // 96 DPI CSS pixels per millimeter
 
 /**
+ * Standard examination print font stack matching the Question Paper typography.
+ */
+const SERIF_FONT_STACK = "'Times New Roman', Times, Tinos, 'Liberation Serif', serif";
+
+/**
  * Directly renders an OMR Sheet Blueprint to a high-resolution HTML5 Canvas
  * in less than 5 milliseconds. Eliminates DOM capture timeouts, font race conditions,
  * and ensures 100% mathematical vector alignment.
@@ -70,12 +75,12 @@ export function renderOmrSheetToCanvas(
 
   // Title: "OMR RESPONSE ANSWER SHEET" (11.5pt semi-bold)
   const titleFontSize = Math.round(11.5 * (4 / 3) * scale);
-  ctx.font = `600 ${titleFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+  ctx.font = `600 ${titleFontSize}px ${SERIF_FONT_STACK}`;
   ctx.fillText('OMR RESPONSE ANSWER SHEET', paddingLeftPx + usableWidthPx / 2, paddingTopPx + headerHeightPx * 0.32);
 
   // Subtitle: Exam Title / Chapter Name (8.5pt)
   const subFontSize = Math.round(8.5 * (4 / 3) * scale);
-  ctx.font = `700 ${subFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+  ctx.font = `700 ${subFontSize}px ${SERIF_FONT_STACK}`;
 
   const isUniversalMaster = !examTitle || 
     examTitle.toUpperCase().includes('UNIVERSAL') || 
@@ -119,7 +124,7 @@ export function renderOmrSheetToCanvas(
   const candHeightPx = OMR_GEOMETRY.candidateBoxHeightMm * pxPerMm;
 
   const infoFontSize = Math.round(8.0 * (4 / 3) * scale);
-  ctx.font = `600 ${infoFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+  ctx.font = `600 ${infoFontSize}px ${SERIF_FONT_STACK}`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillText('Candidate Name: ____________________________________', paddingLeftPx + 2.5 * pxPerMm, candTopPx + candHeightPx * 0.5);
@@ -137,13 +142,13 @@ export function renderOmrSheetToCanvas(
   const instHeightPx = OMR_GEOMETRY.instructionsHeightMm * pxPerMm;
 
   const instFontSize = Math.round(7.2 * (4 / 3) * scale);
-  ctx.font = `500 ${instFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+  ctx.font = `500 ${instFontSize}px ${SERIF_FONT_STACK}`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillText('INSTRUCTIONS: Completely darken only one bubble per question with a black/blue ballpoint pen.', paddingLeftPx + 2.5 * pxPerMm, instTopPx + instHeightPx * 0.5);
 
   ctx.textAlign = 'right';
-  ctx.font = `600 ${instFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+  ctx.font = `600 ${instFontSize}px ${SERIF_FONT_STACK}`;
   ctx.fillText('Correct: ●   Incorrect: ○  ✓  ✗', paddingLeftPx + usableWidthPx - 2.5 * pxPerMm, instTopPx + instHeightPx * 0.5);
 
   // Instructions bottom border (0.35mm thick)
@@ -168,13 +173,13 @@ export function renderOmrSheetToCanvas(
     const colWidthPx = columnConfig.columnWidthMm * pxPerMm;
 
     // "Q." Label
-    ctx.font = `700 ${colLabelSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    ctx.font = `700 ${colLabelSize}px ${SERIF_FONT_STACK}`;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     ctx.fillText('Q.', (colLeftMm + columnConfig.qNumWidthMm - 0.8) * pxPerMm, headerTopPx + colHeaderHeightPx * 0.5);
 
     // Options "A", "B", "C", "D"
-    ctx.font = `700 ${colLabelSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    ctx.font = `700 ${colLabelSize}px ${SERIF_FONT_STACK}`;
     ctx.textAlign = 'center';
     for (let optIdx = 0; optIdx < 4; optIdx++) {
       const optCenterMm = colLeftMm + columnConfig.optionOffsetsMm[optIdx];
@@ -191,7 +196,7 @@ export function renderOmrSheetToCanvas(
 
   // 8. Question Numbers (1..totalQuestions - 7.5pt)
   const qNumSize = Math.round(7.5 * (4 / 3) * scale);
-  ctx.font = `700 ${qNumSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  ctx.font = `700 ${qNumSize}px ${SERIF_FONT_STACK}`;
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
 
@@ -222,6 +227,63 @@ export function renderOmrSheetToCanvas(
     ctx.fillStyle = '#ffffff';
     ctx.fill();
     ctx.stroke();
+  }
+
+  // 11. If Full ISO A4 (210 x 297 mm), render dedicated lower sections (matching question paper typography)
+  if (layout.isFullA4) {
+    // Bottom Section Divider Line
+    const dividerTopPx = Math.max(layout.gridBottomMm + 6, 175) * pxPerMm;
+    ctx.beginPath();
+    ctx.lineWidth = Math.max(1, 0.35 * pxPerMm);
+    ctx.moveTo(paddingLeftPx, dividerTopPx);
+    ctx.lineTo(paddingLeftPx + usableWidthPx, dividerTopPx);
+    ctx.stroke();
+
+    // Candidate & Invigilator Signatures
+    const sigTopPx = Math.max(layout.gridBottomMm + 10, 179) * pxPerMm;
+    const sigHeightPx = 22 * pxPerMm;
+    const sigBoxWidthPx = (usableWidthPx - 4 * pxPerMm) / 2;
+
+    const sigLabelSize = Math.round(7.0 * (4 / 3) * scale);
+    const sigSubSize = Math.round(6.5 * (4 / 3) * scale);
+
+    // Candidate Signature Box
+    ctx.strokeRect(paddingLeftPx, sigTopPx, sigBoxWidthPx, sigHeightPx);
+    ctx.font = `700 ${sigLabelSize}px ${SERIF_FONT_STACK}`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText('CANDIDATE SIGNATURE', paddingLeftPx + 1.5 * pxPerMm, sigTopPx + 1.5 * pxPerMm);
+
+    ctx.font = `italic 400 ${sigSubSize}px ${SERIF_FONT_STACK}`;
+    ctx.fillStyle = '#666666';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('Sign within the box in presence of Invigilator', paddingLeftPx + 1.5 * pxPerMm, sigTopPx + sigHeightPx - 1.5 * pxPerMm);
+    ctx.fillStyle = '#000000';
+
+    // Invigilator Signature Box
+    const invX = paddingLeftPx + sigBoxWidthPx + 4 * pxPerMm;
+    ctx.strokeRect(invX, sigTopPx, sigBoxWidthPx, sigHeightPx);
+
+    ctx.font = `700 ${sigLabelSize}px ${SERIF_FONT_STACK}`;
+    ctx.textBaseline = 'top';
+    ctx.fillText('INVIGILATOR SIGNATURE & STAMP', invX + 1.5 * pxPerMm, sigTopPx + 1.5 * pxPerMm);
+
+    ctx.font = `italic 400 ${sigSubSize}px ${SERIF_FONT_STACK}`;
+    ctx.fillStyle = '#666666';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('Certified that candidate verified and bubbles checked', invX + 1.5 * pxPerMm, sigTopPx + sigHeightPx - 1.5 * pxPerMm);
+    ctx.fillStyle = '#000000';
+
+    // Space for Rough Work / Calculations Area
+    const roughTopPx = Math.max(layout.gridBottomMm + 35, 205) * pxPerMm;
+    const roughHeightPx = 46 * pxPerMm;
+
+    ctx.strokeRect(paddingLeftPx, roughTopPx, usableWidthPx, roughHeightPx);
+    ctx.font = `700 ${sigLabelSize}px ${SERIF_FONT_STACK}`;
+    ctx.fillStyle = '#404040';
+    ctx.textBaseline = 'top';
+    ctx.fillText('ROUGH WORK / CALCULATIONS AREA', paddingLeftPx + 2 * pxPerMm, roughTopPx + 2 * pxPerMm);
+    ctx.fillStyle = '#000000';
   }
 
   return canvas;

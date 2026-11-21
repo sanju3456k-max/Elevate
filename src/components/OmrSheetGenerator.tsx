@@ -254,7 +254,9 @@ export const OmrSheetGenerator: React.FC<OmrSheetGeneratorProps> = ({
               minHeight: `${layout.pageHeightMm}mm`,
               maxHeight: `${layout.pageHeightMm}mm`,
               boxSizing: 'border-box',
-              fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+              fontFamily: "'Times New Roman', Times, Tinos, 'Liberation Serif', serif",
+              textRendering: 'optimizeLegibility',
+              WebkitFontSmoothing: 'antialiased',
               backgroundColor: '#ffffff',
               color: '#000000',
               overflow: 'hidden',
@@ -363,7 +365,7 @@ export const OmrSheetGenerator: React.FC<OmrSheetGeneratorProps> = ({
                   }}
                 >
                   <span 
-                    className="absolute text-right font-sans font-bold text-[7.5pt] text-black pr-1 flex items-center justify-end"
+                    className="absolute text-right font-bold text-[7.5pt] text-black pr-1 flex items-center justify-end"
                     style={{ 
                       left: '0mm', 
                       top: '0mm', 
@@ -379,7 +381,7 @@ export const OmrSheetGenerator: React.FC<OmrSheetGeneratorProps> = ({
                     return (
                       <span 
                         key={opt} 
-                        className="absolute text-center font-sans font-bold text-[7.5pt] text-black flex items-center justify-center"
+                        className="absolute text-center font-bold text-[7.5pt] text-black flex items-center justify-center"
                         style={{ 
                           left: `${optCenterXMm - OMR_GEOMETRY.bubbleRadiusMm}mm`,
                           top: '0mm',
@@ -404,7 +406,7 @@ export const OmrSheetGenerator: React.FC<OmrSheetGeneratorProps> = ({
               return (
                 <div
                   key={`q_num_${qIdx + 1}`}
-                  className="absolute text-right font-sans font-bold text-black text-[7.5pt] pr-1 flex items-center justify-end select-none"
+                  className="absolute text-right font-bold text-black text-[7.5pt] pr-1 flex items-center justify-end select-none"
                   style={{
                     top: `${rowTopMm}mm`,
                     left: `${colLeftMm}mm`,
