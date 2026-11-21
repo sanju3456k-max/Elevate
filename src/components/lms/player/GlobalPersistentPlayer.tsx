@@ -650,7 +650,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
           style={{ overscrollBehavior: 'contain', overscrollBehaviorY: 'contain' }}
         >
           {/* Main/Left Column: Title, Badges & Overview */}
-          <div className="space-y-3.5 lg:col-span-7 xl:col-span-8 lg:col-start-1 lg:row-start-2 w-full min-w-0 pt-1 lg:pt-1.5 pb-0">
+          <div className="space-y-3.5 lg:col-span-7 xl:col-span-8 lg:col-start-1 lg:row-start-2 w-full min-w-0 pt-1 lg:pt-1.5 pb-0 lg:pb-20">
             {/* Title & Actions row */}
             <div className="space-y-2.5 pt-1 sm:pt-2">
               <div className="flex items-start justify-between gap-3">
@@ -731,7 +731,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
           </div>
 
           {/* Right/Secondary Column (More in this Course + Lecture Notes) */}
-          <div className="space-y-4 sm:space-y-5 lg:col-span-5 xl:col-span-4 lg:col-start-8 xl:col-start-9 lg:row-start-1 lg:row-span-2 w-full min-w-0 pb-0">
+          <div className="space-y-4 sm:space-y-5 lg:col-span-5 xl:col-span-4 lg:col-start-8 xl:col-start-9 lg:row-start-1 lg:row-span-2 w-full min-w-0 pb-0 lg:pb-20">
           {/* YouTube-style Course Playlist Queue (Top on Desktop) */}
           {batchLectures.length > 0 && (
             <div className="bg-white dark:bg-[#1e2024] rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-3 border-0 w-full min-w-0">
