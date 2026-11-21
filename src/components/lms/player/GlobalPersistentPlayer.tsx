@@ -57,7 +57,8 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
   isInsideBatch = false,
 }) => {
   const {
-    lectures,
+    batches = [],
+    lectures = [],
     watchProgress,
     personalNotes,
     addPersonalNote,
