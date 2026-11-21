@@ -694,7 +694,7 @@ export async function fetchAllEnrollmentsFromFirestore(options?: { forceRefresh?
   }
 
   try {
-    const snap = await getDocs(collection(db, 'batch_enrollments'));
+    const snap = await getDocs(query(collection(db, 'batch_enrollments'), limit(2000)));
     const result: BatchEnrollment[] = [];
     snap.forEach((d) => {
       const data = d.data();
@@ -777,10 +777,15 @@ export async function fetchBatchEnrollmentsFromFirestore(batchId: string): Promi
       console.warn(`Roster read fallback for batch ${batchId}:`, rosterErr);
     }
 
-    // 2. Query global batch_enrollments index for complete roster (supports 5k-50k+ students)
+    // 2. Query global batch_enrollments index for complete roster (bounded with limit(1500) for enterprise scale)
     try {
       const batchEnrollmentsCol = collection(db, 'batch_enrollments');
-      const qBatch = query(batchEnrollmentsCol, where('batchId', '==', batchId), where('status', '==', 'active'));
+      const qBatch = query(
+        batchEnrollmentsCol, 
+        where('batchId', '==', batchId), 
+        where('status', '==', 'active'),
+        limit(1500)
+      );
       const snapGlobal = await getDocs(qBatch).catch(() => null);
       if (snapGlobal && !snapGlobal.empty) {
         const result: BatchEnrollment[] = [];
@@ -851,6 +856,33 @@ export async function fetchBatchEnrollmentsFromFirestore(batchId: string): Promi
     console.warn(`Error fetching enrollments for batch ${batchId}:`, error);
     if (rosterFallbackList.length > 0) return rosterFallbackList;
     return [];
+  }
+}
+
+/**
+ * 7b. High-Performance O(1) Batch Access Direct Key Verifier
+ * Checks authorization directly against the individual student's enrollment document
+ * with strictly 1 Document Read, supporting 1 to 1,000,000+ students without scanning collections.
+ */
+export async function verifyStudentBatchAccessDirect(
+  batchId: string, 
+  studentContact: string
+): Promise<{ allowed: boolean; enrollment?: BatchEnrollment }> {
+  if (!batchId || !studentContact) return { allowed: false };
+  try {
+    const cleanKey = cleanKeyForFirestore(studentContact.toLowerCase().trim());
+    const enrollmentKey = `${batchId}__${cleanKey}`;
+    const enrRef = doc(db, 'batch_enrollments', enrollmentKey);
+    const snap = await getDoc(enrRef);
+    if (!snap.exists()) return { allowed: false };
+    const data = snap.data() as BatchEnrollment;
+    if (data.status !== 'active') return { allowed: false };
+    if (data.expiresAt && new Date(data.expiresAt) < new Date()) {
+      return { allowed: false, enrollment: data };
+    }
+    return { allowed: true, enrollment: data };
+  } catch {
+    return { allowed: false };
   }
 }
 

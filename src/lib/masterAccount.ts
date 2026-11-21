@@ -37,6 +37,7 @@ import {
   arrayUnion, 
   arrayRemove, 
   deleteField, 
+  increment,
   onSnapshot, 
   writeBatch,
   type Unsubscribe 
@@ -3497,12 +3498,12 @@ export async function recordBatchTestAttemptWithDynamicBucket(
       { merge: true }
     );
 
-    // 2. Update attempts manifest
+    // 2. Update attempts manifest with atomic increment
     await setDoc(
       manifestRef,
       {
         currentBucketIndex: targetBucketIndex,
-        totalAttempts: totalAttempts + 1,
+        totalAttempts: increment(1),
         updatedAt: new Date().toISOString(),
       },
       { merge: true }

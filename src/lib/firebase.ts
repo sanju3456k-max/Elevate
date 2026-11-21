@@ -2338,8 +2338,10 @@ export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?
     // -------------------------------------------------------------
     // Ultra-Optimized Top-Bucket Update (1-Read Architecture)
     // Only updates if user's first attempt is being enrolled
+    // Distributed Jitter: Spreads simultaneous submission spikes to avoid 1-write/sec contention
     // -------------------------------------------------------------
     try {
+      await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 600)));
       const bucketDocRef = doc(db, 'test_leaderboards', canonicalId, 'summary', 'top_bucket');
       const bucketSnap = await getDoc(bucketDocRef).catch(() => null);
       let bucketEntries: LeaderboardEntry[] = [];
@@ -2450,11 +2452,11 @@ export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?
           }
         }
 
-        // Keep manifest in cohort_bucket_1 updated
+        // Keep manifest in cohort_bucket_1 updated with atomic increment
         await setDoc(cohortBucket1Ref, {
           totalParts,
           currentBucketIndex: targetBucketIndex,
-          totalParticipants: grandTotalParticipants,
+          totalParticipants: increment(1),
           hasPart2: totalParts >= 2,
           updatedAt: new Date().toISOString(),
         }, { merge: true }).catch(() => {});
@@ -2471,7 +2473,7 @@ export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?
         testTitle: attempt.testTitle || '',
         bucketIndex: targetBucketIndex,
         attempts: arrayUnion(compactRecord),
-        totalParticipants: grandTotalParticipants,
+        totalParticipants: increment(1),
         updatedAt: new Date().toISOString(),
       }, { merge: true }).catch(() => {});
 
@@ -2484,7 +2486,7 @@ export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?
           testTitle: attempt.testTitle || '',
           bucketIndex: targetBucketIndex,
           attempts: arrayUnion(compactRecord),
-          totalParticipants: grandTotalParticipants,
+          totalParticipants: increment(1),
           updatedAt: new Date().toISOString(),
         }, { merge: true }).catch(() => {});
       }
