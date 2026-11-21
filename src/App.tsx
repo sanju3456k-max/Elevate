@@ -29,6 +29,8 @@ import {
   type DeviceLockStatus 
 } from './lib/deviceAuthService';
 import { DeviceLockedModal } from './components/auth/DeviceLockedModal';
+import { NativeAppOnlyGuard } from './components/auth/NativeAppOnlyGuard';
+import { checkPlatformAccess } from './lib/platformSecurityGuard';
 import { syncHub } from './lib/syncEngine';
 import { smartCoordinator } from './lib/smartLocalCoordinator';
 import { optimizeTestForFirestore } from './lib/imageOptimization';
@@ -463,6 +465,14 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+
+  // Platform security guard (Android-only enforcement with whitelist & passkey)
+  const [platformAccess, setPlatformAccess] = useState(() => checkPlatformAccess(isMasterUser(currentUser?.email || cachedUser?.email)));
+
+  useEffect(() => {
+    const isMaster = isMasterUser(currentUser?.email || cachedUser?.email);
+    setPlatformAccess(checkPlatformAccess(isMaster));
+  }, [currentUser, cachedUser]);
 
   // Pagination for attempt history (on-demand loading)
   const [attemptsLimit, setAttemptsLimit] = useState<number>(30);
@@ -2937,6 +2947,13 @@ export default function App() {
           status={deviceLockStatus}
           currentUser={currentUser}
           onSignOut={handleSignOut}
+        />
+      )}
+
+      {/* Native Android Only Environment Guard Modal */}
+      {platformAccess.isBlocked && (
+        <NativeAppOnlyGuard
+          onUnlocked={() => setPlatformAccess(checkPlatformAccess(true))}
         />
       )}
     </div>

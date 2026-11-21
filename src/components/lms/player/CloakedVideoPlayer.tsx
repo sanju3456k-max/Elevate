@@ -533,10 +533,13 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       setIsPlayerReady(false);
 
       try {
+        // Classplus-style Cloaked Embedding:
+        // Do NOT pass `videoId` in the YT.Player constructor options.
+        // YouTube then initializes the iframe with `https://www.youtube.com/embed/?...`
+        // without exposing any video ID in the HTTP GET path (hiding it from HTTP Toolkit / network sniffers).
         playerRef.current = new window.YT.Player(playerContainerId.current, {
           width: '100%',
           height: '100%',
-          videoId: safeVideoId,
           playerVars: {
             autoplay: (autoPlay || isMini) ? 1 : 0,
             controls: 0, // Hides native YouTube controls
@@ -557,24 +560,37 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           events: {
             onReady: (event: any) => {
               setIsPlayerReady(true);
-              const total = event.target.getDuration() || 0;
-              setDuration(total);
-              if (onProgress) onProgress(seekToSeconds || 0, total);
 
-              if (seekToSeconds !== undefined && seekToSeconds !== null && seekToSeconds > 0) {
-                try {
-                  event.target.seekTo(seekToSeconds, true);
-                } catch {}
-              }
+              const shouldPlay = (autoPlay || isMini) && isPlayingProp !== false;
+              const startSec = (seekToSeconds !== undefined && seekToSeconds !== null && seekToSeconds > 0) ? seekToSeconds : 0;
 
-              if ((autoPlay || isMini) && isPlayingProp !== false) {
+              // Phase 2: Send the videoId strictly through encrypted postMessage command
+              if (shouldPlay) {
                 try {
-                  event.target.playVideo();
+                  event.target.loadVideoById({
+                    videoId: safeVideoId,
+                    startSeconds: startSec,
+                    suggestedQuality: 'hd1080',
+                  });
                   isPlayingRef.current = true;
                   setIsPlaying(true);
                   setIsBufferingOrStarting(true);
                   onPlayStateChangeRef.current?.(true);
                 } catch {}
+              } else {
+                try {
+                  event.target.cueVideoById({
+                    videoId: safeVideoId,
+                    startSeconds: startSec,
+                    suggestedQuality: 'hd1080',
+                  });
+                } catch {}
+              }
+
+              const total = event.target.getDuration() || 0;
+              if (total > 0) {
+                setDuration(total);
+                if (onProgress) onProgress(startSec, total);
               }
 
               // Detect and enforce maximum HD playback quality
@@ -645,7 +661,14 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
               } catch {}
             },
             onStateChange: (event: any) => {
-              // YT.PlayerState: -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering)
+              // YT.PlayerState: -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering), 5 (video cued)
+              try {
+                const streamDuration = event.target.getDuration ? (event.target.getDuration() || 0) : 0;
+                if (streamDuration > 0) {
+                  setDuration((prev) => (prev <= 0 ? streamDuration : prev));
+                }
+              } catch {}
+
               if (event.data === 1) {
                 isPlayingRef.current = true;
                 setIsPlaying(true);
@@ -1046,14 +1069,27 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     setIsBufferingOrStarting(true);
     showControlsForDuration(5000);
     safeCallPlayer((p) => {
-      if (p.playVideo) {
-        p.playVideo();
-        isPlayingRef.current = true;
-        setIsPlaying(true);
-        // Retain pre-playback poster curtain until onStateChange reports event.data === 1 (PLAYING)
-        // so the user never sees YouTube's raw unstarted embed, channel avatar or native controls
-        onPlayStateChangeRef.current?.(true);
+      try {
+        const state = p.getPlayerState ? p.getPlayerState() : -1;
+        if (state === 5 || state === 2) {
+          if (p.playVideo) p.playVideo();
+        } else if (p.loadVideoById) {
+          p.loadVideoById({
+            videoId: safeVideoId,
+            startSeconds: currentTime > 0 ? currentTime : (seekToSeconds || 0),
+            suggestedQuality: 'hd1080',
+          });
+        } else if (p.playVideo) {
+          p.playVideo();
+        }
+      } catch {
+        if (p.playVideo) p.playVideo();
       }
+      isPlayingRef.current = true;
+      setIsPlaying(true);
+      // Retain pre-playback poster curtain until onStateChange reports event.data === 1 (PLAYING)
+      // so the user never sees YouTube's raw unstarted embed, channel avatar or native controls
+      onPlayStateChangeRef.current?.(true);
     });
   };
 
