@@ -193,31 +193,58 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
         throw new Error('Camera API is not supported in this browser environment.');
       }
 
-      const constraints: MediaStreamConstraints = {
-        audio: false,
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1920, min: 1280 },
-          height: { ideal: 1080, min: 720 },
-          frameRate: { ideal: 30, min: 15 },
-        },
-      };
+      let stream: MediaStream | null = null;
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+        });
+      } catch (e1) {
+        console.warn('High-res camera constraints failed, attempting fallback:', e1);
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: { facingMode: 'environment' },
+          });
+        } catch (e2) {
+          console.warn('Fallback facingMode failed, attempting basic video:', e2);
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: true,
+          });
+        }
+      }
+
+      if (!stream) {
+        throw new Error('Failed to obtain camera stream.');
+      }
+
       streamRef.current = stream;
 
       const video = videoRef.current;
       if (video) {
         video.srcObject = stream;
-        await video.play();
+        video.muted = true;
+        try {
+          await video.play();
+        } catch (playErr) {
+          console.warn('video.play() failed on initial try:', playErr);
+        }
         calculateMaximumFrame();
 
         const track = stream.getVideoTracks()[0];
         if (track && typeof track.getCapabilities === 'function') {
-          const caps = track.getCapabilities() as any;
-          if (caps && caps.torch) {
-            setHasTorchCapability(true);
-          }
+          try {
+            const caps = track.getCapabilities() as any;
+            if (caps && caps.torch) {
+              setHasTorchCapability(true);
+            }
+          } catch {}
         }
 
         setCameraReady(true);
@@ -231,6 +258,8 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
         friendlyMsg = 'No camera found on this device.';
       } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
         friendlyMsg = 'Camera is currently in use by another application.';
+      } else if (err.message) {
+        friendlyMsg = err.message;
       }
       setCameraError(friendlyMsg);
     }
@@ -460,6 +489,8 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
   const marginPctTop = (10 / activeLayout.pageHeightMm) * 100;
   const marginPctBottom = ((activeLayout.pageHeightMm - activeLayout.bottomFiducialY_mm) / activeLayout.pageHeightMm) * 100;
 
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-[100] bg-black text-white flex flex-col select-none overflow-hidden touch-none font-sans">
       {/* 1. Header Bar */}
@@ -545,12 +576,15 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
               playsInline
               autoPlay
               muted
-              onLoadedMetadata={calculateMaximumFrame}
+              onLoadedMetadata={() => {
+                calculateMaximumFrame();
+                setCameraReady(true);
+              }}
               className="absolute inset-0 w-full h-full object-cover"
             />
 
             {/* 3. Screen Viewfinder Vignette & Frame Guide Overlay */}
-            {cameraReady && frameMetrics && (
+            {frameMetrics && (
               <div className="absolute inset-0 pointer-events-none z-10">
                 {/* SVG Mask: darkens the area outside the maximum sheet frame */}
                 <svg className="w-full h-full" preserveAspectRatio="none">
