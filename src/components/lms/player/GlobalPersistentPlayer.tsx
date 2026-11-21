@@ -364,22 +364,16 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
           isInNativePip
             ? 'is-native-pip fixed inset-0 w-full h-full z-[99999] bg-black overflow-hidden flex items-center justify-center p-0 m-0'
             : isMinimized
-            ? `is-minimized fixed right-3 sm:right-5 md:right-6 w-[280px] xs:w-[300px] sm:w-[340px] md:w-[380px] z-50 bg-[#16181d] text-white rounded-2xl md:rounded-3xl shadow-none border-0 border-none ring-0 p-0 transition-all duration-300 select-none overflow-hidden ${
+            ? `is-minimized fixed right-3 sm:right-5 md:right-6 ${
+                isBottomNavVisible
+                  ? 'bottom-[calc(72px+env(safe-area-inset-bottom,0px))] md:bottom-5'
+                  : 'bottom-[calc(16px+env(safe-area-inset-bottom,0px))] md:bottom-5'
+              } w-[280px] xs:w-[300px] sm:w-[340px] md:w-[380px] z-50 bg-[#16181d] text-white rounded-2xl md:rounded-3xl shadow-2xl ring-1 ring-black/10 dark:ring-white/10 border-0 border-none p-0 transition-all duration-300 select-none overflow-hidden ${
                 !isTestMode ? 'flex flex-col' : 'hidden'
               }`
             : `is-expanded fixed inset-x-0 bottom-0 w-full top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] md:top-[62px] md:h-[calc(100vh-62px)] z-40 bg-[#e5e9f0] dark:bg-[#0b0c10] flex flex-col lg:grid lg:grid-cols-12 lg:gap-6 xl:gap-8 items-start overflow-hidden lg:overflow-y-auto px-0 lg:px-8 xl:px-10 pt-0 lg:pt-4 pb-16 lg:pb-24 overscroll-contain select-text max-w-[1750px] mx-auto`
         }
-      style={
-        isInNativePip
-          ? undefined
-          : isMinimized
-          ? {
-              bottom: isBottomNavVisible
-                ? 'calc(76px + env(safe-area-inset-bottom, 0px))'
-                : 'calc(16px + env(safe-area-inset-bottom, 0px))',
-            }
-          : undefined
-      }
+      style={undefined}
       onClick={isMinimized && !isInNativePip ? handleExpand : undefined}
     >
       {/* 1. THE PERSISTENT VIDEO PLAYER FRAME (NEVER UNMOUNTS) */}
