@@ -53,6 +53,7 @@ import { OmrQuestionPaper } from './OmrQuestionPaper';
 import { getOmrLayoutConfig } from '../lib/omrGeometry';
 import { OmrSheetGenerator } from './OmrSheetGenerator';
 import { OmrCropModal } from './OmrCropModal';
+import { OmrLiveCameraModal } from './omr/OmrLiveCameraModal';
 import { evaluateScannedOmrImage, redrawOmrOverlay } from '../lib/omrScannerEngine';
 import { MathRenderer } from './MathRenderer';
 import { QuestionDiagramViewer } from './QuestionDiagramViewer';
@@ -257,6 +258,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
   const rawOriginalImageRef = useRef<string>('');
   const cleanImageRef = useRef<string>('');
   const [isCropModalOpen, setIsCropModalOpen] = useState<boolean>(false);
+  const [isLiveScannerOpen, setIsLiveScannerOpen] = useState<boolean>(false);
   const [isDraggingOmr, setIsDraggingOmr] = useState<boolean>(false);
   const [editableDetections, setEditableDetections] = useState<OmrQuestionDetection[]>([]);
   const [selectedReviewQIndex, setSelectedReviewQIndex] = useState<number | null>(null);
@@ -295,6 +297,10 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
 
   // Multi-level Back navigation handler
   const handleBackAction = () => {
+    if (isLiveScannerOpen) {
+      setIsLiveScannerOpen(false);
+      return;
+    }
     if (isCropModalOpen) {
       setIsCropModalOpen(false);
       return;
@@ -319,6 +325,51 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
   };
 
   useBackHandler({ isOpen: true, onBack: handleBackAction });
+
+  // Handle Rectified Image from Live Camera Scanner
+  const handleLiveCaptureRectified = async (rectifiedUrl: string, rawCapturedUrl: string) => {
+    setIsLiveScannerOpen(false);
+    setImageSessionId((prev) => prev + 1);
+    setIsSaved(false);
+    setScanResult(null);
+    setEditableDetections([]);
+    setRawOriginalImageUrl(rawCapturedUrl);
+    rawOriginalImageRef.current = rawCapturedUrl;
+    setCapturedImageUrl(rectifiedUrl);
+    cleanImageRef.current = rectifiedUrl;
+    setIsScanning(true);
+    setScanStatusMessage('Evaluating Optical Bubbles...');
+    setScanError(null);
+
+    const img = new Image();
+    let handled = false;
+    const runScan = async () => {
+      if (handled) return;
+      handled = true;
+      await processOmrImage(img);
+    };
+
+    img.onload = runScan;
+    img.onerror = (err) => {
+      console.error('Failed loading rectified OMR image:', err);
+      setIsScanning(false);
+      setScanError('Unable to load captured OMR image. Please try scanning again.');
+    };
+
+    img.src = rectifiedUrl;
+    if (img.complete && img.naturalWidth > 0) {
+      runScan();
+    }
+  };
+
+  const handleSwitchToManualCropFromLive = (rawCapturedUrl: string) => {
+    setIsLiveScannerOpen(false);
+    setRawOriginalImageUrl(rawCapturedUrl);
+    rawOriginalImageRef.current = rawCapturedUrl;
+    setCapturedImageUrl(rawCapturedUrl);
+    cleanImageRef.current = rawCapturedUrl;
+    setIsCropModalOpen(true);
+  };
 
   // Timer countdown interval
   useEffect(() => {
@@ -984,7 +1035,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                   onClick={() => {
                     setIsTimerRunning(false);
                     setActiveTab('scan');
-                    cameraInputRef.current?.click();
+                    setIsLiveScannerOpen(true);
                   }}
                   className="w-full px-8 py-3.5 bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] rounded-[28px] text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 transition-all shadow-sm border-0 active:scale-95 cursor-pointer"
                 >
@@ -1118,11 +1169,11 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                 <div className="flex items-center justify-center gap-2.5 pt-2">
                   <button
                     type="button"
-                    onClick={() => cameraInputRef.current?.click()}
+                    onClick={() => setIsLiveScannerOpen(true)}
                     className="flex items-center gap-2 px-6 py-2.5 bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] rounded-[28px] text-xs font-extrabold transition-all shadow-sm border-0 cursor-pointer active:scale-95"
                   >
                     <Camera className="w-4 h-4" />
-                    <span>Take Photo</span>
+                    <span>Live Scan</span>
                   </button>
                   <button
                     type="button"
@@ -1151,7 +1202,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => cameraInputRef.current?.click()}
+                      onClick={() => setIsLiveScannerOpen(true)}
                       className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#d3e3fd] hover:bg-[#c2e7ff] text-[#041e49] dark:bg-[#004a77] dark:hover:bg-[#00385a] dark:text-[#c2e7ff] rounded-[28px] text-xs font-bold transition-all shadow-xs hover:shadow-sm border-0 cursor-pointer active:scale-95"
                       title="Retake photo with camera"
                     >
@@ -1319,7 +1370,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                             <div className="flex flex-wrap items-center gap-1.5">
                               <button
                                 type="button"
-                                onClick={() => cameraInputRef.current?.click()}
+                                onClick={() => setIsLiveScannerOpen(true)}
                                 className="px-3 py-1 bg-[#d3e3fd] hover:bg-[#c2e7ff] text-[#041e49] dark:bg-[#004a77] dark:hover:bg-[#00385a] dark:text-[#c2e7ff] rounded-[28px] text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-xs border-0"
                                 title="Take new photo with camera"
                               >
@@ -1862,6 +1913,18 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
 
 
       {/* ========================================================
+          LIVE REAL-TIME OMR CAMERA SCANNER MODAL
+          ======================================================== */}
+      <OmrLiveCameraModal
+        isOpen={isLiveScannerOpen}
+        onClose={() => setIsLiveScannerOpen(false)}
+        totalQuestions={Math.max(1, test.questions?.length || 50)}
+        onCaptureRectified={handleLiveCaptureRectified}
+        onSwitchToManualCrop={handleSwitchToManualCropFromLive}
+        onUploadFile={() => fileInputRef.current?.click()}
+      />
+
+      {/* ========================================================
           INTERACTIVE 8-HANDLE OMR CROP & ALIGNMENT MODAL
           ======================================================== */}
       {(() => {
@@ -1873,7 +1936,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
             isOpen={isCropModalOpen}
             imageUrl={rawOriginalImageUrl || rawOriginalImageRef.current || cleanImageRef.current || capturedImageUrl || ''}
             onClose={() => setIsCropModalOpen(false)}
-            onRetake={() => cameraInputRef.current?.click()}
+            onRetake={() => setIsLiveScannerOpen(true)}
             onUploadNew={() => fileInputRef.current?.click()}
             targetWidthMm={layoutConfig.pageWidthMm}
             targetHeightMm={layoutConfig.pageHeightMm}
