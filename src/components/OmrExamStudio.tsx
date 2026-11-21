@@ -1915,14 +1915,21 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
       {/* ========================================================
           LIVE REAL-TIME OMR CAMERA SCANNER MODAL
           ======================================================== */}
-      <OmrLiveCameraModal
-        isOpen={isLiveScannerOpen}
-        onClose={() => setIsLiveScannerOpen(false)}
-        totalQuestions={Math.max(1, test.questions?.length || 50)}
-        onCaptureRectified={handleLiveCaptureRectified}
-        onSwitchToManualCrop={handleSwitchToManualCropFromLive}
-        onUploadFile={() => fileInputRef.current?.click()}
-      />
+      {(() => {
+        const totalQs = Math.max(1, test.questions?.length || 50);
+        const layoutConfig = getOmrLayoutConfig(totalQs, undefined, 'a4');
+        return (
+          <OmrLiveCameraModal
+            isOpen={isLiveScannerOpen}
+            onClose={() => setIsLiveScannerOpen(false)}
+            layoutConfig={layoutConfig}
+            totalQuestions={totalQs}
+            onCaptureRectified={handleLiveCaptureRectified}
+            onSwitchToManualCrop={handleSwitchToManualCropFromLive}
+            onUploadFile={() => fileInputRef.current?.click()}
+          />
+        );
+      })()}
 
       {/* ========================================================
           INTERACTIVE 8-HANDLE OMR CROP & ALIGNMENT MODAL

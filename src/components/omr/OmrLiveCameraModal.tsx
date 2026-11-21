@@ -5,7 +5,6 @@ import {
   Camera, 
   Flashlight, 
   FlashlightOff, 
-  RotateCcw, 
   Upload, 
   Sliders, 
   CheckCircle2, 
@@ -14,9 +13,9 @@ import {
   Loader2,
   Sparkles
 } from 'lucide-react';
-import { OmrLiveDetector, LiveOmrDetectionFrame, LiveScannerStatus } from '../../lib/omrLiveDetector';
+import { OmrLiveDetector, LiveOmrDetectionFrame, LiveScannerStatus, NormalizedRect } from '../../lib/omrLiveDetector';
 import { warpPerspectiveCanvas, QuadPoint } from '../../lib/omrPerspectiveWarp';
-import { getOmrLayoutConfig } from '../../lib/omrGeometry';
+import { OmrLayoutConfig, getOmrLayoutConfig } from '../../lib/omrGeometry';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { useBackHandler } from '../../hooks/useBackNavigation';
 
@@ -26,7 +25,21 @@ interface OmrLiveCameraModalProps {
   onCaptureRectified: (rectifiedDataUrl: string, rawCapturedDataUrl: string) => void;
   onSwitchToManualCrop?: (rawCapturedDataUrl: string) => void;
   onUploadFile?: () => void;
+  layoutConfig?: OmrLayoutConfig;
   totalQuestions?: number;
+}
+
+interface FrameLayoutMetrics {
+  // Screen pixel dimensions of the maximum frame
+  frameLeft: number;
+  frameTop: number;
+  frameWidth: number;
+  frameHeight: number;
+  // Normalized 0..1 coordinates relative to the underlying video feed
+  normX: number;
+  normY: number;
+  normWidth: number;
+  normHeight: number;
 }
 
 export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
@@ -35,11 +48,15 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
   onCaptureRectified,
   onSwitchToManualCrop,
   onUploadFile,
+  layoutConfig,
   totalQuestions = 50,
 }) => {
   useScrollLock(isOpen);
   useBackHandler({ isOpen, onBack: onClose });
 
+  const activeLayout = layoutConfig || getOmrLayoutConfig(totalQuestions, undefined, 'a4');
+
+  const viewportRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<OmrLiveDetector | null>(null);
@@ -53,8 +70,104 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
   const [hasTorchCapability, setHasTorchCapability] = useState(false);
   const [detectionState, setDetectionState] = useState<LiveOmrDetectionFrame | null>(null);
   const [isProcessingFinalWarp, setIsProcessingFinalWarp] = useState(false);
+  const [frameMetrics, setFrameMetrics] = useState<FrameLayoutMetrics | null>(null);
+  const frameMetricsRef = useRef<FrameLayoutMetrics | null>(null);
 
-  // Play pleasant lock chime using Web Audio API
+  // Update layout metrics reference
+  useEffect(() => {
+    frameMetricsRef.current = frameMetrics;
+  }, [frameMetrics]);
+
+  // Compute maximum full-area screen frame matching sheet physical aspect ratio
+  const calculateMaximumFrame = useCallback(() => {
+    const container = viewportRef.current;
+    const video = videoRef.current;
+    if (!container) return;
+
+    const contW = container.clientWidth;
+    const contH = container.clientHeight;
+    if (contW <= 50 || contH <= 50) return;
+
+    // Physical aspect ratio of this specific test paper (e.g. 210mm / 125mm = 1.68, or 210mm / 297mm = 0.707)
+    const sheetAspect = activeLayout.pageWidthMm / activeLayout.pageHeightMm;
+
+    // Safe maximum screen utilization (up to 92% width or 82% height)
+    const maxAvailableW = contW * 0.92;
+    const maxAvailableH = contH * 0.82;
+
+    let fWidth = 0;
+    let fHeight = 0;
+
+    if (maxAvailableW / sheetAspect <= maxAvailableH) {
+      fWidth = maxAvailableW;
+      fHeight = fWidth / sheetAspect;
+    } else {
+      fHeight = maxAvailableH;
+      fWidth = fHeight * sheetAspect;
+    }
+
+    const fLeft = Math.round((contW - fWidth) / 2);
+    const fTop = Math.round((contH - fHeight) / 2);
+
+    // Map screen frame to underlying video normalized coordinates [0..1]
+    let normX = fLeft / contW;
+    let normY = fTop / contH;
+    let normWidth = fWidth / contW;
+    let normHeight = fHeight / contH;
+
+    if (video && video.videoWidth > 0 && video.videoHeight > 0) {
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      const videoAspect = vw / vh;
+      const contAspect = contW / contH;
+
+      // Handle CSS object-cover transformation
+      let renderedW = contW;
+      let renderedH = contH;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      if (videoAspect > contAspect) {
+        renderedW = contH * videoAspect;
+        offsetX = (renderedW - contW) / 2;
+      } else {
+        renderedH = contW / videoAspect;
+        offsetY = (renderedH - contH) / 2;
+      }
+
+      normX = Math.max(0, Math.min(1, (fLeft + offsetX) / renderedW));
+      normY = Math.max(0, Math.min(1, (fTop + offsetY) / renderedH));
+      normWidth = Math.max(0.1, Math.min(1, fWidth / renderedW));
+      normHeight = Math.max(0.1, Math.min(1, fHeight / renderedH));
+    }
+
+    const metrics: FrameLayoutMetrics = {
+      frameLeft: fLeft,
+      frameTop: fTop,
+      frameWidth: Math.round(fWidth),
+      frameHeight: Math.round(fHeight),
+      normX,
+      normY,
+      normWidth,
+      normHeight,
+    };
+
+    setFrameMetrics(metrics);
+  }, [activeLayout]);
+
+  // Handle ResizeObserver
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      calculateMaximumFrame();
+    });
+    ro.observe(el);
+    calculateMaximumFrame();
+    return () => ro.disconnect();
+  }, [calculateMaximumFrame]);
+
+  // Play pleasant lock chime
   const playCaptureSound = useCallback(() => {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -64,8 +177,8 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
       const gain = ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-      osc.frequency.exponentialRampToValueAtTime(783.99, ctx.currentTime + 0.12); // G5
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(783.99, ctx.currentTime + 0.12);
       gain.gain.setValueAtTime(0.2, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
 
@@ -133,7 +246,6 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
         video.srcObject = stream;
         await video.play();
 
-        // Check torch capability
         const track = stream.getVideoTracks()[0];
         if (track && typeof track.getCapabilities === 'function') {
           const caps: any = track.getCapabilities();
@@ -143,6 +255,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
         }
 
         setCameraReady(true);
+        calculateMaximumFrame();
       }
     } catch (err: any) {
       console.error('Error starting live camera stream:', err);
@@ -156,7 +269,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
       }
       setCameraError(errorMsg);
     }
-  }, [stopCameraStream]);
+  }, [stopCameraStream, calculateMaximumFrame]);
 
   // Toggle Torch/Flashlight
   const toggleTorch = async () => {
@@ -209,14 +322,34 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
       snapCtx.drawImage(video, 0, 0, vw, vh);
       const rawCapturedDataUrl = snapCanvas.toDataURL('image/jpeg', 0.95);
 
-      // 2. Use detected outer page corners (or fallback)
+      // 2. Determine source corners:
+      // Prefer detected outer corners; if unconfirmed, snap to the exact on-screen alignment frame!
       const currentDetection = detectionState;
-      const corners = targetCorners || currentDetection?.outerCorners || {
-        tl: { x: 5, y: 5 },
-        tr: { x: 95, y: 5 },
-        br: { x: 95, y: 95 },
-        bl: { x: 5, y: 95 },
-      };
+      const metrics = frameMetricsRef.current;
+
+      let corners = targetCorners;
+      if (!corners && currentDetection?.detected && currentDetection.outerCorners) {
+        corners = currentDetection.outerCorners;
+      }
+
+      if (!corners) {
+        // Fallback to exact on-screen frame normalized to video
+        if (metrics) {
+          corners = {
+            tl: { x: metrics.normX * 100, y: metrics.normY * 100 },
+            tr: { x: (metrics.normX + metrics.normWidth) * 100, y: metrics.normY * 100 },
+            br: { x: (metrics.normX + metrics.normWidth) * 100, y: (metrics.normY + metrics.normHeight) * 100 },
+            bl: { x: metrics.normX * 100, y: (metrics.normY + metrics.normHeight) * 100 },
+          };
+        } else {
+          corners = {
+            tl: { x: 10, y: 10 },
+            tr: { x: 90, y: 10 },
+            br: { x: 90, y: 90 },
+            bl: { x: 10, y: 90 },
+          };
+        }
+      }
 
       // 3. Convert percentage corners to pixel coordinates
       const srcQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint] = [
@@ -226,10 +359,9 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
         { x: (corners.bl.x / 100) * vw, y: (corners.bl.y / 100) * vh },
       ];
 
-      // 4. Target canonical A4 rectified dimensions (e.g., 1414 x 2000 at ~170 DPI)
-      const layout = getOmrLayoutConfig(totalQuestions, undefined, 'a4');
+      // 4. Target canonical rectified dimensions strictly matching this active test paper's layout!
       const dstWidth = 1414;
-      const dstHeight = Math.round(dstWidth * (layout.pageHeightMm / layout.pageWidthMm));
+      const dstHeight = Math.round(dstWidth * (activeLayout.pageHeightMm / activeLayout.pageWidthMm));
 
       const dstQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint] = [
         { x: 0, y: 0 },
@@ -244,17 +376,16 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
       stopCameraStream();
 
       if (warpedCanvas) {
-        const rectifiedDataUrl = warpedCanvas.toDataURL('image/jpeg', 0.92);
+        const rectifiedDataUrl = warpedCanvas.toDataURL('image/jpeg', 0.94);
         onCaptureRectified(rectifiedDataUrl, rawCapturedDataUrl);
       } else {
-        // Fallback to raw if warp fails
         onCaptureRectified(rawCapturedDataUrl, rawCapturedDataUrl);
       }
 
       setIsProcessingFinalWarp(false);
       isCapturingRef.current = false;
     },
-    [detectionState, totalQuestions, playCaptureSound, triggerHaptic, stopCameraStream, onCaptureRectified]
+    [detectionState, activeLayout, playCaptureSound, triggerHaptic, stopCameraStream, onCaptureRectified]
   );
 
   // Main Detection Loop
@@ -262,9 +393,9 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
     if (!isOpen || !cameraReady) return;
 
     if (!detectorRef.current) {
-      detectorRef.current = new OmrLiveDetector(totalQuestions);
+      detectorRef.current = new OmrLiveDetector(activeLayout);
     } else {
-      detectorRef.current.setLayout(totalQuestions);
+      detectorRef.current.setLayout(activeLayout);
     }
 
     let isRunning = true;
@@ -274,13 +405,22 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
 
       const video = videoRef.current;
       const detector = detectorRef.current;
+      const metrics = frameMetricsRef.current;
 
       if (video && detector && !isCapturingRef.current && video.readyState >= 2) {
-        const result = detector.processFrame(video);
+        const frameNormalized: NormalizedRect | undefined = metrics
+          ? {
+              x: metrics.normX,
+              y: metrics.normY,
+              width: metrics.normWidth,
+              height: metrics.normHeight,
+            }
+          : undefined;
+
+        const result = detector.processFrame(video, frameNormalized);
         if (result) {
           setDetectionState(result);
 
-          // Auto-Snap Trigger Condition
           if (result.shouldAutoSnap && !isCapturingRef.current) {
             isRunning = false;
             executeCapture(result.outerCorners);
@@ -301,7 +441,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
         animFrameIdRef.current = null;
       }
     };
-  }, [isOpen, cameraReady, totalQuestions, executeCapture]);
+  }, [isOpen, cameraReady, activeLayout, executeCapture]);
 
   // Lifecycle on modal open/close
   useEffect(() => {
@@ -327,16 +467,16 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
 
   // Determine HUD line color based on status
   let polygonStroke = '#eab308'; // Yellow for searching
-  let polygonFill = 'rgba(234, 179, 8, 0.05)';
-  let statusBadgeBg = 'bg-amber-500/80 text-amber-100';
+  let polygonFill = 'rgba(234, 179, 8, 0.04)';
+  let statusBadgeBg = 'bg-amber-500/85 text-amber-100';
 
   if (status === 'locked') {
     polygonStroke = '#10b981'; // Green
-    polygonFill = 'rgba(16, 185, 129, 0.20)';
+    polygonFill = 'rgba(16, 185, 129, 0.22)';
     statusBadgeBg = 'bg-emerald-600 text-white';
   } else if (status === 'stabilizing') {
     polygonStroke = '#06b6d4'; // Cyan
-    polygonFill = 'rgba(6, 182, 212, 0.12)';
+    polygonFill = 'rgba(6, 182, 212, 0.14)';
     statusBadgeBg = 'bg-cyan-600 text-white';
   } else if (status === 'tracking') {
     polygonStroke = '#3b82f6'; // Blue
@@ -344,10 +484,15 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
     statusBadgeBg = 'bg-blue-600 text-white';
   }
 
+  // Margin percentages within frame for the 4 corner target brackets
+  const marginPctX = (10 / activeLayout.pageWidthMm) * 100;
+  const marginPctTop = (10 / activeLayout.pageHeightMm) * 100;
+  const marginPctBottom = ((activeLayout.pageHeightMm - activeLayout.bottomFiducialY_mm) / activeLayout.pageHeightMm) * 100;
+
   return (
     <div className="fixed inset-0 z-[100] bg-black text-white flex flex-col select-none overflow-hidden touch-none font-sans">
       {/* 1. Header Bar */}
-      <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-4 pt-3 pb-3 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
+      <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-4 pt-3 pb-3 bg-gradient-to-b from-black/85 via-black/50 to-transparent">
         <button
           type="button"
           onClick={onClose}
@@ -359,7 +504,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
 
         {/* Guidance Badge Pill */}
         <div className="flex-1 flex justify-center px-2">
-          <div className={`px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold flex items-center gap-1.5 backdrop-blur-md border border-white/20 transition-all shadow-lg ${statusBadgeBg}`}>
+          <div className={`px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold flex items-center gap-1.5 backdrop-blur-md border border-white/20 transition-all shadow-lg ${statusBadgeBg}`}>
             {status === 'locked' ? (
               <Sparkles className="w-4 h-4 animate-spin" />
             ) : status === 'stabilizing' ? (
@@ -367,7 +512,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
             ) : (
               <Camera className="w-4 h-4" />
             )}
-            <span>{detectionState?.guidanceMessage || 'Align 4 corner markers inside view'}</span>
+            <span>{detectionState?.guidanceMessage || 'Align OMR sheet inside frame'}</span>
           </div>
         </div>
 
@@ -391,7 +536,10 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
       </div>
 
       {/* 2. Main Viewport & Video Feed */}
-      <div className="relative flex-1 w-full h-full flex items-center justify-center overflow-hidden bg-black">
+      <div 
+        ref={viewportRef}
+        className="relative flex-1 w-full h-full flex items-center justify-center overflow-hidden bg-black"
+      >
         {cameraError ? (
           <div className="px-6 text-center max-w-sm flex flex-col items-center">
             <AlertCircle className="w-12 h-12 text-rose-500 mb-3" />
@@ -401,7 +549,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
               <button
                 type="button"
                 onClick={initCamera}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all"
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
               >
                 Retry Camera
               </button>
@@ -412,7 +560,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                     onClose();
                     onUploadFile();
                   }}
-                  className="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-xs font-bold transition-all"
+                  className="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
                 >
                   Upload Photo From Gallery
                 </button>
@@ -429,10 +577,83 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
               className="absolute inset-0 w-full h-full object-cover"
             />
 
-            {/* 3. Real-time SVG HUD Tracking Overlay */}
+            {/* 3. Screen Viewfinder Vignette & Frame Guide Overlay */}
+            {cameraReady && frameMetrics && (
+              <div className="absolute inset-0 pointer-events-none z-10">
+                {/* SVG Mask: darkens the area outside the maximum sheet frame */}
+                <svg className="w-full h-full" preserveAspectRatio="none">
+                  <defs>
+                    <mask id="omr-viewfinder-mask">
+                      <rect width="100%" height="100%" fill="white" />
+                      <rect 
+                        x={frameMetrics.frameLeft} 
+                        y={frameMetrics.frameTop} 
+                        width={frameMetrics.frameWidth} 
+                        height={frameMetrics.frameHeight} 
+                        rx="16" 
+                        fill="black" 
+                      />
+                    </mask>
+                  </defs>
+
+                  {/* Darkened outer vignette */}
+                  <rect 
+                    width="100%" 
+                    height="100%" 
+                    fill="rgba(0, 0, 0, 0.60)" 
+                    mask="url(#omr-viewfinder-mask)" 
+                  />
+
+                  {/* Viewfinder Frame Border */}
+                  <rect 
+                    x={frameMetrics.frameLeft} 
+                    y={frameMetrics.frameTop} 
+                    width={frameMetrics.frameWidth} 
+                    height={frameMetrics.frameHeight} 
+                    rx="16" 
+                    fill="none" 
+                    stroke="rgba(255, 255, 255, 0.75)" 
+                    strokeWidth="2.5" 
+                  />
+                </svg>
+
+                {/* Corner Guide Reticles positioned inside the frame */}
+                <div 
+                  className="absolute"
+                  style={{
+                    left: `${frameMetrics.frameLeft}px`,
+                    top: `${frameMetrics.frameTop}px`,
+                    width: `${frameMetrics.frameWidth}px`,
+                    height: `${frameMetrics.frameHeight}px`,
+                  }}
+                >
+                  {/* Top-Left Target Bracket */}
+                  <div 
+                    className="absolute w-8 h-8 border-t-3 border-l-3 border-emerald-400 rounded-tl-lg pointer-events-none transition-all"
+                    style={{ left: `${marginPctX}%`, top: `${marginPctTop}%`, transform: 'translate(-50%, -50%)' }}
+                  />
+                  {/* Top-Right Target Bracket */}
+                  <div 
+                    className="absolute w-8 h-8 border-t-3 border-r-3 border-emerald-400 rounded-tr-lg pointer-events-none transition-all"
+                    style={{ left: `${100 - marginPctX}%`, top: `${marginPctTop}%`, transform: 'translate(50%, -50%)' }}
+                  />
+                  {/* Bottom-Right Target Bracket */}
+                  <div 
+                    className="absolute w-8 h-8 border-b-3 border-r-3 border-emerald-400 rounded-br-lg pointer-events-none transition-all"
+                    style={{ left: `${100 - marginPctX}%`, top: `${100 - marginPctBottom}%`, transform: 'translate(50%, 50%)' }}
+                  />
+                  {/* Bottom-Left Target Bracket */}
+                  <div 
+                    className="absolute w-8 h-8 border-b-3 border-l-3 border-emerald-400 rounded-bl-lg pointer-events-none transition-all"
+                    style={{ left: `${marginPctX}%`, top: `${100 - marginPctBottom}%`, transform: 'translate(-50%, 50%)' }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 4. Real-time SVG Tracking Polygon (Over Video Feed) */}
             {cameraReady && (
               <svg className="absolute inset-0 w-full h-full pointer-events-none z-20" preserveAspectRatio="none">
-                {/* Detected Quadrilateral Area */}
                 {outerCorners && detectionState?.detected && (
                   <polygon
                     points={`
@@ -449,36 +670,20 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                   />
                 )}
 
-                {/* 4 Corner Marker Crosshair Reticles */}
                 {fiducials && detectionState?.detected && (
                   <>
-                    <CornerReticle x={fiducials.tl.x} y={fiducials.tl.y} stroke={polygonStroke} corner="tl" />
-                    <CornerReticle x={fiducials.tr.x} y={fiducials.tr.y} stroke={polygonStroke} corner="tr" />
-                    <CornerReticle x={fiducials.br.x} y={fiducials.br.y} stroke={polygonStroke} corner="br" />
-                    <CornerReticle x={fiducials.bl.x} y={fiducials.bl.y} stroke={polygonStroke} corner="bl" />
+                    <ScreenReticle x={fiducials.tl.x} y={fiducials.tl.y} stroke={polygonStroke} corner="tl" />
+                    <ScreenReticle x={fiducials.tr.x} y={fiducials.tr.y} stroke={polygonStroke} corner="tr" />
+                    <ScreenReticle x={fiducials.br.x} y={fiducials.br.y} stroke={polygonStroke} corner="br" />
+                    <ScreenReticle x={fiducials.bl.x} y={fiducials.bl.y} stroke={polygonStroke} corner="bl" />
                   </>
-                )}
-
-                {/* Fallback Framing Guide if sheet not yet detected */}
-                {(!detectionState || !detectionState.detected) && (
-                  <rect
-                    x="12%"
-                    y="10%"
-                    width="76%"
-                    height="80%"
-                    fill="none"
-                    stroke="rgba(255, 255, 255, 0.25)"
-                    strokeWidth="1.5"
-                    strokeDasharray="8 8"
-                    rx="12"
-                  />
                 )}
               </svg>
             )}
 
             {/* Fullscreen processing indicator during final warp */}
             {isProcessingFinalWarp && (
-              <div className="absolute inset-0 z-40 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center">
+              <div className="absolute inset-0 z-40 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center">
                 <Loader2 className="w-10 h-10 text-emerald-400 animate-spin mb-3" />
                 <p className="text-sm font-bold text-white">Rectifying Perspective & Unskewing...</p>
               </div>
@@ -487,17 +692,17 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
         )}
       </div>
 
-      {/* 4. Bottom Control Bar */}
+      {/* 5. Bottom Control Bar */}
       <div className="relative z-30 px-6 pt-3 pb-6 bg-gradient-to-t from-black via-black/85 to-transparent flex flex-col gap-3">
         {/* Helper Tip */}
         <div className="flex items-center justify-center gap-1.5 text-[11px] text-zinc-400">
           <HelpCircle className="w-3.5 h-3.5 text-zinc-500" />
-          <span>Hold steady when squares are detected for automatic capture</span>
+          <span>Align the sheet in the frame &bull; Auto-scans when steady or tap Shutter</span>
         </div>
 
         {/* Shutter and Secondary Action Buttons */}
         <div className="flex items-center justify-between max-w-sm mx-auto w-full">
-          {/* Switch to Manual Crop Button */}
+          {/* Switch to Manual 8-Handle Crop Button */}
           <button
             type="button"
             onClick={async () => {
@@ -527,9 +732,8 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
             <span className="text-[10px] font-semibold">Manual Crop</span>
           </button>
 
-          {/* Primary Shutter Button with Progress Ring */}
+          {/* Primary Shutter Button with Radial Progress Ring */}
           <div className="relative flex items-center justify-center">
-            {/* SVG Circular Progress Ring */}
             <svg className="w-20 h-20 -rotate-90 pointer-events-none absolute" viewBox="0 0 80 80">
               <circle
                 cx="40"
@@ -565,7 +769,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
             </button>
           </div>
 
-          {/* Upload Button */}
+          {/* Gallery Upload Button */}
           <button
             type="button"
             onClick={() => {
@@ -587,10 +791,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
   );
 };
 
-/**
- * Draws a corner bracket crosshair centered at (x%, y%)
- */
-const CornerReticle: React.FC<{
+const ScreenReticle: React.FC<{
   x: number;
   y: number;
   stroke: string;
@@ -616,11 +817,8 @@ const CornerReticle: React.FC<{
 
   return (
     <g transform={`translate(${x}%, ${y}%)`}>
-      {/* Outer Glow */}
       <circle r="4" fill={stroke} opacity="0.6" />
-      {/* Center Marker Dot */}
       <circle r="2.5" fill="#ffffff" />
-      {/* Bracket Path */}
       <path
         d={d}
         fill="none"
