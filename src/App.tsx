@@ -2096,6 +2096,16 @@ export default function App() {
     }
   };
 
+  // If the web environment is blocked (public web browser without verification),
+  // halt rendering the main app completely. Do NOT mount LmsProvider, Navbar, Batches, Tests, or Players in the background.
+  if (platformAccess.isBlocked) {
+    return (
+      <NativeAppOnlyGuard
+        onUnlocked={() => setPlatformAccess(checkPlatformAccess(true))}
+      />
+    );
+  }
+
   return (
     <LmsProvider>
       <div className="min-h-screen bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col font-sans antialiased selection:bg-[#0b57d0]/20 selection:text-[#0b57d0] dark:selection:text-[#a8c7fa] transition-colors duration-200">
@@ -2947,13 +2957,6 @@ export default function App() {
           status={deviceLockStatus}
           currentUser={currentUser}
           onSignOut={handleSignOut}
-        />
-      )}
-
-      {/* Native Android Only Environment Guard Modal */}
-      {platformAccess.isBlocked && (
-        <NativeAppOnlyGuard
-          onUnlocked={() => setPlatformAccess(checkPlatformAccess(true))}
         />
       )}
     </div>

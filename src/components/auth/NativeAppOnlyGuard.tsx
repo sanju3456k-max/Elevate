@@ -72,10 +72,10 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
   };
 
   return (
-    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-50/95 text-slate-800 select-none overflow-y-auto">
+    <div className="fixed inset-0 z-[999999] min-h-screen w-full flex items-center justify-center p-4 bg-white text-slate-800 select-none overflow-y-auto">
       {/* Soft light ambient background accents */}
-      <div className="absolute top-1/4 -left-20 w-80 h-80 bg-blue-200/40 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-indigo-200/40 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute top-1/4 -left-20 w-80 h-80 bg-blue-100/50 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-indigo-100/50 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="w-full max-w-md bg-white border border-slate-200/90 rounded-3xl p-7 sm:p-8 shadow-xl shadow-slate-200/60 relative overflow-hidden animate-fade-in flex flex-col items-center text-center">
         
