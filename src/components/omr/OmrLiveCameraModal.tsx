@@ -488,14 +488,14 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
   const isBR = Boolean(detectedBoxes?.br);
   const isBL = Boolean(detectedBoxes?.bl);
 
-  let statusBadgeBg = 'bg-zinc-800/80 text-zinc-300';
+  let statusBadgeBg = 'bg-white/10 text-white/90';
 
   if (status === 'locked') {
-    statusBadgeBg = 'bg-emerald-600 text-white';
+    statusBadgeBg = 'bg-emerald-500/90 text-white shadow-lg shadow-emerald-500/25';
   } else if (status === 'stabilizing') {
-    statusBadgeBg = 'bg-cyan-600 text-white';
+    statusBadgeBg = 'bg-cyan-500/85 text-white shadow-lg shadow-cyan-500/20';
   } else if (status === 'tracking') {
-    statusBadgeBg = 'bg-blue-600 text-white';
+    statusBadgeBg = 'bg-blue-500/80 text-white shadow-lg shadow-blue-500/20';
   }
 
   // Margin percentages within alignment frame for the 4 corner target brackets
@@ -508,11 +508,11 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
   return (
     <div className="fixed inset-0 z-[100] bg-black text-white flex flex-col select-none overflow-hidden touch-none font-sans">
       {/* 1. Header Bar */}
-      <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-4 pt-3 pb-3 bg-gradient-to-b from-black/85 via-black/50 to-transparent">
+      <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-4 pt-3 pb-3 bg-gradient-to-b from-black/85 via-black/40 to-transparent">
         <button
           type="button"
           onClick={onClose}
-          className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md hover:bg-black/60 flex items-center justify-center text-white transition-all cursor-pointer border border-white/10 active:scale-95"
+          className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 flex items-center justify-center text-white/90 backdrop-blur-md transition-all cursor-pointer"
           title="Exit Live Scanner"
         >
           <X className="w-5 h-5" />
@@ -520,13 +520,13 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
 
         {/* Guidance Badge Pill */}
         <div className="flex-1 flex justify-center px-2">
-          <div className={`px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold flex items-center gap-1.5 backdrop-blur-md border border-white/20 transition-all shadow-lg ${statusBadgeBg}`}>
+          <div className={`px-4 py-1.5 rounded-full text-xs font-medium tracking-wide flex items-center gap-2 backdrop-blur-md transition-all duration-200 ${statusBadgeBg}`}>
             {status === 'locked' ? (
-              <Sparkles className="w-4 h-4 animate-spin" />
+              <Sparkles className="w-4 h-4 animate-spin text-emerald-300" />
             ) : status === 'stabilizing' ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin text-cyan-300" />
             ) : (
-              <Camera className="w-4 h-4" />
+              <Camera className="w-4 h-4 text-white/80" />
             )}
             <span>{detectionState?.guidanceMessage || 'Align OMR sheet inside frame'}</span>
           </div>
@@ -537,17 +537,17 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
           <button
             type="button"
             onClick={toggleTorch}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer border active:scale-95 ${
+            className={`w-11 h-11 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-90 ${
               torchEnabled 
-                ? 'bg-amber-400 text-black border-amber-300 shadow-md shadow-amber-400/30' 
-                : 'bg-black/40 backdrop-blur-md text-white border-white/10 hover:bg-black/60'
+                ? 'bg-amber-400 text-black shadow-lg shadow-amber-400/25' 
+                : 'bg-white/10 hover:bg-white/20 text-white/90 backdrop-blur-md'
             }`}
             title={torchEnabled ? 'Turn flashlight off' : 'Turn flashlight on'}
           >
             {torchEnabled ? <Flashlight className="w-5 h-5 fill-current" /> : <FlashlightOff className="w-5 h-5" />}
           </button>
         ) : (
-          <div className="w-10 h-10" />
+          <div className="w-11 h-11" />
         )}
       </div>
 
@@ -625,46 +625,46 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                   }}
                 >
                   {/* Top Guide Indicator */}
-                  <div className="absolute top-1 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 text-[10px] font-bold text-white uppercase tracking-wider select-none">
+                  <div className="absolute top-1 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-white/10 backdrop-blur-md text-[9px] font-semibold tracking-widest text-white/70 uppercase select-none">
                     Top
                   </div>
 
                   {/* Top-Left Target Box Container */}
                   <div 
-                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-150 ${
+                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-200 flex items-center justify-center ${
                       isTL 
-                        ? 'border-[3px] border-emerald-400 bg-emerald-500/25 shadow-[0_0_20px_rgba(52,211,153,0.75)] scale-105 ring-2 ring-emerald-400/40' 
-                        : 'border-2 border-white/85 bg-black/30 shadow-md'
+                        ? 'border-2 border-emerald-400 bg-emerald-400/15 shadow-[0_0_24px_rgba(52,211,153,0.5)] scale-105' 
+                        : 'border border-white/40 bg-white/[0.04] backdrop-blur-[2px]'
                     }`}
                     style={{ left: `${marginPctX}%`, top: `${marginPctTop}%`, transform: 'translate(-50%, -50%)' }}
                   />
 
                   {/* Top-Right Target Box Container */}
                   <div 
-                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-150 ${
+                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-200 flex items-center justify-center ${
                       isTR 
-                        ? 'border-[3px] border-emerald-400 bg-emerald-500/25 shadow-[0_0_20px_rgba(52,211,153,0.75)] scale-105 ring-2 ring-emerald-400/40' 
-                        : 'border-2 border-white/85 bg-black/30 shadow-md'
+                        ? 'border-2 border-emerald-400 bg-emerald-400/15 shadow-[0_0_24px_rgba(52,211,153,0.5)] scale-105' 
+                        : 'border border-white/40 bg-white/[0.04] backdrop-blur-[2px]'
                     }`}
                     style={{ left: `${100 - marginPctX}%`, top: `${marginPctTop}%`, transform: 'translate(-50%, -50%)' }}
                   />
 
                   {/* Bottom-Right Target Box Container */}
                   <div 
-                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-150 ${
+                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-200 flex items-center justify-center ${
                       isBR 
-                        ? 'border-[3px] border-emerald-400 bg-emerald-500/25 shadow-[0_0_20px_rgba(52,211,153,0.75)] scale-105 ring-2 ring-emerald-400/40' 
-                        : 'border-2 border-white/85 bg-black/30 shadow-md'
+                        ? 'border-2 border-emerald-400 bg-emerald-400/15 shadow-[0_0_24px_rgba(52,211,153,0.5)] scale-105' 
+                        : 'border border-white/40 bg-white/[0.04] backdrop-blur-[2px]'
                     }`}
                     style={{ left: `${100 - marginPctX}%`, top: `${100 - marginPctBottom}%`, transform: 'translate(-50%, -50%)' }}
                   />
 
                   {/* Bottom-Left Target Box Container */}
                   <div 
-                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-150 ${
+                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-200 flex items-center justify-center ${
                       isBL 
-                        ? 'border-[3px] border-emerald-400 bg-emerald-500/25 shadow-[0_0_20px_rgba(52,211,153,0.75)] scale-105 ring-2 ring-emerald-400/40' 
-                        : 'border-2 border-white/85 bg-black/30 shadow-md'
+                        ? 'border-2 border-emerald-400 bg-emerald-400/15 shadow-[0_0_24px_rgba(52,211,153,0.5)] scale-105' 
+                        : 'border border-white/40 bg-white/[0.04] backdrop-blur-[2px]'
                     }`}
                     style={{ left: `${marginPctX}%`, top: `${100 - marginPctBottom}%`, transform: 'translate(-50%, -50%)' }}
                   />
@@ -684,11 +684,11 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
       </div>
 
       {/* 5. Bottom Control Bar */}
-      <div className="relative z-30 px-6 pt-3 pb-6 bg-gradient-to-t from-black via-black/85 to-transparent flex flex-col gap-3">
+      <div className="relative z-30 px-6 pt-3 pb-6 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col gap-3">
         {/* Helper Tip */}
-        <div className="flex items-center justify-center gap-1.5 text-[11px] text-zinc-400">
-          <HelpCircle className="w-3.5 h-3.5 text-zinc-500" />
-          <span>Align the sheet in the frame &bull; Auto-scans when steady or tap Shutter</span>
+        <div className="flex items-center justify-center gap-1.5 text-[11px] text-white/50 font-normal tracking-wide">
+          <HelpCircle className="w-3.5 h-3.5 text-white/40" />
+          <span>Align corner boxes &bull; Auto-scans when steady or tap Shutter</span>
         </div>
 
         {/* Action Controls Row */}
@@ -712,13 +712,13 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                 }
               }
             }}
-            className="flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition-all cursor-pointer active:scale-95"
+            className="flex flex-col items-center gap-1.5 text-white/70 hover:text-white transition-all cursor-pointer active:scale-90"
             title="Freeze frame and switch to Manual 8-handle Crop"
           >
-            <div className="w-11 h-11 rounded-full bg-zinc-800/80 backdrop-blur-md flex items-center justify-center border border-white/10 hover:bg-zinc-700">
-              <Sliders className="w-5 h-5 text-zinc-300" />
+            <div className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center transition-all">
+              <Sliders className="w-5 h-5 text-white/90" />
             </div>
-            <span className="text-[10px] font-semibold tracking-wide">Manual Crop</span>
+            <span className="text-[10px] font-medium tracking-wider text-white/60">Manual Crop</span>
           </button>
 
           {/* Shutter Button with Circular Stability Progress Ring */}
@@ -729,8 +729,8 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                 cx="40"
                 cy="40"
                 r="36"
-                stroke="rgba(255, 255, 255, 0.2)"
-                strokeWidth="4"
+                stroke="rgba(255, 255, 255, 0.12)"
+                strokeWidth="3.5"
                 fill="none"
               />
               <circle
@@ -738,7 +738,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                 cy="40"
                 r="36"
                 stroke={status === 'locked' ? '#10b981' : '#06b6d4'}
-                strokeWidth="4"
+                strokeWidth="3.5"
                 fill="none"
                 strokeDasharray={2 * Math.PI * 36}
                 strokeDashoffset={2 * Math.PI * 36 - streakProgress * (2 * Math.PI * 36)}
@@ -752,10 +752,10 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
               type="button"
               onClick={() => executeCapture()}
               disabled={!cameraReady || isProcessingFinalWarp}
-              className="absolute w-16 h-16 rounded-full bg-white hover:bg-zinc-200 active:scale-90 transition-all flex items-center justify-center shadow-lg border-2 border-zinc-900 cursor-pointer disabled:opacity-50"
+              className="absolute w-16 h-16 rounded-full bg-white hover:bg-white/90 active:scale-90 transition-all flex items-center justify-center shadow-[0_4px_24px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50"
               title="Capture OMR Sheet Now"
             >
-              <div className={`w-13 h-13 rounded-full transition-all ${status === 'locked' ? 'bg-emerald-500 scale-95' : 'bg-white'}`} />
+              <div className={`w-13 h-13 rounded-full transition-all duration-150 ${status === 'locked' ? 'bg-emerald-500 scale-90' : 'bg-transparent'}`} />
             </button>
           </div>
 
@@ -769,13 +769,13 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                 onUploadFile();
               }
             }}
-            className="flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition-all cursor-pointer active:scale-95"
+            className="flex flex-col items-center gap-1.5 text-white/70 hover:text-white transition-all cursor-pointer active:scale-90"
             title="Upload pre-taken photo from device"
           >
-            <div className="w-11 h-11 rounded-full bg-zinc-800/80 backdrop-blur-md flex items-center justify-center border border-white/10 hover:bg-zinc-700">
-              <Upload className="w-5 h-5 text-zinc-300" />
+            <div className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center transition-all">
+              <Upload className="w-5 h-5 text-white/90" />
             </div>
-            <span className="text-[10px] font-semibold tracking-wide">Gallery</span>
+            <span className="text-[10px] font-medium tracking-wider text-white/60">Gallery</span>
           </button>
         </div>
       </div>
