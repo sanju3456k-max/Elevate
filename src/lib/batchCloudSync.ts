@@ -738,6 +738,8 @@ export async function fetchAllEnrollmentsFromFirestore(options?: { forceRefresh?
  */
 export async function fetchBatchEnrollmentsFromFirestore(batchId: string): Promise<BatchEnrollment[]> {
   if (!batchId) return [];
+  let rosterFallbackList: BatchEnrollment[] = [];
+  let totalReported = 0;
   try {
     // 1. Try reading the authoritative roster document first (1 Document Read)
     try {
@@ -745,7 +747,7 @@ export async function fetchBatchEnrollmentsFromFirestore(batchId: string): Promi
       const rosterSnap = await getDoc(rosterRef);
       if (rosterSnap.exists()) {
         const rData = rosterSnap.data();
-        const totalReported = Number(rData?.totalStudents) || 0;
+        totalReported = Number(rData?.totalStudents) || 0;
         if (rData && rData.students && typeof rData.students === 'object') {
           const list: BatchEnrollment[] = [];
           Object.values(rData.students).forEach((s: any) => {
@@ -763,6 +765,8 @@ export async function fetchBatchEnrollmentsFromFirestore(batchId: string): Promi
               });
             }
           });
+          rosterFallbackList = list;
+          (rosterFallbackList as any).totalReported = totalReported;
           // If roster holds all students (medium batch), return immediately (1 read)
           if (list.length > 0 && (totalReported === 0 || list.length >= totalReported)) {
             return list;
@@ -780,12 +784,15 @@ export async function fetchBatchEnrollmentsFromFirestore(batchId: string): Promi
       const snapGlobal = await getDocs(qBatch).catch(() => null);
       if (snapGlobal && !snapGlobal.empty) {
         const result: BatchEnrollment[] = [];
+        const seenUids = new Set<string>();
         snapGlobal.forEach((d) => {
           const data = d.data();
+          const uid = data.userId || d.id;
+          seenUids.add(uid);
           result.push({
             id: d.id,
             batchId: data.batchId || batchId,
-            userId: data.userId || d.id,
+            userId: uid,
             studentName: data.studentName || 'Student',
             studentEmail: data.studentEmail,
             studentPhone: data.studentPhone,
@@ -794,6 +801,16 @@ export async function fetchBatchEnrollmentsFromFirestore(batchId: string): Promi
             status: 'active',
           });
         });
+        // Merge any preview roster students not in global collection
+        if (rosterFallbackList.length > 0) {
+          rosterFallbackList.forEach((rf) => {
+            if (!seenUids.has(rf.userId)) {
+              seenUids.add(rf.userId);
+              result.push(rf);
+            }
+          });
+        }
+        (result as any).totalReported = Math.max(totalReported, result.length);
         return result;
       }
     } catch (globalErr) {
@@ -820,9 +837,19 @@ export async function fetchBatchEnrollmentsFromFirestore(batchId: string): Promi
         });
       }
     });
-    return result;
+
+    if (result.length > 0) {
+      (result as any).totalReported = Math.max(totalReported, result.length);
+      return result;
+    }
+
+    if (rosterFallbackList.length > 0) {
+      return rosterFallbackList;
+    }
+    return [];
   } catch (error) {
     console.warn(`Error fetching enrollments for batch ${batchId}:`, error);
+    if (rosterFallbackList.length > 0) return rosterFallbackList;
     return [];
   }
 }

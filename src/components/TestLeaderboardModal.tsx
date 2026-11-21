@@ -119,18 +119,22 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
       setIsLoading(true);
     }
 
-    // 2. Attach strictly ONE active listener on the single cohort_bucket_1 document (Strictly 1 Read)
-    const unsubscribe = subscribeToTestLeaderboard(
-      test.id || '',
-      test.title,
-      (liveSummary) => {
-        setSummary(liveSummary);
-        setIsLoading(false);
-      }
-    );
+    // 2. Fetch complete cohort leaderboard via direct 1-Read Part-Bucket reader (0 socket hangs, resilient to long-polling aborts)
+    let isCancelled = false;
+    fetchTestLeaderboard(test.id || '', test.title, false)
+      .then((liveSummary) => {
+        if (!isCancelled && liveSummary && Array.isArray(liveSummary.entries)) {
+          setSummary(liveSummary);
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.warn('Leaderboard fetch fallback notice:', err);
+        if (!isCancelled) setIsLoading(false);
+      });
 
     return () => {
-      unsubscribe();
+      isCancelled = true;
     };
   }, [isOpen, test?.id, test?.title, currentUser?.uid]);
 
@@ -184,6 +188,12 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
     };
   }, [isOpen]);
 
+  const [displayLimit, setDisplayLimit] = useState<number>(100);
+
+  useEffect(() => {
+    setDisplayLimit(100);
+  }, [isOpen, test?.id]);
+
   const filteredEntries = useMemo(() => {
     if (!summary?.entries) return [];
     return summary.entries.filter((entry) => {
@@ -195,11 +205,15 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
     });
   }, [summary?.entries, modeFilter]);
 
+  const displayedEntries = useMemo(() => {
+    return filteredEntries.slice(0, displayLimit);
+  }, [filteredEntries, displayLimit]);
+
   const isCurrentUserOutsideTop100 = useMemo(() => {
     if (!summary?.currentUserEntry || !currentUser?.uid) return false;
     const userRank = summary.currentUserRank || summary.currentUserEntry.rank;
-    return !!(userRank && userRank > 100);
-  }, [summary?.currentUserEntry, summary?.currentUserRank, currentUser?.uid]);
+    return !!(userRank && userRank > displayLimit);
+  }, [summary?.currentUserEntry, summary?.currentUserRank, currentUser?.uid, displayLimit]);
 
   const top1 = summary?.entries?.[0] || null;
   const top2 = summary?.entries?.[1] || null;
@@ -281,7 +295,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
           className="fixed inset-0 z-[60] bg-white dark:bg-[#0c0e12] overflow-y-auto flex flex-col font-sans pb-10 select-text [scrollbar-width:thin]"
         >
           {/* Top Header - Seamless Fixed Background Without Heavy Blur Shader */}
-          <header className="sticky top-0 z-20 bg-white dark:bg-[#0c0e12] border-0 shadow-none shrink-0 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)]">
+          <header className="sticky top-0 z-20 bg-white dark:bg-[#0c0e12] border-0 shadow-none shrink-0 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)]">
           <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 pb-2.5 sm:pb-3.5 flex items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               <button
@@ -641,7 +655,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                 </div>
               ) : (
                 <div className="space-y-2">
-                {filteredEntries.map((entry) => {
+                {displayedEntries.map((entry) => {
                   const isCurrentUser = currentUser?.uid && entry.userId === currentUser.uid;
                   return (
                     <div
@@ -706,6 +720,21 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                     </div>
                   );
                 })}
+
+                {filteredEntries.length > displayLimit && (
+                  <div className="pt-3 pb-1 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setDisplayLimit((prev) => Math.min(prev + 100, filteredEntries.length))}
+                      className="px-5 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-xs font-bold text-slate-800 dark:text-zinc-200 shadow-xs transition active:scale-95 cursor-pointer flex items-center gap-2"
+                    >
+                      <span>Show Next 100</span>
+                      <span className="text-[10px] opacity-70">
+                        (Displaying {displayedEntries.length} of {filteredEntries.length.toLocaleString()} Students)
+                      </span>
+                    </button>
+                  </div>
+                )}
 
                 {/* If the current user's rank is outside the Top 100, show an indicator separator + pinned standing */}
                 {isCurrentUserOutsideTop100 && summary?.currentUserEntry && (

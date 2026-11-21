@@ -658,7 +658,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
       className="fixed inset-0 bg-[#e5e9f0] dark:bg-[#0b0c10] text-slate-900 dark:text-zinc-100 h-[100dvh] max-h-screen pb-[calc(max(0.5rem,env(safe-area-inset-bottom,0px)))] overflow-hidden flex flex-col z-40 font-sans"
     >
       {/* Top Header Navigation (Clean & Simple: OMR Mode & Back Array Button) */}
-      <header className="bg-transparent px-4 sm:px-6 md:px-8 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2.5 flex items-center justify-between shrink-0 z-30">
+      <header className="bg-transparent px-4 sm:px-6 md:px-8 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)] pb-2.5 flex items-center justify-between shrink-0 z-30">
         <div className="flex items-center gap-1.5 sm:gap-2">
           <button
             type="button"

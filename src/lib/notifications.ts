@@ -14,6 +14,36 @@ export interface AppNotification {
   targetChapterId?: string | null;
   targetLectureId?: string;
   targetTestId?: string;
+  batchTitle?: string;
+  folderPath?: string;
+  folderSegments?: string[];
+  durationText?: string;
+  testDetails?: string;
+}
+
+/**
+ * Traverses parentId upwards recursively to construct the full folder path hierarchy:
+ * e.g. [ParentFolder, SubFolder, LeafFolder]
+ */
+export function getFolderHierarchyPath(
+  chapterId: string | null | undefined,
+  chapters: Chapter[] = []
+): string[] {
+  if (!chapterId || !chapters || chapters.length === 0) return [];
+  const path: string[] = [];
+  const visited = new Set<string>();
+  let currentId: string | null | undefined = chapterId;
+
+  while (currentId && !visited.has(currentId)) {
+    visited.add(currentId);
+    const chapter = chapters.find((c) => c.id === currentId);
+    if (!chapter) break;
+    if (chapter.title) {
+      path.unshift(chapter.title.trim());
+    }
+    currentId = chapter.parentId;
+  }
+  return path;
 }
 
 const READ_STORAGE_KEY = 'elevate_read_notification_ids_v2';
@@ -142,14 +172,25 @@ export function deriveRealBatchNotifications(params: {
 
     const parentBatch = batches.find((b) => b.id === lec.batchId);
     const parentChapter = chapters.find((c) => c.id === lec.chapterId);
-    const batchTitle = parentBatch?.title || 'Curriculum Batch';
-    const chapterTitle = parentChapter?.title ? ` • ${parentChapter.title}` : '';
-    const durationText = lec.durationMinutes ? ` (${lec.durationMinutes} mins)` : '';
+    const fallbackBatch = parentChapter ? batches.find((b) => b.id === parentChapter.batchId) : null;
+    const effectiveBatch = parentBatch || fallbackBatch || batches[0];
+    const batchTitle = effectiveBatch?.title || 'Testing';
+
+    const folderSegments = getFolderHierarchyPath(lec.chapterId, chapters);
+    const folderPath = folderSegments.join('.');
+    const durationText = lec.durationMinutes ? `(${lec.durationMinutes} mins)` : '';
+
+    const location = folderSegments.length > 0 ? `${batchTitle} • ${folderSegments.join(' • ')}` : batchTitle;
+    const fullMessage = durationText ? `${location} ${durationText}` : location;
+
+    const cleanLecTitle = (lec.title || 'Video Lecture')
+      .replace(/^Course\s+Lecture\s*[:-]?\s*/i, '')
+      .trim();
 
     notifs.push({
       id: notifId,
-      title: lec.title || 'New Video Lecture',
-      message: `Available in ${batchTitle}${chapterTitle}${durationText}`,
+      title: cleanLecTitle,
+      message: fullMessage,
       category: 'lecture',
       timestamp: safeDateToISO(lec.createdAt),
       read: readSet.has(notifId),
@@ -158,6 +199,10 @@ export function deriveRealBatchNotifications(params: {
       targetBatchId: lec.batchId,
       targetChapterId: lec.chapterId || null,
       targetLectureId: lec.id,
+      batchTitle,
+      folderPath,
+      folderSegments,
+      durationText,
     });
   });
 
@@ -181,6 +226,7 @@ export function deriveRealBatchNotifications(params: {
       actionTab: 'batches',
       actionLabel: 'Open Batch',
       targetBatchId: ann.batchId,
+      batchTitle: parentBatch?.title,
     });
   });
 
@@ -193,17 +239,30 @@ export function deriveRealBatchNotifications(params: {
     seenIds.add(notifId);
 
     const parentBatch = batches.find((b) => b.id === bTest.batchId);
-    const batchTitle = parentBatch?.title || 'Batch';
+    const parentChapter = chapters.find((c) => c.id === (bTest.chapterId || bTest.folderId));
+    const fallbackBatch = parentChapter ? batches.find((b) => b.id === parentChapter.batchId) : null;
+    const effectiveBatch = parentBatch || fallbackBatch || batches[0];
+    const batchTitle = effectiveBatch?.title || 'Testing';
+
+    const folderSegments = getFolderHierarchyPath(bTest.chapterId || bTest.folderId, chapters);
+    const folderPath = folderSegments.join('.');
+    const location = folderSegments.length > 0 ? `${batchTitle} • ${folderSegments.join(' • ')}` : batchTitle;
     const testDetails = [
-      bTest.topic,
       bTest.questionCount ? `${bTest.questionCount} Questions` : '',
       bTest.timeLimitMinutes ? `${bTest.timeLimitMinutes}m` : ''
     ].filter(Boolean).join(' • ');
 
+    const fullMessage = testDetails ? `${location} • ${testDetails}` : location;
+
+    // Clean test title so it does not repeat "Mock Test" prefix
+    const cleanTestTitle = (bTest.title || 'Test')
+      .replace(/^\[?Mock\s+Test\]?\s*[:-]?\s*/i, '')
+      .trim();
+
     notifs.push({
       id: notifId,
-      title: `Mock Test: ${bTest.title}`,
-      message: `Scheduled in ${batchTitle}${testDetails ? ` • ${testDetails}` : ''}`,
+      title: cleanTestTitle,
+      message: fullMessage,
       category: 'test',
       timestamp: safeDateToISO(bTest.publishedAt),
       read: readSet.has(notifId),
@@ -211,6 +270,10 @@ export function deriveRealBatchNotifications(params: {
       actionLabel: 'Take Test',
       targetBatchId: bTest.batchId,
       targetTestId: bTest.testId || bTest.id,
+      batchTitle,
+      folderPath,
+      folderSegments,
+      testDetails,
     });
   });
 

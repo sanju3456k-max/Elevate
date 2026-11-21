@@ -48,7 +48,7 @@ export const GeminiChatHeader: React.FC<GeminiChatHeaderProps> = ({
   const activeRoleObj = PRESET_ROLES.find((r) => r.id === selectedRole) || PRESET_ROLES[0];
 
   return (
-    <header className="relative z-30 flex items-center justify-between gap-1 sm:gap-2 px-3 sm:px-6 md:px-8 landscape:pl-[calc(max(0.75rem,var(--android-cutout-left,env(safe-area-inset-left,0px))))] landscape:pr-[calc(max(0.75rem,var(--android-cutout-right,env(safe-area-inset-right,0px))))] pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2 bg-white dark:bg-[#131314] shrink-0 border-0 shadow-none">
+    <header className="relative z-30 flex items-center justify-between gap-1 sm:gap-2 px-3 sm:px-6 md:px-8 landscape:pl-[calc(max(0.75rem,var(--android-cutout-left,env(safe-area-inset-left,0px))))] landscape:pr-[calc(max(0.75rem,var(--android-cutout-right,env(safe-area-inset-right,0px))))] pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)] pb-2 bg-white dark:bg-[#131314] shrink-0 border-0 shadow-none">
       <div className="flex items-center gap-1 sm:gap-2 min-w-0 shrink-0">
         {(onBack || onNavigateTab) && (
           <button

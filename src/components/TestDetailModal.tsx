@@ -509,7 +509,7 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header Bar */}
-          <div className="px-4 sm:px-6 md:px-8 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2.5 flex items-center justify-between gap-4 bg-transparent border-0 shadow-none shrink-0">
+          <div className="px-4 sm:px-6 md:px-8 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)] pb-2.5 flex items-center justify-between gap-4 bg-transparent border-0 shadow-none shrink-0">
             <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
               <button
                 type="button"

@@ -227,7 +227,7 @@ const HtmlNotesHeaderComponent: React.FC<HtmlNotesHeaderProps> = ({
     <>
       {/* COMPACT TOPBAR (Header Row 1: Back, Title, Viewport switcher, Save, Menu) */}
       {!hideTopBar && (
-        <header className="topbar sticky top-0 z-30 bg-white dark:bg-[#0b0c10] border-b border-slate-200 dark:border-zinc-800/80 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2.5 px-3 sm:px-6 flex items-center justify-between gap-2 shrink-0">
+        <header className="topbar sticky top-0 z-30 bg-white dark:bg-[#0b0c10] border-b border-slate-200 dark:border-zinc-800/80 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)] pb-2.5 px-3 sm:px-6 flex items-center justify-between gap-2 shrink-0">
           {/* Left: Clean Back Arrow & Brand Title */}
           <div className="flex items-center gap-2 min-w-0">
             <button

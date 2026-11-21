@@ -461,7 +461,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   );
 
   return (
-    <div className="space-y-6 sm:space-y-8 pb-28 sm:pb-28 md:pb-16 max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-2 sm:py-3">
+    <div className="space-y-6 sm:space-y-8 pb-4 sm:pb-8 md:pb-12 max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-2 sm:py-3">
       {/* 1. LATEST UPDATES (Featured Lecture Full Preview & Mock Test) - Strictly shown for enrolled batches only */}
       {(latestLecture || latestTest) && (
         <div className="space-y-2.5 sm:space-y-3">
@@ -641,9 +641,9 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         )}
 
         {/* 3. STUDENT ACTIVITY & DAY-WISE GRAPH SECTION (After Batches) */}
-        <div id="student-activity-section" className="bg-white dark:bg-[#1e2024] rounded-3xl p-5 sm:p-7 border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-6 pt-2">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
-            <div>
+        <div id="student-activity-section" className="bg-white dark:bg-[#1e2024] rounded-3xl p-3.5 sm:p-7 pt-4 sm:pt-6 pb-4 sm:pb-7 border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-4 sm:space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 pb-2 border-b border-[var(--md-sys-color-outline-variant)]/20">
+            <div className="flex items-center justify-between w-full sm:w-auto">
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] flex items-center justify-center font-bold">
                   <BarChart3 className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
@@ -652,87 +652,102 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                   Activity & Performance
                 </h2>
               </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex items-center space-x-1.5 text-xs text-[var(--md-sys-color-on-surface-variant)] px-3 py-1.5 rounded-full bg-slate-100 dark:bg-zinc-800">
-                <span className="w-2.5 h-2.5 rounded-full bg-[var(--md-sys-color-primary)]" />
-                <span className="font-semibold">Videos Done</span>
-              </div>
-              <div className="flex items-center space-x-1.5 text-xs text-[var(--md-sys-color-on-surface-variant)] px-3 py-1.5 rounded-full bg-slate-100 dark:bg-zinc-800">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                <span className="font-semibold">Tests Attempted</span>
-              </div>
+              {/* On mobile: Arrow right in the top right corner of header */}
               {onOpenAnalytics && (
                 <button
                   type="button"
                   onClick={onOpenAnalytics}
-                  className="text-xs font-bold text-[var(--md-sys-color-primary)] hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-0 outline-none"
+                  className="sm:hidden p-1.5 rounded-full bg-slate-100 hover:bg-slate-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-slate-800 dark:text-zinc-100 flex items-center justify-center transition active:scale-95 cursor-pointer border-0 outline-none"
+                  title="View Full Analytics"
+                  aria-label="View Full Analytics"
                 >
-                  <span>Analytics →</span>
+                  <ArrowRight className="w-4 h-4 text-slate-800 dark:text-zinc-100 stroke-[2.5]" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <div className="flex items-center space-x-1.5 text-[11px] sm:text-xs text-[var(--md-sys-color-on-surface-variant)] px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-slate-100 dark:bg-zinc-800">
+                <span className="w-2.5 h-2.5 rounded-full bg-[var(--md-sys-color-primary)]" />
+                <span className="font-semibold">Videos Done</span>
+              </div>
+              <div className="flex items-center space-x-1.5 text-[11px] sm:text-xs text-[var(--md-sys-color-on-surface-variant)] px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-slate-100 dark:bg-zinc-800">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <span className="font-semibold">Tests Attempted</span>
+              </div>
+              {/* On tablet/desktop: Arrow right next to legend */}
+              {onOpenAnalytics && (
+                <button
+                  type="button"
+                  onClick={onOpenAnalytics}
+                  className="hidden sm:flex p-2 rounded-full bg-slate-100 hover:bg-slate-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-slate-800 dark:text-zinc-100 items-center justify-center transition active:scale-95 cursor-pointer border-0 outline-none"
+                  title="View Full Analytics"
+                  aria-label="View Full Analytics"
+                >
+                  <ArrowRight className="w-4 h-4 text-slate-800 dark:text-zinc-100 stroke-[2.5]" />
                 </button>
               )}
             </div>
           </div>
 
           {/* 4 Summary Score Metric Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            <div className="p-4 rounded-2xl bg-slate-100 hover:bg-slate-200/70 dark:bg-[#282a30] transition-colors border-0 space-y-1">
-              <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
+            <div className="p-3 sm:p-4 rounded-2xl bg-slate-100 hover:bg-slate-200/70 dark:bg-[#282a30] transition-colors border-0 space-y-1">
+              <div className="flex items-center justify-between text-[11px] sm:text-xs text-[var(--md-sys-color-on-surface-variant)]">
                 <span>Videos Completed</span>
                 <Video className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
               </div>
-              <div className="text-2xl font-black text-[var(--md-sys-color-on-surface)]">
+              <div className="text-xl sm:text-2xl font-black text-[var(--md-sys-color-on-surface)]">
                 {completedVideosCount}
               </div>
-              <div className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+              <div className="text-[9.5px] sm:text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
                 Lectures Watched
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-100 hover:bg-slate-200/70 dark:bg-[#282a30] transition-colors border-0 space-y-1">
-              <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
+            <div className="p-3 sm:p-4 rounded-2xl bg-slate-100 hover:bg-slate-200/70 dark:bg-[#282a30] transition-colors border-0 space-y-1">
+              <div className="flex items-center justify-between text-[11px] sm:text-xs text-[var(--md-sys-color-on-surface-variant)]">
                 <span>Tests Attempted</span>
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
               </div>
-              <div className="text-2xl font-black text-[var(--md-sys-color-on-surface)]">
+              <div className="text-xl sm:text-2xl font-black text-[var(--md-sys-color-on-surface)]">
                 {totalAttempts > 0 ? totalAttempts : 2}
               </div>
-              <div className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+              <div className="text-[9.5px] sm:text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
                 Full Mock Assessments
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-100 hover:bg-slate-200/70 dark:bg-[#282a30] transition-colors border-0 space-y-1">
-              <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
+            <div className="p-3 sm:p-4 rounded-2xl bg-slate-100 hover:bg-slate-200/70 dark:bg-[#282a30] transition-colors border-0 space-y-1">
+              <div className="flex items-center justify-between text-[11px] sm:text-xs text-[var(--md-sys-color-on-surface-variant)]">
                 <span>Avg Performance</span>
                 <Award className="w-4 h-4 text-amber-500" />
               </div>
-              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+              <div className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400">
                 {averagePercentage}%
               </div>
-              <div className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+              <div className="text-[9.5px] sm:text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
                 Assessment Accuracy
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-100 hover:bg-slate-200/70 dark:bg-[#282a30] transition-colors border-0 space-y-1">
-              <div className="flex items-center justify-between text-xs text-[var(--md-sys-color-on-surface-variant)]">
+            <div className="p-3 sm:p-4 rounded-2xl bg-slate-100 hover:bg-slate-200/70 dark:bg-[#282a30] transition-colors border-0 space-y-1">
+              <div className="flex items-center justify-between text-[11px] sm:text-xs text-[var(--md-sys-color-on-surface-variant)]">
                 <span>Active Streak</span>
                 <Flame className="w-4 h-4 text-orange-500 fill-orange-500" />
               </div>
-              <div className="text-2xl font-black text-orange-500">
+              <div className="text-xl sm:text-2xl font-black text-orange-500">
                 5 Days
               </div>
-              <div className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+              <div className="text-[9.5px] sm:text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
                 Daily Practice Habit
               </div>
             </div>
           </div>
 
           {/* Day-Wise Visual Interactive Bar Chart */}
-          <div className="p-5 sm:p-6 rounded-3xl bg-slate-100 dark:bg-[#282a30] border-0 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="p-3 sm:p-6 pb-3 sm:pb-6 rounded-2xl sm:rounded-3xl bg-slate-100 dark:bg-[#282a30] border-0 space-y-3 sm:space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-[var(--md-sys-color-primary)] shrink-0" />
                 <h3 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)]">
@@ -742,7 +757,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 <select
                   value={activityPeriod}
                   onChange={(e) => setActivityPeriod(e.target.value as any)}
-                  className="text-[11px] sm:text-xs font-semibold px-2.5 py-1 rounded-full bg-white dark:bg-[#1e2024] border border-[var(--md-sys-color-outline-variant)]/40 text-[var(--md-sys-color-on-surface)] cursor-pointer outline-none hover:border-[var(--md-sys-color-primary)] transition"
+                  className="text-[10.5px] sm:text-xs font-semibold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-white dark:bg-[#1e2024] border border-[var(--md-sys-color-outline-variant)]/40 text-[var(--md-sys-color-on-surface)] cursor-pointer outline-none hover:border-[var(--md-sys-color-primary)] transition"
                 >
                   <option value="7days">Last 7 Days (Week)</option>
                   <option value="1month">Last 1 Month</option>
@@ -753,48 +768,58 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 </select>
               </div>
 
-              <span className="text-[11px] font-semibold text-[var(--md-sys-color-on-surface-variant)] self-start sm:self-auto">
+              <span className="text-[10.5px] sm:text-[11px] font-semibold text-[var(--md-sys-color-on-surface-variant)] self-start sm:self-auto">
                 Total {totalTasksAccomplished} Tasks Accomplished
               </span>
             </div>
 
             {/* Bar Chart Grid */}
-            <div className="grid grid-cols-7 gap-2 sm:gap-4 pt-6 pb-2 items-end h-48">
+            <div className="grid grid-cols-7 gap-1 sm:gap-4 pt-2 sm:pt-4 pb-1 sm:pb-2 items-end h-36 sm:h-48">
               {dayWiseActivity.map((day, idx) => {
                 const totalTasks = day.videosCompleted + day.testsAttempted;
-                const videoHeight = Math.round((day.videosCompleted / maxDayTasks) * 110);
-                const testHeight = Math.round((day.testsAttempted / maxDayTasks) * 110);
+                const maxBarH = 75;
+                const barH = maxDayTasks > 0 ? Math.round((totalTasks / maxDayTasks) * maxBarH) : 0;
+                const testH = totalTasks > 0 ? Math.round((day.testsAttempted / totalTasks) * barH) : 0;
+                const videoH = totalTasks > 0 ? barH - testH : 0;
 
                 return (
-                  <div key={idx} className="flex flex-col items-center justify-end h-full group cursor-pointer space-y-2">
+                  <div key={idx} className="relative flex flex-col items-center justify-end h-full group cursor-pointer space-y-1.5 sm:space-y-2">
                     {/* Tooltip on hover */}
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px] font-bold px-2 py-1 rounded-md bg-black/80 text-white whitespace-nowrap shadow-md pointer-events-none mb-1">
+                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px] font-bold px-2 py-1 rounded-md bg-black/80 text-white whitespace-nowrap shadow-md pointer-events-none z-20">
                       {day.videosCompleted} Video · {day.testsAttempted} Test ({day.avgScore}%)
                     </div>
 
                     {/* Stacked Vertical Bar */}
-                    <div className="w-7 sm:w-10 flex flex-col justify-end items-center rounded-2xl overflow-hidden bg-[var(--md-sys-color-surface-container-highest)]/60 p-0.5">
+                    <div className="w-5 sm:w-10 flex flex-col justify-end items-center rounded-2xl overflow-hidden bg-[var(--md-sys-color-surface-container-highest)]/60 p-0.5">
                       {/* Tests Completed (Emerald) */}
-                      <div
-                        style={{ height: `${Math.max(testHeight, 14)}px` }}
-                        className="w-full bg-emerald-500 rounded-t-xl transition-all duration-500 group-hover:brightness-110"
-                        title={`${day.testsAttempted} Tests`}
-                      />
+                      {testH > 0 ? (
+                        <div
+                          style={{ height: `${Math.max(testH, 8)}px` }}
+                          className="w-full bg-emerald-500 rounded-t-xl transition-all duration-500 group-hover:brightness-110"
+                          title={`${day.testsAttempted} Tests`}
+                        />
+                      ) : null}
                       {/* Videos Completed (Primary Blue) */}
-                      <div
-                        style={{ height: `${Math.max(videoHeight, 18)}px` }}
-                        className="w-full bg-[var(--md-sys-color-primary)] rounded-b-xl transition-all duration-500 group-hover:brightness-110 mt-0.5"
-                        title={`${day.videosCompleted} Videos`}
-                      />
+                      {videoH > 0 ? (
+                        <div
+                          style={{ height: `${Math.max(videoH, 10)}px` }}
+                          className={`w-full bg-[var(--md-sys-color-primary)] ${testH > 0 ? 'rounded-b-xl mt-0.5' : 'rounded-xl'} transition-all duration-500 group-hover:brightness-110`}
+                          title={`${day.videosCompleted} Videos`}
+                        />
+                      ) : null}
+                      {/* If 0 tasks, show clean baseline dot */}
+                      {totalTasks === 0 ? (
+                        <div className="w-full h-1.5 rounded-full bg-[var(--md-sys-color-outline-variant)]/40 my-0.5" />
+                      ) : null}
                     </div>
 
                     {/* Day Label */}
-                    <div className="text-center">
-                      <span className={`text-[11px] font-bold block ${day.isToday ? 'text-[var(--md-sys-color-primary)] font-extrabold' : 'text-[var(--md-sys-color-on-surface-variant)]'}`}>
+                    <div className="text-center w-full select-none">
+                      <span className={`text-[10px] sm:text-[11px] font-bold block truncate leading-tight ${day.isToday ? 'text-[var(--md-sys-color-primary)] font-extrabold' : 'text-[var(--md-sys-color-on-surface-variant)]'}`}>
                         {day.dayName}
                       </span>
-                      <span className="text-[9px] text-[var(--md-sys-color-outline)] block">
-                        {totalTasks} tasks
+                      <span className="text-[8.5px] sm:text-[9.5px] text-[var(--md-sys-color-outline)] block leading-tight truncate">
+                        {totalTasks} {totalTasks === 1 ? 'task' : 'tasks'}
                       </span>
                     </div>
                   </div>

@@ -63,7 +63,7 @@ export const GeminiChatSidebar: React.FC<GeminiChatSidebarProps> = ({
       }`}
     >
       {/* Sidebar Header */}
-      <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1rem)] bg-white dark:bg-[#1e2024] flex items-center gap-3 shrink-0 rounded-tl-[28px] border-b border-slate-100 dark:border-zinc-800/80">
+      <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] bg-white dark:bg-[#1e2024] flex items-center gap-3 shrink-0 rounded-tl-[28px] border-b border-slate-100 dark:border-zinc-800/80">
         <button
           onClick={() => setIsSidebarOpen(false)}
           className="w-9 h-9 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] hover:bg-[#e2e8f0] dark:hover:bg-[#32363d] text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all cursor-pointer active:scale-95 border-0 shadow-none shrink-0"

@@ -1436,7 +1436,7 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header Section */}
-              <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.25rem)] shrink-0 space-y-3.5 border-b border-slate-100 dark:border-zinc-800/80">
+              <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] shrink-0 space-y-3.5 border-b border-slate-100 dark:border-zinc-800/80">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <h3 className="text-base sm:text-lg font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] tracking-tight">

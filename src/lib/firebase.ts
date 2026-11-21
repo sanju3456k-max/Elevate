@@ -2386,14 +2386,13 @@ export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?
     }
 
     // -------------------------------------------------------------
-    // Master Enterprise Diamond Plan: Compact Cohort Bucket Enrollment
-    // Stores ~150 byte record into cohort_bucket_1.
-    // If cohort_bucket_1 reaches 700 KB, auto-spills to cohort_bucket_2.
+    // Master Enterprise Diamond Plan: Dynamic N-Cohort Bucket Enrollment
+    // Stores ~150 byte record into active cohort bucket.
+    // If bucket reaches 700 KB (or ~1800 records), dynamically spills to cohort_bucket_{N+1}.
     // Commits disaster recovery snapshot to latest_snapshot.
     // -------------------------------------------------------------
     try {
       const cohortBucket1Ref = doc(db, 'test_leaderboards', canonicalId, 'summary', 'cohort_bucket_1');
-      const cohortBucket2Ref = doc(db, 'test_leaderboards', canonicalId, 'summary', 'cohort_bucket_2');
       const cohortBackupRef = doc(db, 'test_leaderboards', canonicalId, 'backup', 'latest_snapshot');
 
       const compactRecord = {
@@ -2413,26 +2412,82 @@ export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?
       };
 
       const c1Snap = await getDoc(cohortBucket1Ref).catch(() => null);
-      let targetCohortRef = cohortBucket1Ref;
       let targetBucketIndex = 1;
+      let totalParts = 1;
+      let grandTotalParticipants = 1;
 
       if (c1Snap && c1Snap.exists()) {
         const c1Data = c1Snap.data() || {};
-        const estSize = JSON.stringify(c1Data).length;
-        if (estSize >= 716800 || c1Data.hasPart2) {
-          targetCohortRef = cohortBucket2Ref;
-          targetBucketIndex = 2;
-          await setDoc(cohortBucket1Ref, { hasPart2: true, totalParts: 2, updatedAt: new Date().toISOString() }, { merge: true }).catch(() => {});
+        const curIndex = typeof c1Data.currentBucketIndex === 'number' ? c1Data.currentBucketIndex : (c1Data.hasPart2 ? 2 : 1);
+        totalParts = typeof c1Data.totalParts === 'number' ? c1Data.totalParts : (c1Data.hasPart2 ? 2 : 1);
+        grandTotalParticipants = (typeof c1Data.totalParticipants === 'number' ? c1Data.totalParticipants : (Array.isArray(c1Data.attempts) ? c1Data.attempts.length : 0)) + 1;
+
+        if (curIndex === 1) {
+          const estSize = JSON.stringify(c1Data).length;
+          const count = Array.isArray(c1Data.attempts) ? c1Data.attempts.length : 0;
+          if (estSize >= 716800 || count >= 1800) {
+            targetBucketIndex = 2;
+            totalParts = Math.max(totalParts, 2);
+          } else {
+            targetBucketIndex = 1;
+          }
+        } else {
+          // Check curIndex bucket
+          const curBucketRef = doc(db, 'test_leaderboards', canonicalId, 'summary', `cohort_bucket_${curIndex}`);
+          const curBucketSnap = await getDoc(curBucketRef).catch(() => null);
+          if (curBucketSnap && curBucketSnap.exists()) {
+            const curData = curBucketSnap.data() || {};
+            const estSize = JSON.stringify(curData).length;
+            const count = Array.isArray(curData.attempts) ? curData.attempts.length : 0;
+            if (estSize >= 716800 || count >= 1800) {
+              targetBucketIndex = curIndex + 1;
+              totalParts = Math.max(totalParts, targetBucketIndex);
+            } else {
+              targetBucketIndex = curIndex;
+            }
+          } else {
+            targetBucketIndex = curIndex;
+          }
         }
+
+        // Keep manifest in cohort_bucket_1 updated
+        await setDoc(cohortBucket1Ref, {
+          totalParts,
+          currentBucketIndex: targetBucketIndex,
+          totalParticipants: grandTotalParticipants,
+          hasPart2: totalParts >= 2,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true }).catch(() => {});
+      } else {
+        targetBucketIndex = 1;
+        totalParts = 1;
+        grandTotalParticipants = 1;
       }
+
+      const targetCohortRef = doc(db, 'test_leaderboards', canonicalId, 'summary', `cohort_bucket_${targetBucketIndex}`);
 
       await setDoc(targetCohortRef, {
         testId: canonicalId,
         testTitle: attempt.testTitle || '',
         bucketIndex: targetBucketIndex,
         attempts: arrayUnion(compactRecord),
+        totalParticipants: grandTotalParticipants,
         updatedAt: new Date().toISOString(),
       }, { merge: true }).catch(() => {});
+
+      // Dual-Key Mirroring: Ensure rawSafeId also receives the compact record for 100% resolution
+      const rawSafeId = (attempt.testId || '').replace(/[./[\]*~#$]/g, '_');
+      if (rawSafeId && rawSafeId !== canonicalId) {
+        const altTargetRef = doc(db, 'test_leaderboards', rawSafeId, 'summary', `cohort_bucket_${targetBucketIndex}`);
+        setDoc(altTargetRef, {
+          testId: canonicalId,
+          testTitle: attempt.testTitle || '',
+          bucketIndex: targetBucketIndex,
+          attempts: arrayUnion(compactRecord),
+          totalParticipants: grandTotalParticipants,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true }).catch(() => {});
+      }
 
       // Mirror atomic snapshot backup to latest_snapshot
       await setDoc(cohortBackupRef, {
@@ -2538,6 +2593,7 @@ export function subscribeToTestLeaderboard(
   }
 
   const canonicalId = getCanonicalLeaderboardId(testId, testTitle);
+  const rawSafeId = (testId || '').replace(/[./[\]*~#$]/g, '_');
   const path = `test_leaderboards/${canonicalId}/summary/cohort_bucket_1`;
 
   try {
@@ -2554,15 +2610,12 @@ export function subscribeToTestLeaderboard(
           caller: 'Active Leaderboard Modal View Listener (Strictly 1 Document Read)',
         });
 
-        const cloudEntries: LeaderboardEntry[] = [];
-        let totalParticipants = 0;
-
-        if (snap.exists()) {
-          const cData = snap.data() || {};
-          const attemptsList: any[] = Array.isArray(cData.attempts) ? cData.attempts : [];
-          attemptsList.forEach((att: any) => {
+        // Helper to process and emit combined entries
+        const emitRankedSummary = (fullAttempts: any[], totalCount: number) => {
+          const compiledEntries: LeaderboardEntry[] = [];
+          fullAttempts.forEach((att: any) => {
             if (!att) return;
-            cloudEntries.push({
+            compiledEntries.push({
               userId: att.uid || att.userId,
               userName: att.name || att.userName || 'Learner',
               userEmail: att.email || att.userEmail || '',
@@ -2578,54 +2631,126 @@ export function subscribeToTestLeaderboard(
               unattemptedQuestionIndices: att.unattemptedIndices,
             });
           });
-          totalParticipants = attemptsList.length;
-        }
 
-        // Merge with local entries
-        const localEntries = [
-          ...getLocalLeaderboardEntries(testId, testTitle),
-          ...getLocalLeaderboardEntries(canonicalId),
-        ];
+          // Merge with local entries
+          const localEntries = [
+            ...getLocalLeaderboardEntries(testId, testTitle),
+            ...getLocalLeaderboardEntries(canonicalId),
+            ...(rawSafeId ? getLocalLeaderboardEntries(rawSafeId) : []),
+          ];
 
-        const mergedMap = new Map<string, LeaderboardEntry>();
-        cloudEntries.forEach((e) => {
-          if (!e || !e.userId) return;
-          const existing = mergedMap.get(e.userId);
-          if (!existing || e.score > existing.score || (e.score === existing.score && e.timeSpentSeconds < existing.timeSpentSeconds)) {
-            mergedMap.set(e.userId, e);
-          }
-        });
-        localEntries.forEach((e) => {
-          if (!e || !e.userId) return;
-          const existing = mergedMap.get(e.userId);
-          if (!existing || e.score > existing.score) {
-            mergedMap.set(e.userId, e);
-          }
-        });
+          const mergedMap = new Map<string, LeaderboardEntry>();
+          compiledEntries.forEach((e) => {
+            if (!e || !e.userId) return;
+            const existing = mergedMap.get(e.userId);
+            if (!existing || e.score > existing.score || (e.score === existing.score && e.timeSpentSeconds < existing.timeSpentSeconds)) {
+              mergedMap.set(e.userId, e);
+            }
+          });
+          localEntries.forEach((e) => {
+            if (!e || !e.userId) return;
+            const existing = mergedMap.get(e.userId);
+            if (!existing || e.score > existing.score) {
+              mergedMap.set(e.userId, e);
+            }
+          });
 
-        const allEntries = Array.from(mergedMap.values());
-        allEntries.sort((a, b) => {
-          if (b.score !== a.score) return b.score - a.score;
-          return a.timeSpentSeconds - b.timeSpentSeconds;
-        });
+          const allEntries = Array.from(mergedMap.values());
+          allEntries.sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return a.timeSpentSeconds - b.timeSpentSeconds;
+          });
 
-        const rankedEntries: LeaderboardEntry[] = allEntries.map((e, idx) => ({
-          ...e,
-          rank: idx + 1,
-        }));
+          const rankedEntries: LeaderboardEntry[] = allEntries.map((e, idx) => ({
+            ...e,
+            rank: idx + 1,
+          }));
 
-        const currentUid = auth.currentUser?.uid;
-        const currentEntry = currentUid ? rankedEntries.find((e) => e.userId === currentUid) : undefined;
+          const currentUid = auth.currentUser?.uid;
+          const currentEntry = currentUid ? rankedEntries.find((e) => e.userId === currentUid) : undefined;
 
-        const summary: TestLeaderboardSummary = {
-          entries: rankedEntries,
-          totalParticipants: Math.max(totalParticipants, rankedEntries.length),
-          currentUserRank: currentEntry?.rank,
-          currentUserEntry: currentEntry,
+          const summary: TestLeaderboardSummary = {
+            entries: rankedEntries,
+            totalParticipants: Math.max(totalCount, rankedEntries.length),
+            currentUserRank: currentEntry?.rank,
+            currentUserEntry: currentEntry,
+          };
+
+          inMemoryLeaderboardCache.set(canonicalId, { data: summary, timestamp: Date.now() });
+          if (rawSafeId) inMemoryLeaderboardCache.set(rawSafeId, { data: summary, timestamp: Date.now() });
+          onUpdate(summary);
         };
 
-        inMemoryLeaderboardCache.set(canonicalId, { data: summary, timestamp: Date.now() });
-        onUpdate(summary);
+        if (snap.exists() && Array.isArray(snap.data()?.attempts) && snap.data()?.attempts.length > 0) {
+          const cData = snap.data() || {};
+          const attemptsList: any[] = Array.isArray(cData.attempts) ? [...cData.attempts] : [];
+          const totalParticipants = typeof cData.totalParticipants === 'number' ? cData.totalParticipants : attemptsList.length;
+
+          // Emit immediately with Bucket 1
+          emitRankedSummary(attemptsList, totalParticipants);
+
+          // If multi-part cohort bucket exists, seamlessly fetch Parts 2..N in parallel and re-rank across all buckets
+          const totalParts = typeof cData.totalParts === 'number' ? cData.totalParts : (cData.hasPart2 ? 2 : 1);
+          if (totalParts > 1) {
+            const partRefs = [];
+            for (let p = 2; p <= totalParts; p++) {
+              partRefs.push(doc(db, 'test_leaderboards', canonicalId, 'summary', `cohort_bucket_${p}`));
+            }
+            Promise.all(partRefs.map((r) => getDoc(r).catch(() => null))).then((snaps) => {
+              let combinedAll = [...attemptsList];
+              snaps.forEach((s) => {
+                if (s && s.exists()) {
+                  const data = s.data() || {};
+                  if (Array.isArray(data.attempts) && data.attempts.length > 0) {
+                    combinedAll = combinedAll.concat(data.attempts);
+                  }
+                }
+              });
+              emitRankedSummary(combinedAll, Math.max(totalParticipants, combinedAll.length));
+            }).catch(() => {});
+          }
+          return;
+        }
+
+        // Seamless Dual-Key Fallback: Check rawSafeId if canonicalId was empty or missing
+        if (rawSafeId && rawSafeId !== canonicalId) {
+          const rawRef = doc(db, 'test_leaderboards', rawSafeId, 'summary', 'cohort_bucket_1');
+          getDoc(rawRef).then((rawSnap) => {
+            if (rawSnap && rawSnap.exists()) {
+              const rData = rawSnap.data() || {};
+              const rAttempts: any[] = Array.isArray(rData.attempts) ? [...rData.attempts] : [];
+              if (rAttempts.length > 0) {
+                const rTotalParts = typeof rData.totalParts === 'number' ? rData.totalParts : (rData.hasPart2 ? 2 : 1);
+                const rTotal = typeof rData.totalParticipants === 'number' ? rData.totalParticipants : rAttempts.length;
+                if (rTotalParts > 1) {
+                  const pRefs = [];
+                  for (let p = 2; p <= rTotalParts; p++) {
+                    pRefs.push(doc(db, 'test_leaderboards', rawSafeId, 'summary', `cohort_bucket_${p}`));
+                  }
+                  Promise.all(pRefs.map((r) => getDoc(r).catch(() => null))).then((snaps) => {
+                    let comb = [...rAttempts];
+                    snaps.forEach((s) => {
+                      if (s && s.exists()) {
+                        const d = s.data() || {};
+                        if (Array.isArray(d.attempts)) comb = comb.concat(d.attempts);
+                      }
+                    });
+                    emitRankedSummary(comb, Math.max(rTotal, comb.length));
+                  }).catch(() => {});
+                } else {
+                  emitRankedSummary(rAttempts, rTotal);
+                }
+                return;
+              }
+            }
+            emitRankedSummary([], 0);
+          }).catch(() => {
+            emitRankedSummary([], 0);
+          });
+          return;
+        }
+
+        emitRankedSummary([], 0);
       },
       (err) => {
         console.warn('subscribeToTestLeaderboard notice:', err);
@@ -2707,41 +2832,72 @@ export async function fetchTestLeaderboard(
 
     if (cohortSnap && cohortSnap.exists()) {
       const cData = cohortSnap.data() || {};
-      let attemptsList: any[] = Array.isArray(cData.attempts) ? cData.attempts : [];
-      if (cData.hasPart2) {
-        try {
-          const c2Ref = doc(db, 'test_leaderboards', canonicalId, 'summary', 'cohort_bucket_2');
-          const c2Snap = await getDoc(c2Ref).catch(() => null);
-          if (c2Snap && c2Snap.exists()) {
-            const c2Data = c2Snap.data() || {};
-            if (Array.isArray(c2Data.attempts)) {
-              attemptsList = [...attemptsList, ...c2Data.attempts];
+      const totalParts = typeof cData.totalParts === 'number' ? cData.totalParts : (cData.hasPart2 ? 2 : 1);
+
+      if (Array.isArray(cData.entries) && cData.entries.length > 0) {
+        let entriesList: any[] = [...cData.entries];
+        if (totalParts > 1) {
+          try {
+            const partRefs = [];
+            for (let p = 2; p <= totalParts; p++) {
+              partRefs.push(doc(db, 'test_leaderboards', canonicalId, 'summary', `cohort_bucket_${p}`));
             }
-          }
-        } catch {}
-      }
+            const snaps = await Promise.all(partRefs.map((r) => getDoc(r).catch(() => null)));
+            snaps.forEach((s) => {
+              if (s && s.exists()) {
+                const data = s.data() || {};
+                if (Array.isArray(data.entries) && data.entries.length > 0) {
+                  entriesList = entriesList.concat(data.entries);
+                }
+              }
+            });
+          } catch {}
+        }
+        cloudEntries.push(...entriesList);
+        totalParticipantsFromBucket = typeof cData.totalParticipants === 'number' ? cData.totalParticipants : entriesList.length;
+        loadedFromBucket = true;
+      } else {
+        let attemptsList: any[] = Array.isArray(cData.attempts) ? [...cData.attempts] : [];
+        if (totalParts > 1) {
+          try {
+            const partRefs = [];
+            for (let p = 2; p <= totalParts; p++) {
+              partRefs.push(doc(db, 'test_leaderboards', canonicalId, 'summary', `cohort_bucket_${p}`));
+            }
+            const snaps = await Promise.all(partRefs.map((r) => getDoc(r).catch(() => null)));
+            snaps.forEach((s) => {
+              if (s && s.exists()) {
+                const data = s.data() || {};
+                if (Array.isArray(data.attempts) && data.attempts.length > 0) {
+                  attemptsList = attemptsList.concat(data.attempts);
+                }
+              }
+            });
+          } catch {}
+        }
 
-      attemptsList.forEach((att: any) => {
-        if (!att) return;
-        cloudEntries.push({
-          userId: att.uid || att.userId,
-          userName: att.name || att.userName || 'Learner',
-          userEmail: att.email || att.userEmail || '',
-          score: typeof att.score === 'number' ? att.score : 0,
-          totalPoints: typeof att.totalPoints === 'number' ? att.totalPoints : 200,
-          percentage: typeof att.percentage === 'number' ? att.percentage : 0,
-          timeSpentSeconds: typeof att.durationSeconds === 'number' ? att.durationSeconds : (att.timeSpentSeconds || 0),
-          attemptMode: att.mode || 'online',
-          completedAt: att.completedAt || (att.timestamp ? new Date(att.timestamp).toISOString() : new Date().toISOString()),
-          testTitle: testTitle || '',
-          attemptNumber: 1,
-          wrongQuestionIndices: att.wrongIndices,
-          unattemptedQuestionIndices: att.unattemptedIndices,
+        attemptsList.forEach((att: any) => {
+          if (!att) return;
+          cloudEntries.push({
+            userId: att.uid || att.userId,
+            userName: att.name || att.userName || 'Learner',
+            userEmail: att.email || att.userEmail || '',
+            score: typeof att.score === 'number' ? att.score : 0,
+            totalPoints: typeof att.totalPoints === 'number' ? att.totalPoints : 200,
+            percentage: typeof att.percentage === 'number' ? att.percentage : 0,
+            timeSpentSeconds: typeof att.durationSeconds === 'number' ? att.durationSeconds : (att.timeSpentSeconds || 0),
+            attemptMode: att.mode || 'online',
+            completedAt: att.completedAt || (att.timestamp ? new Date(att.timestamp).toISOString() : new Date().toISOString()),
+            testTitle: testTitle || '',
+            attemptNumber: 1,
+            wrongQuestionIndices: att.wrongIndices,
+            unattemptedQuestionIndices: att.unattemptedIndices,
+          });
         });
-      });
 
-      totalParticipantsFromBucket = attemptsList.length;
-      loadedFromBucket = true;
+        totalParticipantsFromBucket = typeof cData.totalParticipants === 'number' ? cData.totalParticipants : attemptsList.length;
+        loadedFromBucket = true;
+      }
     }
 
     // A1. Fallback to top_bucket summary doc
@@ -2765,27 +2921,70 @@ export async function fetchTestLeaderboard(
       const altCohortSnap = await getDoc(altCohortBucketRef).catch(() => null);
       if (altCohortSnap && altCohortSnap.exists()) {
         const altData = altCohortSnap.data() || {};
-        let attemptsList: any[] = Array.isArray(altData.attempts) ? altData.attempts : [];
-        attemptsList.forEach((att: any) => {
-          if (!att) return;
-          cloudEntries.push({
-            userId: att.uid || att.userId,
-            userName: att.name || att.userName || 'Learner',
-            userEmail: att.email || att.userEmail || '',
-            score: typeof att.score === 'number' ? att.score : 0,
-            totalPoints: typeof att.totalPoints === 'number' ? att.totalPoints : 200,
-            percentage: typeof att.percentage === 'number' ? att.percentage : 0,
-            timeSpentSeconds: typeof att.durationSeconds === 'number' ? att.durationSeconds : (att.timeSpentSeconds || 0),
-            attemptMode: att.mode || 'online',
-            completedAt: att.completedAt || (att.timestamp ? new Date(att.timestamp).toISOString() : new Date().toISOString()),
-            testTitle: testTitle || '',
-            attemptNumber: 1,
-            wrongQuestionIndices: att.wrongIndices,
-            unattemptedQuestionIndices: att.unattemptedIndices,
+        const altTotalParts = typeof altData.totalParts === 'number' ? altData.totalParts : (altData.hasPart2 ? 2 : 1);
+
+        if (Array.isArray(altData.entries) && altData.entries.length > 0) {
+          let entriesList: any[] = [...altData.entries];
+          if (altTotalParts > 1) {
+            try {
+              const partRefs = [];
+              for (let p = 2; p <= altTotalParts; p++) {
+                partRefs.push(doc(db, 'test_leaderboards', rawSafeId, 'summary', `cohort_bucket_${p}`));
+              }
+              const snaps = await Promise.all(partRefs.map((r) => getDoc(r).catch(() => null)));
+              snaps.forEach((s) => {
+                if (s && s.exists()) {
+                  const data = s.data() || {};
+                  if (Array.isArray(data.entries) && data.entries.length > 0) {
+                    entriesList = entriesList.concat(data.entries);
+                  }
+                }
+              });
+            } catch {}
+          }
+          cloudEntries.push(...entriesList);
+          totalParticipantsFromBucket = typeof altData.totalParticipants === 'number' ? altData.totalParticipants : entriesList.length;
+          loadedFromBucket = true;
+        } else {
+          let attemptsList: any[] = Array.isArray(altData.attempts) ? [...altData.attempts] : [];
+          if (altTotalParts > 1) {
+            try {
+              const partRefs = [];
+              for (let p = 2; p <= altTotalParts; p++) {
+                partRefs.push(doc(db, 'test_leaderboards', rawSafeId, 'summary', `cohort_bucket_${p}`));
+              }
+              const snaps = await Promise.all(partRefs.map((r) => getDoc(r).catch(() => null)));
+              snaps.forEach((s) => {
+                if (s && s.exists()) {
+                  const data = s.data() || {};
+                  if (Array.isArray(data.attempts) && data.attempts.length > 0) {
+                    attemptsList = attemptsList.concat(data.attempts);
+                  }
+                }
+              });
+            } catch {}
+          }
+          attemptsList.forEach((att: any) => {
+            if (!att) return;
+            cloudEntries.push({
+              userId: att.uid || att.userId,
+              userName: att.name || att.userName || 'Learner',
+              userEmail: att.email || att.userEmail || '',
+              score: typeof att.score === 'number' ? att.score : 0,
+              totalPoints: typeof att.totalPoints === 'number' ? att.totalPoints : 200,
+              percentage: typeof att.percentage === 'number' ? att.percentage : 0,
+              timeSpentSeconds: typeof att.durationSeconds === 'number' ? att.durationSeconds : (att.timeSpentSeconds || 0),
+              attemptMode: att.mode || 'online',
+              completedAt: att.completedAt || (att.timestamp ? new Date(att.timestamp).toISOString() : new Date().toISOString()),
+              testTitle: testTitle || '',
+              attemptNumber: 1,
+              wrongQuestionIndices: att.wrongIndices,
+              unattemptedQuestionIndices: att.unattemptedIndices,
+            });
           });
-        });
-        totalParticipantsFromBucket = attemptsList.length;
-        loadedFromBucket = true;
+          totalParticipantsFromBucket = typeof altData.totalParticipants === 'number' ? Math.max(altData.totalParticipants, attemptsList.length) : attemptsList.length;
+          loadedFromBucket = true;
+        }
       }
     }
   } catch (err) {

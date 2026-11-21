@@ -31,8 +31,39 @@ public class MainActivity extends BridgeActivity {
 
     private BroadcastReceiver pipActionReceiver;
 
+    public static void applyAppNightMode(Context context, String theme) {
+        if (context == null) return;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                android.app.UiModeManager uiModeManager = (android.app.UiModeManager) context.getSystemService(Context.UI_MODE_SERVICE);
+                if (uiModeManager != null) {
+                    if ("dark".equals(theme)) {
+                        uiModeManager.setApplicationNightMode(android.app.UiModeManager.MODE_NIGHT_YES);
+                    } else if ("light".equals(theme)) {
+                        uiModeManager.setApplicationNightMode(android.app.UiModeManager.MODE_NIGHT_NO);
+                    } else {
+                        uiModeManager.setApplicationNightMode(android.app.UiModeManager.MODE_NIGHT_AUTO);
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        try {
+            if ("dark".equals(theme)) {
+                androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES);
+            } else if ("light".equals(theme)) {
+                androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO);
+            }
+        } catch (Exception ignored) {}
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // Read app's stored theme condition (light vs dark) before installing splash
+        android.content.SharedPreferences prefs = getSharedPreferences("ElevateAppPrefs", MODE_PRIVATE);
+        String appTheme = prefs.getString("app_theme", "light");
+        applyAppNightMode(this, appTheme);
+
+        androidx.core.splashscreen.SplashScreen.installSplashScreen(this);
         registerPlugin(PipPlugin.class);
         super.onCreate(savedInstanceState);
 

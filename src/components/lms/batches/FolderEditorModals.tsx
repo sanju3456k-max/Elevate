@@ -87,26 +87,26 @@ export const CreateOrEditFolderModal: React.FC<CreateOrEditFolderModalProps> = (
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/20 dark:bg-black/60 backdrop-blur-md animate-fade-in">
       <div 
-        className="w-full max-w-md bg-white dark:bg-[#1e2024] rounded-3xl shadow-2xl border border-[var(--md-sys-color-outline-variant)]/20 overflow-hidden"
+        className="w-full max-w-md bg-white/95 dark:bg-[#121316]/95 backdrop-blur-2xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.08),0_6px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.65)] border border-slate-100 dark:border-white/10 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-5 border-b border-[var(--md-sys-color-outline-variant)]/15">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 dark:border-zinc-800 bg-white/80 dark:bg-[#121316]/80 backdrop-blur-md">
           <div className="flex items-center space-x-2.5">
             <div 
-              className="w-9 h-9 rounded-2xl flex items-center justify-center text-white shadow-xs"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-white shadow-2xs shrink-0"
               style={{ backgroundColor: color }}
             >
-              <FolderPlus className="w-5 h-5" />
+              <FolderPlus className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-[var(--md-sys-color-on-surface)]">
+              <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100">
                 {isEdit ? 'Edit Folder' : 'New Subfolder'}
               </h3>
               {parentFolderName && !isEdit && (
-                <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] truncate max-w-xs">
-                  Inside: <span className="font-semibold">{parentFolderName}</span>
+                <p className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium truncate max-w-xs">
+                  Inside: <span className="font-bold">{parentFolderName}</span>
                 </p>
               )}
             </div>
@@ -114,15 +114,15 @@ export const CreateOrEditFolderModal: React.FC<CreateOrEditFolderModalProps> = (
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)] border-none bg-transparent cursor-pointer"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition active:scale-95 border-none bg-transparent cursor-pointer"
           >
             <X className="w-4.5 h-4.5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4">
           <div>
-            <label className="block text-xs font-bold text-[var(--md-sys-color-on-surface)] mb-1.5">
+            <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
               Folder Name <span className="text-rose-500">*</span>
             </label>
             <input
@@ -132,12 +132,12 @@ export const CreateOrEditFolderModal: React.FC<CreateOrEditFolderModalProps> = (
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Chapter 01: Kinematics"
-              className="w-full px-3.5 py-2.5 rounded-2xl bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs sm:text-sm text-[var(--md-sys-color-on-surface)] focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition"
+              className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 dark:focus:bg-zinc-900/80 border border-slate-200/80 focus:border-[#0b57d0] dark:border-zinc-700/60 dark:focus:border-[#a8c7fa] text-xs sm:text-sm text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 dark:placeholder:text-zinc-500 focus:outline-hidden backdrop-blur-xs transition font-medium"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-[var(--md-sys-color-on-surface)] mb-1.5">
+            <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
               Description (Optional)
             </label>
             <textarea
@@ -145,15 +145,15 @@ export const CreateOrEditFolderModal: React.FC<CreateOrEditFolderModalProps> = (
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Brief summary of lectures, notes or tests inside this folder..."
-              className="w-full px-3.5 py-2.5 rounded-2xl bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs text-[var(--md-sys-color-on-surface)] focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition resize-none"
+              className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 dark:focus:bg-zinc-900/80 border border-slate-200/80 focus:border-[#0b57d0] dark:border-zinc-700/60 dark:focus:border-[#a8c7fa] text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 dark:placeholder:text-zinc-500 focus:outline-hidden backdrop-blur-xs transition resize-none font-medium"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-[var(--md-sys-color-on-surface)] mb-2">
+            <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-2">
               Color Tag
             </label>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="p-2.5 rounded-2xl bg-white/70 dark:bg-zinc-900/40 backdrop-blur-xs border border-slate-100 dark:border-zinc-800 flex items-center gap-2 flex-wrap">
               {FOLDER_COLORS.map((col) => (
                 <button
                   key={col.id}
@@ -171,18 +171,18 @@ export const CreateOrEditFolderModal: React.FC<CreateOrEditFolderModalProps> = (
             </div>
           </div>
 
-          <div className="flex items-center justify-end space-x-2 pt-2 border-t border-[var(--md-sys-color-outline-variant)]/15">
+          <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold rounded-full text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container)] border-none bg-transparent cursor-pointer"
+              className="h-9 px-4 text-xs font-bold rounded-full bg-slate-100/80 hover:bg-slate-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border-none cursor-pointer transition active:scale-95"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!title.trim()}
-              className="px-5 py-2 text-xs font-bold rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] hover:opacity-95 disabled:opacity-50 border-none cursor-pointer shadow-xs"
+              className="h-9 px-5 text-xs font-bold rounded-full bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] disabled:opacity-50 border-none cursor-pointer shadow-xs transition active:scale-95"
             >
               {isEdit ? 'Save Changes' : 'Create Folder'}
             </button>
@@ -321,23 +321,23 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/20 dark:bg-black/60 backdrop-blur-md animate-fade-in">
       <div 
-        className="w-full max-w-lg bg-white dark:bg-[#1e2024] rounded-3xl shadow-2xl border border-[var(--md-sys-color-outline-variant)]/20 overflow-hidden"
+        className="w-full max-w-lg bg-white/95 dark:bg-[#121316]/95 backdrop-blur-2xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.08),0_6px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.65)] border border-slate-100 dark:border-white/10 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-5 border-b border-[var(--md-sys-color-outline-variant)]/15">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 dark:border-zinc-800 bg-white/80 dark:bg-[#121316]/80 backdrop-blur-md">
           <div className="flex items-center space-x-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
-              <Video className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-950/70 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shadow-2xs shrink-0">
+              <Video className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-[var(--md-sys-color-on-surface)]">
+              <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100">
                 {initialData ? 'Edit Video Lecture' : 'Add Video Lecture'}
               </h3>
               {folderName && (
-                <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] truncate max-w-xs">
-                  In: <span className="font-semibold">{folderName}</span>
+                <p className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium truncate max-w-xs">
+                  In: <span className="font-bold">{folderName}</span>
                 </p>
               )}
             </div>
@@ -345,15 +345,15 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)] border-none bg-transparent cursor-pointer"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition active:scale-95 border-none bg-transparent cursor-pointer"
           >
             <X className="w-4.5 h-4.5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 max-h-[75vh] overflow-y-auto">
           <div>
-            <label className="block text-xs font-bold text-[var(--md-sys-color-on-surface)] mb-1.5">
+            <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
               Lecture Title <span className="text-rose-500">*</span>
             </label>
             <input
@@ -363,17 +363,17 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Lecture 01: Concept Overview & 1D Kinematics"
-              className="w-full px-3.5 py-2.5 rounded-2xl bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs sm:text-sm text-[var(--md-sys-color-on-surface)] focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition"
+              className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 dark:focus:bg-zinc-900/80 border border-slate-200/80 focus:border-[#0b57d0] dark:border-zinc-700/60 dark:focus:border-[#a8c7fa] text-xs sm:text-sm text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 dark:placeholder:text-zinc-500 focus:outline-hidden backdrop-blur-xs transition font-medium"
             />
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-bold text-[var(--md-sys-color-on-surface)]">
+              <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200">
                 Video Source (YouTube / Vimeo / Direct URL) <span className="text-rose-500">*</span>
               </label>
               {isAutoFetching && (
-                <span className="text-[11px] text-indigo-500 font-semibold flex items-center gap-1.5 animate-pulse">
+                <span className="text-[11px] text-[#0b57d0] dark:text-[#a8c7fa] font-semibold flex items-center gap-1.5 animate-pulse">
                   <M3CircularProgress size={12} fourColor={true} />
                   <span>Auto-generating title & timing...</span>
                 </span>
@@ -391,9 +391,9 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
                 }
               }}
               placeholder="https://www.youtube.com/watch?v=... or YouTube Video ID"
-              className="w-full px-3.5 py-2.5 rounded-2xl bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs sm:text-sm text-[var(--md-sys-color-on-surface)] focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition font-mono"
+              className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 dark:focus:bg-zinc-900/80 border border-slate-200/80 focus:border-[#0b57d0] dark:border-zinc-700/60 dark:focus:border-[#a8c7fa] text-xs sm:text-sm text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 dark:placeholder:text-zinc-500 focus:outline-hidden backdrop-blur-xs transition font-medium"
             />
-            <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] mt-1">
+            <p className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium mt-1">
               Supports full YouTube links (including unlisted), Vimeo, or direct video URLs. Obfuscated automatically.
             </p>
 
@@ -412,8 +412,8 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-[var(--md-sys-color-on-surface)] mb-1.5 flex items-center space-x-1">
-                <Clock className="w-3.5 h-3.5 text-slate-400" />
+              <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5 flex items-center space-x-1">
+                <Clock className="w-3.5 h-3.5 text-slate-600 dark:text-zinc-400" />
                 <span>Duration (Minutes)</span>
               </label>
               <input
@@ -422,17 +422,17 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
                 max={600}
                 value={durationMinutes}
                 onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 rounded-2xl bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs sm:text-sm text-[var(--md-sys-color-on-surface)] focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition"
+                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 dark:focus:bg-zinc-900/80 border border-slate-200/80 focus:border-[#0b57d0] dark:border-zinc-700/60 dark:focus:border-[#a8c7fa] text-xs sm:text-sm text-slate-900 dark:text-zinc-100 focus:outline-hidden backdrop-blur-xs transition tabular-nums font-bold"
               />
             </div>
 
-            <div className="flex items-center justify-between p-3 rounded-2xl bg-[var(--md-sys-color-surface-container-low)]">
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-white/70 dark:bg-zinc-900/40 backdrop-blur-xs border border-slate-100/90 dark:border-zinc-800/60">
               <div>
-                <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-1">
+                <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 flex items-center space-x-1">
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                   <span>Free Preview</span>
                 </span>
-                <span className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] block">
+                <span className="text-[10.5px] text-slate-700 dark:text-zinc-300 font-medium block">
                   Allow guests to view
                 </span>
               </div>
@@ -445,7 +445,7 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-[var(--md-sys-color-on-surface)] mb-1.5">
+            <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
               Description (Optional)
             </label>
             <textarea
@@ -453,13 +453,13 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Key concepts covered, milestones, or homework instructions..."
-              className="w-full px-3.5 py-2.5 rounded-2xl bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs text-[var(--md-sys-color-on-surface)] focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition resize-none"
+              className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 dark:focus:bg-zinc-900/80 border border-slate-200/80 focus:border-[#0b57d0] dark:border-zinc-700/60 dark:focus:border-[#a8c7fa] text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 dark:placeholder:text-zinc-500 focus:outline-hidden backdrop-blur-xs transition resize-none font-medium"
             />
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-[var(--md-sys-color-surface-container-low)] space-y-2 border border-[var(--md-sys-color-outline-variant)]/20">
-            <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-1.5">
-              <FileText className="w-3.5 h-3.5 text-emerald-600" />
+          <div className="p-3.5 rounded-2xl bg-white/70 dark:bg-zinc-900/40 space-y-2 border border-slate-100/90 dark:border-zinc-800/60 backdrop-blur-xs">
+            <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 flex items-center space-x-1.5">
+              <FileText className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Attach PDF Notes / DPP (Optional)</span>
             </span>
             <input
@@ -467,29 +467,29 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
               value={pdfNoteTitle}
               onChange={(e) => setPdfNoteTitle(e.target.value)}
               placeholder="e.g. Class Handwritten DPP Notes"
-              className="w-full px-3 py-2 rounded-xl bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs text-[var(--md-sys-color-on-surface)]"
+              className="w-full px-3 py-2 rounded-xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 border border-slate-200/80 dark:border-zinc-700/60 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 dark:placeholder:text-zinc-500 font-medium outline-hidden"
             />
             <input
               type="url"
               value={pdfNoteUrl}
               onChange={(e) => setPdfNoteUrl(e.target.value)}
               placeholder="https://drive.google.com/... or Direct PDF Link"
-              className="w-full px-3 py-2 rounded-xl bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs text-[var(--md-sys-color-on-surface)] font-mono"
+              className="w-full px-3 py-2 rounded-xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 border border-slate-200/80 dark:border-zinc-700/60 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 dark:placeholder:text-zinc-500 font-medium outline-hidden"
             />
           </div>
 
-          <div className="flex items-center justify-end space-x-2 pt-2 border-t border-[var(--md-sys-color-outline-variant)]/15">
+          <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold rounded-full text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container)] border-none bg-transparent cursor-pointer"
+              className="h-9 px-4 text-xs font-bold rounded-full bg-slate-100/80 hover:bg-slate-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border-none cursor-pointer transition active:scale-95"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!title.trim() || !videoUrl.trim()}
-              className="px-5 py-2 text-xs font-bold rounded-full bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50 border-none cursor-pointer shadow-xs"
+              className="h-9 px-5 text-xs font-bold rounded-full bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] disabled:opacity-50 border-none cursor-pointer shadow-xs transition active:scale-95"
             >
               {initialData ? 'Save Lecture' : 'Add Lecture'}
             </button>
@@ -553,23 +553,23 @@ export const AddOrEditNoteModal: React.FC<AddOrEditNoteModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/20 dark:bg-black/60 backdrop-blur-md animate-fade-in">
       <div 
-        className="w-full max-w-md bg-white dark:bg-[#1e2024] rounded-3xl shadow-2xl border border-[var(--md-sys-color-outline-variant)]/20 overflow-hidden"
+        className="w-full max-w-md bg-white/95 dark:bg-[#121316]/95 backdrop-blur-2xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.08),0_6px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.65)] border border-slate-100 dark:border-white/10 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-5 border-b border-[var(--md-sys-color-outline-variant)]/15">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 dark:border-zinc-800 bg-white/80 dark:bg-[#121316]/80 backdrop-blur-md">
           <div className="flex items-center space-x-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
-              <FileText className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shadow-2xs shrink-0">
+              <FileText className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-[var(--md-sys-color-on-surface)]">
+              <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100">
                 {initialData ? 'Edit PDF Note' : 'Add PDF Note / Document'}
               </h3>
               {folderName && (
-                <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] truncate max-w-xs">
-                  In: <span className="font-semibold">{folderName}</span>
+                <p className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium truncate max-w-xs">
+                  In: <span className="font-bold">{folderName}</span>
                 </p>
               )}
             </div>
@@ -577,15 +577,15 @@ export const AddOrEditNoteModal: React.FC<AddOrEditNoteModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)] border-none bg-transparent cursor-pointer"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition active:scale-95 border-none bg-transparent cursor-pointer"
           >
             <X className="w-4.5 h-4.5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4">
           <div>
-            <label className="block text-xs font-bold text-[var(--md-sys-color-on-surface)] mb-1.5">
+            <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
               Document Title <span className="text-rose-500">*</span>
             </label>
             <input
@@ -595,12 +595,12 @@ export const AddOrEditNoteModal: React.FC<AddOrEditNoteModalProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Formula Sheet & Cheat Sheet"
-              className="w-full px-3.5 py-2.5 rounded-2xl bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs sm:text-sm text-[var(--md-sys-color-on-surface)] focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition"
+              className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 dark:focus:bg-zinc-900/80 border border-slate-200/80 focus:border-[#0b57d0] dark:border-zinc-700/60 dark:focus:border-[#a8c7fa] text-xs sm:text-sm text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 dark:placeholder:text-zinc-500 focus:outline-hidden backdrop-blur-xs transition font-medium"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-[var(--md-sys-color-on-surface)] mb-1.5">
+            <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
               PDF Document Link (Google Drive / Direct URL) <span className="text-rose-500">*</span>
             </label>
             <input
@@ -609,25 +609,25 @@ export const AddOrEditNoteModal: React.FC<AddOrEditNoteModalProps> = ({
               value={fileUrl}
               onChange={(e) => setFileUrl(e.target.value)}
               placeholder="https://drive.google.com/file/d/... or Direct PDF link"
-              className="w-full px-3.5 py-2.5 rounded-2xl bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs sm:text-sm text-[var(--md-sys-color-on-surface)] focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition font-mono"
+              className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 dark:focus:bg-zinc-900/80 border border-slate-200/80 focus:border-[#0b57d0] dark:border-zinc-700/60 dark:focus:border-[#a8c7fa] text-xs sm:text-sm text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 dark:placeholder:text-zinc-500 focus:outline-hidden backdrop-blur-xs transition font-medium"
             />
-            <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)] mt-1">
+            <p className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium mt-1">
               Supports Google Drive share links, preview links, or secure HTTPS PDF URLs.
             </p>
           </div>
 
-          <div className="flex items-center justify-end space-x-2 pt-2 border-t border-[var(--md-sys-color-outline-variant)]/15">
+          <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold rounded-full text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container)] border-none bg-transparent cursor-pointer"
+              className="h-9 px-4 text-xs font-bold rounded-full bg-slate-100/80 hover:bg-slate-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border-none cursor-pointer transition active:scale-95"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!title.trim() || !fileUrl.trim()}
-              className="px-5 py-2 text-xs font-bold rounded-full bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 border-none cursor-pointer shadow-xs"
+              className="h-9 px-5 text-xs font-bold rounded-full bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] disabled:opacity-50 border-none cursor-pointer shadow-xs transition active:scale-95"
             >
               {initialData ? 'Save Note' : 'Add Note'}
             </button>
@@ -668,23 +668,23 @@ export const LinkTestModal: React.FC<LinkTestModalProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/20 dark:bg-black/60 backdrop-blur-md animate-fade-in">
       <div 
-        className="w-full max-w-lg bg-white dark:bg-[#1e2024] rounded-3xl shadow-2xl border border-[var(--md-sys-color-outline-variant)]/20 overflow-hidden flex flex-col max-h-[80vh]"
+        className="w-full max-w-lg bg-white/95 dark:bg-[#121316]/95 backdrop-blur-2xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.08),0_6px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.65)] border border-slate-100 dark:border-white/10 overflow-hidden flex flex-col max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-5 border-b border-[var(--md-sys-color-outline-variant)]/15 shrink-0">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 dark:border-zinc-800 bg-white/80 dark:bg-[#121316]/80 backdrop-blur-md shrink-0">
           <div className="flex items-center space-x-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
-              <Award className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 flex items-center justify-center shadow-2xs shrink-0">
+              <Award className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-[var(--md-sys-color-on-surface)]">
+              <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100">
                 Link Mock Tests
               </h3>
               {folderName && (
-                <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] truncate max-w-xs">
-                  Folder: <span className="font-semibold">{folderName}</span>
+                <p className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium truncate max-w-xs">
+                  Folder: <span className="font-bold">{folderName}</span>
                 </p>
               )}
             </div>
@@ -692,22 +692,22 @@ export const LinkTestModal: React.FC<LinkTestModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)] border-none bg-transparent cursor-pointer"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition active:scale-95 border-none bg-transparent cursor-pointer"
           >
             <X className="w-4.5 h-4.5" />
           </button>
         </div>
 
         {/* Search */}
-        <div className="p-4 border-b border-[var(--md-sys-color-outline-variant)]/15 shrink-0">
+        <div className="p-3.5 sm:p-4 border-b border-slate-100 dark:border-zinc-800 bg-white/60 dark:bg-white/[0.01] shrink-0">
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-slate-600 dark:text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search mock tests by title or topic..."
-              className="w-full pl-9 pr-3.5 py-2 rounded-2xl bg-[var(--md-sys-color-surface-container)] border border-[var(--md-sys-color-outline-variant)]/30 text-xs text-[var(--md-sys-color-on-surface)] focus:outline-hidden"
+              className="w-full pl-9 pr-3.5 py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 dark:focus:bg-zinc-900/80 border border-slate-200/80 focus:border-[#0b57d0] dark:border-zinc-700/60 dark:focus:border-[#a8c7fa] text-xs sm:text-sm text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 dark:placeholder:text-zinc-500 focus:outline-hidden backdrop-blur-xs transition font-medium"
             />
           </div>
         </div>
@@ -715,7 +715,7 @@ export const LinkTestModal: React.FC<LinkTestModalProps> = ({
         {/* Test List */}
         <div className="p-4 overflow-y-auto space-y-2 flex-1">
           {filteredTests.length === 0 ? (
-            <div className="text-center py-8 text-xs text-[var(--md-sys-color-on-surface-variant)]">
+            <div className="text-center py-8 text-xs text-slate-700 dark:text-zinc-300 font-medium">
               No matching tests found.
             </div>
           ) : (
@@ -725,15 +725,15 @@ export const LinkTestModal: React.FC<LinkTestModalProps> = ({
                 <div
                   key={t.id}
                   onClick={() => onToggleTest(t.id)}
-                  className={`p-3 rounded-2xl border cursor-pointer transition flex items-center justify-between gap-3 ${
+                  className={`p-3 rounded-2xl border cursor-pointer transition flex items-center justify-between gap-3 backdrop-blur-xs ${
                     isLinked
-                      ? 'bg-amber-500/10 border-amber-500/40 text-[var(--md-sys-color-on-surface)]'
-                      : 'bg-[var(--md-sys-color-surface-container)] border-transparent hover:bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface)]'
+                      ? 'bg-amber-500/15 border-amber-500/40 text-slate-900 dark:text-zinc-100 shadow-2xs'
+                      : 'bg-white/70 dark:bg-zinc-900/40 hover:bg-white dark:hover:bg-zinc-900/70 border-slate-100/90 dark:border-zinc-800/60 text-slate-900 dark:text-zinc-100'
                   }`}
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold truncate">{t.title}</p>
-                    <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                    <p className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium tabular-nums">
                       {t.questions?.length || 0} Questions • {getTestDurationMinutes(t)} Mins • {t.difficulty || 'Medium'}
                     </p>
                   </div>
@@ -750,14 +750,14 @@ export const LinkTestModal: React.FC<LinkTestModalProps> = ({
           )}
         </div>
 
-        <div className="p-4 border-t border-[var(--md-sys-color-outline-variant)]/15 flex items-center justify-between shrink-0">
-          <span className="text-xs text-[var(--md-sys-color-on-surface-variant)] font-semibold">
+        <div className="p-4 border-t border-slate-100 dark:border-zinc-800 bg-white/80 dark:bg-[#121316]/80 backdrop-blur-md flex items-center justify-between shrink-0">
+          <span className="text-xs text-slate-800 dark:text-zinc-200 font-bold tabular-nums">
             {linkedTestIds.length} Tests Linked
           </span>
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 text-xs font-bold rounded-full bg-[var(--md-sys-color-primary)] text-[var(--md-sys-color-on-primary)] border-none cursor-pointer shadow-xs"
+            className="h-9 px-5 text-xs font-bold rounded-full bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] border-none cursor-pointer shadow-xs transition active:scale-95"
           >
             Done
           </button>
@@ -788,27 +788,27 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/20 dark:bg-black/60 backdrop-blur-md animate-fade-in">
       <div 
-        className="w-full max-w-sm bg-white dark:bg-[#1e2024] rounded-3xl shadow-2xl border border-[var(--md-sys-color-outline-variant)]/20 p-5 space-y-4"
+        className="w-full max-w-sm bg-white/95 dark:bg-[#121316]/95 backdrop-blur-2xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.08),0_6px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.65)] border border-slate-100 dark:border-white/10 p-5 space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="w-11 h-11 rounded-2xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center">
           <AlertTriangle className="w-6 h-6" />
         </div>
         <div>
-          <h3 className="text-base font-bold text-[var(--md-sys-color-on-surface)]">
+          <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100">
             {title}
           </h3>
-          <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] mt-1 leading-relaxed">
+          <p className="text-xs text-slate-700 dark:text-zinc-300 mt-1 leading-relaxed font-medium">
             {message}
           </p>
         </div>
-        <div className="flex items-center justify-end space-x-2 pt-2">
+        <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-bold rounded-full text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container)] border-none bg-transparent cursor-pointer"
+            className="h-9 px-4 text-xs font-bold rounded-full bg-slate-100/80 hover:bg-slate-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border-none cursor-pointer transition active:scale-95"
           >
             Cancel
           </button>
@@ -818,7 +818,7 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
               onConfirm();
               onClose();
             }}
-            className="px-5 py-2 text-xs font-bold rounded-full bg-rose-600 hover:bg-rose-700 text-white border-none cursor-pointer shadow-xs"
+            className="h-9 px-5 text-xs font-bold rounded-full bg-rose-600 hover:bg-rose-700 text-white border-none cursor-pointer shadow-xs transition active:scale-95"
           >
             Delete
           </button>
@@ -864,18 +864,18 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 m3-fade-in">
-      <div className="bg-[var(--md-sys-color-surface-container)] rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-[var(--md-sys-color-outline-variant)]/20 space-y-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between pb-3 border-b border-[var(--md-sys-color-outline-variant)]/15">
+    <div className="fixed inset-0 z-50 bg-slate-900/20 dark:bg-black/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fade-in">
+      <div className="bg-white/95 dark:bg-[#121316]/95 backdrop-blur-2xl rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-[0_20px_50px_rgba(0,0,0,0.08),0_6px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.65)] border border-slate-100 dark:border-white/10 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
           <div className="flex items-center space-x-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-[#0b57d0]/15 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center">
-              <Sparkles className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-950/70 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shadow-2xs shrink-0">
+              <Sparkles className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[var(--md-sys-color-on-surface)]">
+              <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100">
                 Create New Academic Course
               </h3>
-              <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+              <p className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium">
                 Launch a course container for folders, lectures, and mock tests.
               </p>
             </div>
@@ -883,9 +883,9 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] border-none bg-transparent cursor-pointer"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition active:scale-95 border-none bg-transparent cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4.5 h-4.5" />
           </button>
         </div>
 
@@ -909,7 +909,7 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
           className="space-y-3.5 text-xs"
         >
           <div>
-            <label className="text-[11px] font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+            <label className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 block mb-1">
               Course / Batch Title *
             </label>
             <input
@@ -918,13 +918,13 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. JEE Target 2027: Complete Calculus"
-              className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none font-bold"
+              className="w-full p-2.5 rounded-xl bg-white/60 dark:bg-black/20 hover:bg-white/80 dark:hover:bg-black/30 focus:bg-white dark:focus:bg-black/40 border border-slate-200/70 dark:border-zinc-700/60 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 dark:placeholder:text-zinc-500 focus:outline-hidden focus:border-[#0b57d0] dark:focus:border-[#a8c7fa] backdrop-blur-xs transition font-bold"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-[11px] font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+              <label className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 block mb-1">
                 Category
               </label>
               <input
@@ -932,24 +932,24 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 placeholder="e.g. Mathematics"
-                className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none"
+                className="w-full p-2.5 rounded-xl bg-white/60 dark:bg-black/20 hover:bg-white/80 dark:hover:bg-black/30 focus:bg-white dark:focus:bg-black/40 border border-slate-200/70 dark:border-zinc-700/60 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 dark:placeholder:text-zinc-500 focus:outline-hidden focus:border-[#0b57d0] dark:focus:border-[#a8c7fa] backdrop-blur-xs transition font-medium"
               />
             </div>
             <div>
-              <label className="text-[11px] font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+              <label className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 block mb-1">
                 Selling Price (₹)
               </label>
               <input
                 type="number"
                 value={price}
                 onChange={(e) => setPrice(Number(e.target.value))}
-                className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none"
+                className="w-full p-2.5 rounded-xl bg-white/60 dark:bg-black/20 hover:bg-white/80 dark:hover:bg-black/30 focus:bg-white dark:focus:bg-black/40 border border-slate-200/70 dark:border-zinc-700/60 text-xs text-slate-900 dark:text-zinc-100 focus:outline-hidden focus:border-[#0b57d0] dark:focus:border-[#a8c7fa] backdrop-blur-xs transition tabular-nums font-bold"
               />
             </div>
           </div>
 
           <div>
-            <label className="text-[11px] font-bold text-[var(--md-sys-color-on-surface-variant)] block mb-1">
+            <label className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 block mb-1">
               Description / Overview
             </label>
             <textarea
@@ -957,12 +957,12 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Course description and coverage..."
-              className="w-full p-2.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs text-[var(--md-sys-color-on-surface)] border-none outline-none resize-none"
+              className="w-full p-2.5 rounded-xl bg-white/60 dark:bg-black/20 hover:bg-white/80 dark:hover:bg-black/30 focus:bg-white dark:focus:bg-black/40 border border-slate-200/70 dark:border-zinc-700/60 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 dark:placeholder:text-zinc-500 focus:outline-hidden focus:border-[#0b57d0] dark:focus:border-[#a8c7fa] backdrop-blur-xs transition resize-none font-medium"
             />
           </div>
 
           {/* High Quality Thumbnail & Course Banner with Live 16:9 Preview & Repair */}
-          <div className="p-3.5 rounded-2xl bg-[var(--md-sys-color-surface-container-high)]/40 border border-[var(--md-sys-color-outline-variant)]/20">
+          <div className="p-3.5 rounded-2xl bg-white/50 dark:bg-zinc-800/40 border border-slate-200/60 dark:border-zinc-700/50 backdrop-blur-xs">
             <BatchThumbnailPicker
               value={bannerUrl}
               onChange={setBannerUrl}
@@ -971,12 +971,12 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
             />
           </div>
 
-          <div className="flex items-center justify-between p-3 rounded-2xl bg-[var(--md-sys-color-surface-container-high)]/60">
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-white/50 dark:bg-zinc-800/40 border border-slate-200/60 dark:border-zinc-700/50 backdrop-blur-xs">
             <div>
-              <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)] block">
+              <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 block">
                 Free Guest Mode Preview
               </span>
-              <span className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+              <span className="text-[10px] text-slate-700 dark:text-zinc-300 font-medium">
                 Allow visitors without accounts to explore preview videos.
               </span>
             </div>
@@ -986,17 +986,17 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
             />
           </div>
 
-          <div className="flex items-center justify-end space-x-2 pt-2">
+          <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-high)] border-none bg-transparent cursor-pointer"
+              className="h-9 px-4 rounded-full text-xs font-bold bg-slate-100/80 hover:bg-slate-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border-none cursor-pointer transition active:scale-95"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold border-none cursor-pointer shadow-xs transition"
+              className="h-9 px-5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] text-xs font-bold border-none cursor-pointer shadow-xs transition active:scale-95"
             >
               Create Course Batch
             </button>

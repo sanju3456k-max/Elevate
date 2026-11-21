@@ -2,9 +2,10 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 
 try {
-  console.log('0. Generating PWA icons...');
+  console.log('0. Generating PWA icons & Android splash assets...');
   execSync('node scripts/generate-icons.js', { stdio: 'inherit' });
   try {
+    execSync('node scripts/make-splash-vectors.js', { stdio: 'inherit' });
     execSync('python scripts/generate-android-assets.py', { stdio: 'inherit' });
   } catch (e) {
     // Graceful fallback if python/pymupdf is not available in environment

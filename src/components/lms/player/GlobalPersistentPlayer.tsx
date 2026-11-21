@@ -344,20 +344,9 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
     const prevHtmlOverflow = document.documentElement.style.overflow;
     document.body.style.overflow = 'hidden';
     document.documentElement.style.overflow = 'hidden';
-    window.scrollTo(0, 0);
-
-    const handleScrollLock = () => {
-      if (window.scrollY !== 0) {
-        window.scrollTo(0, 0);
-      }
-    };
-
-    window.addEventListener('scroll', handleScrollLock, { passive: false });
-
     return () => {
       document.body.style.overflow = prevBodyOverflow;
       document.documentElement.style.overflow = prevHtmlOverflow;
-      window.removeEventListener('scroll', handleScrollLock);
     };
   }, [playback, isMinimized, isInNativePip]);
 
@@ -367,18 +356,18 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
     <>
       {/* Mobile & Tablet Status Bar Background Guard (Ensures seamless plain top area) */}
       {!isMinimized && !isInNativePip && (
-        <div className="fixed top-0 inset-x-0 h-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] bg-[#e5e9f0] dark:bg-[#0b0c10] z-50 pointer-events-none transition-colors" />
+        <div className="fixed top-0 inset-x-0 h-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] bg-[#e5e9f0] dark:bg-[#0b0c10] z-50 pointer-events-none transition-colors md:hidden" />
       )}
       <div
         id="global-persistent-player-host"
         className={
           isInNativePip
-            ? 'fixed inset-0 w-full h-full z-[99999] bg-black overflow-hidden flex items-center justify-center p-0 m-0'
+            ? 'is-native-pip fixed inset-0 w-full h-full z-[99999] bg-black overflow-hidden flex items-center justify-center p-0 m-0'
             : isMinimized
-            ? `fixed right-3 sm:right-5 md:right-6 w-[280px] xs:w-[300px] sm:w-[340px] md:w-[380px] z-50 bg-[#16181d] text-white rounded-2xl md:rounded-3xl shadow-none border-0 border-none ring-0 p-0 transition-all duration-300 select-none overflow-hidden ${
+            ? `is-minimized fixed right-3 sm:right-5 md:right-6 w-[280px] xs:w-[300px] sm:w-[340px] md:w-[380px] z-50 bg-[#16181d] text-white rounded-2xl md:rounded-3xl shadow-none border-0 border-none ring-0 p-0 transition-all duration-300 select-none overflow-hidden ${
                 !isTestMode ? 'flex flex-col' : 'hidden'
               }`
-            : 'fixed inset-0 top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] md:top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] z-40 bg-[#e5e9f0] dark:bg-[#0b0c10] flex flex-col lg:grid lg:grid-cols-12 lg:gap-6 max-w-[1720px] mx-auto w-full items-start overflow-hidden lg:overflow-y-auto lg:px-8 lg:pt-3 lg:pb-24 overscroll-contain select-text'
+            : `is-expanded fixed inset-x-0 bottom-0 w-full top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] md:top-[62px] md:h-[calc(100vh-62px)] z-40 bg-[#e5e9f0] dark:bg-[#0b0c10] flex flex-col lg:grid lg:grid-cols-12 lg:gap-6 items-start overflow-hidden lg:overflow-y-auto lg:px-8 lg:pt-3 lg:pb-24 overscroll-contain select-text`
         }
       style={
         isInNativePip
@@ -400,7 +389,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             ? 'w-full h-full bg-black flex items-center justify-center p-0 m-0 overflow-hidden'
             : isMinimized
             ? 'w-full aspect-video shrink-0 rounded-t-2xl md:rounded-t-3xl overflow-hidden relative bg-black group/minivid'
-            : 'w-full aspect-video shrink-0 bg-black z-40 lg:col-span-7 xl:col-span-8 lg:col-start-1 lg:row-start-1 shadow-none rounded-none lg:rounded-3xl lg:shadow-lg overflow-hidden group relative sticky top-0'
+            : 'w-full aspect-video shrink-0 bg-black z-40 lg:col-span-7 xl:col-span-8 lg:col-start-1 lg:row-start-1 shadow-none rounded-none lg:rounded-3xl lg:shadow-lg overflow-hidden group relative sticky top-0 lg:static lg:top-auto'
         }
       >
         <div
@@ -598,7 +587,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
           style={{ overscrollBehavior: 'contain', overscrollBehaviorY: 'contain' }}
         >
           {/* Main/Left Column: Title, Badges & Overview */}
-          <div className="space-y-4 lg:col-span-8 lg:col-start-1 lg:row-start-2 w-full">
+          <div className="space-y-4 lg:col-span-7 xl:col-span-8 lg:col-start-1 lg:row-start-2 w-full">
             {/* Title & Actions row */}
             <div className="space-y-2 pt-1 sm:pt-2">
               <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 dark:text-zinc-100 leading-snug tracking-tight">

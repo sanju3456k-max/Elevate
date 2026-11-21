@@ -3811,7 +3811,7 @@ MANDATORY INSTRUCTIONS:
               onClick={(e) => e.stopPropagation()}
             >
               {/* Drawer Top Header */}
-              <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] bg-white dark:bg-[#1e2024] flex items-center gap-3 shrink-0 rounded-tl-[28px] border-b border-slate-100 dark:border-zinc-800/80">
+              <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)] bg-white dark:bg-[#1e2024] flex items-center gap-3 shrink-0 rounded-tl-[28px] border-b border-slate-100 dark:border-zinc-800/80">
                 <button
                   id="close-chat-history-drawer-btn"
                   onClick={() => setIsSidebarOpen(false)}
@@ -3982,7 +3982,7 @@ MANDATORY INSTRUCTIONS:
       {/* RIGHT: Main Clean Gemini Chat Panel */}
       <div className="flex-1 flex flex-col h-full bg-white dark:bg-[#131314] text-[#1f1f1f] dark:text-[#e3e3e3] min-w-0 overflow-hidden">
         {/* Top Minimal Header & Controls - Transparent & Compact Header Buttons */}
-        <header className="relative z-30 flex items-center justify-between gap-1 sm:gap-2 px-3 sm:px-6 md:px-8 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2 bg-white dark:bg-[#131314] shrink-0 border-0 shadow-none">
+        <header className="relative z-30 flex items-center justify-between gap-1 sm:gap-2 px-3 sm:px-6 md:px-8 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.45rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] pb-2 bg-white dark:bg-[#131314] shrink-0 border-0 shadow-none">
           <div className="flex items-center gap-1 sm:gap-2 min-w-0 shrink-0">
             {/* Back to Home / Tests Dashboard Button */}
             {onNavigateTab && (
@@ -4057,7 +4057,7 @@ MANDATORY INSTRUCTIONS:
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 6, scale: 0.98 }}
                       transition={{ duration: 0.15 }}
-                      className="fixed left-1/2 -translate-x-1/2 top-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+3.25rem)] sm:absolute sm:right-0 sm:left-auto sm:translate-x-0 sm:top-full sm:mt-2 w-[calc(100vw-1.5rem)] max-w-sm sm:w-80 max-h-[75vh] overflow-y-auto bg-white dark:bg-[#1e2024] rounded-[28px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.6)] border border-slate-200/80 dark:border-zinc-800 p-2.5 z-50 space-y-1 modal-content-smooth"
+                      className="fixed left-1/2 -translate-x-1/2 top-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+2.75rem)] sm:absolute sm:right-0 sm:left-auto sm:translate-x-0 sm:top-full sm:mt-2 w-[calc(100vw-1.5rem)] max-w-sm sm:w-80 max-h-[75vh] overflow-y-auto bg-white dark:bg-[#1e2024] rounded-[28px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.6)] border border-slate-200/80 dark:border-zinc-800 p-2.5 z-50 space-y-1 modal-content-smooth"
                     >
                       <div className="px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
                         Select Gemini Model

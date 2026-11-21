@@ -905,21 +905,22 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
     return `${mins}m ${s}s`;
   };
 
-  const answersList = Object.values(attempt.answers) as { selectedOption: string; isCorrect: boolean; flagged?: boolean }[];
+  const safeAnswers = (attempt && attempt.answers && typeof attempt.answers === 'object') ? attempt.answers : {};
+  const answersList = Object.values(safeAnswers) as { selectedOption: string; isCorrect: boolean; flagged?: boolean }[];
   const correctCount = answersList.filter((a) => a.isCorrect).length;
   const incorrectCount = answersList.filter((a) => a.selectedOption && !a.isCorrect).length;
-  const unattemptedCount = test.questions.length - (correctCount + incorrectCount);
-  const markedCount = test.questions.filter((q, idx) => {
+  const unattemptedCount = (test?.questions?.length || 0) - (correctCount + incorrectCount);
+  const markedCount = (test?.questions || []).filter((q, idx) => {
     const key = q.id || `q-${idx}`;
-    const ans = attempt.answers[key] || (q.id ? attempt.answers[q.id] : null) || attempt.answers[`q-${idx}`] || Object.values(attempt.answers)[idx];
+    const ans = safeAnswers[key] || (q.id ? safeAnswers[q.id] : null) || safeAnswers[`q-${idx}`] || Object.values(safeAnswers)[idx];
     return !!(flaggedMap[key] ?? ans?.flagged);
   }).length;
   const attemptedCount = correctCount + incorrectCount;
 
-  const currentQ = test.questions[reviewIndex] || test.questions[0];
+  const currentQ = test?.questions?.[reviewIndex] || test?.questions?.[0];
   const qId = currentQ?.id || `q-${reviewIndex}`;
   const currentUserAns = currentQ 
-    ? (attempt.answers[qId] || (currentQ.id ? attempt.answers[currentQ.id] : null) || attempt.answers[`q-${reviewIndex}`] || Object.values(attempt.answers)[reviewIndex]) 
+    ? (safeAnswers[qId] || (currentQ.id ? safeAnswers[currentQ.id] : null) || safeAnswers[`q-${reviewIndex}`] || Object.values(safeAnswers)[reviewIndex]) 
     : null;
   const isCurrentCorrect = currentUserAns ? (
     currentUserAns.isCorrect || 
@@ -930,12 +931,55 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
   const isCurrentAttempted = !!currentUserAns?.selectedOption;
   const isCurrentMarked = !!(flaggedMap[qId] ?? currentUserAns?.flagged);
 
+  // Solution Card Time Tag & Question Status Tag matching App UI Font & Styling
+  const renderSolutionCardTags = (isCompact = false) => (
+    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap shrink-0">
+      {/* Time Tag */}
+      <div 
+        title="Time spent on this question"
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f0f4f9] dark:bg-[#141619] text-[#1f1f1f] dark:text-[#e3e3e3] ${isCompact ? 'text-[11px]' : 'text-xs'} font-bold tabular-nums shadow-xs`}
+      >
+        <Clock className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-[#0b57d0] dark:text-[#a8c7fa] shrink-0`} />
+        <span>Time: {formatDuration(currentUserAns?.timeSpentSeconds || 0)}</span>
+      </div>
+
+      {/* Question Status Tag */}
+      {isCurrentAttempted ? (
+        isCurrentCorrect ? (
+          <span 
+            title="Question Status: Correct"
+            className={`inline-flex items-center gap-1 ${isCompact ? 'text-[10.5px] px-2 py-0.5' : 'text-[11.5px] px-2.5 py-1'} font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 rounded-full border border-emerald-200/80 dark:border-emerald-800/60 shadow-xs tabular-nums`}
+          >
+            <CheckCircle2 className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} shrink-0 text-emerald-600 dark:text-emerald-400`} />
+            <span>Correct (+{currentQ?.points || 1} pt)</span>
+          </span>
+        ) : (
+          <span 
+            title="Question Status: Incorrect"
+            className={`inline-flex items-center gap-1 ${isCompact ? 'text-[10.5px] px-2 py-0.5' : 'text-[11.5px] px-2.5 py-1'} font-bold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 rounded-full border border-rose-200/80 dark:border-rose-800/60 shadow-xs tabular-nums`}
+          >
+            <XCircle className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} shrink-0 text-rose-600 dark:text-rose-400`} />
+            <span>Incorrect (0 pt)</span>
+          </span>
+        )
+      ) : (
+        <span 
+          title="Question Status: Unattempted"
+          className={`inline-flex items-center gap-1 ${isCompact ? 'text-[10.5px] px-2 py-0.5' : 'text-[11.5px] px-2.5 py-1'} font-bold text-slate-700 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800/80 rounded-full border border-slate-200/80 dark:border-zinc-700/60 shadow-xs tabular-nums`}
+        >
+          <CircleDot className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} shrink-0 text-slate-500 dark:text-zinc-400`} />
+          <span>Unattempted (0 pt)</span>
+        </span>
+      )}
+    </div>
+  );
+
   // Next incorrect question shortcut
   const handleJumpNextIncorrect = () => {
-    const nextIncorrectIdx = test.questions.findIndex((q, i) => {
+    const nextIncorrectIdx = (test?.questions || []).findIndex((q, i) => {
       if (i <= reviewIndex) return false;
       const key = q.id || `q-${i}`;
-      const ans = attempt.answers[key] || (q.id ? attempt.answers[q.id] : null) || attempt.answers[`q-${i}`] || Object.values(attempt.answers)[i];
+      const ans = safeAnswers[key] || (q.id ? safeAnswers[q.id] : null) || safeAnswers[`q-${i}`] || Object.values(safeAnswers)[i];
       if (!ans) return true;
       return !ans.isCorrect;
     });
@@ -943,9 +987,9 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
     if (nextIncorrectIdx !== -1) {
       setReviewIndex(nextIncorrectIdx);
     } else {
-      const firstIncorrect = test.questions.findIndex((q, i) => {
+      const firstIncorrect = (test?.questions || []).findIndex((q, i) => {
         const key = q.id || `q-${i}`;
-        const ans = attempt.answers[key] || (q.id ? attempt.answers[q.id] : null) || attempt.answers[`q-${i}`] || Object.values(attempt.answers)[i];
+        const ans = safeAnswers[key] || (q.id ? safeAnswers[q.id] : null) || safeAnswers[`q-${i}`] || Object.values(safeAnswers)[i];
         if (!ans) return true;
         return !ans.isCorrect;
       });
@@ -954,11 +998,11 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
   };
 
   // Filter questions for the drawer panel
-  const filteredDrawerQuestions = test.questions
+  const filteredDrawerQuestions = (test?.questions || [])
     .map((q, idx) => ({ q, idx }))
     .filter(({ q, idx }) => {
       const key = q.id || `q-${idx}`;
-      const ans = attempt.answers[key] || (q.id ? attempt.answers[q.id] : null) || attempt.answers[`q-${idx}`] || Object.values(attempt.answers)[idx];
+      const ans = safeAnswers[key] || (q.id ? safeAnswers[q.id] : null) || safeAnswers[`q-${idx}`] || Object.values(safeAnswers)[idx];
       const isAttempted = !!ans?.selectedOption;
       const isCorrect = !!ans?.isCorrect;
       const isIncorrect = ans && ans.selectedOption && !ans.isCorrect;
@@ -1007,13 +1051,13 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header Section */}
-              <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.25rem)] shrink-0 space-y-3.5 border-b border-slate-100 dark:border-zinc-800/80">
+              <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] shrink-0 space-y-3.5 border-b border-slate-100 dark:border-zinc-800/80">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <h3 className="text-base sm:text-lg font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] tracking-tight">
                       Solution Palette
                     </h3>
-                    <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#0b57d0] dark:text-[#c2e7ff] border-0 ring-0 shadow-xs">
+                    <span className="text-[11px] font-bold tabular-nums px-2.5 py-0.5 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#0b57d0] dark:text-[#c2e7ff] border-0 ring-0 shadow-xs">
                       {progressPercentage}%
                     </span>
                   </div>
@@ -1030,9 +1074,9 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                   </button>
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] font-medium text-[#5e5e5e] dark:text-[#9aa0a6]">
+                <div className="flex items-center justify-between text-[11px] font-medium text-slate-700 dark:text-zinc-300">
                   <span>Attempt Progress</span>
-                  <span className="font-mono text-[#0b57d0] dark:text-[#a8c7fa] font-bold">{attemptedCount}/{test.questions.length} Answered</span>
+                  <span className="tabular-nums text-[#0b57d0] dark:text-[#a8c7fa] font-bold">{attemptedCount}/{test.questions.length} Answered</span>
                 </div>
 
                 {/* COLLAPSIBLE FILTER DROPDOWN */}
@@ -1072,7 +1116,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                             }`}
                           >
                             <span>{tab}</span>
-                            <span className="font-mono text-[10px] opacity-70">({countMap[tab]})</span>
+                            <span className="tabular-nums font-bold text-[10px] opacity-75">({countMap[tab]})</span>
                           </button>
                         );
                       })}
@@ -1106,7 +1150,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                 ) : (
                   <div className="grid grid-cols-5 gap-2.5 sm:gap-3 justify-items-center py-1">
                     {filteredDrawerQuestions.map(({ q, idx }) => {
-                      const ans = attempt.answers[q.id || `q-${idx}`] || (q.id ? attempt.answers[q.id] : null) || attempt.answers[`q-${idx}`] || Object.values(attempt.answers)[idx];
+                      const ans = safeAnswers[q.id || `q-${idx}`] || (q.id ? safeAnswers[q.id] : null) || safeAnswers[`q-${idx}`] || Object.values(safeAnswers)[idx];
                       const isCorrect = !!ans?.isCorrect;
                       const isAttempted = !!ans?.selectedOption;
                       const isMarked = !!ans?.flagged;
@@ -1187,14 +1231,14 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
             <p className="text-xs text-slate-300 max-w-sm mb-4 leading-relaxed">
               Screen capture, multi-finger gesture, or window focus change detected. Tap anywhere to resume viewing solutions.
             </p>
-            <div className="flex items-center space-x-2 text-[10px] font-mono text-amber-400/90 bg-amber-950/60 px-3.5 py-1.5 rounded-full border border-amber-500/30">
+            <div className="flex items-center space-x-2 text-[10px] font-medium text-amber-400/90 bg-amber-950/60 px-3.5 py-1.5 rounded-full border border-amber-500/30">
               <span>Solutions Protection Active</span>
               <span>•</span>
               <span>Anti-Capture Protected</span>
             </div>
           </div>
         )}
-        <header className="shrink-0 z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] px-3 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2.5 transition-colors border-0">
+        <header className="shrink-0 z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] px-3 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.45rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] pb-2.5 transition-colors border-0">
           <div className="max-w-6xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
             <div className="flex items-center gap-2">
               <button
@@ -1219,14 +1263,14 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              <span className={`px-3 py-1 rounded-[28px] text-xs font-bold font-mono border-0 bg-transparent ${
+              <span className={`px-3 py-1 rounded-[28px] text-xs font-bold tabular-nums border-0 bg-transparent ${
                 attempt.passed 
                   ? 'text-emerald-600 dark:text-emerald-400' 
                   : 'text-rose-600 dark:text-rose-400'
               }`}>
                 Score: {attempt.percentage}%
               </span>
-              <span className="text-xs text-[#5e5e5e] dark:text-[#9aa0a6] font-medium hidden sm:inline">
+              <span className="text-xs text-slate-700 dark:text-zinc-300 font-semibold tabular-nums hidden sm:inline">
                 ({correctCount}/{test.questions.length} Correct)
               </span>
             </div>
@@ -1250,10 +1294,9 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                 id="review-leaderboard-btn"
                 onClick={() => setIsLeaderboardOpen(true)}
                 title="View Leaderboard"
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-[28px] bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-semibold transition-colors cursor-pointer border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all active:scale-95 shrink-0 cursor-pointer border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
               >
-                <Trophy className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span className="hidden sm:inline">Leaderboard</span>
+                <Trophy className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-amber-500 shrink-0" />
               </button>
 
               {canAccessNotes && (
@@ -1261,10 +1304,9 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                   id="switch-to-notes-btn"
                   onClick={() => setViewMode('notes')}
                   title="View Short Tricks & Notes"
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-[28px] bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-semibold transition-colors cursor-pointer border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]"
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all active:scale-95 shrink-0 cursor-pointer border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
                 >
-                  <FileText className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                  <span className="hidden sm:inline">Notes</span>
+                  <FileText className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
                 </button>
               )}
 
@@ -1301,7 +1343,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                 <div className="bg-white dark:bg-[#1e2024] rounded-[28px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] p-3.5 sm:p-5 space-y-3">
                   <div className="flex flex-col gap-2 pb-3 border-b border-[#e1e3e1]/60 dark:border-[#44474f]/40">
                     <div className="flex items-center justify-between gap-2 px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-[#f0f4f9] dark:bg-[#141619] rounded-[28px] border-0 shadow-none">
-                      <div className="flex items-center gap-2 text-[13.5px] sm:text-sm font-mono font-semibold text-[#1f1f1f] dark:text-[#e3e3e3]">
+                      <div className="flex items-center gap-2 text-[13.5px] sm:text-sm font-bold tabular-nums text-[#1f1f1f] dark:text-[#e3e3e3]">
                         <Clock className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
                         <span>Time: {formatDuration(currentUserAns?.timeSpentSeconds || 0)}</span>
                       </div>
@@ -1415,13 +1457,16 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
 
                 {/* RIGHT COLUMN: Derivation & Explanation */}
                 <div className="bg-white dark:bg-[#1e2024] rounded-[28px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] p-3.5 sm:p-5 space-y-3">
-                  <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-zinc-800/60">
-                    <div className="w-7 h-7 rounded-full bg-[#0084ff]/15 flex items-center justify-center shrink-0 shadow-xs">
-                      <Lightbulb className="w-4 h-4 text-[#0084ff]" />
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-zinc-800/60">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-[#0084ff]/15 flex items-center justify-center shrink-0 shadow-xs">
+                        <Lightbulb className="w-4 h-4 text-[#0084ff]" />
+                      </div>
+                      <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
+                        Step-by-Step Derivation & Solution
+                      </h3>
                     </div>
-                    <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
-                      Step-by-Step Derivation & Solution
-                    </h3>
+                    {renderSolutionCardTags(true)}
                   </div>
 
                   {(currentQ.explanation || currentQ.solution) ? (
@@ -1464,7 +1509,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                   </div>
 
                   <div className="flex items-center justify-between gap-2 px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-[#f0f4f9] dark:bg-[#141619] rounded-[28px] border-0 shadow-none">
-                    <div className="flex items-center gap-2 text-[13.5px] sm:text-sm font-mono font-semibold text-[#1f1f1f] dark:text-[#e3e3e3]">
+                    <div className="flex items-center gap-2 text-[13.5px] sm:text-sm font-bold tabular-nums text-[#1f1f1f] dark:text-[#e3e3e3]">
                       <Clock className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
                       <span>Time: {formatDuration(currentUserAns?.timeSpentSeconds || 0)}</span>
                     </div>
@@ -1593,11 +1638,14 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                 {/* Step-by-Step Derivation & Solution */}
                 {(currentQ.explanation || currentQ.solution || currentQ.explanationImageUrl || (Array.isArray(currentQ.explanationImageUrls) && currentQ.explanationImageUrls.some(Boolean))) && (
                   <div className="pt-3 mt-2 border-t border-[#e1e3e1]/60 dark:border-[#44474f]/40 space-y-2">
-                    <div className="font-bold text-[#0b57d0] dark:text-[#a8c7fa] flex items-center gap-2 text-xs sm:text-sm">
-                      <div className="w-6 h-6 rounded-full bg-[#0b57d0]/10 dark:bg-[#004a77]/30 flex items-center justify-center shrink-0">
-                        <Lightbulb className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="font-bold text-[#0b57d0] dark:text-[#a8c7fa] flex items-center gap-2 text-xs sm:text-sm">
+                        <div className="w-6 h-6 rounded-full bg-[#0b57d0]/10 dark:bg-[#004a77]/30 flex items-center justify-center shrink-0">
+                          <Lightbulb className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                        </div>
+                        <span>Step-by-Step Derivation & Solution:</span>
                       </div>
-                      <span>Step-by-Step Derivation & Solution:</span>
+                      {renderSolutionCardTags(true)}
                     </div>
                     {currentQ.explanation && (
                       <div className="pt-0.5 text-[18px] sm:text-[19px] font-medium leading-relaxed max-w-full overflow-x-auto overflow-y-hidden text-[#1f1f1f] dark:text-[#e3e3e3]">
@@ -1717,14 +1765,14 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
           <p className="text-xs text-slate-300 max-w-sm mb-4 leading-relaxed">
             Screen capture, multi-finger gesture, or window focus change detected. Tap anywhere to resume viewing solutions.
           </p>
-          <div className="flex items-center space-x-2 text-[10px] font-mono text-amber-400/90 bg-amber-950/60 px-3.5 py-1.5 rounded-full border border-amber-500/30">
+          <div className="flex items-center space-x-2 text-[10px] font-medium text-amber-400/90 bg-amber-950/60 px-3.5 py-1.5 rounded-full border border-amber-500/30">
             <span>Solutions Protection Active</span>
             <span>•</span>
             <span>Anti-Capture Protected</span>
           </div>
         </div>
       )}
-      <div className="max-w-5xl w-full mx-auto px-3 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-36 sm:pb-32 space-y-4 sm:space-y-5">
+      <div className="max-w-5xl w-full mx-auto px-3 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.45rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] pb-36 sm:pb-32 space-y-4 sm:space-y-5">
       {/* Header Bar with Clean Icon Badge matching CustomTestBuilder */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2">
         <div className="flex items-center gap-3">

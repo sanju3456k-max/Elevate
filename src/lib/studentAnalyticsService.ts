@@ -1,6 +1,7 @@
 import { db, fetchUserAttemptsFromFirestore } from './firebase';
 import { doc, getDoc, collection, getDocs, limit, query } from 'firebase/firestore';
 import { getAllAttemptsAcrossAllUsersFromIndexedDB } from './indexedDbStorage';
+import { getCachedCohortAttemptsForUser } from './masterAccount';
 import type { TestAttempt, MathTest } from '../types';
 
 export interface StudentLectureWatch {
@@ -77,6 +78,55 @@ export async function fetchStudent360OnDemand(
       if (userLocal.length > 0) {
         userLocal.sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime());
         return userLocal;
+      }
+    } catch {}
+
+    // Fallback 2: Check localStorage attempts for this student / guest
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const directKeys = [
+          `math_mock_attempts_account_${studentId}`,
+          studentId === 'guest' || !studentId ? 'math_mock_attempts_guest_local' : null
+        ].filter(Boolean) as string[];
+
+        for (const k of directKeys) {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              parsed.sort((a: any, b: any) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime());
+              return parsed;
+            }
+          }
+        }
+
+        // Search any stored attempts with matching studentId or studentEmail
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('math_mock_attempts_')) {
+            try {
+              const raw = localStorage.getItem(key);
+              if (raw) {
+                const list = JSON.parse(raw);
+                if (Array.isArray(list)) {
+                  const matched = list.filter((a: any) => a && (a.userId === studentId || (studentEmail && a.userEmail === studentEmail)));
+                  if (matched.length > 0) {
+                    matched.sort((a: any, b: any) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime());
+                    return matched;
+                  }
+                }
+              }
+            } catch {}
+          }
+        }
+      }
+    } catch {}
+
+    // Fallback 3: Check cached cohort test attempts (instant zero-read reconstruction)
+    try {
+      const cohortAttempts = getCachedCohortAttemptsForUser(studentId, studentEmail);
+      if (cohortAttempts.length > 0) {
+        return cohortAttempts;
       }
     } catch {}
 
@@ -179,6 +229,17 @@ export async function fetchStudent360OnDemand(
     totalPoints += a.totalPoints || 0;
     totalPercentage += a.percentage || 0;
     totalTimeSeconds += a.timeSpentSeconds || 0;
+
+    // Enrich attempt metrics if missing for zero-lag charts
+    const totalQ = a.totalPoints || 10;
+    const wrongCount = Array.isArray(a.wrongQuestionIndices) ? a.wrongQuestionIndices.length : 0;
+    const unattemptedCount = Array.isArray(a.unattemptedQuestionIndices) ? a.unattemptedQuestionIndices.length : 0;
+    const computedCorrect = Math.max(0, totalQ - wrongCount - unattemptedCount);
+
+    if (a.correctCount === undefined) a.correctCount = computedCorrect;
+    if (a.incorrectCount === undefined) a.incorrectCount = wrongCount;
+    if (a.unansweredCount === undefined) a.unansweredCount = unattemptedCount;
+    if (a.accuracy === undefined) a.accuracy = totalQ > 0 ? Math.round((computedCorrect / totalQ) * 100) : a.percentage;
 
     const topic = a.testTopic || 'General Mathematics';
     if (a.percentage >= 70) {

@@ -146,6 +146,38 @@
     overscroll-behavior-y: none !important;
   }
 
+  /* Desktop Video Player Page Scroll Configuration: Make entire player page scrollable on desktop */
+  @media (min-width: 768px) {
+    body:not(.is-native-android) #app-navbar-wrapper.video-player-desktop-header {
+      display: block !important;
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      z-index: 50 !important;
+    }
+
+    body:not(.is-native-android) #global-persistent-player-host.is-expanded {
+      top: 62px !important;
+      height: calc(100vh - 62px) !important;
+      bottom: 0 !important;
+    }
+  }
+
+  @media (max-width: 767px) {
+    #app-navbar-wrapper.video-player-desktop-header {
+      display: none !important;
+    }
+  }
+  @media (min-width: 1024px) {
+    #global-persistent-player-host.is-expanded {
+      overflow-y: auto !important;
+      overscroll-behavior-y: contain !important;
+      padding-left: max(2rem, calc((100vw - 1720px) / 2)) !important;
+      padding-right: max(2rem, calc((100vw - 1720px) / 2)) !important;
+    }
+  }
+
   /* Crisp subpixel rendering: Prevent offscreen GPU texture downsampling & fractional pixel blurring on full-screen layouts */
   .fixed, .absolute {
     -webkit-backface-visibility: visible;
@@ -1295,3 +1327,8 @@ body.in-native-pip footer {
 
 
 
+
+@keyframes splashProgress {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}

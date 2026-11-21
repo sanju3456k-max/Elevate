@@ -36,13 +36,14 @@ def create_legacy_icon(emblem_img, size, round_icon=False):
     icon.paste(resized_emblem, offset, resized_emblem)
     return icon
 
-def create_splash_screen(emblem_img, width, height):
-    # Clean background matching app theme (#e5e9f0 or pure white #ffffff)
-    splash = Image.new("RGBA", (width, height), (229, 233, 240, 255))  # #e5e9f0
+def create_splash_screen(emblem_img, width, height, dark_mode=False):
+    # Pure white #ffffff for light mode, rich dark #0b0c10 for dark mode
+    bg_color = (11, 12, 16, 255) if dark_mode else (255, 255, 255, 255)
+    splash = Image.new("RGBA", (width, height), bg_color)
     
-    # Scale emblem appropriately (around 22-28% of shortest dimension, max 240px)
+    # Scale emblem to match WelcomeSplash visual scale (around 35% of shortest dimension)
     short_dim = min(width, height)
-    emblem_size = min(int(short_dim * 0.32), 240)
+    emblem_size = int(short_dim * 0.35)
     resized_emblem = emblem_img.resize((emblem_size, emblem_size), Image.Resampling.LANCZOS)
     
     offset_x = (width - emblem_size) // 2
@@ -55,9 +56,21 @@ def main():
     svg_path = os.path.join(root, 'public', 'assets', 'elevate-icon.svg')
     res_dir = os.path.join(root, 'android', 'app', 'src', 'main', 'res')
     
-    # High-resolution emblem render (1024x1024)
-    base_emblem = render_svg_to_image(svg_path, 1024)
-    print("Rendered base Elevate vector emblem (1024x1024)")
+    # High-resolution emblem render (2048x2048) for Light and Dark modes
+    with open(svg_path, 'r', encoding='utf-8') as f:
+        svg_content = f.read()
+
+    doc_light = fitz.open(stream=svg_content.encode('utf-8'), filetype='svg')
+    pix_light = doc_light[0].get_pixmap(matrix=fitz.Matrix(2.0, 2.0), alpha=True)
+    base_emblem = Image.frombytes("RGBA", [pix_light.width, pix_light.height], pix_light.samples)
+
+    # Dark emblem tinted in vibrant light blue #a8c7fa for high-contrast dark splash screen
+    svg_dark_content = svg_content.replace('#0247c6', '#a8c7fa')
+    doc_dark = fitz.open(stream=svg_dark_content.encode('utf-8'), filetype='svg')
+    pix_dark = doc_dark[0].get_pixmap(matrix=fitz.Matrix(2.0, 2.0), alpha=True)
+    base_emblem_dark = Image.frombytes("RGBA", [pix_dark.width, pix_dark.height], pix_dark.samples)
+
+    print("Rendered base Elevate vector emblems for light and dark modes (2048x2048)")
     
     # Mipmap densities and sizes
     # (density, launcher_size, foreground_size)
@@ -86,28 +99,61 @@ def main():
         round_icon.save(os.path.join(d_dir, 'ic_launcher_round.png'), 'PNG')
         
         print(f"Generated {density} icons (launcher: {l_size}px, fg: {fg_size}px)")
+
+    # Generate status bar & notification icons
+    notif_densities = [
+        ('mdpi', 24, 2.4),
+        ('hdpi', 36, 3.6),
+        ('xhdpi', 48, 4.8),
+        ('xxhdpi', 72, 7.2),
+        ('xxxhdpi', 96, 9.6),
+    ]
+    for density, n_size, stroke in notif_densities:
+        nd_dir = os.path.join(res_dir, f'drawable-{density}')
+        os.makedirs(nd_dir, exist_ok=True)
+        n_img = Image.new('RGBA', (n_size, n_size), (0, 0, 0, 0))
+        n_draw = ImageDraw.Draw(n_img)
+        scale = n_size / 24.0
+        pts = [
+            (18 * scale, 5.5 * scale),
+            (6 * scale, 5.5 * scale),
+            (12.5 * scale, 12 * scale),
+            (6 * scale, 18.5 * scale),
+            (18 * scale, 18.5 * scale),
+        ]
+        n_draw.line(pts, fill=(255, 255, 255, 255), width=max(1, int(round(stroke))), joint='round')
+        n_img.save(os.path.join(nd_dir, 'ic_notification.png'), 'PNG')
+
+    print("Generated ic_notification raster assets across all densities")
         
-    # Splash screens
+    # High-Definition Modern Splash screens
     splash_targets = [
-        ('drawable', 480, 320),
-        ('drawable-land-mdpi', 480, 320),
-        ('drawable-land-hdpi', 800, 480),
-        ('drawable-land-xhdpi', 1280, 720),
-        ('drawable-land-xxhdpi', 1600, 960),
-        ('drawable-land-xxxhdpi', 1920, 1280),
-        ('drawable-port-mdpi', 320, 480),
-        ('drawable-port-hdpi', 480, 800),
-        ('drawable-port-xhdpi', 720, 1280),
-        ('drawable-port-xxhdpi', 960, 1600),
-        ('drawable-port-xxxhdpi', 1280, 1920),
+        ('drawable', 'drawable-night', 1080, 2400),
+        ('drawable-land-mdpi', 'drawable-land-night-mdpi', 800, 480),
+        ('drawable-land-hdpi', 'drawable-land-night-hdpi', 1280, 720),
+        ('drawable-land-xhdpi', 'drawable-land-night-xhdpi', 1920, 1080),
+        ('drawable-land-xxhdpi', 'drawable-land-night-xxhdpi', 2400, 1080),
+        ('drawable-land-xxxhdpi', 'drawable-land-night-xxxhdpi', 3200, 1440),
+        ('drawable-port-mdpi', 'drawable-port-night-mdpi', 480, 800),
+        ('drawable-port-hdpi', 'drawable-port-night-hdpi', 720, 1280),
+        ('drawable-port-xhdpi', 'drawable-port-night-xhdpi', 1080, 1920),
+        ('drawable-port-xxhdpi', 'drawable-port-night-xxhdpi', 1080, 2400),
+        ('drawable-port-xxxhdpi', 'drawable-port-night-xxxhdpi', 1440, 3200),
     ]
     
-    for folder, w, h in splash_targets:
-        s_dir = os.path.join(res_dir, folder)
+    for light_folder, dark_folder, w, h in splash_targets:
+        # Light mode splash (pure white #ffffff with brand blue emblem)
+        s_dir = os.path.join(res_dir, light_folder)
         os.makedirs(s_dir, exist_ok=True)
-        splash_img = create_splash_screen(base_emblem, w, h)
+        splash_img = create_splash_screen(base_emblem, w, h, dark_mode=False)
         splash_img.save(os.path.join(s_dir, 'splash.png'), 'PNG')
-        print(f"Generated splash for {folder} ({w}x{h})")
+
+        # Dark mode splash (deep dark #0b0c10 with vibrant light blue emblem)
+        s_dark_dir = os.path.join(res_dir, dark_folder)
+        os.makedirs(s_dark_dir, exist_ok=True)
+        splash_dark_img = create_splash_screen(base_emblem_dark, w, h, dark_mode=True)
+        splash_dark_img.save(os.path.join(s_dark_dir, 'splash.png'), 'PNG')
+        print(f"Generated light & dark splash for {light_folder} / {dark_folder} ({w}x{h})")
 
     print("Successfully generated all official Elevate Android launcher icons and splash screens!")
 

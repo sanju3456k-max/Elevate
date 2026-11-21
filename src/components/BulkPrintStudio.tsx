@@ -622,7 +622,7 @@ export const BulkPrintStudio: React.FC<BulkPrintStudioProps> = ({
       className="fixed inset-0 bg-[#e5e9f0] dark:bg-[#0b0c10] text-slate-900 dark:text-zinc-100 h-[100dvh] max-h-screen pb-[calc(max(0.5rem,env(safe-area-inset-bottom,0px)))] overflow-hidden flex flex-col z-40 font-sans"
     >
       {/* Top Bar Navigation - Matched with Attempt OMR Mode */}
-      <header className="px-4 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2 flex items-center justify-between shrink-0 z-30 bg-transparent">
+      <header className="px-4 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)] pb-2 flex items-center justify-between shrink-0 z-30 bg-transparent">
         <div className="flex items-center gap-1.5 sm:gap-2">
           <button
             type="button"

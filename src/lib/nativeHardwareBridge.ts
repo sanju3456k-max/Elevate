@@ -30,6 +30,10 @@ export function initNativeHardwareIntegration(callbacks?: {
   onHardwareBack?: () => boolean; // return true if handled, false to exit/bubble
 }): () => void {
   if (!isNativeAndroid()) return () => {};
+  try {
+    document.body.classList.add('is-native-android');
+    document.documentElement.classList.add('is-native-android');
+  } catch {}
 
   // 1. Configure Immersive Edge-to-Edge Status Bar
   try {
@@ -269,6 +273,12 @@ export function syncNativeStatusBarTheme(isDark: boolean): void {
     StatusBar.setOverlaysWebView({ overlay: true }).catch(() => {});
     StatusBar.setStyle({ style: isDark ? Style.Dark : Style.Light }).catch(() => {});
     StatusBar.setBackgroundColor({ color: '#00000000' }).catch(() => {});
+
+    // Synchronize native SharedPreferences so that on next launch the native splash screen matches the app theme
+    const pip = (Capacitor as any).Plugins?.PipBridge;
+    if (pip && typeof pip.setNativeTheme === 'function') {
+      pip.setNativeTheme({ theme: isDark ? 'dark' : 'light' }).catch(() => {});
+    }
   } catch {}
 }
 

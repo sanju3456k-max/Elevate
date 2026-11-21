@@ -12,6 +12,12 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
@@ -245,5 +251,123 @@ public class PipPlugin extends Plugin {
             android.util.Log.e("PipPlugin", "Google Sign-In failed with status code " + e.getStatusCode(), e);
             call.reject("Google Sign-In error (" + e.getStatusCode() + "): " + e.getMessage(), String.valueOf(e.getStatusCode()));
         }
+    }
+
+    @PluginMethod
+    public void requestNotificationPermission(PluginCall call) {
+        JSObject ret = new JSObject();
+        if (getActivity() == null) {
+            ret.put("granted", false);
+            call.resolve(ret);
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (getActivity().checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                getActivity().requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
+                ret.put("granted", false);
+                ret.put("requested", true);
+            } else {
+                ret.put("granted", true);
+            }
+        } else {
+            boolean enabled = NotificationManagerCompat.from(getContext()).areNotificationsEnabled();
+            ret.put("granted", enabled);
+        }
+        call.resolve(ret);
+    }
+
+    private android.graphics.Bitmap getBitmapFromDrawable(android.graphics.drawable.Drawable drawable) {
+        if (drawable == null) return null;
+        if (drawable instanceof android.graphics.drawable.BitmapDrawable) {
+            return ((android.graphics.drawable.BitmapDrawable) drawable).getBitmap();
+        }
+        int width = drawable.getIntrinsicWidth() > 0 ? drawable.getIntrinsicWidth() : 128;
+        int height = drawable.getIntrinsicHeight() > 0 ? drawable.getIntrinsicHeight() : 128;
+        android.graphics.Bitmap bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888);
+        android.graphics.Canvas canvas = new android.graphics.Canvas(bitmap);
+        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        drawable.draw(canvas);
+        return bitmap;
+    }
+
+    @PluginMethod
+    public void showNativeNotification(PluginCall call) {
+        String title = call.getString("title", "Elevate Update");
+        String body = call.getString("body", "");
+        int notifId = call.getInt("id", (int) System.currentTimeMillis());
+
+        Context context = getContext();
+        if (context == null) {
+            call.reject("Context is null");
+            return;
+        }
+
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        String channelId = "elevate_updates_channel";
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                channelId,
+                "Elevate Updates",
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("Academic curriculum updates, new lectures, and mock tests");
+            channel.enableVibration(true);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
+        }
+
+        Intent intent = new Intent(context, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+            context,
+            notifId,
+            intent,
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT
+        );
+
+        int smallIconRes = context.getResources().getIdentifier("ic_notification", "drawable", context.getPackageName());
+        if (smallIconRes == 0) {
+            smallIconRes = android.R.drawable.ic_popup_reminder;
+        }
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(smallIconRes)
+            .setColor(0xFF0B57D0)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent);
+
+        if (manager != null) {
+            manager.notify(notifId, builder.build());
+        }
+
+        JSObject res = new JSObject();
+        res.put("success", true);
+        call.resolve(res);
+    }
+
+    @PluginMethod
+    public void setNativeTheme(PluginCall call) {
+        String theme = call.getString("theme", "light");
+        Context context = getContext();
+        if (context != null) {
+            android.content.SharedPreferences prefs = context.getSharedPreferences("ElevateAppPrefs", Context.MODE_PRIVATE);
+            prefs.edit().putString("app_theme", theme).apply();
+            
+            if (getActivity() != null) {
+                getActivity().runOnUiThread(() -> {
+                    MainActivity.applyAppNightMode(context, theme);
+                });
+            }
+        }
+        JSObject ret = new JSObject();
+        ret.put("success", true);
+        call.resolve(ret);
     }
 }

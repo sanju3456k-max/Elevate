@@ -458,7 +458,7 @@ export const NotesRepositoryView: React.FC<NotesRepositoryViewProps> = ({
       className={`min-h-screen h-full w-full ${APP_STYLES.page} flex flex-col overflow-y-auto`}
     >
       {/* Minimal Top Header - Perfectly Centered & Aligned */}
-      <header className={`sticky top-0 z-30 px-4 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.75rem)] pb-3.5 flex items-center justify-between gap-3 ${APP_STYLES.surface.header} shrink-0 border-0 shadow-none`}>
+      <header className={`sticky top-0 z-30 px-4 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.35rem)] pb-2.5 flex items-center justify-between gap-3 ${APP_STYLES.surface.header} shrink-0 border-0 shadow-none`}>
         <div className="flex items-center gap-3">
           <button
             type="button"

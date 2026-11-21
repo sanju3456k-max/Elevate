@@ -1315,7 +1315,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
       )}
       {/* Transparent Clean Sticky Header Banner (Fixed, No border line, plain surface) */}
       <header className="sticky top-0 z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] shadow-none border-none border-0 shrink-0 transition-colors">
-        <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2.5 sm:pb-3">
+        <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)] pb-2.5 sm:pb-3">
           <div className="flex items-center justify-between gap-3 px-0.5 py-1">
             {/* Left: Back Arrow ("back array") & Test Title */}
             <div className="flex items-center gap-2 min-w-0">
@@ -2231,7 +2231,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
         >
           {/* Transparent Clean Header Banner - Seamless with Page Body (No border line, plain surface) */}
           <header className="sticky top-0 z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] shadow-none border-none border-0 shrink-0">
-            <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2.5 sm:pb-3.5">
+            <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.45rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] pb-2.5 sm:pb-3.5">
               <div className="flex items-center justify-between gap-3 px-0.5 py-1">
                 {/* Left: Back Arrow ("back array"), Chapter Title & Badges */}
                 <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -2500,7 +2500,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
         >
           {/* Header Bar - Seamless with Page Body (No border line, plain surface) */}
           <header className="sticky top-0 z-30 bg-[#e5e9f0] dark:bg-[#0b0c10] shadow-none border-none border-0 shrink-0">
-            <div className="max-w-5xl w-full mx-auto px-3 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2.5 sm:pb-3.5">
+            <div className="max-w-5xl w-full mx-auto px-3 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.45rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] pb-2.5 sm:pb-3.5">
               <div className="flex items-center justify-between gap-3 px-0.5 py-1">
                 {/* Left: Back Arrow ("back array"), Subtopic Title & Metrics */}
                 <div className="flex items-center gap-2 min-w-0 flex-1">

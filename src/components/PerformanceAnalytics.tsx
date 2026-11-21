@@ -585,7 +585,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
   return (
     <div className={`${APP_STYLES.analytics.container} pt-3 md:pt-6`}>
       {/* Merged Performance Analytics & Student Activity Card */}
-      <div id="analytics-student-activity-section" className="bg-white dark:bg-[#1e2024] rounded-[24px] p-4 sm:p-6 border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-5 transition-all duration-200">
+      <div id="analytics-student-activity-section" className="bg-white dark:bg-[#1e2024] rounded-[24px] p-3.5 sm:p-6 pt-4 sm:pt-6 pb-5 sm:pb-6 border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-4 sm:space-y-5 transition-all duration-200">
         
         {/* Row 1: KPI Metrics Grid (Tests, Accuracy, Precision, Active Time, Videos, Streak) */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
@@ -697,42 +697,52 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
           </div>
 
           {/* Interactive Stacked Bar Chart */}
-          <div className="grid grid-cols-7 gap-2 sm:gap-4 pt-4 pb-2 items-end h-44">
+          <div className="grid grid-cols-7 gap-1 sm:gap-4 pt-2 sm:pt-4 pb-1 sm:pb-2 items-end h-36 sm:h-44">
             {dayWiseActivity.map((day, idx) => {
               const totalTasks = day.videosCompleted + day.testsAttempted;
-              const videoHeight = Math.round((day.videosCompleted / maxDayTasks) * 95);
-              const testHeight = Math.round((day.testsAttempted / maxDayTasks) * 95);
+              const maxBarH = 75;
+              const barH = maxDayTasks > 0 ? Math.round((totalTasks / maxDayTasks) * maxBarH) : 0;
+              const testH = totalTasks > 0 ? Math.round((day.testsAttempted / totalTasks) * barH) : 0;
+              const videoH = totalTasks > 0 ? barH - testH : 0;
 
               return (
-                <div key={idx} className="flex flex-col items-center justify-end h-full group cursor-pointer space-y-1.5">
+                <div key={idx} className="relative flex flex-col items-center justify-end h-full group cursor-pointer space-y-1.5 sm:space-y-2">
                   {/* Tooltip on hover */}
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px] font-bold px-2 py-1 rounded-md bg-black/80 text-white whitespace-nowrap shadow-md pointer-events-none mb-1">
+                  <div className="absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px] font-bold px-2 py-1 rounded-md bg-black/80 text-white whitespace-nowrap shadow-md pointer-events-none z-20">
                     {day.videosCompleted} Video · {day.testsAttempted} Test ({day.avgScore}%)
                   </div>
 
                   {/* Stacked Vertical Bar */}
-                  <div className="w-7 sm:w-10 flex flex-col justify-end items-center rounded-2xl overflow-hidden bg-slate-200/70 dark:bg-zinc-700/50 p-0.5">
+                  <div className="w-5 sm:w-10 flex flex-col justify-end items-center rounded-2xl overflow-hidden bg-slate-200/70 dark:bg-zinc-700/50 p-0.5">
                     {/* Tests Completed (Emerald) */}
-                    <div
-                      style={{ height: `${Math.max(testHeight, 12)}px` }}
-                      className="w-full bg-emerald-500 rounded-t-xl transition-all duration-500 group-hover:brightness-110"
-                      title={`${day.testsAttempted} Tests`}
-                    />
+                    {testH > 0 ? (
+                      <div
+                        style={{ height: `${Math.max(testH, 8)}px` }}
+                        className="w-full bg-emerald-500 rounded-t-xl transition-all duration-500 group-hover:brightness-110"
+                        title={`${day.testsAttempted} Tests`}
+                      />
+                    ) : null}
                     {/* Videos Completed (Primary Blue) */}
-                    <div
-                      style={{ height: `${Math.max(videoHeight, 16)}px` }}
-                      className="w-full bg-[#0b57d0] dark:bg-[#a8c7fa] rounded-b-xl transition-all duration-500 group-hover:brightness-110 mt-0.5"
-                      title={`${day.videosCompleted} Videos`}
-                    />
+                    {videoH > 0 ? (
+                      <div
+                        style={{ height: `${Math.max(videoH, 10)}px` }}
+                        className={`w-full bg-[#0b57d0] dark:bg-[#a8c7fa] ${testH > 0 ? 'rounded-b-xl mt-0.5' : 'rounded-xl'} transition-all duration-500 group-hover:brightness-110`}
+                        title={`${day.videosCompleted} Videos`}
+                      />
+                    ) : null}
+                    {/* If 0 tasks, show clean baseline dot */}
+                    {totalTasks === 0 ? (
+                      <div className="w-full h-1.5 rounded-full bg-slate-300 dark:bg-zinc-700/60 my-0.5" />
+                    ) : null}
                   </div>
 
                   {/* Day Label */}
-                  <div className="text-center">
-                    <span className={`text-[11px] font-bold block ${day.isToday ? 'text-[#0b57d0] dark:text-[#a8c7fa] font-extrabold' : 'text-slate-600 dark:text-zinc-400'}`}>
+                  <div className="text-center w-full select-none">
+                    <span className={`text-[10px] sm:text-[11px] font-bold block truncate leading-tight ${day.isToday ? 'text-[#0b57d0] dark:text-[#a8c7fa] font-extrabold' : 'text-slate-600 dark:text-zinc-400'}`}>
                       {day.dayName}
                     </span>
-                    <span className="text-[9px] text-slate-400 dark:text-zinc-500 block">
-                      {totalTasks} tasks
+                    <span className="text-[8.5px] sm:text-[9.5px] text-slate-400 dark:text-zinc-500 block leading-tight truncate">
+                      {totalTasks} {totalTasks === 1 ? 'task' : 'tasks'}
                     </span>
                   </div>
                 </div>

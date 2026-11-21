@@ -302,6 +302,10 @@ export interface TestAttempt {
   flaggedQuestionIndices?: number[];
   flaggedQuestions?: string[];
   userAnswers?: Record<string, any>;
+  accuracy?: number;
+  correctCount?: number;
+  incorrectCount?: number;
+  unansweredCount?: number;
 }
 
 export interface OmrBubbleReading {

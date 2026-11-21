@@ -1067,16 +1067,19 @@ export function loadScopedAttempts(userId?: string | null): TestAttempt[] {
 
     // 3. Fallback to localStorage bootstrap cache for initial render
     const { attemptsKey } = getScopedStorageKeys(userId);
-    let cached = localStorage.getItem(attemptsKey);
+    let cached: string | null = null;
+    if (typeof window !== 'undefined' && window.localStorage) {
+      cached = localStorage.getItem(attemptsKey);
 
-    // If guest storage is empty, attempt one-time migration from legacy key
-    if (!cached && isGuest) {
-      const legacy = localStorage.getItem(LEGACY_STORAGE_ATTEMPTS_KEY);
-      if (legacy) {
-        cached = legacy;
-        try {
-          localStorage.setItem(GUEST_STORAGE_ATTEMPTS_KEY, legacy);
-        } catch {}
+      // If guest storage is empty, attempt one-time migration from legacy key
+      if (!cached && isGuest) {
+        const legacy = localStorage.getItem(LEGACY_STORAGE_ATTEMPTS_KEY);
+        if (legacy) {
+          cached = legacy;
+          try {
+            localStorage.setItem(GUEST_STORAGE_ATTEMPTS_KEY, legacy);
+          } catch {}
+        }
       }
     }
 

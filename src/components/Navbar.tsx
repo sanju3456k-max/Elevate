@@ -73,6 +73,7 @@ interface NavbarProps {
   onSearchChange?: (query: string) => void;
   onOpenSettings?: () => void;
   isInsideBatch?: boolean;
+  isVideoPlaying?: boolean;
 }
 
 // Google multi-colored G logo component
@@ -121,6 +122,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSearchChange,
   onOpenSettings,
   isInsideBatch = false,
+  isVideoPlaying = false,
 }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState<boolean>(false);
@@ -242,10 +244,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
       <header className={`${
-        activeTab === 'notifications' || isInsideBatch
+        (activeTab === 'notifications' || isInsideBatch) && !isVideoPlaying
           ? 'bg-white dark:bg-[#0b0c10]'
           : 'bg-[#e5e9f0] dark:bg-[#0b0c10]'
-      } sticky top-0 z-40 transition-colors duration-200 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.0rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.0rem)] pb-2.5`}>
+      } sticky top-0 z-40 transition-colors duration-200 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.45rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.5rem)] pb-2.5`}>
         <div className="max-w-[1750px] w-full mx-auto px-3 sm:px-6 lg:px-8 landscape:pl-[calc(max(0.75rem,var(--android-cutout-left,env(safe-area-inset-left,0px))))] landscape:pr-[calc(max(0.75rem,var(--android-cutout-right,env(safe-area-inset-right,0px))))]">
           <div className="flex items-center justify-between h-10 sm:h-11">
             {/* Left: Drawer Hamburger Button & Brand Logo */}
@@ -351,7 +353,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   type="button"
                   onClick={() => handleNavClick('master-console')}
                   title="Open Academic Master Console (sanju3456k@gmail.com)"
-                  className="h-9 px-3 rounded-full bg-orange-500 hover:bg-orange-600 dark:bg-orange-500 dark:hover:bg-orange-600 text-white border-0 shadow-[0_2px_6px_rgba(249,115,22,0.35)] flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0 font-bold text-xs outline-none select-none"
+                  className="h-9 px-3 rounded-full bg-orange-500 hover:bg-orange-600 dark:bg-orange-500 dark:hover:bg-orange-600 text-white border-0 shadow-[0_2px_6px_rgba(249,115,22,0.35)] flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0 font-bold text-[13px] outline-none select-none"
                 >
                   <Crown className="w-4 h-4 text-white fill-white shrink-0" />
                   <span className="hidden sm:inline">Master Console</span>
@@ -557,7 +559,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Drawer Top Drag Indicator & Header */}
-                <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] bg-white dark:bg-[#1e2024] flex items-center justify-between shrink-0 rounded-tr-[24px] border-b border-slate-100 dark:border-zinc-800/80">
+                <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)] bg-white dark:bg-[#1e2024] flex items-center justify-between shrink-0 rounded-tr-[24px] border-b border-slate-100 dark:border-zinc-800/80">
                   <div className="flex items-center gap-2.5">
                     <div className="w-11 h-11 flex items-center justify-center shrink-0">
                       <img 

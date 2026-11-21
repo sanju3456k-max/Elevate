@@ -109,6 +109,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [isOpen, currentUser]);
 
+  // Synchronize browser status bar theme-color with Settings modal header background (#ffffff light / #0b0c10 dark)
+  useEffect(() => {
+    if (!isOpen) return;
+    const targetColor = isDarkMode ? '#0b0c10' : '#ffffff';
+    const metaTags = document.querySelectorAll('meta[name="theme-color"]');
+    const prevColors: string[] = [];
+
+    metaTags.forEach((tag) => {
+      prevColors.push(tag.getAttribute('content') || '');
+      tag.removeAttribute('media');
+      tag.setAttribute('content', targetColor);
+    });
+
+    return () => {
+      metaTags.forEach((tag, idx) => {
+        if (prevColors[idx]) {
+          tag.setAttribute('content', prevColors[idx]);
+        }
+      });
+    };
+  }, [isOpen, isDarkMode]);
+
   const handleExportJsonArchive = async () => {
     try {
       setSyncStatus({ type: 'loading', message: 'Generating complete backup archive...' });
@@ -307,7 +329,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           className="relative w-full h-full md:max-w-4xl md:max-h-[86vh] bg-white dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] font-sans antialiased flex flex-col md:rounded-[28px] md:shadow-2xl md:border md:border-slate-200/80 dark:md:border-zinc-800/80 overflow-hidden z-10"
         >
           {/* HEADER: TRANSPARENT BACKGROUND, OMR STYLE BACK BUTTON + DESKTOP CLOSE */}
-          <div className="px-3.5 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-4 pb-3 flex items-center justify-between shrink-0 z-30 bg-transparent border-b border-slate-100 dark:border-zinc-800/80 md:border-none shadow-none">
+          <div className="px-3.5 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-3 pb-3 flex items-center justify-between shrink-0 z-30 bg-transparent border-b border-slate-100 dark:border-zinc-800/80 md:border-none shadow-none">
             <div className="flex items-center gap-3 min-w-0">
               {/* Pure Back Array Button */}
               <button

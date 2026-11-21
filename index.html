@@ -9,7 +9,7 @@
           var savedTheme = localStorage.getItem('math_mock_theme_v1') || localStorage.getItem('elevatelabs_theme_mode_v2');
           var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
           var isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
-          var bg = isDark ? '#0b0c10' : '#e5e9f0';
+          var bg = isDark ? '#0b0c10' : '#ffffff';
           if (isDark) {
             document.documentElement.classList.add('dark');
           } else {
@@ -149,10 +149,10 @@
     <link rel="apple-touch-icon" sizes="192x192" href="./icon-192.png?v=17" />
     <link rel="apple-touch-icon" sizes="512x512" href="./icon-512.png?v=17" />
     
-    <!-- Chrome / Android PWA APK & Theme Colors (Matching Header Background Exactly with Pure White and No Partition Line) -->
-    <meta name="theme-color" content="#e5e9f0" media="(prefers-color-scheme: light)" />
+    <!-- Chrome / Android PWA APK & Theme Colors (Matching Welcome Splash and Theme Colors Seamlessly) -->
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0b0c10" media="(prefers-color-scheme: dark)" />
-    <meta name="theme-color" content="#e5e9f0" />
+    <meta name="theme-color" content="#ffffff" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -171,8 +171,8 @@
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/contrib/auto-render.min.js"></script>
   </head>
-  <body class="bg-[#e5e9f0] dark:bg-[#0b0c10]">
-    <div id="root" class="min-h-screen bg-[#e5e9f0] dark:bg-[#0b0c10]"></div>
+  <body class="bg-white dark:bg-[#0b0c10]">
+    <div id="root" class="min-h-screen bg-white dark:bg-[#0b0c10]"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

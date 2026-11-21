@@ -12,6 +12,7 @@ import {
   ChevronRight,
   RotateCcw,
   CheckCheck,
+  Check,
 } from 'lucide-react';
 import { type ActiveTab } from '../../types';
 import {
@@ -24,6 +25,11 @@ import {
   resetDismissedNotifications,
   NOTIFICATIONS_EVENT,
 } from '../../lib/notifications';
+import {
+  getDeviceNotificationPermission,
+  requestDeviceNotificationPermission,
+  sendDeviceNotification,
+} from '../../lib/deviceNotificationService';
 import { useBackHandler } from '../../hooks/useBackNavigation';
 import { useApp } from '../../lms/LmsContext';
 import { isMasterUser } from '../../lib/masterAccount';
@@ -37,6 +43,97 @@ interface NotificationsViewProps {
   isDarkMode?: boolean;
 }
 
+interface ParsedLocation {
+  batch: string;
+  folders: string[];
+  duration?: string;
+  details?: string;
+  rawFallback?: string;
+}
+
+function parseLocation(notif: AppNotification): ParsedLocation {
+  const prefixRegex = /^(?:Course\s+Lecture|Lecture|Mock\s+Test|Test|Course)\b\s*[:•-]?\s*/i;
+
+  let batch = (notif.batchTitle || '').trim();
+  // Only blank out batch if it's purely one of the generic placeholder words
+  if (/^(?:Lecture|Course|Test|Mock Test)$/i.test(batch)) {
+    batch = '';
+  } else if (/^(?:Course\s+Lecture|Lecture|Mock\s+Test|Course)\b\s*[:•-]/i.test(batch)) {
+    batch = batch.replace(prefixRegex, '').trim();
+  }
+
+  if (batch) {
+    const rawFolders = (
+      notif.folderSegments && notif.folderSegments.length > 0
+        ? notif.folderSegments
+        : notif.folderPath
+        ? notif.folderPath.split('.').filter(Boolean)
+        : []
+    );
+    const folders = rawFolders
+      .map(f => (/^(?:Lecture|Course)\b\s*[:•-]/i.test(f) ? f.replace(prefixRegex, '').trim() : f.trim()))
+      .filter(f => Boolean(f) && !/^(?:Lecture|Course|Mock\s+Test|Test)$/i.test(f));
+
+    return {
+      batch,
+      folders,
+      duration: notif.durationText,
+      details: notif.testDetails,
+    };
+  }
+
+  // Fallback: parse raw message
+  let raw = (notif.message || '').trim();
+  raw = raw.replace(/^(?:Available\s+in|Scheduled\s+in|In)\s+/i, '');
+  while (/^(?:Course\s+Lecture|Lecture|Mock\s+Test|Test|Course)\b\s*[:•-]?\s*/i.test(raw)) {
+    raw = raw.replace(/^(?:Course\s+Lecture|Lecture|Mock\s+Test|Test|Course)\b\s*[:•-]?\s*/i, '').trim();
+  }
+
+  let duration: string | undefined;
+  const durationMatch = raw.match(/\((\d+\s*(?:mins?|m|hours?|h))\)/i);
+  if (durationMatch) {
+    duration = durationMatch[0];
+    raw = raw.replace(durationMatch[0], '').trim();
+  }
+
+  let details: string | undefined;
+  const testDetailsMatch = raw.match(/[•\s]+(\d+\s*Questions?.*)$/i);
+  if (testDetailsMatch) {
+    details = testDetailsMatch[1].trim();
+    raw = raw.replace(testDetailsMatch[0], '').trim();
+  }
+
+  let rawSegments: string[] = [];
+  if (raw.includes('•')) {
+    rawSegments = raw.split('•').flatMap(s => s.includes('.') ? s.split('.') : s).map(s => s.trim()).filter(Boolean);
+  } else if (raw.includes('.')) {
+    rawSegments = raw.split('.').map(s => s.trim()).filter(Boolean);
+  } else if (raw.includes('/')) {
+    rawSegments = raw.split('/').map(s => s.trim()).filter(Boolean);
+  } else if (raw) {
+    rawSegments = [raw];
+  }
+
+  const cleanSegments = rawSegments
+    .map(s => s.replace(prefixRegex, '').trim())
+    .filter(s => Boolean(s) && !/^(?:Lecture|Course|Mock\s+Test|Test)$/i.test(s));
+
+  if (cleanSegments.length > 0) {
+    return {
+      batch: cleanSegments[0],
+      folders: cleanSegments.slice(1),
+      duration,
+      details,
+    };
+  }
+
+  return {
+    batch: '',
+    folders: [],
+    rawFallback: notif.message,
+  };
+}
+
 export const NotificationsView: React.FC<NotificationsViewProps> = ({
   onBack,
   onNavigateTab,
@@ -47,6 +144,61 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   const { user, batches, lectures, chapters, announcements, batchTests, isEnrolled } = useApp();
   const [readVersion, setReadVersion] = useState(0);
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'unread' | 'lecture' | 'test'>('all');
+  const [notifPermission, setNotifPermission] = useState<'granted' | 'denied' | 'default'>('default');
+  const [isRequestingPermission, setIsRequestingPermission] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    getDeviceNotificationPermission().then((status) => {
+      setNotifPermission(status);
+    });
+  }, []);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleEnableNotifications = async () => {
+    setIsRequestingPermission(true);
+    try {
+      const granted = await requestDeviceNotificationPermission();
+      if (granted) {
+        setNotifPermission('granted');
+        await sendDeviceNotification({
+          title: 'Elevate Updates Enabled',
+          body: 'You will receive instant alerts for new curriculum lectures, mock tests, and announcements.',
+          id: 101,
+        });
+        showToast('Notifications enabled on your device!');
+      } else {
+        setNotifPermission('denied');
+        showToast('Notification permission was not granted.');
+      }
+    } catch (err) {
+      console.warn('Failed to enable notifications:', err);
+    } finally {
+      setIsRequestingPermission(false);
+    }
+  };
+
+  const handleSendTestNotification = async () => {
+    const sample = filteredNotifications[0] || notifications[0];
+    const testTitle = sample?.title || 'David Guetta live @ Tomorrowland 2026';
+    const testBody = sample?.message || 'Testing.Testing (76 mins)';
+
+    const sent = await sendDeviceNotification({
+      title: testTitle,
+      body: testBody,
+      id: Math.floor(Math.random() * 100000),
+    });
+    if (sent) {
+      showToast('Test notification sent to your device!');
+    } else {
+      // If permission wasn't granted yet, prompt user
+      handleEnableNotifications();
+    }
+  };
 
   const isMaster = user?.role === 'admin' || (user?.role as string) === 'superadmin' || isMasterUser(user);
   const enrolledBatches = useMemo(() => batches.filter((b) => isEnrolled(b.id)), [batches, isEnrolled]);
@@ -155,13 +307,13 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
       case 'lecture':
         return {
           icon: PlayCircle,
-          label: 'Course Lecture',
+          label: 'Lecture',
           badgeBg: 'bg-blue-100 dark:bg-blue-950/70 text-[#0b57d0] dark:text-[#a8c7fa]',
         };
       case 'test':
         return {
           icon: BookOpen,
-          label: 'Mock Test',
+          label: 'Test',
           badgeBg: 'bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300',
         };
       case 'ai':
@@ -196,7 +348,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   return (
     <div className="w-full min-h-screen bg-white dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] select-none flex flex-col">
       {/* Fixed Sticky Header without any partial line or border - Transparent/Pure White */}
-      <header className="sticky top-0 z-30 bg-white dark:bg-[#0b0c10] border-0 border-none shadow-none pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-3 px-3.5 sm:px-6 transition-colors">
+      <header className="sticky top-0 z-30 bg-white dark:bg-[#0b0c10] border-0 border-none shadow-none pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)] pb-3 px-3.5 sm:px-6 transition-colors">
         <div className="max-w-4xl mx-auto space-y-3">
           {/* Top Row: Back Arrow, Title, Count, Actions */}
           <div className="flex items-center justify-between gap-3 pt-0.5">
@@ -223,8 +375,35 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
               </div>
             </div>
 
-            {/* Action Header: Mark All as Read (Delete button removed so users cannot mistakenly delete updates) */}
+            {/* Action Header: Allow/Test Notifications & Mark All as Read */}
             <div className="flex items-center gap-2">
+              {notifPermission !== 'granted' ? (
+                <button
+                  type="button"
+                  id="notifications-allow-btn"
+                  onClick={handleEnableNotifications}
+                  disabled={isRequestingPermission}
+                  title="Allow instant notifications"
+                  aria-label="Allow instant notifications"
+                  className="h-8 px-3.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] text-xs font-bold transition active:scale-95 cursor-pointer outline-none border-0 flex items-center gap-1.5 shadow-xs"
+                >
+                  <Bell className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />
+                  <span>{isRequestingPermission ? 'Enabling...' : 'Allow Notifications'}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  id="notifications-test-alert-btn"
+                  onClick={handleSendTestNotification}
+                  title="Send a test notification alert"
+                  aria-label="Send a test notification alert"
+                  className="h-8 px-3.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 text-xs font-bold transition active:scale-95 cursor-pointer outline-none border-0 flex items-center gap-1.5"
+                >
+                  <Bell className="w-3.5 h-3.5 shrink-0 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.5]" />
+                  <span>Test Alert</span>
+                </button>
+              )}
+
               {unreadCount > 0 && (
                 <button
                   type="button"
@@ -232,7 +411,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                   onClick={() => markAllNotificationIdsAsRead(notifications.map((n) => n.id))}
                   title="Mark all updates as read"
                   aria-label="Mark all updates as read"
-                  className="h-8 px-3.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] text-xs font-bold transition active:scale-95 cursor-pointer outline-none border-0 flex items-center gap-1.5 shadow-xs"
+                  className="h-8 px-3.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 text-xs font-bold transition active:scale-95 cursor-pointer outline-none border-0 flex items-center gap-1.5"
                 >
                   <CheckCheck className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />
                   <span>Mark All as Read</span>
@@ -279,6 +458,40 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
 
       {/* Scrollable Notification List Messages Body */}
       <div className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 pb-28 sm:pb-28 md:pb-16 pt-1">
+        {/* Floating Toast Alert */}
+        {toastMessage && (
+          <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full bg-slate-900/90 dark:bg-white/95 text-white dark:text-slate-900 text-xs font-bold shadow-lg flex items-center gap-2 backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <Check className="w-4 h-4 text-emerald-400 dark:text-emerald-600 stroke-[2.5]" />
+            <span>{toastMessage}</span>
+          </div>
+        )}
+
+        {/* Permission Request Prompt Banner if notifications not yet enabled */}
+        {notifPermission !== 'granted' && (
+          <div className="mb-3.5 p-3 sm:p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 flex items-center justify-between gap-3 transition-all">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-[#0b57d0]/10 dark:bg-[#a8c7fa]/15 flex items-center justify-center shrink-0 text-[#0b57d0] dark:text-[#a8c7fa]">
+                <Bell className="w-4 h-4 stroke-[2.2]" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-900 dark:text-zinc-100 leading-tight">
+                  Allow Real-Time Notifications
+                </p>
+                <p className="text-[11px] text-slate-600 dark:text-zinc-400 truncate">
+                  Get instant device alerts for newly published lectures and mock tests.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleEnableNotifications}
+              disabled={isRequestingPermission}
+              className="h-7 px-3.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] text-xs font-bold shrink-0 transition active:scale-95 cursor-pointer border-0 shadow-xs"
+            >
+              {isRequestingPermission ? 'Enabling...' : 'Allow'}
+            </button>
+          </div>
+        )}
 
         {/* Real Batch Updates Feed - Transparent Cards with Optimized Full Width & Round Icons */}
         {filteredNotifications.length > 0 ? (
@@ -286,6 +499,14 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
             {filteredNotifications.map((notif) => {
               const meta = getCategoryMeta(notif.category);
               const IconComp = meta.icon;
+
+              const displayTitle = notif.category === 'test'
+                ? (notif.title || 'Test').replace(/^\[?Mock\s+Test\]?\s*[:-]?\s*/i, '').replace(/^Test\s*[:-]?\s*/i, '').trim()
+                : notif.category === 'lecture'
+                ? (notif.title || 'Lecture').replace(/^Course\s+Lecture\s*[:-]?\s*/i, '').replace(/^Lecture\s*[:-]?\s*/i, '').trim()
+                : notif.title;
+
+              const loc = parseLocation(notif);
 
               return (
                 <div
@@ -315,12 +536,45 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                     <h3 className={`text-sm sm:text-base tracking-tight leading-snug mt-1 font-bold ${
                       !notif.read ? 'text-slate-900 dark:text-white' : 'text-slate-800 dark:text-zinc-200'
                     }`}>
-                      {notif.title}
+                      {displayTitle}
                     </h3>
 
-                    <p className="text-xs sm:text-[13px] text-slate-700 dark:text-zinc-300 leading-relaxed mt-0.5 font-normal line-clamp-2">
-                      {notif.message}
-                    </p>
+                    {/* Location line: starts with Batch name in blue, partition blue dot, folder name, and further subfolders */}
+                    <div className="text-xs sm:text-[13px] text-slate-700 dark:text-zinc-300 leading-relaxed mt-0.5 font-normal line-clamp-2">
+                      {loc.batch ? (
+                        <span className="inline-flex items-center flex-wrap">
+                          <span className="text-[#0b57d0] dark:text-[#a8c7fa] font-bold">
+                            {loc.batch}
+                          </span>
+
+                          {loc.folders.map((segment, idx) => (
+                            <React.Fragment key={idx}>
+                              <span className="text-[#0b57d0] dark:text-[#a8c7fa] font-black mx-1 sm:mx-1.5 select-none">
+                                •
+                              </span>
+                              <span className="text-slate-700 dark:text-zinc-300 font-medium">
+                                {segment}
+                              </span>
+                            </React.Fragment>
+                          ))}
+
+                          {loc.duration ? (
+                            <span className="text-slate-500 dark:text-zinc-400 font-normal ml-1.5">
+                              {loc.duration}
+                            </span>
+                          ) : null}
+
+                          {loc.details ? (
+                            <span className="text-slate-500 dark:text-zinc-400 font-normal inline-flex items-center">
+                              <span className="text-[#0b57d0] dark:text-[#a8c7fa] font-black mx-1 sm:mx-1.5 select-none">•</span>
+                              {loc.details}
+                            </span>
+                          ) : null}
+                        </span>
+                      ) : (
+                        <span>{loc.rawFallback || notif.message}</span>
+                      )}
+                    </div>
 
                     {/* Action Pill Chip utilizing horizontal space */}
                     {notif.actionLabel && (

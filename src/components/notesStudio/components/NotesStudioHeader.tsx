@@ -61,7 +61,7 @@ export const NotesStudioHeader: React.FC<NotesStudioHeaderProps> = ({
 }) => {
   const [isDraggingImport, setIsDraggingImport] = React.useState<boolean>(false);
   return (
-    <header className={`sticky top-0 z-40 px-3 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-2 flex flex-col gap-2.5 ${APP_STYLES.surface.header} shrink-0 border-0 shadow-none`}>
+    <header className={`sticky top-0 z-40 px-3 sm:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)] pb-2 flex flex-col gap-2.5 ${APP_STYLES.surface.header} shrink-0 border-0 shadow-none`}>
       {/* Top Row: Back, Title & Google Drive Sync */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">

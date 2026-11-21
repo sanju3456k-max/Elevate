@@ -40,6 +40,7 @@ export interface FirestoreTelemetryEvent {
     | 'query'
     | 'signInWithPopup'
     | 'signInWithRedirect'
+    | 'signInWithCredential'
     | 'signOut'
     | 'onAuthStateChanged'
     | 'getRedirectResult'

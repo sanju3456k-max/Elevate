@@ -551,7 +551,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setBatches((prevBatches) =>
             prevBatches.map((b) => {
               const count = (allEnrollments || []).filter((e) => e.batchId === b.id && e.status === 'active').length;
-              return { ...b, enrolledStudentsCount: count };
+              return { ...b, enrolledStudentsCount: Math.max(b.enrolledStudentsCount || 0, count) };
             })
           );
           setUser({
@@ -1065,71 +1065,100 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.dispatchEvent(new CustomEvent('lecture-deleted', { detail: { id } }));
   }, []);
 
+  const curriculumDebounceTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const activeCurriculumPromises = useRef<Map<string, Promise<void>>>(new Map());
+
   const loadCurriculumForBatch = useCallback(async (batchId: string) => {
     if (!batchId) return;
-    try {
-      const { chapters: cloudChaps, lectures: cloudLecs } = await fetchBatchCurriculumFromFirestore(batchId);
 
-      // 1. Authoritative Chapter Reconciliation:
-      // Replace chapters for batchId with cloud chapters (purging deleted ones)
-      setChapters((prev) => {
-        if (cloudChaps.length > 0) {
-          const otherBatchChaps = prev.filter((c) => c.batchId !== batchId);
-          const next = [...otherBatchChaps, ...cloudChaps];
-          try {
-            secureStorage.setItem(STORAGE_KEYS.CHAPTERS, JSON.stringify(next));
-          } catch {}
-          return next;
-        }
-        return prev;
-      });
+    // Reuse in-flight promise if a request is already executing for this batchId
+    const inFlight = activeCurriculumPromises.current.get(batchId);
+    if (inFlight) return inFlight;
 
-      // 2. Authoritative Lecture Reconciliation:
-      // Cloud is the single source of truth for batchId.
-      // Replace batchId lectures with cloudLecs (purging deleted ones completely!)
-      setLectures((prev) => {
-        const otherBatchLecs = prev.filter((l) => l.batchId !== batchId);
-        const next = [...otherBatchLecs, ...cloudLecs];
-        try {
-          secureStorage.setItem(STORAGE_KEYS.LECTURES, JSON.stringify(next));
-        } catch {}
-        return next;
-      });
+    const executeLoad = async () => {
+      try {
+        const { chapters: cloudChaps, lectures: cloudLecs } = await fetchBatchCurriculumFromFirestore(batchId);
 
-      // 3. Batch Tests Authoritative Reconciliation
-      fetchBatchTestsFromFirestore(batchId).then((cloudTests) => {
-        setBatchTests((prev) => {
-          const otherBatchTests = prev.filter((t) => t.batchId !== batchId && !isDeprecatedTest(t));
-          const cleanCloud = (cloudTests || []).filter((t: any) => !isDeprecatedTest(t));
-          const next = [...otherBatchTests, ...cleanCloud];
-          try {
-            secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(next));
-          } catch {}
-          return next;
-        });
-      }).catch(() => {});
-
-      if (cloudChaps.length === 0) {
-        // If batch has no curriculum in cloud yet, supply foundational starter module
+        // 1. Authoritative Chapter Reconciliation:
+        // Replace chapters for batchId with cloud chapters (purging deleted ones)
         setChapters((prev) => {
-          const targetBatch = prev.find((c) => c.batchId === batchId);
-          if (targetBatch) return prev; // already has local chapters
-          const starterChapId = `chap_${batchId}_01`;
-          const starterChap: Chapter = {
-            id: starterChapId,
-            batchId,
-            subjectId: 'sub_math_01',
-            title: 'Chapter 01: Concept Mastery & Foundation',
-            description: `Core curriculum module with video lessons and study materials.`,
-            order: 1,
-          };
-          syncChapterToFirestore(batchId, starterChap).catch(() => {});
-          return [...prev, starterChap];
+          if (cloudChaps.length > 0) {
+            const otherBatchChaps = prev.filter((c) => c.batchId !== batchId);
+            const next = [...otherBatchChaps, ...cloudChaps];
+            try {
+              secureStorage.setItem(STORAGE_KEYS.CHAPTERS, JSON.stringify(next));
+            } catch {}
+            return next;
+          }
+          return prev;
         });
+
+        // 2. Authoritative Lecture Reconciliation:
+        // Cloud is the single source of truth for batchId.
+        // Replace batchId lectures with cloudLecs (purging deleted ones completely!)
+        setLectures((prev) => {
+          const otherBatchLecs = prev.filter((l) => l.batchId !== batchId);
+          const next = [...otherBatchLecs, ...cloudLecs];
+          try {
+            secureStorage.setItem(STORAGE_KEYS.LECTURES, JSON.stringify(next));
+          } catch {}
+          return next;
+        });
+
+        // 3. Batch Tests Authoritative Reconciliation
+        fetchBatchTestsFromFirestore(batchId).then((cloudTests) => {
+          setBatchTests((prev) => {
+            const otherBatchTests = prev.filter((t) => t.batchId !== batchId && !isDeprecatedTest(t));
+            const cleanCloud = (cloudTests || []).filter((t: any) => !isDeprecatedTest(t));
+            const next = [...otherBatchTests, ...cleanCloud];
+            try {
+              secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(next));
+            } catch {}
+            return next;
+          });
+        }).catch(() => {});
+
+        if (cloudChaps.length === 0) {
+          // If batch has no curriculum in cloud yet, supply foundational starter module
+          setChapters((prev) => {
+            const targetBatch = prev.find((c) => c.batchId === batchId);
+            if (targetBatch) return prev; // already has local chapters
+            const starterChapId = `chap_${batchId}_01`;
+            const starterChap: Chapter = {
+              id: starterChapId,
+              batchId,
+              subjectId: 'sub_math_01',
+              title: 'Chapter 01: Concept Mastery & Foundation',
+              description: `Core curriculum module with video lessons and study materials.`,
+              order: 1,
+            };
+            syncChapterToFirestore(batchId, starterChap).catch(() => {});
+            return [...prev, starterChap];
+          });
+        }
+      } catch (err) {
+        console.warn(`Curriculum load error for batch ${batchId}:`, err);
+      } finally {
+        activeCurriculumPromises.current.delete(batchId);
       }
-    } catch (err) {
-      console.warn(`Curriculum load error for batch ${batchId}:`, err);
-    }
+    };
+
+    // Debounce rapid successive calls (e.g. 3 simultaneous onSnapshot listeners)
+    return new Promise<void>((resolve) => {
+      const existingTimer = curriculumDebounceTimers.current.get(batchId);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+      }
+
+      const timer = setTimeout(() => {
+        curriculumDebounceTimers.current.delete(batchId);
+        const p = executeLoad();
+        activeCurriculumPromises.current.set(batchId, p);
+        p.then(resolve).catch(() => resolve());
+      }, 150);
+
+      curriculumDebounceTimers.current.set(batchId, timer);
+    });
   }, []);
 
   const updateWatchProgress = (lectureId: string, currentSeconds: number, totalSeconds: number) => {
@@ -1609,6 +1638,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!batchId) return;
     try {
       const cloudList = await fetchBatchEnrollmentsFromFirestore(batchId);
+      const reportedCount = (cloudList as any)?.totalReported || cloudList.length;
       // Synchronize batch roster with cloud state
       setEnrollments((prev) => {
         const others = prev.filter((e) => e.batchId !== batchId);
@@ -1616,7 +1646,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       setBatches((prev) =>
         prev.map((b) =>
-          b.id === batchId ? { ...b, enrolledStudentsCount: cloudList.length } : b
+          b.id === batchId ? { ...b, enrolledStudentsCount: Math.max(b.enrolledStudentsCount || 0, reportedCount) } : b
         )
       );
     } catch (err) {

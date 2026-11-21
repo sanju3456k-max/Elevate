@@ -521,9 +521,21 @@ export default function App() {
       // Dynamically update status bar theme-color to match app page header background exactly
       // Gemini Chatbot header: #ffffff (light) / #131314 (dark)
       // Note Studio header: #ffffff (light) / #0b0c10 (dark)
-      // All other page headers: #e5e9f0 (light) / #0b0c10 (dark)
+      // Master Console header: #ffffff (light) / #16181f (dark)
+      // Welcome Splash Screen: #ffffff (light) / #0b0c10 (dark)
+      // Settings & Storage modal: #ffffff (light) / #0b0c10 (dark)
+      // Inside batch / Chapter contents / Notifications: #ffffff (light) / #0b0c10 (dark)
+      // Standard page headers (home, batches catalog, tests, analytics): #e5e9f0 (light) / #0b0c10 (dark)
       let statusBarColor = isDarkMode ? '#0b0c10' : '#e5e9f0';
-      if (activeTab === 'chatbot') {
+      if (!isAppLoaded) {
+        statusBarColor = isDarkMode ? '#0b0c10' : '#ffffff';
+      } else if (isSettingsModalOpen) {
+        statusBarColor = isDarkMode ? '#0b0c10' : '#ffffff';
+      } else if (activeTab === 'master-console') {
+        statusBarColor = isDarkMode ? '#16181f' : '#ffffff';
+      } else if (activeTab === 'notifications' || (activeTab === 'batches' && isInsideBatch)) {
+        statusBarColor = isDarkMode ? '#0b0c10' : '#ffffff';
+      } else if (activeTab === 'chatbot') {
         statusBarColor = isDarkMode ? '#131314' : '#ffffff';
       } else if (activeTab === 'html-notes' || activeTab === 'notes-repository') {
         statusBarColor = isDarkMode ? '#0b0c10' : '#ffffff';
@@ -555,7 +567,7 @@ export default function App() {
     } catch (e) {
       console.warn('Theme storage and status bar sync error:', e);
     }
-  }, [isDarkMode, activeTab]);
+  }, [isDarkMode, activeTab, isInsideBatch, isSettingsModalOpen, isAppLoaded]);
 
   const toggleTheme = useCallback(() => {
     setIsDarkMode((prev) => !prev);
@@ -2058,16 +2070,23 @@ export default function App() {
           - Mobile & Tablet Apps (< md): Top Header is displayed on primary tabs: Home, Batches, Tests, and Analytics.
           - When inside a batch (viewing folders, contents, or video), or inside full-screen Chapter/Subtopics view, top header is hidden on mobile & tablet to maximize workspace focus. */}
       {activeTab !== 'take-test' &&
+       activeTab !== 'omr-test' &&
+       activeTab !== 'create' &&
        activeTab !== 'custom-builder' &&
        activeTab !== 'master-console' &&
        activeTab !== 'chatbot' &&
-       !isFullVideoPlayerActive &&
+       activeTab !== 'bulk-print' &&
+       activeTab !== 'notes-repository' &&
+       activeTab !== 'html-notes' &&
+       (!isFullVideoPlayerActive || !isNativeAndroid()) &&
        !isReportAnalysisActive &&
        !isChapterFullScreenActive && (
         <div
           id="app-navbar-wrapper"
           className={`sticky top-0 z-50 transition-all duration-200 shrink-0 ${
-            activeTab === 'results' || (activeTab === 'batches' && isInsideBatch)
+            isFullVideoPlayerActive
+              ? (isNativeAndroid() ? 'hidden' : 'hidden md:fixed md:top-0 md:inset-x-0 md:z-50 md:block video-player-desktop-header')
+              : activeTab === 'results' || (activeTab === 'batches' && isInsideBatch)
               ? (isNativeAndroid() ? 'hidden' : 'hidden md:block')
               : ['home', 'batches', 'tests', 'analytics'].includes(activeTab)
               ? 'block'
@@ -2090,6 +2109,7 @@ export default function App() {
             onSearchChange={setSearchQuery}
             onOpenSettings={() => setIsSettingsModalOpen((prev) => !prev)}
             isInsideBatch={isInsideBatch}
+            isVideoPlaying={isFullVideoPlayerActive}
           />
         </div>
       )}
@@ -2231,7 +2251,7 @@ export default function App() {
             ? 'bg-white dark:bg-[#0b0c10]'
             : 'bg-[#e5e9f0] dark:bg-[#0b0c10]'
         } ${
-          isInsideBatch ? 'pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.75rem)] md:pt-4 px-3 sm:px-6' : ''
+          isInsideBatch ? 'pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.35rem)] md:pt-3 px-3 sm:px-6' : ''
         } ${
           ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && !isInsideBatch && !isChapterFullScreenActive
             ? (persistentPlayback?.isMinimized ? 'pb-40 sm:pb-36 md:pb-24' : 'pb-28 sm:pb-28 md:pb-16')
@@ -2383,7 +2403,7 @@ export default function App() {
 
           {/* Video Batches & LMS Suite (Elevate Integrated Curriculum) */}
           {activeTab === 'batches' && (
-            <div className={`max-w-7xl mx-auto ${isLectureViewActive ? 'px-0 lg:px-6 py-0 lg:py-6' : 'px-3 sm:px-6 py-4 sm:py-6'}`}>
+            <div className={`max-w-7xl mx-auto ${isLectureViewActive ? 'px-0 lg:px-6 py-0 lg:py-6' : 'px-3 sm:px-6 pt-1.5 sm:pt-4 pb-4 sm:pb-6'}`}>
               <BatchDetailView
                 batchId={selectedBatchId || undefined}
                 initialLectureId={selectedLectureId}

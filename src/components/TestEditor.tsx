@@ -2741,7 +2741,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
 
   return (
     <div 
-      className={`fixed inset-0 bg-[#e5e9f0] dark:bg-[#0b0c10] text-slate-900 dark:text-zinc-100 h-[100dvh] max-h-screen px-2 sm:px-4 md:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] pb-[calc(max(0.5rem,env(safe-area-inset-bottom,0px))+0.25rem)] overflow-hidden flex flex-col z-40 font-sans transition-colors ${
+      className={`fixed inset-0 bg-[#e5e9f0] dark:bg-[#0b0c10] text-slate-900 dark:text-zinc-100 h-[100dvh] max-h-screen px-2 sm:px-4 md:px-6 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.45rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] pb-[calc(max(0.5rem,env(safe-area-inset-bottom,0px))+0.25rem)] overflow-hidden flex flex-col z-40 font-sans transition-colors ${
         isDraggingImport ? 'ring-4 ring-[#0b57d0] ring-inset bg-blue-50/40 dark:bg-blue-950/20' : ''
       }`}
       onDragOver={handleImportDragOver}
@@ -4279,7 +4279,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
             onClick={(e) => e.stopPropagation()}
           >
               {/* Full-View Header (Matching App Header Background #e5e9f0 / #0b0c10 with Safe-Area Inset) */}
-              <div className="px-4 py-2.5 sm:px-6 sm:py-3 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+1.2rem)] border-0 flex items-center justify-between gap-4 bg-[#e5e9f0] dark:bg-[#0b0c10] shrink-0 transition-colors duration-200">
+              <div className="px-4 py-2.5 sm:px-6 sm:py-3 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.45rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] border-0 flex items-center justify-between gap-4 bg-[#e5e9f0] dark:bg-[#0b0c10] shrink-0 transition-colors duration-200">
                 <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
                   <button
                     type="button"

@@ -2101,20 +2101,22 @@ export async function dispatchAdaptiveRemedialTests(params: {
   }
 
   // Explicitly update local Master Dispatch Ledger with newly created assignments
-  try {
-    const rawLedger = localStorage.getItem(MASTER_DISPATCH_LEDGER_KEY);
-    const ledger: AssignedRemedialTest[] = rawLedger ? JSON.parse(rawLedger) : [];
-    assignments.forEach((assignment) => {
-      const idx = ledger.findIndex((a) => a.id === assignment.id);
-      if (idx >= 0) {
-        ledger[idx] = assignment;
-      } else {
-        ledger.unshift(assignment);
-      }
-    });
-    localStorage.setItem(MASTER_DISPATCH_LEDGER_KEY, JSON.stringify(ledger));
-  } catch (e) {
-    console.warn('Failed to update local master dispatch ledger:', e);
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const rawLedger = localStorage.getItem(MASTER_DISPATCH_LEDGER_KEY);
+      const ledger: AssignedRemedialTest[] = rawLedger ? JSON.parse(rawLedger) : [];
+      assignments.forEach((assignment) => {
+        const idx = ledger.findIndex((a) => a.id === assignment.id);
+        if (idx >= 0) {
+          ledger[idx] = assignment;
+        } else {
+          ledger.unshift(assignment);
+        }
+      });
+      localStorage.setItem(MASTER_DISPATCH_LEDGER_KEY, JSON.stringify(ledger));
+    } catch (e) {
+      console.warn('Failed to update local master dispatch ledger:', e);
+    }
   }
 
   // Notify student and master UI components immediately
@@ -2711,6 +2713,28 @@ function setSessionCachedCohortAttempts(testId: string, attempts: TestAttempt[])
 }
 
 /**
+ * Retrieve cached cohort attempts for a specific student across all loaded batch tests.
+ * Enables instant 0-read Student 360 inspection.
+ */
+export function getCachedCohortAttemptsForUser(userId: string, userEmail?: string): TestAttempt[] {
+  const matched: TestAttempt[] = [];
+  const lowerEmail = (userEmail || '').toLowerCase();
+  cohortAttemptsMemoryCache.forEach((entry) => {
+    if (entry && Array.isArray(entry.attempts)) {
+      entry.attempts.forEach((a) => {
+        if (
+          (userId && a.userId === userId) ||
+          (lowerEmail && a.userEmail && a.userEmail.toLowerCase() === lowerEmail)
+        ) {
+          matched.push(a);
+        }
+      });
+    }
+  });
+  return matched;
+}
+
+/**
  * Convert a Firestore LeaderboardEntry into a lightweight synthetic TestAttempt
  * for Master Console cohort analytics and remedial engine.
  */
@@ -2796,6 +2820,7 @@ export function convertLeaderboardEntryToAttempt(e: LeaderboardEntry, test: Math
     id: e.firstAttemptId || `cohort_${e.userId}_${test.id}`,
     testId: test.id,
     testTitle: e.testTitle || test.title,
+    batchId: (e as any).batchId || (test as any).batchId || (test as any).enrolledBatchId || 'batch_testing_01',
     testTopic: test.topic || 'General Mathematics',
     userId: e.userId,
     userEmail: e.userEmail || '',
@@ -2842,6 +2867,9 @@ export function convertCompactRecordToAttempt(rec: any, activeTest: MathTest): T
     id: `cohort_att_${rec.uid || 'user'}_${activeTest.id}`,
     testId: activeTest.id,
     testTitle: activeTest.title,
+    testTopic: activeTest.topic || 'General Mathematics',
+    passed: typeof rec.percentage === 'number' ? rec.percentage >= 40 : true,
+    batchId: rec.batchId || (activeTest as any).batchId || (activeTest as any).enrolledBatchId || 'batch_testing_01',
     userId: rec.uid || rec.userId || 'learner',
     userName: rec.name || rec.userName || 'Learner',
     userEmail: rec.email || rec.userEmail || '',
@@ -2856,7 +2884,7 @@ export function convertCompactRecordToAttempt(rec: any, activeTest: MathTest): T
     wrongQuestionIndices: Array.isArray(rec.wrongIndices) ? rec.wrongIndices : undefined,
     unattemptedQuestionIndices: Array.isArray(rec.unattemptedIndices) ? rec.unattemptedIndices : undefined,
     flaggedQuestionIndices: Array.isArray(rec.flaggedIndices) ? rec.flaggedIndices : undefined,
-  } as TestAttempt;
+  } as unknown as TestAttempt;
 }
 
 /**
@@ -2987,29 +3015,40 @@ export async function fetchCohortAttemptsForTest(test: MathTest, forceRefresh: b
       try {
         let cohortFound = false;
 
-        // A0. Compact Cohort Bucket 1 (Primary 1-Read Bucket with auto-spill Part 2)
+        // A0. Compact Cohort Bucket 1..N (Primary Dynamic N-Bucket Architecture)
         for (const targetId of targetIds) {
           const cohortBucketRef = doc(db, 'test_leaderboards', targetId, 'summary', 'cohort_bucket_1');
           const cohortSnap = await getDoc(cohortBucketRef).catch(() => null);
           if (cohortSnap && cohortSnap.exists()) {
             cohortFound = true;
             const cData = cohortSnap.data() || {};
-            let compactList: any[] = Array.isArray(cData.attempts) ? cData.attempts : [];
+            let compactList: any[] = Array.isArray(cData.attempts) ? [...cData.attempts] : [];
+            let allEntriesList: any[] = Array.isArray(cData.entries) ? [...cData.entries] : [];
 
-            // Scientific Part 2 Chunking: If threshold exceeded, merge Part 2
-            if (cData.hasPart2) {
+            // Dynamic N-Bucket Parallel Retrieval: Merge Parts 2..N
+            const totalParts = typeof cData.totalParts === 'number' ? cData.totalParts : (cData.hasPart2 ? 2 : 1);
+            if (totalParts > 1) {
               try {
-                const cohortBucket2Ref = doc(db, 'test_leaderboards', targetId, 'summary', 'cohort_bucket_2');
-                const c2Snap = await getDoc(cohortBucket2Ref).catch(() => null);
-                if (c2Snap && c2Snap.exists()) {
-                  const c2Data = c2Snap.data() || {};
-                  if (Array.isArray(c2Data.attempts)) {
-                    compactList = [...compactList, ...c2Data.attempts];
-                  }
+                const partRefs = [];
+                for (let p = 2; p <= totalParts; p++) {
+                  partRefs.push(doc(db, 'test_leaderboards', targetId, 'summary', `cohort_bucket_${p}`));
                 }
+                const snaps = await Promise.all(partRefs.map((r) => getDoc(r).catch(() => null)));
+                snaps.forEach((s) => {
+                  if (s && s.exists()) {
+                    const data = s.data() || {};
+                    if (Array.isArray(data.attempts) && data.attempts.length > 0) {
+                      compactList = compactList.concat(data.attempts);
+                    }
+                    if (Array.isArray(data.entries) && data.entries.length > 0) {
+                      allEntriesList = allEntriesList.concat(data.entries);
+                    }
+                  }
+                });
               } catch {}
             }
 
+            // 1. First process high-fidelity compact attempt records (with detailed wrong/unattempted question indices)
             compactList.forEach((rec) => {
               if (!rec) return;
               const uid = rec.uid || rec.userId;
@@ -3021,8 +3060,63 @@ export async function fetchCohortAttemptsForTest(test: MathTest, forceRefresh: b
                 results.push(convertCompactRecordToAttempt(rec, activeTest));
               }
             });
-            break; // 1 Read executed successfully!
+
+            // 2. Then merge all remaining leaderboard entries so 100% of the 4,000 cohort participants are included
+            allEntriesList.forEach((entry) => {
+              if (!entry) return;
+              const uid = entry.userId || entry.uid;
+              const emailKey = (entry.userEmail || entry.email || '').toLowerCase();
+              const isAlreadySeen = (uid && seenUserIds.has(uid)) || (emailKey && seenUserIds.has(emailKey));
+              if (!isAlreadySeen) {
+                if (uid) seenUserIds.add(uid);
+                if (emailKey) seenUserIds.add(emailKey);
+                results.push(convertLeaderboardEntryToAttempt(entry, activeTest));
+              }
+            });
+            break; // Merged all buckets successfully!
           }
+        }
+
+        // A0.1 Batch-Scoped Attempt Dynamic Buckets (batches/{batchId}/tests/{testId}/attempts/bucket_1..N)
+        const possibleBatchIds = Array.from(new Set([
+          (activeTest as any).batchId,
+          (activeTest as any).enrolledBatchId,
+          'batch_testing_01',
+          'batch_explorer_01'
+        ])).filter(Boolean) as string[];
+
+        for (const bId of possibleBatchIds) {
+          try {
+            const manifestRef = doc(db, 'batches', bId, 'tests', targetIds[0] || activeTest.id, 'attempts', 'manifest');
+            const manifestSnap = await getDoc(manifestRef).catch(() => null);
+            if (manifestSnap && manifestSnap.exists()) {
+              const mData = manifestSnap.data() || {};
+              const curBucketIndex = typeof mData.currentBucketIndex === 'number' ? mData.currentBucketIndex : 1;
+              const batchBucketRefs = [];
+              for (let b = 1; b <= curBucketIndex; b++) {
+                batchBucketRefs.push(doc(db, 'batches', bId, 'tests', targetIds[0] || activeTest.id, 'attempts', `bucket_${b}`));
+              }
+              const bSnaps = await Promise.all(batchBucketRefs.map((r) => getDoc(r).catch(() => null)));
+              bSnaps.forEach((bs) => {
+                if (bs && bs.exists()) {
+                  const bd = bs.data() || {};
+                  if (Array.isArray(bd.attempts)) {
+                    bd.attempts.forEach((rec: any) => {
+                      if (!rec) return;
+                      const uid = rec.uid || rec.userId;
+                      const emailKey = (rec.email || rec.userEmail || '').toLowerCase();
+                      const isAlreadySeen = (uid && seenUserIds.has(uid)) || (emailKey && seenUserIds.has(emailKey));
+                      if (!isAlreadySeen) {
+                        if (uid) seenUserIds.add(uid);
+                        if (emailKey) seenUserIds.add(emailKey);
+                        results.push(convertCompactRecordToAttempt(rec, activeTest));
+                      }
+                    });
+                  }
+                }
+              });
+            }
+          } catch {}
         }
 
         let topBucketFound = cohortFound;

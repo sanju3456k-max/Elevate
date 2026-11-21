@@ -196,13 +196,13 @@ export function decryptPayload(cipherOrRaw: string | null): string | null {
         }
 
         // If it's a known boolean/number or valid string
-        if (decoded === 'true' || decoded === 'false' || decoded === 'null' || !isNaN(Number(decoded))) {
+        if (decoded === 'true' || decoded === 'false' || decoded === 'null' || decoded === 'light' || decoded === 'dark' || !isNaN(Number(decoded))) {
           return decoded;
         }
 
-        // Check if string contains only printable characters
-        const isPrintable = /^[\x20-\x7E\s\u0900-\u097F\u2000-\u206F\u00A0-\u00FF]*$/.test(decoded);
-        if (isPrintable && decoded.trim().length > 0) {
+        // Check if string contains only strict clean ASCII printable characters
+        const isCleanAscii = /^[a-zA-Z0-9_\-\s.,:;!?@()]+$/.test(decoded.trim());
+        if (isCleanAscii && decoded.trim().length > 0) {
           return decoded;
         }
       } catch {
@@ -243,6 +243,23 @@ export const secureStorage = {
         } catch {}
         return null;
       }
+
+      // If decrypted string starts with JSON tokens but fails JSON.parse, it's corrupted gibberish
+      if (decrypted && typeof decrypted === 'string') {
+        const trimmed = decrypted.trim();
+        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+          try {
+            JSON.parse(trimmed);
+          } catch {
+            console.warn(`[SecureStorage] Purging corrupted non-JSON cipher for key: "${key}"`);
+            try {
+              localStorage.removeItem(key);
+            } catch {}
+            return null;
+          }
+        }
+      }
+
       return decrypted;
     } catch (e) {
       console.warn(`[SecureStorage] Error reading key "${key}":`, e);

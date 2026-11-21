@@ -993,15 +993,15 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               className={`h-8.5 px-3.5 sm:px-4 rounded-full text-xs font-bold transition-all duration-200 border-0 outline-none cursor-pointer flex items-center space-x-1.5 active:scale-95 ${
                 batchFilter === 'all'
                   ? 'bg-[#0b57d0] text-white shadow-[0_2px_6px_rgba(11,87,208,0.25)]'
-                  : 'bg-transparent text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
+                  : 'bg-transparent text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-zinc-100 font-semibold'
               }`}
             >
               <span>All Courses</span>
               <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums ${
                   batchFilter === 'all'
                     ? 'bg-white/20 text-white'
-                    : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'
+                    : 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300'
                 }`}
               >
                 {batches.length}
@@ -1014,15 +1014,15 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               className={`h-8.5 px-3.5 sm:px-4 rounded-full text-xs font-bold transition-all duration-200 border-0 outline-none cursor-pointer flex items-center space-x-1.5 active:scale-95 ${
                 batchFilter === 'my-batches'
                   ? 'bg-[#0b57d0] text-white shadow-[0_2px_6px_rgba(11,87,208,0.25)]'
-                  : 'bg-transparent text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'
+                  : 'bg-transparent text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-zinc-100 font-semibold'
               }`}
             >
               <span>My Courses</span>
               <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums ${
                   batchFilter === 'my-batches'
                     ? 'bg-white/20 text-white'
-                    : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'
+                    : 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300'
                 }`}
               >
                 {enrolledBatches.length}
@@ -1356,19 +1356,19 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             <div className="flex items-center space-x-1.5 text-xs font-semibold overflow-x-auto py-1 scrollbar-none">
               <button
                 onClick={handleGoToAllCourses}
-                className="px-2 py-1 rounded-lg hover:bg-[var(--md-sys-color-surface-container)] text-[var(--md-sys-color-on-surface-variant)] border-none bg-transparent cursor-pointer shrink-0"
+                className="px-2 py-1 rounded-lg hover:bg-[var(--md-sys-color-surface-container)] text-slate-700 dark:text-zinc-300 font-semibold border-none bg-transparent cursor-pointer shrink-0"
               >
                 All Courses
               </button>
 
-              <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <ChevronRight className="w-3.5 h-3.5 text-slate-600 dark:text-zinc-400 shrink-0" />
 
               <button
                 onClick={handleGoToBatchRoot}
                 className={`px-2.5 py-1 rounded-lg border-none bg-transparent cursor-pointer shrink-0 truncate max-w-[140px] sm:max-w-xs ${
                   !selectedChapterId
                     ? 'font-bold text-[var(--md-sys-color-primary)] bg-[var(--md-sys-color-surface-container)]'
-                    : 'text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container)]'
+                    : 'text-slate-700 dark:text-zinc-300 font-semibold hover:bg-[var(--md-sys-color-surface-container)]'
                 }`}
                 title={currentBatch.title}
               >
@@ -1380,13 +1380,13 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 const isCurrent = crumb.id === selectedChapterId;
                 return (
                   <React.Fragment key={crumb.id}>
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-600 dark:text-zinc-400 shrink-0" />
                     <button
                       onClick={() => handleGoToChapter(crumb.id)}
                       className={`px-2.5 py-1 rounded-lg border-none bg-transparent cursor-pointer shrink-0 truncate max-w-[130px] sm:max-w-xs ${
                         isCurrent
                           ? 'font-bold text-[var(--md-sys-color-primary)] bg-[var(--md-sys-color-surface-container)]'
-                          : 'text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container)]'
+                          : 'text-slate-700 dark:text-zinc-300 font-semibold hover:bg-[var(--md-sys-color-surface-container)]'
                       }`}
                       title={crumb.title}
                     >
@@ -1502,7 +1502,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               </div>
               <div>
                 <p className="text-xs font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">Curriculum Exploration Mode</p>
-                <p className="text-[11px] text-slate-500 dark:text-zinc-400">You can explore folders and syllabus preview. Full video playback, study notes, and mock tests are restricted to enrolled students.</p>
+                <p className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium">You can explore folders and syllabus preview. Full video playback, study notes, and mock tests are restricted to enrolled students.</p>
               </div>
             </div>
             {currentBatch.price ? (
@@ -1549,7 +1549,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               className={`flex-1 h-9 px-3.5 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-0 outline-none cursor-pointer active:scale-95 ${
                 folderActiveTab === 'videos'
                   ? 'bg-[#0b57d0] text-white shadow-[0_2px_6px_rgba(11,87,208,0.25)]'
-                  : 'text-[#5e5e5e] dark:text-[#9aa0a6] hover:text-[#1f1f1f] dark:hover:text-[#e3e3e3] bg-transparent'
+                  : 'text-slate-700 dark:text-zinc-300 hover:text-[#1f1f1f] dark:hover:text-[#e3e3e3] bg-transparent'
               }`}
             >
               <PlayCircle className="w-3.5 h-3.5" />
@@ -1565,7 +1565,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               className={`flex-1 h-9 px-3.5 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-0 outline-none cursor-pointer active:scale-95 ${
                 folderActiveTab === 'notes_content'
                   ? 'bg-[#0b57d0] text-white shadow-[0_2px_6px_rgba(11,87,208,0.25)]'
-                  : 'text-[#5e5e5e] dark:text-[#9aa0a6] hover:text-[#1f1f1f] dark:hover:text-[#e3e3e3] bg-transparent'
+                  : 'text-slate-700 dark:text-zinc-300 hover:text-[#1f1f1f] dark:hover:text-[#e3e3e3] bg-transparent'
               }`}
             >
               <FileText className="w-3.5 h-3.5" />
@@ -1581,7 +1581,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               className={`flex-1 h-9 px-3.5 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-0 outline-none cursor-pointer active:scale-95 ${
                 folderActiveTab === 'tests'
                   ? 'bg-[#0b57d0] text-white shadow-[0_2px_6px_rgba(11,87,208,0.25)]'
-                  : 'text-[#5e5e5e] dark:text-[#9aa0a6] hover:text-[#1f1f1f] dark:hover:text-[#e3e3e3] bg-transparent'
+                  : 'text-slate-700 dark:text-zinc-300 hover:text-[#1f1f1f] dark:hover:text-[#e3e3e3] bg-transparent'
               }`}
             >
               <Award className="w-3.5 h-3.5" />
@@ -1643,7 +1643,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                         <h4 className="text-xs sm:text-sm font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition truncate">
                           {fld.title}
                         </h4>
-                        <p className="text-[10px] text-slate-500 dark:text-zinc-400 truncate mt-0.5">
+                        <p className="text-[10.5px] text-slate-700 dark:text-zinc-300 font-medium tabular-nums truncate mt-0.5">
                           {nestedChildFolders.length > 0 && `${nestedChildFolders.length} Folders • `}
                           {subLectures.length} Videos • {notesCount} Notes • {subTestsCount} Tests
                         </p>
@@ -1670,7 +1670,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                               className="fixed inset-0 z-40" 
                               onClick={() => setActiveMenuId(null)} 
                             />
-                            <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-[#1e2024] rounded-2xl shadow-xl border border-[var(--md-sys-color-outline-variant)]/20 py-1.5 z-50 text-xs">
+                            <div className="absolute right-0 top-full mt-1 w-40 bg-white/95 dark:bg-[#121316]/95 backdrop-blur-2xl rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-slate-100 dark:border-zinc-800 py-1.5 z-50 text-xs">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1726,7 +1726,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               {folderLectures.length === 0 ? (
                 currentSubfolders.length > 0 ? (
                   <div className="p-4 sm:p-5 text-center bg-white dark:bg-[#1e2024] rounded-3xl border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-1">
-                    <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
+                    <p className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
                       Select a subfolder above to view chapter video lectures
                     </p>
                     {isMaster && (
@@ -1760,7 +1760,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                         + Add First Lecture
                       </button>
                     ) : (
-                      <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                      <p className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium">
                         Faculty will upload video lectures and recorded sessions for this section soon.
                       </p>
                     )}
@@ -1795,7 +1795,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                               Free
                             </span>
                           )}
-                          <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-black/80 font-mono text-[8.5px] sm:text-[9.5px] text-white font-medium shadow-xs">
+                          <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-black/80 tabular-nums text-[8.5px] sm:text-[9.5px] text-white font-bold shadow-xs">
                             {(() => {
                               const totalSec = exactDurations[lec.id] || lec.durationSeconds || watchProgress[lec.id]?.totalSeconds || 0;
                               if (totalSec > 0) {
@@ -1822,10 +1822,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                           <h4 className="text-xs sm:text-sm font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition line-clamp-2 leading-snug">
                             {lec.title}
                           </h4>
-                          <p className="hidden sm:block text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-1 mt-0.5">
+                          <p className="hidden sm:block text-[11px] text-slate-700 dark:text-zinc-300 font-medium line-clamp-1 mt-0.5">
                             {lec.description || 'Watch concept masterclass with bookmarkable milestones.'}
                           </p>
-                          <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
+                          <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-slate-700 dark:text-zinc-300 font-medium tabular-nums mt-1">
                             <span className="truncate">
                               {lec.pdfNotes?.length || 0} Attached Notes
                             </span>
@@ -1867,7 +1867,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                                   className="fixed inset-0 z-40" 
                                   onClick={() => setActiveMenuId(null)} 
                                 />
-                                <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-[#1e2024] rounded-2xl shadow-xl border border-slate-100 dark:border-zinc-800 py-1.5 z-50 text-xs">
+                                <div className="absolute right-0 top-full mt-1 w-40 bg-white/95 dark:bg-[#121316]/95 backdrop-blur-2xl rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-slate-100 dark:border-zinc-800 py-1.5 z-50 text-xs">
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -1918,7 +1918,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               {folderNotesContent.length === 0 ? (
                 currentSubfolders.length > 0 ? (
                   <div className="p-4 sm:p-5 text-center bg-white dark:bg-[#1e2024] rounded-3xl border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-1">
-                    <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
+                    <p className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
                       Select a subfolder above to view chapter notes & documents
                     </p>
                     {isMaster && (
@@ -1952,7 +1952,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                         + Add PDF Note
                       </button>
                     ) : (
-                      <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                      <p className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium">
                         Faculty will upload chapter cheat sheets and DPP notes here soon.
                       </p>
                     )}
@@ -1984,7 +1984,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                                 <span>Locked</span>
                               </span>
                             ) : (
-                              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                              <span className="text-[10px] text-slate-700 dark:text-zinc-300 font-medium">
                                 Drive Viewer
                               </span>
                             )}
@@ -2049,7 +2049,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               {folderTests.length === 0 ? (
                 currentSubfolders.length > 0 ? (
                   <div className="p-4 sm:p-5 text-center bg-white dark:bg-[#1e2024] rounded-3xl border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-1">
-                    <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
+                    <p className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
                       Select a subfolder above to take chapter mock tests
                     </p>
                     {isMaster && (
@@ -2077,7 +2077,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                         + Link CBT Test
                       </button>
                     ) : (
-                      <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                      <p className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium">
                         Faculty will schedule and publish chapter mock exams here soon.
                       </p>
                     )}
@@ -2365,10 +2365,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
           <div className="px-3.5 sm:px-6 lg:px-0">
             <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl sm:rounded-3xl p-4 sm:p-5 space-y-2 shadow-xs">
-              <h1 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] leading-snug">
+              <h1 className="text-base sm:text-lg font-bold text-[#1f1f1f] dark:text-[#e3e3e3] leading-snug">
                 {activeLecture.title}
               </h1>
-              <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] leading-relaxed">
+              <p className="text-xs text-slate-700 dark:text-zinc-300 font-medium leading-relaxed">
                 {activeLecture.description}
               </p>
             </div>
@@ -2388,7 +2388,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   <h2 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] leading-tight">
                     Lecture Notes
                   </h2>
-                  <p className="text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
+                  <p className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium">
                     Write and save your personal study notes freely
                   </p>
                 </div>
@@ -2402,7 +2402,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 value={noteInputText}
                 onChange={(e) => setNoteInputText(e.target.value)}
                 placeholder="Write your study notes, formulas, or key concepts freely..."
-                className="w-full px-3 py-2.5 rounded-xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs text-[var(--md-sys-color-on-surface)] placeholder:text-[var(--md-sys-color-on-surface-variant)]/60 resize-none focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition"
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/40 text-xs text-[var(--md-sys-color-on-surface)] placeholder:text-slate-500 resize-none focus:outline-hidden focus:border-[var(--md-sys-color-primary)] transition"
               />
               <div className="flex items-center justify-end">
                 <button
@@ -2424,7 +2424,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   <p className="text-xs font-semibold text-[var(--md-sys-color-on-surface)]">
                     No notes yet
                   </p>
-                  <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] max-w-xs mx-auto">
+                  <p className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium max-w-xs mx-auto">
                     Type your thoughts or key concepts above and save them freely.
                   </p>
                 </div>
@@ -2437,14 +2437,14 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                       className="p-3 rounded-2xl bg-[var(--md-sys-color-surface)] border border-[var(--md-sys-color-outline-variant)]/20 flex items-start justify-between gap-2.5 transition hover:shadow-xs group"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs sm:text-sm text-[var(--md-sys-color-on-surface)] break-words leading-relaxed whitespace-pre-wrap">
+                        <p className="text-xs sm:text-sm text-slate-800 dark:text-zinc-100 font-medium break-words leading-relaxed whitespace-pre-wrap">
                           {note.text}
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={() => deletePersonalNote(note.id)}
-                        className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/20 border-none bg-transparent cursor-pointer shrink-0 transition"
+                        className="p-1.5 text-slate-600 dark:text-zinc-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/20 border-none bg-transparent cursor-pointer shrink-0 transition"
                         title="Delete Note"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

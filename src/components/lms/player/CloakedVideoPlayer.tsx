@@ -1539,7 +1539,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
       {securitySettings?.enableDynamicWatermark !== false && (
         <div
           id="cloaked-player-dynamic-watermark"
-          className={`absolute pointer-events-none select-none z-35 font-mono text-white/30 drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] flex flex-col items-center text-center leading-tight tracking-wider scale-85 sm:scale-100 ${
+          className={`absolute pointer-events-none select-none z-35 font-medium tabular-nums text-white/30 drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] flex flex-col items-center text-center leading-tight tracking-wider scale-85 sm:scale-100 ${
             isMini && !isFullscreen ? 'scale-70 origin-top-left' : ''
           }`}
           style={{
@@ -1579,7 +1579,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           <p className="text-[11px] text-slate-300 max-w-xs mb-3 leading-relaxed">
             Screen capture utility or background window detected. Click or return focus to this window to resume playback.
           </p>
-          <div className="flex items-center space-x-2 text-[9px] font-mono text-amber-400/90 bg-amber-950/60 px-3 py-1 rounded-full border border-amber-500/30">
+          <div className="flex items-center space-x-2 text-[9px] font-medium text-amber-400/90 bg-amber-950/60 px-3 py-1 rounded-full border border-amber-500/30">
             <span>DRM Shield Active</span>
             <span>•</span>
             <span>Anti-Piracy Enforcement</span>
@@ -1597,7 +1597,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           <p className="text-xs text-slate-300 max-w-sm mb-4 leading-relaxed">
             {authError || 'Your account is not enrolled in this batch. Content theft prevention is active.'}
           </p>
-          <span className="text-[10px] font-mono text-slate-500 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
+          <span className="text-[10px] font-medium tabular-nums text-slate-400 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
             HTTP 403 Forbidden (Anti-Piracy Gateway)
           </span>
         </div>
@@ -1613,7 +1613,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           <p className="text-xs text-slate-300 max-w-sm mb-4 leading-relaxed">
             Video playback and streaming are securely halted to protect educator copyright. Please close Developer Tools or inspection windows to resume watching.
           </p>
-          <div className="flex items-center space-x-2 text-[10px] font-mono text-slate-400 bg-slate-900/90 px-3 py-1 rounded-full border border-slate-800 mb-4">
+          <div className="flex items-center space-x-2 text-[10px] font-medium text-slate-300 bg-slate-900/90 px-3 py-1 rounded-full border border-slate-800 mb-4">
             <span>Security Shield: Active</span>
           </div>
 
@@ -2015,7 +2015,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                       e.stopPropagation();
                       toggleMute();
                     }}
-                    className="text-[10px] font-mono text-slate-300 hover:text-white bg-transparent border-none cursor-pointer px-1"
+                    className="text-[10px] font-semibold tabular-nums text-slate-300 hover:text-white bg-transparent border-none cursor-pointer px-1"
                   >
                     {isMuted ? '0%' : `${volume}%`}
                   </button>
@@ -2026,7 +2026,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             {/* Time Stamp */}
             <div
               onClick={(e) => e.stopPropagation()}
-              className="text-[10.5px] sm:text-xs font-mono text-slate-300 select-none px-1 cursor-default whitespace-nowrap"
+              className="text-[10.5px] sm:text-xs font-semibold tabular-nums text-slate-300 select-none px-1 cursor-default whitespace-nowrap"
             >
               <span>{formatDuration(currentTime)}</span>
               <span className="mx-1 text-slate-500">/</span>
