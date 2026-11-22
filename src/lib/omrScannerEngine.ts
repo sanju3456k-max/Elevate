@@ -1009,56 +1009,73 @@ export async function evaluateScannedOmrImage(
     const scaleX = targetW / srcW;
     const scaleY = targetH / srcH;
 
-    const testFiducials = {
-      topLeft: { x: precalibratedFiducials.topLeft.x * scaleX, y: precalibratedFiducials.topLeft.y * scaleY },
-      topRight: { x: precalibratedFiducials.topRight.x * scaleX, y: precalibratedFiducials.topRight.y * scaleY },
-      bottomLeft: { x: precalibratedFiducials.bottomLeft.x * scaleX, y: precalibratedFiducials.bottomLeft.y * scaleY },
-      bottomRight: { x: precalibratedFiducials.bottomRight.x * scaleX, y: precalibratedFiducials.bottomRight.y * scaleY },
-    };
+    // 1:1 Tight Fiducial Crop (Live Camera Warp matching Manual Crop directly):
+    const isTightPrecalibrated = 
+      precalibratedFiducials.topLeft.x === 0 && 
+      precalibratedFiducials.topLeft.y === 0 &&
+      Math.abs(precalibratedFiducials.topRight.x - srcW) < 15;
 
-    // Presence check: verify that these coordinates actually hit registration marks on the image
-    const verifyFiducialPresence = (pt: OmrPoint): boolean => {
-      const checkRadius = Math.max(6, Math.round(targetW * 0.015));
-      let darkCount = 0;
-      for (let dy = -checkRadius; dy <= checkRadius; dy += 3) {
-        for (let dx = -checkRadius; dx <= checkRadius; dx += 3) {
-          const px = Math.max(0, Math.min(targetW - 1, Math.round(pt.x + dx)));
-          const py = Math.max(0, Math.min(targetH - 1, Math.round(pt.y + dy)));
-          const idx = (py * targetW + px) * 4;
-          const luma = 0.299 * pixelData[idx] + 0.587 * pixelData[idx + 1] + 0.114 * pixelData[idx + 2];
-          if (luma < paperLuminance - 20) {
-            darkCount++;
+    if (isTightPrecalibrated) {
+      isTightFiducialCrop = true;
+      fiducials = {
+        topLeft: { x: 0, y: 0 },
+        topRight: { x: targetW, y: 0 },
+        bottomLeft: { x: 0, y: targetH },
+        bottomRight: { x: targetW, y: targetH },
+      };
+      console.log('[OMR Engine] Calibrated directly from 1:1 Tight Fiducial Precalibrated Crop (Zero-Extrapolation):', fiducials);
+    } else {
+      const testFiducials = {
+        topLeft: { x: precalibratedFiducials.topLeft.x * scaleX, y: precalibratedFiducials.topLeft.y * scaleY },
+        topRight: { x: precalibratedFiducials.topRight.x * scaleX, y: precalibratedFiducials.topRight.y * scaleY },
+        bottomLeft: { x: precalibratedFiducials.bottomLeft.x * scaleX, y: precalibratedFiducials.bottomLeft.y * scaleY },
+        bottomRight: { x: precalibratedFiducials.bottomRight.x * scaleX, y: precalibratedFiducials.bottomRight.y * scaleY },
+      };
+
+      // Presence check: verify that these coordinates actually hit registration marks on the image
+      const verifyFiducialPresence = (pt: OmrPoint): boolean => {
+        const checkRadius = Math.max(6, Math.round(targetW * 0.015));
+        let darkCount = 0;
+        for (let dy = -checkRadius; dy <= checkRadius; dy += 3) {
+          for (let dx = -checkRadius; dx <= checkRadius; dx += 3) {
+            const px = Math.max(0, Math.min(targetW - 1, Math.round(pt.x + dx)));
+            const py = Math.max(0, Math.min(targetH - 1, Math.round(pt.y + dy)));
+            const idx = (py * targetW + px) * 4;
+            const luma = 0.299 * pixelData[idx] + 0.587 * pixelData[idx + 1] + 0.114 * pixelData[idx + 2];
+            if (luma < paperLuminance - 20) {
+              darkCount++;
+            }
           }
         }
+        return darkCount >= 2;
+      };
+
+      const hasTL = verifyFiducialPresence(testFiducials.topLeft);
+      const hasTR = verifyFiducialPresence(testFiducials.topRight);
+      const hasBL = verifyFiducialPresence(testFiducials.bottomLeft);
+      const hasBR = verifyFiducialPresence(testFiducials.bottomRight);
+
+      if ((hasTL ? 1 : 0) + (hasTR ? 1 : 0) + (hasBL ? 1 : 0) + (hasBR ? 1 : 0) >= 2) {
+        fiducials = testFiducials;
+        console.log('[OMR Engine] Calibrated directly from verified precalibrated corner fiducials:', fiducials);
+
+        // Auto-calibrate physical row count for live camera if camera span differs from test question count
+        const spanX = Math.hypot(fiducials.topRight.x - fiducials.topLeft.x, fiducials.topRight.y - fiducials.topLeft.y);
+        const spanY = Math.hypot(fiducials.bottomLeft.x - fiducials.topLeft.x, fiducials.bottomLeft.y - fiducials.topLeft.y);
+        const physicalRatio = spanX / Math.max(1, spanY);
+
+        const physicalSpanY_mm = 190.0 / Math.max(0.2, physicalRatio);
+        const physicalRows = Math.max(5, Math.min(45, Math.round((physicalSpanY_mm - 42.75) / 6.35)));
+        const physicalSheetQs = physicalRows * blueprint.layout.columnCount;
+
+        if (Math.abs(physicalRows - blueprint.layout.questionsPerColumn) >= 1) {
+          console.log(`[OMR Engine] Auto-calibrated physical sheet for live camera: physical print has ${physicalRows} rows/col (${physicalSheetQs} Qs) while active test has ${totalQs} Qs.`);
+          blueprint = generateOmrSheetBlueprint(physicalSheetQs, blueprint.layout.columnCount, detectedFormat);
+        }
+      } else {
+        console.warn('[OMR Engine] Precalibrated fiducials failed presence check on canvas, attempting full-image detection');
+        fiducials = null;
       }
-      return darkCount >= 2;
-    };
-
-    const hasTL = verifyFiducialPresence(testFiducials.topLeft);
-    const hasTR = verifyFiducialPresence(testFiducials.topRight);
-    const hasBL = verifyFiducialPresence(testFiducials.bottomLeft);
-    const hasBR = verifyFiducialPresence(testFiducials.bottomRight);
-
-    if ((hasTL ? 1 : 0) + (hasTR ? 1 : 0) + (hasBL ? 1 : 0) + (hasBR ? 1 : 0) >= 2) {
-      fiducials = testFiducials;
-      console.log('[OMR Engine] Calibrated directly from verified precalibrated corner fiducials:', fiducials);
-
-      // Auto-calibrate physical row count for live camera if camera span differs from test question count
-      const spanX = Math.hypot(fiducials.topRight.x - fiducials.topLeft.x, fiducials.topRight.y - fiducials.topLeft.y);
-      const spanY = Math.hypot(fiducials.bottomLeft.x - fiducials.topLeft.x, fiducials.bottomLeft.y - fiducials.topLeft.y);
-      const physicalRatio = spanX / Math.max(1, spanY);
-
-      const physicalSpanY_mm = 190.0 / Math.max(0.2, physicalRatio);
-      const physicalRows = Math.max(5, Math.min(45, Math.round((physicalSpanY_mm - 42.75) / 6.35)));
-      const physicalSheetQs = physicalRows * blueprint.layout.columnCount;
-
-      if (Math.abs(physicalRows - blueprint.layout.questionsPerColumn) >= 1) {
-        console.log(`[OMR Engine] Auto-calibrated physical sheet for live camera: physical print has ${physicalRows} rows/col (${physicalSheetQs} Qs) while active test has ${totalQs} Qs.`);
-        blueprint = generateOmrSheetBlueprint(physicalSheetQs, blueprint.layout.columnCount, detectedFormat);
-      }
-    } else {
-      console.warn('[OMR Engine] Precalibrated fiducials failed presence check on canvas, attempting full-image detection');
-      fiducials = null;
     }
   }
 

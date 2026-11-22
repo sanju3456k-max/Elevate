@@ -402,8 +402,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
           setCapturedPreview(rawCapturedDataUrl);
 
           if (isHomographyValid && finalFiducials) {
-            // 4. Target canonical rectified dimensions strictly matching this active test paper's layout!
-            // Auto-detect physical row count from measured quad to avoid row stretching if test count differs from paper
+            // 4. Target canonical rectified dimensions: 1:1 Tight Fiducial Crop (Identical to Manual Crop!)
             const measuredSpanX = Math.hypot(finalFiducials.tr.x - finalFiducials.tl.x, finalFiducials.tr.y - finalFiducials.tl.y);
             const measuredSpanY = Math.hypot(finalFiducials.bl.x - finalFiducials.tl.x, finalFiducials.bl.y - finalFiducials.tl.y);
             const quadRatio = measuredSpanX / Math.max(1, measuredSpanY);
@@ -415,15 +414,15 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
               : activeLayout;
 
             const dstWidth = 1414;
-            const dstHeight = Math.round(dstWidth * (effectiveLayout.pageHeightMm / effectiveLayout.pageWidthMm));
-            const scaleMm = dstWidth / effectiveLayout.pageWidthMm;
+            const dstHeight = Math.round(dstWidth * (effectiveLayout.fiducialSpanY_mm / effectiveLayout.fiducialSpanX_mm));
 
             // Canonical fiducial centers in rectified canvas pixel coordinates
+            // Directly bounded to [0,0] -> [dstWidth, dstHeight] with ZERO extrapolation
             const canonicalFiducials: OmrCorners = {
-              topLeft: { x: 10 * scaleMm, y: 10 * scaleMm },
-              topRight: { x: (10 + effectiveLayout.fiducialSpanX_mm) * scaleMm, y: 10 * scaleMm },
-              bottomRight: { x: (10 + effectiveLayout.fiducialSpanX_mm) * scaleMm, y: (10 + effectiveLayout.fiducialSpanY_mm) * scaleMm },
-              bottomLeft: { x: 10 * scaleMm, y: (10 + effectiveLayout.fiducialSpanY_mm) * scaleMm },
+              topLeft: { x: 0, y: 0 },
+              topRight: { x: dstWidth, y: 0 },
+              bottomRight: { x: dstWidth, y: dstHeight },
+              bottomLeft: { x: 0, y: dstHeight },
             };
 
             const srcQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint] = [
@@ -433,13 +432,13 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
               finalFiducials.bl,
             ];
             const dstQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint] = [
-              canonicalFiducials.topLeft,
-              canonicalFiducials.topRight,
-              canonicalFiducials.bottomRight,
-              canonicalFiducials.bottomLeft,
+              { x: 0, y: 0 },
+              { x: dstWidth, y: 0 },
+              { x: dstWidth, y: dstHeight },
+              { x: 0, y: dstHeight },
             ];
 
-            // 5. Apply Homography Bilinear Perspective Rectification
+            // 5. Apply Homography Bilinear Perspective Rectification (Zero-Extrapolation!)
             const warpedCanvas = warpPerspectiveCanvas(snapCanvas, srcQuad, dstWidth, dstHeight, dstQuad);
 
             if (warpedCanvas) {
@@ -695,32 +694,73 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
               />
             )}
 
-            {/* 3. Screen Viewfinder: 4 Corner Target Box Containers (ZipGrade Style) */}
-            {frameMetrics && (
-              <div className="absolute inset-0 pointer-events-none z-10">
-                {/* 4 Corner Target Boxes & Alignment Guides */}
-                <div 
-                  className="absolute pointer-events-none"
-                  style={{
-                    left: `${frameMetrics.frameLeft}px`,
-                    top: `${frameMetrics.frameTop}px`,
-                    width: `${frameMetrics.frameWidth}px`,
-                    height: `${frameMetrics.frameHeight}px`,
-                  }}
-                >
+            {/* 3. Screen Viewfinder: Dynamic Magnetic Corner Target Boxes & Locked Quad */}
+            {frameMetrics && (() => {
+              const defaultTL = {
+                x: frameMetrics.frameLeft + (marginPctX / 100) * frameMetrics.frameWidth,
+                y: frameMetrics.frameTop + (marginPctTop / 100) * frameMetrics.frameHeight,
+              };
+              const defaultTR = {
+                x: frameMetrics.frameLeft + ((100 - marginPctX) / 100) * frameMetrics.frameWidth,
+                y: frameMetrics.frameTop + (marginPctTop / 100) * frameMetrics.frameHeight,
+              };
+              const defaultBR = {
+                x: frameMetrics.frameLeft + ((100 - marginPctX) / 100) * frameMetrics.frameWidth,
+                y: frameMetrics.frameTop + ((100 - marginPctBottom) / 100) * frameMetrics.frameHeight,
+              };
+              const defaultBL = {
+                x: frameMetrics.frameLeft + (marginPctX / 100) * frameMetrics.frameWidth,
+                y: frameMetrics.frameTop + ((100 - marginPctBottom) / 100) * frameMetrics.frameHeight,
+              };
+
+              const targetTL = (isTL && fiducials?.tl)
+                ? { x: (fiducials.tl.x / 100) * frameMetrics.containerWidth, y: (fiducials.tl.y / 100) * frameMetrics.containerHeight }
+                : defaultTL;
+              const targetTR = (isTR && fiducials?.tr)
+                ? { x: (fiducials.tr.x / 100) * frameMetrics.containerWidth, y: (fiducials.tr.y / 100) * frameMetrics.containerHeight }
+                : defaultTR;
+              const targetBR = (isBR && fiducials?.br)
+                ? { x: (fiducials.br.x / 100) * frameMetrics.containerWidth, y: (fiducials.br.y / 100) * frameMetrics.containerHeight }
+                : defaultBR;
+              const targetBL = (isBL && fiducials?.bl)
+                ? { x: (fiducials.bl.x / 100) * frameMetrics.containerWidth, y: (fiducials.bl.y / 100) * frameMetrics.containerHeight }
+                : defaultBL;
+
+              const isAllLocked = isTL && isTR && isBR && isBL;
+
+              return (
+                <div className="absolute inset-0 pointer-events-none z-10">
+                  {/* Real-time Connected Alignment Perimeter */}
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                    <polygon
+                      points={`${targetTL.x},${targetTL.y} ${targetTR.x},${targetTR.y} ${targetBR.x},${targetBR.y} ${targetBL.x},${targetBL.y}`}
+                      fill={isAllLocked ? (status === 'locked' ? 'rgba(52, 211, 153, 0.16)' : 'rgba(56, 189, 248, 0.10)') : 'transparent'}
+                      stroke={isAllLocked ? (status === 'locked' ? '#34d399' : '#38bdf8') : 'rgba(255, 255, 255, 0.15)'}
+                      strokeWidth={isAllLocked ? '2.5' : '1'}
+                      strokeDasharray={isAllLocked ? 'none' : '4 4'}
+                      className="transition-all duration-150"
+                    />
+                  </svg>
+
                   {/* Top Guide Indicator */}
-                  <div className="absolute top-1 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-white/10 backdrop-blur-md text-[9px] font-semibold tracking-widest text-white/70 uppercase select-none">
+                  <div 
+                    className="absolute -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-white/10 backdrop-blur-md text-[9px] font-semibold tracking-widest text-white/70 uppercase select-none transition-all duration-150"
+                    style={{
+                      left: `${(targetTL.x + targetTR.x) / 2}px`,
+                      top: `${Math.min(targetTL.y, targetTR.y) - 24}px`,
+                    }}
+                  >
                     Top
                   </div>
 
                   {/* Top-Left Target Box Container */}
                   <div 
-                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-200 flex items-center justify-center ${
+                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-150 flex items-center justify-center ${
                       isTL 
-                        ? 'border-2 border-emerald-400 bg-emerald-400/15 shadow-[0_0_24px_rgba(52,211,153,0.5)] scale-105' 
+                        ? 'border-2 border-emerald-400 bg-emerald-400/20 shadow-[0_0_24px_rgba(52,211,153,0.55)] scale-105' 
                         : 'border border-white/40 bg-white/[0.04] backdrop-blur-[2px]'
                     }`}
-                    style={{ left: `${marginPctX}%`, top: `${marginPctTop}%`, transform: 'translate(-50%, -50%)' }}
+                    style={{ left: `${targetTL.x}px`, top: `${targetTL.y}px`, transform: 'translate(-50%, -50%)' }}
                   >
                     {isTL && (
                       <div className="w-3.5 h-3.5 rounded-sm bg-emerald-400 border-2 border-white shadow-[0_0_10px_rgba(52,211,153,0.9)] animate-pulse" />
@@ -729,12 +769,12 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
 
                   {/* Top-Right Target Box Container */}
                   <div 
-                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-200 flex items-center justify-center ${
+                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-150 flex items-center justify-center ${
                       isTR 
-                        ? 'border-2 border-emerald-400 bg-emerald-400/15 shadow-[0_0_24px_rgba(52,211,153,0.5)] scale-105' 
+                        ? 'border-2 border-emerald-400 bg-emerald-400/20 shadow-[0_0_24px_rgba(52,211,153,0.55)] scale-105' 
                         : 'border border-white/40 bg-white/[0.04] backdrop-blur-[2px]'
                     }`}
-                    style={{ left: `${100 - marginPctX}%`, top: `${marginPctTop}%`, transform: 'translate(-50%, -50%)' }}
+                    style={{ left: `${targetTR.x}px`, top: `${targetTR.y}px`, transform: 'translate(-50%, -50%)' }}
                   >
                     {isTR && (
                       <div className="w-3.5 h-3.5 rounded-sm bg-emerald-400 border-2 border-white shadow-[0_0_10px_rgba(52,211,153,0.9)] animate-pulse" />
@@ -743,12 +783,12 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
 
                   {/* Bottom-Right Target Box Container */}
                   <div 
-                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-200 flex items-center justify-center ${
+                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-150 flex items-center justify-center ${
                       isBR 
-                        ? 'border-2 border-emerald-400 bg-emerald-400/15 shadow-[0_0_24px_rgba(52,211,153,0.5)] scale-105' 
+                        ? 'border-2 border-emerald-400 bg-emerald-400/20 shadow-[0_0_24px_rgba(52,211,153,0.55)] scale-105' 
                         : 'border border-white/40 bg-white/[0.04] backdrop-blur-[2px]'
                     }`}
-                    style={{ left: `${100 - marginPctX}%`, top: `${100 - marginPctBottom}%`, transform: 'translate(-50%, -50%)' }}
+                    style={{ left: `${targetBR.x}px`, top: `${targetBR.y}px`, transform: 'translate(-50%, -50%)' }}
                   >
                     {isBR && (
                       <div className="w-3.5 h-3.5 rounded-sm bg-emerald-400 border-2 border-white shadow-[0_0_10px_rgba(52,211,153,0.9)] animate-pulse" />
@@ -757,20 +797,20 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
 
                   {/* Bottom-Left Target Box Container */}
                   <div 
-                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-200 flex items-center justify-center ${
+                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-150 flex items-center justify-center ${
                       isBL 
-                        ? 'border-2 border-emerald-400 bg-emerald-400/15 shadow-[0_0_24px_rgba(52,211,153,0.5)] scale-105' 
+                        ? 'border-2 border-emerald-400 bg-emerald-400/20 shadow-[0_0_24px_rgba(52,211,153,0.55)] scale-105' 
                         : 'border border-white/40 bg-white/[0.04] backdrop-blur-[2px]'
                     }`}
-                    style={{ left: `${marginPctX}%`, top: `${100 - marginPctBottom}%`, transform: 'translate(-50%, -50%)' }}
+                    style={{ left: `${targetBL.x}px`, top: `${targetBL.y}px`, transform: 'translate(-50%, -50%)' }}
                   >
                     {isBL && (
                       <div className="w-3.5 h-3.5 rounded-sm bg-emerald-400 border-2 border-white shadow-[0_0_10px_rgba(52,211,153,0.9)] animate-pulse" />
                     )}
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Fullscreen processing indicator during final warp */}
             {isProcessingFinalWarp && (
