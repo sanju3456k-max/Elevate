@@ -1131,18 +1131,30 @@ export async function evaluateScannedOmrImage(
   const bubbleAnalyses: { [key: string]: BubbleFillAnalysis } = {};
 
   // -------------------------------------------------------------
-  // STAGE 2: GLOBAL GRID SHIFT OPTIMIZATION & AUTO-CORRECTION
+  // STAGE 2: GLOBAL & PER-COLUMN GRID SHIFT OPTIMIZATION & AUTO-CORRECTION
   // -------------------------------------------------------------
   let globalDx = 0;
   let globalDy = 0;
+  const colDx: { [col: number]: number } = {};
+  const colDy: { [col: number]: number } = {};
 
   try {
-    // We will sample up to 16 bubbles across the layout to measure coordinate shifts
+    const colSamplesX: { [col: number]: number[] } = {};
+    const colSamplesY: { [col: number]: number[] } = {};
+    for (let c = 0; c < layout.columnCount; c++) {
+      colSamplesX[c] = [];
+      colSamplesY[c] = [];
+    }
+
+    // Sample representative bubbles across every column to measure coordinate shifts and column tilt
     const sampleKeys: { qIdx: number; optIdx: number }[] = [];
-    const stepQ = Math.max(1, Math.floor(totalQs / 4));
-    for (let q = 0; q < totalQs; q += stepQ) {
-      for (let opt = 0; opt < 4; opt += 2) { // Sample Options A and C
-        sampleKeys.push({ qIdx: q, optIdx: opt });
+    const stepQ = Math.max(1, Math.floor(layout.questionsPerColumn / 3));
+    for (let col = 0; col < layout.columnCount; col++) {
+      const startQ = col * layout.questionsPerColumn;
+      const endQ = Math.min(totalQs, startQ + layout.questionsPerColumn);
+      for (let q = startQ; q < endQ; q += stepQ) {
+        sampleKeys.push({ qIdx: q, optIdx: 0 }); // Option A
+        sampleKeys.push({ qIdx: q, optIdx: 2 }); // Option C
       }
     }
 
@@ -1184,12 +1196,19 @@ export async function evaluateScannedOmrImage(
 
       // If the snapped score is strong (meaning a real printed circle was found)
       if (snapped.score > 5) {
-        dxSamples.push(snapped.x - initialX);
-        dySamples.push(snapped.y - initialY);
+        const shiftX = snapped.x - initialX;
+        const shiftY = snapped.y - initialY;
+        dxSamples.push(shiftX);
+        dySamples.push(shiftY);
+        const colIdx = Math.min(layout.columnCount - 1, Math.floor(qIdx / layout.questionsPerColumn));
+        if (colSamplesX[colIdx]) {
+          colSamplesX[colIdx].push(shiftX);
+          colSamplesY[colIdx].push(shiftY);
+        }
       }
     });
 
-    // Determine the consensus offset (using median of the tightly clustered samples)
+    // Determine the consensus global offset
     if (dxSamples.length >= 3) {
       dxSamples.sort((a, b) => a - b);
       dySamples.sort((a, b) => a - b);
@@ -1200,8 +1219,22 @@ export async function evaluateScannedOmrImage(
 
       console.log(`[OMR Engine] Global Auto-Correction applied: dx=${globalDx.toFixed(1)}px, dy=${globalDy.toFixed(1)}px based on ${dxSamples.length} samples`);
     }
+
+    // Determine per-column offsets
+    for (let c = 0; c < layout.columnCount; c++) {
+      if (colSamplesX[c] && colSamplesX[c].length >= 2) {
+        colSamplesX[c].sort((a, b) => a - b);
+        colSamplesY[c].sort((a, b) => a - b);
+        colDx[c] = colSamplesX[c][Math.floor(colSamplesX[c].length / 2)];
+        colDy[c] = colSamplesY[c][Math.floor(colSamplesY[c].length / 2)];
+      } else {
+        colDx[c] = globalDx;
+        colDy[c] = globalDy;
+      }
+    }
+    console.log(`[OMR Engine] Per-column alignment:`, colDx);
   } catch (err) {
-    console.warn('[OMR Engine] Global shift optimization bypassed:', err);
+    console.warn('[OMR Engine] Grid shift optimization bypassed:', err);
   }
 
   for (let qIdx = 0; qIdx < totalQs; qIdx++) {
