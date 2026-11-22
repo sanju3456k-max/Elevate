@@ -50,7 +50,7 @@ import {
 } from '../types';
 import type { User } from 'firebase/auth';
 import { OmrQuestionPaper } from './OmrQuestionPaper';
-import { getOmrLayoutConfig } from '../lib/omrGeometry';
+import { getOmrLayoutConfig, OmrCorners } from '../lib/omrGeometry';
 import { OmrSheetGenerator } from './OmrSheetGenerator';
 import { OmrCropModal } from './OmrCropModal';
 import { OmrLiveCameraModal } from './omr/OmrLiveCameraModal';
@@ -257,6 +257,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
   const [rawOriginalImageUrl, setRawOriginalImageUrl] = useState<string | null>(null);
   const rawOriginalImageRef = useRef<string>('');
   const cleanImageRef = useRef<string>('');
+  const precalibratedFiducialsRef = useRef<OmrCorners | undefined>(undefined);
   const [isCropModalOpen, setIsCropModalOpen] = useState<boolean>(false);
   const [isLiveScannerOpen, setIsLiveScannerOpen] = useState<boolean>(false);
   const [isDraggingOmr, setIsDraggingOmr] = useState<boolean>(false);
@@ -327,7 +328,12 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
   useBackHandler({ isOpen: true, onBack: handleBackAction });
 
   // Handle Rectified Image from Live Camera Scanner
-  const handleLiveCaptureRectified = async (rectifiedUrl: string, rawCapturedUrl: string) => {
+  const handleLiveCaptureRectified = async (
+    rectifiedUrl: string, 
+    rawCapturedUrl: string, 
+    precalibratedFiducials?: OmrCorners
+  ) => {
+    precalibratedFiducialsRef.current = precalibratedFiducials;
     setIsLiveScannerOpen(false);
     setImageSessionId((prev) => prev + 1);
     setIsSaved(false);
@@ -346,7 +352,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
     const runScan = async () => {
       if (handled) return;
       handled = true;
-      await processOmrImage(img);
+      await processOmrImage(img, precalibratedFiducials);
     };
 
     img.onload = runScan;
@@ -363,6 +369,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
   };
 
   const handleSwitchToManualCropFromLive = (rawCapturedUrl: string) => {
+    precalibratedFiducialsRef.current = undefined;
     setIsLiveScannerOpen(false);
     setRawOriginalImageUrl(rawCapturedUrl);
     rawOriginalImageRef.current = rawCapturedUrl;
@@ -411,6 +418,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
     setImageSessionId((prev) => prev + 1);
 
     // Immediately reset ALL previous scan state and cached images!
+    precalibratedFiducialsRef.current = undefined;
     setIsSaved(false);
     setScanError(null);
     setScanResult(null);
@@ -454,11 +462,15 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
   };
 
   // Execute Optical Bubble Recognition
-  const processOmrImage = async (source: HTMLImageElement | HTMLCanvasElement) => {
+  const processOmrImage = async (
+    source: HTMLImageElement | HTMLCanvasElement, 
+    precalibratedFiducials?: OmrCorners
+  ) => {
     setIsScanning(true);
     setScanError(null);
     try {
-      const result = await evaluateScannedOmrImage(source, test, scanQuestionCount);
+      const fidToUse = precalibratedFiducials ?? precalibratedFiducialsRef.current;
+      const result = await evaluateScannedOmrImage(source, test, scanQuestionCount, fidToUse);
       setScanResult(result);
       setEditableDetections(result.questionDetections);
       if (result.cleanImageDataUrl) {
@@ -484,7 +496,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
         setIsScanning(true);
         setScanError(null);
         try {
-          const result = await evaluateScannedOmrImage(img, test, qCount);
+          const result = await evaluateScannedOmrImage(img, test, qCount, precalibratedFiducialsRef.current);
           setScanResult(result);
           setEditableDetections(result.questionDetections);
           if (result.cleanImageDataUrl) {
@@ -1949,6 +1961,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
             targetHeightMm={layoutConfig.pageHeightMm}
             bottomFiducialY_mm={layoutConfig.bottomFiducialY_mm}
             onApplyCrop={async (croppedUrl) => {
+              precalibratedFiducialsRef.current = undefined;
               setIsSaved(false);
               setScanResult(null);
               setEditableDetections([]);

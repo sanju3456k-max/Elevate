@@ -5,7 +5,8 @@ import {
   generateOmrSheetBlueprint,
   OmrSheetBlueprint,
   OmrLayoutConfig, 
-  OmrPoint 
+  OmrPoint,
+  OmrCorners
 } from './omrGeometry';
 
 export type OmrSheetLayoutSpec = OmrLayoutConfig;
@@ -210,7 +211,7 @@ function samplePaperBaselineBrightness(
       samples.sort((a, b) => a - b);
       // 85th percentile is immune to black registration dots or text lines
       const p85Idx = Math.floor(samples.length * 0.85);
-      return Math.max(170, Math.min(255, samples[p85Idx]));
+      return Math.min(255, samples[p85Idx]);
     }
     return 230;
   } catch {
@@ -264,7 +265,7 @@ function detectCornerFiducials(
       let bestY = expectedY;
       let maxScore = -9999;
 
-      const darkThreshold = Math.min(paperBaseline - 25, paperBaseline * 0.82);
+      const darkThreshold = Math.min(paperBaseline - 20, paperBaseline * 0.85);
 
       for (let dy = -searchH; dy <= searchH; dy += 2) {
         for (let dx = -searchW; dx <= searchW; dx += 2) {
@@ -293,9 +294,9 @@ function detectCornerFiducials(
           }
 
           const centerGray = getGray(cx, cy);
-          const centerPenalty = Math.max(0, paperBaseline - centerGray);
+          const hollowBonus = Math.max(0, centerGray - darkThreshold) * 0.15;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          const score = (perimeterDark / totalSamples) * 100 - centerPenalty * 0.4 - dist * 0.4;
+          const score = (perimeterDark / totalSamples) * 100 + hollowBonus - dist * 0.35;
 
           if (score > maxScore) {
             maxScore = score;
@@ -305,7 +306,7 @@ function detectCornerFiducials(
         }
       }
 
-      if (maxScore > 18) {
+      if (maxScore > 14) {
         return { x: bestX, y: bestY };
       }
       return null;
@@ -940,7 +941,8 @@ export function redrawOmrOverlay(
 export async function evaluateScannedOmrImage(
   imageSource: HTMLImageElement | HTMLCanvasElement,
   test: MathTest,
-  totalQuestionsToEvaluate?: number
+  totalQuestionsToEvaluate?: number,
+  precalibratedFiducials?: DetectedFiducials | OmrCorners
 ): Promise<OmrScanResult> {
   const totalQs = totalQuestionsToEvaluate && totalQuestionsToEvaluate > 0
     ? totalQuestionsToEvaluate
@@ -973,17 +975,23 @@ export async function evaluateScannedOmrImage(
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(imageSource, 0, 0, targetW, targetH);
 
-  // 2. Document Tilt Deskewing (only if noticeable tilt)
-  const tiltAngle = detectDocumentTiltAngle(ctx, targetW, targetH);
-  if (Math.abs(tiltAngle) >= 0.35) {
-    deskewCanvas(canvas, ctx, tiltAngle);
+  // 2. Document Tilt Deskewing (only if noticeable tilt AND not already rectified by live homography)
+  if (!precalibratedFiducials) {
+    const tiltAngle = detectDocumentTiltAngle(ctx, targetW, targetH);
+    if (Math.abs(tiltAngle) >= 0.35) {
+      deskewCanvas(canvas, ctx, tiltAngle);
+    }
   }
 
   // Retain clean deskewed image before drawing overlays
   const cleanImageDataUrl = canvas.toDataURL('image/png');
 
   // 3. Compute baseline paper background brightness from margins
-  const paperLuminance = samplePaperBaselineBrightness(ctx, targetW, targetH);
+  const rawPaperLuminance = samplePaperBaselineBrightness(ctx, targetW, targetH);
+  if (rawPaperLuminance < 85) {
+    throw new Error('Image appears too dark or surface is not white paper. Please place the OMR sheet in good lighting on a light background.');
+  }
+  const paperLuminance = Math.max(145, Math.min(255, rawPaperLuminance));
 
   // Extract full image pixel buffer once for ultra-fast vectorised sampling
   const fullImageData = ctx.getImageData(0, 0, targetW, targetH);
@@ -992,19 +1000,37 @@ export async function evaluateScannedOmrImage(
   // 4. Multi-Hypothesis Coordinate Calibration:
   // Check Full ISO A4 (210 x 297 mm), Compact format, and Fiducial-Cropped coordinates
   const blueprintA4 = generateOmrSheetBlueprint(totalQs, undefined, 'a4');
-  const fiducialsA4 = detectCornerFiducials(pixelData, targetW, targetH, blueprintA4.layout, paperLuminance);
-
   const blueprintCompact = generateOmrSheetBlueprint(totalQs, undefined, 'compact');
-  const fiducialsCompact = detectCornerFiducials(pixelData, targetW, targetH, blueprintCompact.layout, paperLuminance);
 
   let blueprint = blueprintA4;
-  let fiducials = fiducialsA4;
+  let fiducials: DetectedFiducials | null = null;
   let detectedFormat: 'a4' | 'compact' = 'a4';
 
-  if (!fiducialsA4 && fiducialsCompact) {
-    blueprint = blueprintCompact;
-    fiducials = fiducialsCompact;
-    detectedFormat = 'compact';
+  if (precalibratedFiducials) {
+    // Exact bilinear coordinates provided directly from the live camera's locked 4 corner fiducials!
+    const srcW = ('naturalWidth' in imageSource && (imageSource as any).naturalWidth) || imageSource.width || targetW;
+    const srcH = ('naturalHeight' in imageSource && (imageSource as any).naturalHeight) || imageSource.height || targetH;
+    const scaleX = targetW / srcW;
+    const scaleY = targetH / srcH;
+
+    fiducials = {
+      topLeft: { x: precalibratedFiducials.topLeft.x * scaleX, y: precalibratedFiducials.topLeft.y * scaleY },
+      topRight: { x: precalibratedFiducials.topRight.x * scaleX, y: precalibratedFiducials.topRight.y * scaleY },
+      bottomLeft: { x: precalibratedFiducials.bottomLeft.x * scaleX, y: precalibratedFiducials.bottomLeft.y * scaleY },
+      bottomRight: { x: precalibratedFiducials.bottomRight.x * scaleX, y: precalibratedFiducials.bottomRight.y * scaleY },
+    };
+    console.log('[OMR Engine] Calibrated directly from precalibrated corner fiducials:', fiducials);
+  } else {
+    const fiducialsA4 = detectCornerFiducials(pixelData, targetW, targetH, blueprintA4.layout, paperLuminance);
+    const fiducialsCompact = detectCornerFiducials(pixelData, targetW, targetH, blueprintCompact.layout, paperLuminance);
+
+    if (!fiducialsA4 && fiducialsCompact) {
+      blueprint = blueprintCompact;
+      fiducials = fiducialsCompact;
+      detectedFormat = 'compact';
+    } else {
+      fiducials = fiducialsA4;
+    }
   }
 
   let isTightFiducialCrop = false;
@@ -1037,7 +1063,7 @@ export async function evaluateScannedOmrImage(
       }
     });
 
-    if (tightCropScore >= fullPageScore || (tightCropScore > 8 && fullPageScore <= 8)) {
+    if (tightCropScore > 10 && tightCropScore > fullPageScore * 1.5) {
       isTightFiducialCrop = true;
       fiducials = {
         topLeft: { x: 0, y: 0 },
@@ -1046,6 +1072,15 @@ export async function evaluateScannedOmrImage(
         bottomRight: { x: targetW, y: targetH },
       };
       console.log(`[OMR Engine] Calibrated as Tight Fiducial Crop (tightScore: ${tightCropScore.toFixed(1)} vs fullPageScore: ${fullPageScore.toFixed(1)})`);
+    } else {
+      // Default to standard Full Page canonical fiducials (TL at 10mm, 10mm)
+      fiducials = {
+        topLeft: { x: (10 / layout.pageWidthMm) * targetW, y: (10 / layout.pageHeightMm) * targetH },
+        topRight: { x: (200 / layout.pageWidthMm) * targetW, y: (10 / layout.pageHeightMm) * targetH },
+        bottomLeft: { x: (10 / layout.pageWidthMm) * targetW, y: (layout.bottomFiducialY_mm / layout.pageHeightMm) * targetH },
+        bottomRight: { x: (200 / layout.pageWidthMm) * targetW, y: (layout.bottomFiducialY_mm / layout.pageHeightMm) * targetH },
+      };
+      console.log(`[OMR Engine] Calibrated as Full Page canonical fiducials (fullPageScore: ${fullPageScore.toFixed(1)} vs tightScore: ${tightCropScore.toFixed(1)})`);
     }
   }
 

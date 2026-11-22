@@ -20,14 +20,18 @@ import {
   ContainerDim
 } from '../../lib/omrLiveDetector';
 import { warpPerspectiveCanvas, QuadPoint } from '../../lib/omrPerspectiveWarp';
-import { OmrLayoutConfig, getOmrLayoutConfig } from '../../lib/omrGeometry';
+import { OmrLayoutConfig, getOmrLayoutConfig, OmrCorners } from '../../lib/omrGeometry';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { useBackHandler } from '../../hooks/useBackNavigation';
 
 interface OmrLiveCameraModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCaptureRectified: (rectifiedDataUrl: string, rawCapturedDataUrl: string) => void;
+  onCaptureRectified: (
+    rectifiedDataUrl: string, 
+    rawCapturedDataUrl: string, 
+    precalibratedFiducials?: OmrCorners
+  ) => void;
   onSwitchToManualCrop?: (rawCapturedDataUrl: string) => void;
   onUploadFile?: () => void;
   layoutConfig?: OmrLayoutConfig;
@@ -292,7 +296,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
 
   // Perform full resolution snapshot and perspective rectification
   const executeCapture = useCallback(
-    (targetVideoCorners?: LiveQuadCorners) => {
+    (targetVideoCorners?: LiveQuadCorners, targetVideoFiducials?: LiveQuadCorners) => {
       if (isCapturingRef.current) return;
       isCapturingRef.current = true;
       setIsProcessingFinalWarp(true);
@@ -326,75 +330,108 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
       snapCtx.drawImage(video, 0, 0, vw, vh);
       const rawCapturedDataUrl = snapCanvas.toDataURL('image/jpeg', 0.95);
 
-      // 2. Determine source corners in VIDEO PIXEL coordinates:
+      // 2. Determine source corners & fiducials in VIDEO PIXEL coordinates:
+      let videoFiducials = targetVideoFiducials;
       let videoCorners = targetVideoCorners;
       const currentDetection = latestDetectionRef.current;
       const metrics = frameMetricsRef.current;
 
+      if (!videoFiducials && currentDetection?.detected && currentDetection.videoFiducials) {
+        videoFiducials = currentDetection.videoFiducials;
+      }
       if (!videoCorners && currentDetection?.detected && currentDetection.videoOuterCorners) {
         videoCorners = currentDetection.videoOuterCorners;
       }
 
-      // If no corner lock, fallback to on-screen alignment frame mapped to video pixels
-      if (!videoCorners && metrics) {
-        const cw = metrics.containerWidth;
-        const ch = metrics.containerHeight;
-        const scale = Math.max(cw / vw, ch / vh);
-        const offsetX = (vw * scale - cw) / 2;
-        const offsetY = (vh * scale - ch) / 2;
-
-        videoCorners = {
-          tl: { x: (metrics.frameLeft + offsetX) / scale, y: (metrics.frameTop + offsetY) / scale },
-          tr: { x: (metrics.frameLeft + metrics.frameWidth + offsetX) / scale, y: (metrics.frameTop + offsetY) / scale },
-          br: { x: (metrics.frameLeft + metrics.frameWidth + offsetX) / scale, y: (metrics.frameTop + metrics.frameHeight + offsetY) / scale },
-          bl: { x: (metrics.frameLeft + offsetX) / scale, y: (metrics.frameTop + metrics.frameHeight + offsetY) / scale },
-        };
-      }
-
-      if (!videoCorners) {
-        videoCorners = {
-          tl: { x: vw * 0.05, y: vh * 0.10 },
-          tr: { x: vw * 0.95, y: vh * 0.10 },
-          br: { x: vw * 0.95, y: vh * 0.90 },
-          bl: { x: vw * 0.05, y: vh * 0.90 },
-        };
-      }
-
-      // 3. Define quad points in video pixel space
-      const srcQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint] = [
-        videoCorners.tl,
-        videoCorners.tr,
-        videoCorners.br,
-        videoCorners.bl,
-      ];
-
-      // 4. Target canonical rectified dimensions strictly matching this active test paper's layout!
+      // 3. Target canonical rectified dimensions strictly matching this active test paper's layout!
       const dstWidth = 1414;
       const dstHeight = Math.round(dstWidth * (activeLayout.pageHeightMm / activeLayout.pageWidthMm));
+      const scaleMm = dstWidth / activeLayout.pageWidthMm;
 
-      const dstQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint] = [
-        { x: 0, y: 0 },
-        { x: dstWidth, y: 0 },
-        { x: dstWidth, y: dstHeight },
-        { x: 0, y: dstHeight },
-      ];
+      // Canonical fiducial centers in rectified canvas pixel coordinates
+      const canonicalFiducials: OmrCorners = {
+        topLeft: { x: 10 * scaleMm, y: 10 * scaleMm },
+        topRight: { x: (10 + activeLayout.fiducialSpanX_mm) * scaleMm, y: 10 * scaleMm },
+        bottomRight: { x: (10 + activeLayout.fiducialSpanX_mm) * scaleMm, y: (10 + activeLayout.fiducialSpanY_mm) * scaleMm },
+        bottomLeft: { x: 10 * scaleMm, y: (10 + activeLayout.fiducialSpanY_mm) * scaleMm },
+      };
+
+      let srcQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint];
+      let dstQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint];
+      let calibratedFiducialsToPass: OmrCorners | undefined = undefined;
+
+      if (videoFiducials) {
+        // Direct anchor to the 4 detected scanner fiducial positions!
+        // Maps detected video fiducial positions directly to the exact canonical blueprint coordinates
+        srcQuad = [
+          videoFiducials.tl,
+          videoFiducials.tr,
+          videoFiducials.br,
+          videoFiducials.bl,
+        ];
+        dstQuad = [
+          canonicalFiducials.topLeft,
+          canonicalFiducials.topRight,
+          canonicalFiducials.bottomRight,
+          canonicalFiducials.bottomLeft,
+        ];
+        calibratedFiducialsToPass = canonicalFiducials;
+      } else {
+        // Fallback to outer corners or on-screen alignment frame mapped to video pixels
+        if (!videoCorners && metrics) {
+          const cw = metrics.containerWidth;
+          const ch = metrics.containerHeight;
+          const scale = Math.max(cw / vw, ch / vh);
+          const offsetX = (vw * scale - cw) / 2;
+          const offsetY = (vh * scale - ch) / 2;
+
+          videoCorners = {
+            tl: { x: (metrics.frameLeft + offsetX) / scale, y: (metrics.frameTop + offsetY) / scale },
+            tr: { x: (metrics.frameLeft + metrics.frameWidth + offsetX) / scale, y: (metrics.frameTop + offsetY) / scale },
+            br: { x: (metrics.frameLeft + metrics.frameWidth + offsetX) / scale, y: (metrics.frameTop + metrics.frameHeight + offsetY) / scale },
+            bl: { x: (metrics.frameLeft + offsetX) / scale, y: (metrics.frameTop + metrics.frameHeight + offsetY) / scale },
+          };
+        }
+
+        if (!videoCorners) {
+          videoCorners = {
+            tl: { x: vw * 0.05, y: vh * 0.10 },
+            tr: { x: vw * 0.95, y: vh * 0.10 },
+            br: { x: vw * 0.95, y: vh * 0.90 },
+            bl: { x: vw * 0.05, y: vh * 0.90 },
+          };
+        }
+
+        srcQuad = [
+          videoCorners.tl,
+          videoCorners.tr,
+          videoCorners.br,
+          videoCorners.bl,
+        ];
+        dstQuad = [
+          { x: 0, y: 0 },
+          { x: dstWidth, y: 0 },
+          { x: dstWidth, y: dstHeight },
+          { x: 0, y: dstHeight },
+        ];
+      }
 
       setCapturedPreview(rawCapturedDataUrl);
 
-      // 5. Apply Homography Bilinear Perspective Rectification
+      // 4. Apply Homography Bilinear Perspective Rectification
       const warpedCanvas = warpPerspectiveCanvas(snapCanvas, srcQuad, dstWidth, dstHeight, dstQuad);
 
       if (warpedCanvas) {
         const rectifiedDataUrl = warpedCanvas.toDataURL('image/jpeg', 0.94);
-        onCaptureRectified(rectifiedDataUrl, rawCapturedDataUrl);
+        onCaptureRectified(rectifiedDataUrl, rawCapturedDataUrl, calibratedFiducialsToPass);
       } else {
-        onCaptureRectified(rawCapturedDataUrl, rawCapturedDataUrl);
+        onCaptureRectified(rawCapturedDataUrl, rawCapturedDataUrl, calibratedFiducialsToPass);
       }
 
       setIsProcessingFinalWarp(false);
       isCapturingRef.current = false;
     },
-    [activeLayout, playCaptureSound, triggerHaptic, stopCameraStream, onCaptureRectified]
+    [activeLayout, playCaptureSound, triggerHaptic, onCaptureRectified]
   );
 
   // Main Detection Loop
@@ -436,7 +473,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
 
           if (result.shouldAutoSnap && !isCapturingRef.current) {
             isRunning = false;
-            executeCapture(result.videoOuterCorners);
+            executeCapture(result.videoOuterCorners, result.videoFiducials);
             return;
           }
         }
@@ -755,7 +792,10 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
             {/* Inner Shutter Capture Button */}
             <button
               type="button"
-              onClick={() => executeCapture()}
+              onClick={() => {
+                const det = latestDetectionRef.current;
+                executeCapture(det?.videoOuterCorners, det?.videoFiducials);
+              }}
               disabled={!cameraReady || isProcessingFinalWarp}
               className="absolute w-16 h-16 rounded-full bg-white hover:bg-white/90 active:scale-90 transition-all flex items-center justify-center shadow-[0_4px_24px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50"
               title="Capture OMR Sheet Now"

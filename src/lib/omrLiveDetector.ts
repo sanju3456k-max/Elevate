@@ -82,10 +82,10 @@ export class OmrLiveDetector {
   // Temporal coordinate smoothing & stability gate
   private smoothedVideoFiducials: LiveQuadCorners | null = null;
   private stableStreak = 0;
-  // 2 consecutive stable frames (~75ms of steady alignment) allows brisk, instant auto-snap
-  private readonly requiredStableFrames = 2; 
-  // 48.0 px threshold accommodates natural human hand tremor at 1080p without falsely resetting
-  private readonly maxMovementThresholdSq = 48.0 * 48.0; 
+  // 1 stable frame where all 4 corners are inside the containers allows immediate, crisp auto-snap
+  private readonly requiredStableFrames = 1; 
+  // 64.0 px threshold accommodates natural human hand tremor at 1080p/4K without falsely resetting
+  private readonly maxMovementThresholdSq = 64.0 * 64.0; 
   private lastProcessTimestamp = 0;
   // 36ms interval (~27 FPS) keeps auto-detection ultra fast and responsive
   private readonly minProcessIntervalMs = 36; 
@@ -283,12 +283,32 @@ export class OmrLiveDetector {
       bl: candBL,
     };
 
+    const topDx = rawVideoFiducials.tr.x - rawVideoFiducials.tl.x;
+    const topDy = rawVideoFiducials.tr.y - rawVideoFiducials.tl.y;
+    const botDx = rawVideoFiducials.br.x - rawVideoFiducials.bl.x;
+    const botDy = rawVideoFiducials.br.y - rawVideoFiducials.bl.y;
+    const leftDx = rawVideoFiducials.bl.x - rawVideoFiducials.tl.x;
+    const leftDy = rawVideoFiducials.bl.y - rawVideoFiducials.tl.y;
+    const rightDx = rawVideoFiducials.br.x - rawVideoFiducials.tr.x;
+    const rightDy = rawVideoFiducials.br.y - rawVideoFiducials.tr.y;
+
+    const topLen = Math.hypot(topDx, topDy);
+    const botLen = Math.hypot(botDx, botDy);
+    const leftLen = Math.hypot(leftDx, leftDy);
+    const rightLen = Math.hypot(rightDx, rightDy);
+
+    const avgW = (topLen + botLen) / 2;
+    const avgH = (leftLen + rightLen) / 2;
+
     // 4.1. Sheet Interior Whitish Page Validation (Rejects black desks/surfaces)
     const sheetMidX = (candTL.x + candTR.x + candBR.x + candBL.x) / 4;
     const sheetMidY = (candTL.y + candTR.y + candBR.y + candBL.y) / 4;
-    const interiorLuma = this.sampleVideoAreaLuma(video, sheetMidX, sheetMidY, 16, vw, vh);
+    const lumaCenter = this.sampleVideoAreaLuma(video, sheetMidX, sheetMidY, 20, vw, vh);
+    const lumaTop = this.sampleVideoAreaLuma(video, sheetMidX, sheetMidY - (avgH * 0.22), 20, vw, vh);
+    const lumaBottom = this.sampleVideoAreaLuma(video, sheetMidX, sheetMidY + (avgH * 0.22), 20, vw, vh);
+    const avgInteriorLuma = (lumaCenter + lumaTop + lumaBottom) / 3;
 
-    if (interiorLuma < 75) {
+    if (avgInteriorLuma < 75) {
       this.decayStreak();
       const fallbackScreenFiducials: LiveQuadCorners = {
         tl: { x: (expScreenFiducials.tl.x / cw) * 100, y: (expScreenFiducials.tl.y / ch) * 100 },
@@ -315,28 +335,11 @@ export class OmrLiveDetector {
       };
     }
 
-    const topDx = rawVideoFiducials.tr.x - rawVideoFiducials.tl.x;
-    const topDy = rawVideoFiducials.tr.y - rawVideoFiducials.tl.y;
-    const botDx = rawVideoFiducials.br.x - rawVideoFiducials.bl.x;
-    const botDy = rawVideoFiducials.br.y - rawVideoFiducials.bl.y;
-    const leftDx = rawVideoFiducials.bl.x - rawVideoFiducials.tl.x;
-    const leftDy = rawVideoFiducials.bl.y - rawVideoFiducials.tl.y;
-    const rightDx = rawVideoFiducials.br.x - rawVideoFiducials.tr.x;
-    const rightDy = rawVideoFiducials.br.y - rawVideoFiducials.tr.y;
-
-    const topLen = Math.hypot(topDx, topDy);
-    const botLen = Math.hypot(botDx, botDy);
-    const leftLen = Math.hypot(leftDx, leftDy);
-    const rightLen = Math.hypot(rightDx, rightDy);
-
-    const avgW = (topLen + botLen) / 2;
-    const avgH = (leftLen + rightLen) / 2;
-
-    // Physical span check: must span alignment frame within +-28%
+    // Physical span check: must span alignment frame within +-35%
     // Rejects false triggers on small bubble clusters or text blocks inside the sheet
     const spanDiffW = Math.abs(avgW - expW) / Math.max(1, expW);
     const spanDiffH = Math.abs(avgH - expH) / Math.max(1, expH);
-    if (spanDiffW > 0.28 || spanDiffH > 0.28) {
+    if (spanDiffW > 0.35 || spanDiffH > 0.35) {
       this.decayStreak();
       return {
         status: 'searching',
