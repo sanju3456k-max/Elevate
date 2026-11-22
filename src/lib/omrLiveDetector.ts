@@ -76,19 +76,19 @@ export class OmrLiveDetector {
   // Offscreen canvas for extracting high-res corner patches
   private patchCanvas: HTMLCanvasElement;
   private patchCtx: CanvasRenderingContext2D | null;
-  // Radius of 55 (110x110 px) covers the viewfinder container box with comfortable natural margin
-  private readonly patchRadius = 55; 
+  // Base default patch radius (scaled dynamically per frame based on video-to-screen ratio)
+  private readonly basePatchRadius = 80; 
 
   // Temporal coordinate smoothing & stability gate
   private smoothedVideoFiducials: LiveQuadCorners | null = null;
   private stableStreak = 0;
-  // 2 consecutive stable frames (~140ms of steady alignment) allows fast, responsive auto-snap
+  // 2 consecutive stable frames (~75ms of steady alignment) allows brisk, instant auto-snap
   private readonly requiredStableFrames = 2; 
-  // 30.0 px threshold accommodates natural human hand vibration without falsely resetting
-  private readonly maxMovementThresholdSq = 30.0 * 30.0; 
+  // 48.0 px threshold accommodates natural human hand tremor at 1080p without falsely resetting
+  private readonly maxMovementThresholdSq = 48.0 * 48.0; 
   private lastProcessTimestamp = 0;
-  // 70ms interval (~14 FPS) keeps CPU/GPU light, preserving smooth 60 FPS camera feed
-  private readonly minProcessIntervalMs = 70; 
+  // 36ms interval (~27 FPS) keeps auto-detection ultra fast and responsive
+  private readonly minProcessIntervalMs = 36; 
 
   constructor(layoutConfigOrQuestionCount: OmrLayoutConfig | number = 50) {
     if (typeof layoutConfigOrQuestionCount === 'number') {
@@ -103,8 +103,8 @@ export class OmrLiveDetector {
     this.marginRatioBottom = (this.layout.pageHeightMm - this.layout.bottomFiducialY_mm) / this.layout.pageHeightMm;
 
     this.patchCanvas = document.createElement('canvas');
-    this.patchCanvas.width = this.patchRadius * 2;
-    this.patchCanvas.height = this.patchRadius * 2;
+    this.patchCanvas.width = 360;
+    this.patchCanvas.height = 360;
     this.patchCtx = this.patchCanvas.getContext('2d', { willReadFrequently: true });
   }
 
@@ -218,11 +218,19 @@ export class OmrLiveDetector {
       bl: screenToVideo(screenFrame.left, screenFrame.top + screenFrame.height),
     };
 
+    // Dynamic patch radius based on screen-to-video scale:
+    // Guide container boxes on screen are 56px-64px.
+    // In video coordinates, this corresponds to (guideBoxSize / scale) pixels.
+    // We scale by 1.35x to provide a generous search region so markers anywhere
+    // inside the UI box are reliably extracted and detected.
+    const guideBoxScreenPx = 64;
+    const dynamicPatchRadius = Math.max(75, Math.min(145, Math.round(((guideBoxScreenPx / 2) / scale) * 1.35)));
+
     // 3. Extract high-res patches from video and locate fiducial markers inside the 4 containers
-    const candTL = this.detectCornerInPatch(video, expVideoFiducials.tl, vw, vh);
-    const candTR = this.detectCornerInPatch(video, expVideoFiducials.tr, vw, vh);
-    const candBR = this.detectCornerInPatch(video, expVideoFiducials.br, vw, vh);
-    const candBL = this.detectCornerInPatch(video, expVideoFiducials.bl, vw, vh);
+    const candTL = this.detectCornerInPatch(video, expVideoFiducials.tl, vw, vh, dynamicPatchRadius);
+    const candTR = this.detectCornerInPatch(video, expVideoFiducials.tr, vw, vh, dynamicPatchRadius);
+    const candBR = this.detectCornerInPatch(video, expVideoFiducials.br, vw, vh, dynamicPatchRadius);
+    const candBL = this.detectCornerInPatch(video, expVideoFiducials.bl, vw, vh, dynamicPatchRadius);
 
     const boxCount = (candTL ? 1 : 0) + (candTR ? 1 : 0) + (candBR ? 1 : 0) + (candBL ? 1 : 0);
     const detectedBoxes: DetectedBoxesState = {
@@ -274,6 +282,38 @@ export class OmrLiveDetector {
       br: candBR,
       bl: candBL,
     };
+
+    // 4.1. Sheet Interior Whitish Page Validation (Rejects black desks/surfaces)
+    const sheetMidX = (candTL.x + candTR.x + candBR.x + candBL.x) / 4;
+    const sheetMidY = (candTL.y + candTR.y + candBR.y + candBL.y) / 4;
+    const interiorLuma = this.sampleVideoAreaLuma(video, sheetMidX, sheetMidY, 16, vw, vh);
+
+    if (interiorLuma < 75) {
+      this.decayStreak();
+      const fallbackScreenFiducials: LiveQuadCorners = {
+        tl: { x: (expScreenFiducials.tl.x / cw) * 100, y: (expScreenFiducials.tl.y / ch) * 100 },
+        tr: { x: (expScreenFiducials.tr.x / cw) * 100, y: (expScreenFiducials.tr.y / ch) * 100 },
+        br: { x: (expScreenFiducials.br.x / cw) * 100, y: (expScreenFiducials.br.y / ch) * 100 },
+        bl: { x: (expScreenFiducials.bl.x / cw) * 100, y: (expScreenFiducials.bl.y / ch) * 100 },
+      };
+
+      return {
+        status: 'searching',
+        detected: false,
+        confidence: 20,
+        fiducials: fallbackScreenFiducials,
+        outerCorners: frameCornersScreenPct,
+        videoFiducials: expVideoFiducials,
+        videoOuterCorners: frameCornersVideo,
+        frameCorners: frameCornersScreenPct,
+        stabilityProgress: 0.1,
+        guidanceMessage: 'Place OMR on bright white paper',
+        tiltAngleDeg: 0,
+        ratioMatchPercentage: 0,
+        shouldAutoSnap: false,
+        detectedBoxes: { tl: false, tr: false, br: false, bl: false, count: 0 },
+      };
+    }
 
     const topDx = rawVideoFiducials.tr.x - rawVideoFiducials.tl.x;
     const topDy = rawVideoFiducials.tr.y - rawVideoFiducials.tl.y;
@@ -378,7 +418,8 @@ export class OmrLiveDetector {
       if (maxJitterSq < this.maxMovementThresholdSq) {
         this.stableStreak++;
       } else {
-        this.stableStreak = 1;
+        // Soft-decay rather than resetting completely to 0/1 for minor hand tremor
+        this.stableStreak = Math.max(1, this.stableStreak - 1);
       }
     } else {
       this.stableStreak = 1;
@@ -475,11 +516,12 @@ export class OmrLiveDetector {
     video: HTMLVideoElement,
     expectedCenter: QuadPoint,
     vw: number,
-    vh: number
+    vh: number,
+    patchRadius: number
   ): QuadPoint | null {
     if (!this.patchCtx) return null;
 
-    const pr = this.patchRadius;
+    const pr = patchRadius;
     const patchDim = pr * 2;
 
     const srcX = Math.max(0, Math.min(vw - patchDim, Math.round(expectedCenter.x - pr)));
@@ -505,6 +547,34 @@ export class OmrLiveDetector {
     };
   }
 
+  /**
+   * Sample small video region average luminance to verify sheet paper brightness
+   */
+  private sampleVideoAreaLuma(
+    video: HTMLVideoElement,
+    centerX: number,
+    centerY: number,
+    sampleSize: number,
+    vw: number,
+    vh: number
+  ): number {
+    if (!this.patchCtx) return 128;
+    const half = Math.round(sampleSize / 2);
+    const sx = Math.max(0, Math.min(vw - sampleSize, Math.round(centerX - half)));
+    const sy = Math.max(0, Math.min(vh - sampleSize, Math.round(centerY - half)));
+
+    this.patchCtx.drawImage(video, sx, sy, sampleSize, sampleSize, 0, 0, sampleSize, sampleSize);
+    const imgData = this.patchCtx.getImageData(0, 0, sampleSize, sampleSize);
+    const d = imgData.data;
+    let sum = 0;
+    const count = sampleSize * sampleSize;
+    for (let i = 0; i < count; i++) {
+      const idx = i * 4;
+      sum += (d[idx] * 77 + d[idx + 1] * 150 + d[idx + 2] * 29) >> 8;
+    }
+    return sum / count;
+  }
+
   private decayStreak(): void {
     this.stableStreak = Math.max(0, this.stableStreak - 1);
     if (this.stableStreak === 0) {
@@ -517,9 +587,25 @@ export class OmrLiveDetector {
  * Dual-Mode Sub-Millisecond Hollow Square Detector:
  * Mode 1: Dark hollow square component with bright interior
  * Mode 2: Enclosed white hollow core surrounded by black registration rim
+ * Strictly validates surrounding white paper margins & contrast to reject dark surfaces.
  */
 function findHollowSquareInPatch(gray: Uint8Array, w: number, h: number): PatchCandidate | null {
-  // 1. Compute integral image
+  const pixelCount = w * h;
+  if (pixelCount === 0) return null;
+
+  // 1. Absolute Patch Luminance Check: Real white paper under indoor lighting is >= 90-130.
+  // Dark/black surfaces (tables, mousepads, floors) are 15-55.
+  let patchSum = 0;
+  for (let i = 0; i < pixelCount; i++) {
+    patchSum += gray[i];
+  }
+  const patchAvg = patchSum / pixelCount;
+  if (patchAvg < 75) {
+    // Entire patch is too dark to be white paper
+    return null;
+  }
+
+  // 2. Compute integral image for O(1) rectangle luminance checks
   const integral = new Int32Array((w + 1) * (h + 1));
   for (let y = 0; y < h; y++) {
     let rowSum = 0;
@@ -546,16 +632,32 @@ function findHollowSquareInPatch(gray: Uint8Array, w: number, h: number): PatchC
     return sum / count;
   }
 
-  // 2. Binary adaptive thresholding: Dark pixels (border) & Bright pixels (hollow core)
-  const binaryDark = new Uint8Array(w * h);
-  const binaryBright = new Uint8Array(w * h);
+  function getRectMean(rx0: number, ry0: number, rx1: number, ry1: number): number {
+    const x0 = Math.max(0, Math.min(w - 1, rx0));
+    const y0 = Math.max(0, Math.min(h - 1, ry0));
+    const x1 = Math.max(0, Math.min(w - 1, rx1));
+    const y1 = Math.max(0, Math.min(h - 1, ry1));
+    if (x1 < x0 || y1 < y0) return 0;
+    const count = (x1 - x0 + 1) * (y1 - y0 + 1);
+    const sum =
+      integral[(y1 + 1) * (w + 1) + x1 + 1] -
+      integral[y0 * (w + 1) + x1 + 1] -
+      integral[(y1 + 1) * (w + 1) + x0] +
+      integral[y0 * (w + 1) + x0];
+    return sum / count;
+  }
+
+  // 3. Binary adaptive thresholding: Dark pixels (border) & Bright pixels (core)
+  const binaryDark = new Uint8Array(pixelCount);
+  const binaryBright = new Uint8Array(pixelCount);
 
   for (let y = 0; y < h; y++) {
     const yRow = y * w;
     for (let x = 0; x < w; x++) {
       const mean = getLocalMean(x, y, 7);
       const val = gray[yRow + x];
-      if (val < mean - 10) {
+      // Border pixels must be dark and significantly lower than local background
+      if (val < mean - 10 && val < patchAvg * 0.90) {
         binaryDark[yRow + x] = 1;
       } else if (val > mean + 4) {
         binaryBright[yRow + x] = 1;
@@ -567,8 +669,8 @@ function findHollowSquareInPatch(gray: Uint8Array, w: number, h: number): PatchC
   const patchMidY = h / 2;
   const candidates: PatchCandidate[] = [];
 
-  // Helper BFS
-  const visitedDark = new Uint8Array(w * h);
+  // Helper BFS for dark registration components
+  const visitedDark = new Uint8Array(pixelCount);
   for (let y = 2; y < h - 2; y++) {
     const yRow = y * w;
     for (let x = 2; x < w - 2; x++) {
@@ -609,24 +711,44 @@ function findHollowSquareInPatch(gray: Uint8Array, w: number, h: number): PatchC
         const bh = maxY - minY + 1;
         const aspect = bw / bh;
 
-        // Dark square ring: 8px to 42px
-        if (bw >= 8 && bw <= 42 && bh >= 8 && bh <= 42 && aspect >= 0.60 && aspect <= 1.65) {
+        // Dark square ring / box: 8px to 55px (accommodates high-res feeds)
+        if (bw >= 8 && bw <= 55 && bh >= 8 && bh <= 55 && aspect >= 0.55 && aspect <= 1.80) {
           const cx = (minX + maxX) / 2;
           const cy = (minY + maxY) / 2;
           const distToPatchCenter = Math.hypot(cx - patchMidX, cy - patchMidY);
 
-          if (distToPatchCenter <= w * 0.55) {
-            const midXInt = Math.round(cx);
-            const midYInt = Math.round(cy);
-            const centerVal = gray[midYInt * w + midXInt];
-            const localMean = getLocalMean(midXInt, midYInt, 6);
+          if (distToPatchCenter <= w * 0.58) {
+            // Surrounding white paper margin check:
+            const ringMargin = Math.max(3, Math.round(bw * 0.45));
+            const outerW = bw + 2 * ringMargin;
+            const outerH = bh + 2 * ringMargin;
+            const outerArea = outerW * outerH;
+            const boxArea = bw * bh;
+            const ringArea = outerArea - boxArea;
 
-            // Center should be hollow (not solid filled bubble)
-            if (centerVal >= localMean - 8) {
-              const distScore = 1.0 / (1.0 + distToPatchCenter * 0.05);
-              const aspectScore = 1.0 - Math.abs(1.0 - aspect);
-              const score = distScore * 0.60 + aspectScore * 0.40;
-              candidates.push({ cx, cy, bw, bh, score });
+            const outerMean = getRectMean(minX - ringMargin, minY - ringMargin, maxX + ringMargin, maxY + ringMargin);
+            const boxMean = getRectMean(minX, minY, maxX, maxY);
+            const ringMean = ringArea > 0 ? (outerMean * outerArea - boxMean * boxArea) / ringArea : outerMean;
+
+            // Surrounding paper margin MUST be bright white paper (rejects dark surfaces)
+            if (ringMean >= 80 && ringMean - boxMean >= 20) {
+              const midXInt = Math.round(cx);
+              const midYInt = Math.round(cy);
+              const centerVal = gray[midYInt * w + midXInt];
+              const localMean = getLocalMean(midXInt, midYInt, 6);
+
+              // Condition A: Hollow square (center is bright)
+              // Condition B: Solid dark square
+              const isHollow = centerVal >= boxMean + 8 || centerVal >= localMean - 8;
+              const isSolid = boxMean < ringMean - 28;
+
+              if (isHollow || isSolid) {
+                const distScore = 1.0 / (1.0 + distToPatchCenter * 0.04);
+                const aspectScore = 1.0 - Math.abs(1.0 - aspect);
+                const contrastScore = Math.min(1.0, (ringMean - boxMean) / 90);
+                const score = distScore * 0.45 + aspectScore * 0.30 + contrastScore * 0.25 + (isHollow ? 0.15 : 0.05);
+                candidates.push({ cx, cy, bw, bh, score });
+              }
             }
           }
         }
@@ -634,8 +756,8 @@ function findHollowSquareInPatch(gray: Uint8Array, w: number, h: number): PatchC
     }
   }
 
-  // 3. Mode 2: Search for enclosed white hollow cores
-  const visitedBright = new Uint8Array(w * h);
+  // 4. Mode 2: Search for enclosed white hollow cores
+  const visitedBright = new Uint8Array(pixelCount);
   for (let y = 2; y < h - 2; y++) {
     const yRow = y * w;
     for (let x = 2; x < w - 2; x++) {
@@ -676,13 +798,13 @@ function findHollowSquareInPatch(gray: Uint8Array, w: number, h: number): PatchC
         const bh = maxY - minY + 1;
         const aspect = bw / bh;
 
-        // White core: 5px to 28px
-        if (bw >= 5 && bw <= 28 && bh >= 5 && bh <= 28 && aspect >= 0.60 && aspect <= 1.65) {
+        // White core: 5px to 32px
+        if (bw >= 5 && bw <= 32 && bh >= 5 && bh <= 32 && aspect >= 0.55 && aspect <= 1.80) {
           const cx = (minX + maxX) / 2;
           const cy = (minY + maxY) / 2;
           const distToPatchCenter = Math.hypot(cx - patchMidX, cy - patchMidY);
 
-          if (distToPatchCenter <= w * 0.55) {
+          if (distToPatchCenter <= w * 0.58) {
             const midXInt = Math.round(cx);
             const midYInt = Math.round(cy);
 
@@ -692,12 +814,13 @@ function findHollowSquareInPatch(gray: Uint8Array, w: number, h: number): PatchC
             const leftRim = gray[midYInt * w + Math.max(0, minX - 2)];
             const rightRim = gray[midYInt * w + Math.min(w - 1, maxX + 2)];
             const avgRim = (topRim + botRim + leftRim + rightRim) / 4;
+            const coreVal = gray[midYInt * w + midXInt];
 
-            if (gray[midYInt * w + midXInt] > avgRim + 8) {
-              const distScore = 1.0 / (1.0 + distToPatchCenter * 0.05);
+            // Verify surrounding paper margin is bright
+            if (coreVal >= 80 && coreVal > avgRim + 12) {
+              const distScore = 1.0 / (1.0 + distToPatchCenter * 0.04);
               const aspectScore = 1.0 - Math.abs(1.0 - aspect);
-              // Slight boost for enclosed white cores
-              const score = distScore * 0.60 + aspectScore * 0.40 + 0.15;
+              const score = distScore * 0.50 + aspectScore * 0.35 + 0.15;
               candidates.push({ cx, cy, bw, bh, score });
             }
           }

@@ -63,6 +63,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
   const detectorRef = useRef<OmrLiveDetector | null>(null);
   const animFrameIdRef = useRef<number | null>(null);
   const isCapturingRef = useRef<boolean>(false);
+  const latestDetectionRef = useRef<LiveOmrDetectionFrame | null>(null);
 
   // Component UI State
   const [cameraReady, setCameraReady] = useState(false);
@@ -327,7 +328,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
 
       // 2. Determine source corners in VIDEO PIXEL coordinates:
       let videoCorners = targetVideoCorners;
-      const currentDetection = detectionState;
+      const currentDetection = latestDetectionRef.current;
       const metrics = frameMetricsRef.current;
 
       if (!videoCorners && currentDetection?.detected && currentDetection.videoOuterCorners) {
@@ -393,7 +394,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
       setIsProcessingFinalWarp(false);
       isCapturingRef.current = false;
     },
-    [detectionState, activeLayout, playCaptureSound, triggerHaptic, stopCameraStream, onCaptureRectified]
+    [activeLayout, playCaptureSound, triggerHaptic, stopCameraStream, onCaptureRectified]
   );
 
   // Main Detection Loop
@@ -430,6 +431,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
 
         const result = detector.processFrame(video, screenFrame, containerDim);
         if (result) {
+          latestDetectionRef.current = result;
           setDetectionState(result);
 
           if (result.shouldAutoSnap && !isCapturingRef.current) {
@@ -461,6 +463,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
       setIsProcessingFinalWarp(false);
       setCapturedPreview(null);
       setDetectionState(null);
+      latestDetectionRef.current = null;
       if (detectorRef.current) {
         detectorRef.current.resetTracking();
       }
@@ -469,11 +472,13 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
       stopCameraStream();
       setCapturedPreview(null);
       setDetectionState(null);
+      latestDetectionRef.current = null;
     }
 
     return () => {
       stopCameraStream();
       setCapturedPreview(null);
+      latestDetectionRef.current = null;
     };
   }, [isOpen, initCamera, stopCameraStream]);
 
