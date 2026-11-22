@@ -627,7 +627,8 @@ function sampleBubbleOpticalDensity(
   // Safe inner sampling radius: 0.48 * r leaves a 52% whitespace buffer avoiding outer printed border
   const innerR = Math.max(2, Math.floor(r * 0.48));
   const innerRSq = innerR * innerR;
-  const coreR = Math.max(1, Math.floor(r * 0.25));
+  // Central core radius: 0.30 * r
+  const coreR = Math.max(1, Math.floor(r * 0.30));
   const coreRSq = coreR * coreR;
 
   const getGray = (x: number, y: number): number => {
@@ -651,10 +652,12 @@ function sampleBubbleOpticalDensity(
   const localAmbient = (ambientSamples[0] + ambientSamples[1]) * 0.5;
 
   // True local illumination: if this section is in shadow (e.g. 150-180), track localAmbient closely
-  // instead of forcing bright global paper margins which causes false-positives
   const localPaper = Math.max(120, Math.min(255, localAmbient * 0.85 + Math.min(localAmbient, paperBaseline) * 0.15));
   // Meaningful ink threshold: ink must be distinctly darker than true local paper background
   const darkThreshold = Math.min(localPaper - 25, localPaper * 0.80);
+
+  const centerGray = getGray(cx, cy);
+  const isCenterDark = centerGray < darkThreshold;
 
   let darkCount = 0;
   let innerCount = 0;
@@ -709,14 +712,15 @@ function sampleBubbleOpticalDensity(
 
   // A candidate is a line / border artifact if:
   // - It does not spread across at least 3 quadrants, OR
-  // - The central core has less than 20% dark pixels
-  const isLineArtifact = activeQuadrants < 3 || coreDarkRatio < 0.20;
+  // - The central core has less than 32% dark pixels, OR
+  // - The center pixel itself is white paper AND core darkness is under 45%
+  const isLineArtifact = activeQuadrants < 3 || coreDarkRatio < 0.32 || (!isCenterDark && coreDarkRatio < 0.45);
 
   let score = 0;
-  // Compute continuous score whenever ink spreads across >= 3 quadrants and core is touched
-  if (!isLineArtifact && rawDarkRatio >= 0.22 && coreDarkRatio >= 0.20) {
+  // Compute continuous score whenever ink spreads across >= 3 quadrants and core is verified
+  if (!isLineArtifact && rawDarkRatio >= 0.25 && coreDarkRatio >= 0.32) {
     const fillMetric = rawDarkRatio * 0.60 + meanDarkness * 0.40;
-    const coreBonus = coreDarkRatio >= 0.42 ? 1.25 : (coreDarkRatio >= 0.32 ? 1.05 : 0.90);
+    const coreBonus = coreDarkRatio >= 0.50 ? 1.30 : (coreDarkRatio >= 0.40 ? 1.10 : 0.95);
     score = fillMetric * coreBonus;
   } else {
     // Empty bubble or edge touching returns clean 0 score
@@ -738,10 +742,6 @@ function sampleBubbleOpticalDensity(
   };
 }
 
-/**
- * Robust Answer Key Resolver:
- * Extracts the single canonical option letter ('A' | 'B' | 'C' | 'D') for any question format.
- */
 export function resolveActualCorrectOption(q: any, qIdx: number): string {
   const optionsLetters = ['A', 'B', 'C', 'D'];
   if (!q) return 'A';
@@ -1335,13 +1335,13 @@ export async function evaluateScannedOmrImage(
     // Tier 1: Solid ink / standard pencil filling
     const isSolidMark = Boolean(
       topCandidate.analysis &&
-      topCandidate.score >= 0.30 &&
+      topCandidate.score >= 0.28 &&
       topCandidate.analysis.rawDarkRatio >= 0.32 &&
-      topCandidate.analysis.coreDarkRatio >= 0.30 &&
+      topCandidate.analysis.coreDarkRatio >= 0.35 &&
       topCandidate.analysis.activeQuadrants >= 3 &&
       !topCandidate.analysis.isLineArtifact &&
-      (contrastDiff >= 0.12 || topCandidate.analysis.rawDarkRatio >= 0.50) &&
-      topCandidate.score > baselineOtherScore + 0.10
+      topCandidate.score > baselineOtherScore + 0.12 &&
+      (contrastDiff >= 0.12 || topCandidate.analysis.rawDarkRatio >= 0.50)
     );
 
     // Tier 2: Faint pencil / light shading (accepted when isolated with high contrast over 3 blank bubbles)
@@ -1350,12 +1350,12 @@ export async function evaluateScannedOmrImage(
       topCandidate.analysis &&
       topCandidate.score >= 0.22 &&
       topCandidate.analysis.rawDarkRatio >= 0.28 &&
-      topCandidate.analysis.coreDarkRatio >= 0.25 &&
+      topCandidate.analysis.coreDarkRatio >= 0.30 &&
       topCandidate.analysis.activeQuadrants >= 3 &&
       !topCandidate.analysis.isLineArtifact &&
       contrastDiff >= 0.16 &&
       contrastRatio >= 2.5 &&
-      baselineOtherScore < 0.10
+      topCandidate.score > baselineOtherScore + 0.15
     );
 
     if (isSolidMark || isFaintPencilMark) {

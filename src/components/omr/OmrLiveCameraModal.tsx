@@ -710,7 +710,11 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                         : 'border border-white/40 bg-white/[0.04] backdrop-blur-[2px]'
                     }`}
                     style={{ left: `${marginPctX}%`, top: `${marginPctTop}%`, transform: 'translate(-50%, -50%)' }}
-                  />
+                  >
+                    {isTL && (
+                      <div className="w-3.5 h-3.5 rounded-sm bg-emerald-400 border-2 border-white shadow-[0_0_10px_rgba(52,211,153,0.9)] animate-pulse" />
+                    )}
+                  </div>
 
                   {/* Top-Right Target Box Container */}
                   <div 
@@ -720,7 +724,11 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                         : 'border border-white/40 bg-white/[0.04] backdrop-blur-[2px]'
                     }`}
                     style={{ left: `${100 - marginPctX}%`, top: `${marginPctTop}%`, transform: 'translate(-50%, -50%)' }}
-                  />
+                  >
+                    {isTR && (
+                      <div className="w-3.5 h-3.5 rounded-sm bg-emerald-400 border-2 border-white shadow-[0_0_10px_rgba(52,211,153,0.9)] animate-pulse" />
+                    )}
+                  </div>
 
                   {/* Bottom-Right Target Box Container */}
                   <div 
@@ -730,7 +738,11 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                         : 'border border-white/40 bg-white/[0.04] backdrop-blur-[2px]'
                     }`}
                     style={{ left: `${100 - marginPctX}%`, top: `${100 - marginPctBottom}%`, transform: 'translate(-50%, -50%)' }}
-                  />
+                  >
+                    {isBR && (
+                      <div className="w-3.5 h-3.5 rounded-sm bg-emerald-400 border-2 border-white shadow-[0_0_10px_rgba(52,211,153,0.9)] animate-pulse" />
+                    )}
+                  </div>
 
                   {/* Bottom-Left Target Box Container */}
                   <div 
@@ -740,7 +752,11 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                         : 'border border-white/40 bg-white/[0.04] backdrop-blur-[2px]'
                     }`}
                     style={{ left: `${marginPctX}%`, top: `${100 - marginPctBottom}%`, transform: 'translate(-50%, -50%)' }}
-                  />
+                  >
+                    {isBL && (
+                      <div className="w-3.5 h-3.5 rounded-sm bg-emerald-400 border-2 border-white shadow-[0_0_10px_rgba(52,211,153,0.9)] animate-pulse" />
+                    )}
+                  </div>
                 </div>
               </div>
             )}
