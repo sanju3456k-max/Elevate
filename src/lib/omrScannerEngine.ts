@@ -1001,6 +1001,7 @@ export async function evaluateScannedOmrImage(
   let blueprint = blueprintA4;
   let fiducials: DetectedFiducials | null = null;
   let detectedFormat: 'a4' | 'compact' = 'a4';
+  let isTightFiducialCrop = false;
 
   if (precalibratedFiducials) {
     // Exact bilinear coordinates provided directly from the live camera's locked 4 corner fiducials!
@@ -1023,6 +1024,17 @@ export async function evaluateScannedOmrImage(
         bottomLeft: { x: 0, y: targetH },
         bottomRight: { x: targetW, y: targetH },
       };
+
+      // Physical row count auto-calibration for live camera tight crop:
+      const physicalRatio = targetW / Math.max(1, targetH);
+      const physicalSpanY_mm = 190.0 / Math.max(0.2, physicalRatio);
+      const physicalRows = Math.max(5, Math.min(45, Math.round((physicalSpanY_mm - 42.75) / 6.35)));
+      const physicalSheetQs = physicalRows * blueprint.layout.columnCount;
+
+      if (Math.abs(physicalRows - blueprint.layout.questionsPerColumn) >= 1) {
+        console.log(`[OMR Engine] Auto-calibrated physical sheet for live camera tight crop: physical print has ${physicalRows} rows/col (${physicalSheetQs} Qs) while active test has ${totalQs} Qs.`);
+        blueprint = generateOmrSheetBlueprint(physicalSheetQs, blueprint.layout.columnCount, detectedFormat);
+      }
       console.log('[OMR Engine] Calibrated directly from 1:1 Tight Fiducial Precalibrated Crop (Zero-Extrapolation):', fiducials);
     } else {
       const testFiducials = {
@@ -1094,8 +1106,6 @@ export async function evaluateScannedOmrImage(
       fiducials = fiducialsA4;
     }
   }
-
-  let isTightFiducialCrop = false;
 
   // If corner fiducials were not detected at standard page margins (e.g., user cropped between the fiducials):
   // We test whether the image is a Tight Fiducial Crop (where fiducials are at the 4 image boundaries)
