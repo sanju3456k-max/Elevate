@@ -82,10 +82,10 @@ export class OmrLiveDetector {
   // Temporal coordinate smoothing & stability gate
   private smoothedVideoFiducials: LiveQuadCorners | null = null;
   private stableStreak = 0;
-  // 3 consecutive stable frames (~100ms of steady alignment) prevents accidental hair-trigger snaps
-  private readonly requiredStableFrames = 3; 
-  // 18.0 screen px threshold accommodates natural human hand tremor across all resolutions (720p, 1080p, 4K)
-  private readonly maxScreenJitterPx = 18.0; 
+  // 2 consecutive stable frames (~60ms of steady alignment) allows fast, responsive auto-snap
+  private readonly requiredStableFrames = 2; 
+  // 30.0 screen px threshold accommodates natural human hand tremor across all resolutions (720p, 1080p, 4K)
+  private readonly maxScreenJitterPx = 30.0; 
   private lastProcessTimestamp = 0;
   // 36ms interval (~27 FPS) keeps auto-detection ultra fast and responsive
   private readonly minProcessIntervalMs = 36; 
@@ -374,11 +374,10 @@ export class OmrLiveDetector {
       };
     }
 
-    // Physical span check: must span alignment frame within +-28%
-    // Rejects false triggers on small bubble clusters or text blocks inside the sheet
+    // Physical span check: must span alignment frame within +-45% (accommodates normal hand viewing distance)
     const spanDiffW = Math.abs(avgW - expW) / Math.max(1, expW);
     const spanDiffH = Math.abs(avgH - expH) / Math.max(1, expH);
-    if (spanDiffW > 0.28 || spanDiffH > 0.28) {
+    if (spanDiffW > 0.45 || spanDiffH > 0.45) {
       this.decayStreak();
       return {
         status: 'searching',
@@ -400,7 +399,7 @@ export class OmrLiveDetector {
 
     const measuredRatio = avgW / Math.max(1, avgH);
     const ratioDiff = Math.abs(measuredRatio - this.expectedRatio);
-    const maxRatioTolerance = this.expectedRatio * 0.25;
+    const maxRatioTolerance = this.expectedRatio * 0.40;
 
     if (ratioDiff > maxRatioTolerance) {
       this.decayStreak();
@@ -422,10 +421,10 @@ export class OmrLiveDetector {
       };
     }
 
-    // Straightness check (reject severely skewed or non-convex quads)
+    // Straightness check (reject severely skewed or inverted quads)
     const dotTopBot = (topDx * botDx + topDy * botDy) / Math.max(1, topLen * botLen);
     const dotLeftRight = (leftDx * rightDx + leftDy * rightDy) / Math.max(1, leftLen * rightLen);
-    if (dotTopBot < 0.82 || dotLeftRight < 0.82) {
+    if (dotTopBot < 0.65 || dotLeftRight < 0.65) {
       this.decayStreak();
       return {
         status: 'searching',
@@ -563,13 +562,20 @@ export class OmrLiveDetector {
     patchRadius: number,
     expectedBoxPx: number
   ): QuadPoint | null {
-    if (!this.patchCtx) return null;
+    if (!this.patchCtx || !expectedCenter || isNaN(expectedCenter.x) || isNaN(expectedCenter.y)) return null;
 
-    const pr = patchRadius;
+    const pr = Math.min(150, patchRadius);
     const patchDim = pr * 2;
 
-    const srcX = Math.max(0, Math.min(vw - patchDim, Math.round(expectedCenter.x - pr)));
-    const srcY = Math.max(0, Math.min(vh - patchDim, Math.round(expectedCenter.y - pr)));
+    if (this.patchCanvas.width < patchDim || this.patchCanvas.height < patchDim) {
+      this.patchCanvas.width = Math.max(360, patchDim);
+      this.patchCanvas.height = Math.max(360, patchDim);
+      this.patchCtx = this.patchCanvas.getContext('2d', { willReadFrequently: true });
+      if (!this.patchCtx) return null;
+    }
+
+    const srcX = Math.max(0, Math.min(Math.max(0, vw - patchDim), Math.round(expectedCenter.x - pr)));
+    const srcY = Math.max(0, Math.min(Math.max(0, vh - patchDim), Math.round(expectedCenter.y - pr)));
 
     this.patchCtx.drawImage(source, srcX, srcY, patchDim, patchDim, 0, 0, patchDim, patchDim);
     const imgData = this.patchCtx.getImageData(0, 0, patchDim, patchDim);
@@ -790,12 +796,14 @@ function findHollowSquareInPatch(
         let minX = x, maxX = x, minY = y, maxY = y;
 
         while (head < queue.length) {
+          if (queue.length > 2500) break; // early exit for giant dark blobs/tables
           const qx = queue[head++];
           const qy = queue[head++];
           if (qx < minX) minX = qx;
           if (qx > maxX) maxX = qx;
           if (qy < minY) minY = qy;
           if (qy > maxY) maxY = qy;
+          if (maxX - minX > maxBox * 2 || maxY - minY > maxBox * 2) break; // early exit if blob exceeds fiducial bounds
 
           const nbrs = [
             [qx + 1, qy],

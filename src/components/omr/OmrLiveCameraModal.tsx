@@ -306,126 +306,131 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
       setCaptureFlash(true);
       setTimeout(() => setCaptureFlash(false), 200);
 
-      const video = videoRef.current;
-      if (!video || video.videoWidth <= 0 || video.videoHeight <= 0) {
-        setIsProcessingFinalWarp(false);
-        isCapturingRef.current = false;
-        return;
-      }
+      // Execute on next tick so flash and processing overlay render cleanly without blocking UI thread
+      setTimeout(() => {
+        const video = videoRef.current;
+        if (!video || video.videoWidth <= 0 || video.videoHeight <= 0) {
+          setIsProcessingFinalWarp(false);
+          isCapturingRef.current = false;
+          return;
+        }
 
-      const vw = video.videoWidth;
-      const vh = video.videoHeight;
+        const vw = video.videoWidth;
+        const vh = video.videoHeight;
+        let snapCanvas: HTMLCanvasElement | null = null;
 
-      // 1. Grab raw full-resolution camera frame
-      const snapCanvas = document.createElement('canvas');
-      snapCanvas.width = vw;
-      snapCanvas.height = vh;
-      const snapCtx = snapCanvas.getContext('2d');
-      if (!snapCtx) {
-        setIsProcessingFinalWarp(false);
-        isCapturingRef.current = false;
-        return;
-      }
+        try {
+          // 1. Grab raw full-resolution camera frame
+          snapCanvas = document.createElement('canvas');
+          snapCanvas.width = vw;
+          snapCanvas.height = vh;
+          const snapCtx = snapCanvas.getContext('2d');
+          if (!snapCtx) {
+            throw new Error('Failed to obtain 2D canvas context for snapshot');
+          }
 
-      snapCtx.drawImage(video, 0, 0, vw, vh);
-      const rawCapturedDataUrl = snapCanvas.toDataURL('image/jpeg', 0.95);
+          snapCtx.drawImage(video, 0, 0, vw, vh);
+          const rawCapturedDataUrl = snapCanvas.toDataURL('image/jpeg', 0.95);
 
-      // 2. Compute expected fiducial centers in video/canvas coordinates from UI guide containers
-      let expVideoFiducials: LiveQuadCorners;
-      const metrics = frameMetricsRef.current;
-      const cw = metrics?.containerWidth || vw;
-      const ch = metrics?.containerHeight || vh;
-      const scale = Math.max(cw / vw, ch / vh);
-      const offsetX = (vw * scale - cw) / 2;
-      const offsetY = (vh * scale - ch) / 2;
+          // 2. Compute expected fiducial centers in video/canvas coordinates from UI guide containers
+          const metrics = frameMetricsRef.current;
+          const cw = metrics?.containerWidth || vw;
+          const ch = metrics?.containerHeight || vh;
+          const scale = Math.max(cw / vw, ch / vh);
+          const offsetX = (vw * scale - cw) / 2;
+          const offsetY = (vh * scale - ch) / 2;
 
-      if (metrics) {
-        const fiducialInsetX = (10 / activeLayout.pageWidthMm) * metrics.frameWidth;
-        const fiducialInsetY = (10 / activeLayout.pageHeightMm) * metrics.frameHeight;
-        const fiducialBotInsetY = ((activeLayout.pageHeightMm - activeLayout.bottomFiducialY_mm) / activeLayout.pageHeightMm) * metrics.frameHeight;
+          let expVideoFiducials: LiveQuadCorners;
+          if (metrics) {
+            const fiducialInsetX = (10 / activeLayout.pageWidthMm) * metrics.frameWidth;
+            const fiducialInsetY = (10 / activeLayout.pageHeightMm) * metrics.frameHeight;
+            const fiducialBotInsetY = ((activeLayout.pageHeightMm - activeLayout.bottomFiducialY_mm) / activeLayout.pageHeightMm) * metrics.frameHeight;
 
-        expVideoFiducials = {
-          tl: { x: (metrics.frameLeft + fiducialInsetX + offsetX) / scale, y: (metrics.frameTop + fiducialInsetY + offsetY) / scale },
-          tr: { x: (metrics.frameLeft + metrics.frameWidth - fiducialInsetX + offsetX) / scale, y: (metrics.frameTop + fiducialInsetY + offsetY) / scale },
-          br: { x: (metrics.frameLeft + metrics.frameWidth - fiducialInsetX + offsetX) / scale, y: (metrics.frameTop + metrics.frameHeight - fiducialBotInsetY + offsetY) / scale },
-          bl: { x: (metrics.frameLeft + fiducialInsetX + offsetX) / scale, y: (metrics.frameTop + metrics.frameHeight - fiducialBotInsetY + offsetY) / scale },
-        };
-      } else {
-        const mX = 10 / activeLayout.pageWidthMm;
-        const mTop = 10 / activeLayout.pageHeightMm;
-        const mBot = (activeLayout.pageHeightMm - activeLayout.bottomFiducialY_mm) / activeLayout.pageHeightMm;
-        expVideoFiducials = {
-          tl: { x: vw * mX, y: vh * mTop },
-          tr: { x: vw * (1 - mX), y: vh * mTop },
-          br: { x: vw * (1 - mX), y: vh * (1 - mBot) },
-          bl: { x: vw * mX, y: vh * (1 - mBot) },
-        };
-      }
+            expVideoFiducials = {
+              tl: { x: (metrics.frameLeft + fiducialInsetX + offsetX) / scale, y: (metrics.frameTop + fiducialInsetY + offsetY) / scale },
+              tr: { x: (metrics.frameLeft + metrics.frameWidth - fiducialInsetX + offsetX) / scale, y: (metrics.frameTop + fiducialInsetY + offsetY) / scale },
+              br: { x: (metrics.frameLeft + metrics.frameWidth - fiducialInsetX + offsetX) / scale, y: (metrics.frameTop + metrics.frameHeight - fiducialBotInsetY + offsetY) / scale },
+              bl: { x: (metrics.frameLeft + fiducialInsetX + offsetX) / scale, y: (metrics.frameTop + metrics.frameHeight - fiducialBotInsetY + offsetY) / scale },
+            };
+          } else {
+            const mX = 10 / activeLayout.pageWidthMm;
+            const mTop = 10 / activeLayout.pageHeightMm;
+            const mBot = (activeLayout.pageHeightMm - activeLayout.bottomFiducialY_mm) / activeLayout.pageHeightMm;
+            expVideoFiducials = {
+              tl: { x: vw * mX, y: vh * mTop },
+              tr: { x: vw * (1 - mX), y: vh * mTop },
+              br: { x: vw * (1 - mX), y: vh * (1 - mBot) },
+              bl: { x: vw * mX, y: vh * (1 - mBot) },
+            };
+          }
 
-      // 3. Locate or refine the 4 corner fiducials directly on snapCanvas
-      const guideBoxScreenPx = 64;
-      const dynamicPatchRadius = Math.max(75, Math.min(180, Math.round(((guideBoxScreenPx / 2) / scale) * 1.5)));
-      const expSpanX = Math.max(1, expVideoFiducials.tr.x - expVideoFiducials.tl.x);
-      const expectedBoxVideoPx = Math.max(16, Math.round((OMR_GEOMETRY.fiducialSizeMm / activeLayout.fiducialSpanX_mm) * expSpanX));
+          // 3. Determine the 4 corner fiducial source coordinates:
+          // Use verified detected fiducials from live tracking or expected container positions
+          const detectedFid = targetVideoFiducials || latestDetectionRef.current?.videoFiducials;
+          const finalFiducials: LiveQuadCorners = {
+            tl: (detectedFid?.tl && !isNaN(detectedFid.tl.x)) ? detectedFid.tl : expVideoFiducials.tl,
+            tr: (detectedFid?.tr && !isNaN(detectedFid.tr.x)) ? detectedFid.tr : expVideoFiducials.tr,
+            br: (detectedFid?.br && !isNaN(detectedFid.br.x)) ? detectedFid.br : expVideoFiducials.br,
+            bl: (detectedFid?.bl && !isNaN(detectedFid.bl.x)) ? detectedFid.bl : expVideoFiducials.bl,
+          };
 
-      const detector = detectorRef.current || new OmrLiveDetector(activeLayout);
-      const initialFiducials = targetVideoFiducials || latestDetectionRef.current?.videoFiducials || expVideoFiducials;
+          // 4. Target canonical rectified dimensions strictly matching this active test paper's layout!
+          const dstWidth = 1414;
+          const dstHeight = Math.round(dstWidth * (activeLayout.pageHeightMm / activeLayout.pageWidthMm));
+          const scaleMm = dstWidth / activeLayout.pageWidthMm;
 
-      const refinedResult = detector.locateCornerFiducials(
-        snapCanvas,
-        vw,
-        vh,
-        initialFiducials,
-        dynamicPatchRadius,
-        expectedBoxVideoPx
-      );
+          // Canonical fiducial centers in rectified canvas pixel coordinates
+          const canonicalFiducials: OmrCorners = {
+            topLeft: { x: 10 * scaleMm, y: 10 * scaleMm },
+            topRight: { x: (10 + activeLayout.fiducialSpanX_mm) * scaleMm, y: 10 * scaleMm },
+            bottomRight: { x: (10 + activeLayout.fiducialSpanX_mm) * scaleMm, y: (10 + activeLayout.fiducialSpanY_mm) * scaleMm },
+            bottomLeft: { x: 10 * scaleMm, y: (10 + activeLayout.fiducialSpanY_mm) * scaleMm },
+          };
 
-      const finalFiducials = refinedResult.fiducials;
+          const srcQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint] = [
+            finalFiducials.tl,
+            finalFiducials.tr,
+            finalFiducials.br,
+            finalFiducials.bl,
+          ];
+          const dstQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint] = [
+            canonicalFiducials.topLeft,
+            canonicalFiducials.topRight,
+            canonicalFiducials.bottomRight,
+            canonicalFiducials.bottomLeft,
+          ];
 
-      // 4. Target canonical rectified dimensions strictly matching this active test paper's layout!
-      const dstWidth = 1414;
-      const dstHeight = Math.round(dstWidth * (activeLayout.pageHeightMm / activeLayout.pageWidthMm));
-      const scaleMm = dstWidth / activeLayout.pageWidthMm;
+          setCapturedPreview(rawCapturedDataUrl);
 
-      // Canonical fiducial centers in rectified canvas pixel coordinates
-      const canonicalFiducials: OmrCorners = {
-        topLeft: { x: 10 * scaleMm, y: 10 * scaleMm },
-        topRight: { x: (10 + activeLayout.fiducialSpanX_mm) * scaleMm, y: 10 * scaleMm },
-        bottomRight: { x: (10 + activeLayout.fiducialSpanX_mm) * scaleMm, y: (10 + activeLayout.fiducialSpanY_mm) * scaleMm },
-        bottomLeft: { x: 10 * scaleMm, y: (10 + activeLayout.fiducialSpanY_mm) * scaleMm },
-      };
+          // 5. Apply Homography Bilinear Perspective Rectification
+          const warpedCanvas = warpPerspectiveCanvas(snapCanvas, srcQuad, dstWidth, dstHeight, dstQuad);
 
-      // Direct anchor from the 4 detected scanner fiducials in the photo to exact canonical blueprint
-      const srcQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint] = [
-        finalFiducials.tl,
-        finalFiducials.tr,
-        finalFiducials.br,
-        finalFiducials.bl,
-      ];
-      const dstQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint] = [
-        canonicalFiducials.topLeft,
-        canonicalFiducials.topRight,
-        canonicalFiducials.bottomRight,
-        canonicalFiducials.bottomLeft,
-      ];
-      const calibratedFiducialsToPass: OmrCorners = canonicalFiducials;
-
-      setCapturedPreview(rawCapturedDataUrl);
-
-      // 4. Apply Homography Bilinear Perspective Rectification
-      const warpedCanvas = warpPerspectiveCanvas(snapCanvas, srcQuad, dstWidth, dstHeight, dstQuad);
-
-      if (warpedCanvas) {
-        const rectifiedDataUrl = warpedCanvas.toDataURL('image/jpeg', 0.94);
-        onCaptureRectified(rectifiedDataUrl, rawCapturedDataUrl, calibratedFiducialsToPass);
-      } else {
-        onCaptureRectified(rawCapturedDataUrl, rawCapturedDataUrl, calibratedFiducialsToPass);
-      }
-
-      setIsProcessingFinalWarp(false);
-      isCapturingRef.current = false;
+          if (warpedCanvas) {
+            const rectifiedDataUrl = warpedCanvas.toDataURL('image/jpeg', 0.94);
+            onCaptureRectified(rectifiedDataUrl, rawCapturedDataUrl, canonicalFiducials);
+          } else {
+            console.warn('[Camera] Homography warp fallback to raw frame');
+            onCaptureRectified(rawCapturedDataUrl, rawCapturedDataUrl, undefined);
+          }
+        } catch (captureErr) {
+          console.error('[Camera] executeCapture error, falling back:', captureErr);
+          try {
+            if (snapCanvas) {
+              const fallbackUrl = snapCanvas.toDataURL('image/jpeg', 0.90);
+              onCaptureRectified(fallbackUrl, fallbackUrl, undefined);
+            } else {
+              onClose();
+            }
+          } catch {
+            onClose();
+          }
+        } finally {
+          setIsProcessingFinalWarp(false);
+          isCapturingRef.current = false;
+        }
+      }, 30);
     },
-    [activeLayout, playCaptureSound, triggerHaptic, onCaptureRectified]
+    [activeLayout, playCaptureSound, triggerHaptic, onCaptureRectified, onClose]
   );
 
   // Main Detection Loop
