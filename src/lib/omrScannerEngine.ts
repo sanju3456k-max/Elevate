@@ -458,7 +458,7 @@ function refineCircleCenter(
   let bestDy = 0;
   let maxScore = -9999;
 
-  const searchRange = Math.min(8, Math.max(4, Math.round(r * 0.55)));
+  const searchRange = Math.min(5, Math.max(3, Math.round(r * 0.38)));
   const numAngles = 12;
   const angles: { cos: number; sin: number }[] = [];
   for (let i = 0; i < numAngles; i++) {
@@ -1206,19 +1206,22 @@ export async function evaluateScannedOmrImage(
         initialY,
         bubbleRadiusPx,
         paperLuminance,
-        Math.max(16, Math.round(bubbleRadiusPx * 2.2)) // Wide search window
+        Math.min(6, Math.max(3, Math.round(bubbleRadiusPx * 0.45))) // Constrained window (prevents hopping to adjacent bubbles)
       );
 
-      // If the snapped score is strong (meaning a real printed circle was found)
+      // If the snapped score is strong and within valid sub-pixel bounds (<= 6px)
+      // Discards false snaps onto adjacent option circles or text numbers
       if (snapped.score > 5) {
         const shiftX = snapped.x - initialX;
         const shiftY = snapped.y - initialY;
-        dxSamples.push(shiftX);
-        dySamples.push(shiftY);
-        const colIdx = Math.min(layout.columnCount - 1, Math.floor(qIdx / layout.questionsPerColumn));
-        if (colSamplesX[colIdx]) {
-          colSamplesX[colIdx].push(shiftX);
-          colSamplesY[colIdx].push(shiftY);
+        if (Math.abs(shiftX) <= 6 && Math.abs(shiftY) <= 6) {
+          dxSamples.push(shiftX);
+          dySamples.push(shiftY);
+          const colIdx = Math.min(layout.columnCount - 1, Math.floor(qIdx / layout.questionsPerColumn));
+          if (colSamplesX[colIdx]) {
+            colSamplesX[colIdx].push(shiftX);
+            colSamplesY[colIdx].push(shiftY);
+          }
         }
       }
     });
@@ -1229,8 +1232,8 @@ export async function evaluateScannedOmrImage(
       dySamples.sort((a, b) => a - b);
       
       const midIdx = Math.floor(dxSamples.length / 2);
-      globalDx = dxSamples[midIdx];
-      globalDy = dySamples[midIdx];
+      globalDx = Math.max(-5, Math.min(5, dxSamples[midIdx]));
+      globalDy = Math.max(-5, Math.min(5, dySamples[midIdx]));
 
       console.log(`[OMR Engine] Global Auto-Correction applied: dx=${globalDx.toFixed(1)}px, dy=${globalDy.toFixed(1)}px based on ${dxSamples.length} samples`);
     }
@@ -1240,8 +1243,8 @@ export async function evaluateScannedOmrImage(
       if (colSamplesX[c] && colSamplesX[c].length >= 2) {
         colSamplesX[c].sort((a, b) => a - b);
         colSamplesY[c].sort((a, b) => a - b);
-        colDx[c] = colSamplesX[c][Math.floor(colSamplesX[c].length / 2)];
-        colDy[c] = colSamplesY[c][Math.floor(colSamplesY[c].length / 2)];
+        colDx[c] = Math.max(-5, Math.min(5, colSamplesX[c][Math.floor(colSamplesX[c].length / 2)]));
+        colDy[c] = Math.max(-5, Math.min(5, colSamplesY[c][Math.floor(colSamplesY[c].length / 2)]));
       } else {
         colDx[c] = globalDx;
         colDy[c] = globalDy;
