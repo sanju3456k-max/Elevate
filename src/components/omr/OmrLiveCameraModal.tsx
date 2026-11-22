@@ -365,51 +365,83 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
           }
 
           // 3. Determine the 4 corner fiducial source coordinates:
-          // Use verified detected fiducials from live tracking or expected container positions
-          const detectedFid = targetVideoFiducials || latestDetectionRef.current?.videoFiducials;
-          const finalFiducials: LiveQuadCorners = {
-            tl: (detectedFid?.tl && !isNaN(detectedFid.tl.x)) ? detectedFid.tl : expVideoFiducials.tl,
-            tr: (detectedFid?.tr && !isNaN(detectedFid.tr.x)) ? detectedFid.tr : expVideoFiducials.tr,
-            br: (detectedFid?.br && !isNaN(detectedFid.br.x)) ? detectedFid.br : expVideoFiducials.br,
-            bl: (detectedFid?.bl && !isNaN(detectedFid.bl.x)) ? detectedFid.bl : expVideoFiducials.bl,
-          };
+          let finalFiducials: LiveQuadCorners | null = null;
+          let isHomographyValid = false;
 
-          // 4. Target canonical rectified dimensions strictly matching this active test paper's layout!
-          const dstWidth = 1414;
-          const dstHeight = Math.round(dstWidth * (activeLayout.pageHeightMm / activeLayout.pageWidthMm));
-          const scaleMm = dstWidth / activeLayout.pageWidthMm;
+          if (targetVideoFiducials && !isNaN(targetVideoFiducials.tl.x)) {
+            // Auto-snap with confirmed detected fiducials
+            finalFiducials = targetVideoFiducials;
+            isHomographyValid = true;
+          } else if (latestDetectionRef.current?.detected && latestDetectionRef.current.videoFiducials) {
+            // Live detector had confirmed detected corners in the latest frame
+            finalFiducials = latestDetectionRef.current.videoFiducials;
+            isHomographyValid = true;
+          } else if (detectorRef.current && snapCanvas) {
+            // Manual click without prior live lock: locate fiducials directly on high-res snapCanvas
+            const expW = Math.hypot(expVideoFiducials.tr.x - expVideoFiducials.tl.x, expVideoFiducials.tr.y - expVideoFiducials.tl.y);
+            const expectedBoxVideoPx = Math.max(16, Math.round(
+              (5.5 / activeLayout.fiducialSpanX_mm) * expW
+            ));
+            const patchRadius = Math.max(90, Math.min(220, Math.round(((64 / 2) / scale) * 1.8)));
 
-          // Canonical fiducial centers in rectified canvas pixel coordinates
-          const canonicalFiducials: OmrCorners = {
-            topLeft: { x: 10 * scaleMm, y: 10 * scaleMm },
-            topRight: { x: (10 + activeLayout.fiducialSpanX_mm) * scaleMm, y: 10 * scaleMm },
-            bottomRight: { x: (10 + activeLayout.fiducialSpanX_mm) * scaleMm, y: (10 + activeLayout.fiducialSpanY_mm) * scaleMm },
-            bottomLeft: { x: 10 * scaleMm, y: (10 + activeLayout.fiducialSpanY_mm) * scaleMm },
-          };
+            const located = detectorRef.current.locateCornerFiducials(
+              snapCanvas,
+              vw,
+              vh,
+              expVideoFiducials,
+              patchRadius,
+              expectedBoxVideoPx
+            );
 
-          const srcQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint] = [
-            finalFiducials.tl,
-            finalFiducials.tr,
-            finalFiducials.br,
-            finalFiducials.bl,
-          ];
-          const dstQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint] = [
-            canonicalFiducials.topLeft,
-            canonicalFiducials.topRight,
-            canonicalFiducials.bottomRight,
-            canonicalFiducials.bottomLeft,
-          ];
+            if (located && located.detectedCount >= 3) {
+              finalFiducials = located.fiducials;
+              isHomographyValid = true;
+            }
+          }
 
           setCapturedPreview(rawCapturedDataUrl);
 
-          // 5. Apply Homography Bilinear Perspective Rectification
-          const warpedCanvas = warpPerspectiveCanvas(snapCanvas, srcQuad, dstWidth, dstHeight, dstQuad);
+          if (isHomographyValid && finalFiducials) {
+            // 4. Target canonical rectified dimensions strictly matching this active test paper's layout!
+            const dstWidth = 1414;
+            const dstHeight = Math.round(dstWidth * (activeLayout.pageHeightMm / activeLayout.pageWidthMm));
+            const scaleMm = dstWidth / activeLayout.pageWidthMm;
 
-          if (warpedCanvas) {
-            const rectifiedDataUrl = warpedCanvas.toDataURL('image/jpeg', 0.94);
-            onCaptureRectified(rectifiedDataUrl, rawCapturedDataUrl, canonicalFiducials);
+            // Canonical fiducial centers in rectified canvas pixel coordinates
+            const canonicalFiducials: OmrCorners = {
+              topLeft: { x: 10 * scaleMm, y: 10 * scaleMm },
+              topRight: { x: (10 + activeLayout.fiducialSpanX_mm) * scaleMm, y: 10 * scaleMm },
+              bottomRight: { x: (10 + activeLayout.fiducialSpanX_mm) * scaleMm, y: (10 + activeLayout.fiducialSpanY_mm) * scaleMm },
+              bottomLeft: { x: 10 * scaleMm, y: (10 + activeLayout.fiducialSpanY_mm) * scaleMm },
+            };
+
+            const srcQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint] = [
+              finalFiducials.tl,
+              finalFiducials.tr,
+              finalFiducials.br,
+              finalFiducials.bl,
+            ];
+            const dstQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint] = [
+              canonicalFiducials.topLeft,
+              canonicalFiducials.topRight,
+              canonicalFiducials.bottomRight,
+              canonicalFiducials.bottomLeft,
+            ];
+
+            // 5. Apply Homography Bilinear Perspective Rectification
+            const warpedCanvas = warpPerspectiveCanvas(snapCanvas, srcQuad, dstWidth, dstHeight, dstQuad);
+
+            if (warpedCanvas) {
+              const rectifiedDataUrl = warpedCanvas.toDataURL('image/jpeg', 0.94);
+              onCaptureRectified(rectifiedDataUrl, rawCapturedDataUrl, canonicalFiducials);
+            } else {
+              console.warn('[Camera] Homography warp fallback to raw frame');
+              onCaptureRectified(rawCapturedDataUrl, rawCapturedDataUrl, undefined);
+            }
           } else {
-            console.warn('[Camera] Homography warp fallback to raw frame');
+            // Sheet was not aligned in the 4 containers: deliver clean raw frame with undefined fiducials
+            // so evaluateScannedOmrImage runs full page multi-hypothesis corner detection
+            console.log('[Camera] Delivering raw unwarped frame for full-image auto-detection');
             onCaptureRectified(rawCapturedDataUrl, rawCapturedDataUrl, undefined);
           }
         } catch (captureErr) {

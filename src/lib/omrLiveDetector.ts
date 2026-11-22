@@ -221,21 +221,45 @@ export class OmrLiveDetector {
     // Dynamic patch radius based on screen-to-video scale:
     // Guide container boxes on screen are 56px-64px.
     // In video coordinates, this corresponds to (guideBoxSize / scale) pixels.
-    // We scale by 1.35x to provide a generous search region so markers anywhere
-    // inside the UI box are reliably extracted and detected.
+    // We scale generously (1.65x) so markers within or near the UI boxes
+    // are reliably extracted even with handheld tilt, angle or slight distance changes.
     const guideBoxScreenPx = 64;
-    const dynamicPatchRadius = Math.max(75, Math.min(145, Math.round(((guideBoxScreenPx / 2) / scale) * 1.35)));
+    const dynamicPatchRadius = Math.max(90, Math.min(195, Math.round(((guideBoxScreenPx / 2) / scale) * 1.65)));
 
     // Physical fiducial size is 5.5mm
     const expectedBoxVideoPx = Math.max(16, Math.round(
       (OMR_GEOMETRY.fiducialSizeMm / this.layout.fiducialSpanX_mm) * expW
     ));
 
-    // 3. Extract high-res patches from video and locate fiducial markers inside the 4 containers
-    const candTL = this.detectCornerInPatch(video, expVideoFiducials.tl, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
-    const candTR = this.detectCornerInPatch(video, expVideoFiducials.tr, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
-    const candBR = this.detectCornerInPatch(video, expVideoFiducials.br, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
-    const candBL = this.detectCornerInPatch(video, expVideoFiducials.bl, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
+    // 3. Extract high-res patches from video and locate fiducial markers inside or near the 4 containers
+    let candTL = this.detectCornerInPatch(video, expVideoFiducials.tl, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
+    let candTR = this.detectCornerInPatch(video, expVideoFiducials.tr, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
+    let candBR = this.detectCornerInPatch(video, expVideoFiducials.br, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
+    let candBL = this.detectCornerInPatch(video, expVideoFiducials.bl, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
+
+    let initialCount = (candTL ? 1 : 0) + (candTR ? 1 : 0) + (candBR ? 1 : 0) + (candBL ? 1 : 0);
+
+    // Parallelogram geometric completion: if 3 of 4 corners are found,
+    // mathematically extrapolate the 4th corner and attempt localized refinement!
+    if (initialCount === 3) {
+      if (!candTL && candTR && candBL && candBR) {
+        const predTL = { x: candTR.x + candBL.x - candBR.x, y: candTR.y + candBL.y - candBR.y };
+        const refTL = this.detectCornerInPatch(video, predTL, vw, vh, Math.round(dynamicPatchRadius * 0.75), expectedBoxVideoPx);
+        candTL = refTL || predTL;
+      } else if (!candTR && candTL && candBL && candBR) {
+        const predTR = { x: candTL.x + candBR.x - candBL.x, y: candTL.y + candBR.y - candBL.y };
+        const refTR = this.detectCornerInPatch(video, predTR, vw, vh, Math.round(dynamicPatchRadius * 0.75), expectedBoxVideoPx);
+        candTR = refTR || predTR;
+      } else if (!candBR && candTL && candTR && candBL) {
+        const predBR = { x: candTR.x + candBL.x - candTL.x, y: candTR.y + candBL.y - candTL.y };
+        const refBR = this.detectCornerInPatch(video, predBR, vw, vh, Math.round(dynamicPatchRadius * 0.75), expectedBoxVideoPx);
+        candBR = refBR || predBR;
+      } else if (!candBL && candTL && candTR && candBR) {
+        const predBL = { x: candTL.x + candBR.x - candTR.x, y: candTL.y + candBR.y - candTR.y };
+        const refBL = this.detectCornerInPatch(video, predBL, vw, vh, Math.round(dynamicPatchRadius * 0.75), expectedBoxVideoPx);
+        candBL = refBL || predBL;
+      }
+    }
 
     const boxCount = (candTL ? 1 : 0) + (candTR ? 1 : 0) + (candBR ? 1 : 0) + (candBL ? 1 : 0);
     const detectedBoxes: DetectedBoxesState = {
@@ -834,34 +858,34 @@ function findHollowSquareInPatch(
           const cy = (minY + maxY) / 2;
           const distToPatchCenter = Math.hypot(cx - patchMidX, cy - patchMidY);
 
-          // Must be positioned inside the UI guide container
-          if (distToPatchCenter <= w * 0.44) {
+          // Must be positioned inside or reasonably close to UI guide container center
+          if (distToPatchCenter <= w * 0.48) {
             const margin = Math.max(3, Math.round(bw * 0.35));
 
-            // Check surrounding white paper margins on all 4 individual sides
+            // Check surrounding paper margins on all 4 individual sides
             const outerTop = getRectMean(minX - margin, minY - margin, maxX + margin, minY);
             const outerBot = getRectMean(minX - margin, maxY, maxX + margin, maxY + margin);
             const outerLeft = getRectMean(minX - margin, minY - margin, minX, maxY + margin);
             const outerRight = getRectMean(maxX, minY - margin, maxX + margin, maxY + margin);
 
             const minMargin = Math.min(outerTop, outerBot, outerLeft, outerRight);
-            // Rejects candidates at dark table edge, surface borders, or non-white backgrounds
-            if (minMargin >= 65) {
+            // Rejects candidates at dark table edge, surface borders, or non-white backgrounds (works on paper & screens)
+            if (minMargin >= 50) {
               const boxMean = getRectMean(minX, minY, maxX, maxY);
               const ringMean = (outerTop + outerBot + outerLeft + outerRight) / 4;
 
-              if (ringMean - boxMean >= 14) {
-                // Four-sided border check: borders must be darker than surrounding paper
+              if (ringMean - boxMean >= 10) {
+                // Four-sided border check: borders must be darker than surrounding paper/background
                 const topBorder = getRectMean(minX, minY, maxX, minY + 2);
                 const botBorder = getRectMean(minX, maxY - 2, maxX, maxY);
                 const leftBorder = getRectMean(minX, minY, minX + 2, maxY);
                 const rightBorder = getRectMean(maxX - 2, minY, maxX, maxY);
                 const maxBorder = Math.max(topBorder, botBorder, leftBorder, rightBorder);
 
-                if (maxBorder <= ringMean - 8) {
+                if (maxBorder <= ringMean - 6) {
                   const centerVal = gray[Math.round(cy) * w + Math.round(cx)];
-                  const isHollow = centerVal >= boxMean + 8;
-                  const isSolid = boxMean < ringMean - 25;
+                  const isHollow = centerVal >= boxMean + 6;
+                  const isSolid = boxMean < ringMean - 20;
 
                   if (isHollow || isSolid) {
                     const distScore = 1.0 / (1.0 + distToPatchCenter * 0.03);
@@ -869,7 +893,7 @@ function findHollowSquareInPatch(
                     const contrastScore = Math.min(1.0, (ringMean - boxMean) / 60);
                     const score = distScore * 0.40 + aspectScore * 0.35 + contrastScore * 0.25;
 
-                    if (score >= 0.48) {
+                    if (score >= 0.42) {
                       candidates.push({ cx, cy, bw, bh, score });
                     }
                   }

@@ -1013,14 +1013,46 @@ export async function evaluateScannedOmrImage(
     const scaleX = targetW / srcW;
     const scaleY = targetH / srcH;
 
-    fiducials = {
+    const testFiducials = {
       topLeft: { x: precalibratedFiducials.topLeft.x * scaleX, y: precalibratedFiducials.topLeft.y * scaleY },
       topRight: { x: precalibratedFiducials.topRight.x * scaleX, y: precalibratedFiducials.topRight.y * scaleY },
       bottomLeft: { x: precalibratedFiducials.bottomLeft.x * scaleX, y: precalibratedFiducials.bottomLeft.y * scaleY },
       bottomRight: { x: precalibratedFiducials.bottomRight.x * scaleX, y: precalibratedFiducials.bottomRight.y * scaleY },
     };
-    console.log('[OMR Engine] Calibrated directly from precalibrated corner fiducials:', fiducials);
-  } else {
+
+    // Presence check: verify that these coordinates actually hit registration marks on the image
+    const verifyFiducialPresence = (pt: OmrPoint): boolean => {
+      const checkRadius = Math.max(6, Math.round(targetW * 0.015));
+      let darkCount = 0;
+      for (let dy = -checkRadius; dy <= checkRadius; dy += 3) {
+        for (let dx = -checkRadius; dx <= checkRadius; dx += 3) {
+          const px = Math.max(0, Math.min(targetW - 1, Math.round(pt.x + dx)));
+          const py = Math.max(0, Math.min(targetH - 1, Math.round(pt.y + dy)));
+          const idx = (py * targetW + px) * 4;
+          const luma = 0.299 * pixelData[idx] + 0.587 * pixelData[idx + 1] + 0.114 * pixelData[idx + 2];
+          if (luma < paperLuminance - 20) {
+            darkCount++;
+          }
+        }
+      }
+      return darkCount >= 2;
+    };
+
+    const hasTL = verifyFiducialPresence(testFiducials.topLeft);
+    const hasTR = verifyFiducialPresence(testFiducials.topRight);
+    const hasBL = verifyFiducialPresence(testFiducials.bottomLeft);
+    const hasBR = verifyFiducialPresence(testFiducials.bottomRight);
+
+    if ((hasTL ? 1 : 0) + (hasTR ? 1 : 0) + (hasBL ? 1 : 0) + (hasBR ? 1 : 0) >= 2) {
+      fiducials = testFiducials;
+      console.log('[OMR Engine] Calibrated directly from verified precalibrated corner fiducials:', fiducials);
+    } else {
+      console.warn('[OMR Engine] Precalibrated fiducials failed presence check on canvas, attempting full-image detection');
+      fiducials = null;
+    }
+  }
+
+  if (!fiducials) {
     const fiducialsA4 = detectCornerFiducials(pixelData, targetW, targetH, blueprintA4.layout, paperLuminance);
     const fiducialsCompact = detectCornerFiducials(pixelData, targetW, targetH, blueprintCompact.layout, paperLuminance);
 

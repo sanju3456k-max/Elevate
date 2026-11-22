@@ -86,7 +86,7 @@ export interface PaperPageLayout {
  * - Page 1 Available Vertical Height: ~1040px (balanced) / ~1080px (tight)
  * - Subsequent Pages Available Vertical Height: ~1120px (balanced) / ~1160px (tight)
  */
-const DEFAULT_PAGE_1_COL_HEIGHT_PX = 1040;
+const DEFAULT_PAGE_1_COL_HEIGHT_PX = 1075;
 const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 1120;
 /**
  * Extra bottom vertical height buffer (in pixels) added specifically to the in-app
@@ -627,10 +627,10 @@ function paginateLinearStream(
 
   const getColBudget = (pageIdx: number) => {
     if (layoutDensity === 'tight') {
-      return pageIdx === 0 ? 1160 : 1220;
+      return pageIdx === 0 ? 1195 : 1220;
     }
     if (layoutDensity === 'relaxed') {
-      return pageIdx === 0 ? 1040 : 1100;
+      return pageIdx === 0 ? 1075 : 1100;
     }
     return pageIdx === 0 ? DEFAULT_PAGE_1_COL_HEIGHT_PX : DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX;
   };
@@ -1213,7 +1213,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
     );
     const maxColH = Math.max(leftColH, rightColH);
 
-    const headerOverheadPx = page.isFirstPage ? 185 : 55;
+    const headerOverheadPx = page.isFirstPage ? 150 : 55;
     const pagePaddingOverheadPx = 60; // 10mm top (38px) + preview bottom clearance (~57px)
     const footerOverheadPx = 40; // footer border + margins
 
@@ -1542,7 +1542,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                           <span>MAXIMUM MARKS: {maxMarks}</span>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 text-[8.5pt] font-semibold mb-1">
+                        <div className="grid grid-cols-2 gap-4 text-[8.5pt] font-semibold">
                           <div className="flex items-baseline gap-1.5">
                             <span className="shrink-0">Candidate Name:</span>
                             <div className="flex-1 border-b border-black border-dotted h-3.5" />
@@ -1551,10 +1551,6 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                             <span className="shrink-0">Roll No:</span>
                             <div className="flex-1 border-b border-black border-dotted h-3.5" />
                           </div>
-                        </div>
-
-                        <div className="border border-black p-1 text-[7.5pt] leading-tight font-medium bg-neutral-50/50">
-                          <span className="font-bold">INSTRUCTIONS:</span> Darken only ONE bubble per question on your OMR answer sheet using blue or black ballpoint pen. Each question carries equal marks. Choose the most appropriate single option (A, B, C, or D).
                         </div>
                       </div>
                     ) : (
