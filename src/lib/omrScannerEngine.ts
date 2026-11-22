@@ -624,11 +624,10 @@ function sampleBubbleOpticalDensity(
   paperBaseline: number
 ): BubbleFillAnalysis {
   const r = Math.max(3, Math.floor(bubbleRadiusPx));
-  // Safe inner sampling radius: 0.48 * r leaves a 52% whitespace buffer avoiding outer printed border
-  const innerR = Math.max(2, Math.floor(r * 0.48));
+  // Safe inner sampling radius: 0.52 * r leaves a 48% whitespace gap from the printed border outline
+  const innerR = Math.max(2, Math.floor(r * 0.52));
   const innerRSq = innerR * innerR;
-  // Central core radius: 0.30 * r
-  const coreR = Math.max(1, Math.floor(r * 0.30));
+  const coreR = Math.max(1, Math.floor(r * 0.28));
   const coreRSq = coreR * coreR;
 
   const getGray = (x: number, y: number): number => {
@@ -652,12 +651,10 @@ function sampleBubbleOpticalDensity(
   const localAmbient = (ambientSamples[0] + ambientSamples[1]) * 0.5;
 
   // True local illumination: if this section is in shadow (e.g. 150-180), track localAmbient closely
+  // instead of forcing bright global paper margins which causes false-positives
   const localPaper = Math.max(120, Math.min(255, localAmbient * 0.85 + Math.min(localAmbient, paperBaseline) * 0.15));
   // Meaningful ink threshold: ink must be distinctly darker than true local paper background
   const darkThreshold = Math.min(localPaper - 25, localPaper * 0.80);
-
-  const centerGray = getGray(cx, cy);
-  const isCenterDark = centerGray < darkThreshold;
 
   let darkCount = 0;
   let innerCount = 0;
@@ -712,15 +709,14 @@ function sampleBubbleOpticalDensity(
 
   // A candidate is a line / border artifact if:
   // - It does not spread across at least 3 quadrants, OR
-  // - The central core has less than 32% dark pixels, OR
-  // - The center pixel itself is white paper AND core darkness is under 45%
-  const isLineArtifact = activeQuadrants < 3 || coreDarkRatio < 0.32 || (!isCenterDark && coreDarkRatio < 0.45);
+  // - The central core has less than 20% dark pixels
+  const isLineArtifact = activeQuadrants < 3 || coreDarkRatio < 0.20;
 
   let score = 0;
-  // Compute continuous score whenever ink spreads across >= 3 quadrants and core is verified
-  if (!isLineArtifact && rawDarkRatio >= 0.25 && coreDarkRatio >= 0.32) {
+  // Compute continuous score whenever ink spreads across >= 3 quadrants and core is touched
+  if (!isLineArtifact && rawDarkRatio >= 0.22 && coreDarkRatio >= 0.20) {
     const fillMetric = rawDarkRatio * 0.60 + meanDarkness * 0.40;
-    const coreBonus = coreDarkRatio >= 0.50 ? 1.30 : (coreDarkRatio >= 0.40 ? 1.10 : 0.95);
+    const coreBonus = coreDarkRatio >= 0.42 ? 1.25 : (coreDarkRatio >= 0.32 ? 1.05 : 0.90);
     score = fillMetric * coreBonus;
   } else {
     // Empty bubble or edge touching returns clean 0 score
@@ -1046,12 +1042,29 @@ export async function evaluateScannedOmrImage(
     if ((hasTL ? 1 : 0) + (hasTR ? 1 : 0) + (hasBL ? 1 : 0) + (hasBR ? 1 : 0) >= 2) {
       fiducials = testFiducials;
       console.log('[OMR Engine] Calibrated directly from verified precalibrated corner fiducials:', fiducials);
+
+      // Auto-calibrate physical row count for live camera if camera span differs from test question count
+      const spanX = Math.hypot(fiducials.topRight.x - fiducials.topLeft.x, fiducials.topRight.y - fiducials.topLeft.y);
+      const spanY = Math.hypot(fiducials.bottomLeft.x - fiducials.topLeft.x, fiducials.bottomLeft.y - fiducials.topLeft.y);
+      const physicalRatio = spanX / Math.max(1, spanY);
+
+      const physicalSpanY_mm = 190.0 / Math.max(0.2, physicalRatio);
+      const physicalRows = Math.max(5, Math.min(45, Math.round((physicalSpanY_mm - 42.75) / 6.35)));
+      const physicalSheetQs = physicalRows * blueprint.layout.columnCount;
+
+      if (Math.abs(physicalRows - blueprint.layout.questionsPerColumn) >= 1) {
+        console.log(`[OMR Engine] Auto-calibrated physical sheet for live camera: physical print has ${physicalRows} rows/col (${physicalSheetQs} Qs) while active test has ${totalQs} Qs.`);
+        blueprint = generateOmrSheetBlueprint(physicalSheetQs, blueprint.layout.columnCount, detectedFormat);
+      }
     } else {
       console.warn('[OMR Engine] Precalibrated fiducials failed presence check on canvas, attempting full-image detection');
       fiducials = null;
     }
   }
 
+  // -------------------------------------------------------------
+  // PURE ORIGINAL MANUAL UPLOAD & CROP CALIBRATION (ORIGINAL A411A1D)
+  // -------------------------------------------------------------
   if (!fiducials) {
     const fiducialsA4 = detectCornerFiducials(pixelData, targetW, targetH, blueprintA4.layout, paperLuminance);
     const fiducialsCompact = detectCornerFiducials(pixelData, targetW, targetH, blueprintCompact.layout, paperLuminance);
@@ -1062,21 +1075,6 @@ export async function evaluateScannedOmrImage(
       detectedFormat = 'compact';
     } else {
       fiducials = fiducialsA4;
-    }
-  }
-
-  if (fiducials) {
-    const spanX = Math.hypot(fiducials.topRight.x - fiducials.topLeft.x, fiducials.topRight.y - fiducials.topLeft.y);
-    const spanY = Math.hypot(fiducials.bottomLeft.x - fiducials.topLeft.x, fiducials.bottomLeft.y - fiducials.topLeft.y);
-    const physicalRatio = spanX / Math.max(1, spanY);
-
-    const physicalSpanY_mm = 190.0 / Math.max(0.2, physicalRatio);
-    const physicalRows = Math.max(5, Math.min(45, Math.round((physicalSpanY_mm - 42.75) / 6.35)));
-    const physicalSheetQs = physicalRows * blueprint.layout.columnCount;
-
-    if (Math.abs(physicalRows - blueprint.layout.questionsPerColumn) >= 1) {
-      console.log(`[OMR Engine] Auto-calibrated physical sheet: physical print has ${physicalRows} rows/col (${physicalSheetQs} Qs) while active test has ${totalQs} Qs.`);
-      blueprint = generateOmrSheetBlueprint(physicalSheetQs, blueprint.layout.columnCount, detectedFormat);
     }
   }
 
@@ -1110,7 +1108,7 @@ export async function evaluateScannedOmrImage(
       }
     });
 
-    if (tightCropScore > 10 && tightCropScore > fullPageScore * 1.5) {
+    if (tightCropScore >= fullPageScore || (tightCropScore > 8 && fullPageScore <= 8)) {
       isTightFiducialCrop = true;
       fiducials = {
         topLeft: { x: 0, y: 0 },
@@ -1119,15 +1117,6 @@ export async function evaluateScannedOmrImage(
         bottomRight: { x: targetW, y: targetH },
       };
       console.log(`[OMR Engine] Calibrated as Tight Fiducial Crop (tightScore: ${tightCropScore.toFixed(1)} vs fullPageScore: ${fullPageScore.toFixed(1)})`);
-    } else {
-      // Default to standard Full Page canonical fiducials (TL at 10mm, 10mm)
-      fiducials = {
-        topLeft: { x: (10 / layout.pageWidthMm) * targetW, y: (10 / layout.pageHeightMm) * targetH },
-        topRight: { x: (200 / layout.pageWidthMm) * targetW, y: (10 / layout.pageHeightMm) * targetH },
-        bottomLeft: { x: (10 / layout.pageWidthMm) * targetW, y: (layout.bottomFiducialY_mm / layout.pageHeightMm) * targetH },
-        bottomRight: { x: (200 / layout.pageWidthMm) * targetW, y: (layout.bottomFiducialY_mm / layout.pageHeightMm) * targetH },
-      };
-      console.log(`[OMR Engine] Calibrated as Full Page canonical fiducials (fullPageScore: ${fullPageScore.toFixed(1)} vs tightScore: ${tightCropScore.toFixed(1)})`);
     }
   }
 
@@ -1353,27 +1342,27 @@ export async function evaluateScannedOmrImage(
     // Tier 1: Solid ink / standard pencil filling
     const isSolidMark = Boolean(
       topCandidate.analysis &&
-      topCandidate.score >= 0.28 &&
+      topCandidate.score >= 0.30 &&
       topCandidate.analysis.rawDarkRatio >= 0.32 &&
-      topCandidate.analysis.coreDarkRatio >= 0.35 &&
+      topCandidate.analysis.coreDarkRatio >= 0.30 &&
       topCandidate.analysis.activeQuadrants >= 3 &&
       !topCandidate.analysis.isLineArtifact &&
-      topCandidate.score > baselineOtherScore + 0.12 &&
-      (contrastDiff >= 0.12 || topCandidate.analysis.rawDarkRatio >= 0.50)
+      (contrastDiff >= 0.12 || topCandidate.analysis.rawDarkRatio >= 0.50) &&
+      topCandidate.score > baselineOtherScore + 0.10
     );
 
     // Tier 2: Faint pencil / light shading (accepted when isolated with high contrast over 3 blank bubbles)
     const isFaintPencilMark = Boolean(
       !isSolidMark &&
       topCandidate.analysis &&
-      topCandidate.score >= 0.22 &&
-      topCandidate.analysis.rawDarkRatio >= 0.28 &&
-      topCandidate.analysis.coreDarkRatio >= 0.30 &&
+      topCandidate.score >= 0.20 &&
+      topCandidate.analysis.rawDarkRatio >= 0.24 &&
+      topCandidate.analysis.coreDarkRatio >= 0.22 &&
       topCandidate.analysis.activeQuadrants >= 3 &&
       !topCandidate.analysis.isLineArtifact &&
       contrastDiff >= 0.16 &&
       contrastRatio >= 2.5 &&
-      topCandidate.score > baselineOtherScore + 0.15
+      baselineOtherScore < 0.10
     );
 
     if (isSolidMark || isFaintPencilMark) {
@@ -1448,6 +1437,23 @@ export async function evaluateScannedOmrImage(
       bubbleReadings,
       actualCorrectOption,
       isCorrect,
+    });
+  }
+
+  // If the test has more questions than the physical sheet layout on paper, pad the remaining questions as unattempted
+  for (let qIdx = questionDetections.length; qIdx < totalQs; qIdx++) {
+    const q = questionsList[qIdx] || { text: `Question ${qIdx + 1}`, correctAnswer: 'A' };
+    const actualCorrectOption = resolveActualCorrectOption(q, qIdx);
+    questionDetections.push({
+      questionNumber: qIdx + 1,
+      questionId: q.id || `q_${qIdx + 1}`,
+      detectedOption: '',
+      confidence: 0,
+      isAmbiguous: false,
+      isMultipleMarked: false,
+      bubbleReadings: [],
+      actualCorrectOption,
+      isCorrect: false,
     });
   }
 
