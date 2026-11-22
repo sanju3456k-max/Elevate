@@ -360,8 +360,8 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
       let dstQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint];
       let calibratedFiducialsToPass: OmrCorners | undefined = undefined;
 
-      if (videoFiducials) {
-        // Direct anchor to the 4 detected scanner fiducial positions!
+      if (videoFiducials && currentDetection?.detected && currentDetection.detectedBoxes?.count === 4) {
+        // Direct anchor to the 4 verified detected scanner fiducial positions!
         // Maps detected video fiducial positions directly to the exact canonical blueprint coordinates
         srcQuad = [
           videoFiducials.tl,
