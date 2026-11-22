@@ -624,10 +624,10 @@ function sampleBubbleOpticalDensity(
   paperBaseline: number
 ): BubbleFillAnalysis {
   const r = Math.max(3, Math.floor(bubbleRadiusPx));
-  // Safe inner sampling radius: 0.52 * r leaves a 48% whitespace gap from the printed border outline
-  const innerR = Math.max(2, Math.floor(r * 0.52));
+  // Safe inner sampling radius: 0.48 * r leaves a 52% whitespace buffer avoiding outer printed border
+  const innerR = Math.max(2, Math.floor(r * 0.48));
   const innerRSq = innerR * innerR;
-  const coreR = Math.max(1, Math.floor(r * 0.28));
+  const coreR = Math.max(1, Math.floor(r * 0.25));
   const coreRSq = coreR * coreR;
 
   const getGray = (x: number, y: number): number => {
@@ -1234,9 +1234,12 @@ export async function evaluateScannedOmrImage(
         initialY = normY * targetH;
       }
 
-      // Apply global grid alignment auto-correcting shifts!
-      const correctedX = initialX + globalDx;
-      const correctedY = initialY + globalDy;
+      // Apply per-column grid alignment (locks onto local column perspective)
+      const colIdx = Math.min(layout.columnCount - 1, Math.floor(qIdx / layout.questionsPerColumn));
+      const shiftX = colDx[colIdx] !== undefined ? colDx[colIdx] : globalDx;
+      const shiftY = colDy[colIdx] !== undefined ? colDy[colIdx] : globalDy;
+      const correctedX = initialX + shiftX;
+      const correctedY = initialY + shiftY;
 
       // Sub-pixel circle snapping: lock directly onto the physical printed circle
       const snapped = refineCircleCenter(
@@ -1312,9 +1315,9 @@ export async function evaluateScannedOmrImage(
     const isFaintPencilMark = Boolean(
       !isSolidMark &&
       topCandidate.analysis &&
-      topCandidate.score >= 0.20 &&
-      topCandidate.analysis.rawDarkRatio >= 0.24 &&
-      topCandidate.analysis.coreDarkRatio >= 0.22 &&
+      topCandidate.score >= 0.22 &&
+      topCandidate.analysis.rawDarkRatio >= 0.28 &&
+      topCandidate.analysis.coreDarkRatio >= 0.25 &&
       topCandidate.analysis.activeQuadrants >= 3 &&
       !topCandidate.analysis.isLineArtifact &&
       contrastDiff >= 0.16 &&

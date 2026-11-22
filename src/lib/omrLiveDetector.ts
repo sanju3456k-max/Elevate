@@ -231,17 +231,67 @@ export class OmrLiveDetector {
       (OMR_GEOMETRY.fiducialSizeMm / this.layout.fiducialSpanX_mm) * expW
     ));
 
-    // 3. Extract high-res patches from video and locate fiducial markers inside or near the 4 containers
-    let candTL = this.detectCornerInPatch(video, expVideoFiducials.tl, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
-    let candTR = this.detectCornerInPatch(video, expVideoFiducials.tr, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
-    let candBR = this.detectCornerInPatch(video, expVideoFiducials.br, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
-    let candBL = this.detectCornerInPatch(video, expVideoFiducials.bl, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
+    // 3. Extract high-res patch candidates from video for all 4 corners
+    const listTL = this.detectCornerCandidatesInPatch(video, expVideoFiducials.tl, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
+    const listTR = this.detectCornerCandidatesInPatch(video, expVideoFiducials.tr, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
+    const listBR = this.detectCornerCandidatesInPatch(video, expVideoFiducials.br, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
+    const listBL = this.detectCornerCandidatesInPatch(video, expVideoFiducials.bl, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
+
+    // Multi-candidate geometric pairing (solves the twin-square trap when multiple tests are on one page)
+    let bestCombo: { tl: QuadPoint; tr: QuadPoint; br: QuadPoint; bl: QuadPoint } | null = null;
+    let bestScore = -9999;
+
+    if (listTL.length > 0 && listTR.length > 0 && listBR.length > 0 && listBL.length > 0) {
+      for (const pTL of listTL) {
+        for (const pTR of listTR) {
+          for (const pBR of listBR) {
+            for (const pBL of listBL) {
+              const topDx = pTR.x - pTL.x;
+              const topDy = pTR.y - pTL.y;
+              const botDx = pBR.x - pBL.x;
+              const botDy = pBR.y - pBL.y;
+              const leftDx = pBL.x - pTL.x;
+              const leftDy = pBL.y - pTL.y;
+              const rightDx = pBR.x - pTR.x;
+              const rightDy = pBR.y - pTR.y;
+
+              const topLen = Math.hypot(topDx, topDy);
+              const botLen = Math.hypot(botDx, botDy);
+              const leftLen = Math.hypot(leftDx, leftDy);
+              const rightLen = Math.hypot(rightDx, rightDy);
+
+              const avgW = (topLen + botLen) / 2;
+              const avgH = (leftLen + rightLen) / 2;
+              if (avgH <= 10 || avgW <= 10) continue;
+
+              const heightSymmetry = 1.0 - Math.abs(leftLen - rightLen) / Math.max(leftLen, rightLen);
+              const widthSymmetry = 1.0 - Math.abs(topLen - botLen) / Math.max(topLen, botLen);
+              const measuredRatio = avgW / avgH;
+              const ratioScore = 1.0 - Math.abs(measuredRatio - this.expectedRatio) / Math.max(0.1, this.expectedRatio);
+              const parallelism = (topDx * botDx + topDy * botDy) / Math.max(1, topLen * botLen);
+
+              // Combination quality score: heavily penalizes height asymmetry (eliminates selecting wrong square from adjacent test)
+              const score = heightSymmetry * 0.40 + widthSymmetry * 0.25 + ratioScore * 0.20 + parallelism * 0.15;
+              if (score > bestScore) {
+                bestScore = score;
+                bestCombo = { tl: pTL, tr: pTR, br: pBR, bl: pBL };
+              }
+            }
+          }
+        }
+      }
+    }
+
+    let candTL = bestCombo ? bestCombo.tl : (listTL[0] || null);
+    let candTR = bestCombo ? bestCombo.tr : (listTR[0] || null);
+    let candBR = bestCombo ? bestCombo.br : (listBR[0] || null);
+    let candBL = bestCombo ? bestCombo.bl : (listBL[0] || null);
 
     let initialCount = (candTL ? 1 : 0) + (candTR ? 1 : 0) + (candBR ? 1 : 0) + (candBL ? 1 : 0);
 
     // Parallelogram geometric completion: if 3 of 4 corners are found,
     // mathematically extrapolate the 4th corner and attempt localized refinement!
-    if (initialCount === 3) {
+    if (initialCount === 3 && !bestCombo) {
       if (!candTL && candTR && candBL && candBR) {
         const predTL = { x: candTR.x + candBL.x - candBR.x, y: candTR.y + candBL.y - candBR.y };
         const refTL = this.detectCornerInPatch(video, predTL, vw, vh, Math.round(dynamicPatchRadius * 0.75), expectedBoxVideoPx);
@@ -576,26 +626,26 @@ export class OmrLiveDetector {
   }
 
   /**
-   * Extract patch at target coordinate and detect hollow square
+   * Extract patch at target coordinate and return top detected hollow square candidates
    */
-  public detectCornerInPatch(
+  public detectCornerCandidatesInPatch(
     source: CanvasImageSource,
     expectedCenter: QuadPoint,
     vw: number,
     vh: number,
     patchRadius: number,
     expectedBoxPx: number
-  ): QuadPoint | null {
-    if (!this.patchCtx || !expectedCenter || isNaN(expectedCenter.x) || isNaN(expectedCenter.y)) return null;
+  ): QuadPoint[] {
+    if (!this.patchCtx || !expectedCenter || isNaN(expectedCenter.x) || isNaN(expectedCenter.y)) return [];
 
-    const pr = Math.min(150, patchRadius);
+    const pr = Math.min(160, patchRadius);
     const patchDim = pr * 2;
 
     if (this.patchCanvas.width < patchDim || this.patchCanvas.height < patchDim) {
       this.patchCanvas.width = Math.max(360, patchDim);
       this.patchCanvas.height = Math.max(360, patchDim);
       this.patchCtx = this.patchCanvas.getContext('2d', { willReadFrequently: true });
-      if (!this.patchCtx) return null;
+      if (!this.patchCtx) return [];
     }
 
     const srcX = Math.max(0, Math.min(Math.max(0, vw - patchDim), Math.round(expectedCenter.x - pr)));
@@ -612,13 +662,26 @@ export class OmrLiveDetector {
       gray[i] = (pixels[idx] * 77 + pixels[idx + 1] * 150 + pixels[idx + 2] * 29) >> 8;
     }
 
-    const cand = findHollowSquareInPatch(gray, patchDim, patchDim, expectedBoxPx);
-    if (!cand) return null;
+    const cands = findHollowSquaresInPatch(gray, patchDim, patchDim, expectedBoxPx);
+    return cands.map((c) => ({
+      x: srcX + c.cx,
+      y: srcY + c.cy,
+    }));
+  }
 
-    return {
-      x: srcX + cand.cx,
-      y: srcY + cand.cy,
-    };
+  /**
+   * Extract patch at target coordinate and detect highest-scoring hollow square
+   */
+  public detectCornerInPatch(
+    source: CanvasImageSource,
+    expectedCenter: QuadPoint,
+    vw: number,
+    vh: number,
+    patchRadius: number,
+    expectedBoxPx: number
+  ): QuadPoint | null {
+    const list = this.detectCornerCandidatesInPatch(source, expectedCenter, vw, vh, patchRadius, expectedBoxPx);
+    return list.length > 0 ? list[0] : null;
   }
 
   /**
@@ -665,10 +728,59 @@ export class OmrLiveDetector {
     detectedCount: number;
     detectedBoxes: DetectedBoxesState;
   } {
-    const cTL = this.detectCornerInPatch(source, expFiducials.tl, vw, vh, patchRadius, expectedBoxPx);
-    const cTR = this.detectCornerInPatch(source, expFiducials.tr, vw, vh, patchRadius, expectedBoxPx);
-    const cBR = this.detectCornerInPatch(source, expFiducials.br, vw, vh, patchRadius, expectedBoxPx);
-    const cBL = this.detectCornerInPatch(source, expFiducials.bl, vw, vh, patchRadius, expectedBoxPx);
+    const listTL = this.detectCornerCandidatesInPatch(source, expFiducials.tl, vw, vh, patchRadius, expectedBoxPx);
+    const listTR = this.detectCornerCandidatesInPatch(source, expFiducials.tr, vw, vh, patchRadius, expectedBoxPx);
+    const listBR = this.detectCornerCandidatesInPatch(source, expFiducials.br, vw, vh, patchRadius, expectedBoxPx);
+    const listBL = this.detectCornerCandidatesInPatch(source, expFiducials.bl, vw, vh, patchRadius, expectedBoxPx);
+
+    // Multi-candidate geometric pairing (solves the twin-square trap when multiple tests are on one page)
+    let bestCombo: { tl: QuadPoint; tr: QuadPoint; br: QuadPoint; bl: QuadPoint } | null = null;
+    let bestScore = -9999;
+
+    if (listTL.length > 0 && listTR.length > 0 && listBR.length > 0 && listBL.length > 0) {
+      for (const pTL of listTL) {
+        for (const pTR of listTR) {
+          for (const pBR of listBR) {
+            for (const pBL of listBL) {
+              const topDx = pTR.x - pTL.x;
+              const topDy = pTR.y - pTL.y;
+              const botDx = pBR.x - pBL.x;
+              const botDy = pBR.y - pBL.y;
+              const leftDx = pBL.x - pTL.x;
+              const leftDy = pBL.y - pTL.y;
+              const rightDx = pBR.x - pTR.x;
+              const rightDy = pBR.y - pTR.y;
+
+              const topLen = Math.hypot(topDx, topDy);
+              const botLen = Math.hypot(botDx, botDy);
+              const leftLen = Math.hypot(leftDx, leftDy);
+              const rightLen = Math.hypot(rightDx, rightDy);
+
+              const avgW = (topLen + botLen) / 2;
+              const avgH = (leftLen + rightLen) / 2;
+              if (avgH <= 10 || avgW <= 10) continue;
+
+              const heightSymmetry = 1.0 - Math.abs(leftLen - rightLen) / Math.max(leftLen, rightLen);
+              const widthSymmetry = 1.0 - Math.abs(topLen - botLen) / Math.max(topLen, botLen);
+              const measuredRatio = avgW / avgH;
+              const ratioScore = 1.0 - Math.abs(measuredRatio - this.expectedRatio) / Math.max(0.1, this.expectedRatio);
+              const parallelism = (topDx * botDx + topDy * botDy) / Math.max(1, topLen * botLen);
+
+              const score = heightSymmetry * 0.40 + widthSymmetry * 0.25 + ratioScore * 0.20 + parallelism * 0.15;
+              if (score > bestScore) {
+                bestScore = score;
+                bestCombo = { tl: pTL, tr: pTR, br: pBR, bl: pBL };
+              }
+            }
+          }
+        }
+      }
+    }
+
+    let cTL = bestCombo ? bestCombo.tl : (listTL[0] || null);
+    let cTR = bestCombo ? bestCombo.tr : (listTR[0] || null);
+    let cBR = bestCombo ? bestCombo.br : (listBR[0] || null);
+    let cBL = bestCombo ? bestCombo.bl : (listBL[0] || null);
 
     const count = (cTL ? 1 : 0) + (cTR ? 1 : 0) + (cBR ? 1 : 0) + (cBL ? 1 : 0);
     const detectedBoxes: DetectedBoxesState = {
@@ -685,7 +797,7 @@ export class OmrLiveDetector {
     let fBL = cBL;
 
     // Parallelogram completion when 3 of 4 corners are found
-    if (count === 3) {
+    if (count === 3 && !bestCombo) {
       if (!fTL && fTR && fBL && fBR) {
         fTL = { x: fTR.x + fBL.x - fBR.x, y: fTR.y + fBL.y - fBR.y };
       } else if (!fTR && fTL && fBL && fBR) {
@@ -707,7 +819,7 @@ export class OmrLiveDetector {
 
     return {
       fiducials: finalFiducials,
-      detectedCount: count,
+      detectedCount: bestCombo ? 4 : count,
       detectedBoxes,
     };
   }
@@ -726,12 +838,12 @@ export class OmrLiveDetector {
  * four-sided closed dark ring, and surrounding paper contrast.
  * Rejects irregular surfaces, text blocks, wood grain, tile borders, and dark desks.
  */
-function findHollowSquareInPatch(
+function findHollowSquaresInPatch(
   gray: Uint8Array, 
   w: number, 
   h: number, 
   expectedBoxPx: number
-): PatchCandidate | null {
+): PatchCandidate[] {
   const pixelCount = w * h;
   if (pixelCount === 0) return null;
 
@@ -906,9 +1018,19 @@ function findHollowSquareInPatch(
     }
   }
 
-  if (candidates.length === 0) return null;
+  if (candidates.length === 0) return [];
   candidates.sort((a, b) => b.score - a.score);
-  return candidates[0];
+  return candidates.slice(0, 3);
+}
+
+function findHollowSquareInPatch(
+  gray: Uint8Array, 
+  w: number, 
+  h: number, 
+  expectedBoxPx: number
+): PatchCandidate | null {
+  const list = findHollowSquaresInPatch(gray, w, h, expectedBoxPx);
+  return list.length > 0 ? list[0] : null;
 }
 
 function smoothPt(prev: QuadPoint, target: QuadPoint, alpha: number): QuadPoint {
