@@ -82,10 +82,10 @@ export class OmrLiveDetector {
   // Temporal coordinate smoothing & stability gate
   private smoothedVideoFiducials: LiveQuadCorners | null = null;
   private stableStreak = 0;
-  // 8 consecutive stable frames (~300ms of steady alignment) prevents accidental hair-trigger snaps
-  private readonly requiredStableFrames = 8; 
-  // 24.0 px threshold accommodates natural human hand tremor at 1080p/4K while rejecting swift motion
-  private readonly maxMovementThresholdSq = 24.0 * 24.0; 
+  // 3 consecutive stable frames (~100ms of steady alignment) prevents accidental hair-trigger snaps
+  private readonly requiredStableFrames = 3; 
+  // 18.0 screen px threshold accommodates natural human hand tremor across all resolutions (720p, 1080p, 4K)
+  private readonly maxScreenJitterPx = 18.0; 
   private lastProcessTimestamp = 0;
   // 36ms interval (~27 FPS) keeps auto-detection ultra fast and responsive
   private readonly minProcessIntervalMs = 36; 
@@ -305,13 +305,13 @@ export class OmrLiveDetector {
     const avgW = (topLen + botLen) / 2;
     const avgH = (leftLen + rightLen) / 2;
 
-    // 4.1. Paper luminance validation at all 4 corner positions
+    // 4.1. Paper luminance validation at all 4 corner positions (rejects dark surfaces/tables)
     const lumaTL = this.sampleVideoAreaLuma(video, candTL.x, candTL.y, 20, vw, vh);
     const lumaTR = this.sampleVideoAreaLuma(video, candTR.x, candTR.y, 20, vw, vh);
     const lumaBR = this.sampleVideoAreaLuma(video, candBR.x, candBR.y, 20, vw, vh);
     const lumaBL = this.sampleVideoAreaLuma(video, candBL.x, candBL.y, 20, vw, vh);
 
-    if (lumaTL < 85 || lumaTR < 85 || lumaBR < 85 || lumaBL < 85) {
+    if (lumaTL < 60 || lumaTR < 60 || lumaBR < 60 || lumaBL < 60) {
       this.decayStreak();
       const fallbackScreenFiducials: LiveQuadCorners = {
         tl: { x: (expScreenFiducials.tl.x / cw) * 100, y: (expScreenFiducials.tl.y / ch) * 100 },
@@ -334,7 +334,7 @@ export class OmrLiveDetector {
         tiltAngleDeg: 0,
         ratioMatchPercentage: 0,
         shouldAutoSnap: false,
-        detectedBoxes: { tl: lumaTL >= 85, tr: lumaTR >= 85, br: lumaBR >= 85, bl: lumaBL >= 85, count: boxCount },
+        detectedBoxes: { tl: lumaTL >= 60, tr: lumaTR >= 60, br: lumaBR >= 60, bl: lumaBL >= 60, count: boxCount },
       };
     }
 
@@ -347,7 +347,7 @@ export class OmrLiveDetector {
     const lumaLeft = this.sampleVideoAreaLuma(video, sheetMidX - (avgW * 0.25), sheetMidY, 20, vw, vh);
     const lumaRight = this.sampleVideoAreaLuma(video, sheetMidX + (avgW * 0.25), sheetMidY, 20, vw, vh);
 
-    if (lumaCenter < 85 || lumaTop < 85 || lumaBottom < 85 || lumaLeft < 85 || lumaRight < 85) {
+    if (lumaCenter < 60 || lumaTop < 60 || lumaBottom < 60 || lumaLeft < 60 || lumaRight < 60) {
       this.decayStreak();
       const fallbackScreenFiducials: LiveQuadCorners = {
         tl: { x: (expScreenFiducials.tl.x / cw) * 100, y: (expScreenFiducials.tl.y / ch) * 100 },
@@ -448,20 +448,21 @@ export class OmrLiveDetector {
     const ratioMatch = Math.max(0, 1.0 - ratioDiff / maxRatioTolerance);
     const tiltDeg = (Math.atan2(topDy, topDx) * 180) / Math.PI;
 
-    // 5. Stability & timing verification:
+    // 5. Stability & timing verification (scale-independent screen-space check):
     if (this.smoothedVideoFiducials) {
-      const maxJitterSq = Math.max(
+      const maxJitterVideoSq = Math.max(
         distSq(this.smoothedVideoFiducials.tl, rawVideoFiducials.tl),
         distSq(this.smoothedVideoFiducials.tr, rawVideoFiducials.tr),
         distSq(this.smoothedVideoFiducials.br, rawVideoFiducials.br),
         distSq(this.smoothedVideoFiducials.bl, rawVideoFiducials.bl)
       );
+      const maxJitterScreenPx = Math.sqrt(maxJitterVideoSq) * scale;
 
-      if (maxJitterSq < this.maxMovementThresholdSq) {
+      if (maxJitterScreenPx < this.maxScreenJitterPx) {
         this.stableStreak++;
       } else {
         // Soft-decay rather than resetting completely for hand tremor
-        this.stableStreak = Math.max(0, this.stableStreak - 2);
+        this.stableStreak = Math.max(0, this.stableStreak - 1);
       }
     } else {
       this.stableStreak = 1;
@@ -552,10 +553,10 @@ export class OmrLiveDetector {
   }
 
   /**
-   * Extract patch at target video point and detect hollow square
+   * Extract patch at target coordinate and detect hollow square
    */
-  private detectCornerInPatch(
-    video: HTMLVideoElement,
+  public detectCornerInPatch(
+    source: CanvasImageSource,
     expectedCenter: QuadPoint,
     vw: number,
     vh: number,
@@ -570,7 +571,7 @@ export class OmrLiveDetector {
     const srcX = Math.max(0, Math.min(vw - patchDim, Math.round(expectedCenter.x - pr)));
     const srcY = Math.max(0, Math.min(vh - patchDim, Math.round(expectedCenter.y - pr)));
 
-    this.patchCtx.drawImage(video, srcX, srcY, patchDim, patchDim, 0, 0, patchDim, patchDim);
+    this.patchCtx.drawImage(source, srcX, srcY, patchDim, patchDim, 0, 0, patchDim, patchDim);
     const imgData = this.patchCtx.getImageData(0, 0, patchDim, patchDim);
     const pixels = imgData.data;
 
@@ -591,10 +592,10 @@ export class OmrLiveDetector {
   }
 
   /**
-   * Sample small video region average luminance to verify sheet paper brightness
+   * Sample small region average luminance to verify sheet paper brightness
    */
   private sampleVideoAreaLuma(
-    video: HTMLVideoElement,
+    source: CanvasImageSource,
     centerX: number,
     centerY: number,
     sampleSize: number,
@@ -606,7 +607,7 @@ export class OmrLiveDetector {
     const sx = Math.max(0, Math.min(vw - sampleSize, Math.round(centerX - half)));
     const sy = Math.max(0, Math.min(vh - sampleSize, Math.round(centerY - half)));
 
-    this.patchCtx.drawImage(video, sx, sy, sampleSize, sampleSize, 0, 0, sampleSize, sampleSize);
+    this.patchCtx.drawImage(source, sx, sy, sampleSize, sampleSize, 0, 0, sampleSize, sampleSize);
     const imgData = this.patchCtx.getImageData(0, 0, sampleSize, sampleSize);
     const d = imgData.data;
     let sum = 0;
@@ -618,6 +619,69 @@ export class OmrLiveDetector {
     return sum / count;
   }
 
+  /**
+   * Directly locates or refines the 4 corner fiducials on a full-resolution canvas or video frame.
+   * If any corner is obscured, uses parallelogram geometry to accurately predict its location.
+   */
+  public locateCornerFiducials(
+    source: CanvasImageSource,
+    vw: number,
+    vh: number,
+    expFiducials: LiveQuadCorners,
+    patchRadius: number,
+    expectedBoxPx: number
+  ): {
+    fiducials: LiveQuadCorners;
+    detectedCount: number;
+    detectedBoxes: DetectedBoxesState;
+  } {
+    const cTL = this.detectCornerInPatch(source, expFiducials.tl, vw, vh, patchRadius, expectedBoxPx);
+    const cTR = this.detectCornerInPatch(source, expFiducials.tr, vw, vh, patchRadius, expectedBoxPx);
+    const cBR = this.detectCornerInPatch(source, expFiducials.br, vw, vh, patchRadius, expectedBoxPx);
+    const cBL = this.detectCornerInPatch(source, expFiducials.bl, vw, vh, patchRadius, expectedBoxPx);
+
+    const count = (cTL ? 1 : 0) + (cTR ? 1 : 0) + (cBR ? 1 : 0) + (cBL ? 1 : 0);
+    const detectedBoxes: DetectedBoxesState = {
+      tl: Boolean(cTL),
+      tr: Boolean(cTR),
+      br: Boolean(cBR),
+      bl: Boolean(cBL),
+      count,
+    };
+
+    let fTL = cTL;
+    let fTR = cTR;
+    let fBR = cBR;
+    let fBL = cBL;
+
+    // Parallelogram completion when 3 of 4 corners are found
+    if (count === 3) {
+      if (!fTL && fTR && fBL && fBR) {
+        fTL = { x: fTR.x + fBL.x - fBR.x, y: fTR.y + fBL.y - fBR.y };
+      } else if (!fTR && fTL && fBL && fBR) {
+        fTR = { x: fTL.x + fBR.x - fBL.x, y: fTL.y + fBR.y - fBL.y };
+      } else if (!fBR && fTL && fTR && fBL) {
+        fBR = { x: fTR.x + fBL.x - fTL.x, y: fTR.y + fBL.y - fTL.y };
+      } else if (!fBL && fTL && fTR && fBR) {
+        fBL = { x: fTL.x + fBR.x - fTR.x, y: fTL.y + fBR.y - fTR.y };
+      }
+    }
+
+    // Fallback any remaining missing corners to expected position
+    const finalFiducials: LiveQuadCorners = {
+      tl: fTL || expFiducials.tl,
+      tr: fTR || expFiducials.tr,
+      br: fBR || expFiducials.br,
+      bl: fBL || expFiducials.bl,
+    };
+
+    return {
+      fiducials: finalFiducials,
+      detectedCount: count,
+      detectedBoxes,
+    };
+  }
+
   private decayStreak(): void {
     this.stableStreak = Math.max(0, this.stableStreak - 2);
     if (this.stableStreak === 0) {
@@ -627,9 +691,9 @@ export class OmrLiveDetector {
 }
 
 /**
- * Strict Fiducial Square Detector:
- * Strictly validates square geometry (aspect 0.80 to 1.25), physical size matching printed blueprint,
- * four-sided closed dark ring, and surrounding bright white paper margins on all 4 sides.
+ * Robust Fiducial Square Detector:
+ * Validates square geometry, physical size matching printed blueprint,
+ * four-sided closed dark ring, and surrounding paper contrast.
  * Rejects irregular surfaces, text blocks, wood grain, tile borders, and dark desks.
  */
 function findHollowSquareInPatch(
@@ -641,13 +705,13 @@ function findHollowSquareInPatch(
   const pixelCount = w * h;
   if (pixelCount === 0) return null;
 
-  // 1. Absolute Patch Luminance Check: Real white paper under indoor lighting is >= 85.
+  // 1. Absolute Patch Luminance Check: Paper under indoor lighting / shadow is >= 60.
   let patchSum = 0;
   for (let i = 0; i < pixelCount; i++) {
     patchSum += gray[i];
   }
   const patchAvg = patchSum / pixelCount;
-  if (patchAvg < 85) {
+  if (patchAvg < 60) {
     return null;
   }
 
@@ -701,7 +765,7 @@ function findHollowSquareInPatch(
       const mean = getLocalMean(x, y, 7);
       const val = gray[yRow + x];
       // Border pixels must be dark and significantly lower than local background
-      if (val < mean - 12 && val < patchAvg * 0.88) {
+      if (val < mean - 10 && val < patchAvg * 0.90) {
         binaryDark[yRow + x] = 1;
       }
     }
@@ -711,8 +775,8 @@ function findHollowSquareInPatch(
   const patchMidY = h / 2;
   const candidates: PatchCandidate[] = [];
 
-  const minBox = Math.max(12, Math.round(expectedBoxPx * 0.55));
-  const maxBox = Math.min(50, Math.round(expectedBoxPx * 1.45));
+  const minBox = Math.max(8, Math.round(expectedBoxPx * 0.45));
+  const maxBox = Math.min(90, Math.round(expectedBoxPx * 1.65));
 
   // Connected component labeling on binaryDark
   const visited = new Uint8Array(pixelCount);
@@ -756,14 +820,14 @@ function findHollowSquareInPatch(
         const bh = maxY - minY + 1;
         const aspect = bw / bh;
 
-        // Must be a square matching physical fiducial scale (aspect 0.80 - 1.25)
-        if (bw >= minBox && bw <= maxBox && bh >= minBox && bh <= maxBox && aspect >= 0.78 && aspect <= 1.28) {
+        // Must be a square matching physical fiducial scale
+        if (bw >= minBox && bw <= maxBox && bh >= minBox && bh <= maxBox && aspect >= 0.70 && aspect <= 1.40) {
           const cx = (minX + maxX) / 2;
           const cy = (minY + maxY) / 2;
           const distToPatchCenter = Math.hypot(cx - patchMidX, cy - patchMidY);
 
           // Must be positioned inside the UI guide container
-          if (distToPatchCenter <= w * 0.36) {
+          if (distToPatchCenter <= w * 0.44) {
             const margin = Math.max(3, Math.round(bw * 0.35));
 
             // Check surrounding white paper margins on all 4 individual sides
@@ -773,31 +837,31 @@ function findHollowSquareInPatch(
             const outerRight = getRectMean(maxX, minY - margin, maxX + margin, maxY + margin);
 
             const minMargin = Math.min(outerTop, outerBot, outerLeft, outerRight);
-            // Rejects candidates at table edge, surface borders, or non-white backgrounds
-            if (minMargin >= 88) {
+            // Rejects candidates at dark table edge, surface borders, or non-white backgrounds
+            if (minMargin >= 65) {
               const boxMean = getRectMean(minX, minY, maxX, maxY);
               const ringMean = (outerTop + outerBot + outerLeft + outerRight) / 4;
 
-              if (ringMean - boxMean >= 20) {
-                // Four-sided border check: all 4 sides must be darker than surrounding paper
+              if (ringMean - boxMean >= 14) {
+                // Four-sided border check: borders must be darker than surrounding paper
                 const topBorder = getRectMean(minX, minY, maxX, minY + 2);
                 const botBorder = getRectMean(minX, maxY - 2, maxX, maxY);
                 const leftBorder = getRectMean(minX, minY, minX + 2, maxY);
                 const rightBorder = getRectMean(maxX - 2, minY, maxX, maxY);
                 const maxBorder = Math.max(topBorder, botBorder, leftBorder, rightBorder);
 
-                if (maxBorder <= ringMean - 14) {
+                if (maxBorder <= ringMean - 8) {
                   const centerVal = gray[Math.round(cy) * w + Math.round(cx)];
-                  const isHollow = centerVal >= boxMean + 10;
-                  const isSolid = boxMean < ringMean - 32;
+                  const isHollow = centerVal >= boxMean + 8;
+                  const isSolid = boxMean < ringMean - 25;
 
                   if (isHollow || isSolid) {
                     const distScore = 1.0 / (1.0 + distToPatchCenter * 0.03);
-                    const aspectScore = 1.0 - Math.abs(1.0 - aspect) * 1.5;
-                    const contrastScore = Math.min(1.0, (ringMean - boxMean) / 80);
+                    const aspectScore = 1.0 - Math.abs(1.0 - aspect) * 1.2;
+                    const contrastScore = Math.min(1.0, (ringMean - boxMean) / 60);
                     const score = distScore * 0.40 + aspectScore * 0.35 + contrastScore * 0.25;
 
-                    if (score >= 0.60) {
+                    if (score >= 0.48) {
                       candidates.push({ cx, cy, bw, bh, score });
                     }
                   }

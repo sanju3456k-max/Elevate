@@ -330,20 +330,59 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
       snapCtx.drawImage(video, 0, 0, vw, vh);
       const rawCapturedDataUrl = snapCanvas.toDataURL('image/jpeg', 0.95);
 
-      // 2. Determine source corners & fiducials in VIDEO PIXEL coordinates:
-      let videoFiducials = targetVideoFiducials;
-      let videoCorners = targetVideoCorners;
-      const currentDetection = latestDetectionRef.current;
+      // 2. Compute expected fiducial centers in video/canvas coordinates from UI guide containers
+      let expVideoFiducials: LiveQuadCorners;
       const metrics = frameMetricsRef.current;
+      const cw = metrics?.containerWidth || vw;
+      const ch = metrics?.containerHeight || vh;
+      const scale = Math.max(cw / vw, ch / vh);
+      const offsetX = (vw * scale - cw) / 2;
+      const offsetY = (vh * scale - ch) / 2;
 
-      if (!videoFiducials && currentDetection?.detected && currentDetection.videoFiducials) {
-        videoFiducials = currentDetection.videoFiducials;
-      }
-      if (!videoCorners && currentDetection?.detected && currentDetection.videoOuterCorners) {
-        videoCorners = currentDetection.videoOuterCorners;
+      if (metrics) {
+        const fiducialInsetX = (10 / activeLayout.pageWidthMm) * metrics.frameWidth;
+        const fiducialInsetY = (10 / activeLayout.pageHeightMm) * metrics.frameHeight;
+        const fiducialBotInsetY = ((activeLayout.pageHeightMm - activeLayout.bottomFiducialY_mm) / activeLayout.pageHeightMm) * metrics.frameHeight;
+
+        expVideoFiducials = {
+          tl: { x: (metrics.frameLeft + fiducialInsetX + offsetX) / scale, y: (metrics.frameTop + fiducialInsetY + offsetY) / scale },
+          tr: { x: (metrics.frameLeft + metrics.frameWidth - fiducialInsetX + offsetX) / scale, y: (metrics.frameTop + fiducialInsetY + offsetY) / scale },
+          br: { x: (metrics.frameLeft + metrics.frameWidth - fiducialInsetX + offsetX) / scale, y: (metrics.frameTop + metrics.frameHeight - fiducialBotInsetY + offsetY) / scale },
+          bl: { x: (metrics.frameLeft + fiducialInsetX + offsetX) / scale, y: (metrics.frameTop + metrics.frameHeight - fiducialBotInsetY + offsetY) / scale },
+        };
+      } else {
+        const mX = 10 / activeLayout.pageWidthMm;
+        const mTop = 10 / activeLayout.pageHeightMm;
+        const mBot = (activeLayout.pageHeightMm - activeLayout.bottomFiducialY_mm) / activeLayout.pageHeightMm;
+        expVideoFiducials = {
+          tl: { x: vw * mX, y: vh * mTop },
+          tr: { x: vw * (1 - mX), y: vh * mTop },
+          br: { x: vw * (1 - mX), y: vh * (1 - mBot) },
+          bl: { x: vw * mX, y: vh * (1 - mBot) },
+        };
       }
 
-      // 3. Target canonical rectified dimensions strictly matching this active test paper's layout!
+      // 3. Locate or refine the 4 corner fiducials directly on snapCanvas
+      const guideBoxScreenPx = 64;
+      const dynamicPatchRadius = Math.max(75, Math.min(180, Math.round(((guideBoxScreenPx / 2) / scale) * 1.5)));
+      const expSpanX = Math.max(1, expVideoFiducials.tr.x - expVideoFiducials.tl.x);
+      const expectedBoxVideoPx = Math.max(16, Math.round((OMR_GEOMETRY.fiducialSizeMm / activeLayout.fiducialSpanX_mm) * expSpanX));
+
+      const detector = detectorRef.current || new OmrLiveDetector(activeLayout);
+      const initialFiducials = targetVideoFiducials || latestDetectionRef.current?.videoFiducials || expVideoFiducials;
+
+      const refinedResult = detector.locateCornerFiducials(
+        snapCanvas,
+        vw,
+        vh,
+        initialFiducials,
+        dynamicPatchRadius,
+        expectedBoxVideoPx
+      );
+
+      const finalFiducials = refinedResult.fiducials;
+
+      // 4. Target canonical rectified dimensions strictly matching this active test paper's layout!
       const dstWidth = 1414;
       const dstHeight = Math.round(dstWidth * (activeLayout.pageHeightMm / activeLayout.pageWidthMm));
       const scaleMm = dstWidth / activeLayout.pageWidthMm;
@@ -356,65 +395,20 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
         bottomLeft: { x: 10 * scaleMm, y: (10 + activeLayout.fiducialSpanY_mm) * scaleMm },
       };
 
-      let srcQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint];
-      let dstQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint];
-      let calibratedFiducialsToPass: OmrCorners | undefined = undefined;
-
-      if (videoFiducials && currentDetection?.detected && currentDetection.detectedBoxes?.count === 4) {
-        // Direct anchor to the 4 verified detected scanner fiducial positions!
-        // Maps detected video fiducial positions directly to the exact canonical blueprint coordinates
-        srcQuad = [
-          videoFiducials.tl,
-          videoFiducials.tr,
-          videoFiducials.br,
-          videoFiducials.bl,
-        ];
-        dstQuad = [
-          canonicalFiducials.topLeft,
-          canonicalFiducials.topRight,
-          canonicalFiducials.bottomRight,
-          canonicalFiducials.bottomLeft,
-        ];
-        calibratedFiducialsToPass = canonicalFiducials;
-      } else {
-        // Fallback to outer corners or on-screen alignment frame mapped to video pixels
-        if (!videoCorners && metrics) {
-          const cw = metrics.containerWidth;
-          const ch = metrics.containerHeight;
-          const scale = Math.max(cw / vw, ch / vh);
-          const offsetX = (vw * scale - cw) / 2;
-          const offsetY = (vh * scale - ch) / 2;
-
-          videoCorners = {
-            tl: { x: (metrics.frameLeft + offsetX) / scale, y: (metrics.frameTop + offsetY) / scale },
-            tr: { x: (metrics.frameLeft + metrics.frameWidth + offsetX) / scale, y: (metrics.frameTop + offsetY) / scale },
-            br: { x: (metrics.frameLeft + metrics.frameWidth + offsetX) / scale, y: (metrics.frameTop + metrics.frameHeight + offsetY) / scale },
-            bl: { x: (metrics.frameLeft + offsetX) / scale, y: (metrics.frameTop + metrics.frameHeight + offsetY) / scale },
-          };
-        }
-
-        if (!videoCorners) {
-          videoCorners = {
-            tl: { x: vw * 0.05, y: vh * 0.10 },
-            tr: { x: vw * 0.95, y: vh * 0.10 },
-            br: { x: vw * 0.95, y: vh * 0.90 },
-            bl: { x: vw * 0.05, y: vh * 0.90 },
-          };
-        }
-
-        srcQuad = [
-          videoCorners.tl,
-          videoCorners.tr,
-          videoCorners.br,
-          videoCorners.bl,
-        ];
-        dstQuad = [
-          { x: 0, y: 0 },
-          { x: dstWidth, y: 0 },
-          { x: dstWidth, y: dstHeight },
-          { x: 0, y: dstHeight },
-        ];
-      }
+      // Direct anchor from the 4 detected scanner fiducials in the photo to exact canonical blueprint
+      const srcQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint] = [
+        finalFiducials.tl,
+        finalFiducials.tr,
+        finalFiducials.br,
+        finalFiducials.bl,
+      ];
+      const dstQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint] = [
+        canonicalFiducials.topLeft,
+        canonicalFiducials.topRight,
+        canonicalFiducials.bottomRight,
+        canonicalFiducials.bottomLeft,
+      ];
+      const calibratedFiducialsToPass: OmrCorners = canonicalFiducials;
 
       setCapturedPreview(rawCapturedDataUrl);
 
