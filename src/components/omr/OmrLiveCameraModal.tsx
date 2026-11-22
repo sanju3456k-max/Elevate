@@ -403,16 +403,27 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
 
           if (isHomographyValid && finalFiducials) {
             // 4. Target canonical rectified dimensions strictly matching this active test paper's layout!
+            // Auto-detect physical row count from measured quad to avoid row stretching if test count differs from paper
+            const measuredSpanX = Math.hypot(finalFiducials.tr.x - finalFiducials.tl.x, finalFiducials.tr.y - finalFiducials.tl.y);
+            const measuredSpanY = Math.hypot(finalFiducials.bl.x - finalFiducials.tl.x, finalFiducials.bl.y - finalFiducials.tl.y);
+            const quadRatio = measuredSpanX / Math.max(1, measuredSpanY);
+            const detectedPhysSpanY = 190.0 / Math.max(0.2, quadRatio);
+            const detectedRows = Math.max(5, Math.min(45, Math.round((detectedPhysSpanY - 42.75) / 6.35)));
+            
+            const effectiveLayout = Math.abs(detectedRows - activeLayout.questionsPerColumn) >= 1
+              ? getOmrLayoutConfig(detectedRows * activeLayout.columnCount, activeLayout.columnCount, 'a4')
+              : activeLayout;
+
             const dstWidth = 1414;
-            const dstHeight = Math.round(dstWidth * (activeLayout.pageHeightMm / activeLayout.pageWidthMm));
-            const scaleMm = dstWidth / activeLayout.pageWidthMm;
+            const dstHeight = Math.round(dstWidth * (effectiveLayout.pageHeightMm / effectiveLayout.pageWidthMm));
+            const scaleMm = dstWidth / effectiveLayout.pageWidthMm;
 
             // Canonical fiducial centers in rectified canvas pixel coordinates
             const canonicalFiducials: OmrCorners = {
               topLeft: { x: 10 * scaleMm, y: 10 * scaleMm },
-              topRight: { x: (10 + activeLayout.fiducialSpanX_mm) * scaleMm, y: 10 * scaleMm },
-              bottomRight: { x: (10 + activeLayout.fiducialSpanX_mm) * scaleMm, y: (10 + activeLayout.fiducialSpanY_mm) * scaleMm },
-              bottomLeft: { x: 10 * scaleMm, y: (10 + activeLayout.fiducialSpanY_mm) * scaleMm },
+              topRight: { x: (10 + effectiveLayout.fiducialSpanX_mm) * scaleMm, y: 10 * scaleMm },
+              bottomRight: { x: (10 + effectiveLayout.fiducialSpanX_mm) * scaleMm, y: (10 + effectiveLayout.fiducialSpanY_mm) * scaleMm },
+              bottomLeft: { x: 10 * scaleMm, y: (10 + effectiveLayout.fiducialSpanY_mm) * scaleMm },
             };
 
             const srcQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint] = [

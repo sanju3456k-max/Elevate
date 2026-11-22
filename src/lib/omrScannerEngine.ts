@@ -1065,6 +1065,21 @@ export async function evaluateScannedOmrImage(
     }
   }
 
+  if (fiducials) {
+    const spanX = Math.hypot(fiducials.topRight.x - fiducials.topLeft.x, fiducials.topRight.y - fiducials.topLeft.y);
+    const spanY = Math.hypot(fiducials.bottomLeft.x - fiducials.topLeft.x, fiducials.bottomLeft.y - fiducials.topLeft.y);
+    const physicalRatio = spanX / Math.max(1, spanY);
+
+    const physicalSpanY_mm = 190.0 / Math.max(0.2, physicalRatio);
+    const physicalRows = Math.max(5, Math.min(45, Math.round((physicalSpanY_mm - 42.75) / 6.35)));
+    const physicalSheetQs = physicalRows * blueprint.layout.columnCount;
+
+    if (Math.abs(physicalRows - blueprint.layout.questionsPerColumn) >= 1) {
+      console.log(`[OMR Engine] Auto-calibrated physical sheet: physical print has ${physicalRows} rows/col (${physicalSheetQs} Qs) while active test has ${totalQs} Qs.`);
+      blueprint = generateOmrSheetBlueprint(physicalSheetQs, blueprint.layout.columnCount, detectedFormat);
+    }
+  }
+
   let isTightFiducialCrop = false;
 
   // If corner fiducials were not detected at standard page margins (e.g., user cropped between the fiducials):
