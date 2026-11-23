@@ -196,7 +196,7 @@ export const InSituBatchWorkspace: React.FC<InSituBatchWorkspaceProps> = ({
       durationMinutes: Number(newLectureDuration) || 45,
       videoSourceType: 'youtube',
       encryptedVideoId: encryptedKey,
-      thumbnailUrl: '/assets/default-course-banner.png',
+      thumbnailUrl: newLectureVideoMeta?.thumbnailUrl || (ytId ? `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg` : '/assets/default-course-banner.png'),
       order: batchLectures.length + 1,
       isFreePreview: false,
       pdfNotes: notesList,

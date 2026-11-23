@@ -207,6 +207,7 @@ interface AddOrEditVideoModalProps {
     isFreePreview: boolean;
     pdfNoteTitle?: string;
     pdfNoteUrl?: string;
+    thumbnailUrl?: string;
   }) => void;
   initialData?: Partial<Lecture> | null;
   folderName?: string;
@@ -308,6 +309,8 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !videoUrl.trim()) return;
+    const rawYtId = extractYouTubeVideoId(videoUrl);
+    const resolvedThumb = videoMeta?.thumbnailUrl || (rawYtId ? `https://i.ytimg.com/vi/${rawYtId}/hqdefault.jpg` : undefined);
     onSave({
       title: title.trim(),
       description: description.trim(),
@@ -316,6 +319,7 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
       isFreePreview,
       pdfNoteTitle: pdfNoteTitle.trim() || undefined,
       pdfNoteUrl: pdfNoteUrl.trim() || undefined,
+      thumbnailUrl: resolvedThumb,
     });
     onClose();
   };

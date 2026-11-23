@@ -74,6 +74,8 @@ interface NavbarProps {
   onOpenSettings?: () => void;
   isInsideBatch?: boolean;
   isVideoPlaying?: boolean;
+  onOpenNotifications?: () => void;
+  isDesktopNotificationsOpen?: boolean;
 }
 
 // Google multi-colored G logo component
@@ -123,6 +125,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenSettings,
   isInsideBatch = false,
   isVideoPlaying = false,
+  onOpenNotifications,
+  isDesktopNotificationsOpen = false,
 }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState<boolean>(false);
@@ -360,21 +364,28 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               )}
 
-              {/* Notification Full View Page Button */}
+              {/* Notification Button (Desktop Right-Side Tab / Mobile Full View) */}
               <div className="relative">
                 <button
                   id="header-notifications-ring-btn"
                   type="button"
-                  onClick={() => handleNavClick('notifications')}
+                  onClick={() => {
+                    if (onOpenNotifications) {
+                      onOpenNotifications();
+                    } else {
+                      handleNavClick('notifications');
+                    }
+                  }}
                   title="Notifications & Updates"
+                  aria-label="Notifications & Updates"
                   className={`relative w-9 h-9 rounded-full bg-transparent hover:bg-black/8 dark:hover:bg-white/10 ${
-                    activeTab === 'notifications'
+                    activeTab === 'notifications' || isDesktopNotificationsOpen
                       ? 'text-[#0b57d0] dark:text-[#a8c7fa] bg-black/5 dark:bg-white/5'
                       : 'text-[#444746] dark:text-[#c4c7c5] hover:text-[#0b57d0] dark:hover:text-[#a8c7fa]'
                   } border-0 shadow-none flex items-center justify-center cursor-pointer transition-all active:scale-95 outline-none shrink-0`}
                 >
                   <Bell className="w-[18px] h-[18px]" />
-                  {unreadCount > 0 && activeTab !== 'notifications' && (
+                  {unreadCount > 0 && activeTab !== 'notifications' && !isDesktopNotificationsOpen && (
                     <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 text-white font-mono text-[9px] font-bold flex items-center justify-center shadow-xs">
                       {unreadCount}
                     </span>

@@ -452,7 +452,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             ? 'w-full h-full bg-black flex items-center justify-center p-0 m-0 overflow-hidden'
             : isMinimized
             ? 'w-full aspect-video shrink-0 rounded-t-2xl md:rounded-t-3xl overflow-hidden relative bg-black group/minivid'
-            : 'w-full aspect-video max-h-[min(500px,54vh)] xl:max-h-[580px] bg-black rounded-none lg:rounded-3xl shadow-none lg:shadow-xl overflow-hidden group relative min-w-0 lg:col-span-7 xl:col-span-8 lg:col-start-1 lg:row-start-1'
+            : 'w-full aspect-video bg-black rounded-none lg:rounded-3xl shadow-none lg:shadow-xl overflow-hidden group relative min-w-0 lg:col-span-7 xl:col-span-8 lg:col-start-1 lg:row-start-1'
         }
       >
         <div

@@ -2151,9 +2151,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             setIsVideoModalOpen(false);
             setEditingLecture(null);
           }}
-          onSave={({ title, description, videoUrl, durationMinutes, isFreePreview, pdfNoteTitle, pdfNoteUrl }) => {
+          onSave={({ title, description, videoUrl, durationMinutes, isFreePreview, pdfNoteTitle, pdfNoteUrl, thumbnailUrl }) => {
             const rawYtId = extractYouTubeId(videoUrl) || videoUrl;
             const obfuscated = obfuscateVideoKey(rawYtId);
+            const resolvedThumb = thumbnailUrl || (rawYtId ? `https://i.ytimg.com/vi/${rawYtId}/hqdefault.jpg` : '/assets/default-course-banner.png');
             const notes: PdfNote[] = pdfNoteTitle && pdfNoteUrl ? [{
               id: `pdf_${Date.now()}`,
               title: pdfNoteTitle,
@@ -2170,7 +2171,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 encryptedVideoId: obfuscated,
                 durationMinutes,
                 isFreePreview,
-                thumbnailUrl: '/assets/default-course-banner.png',
+                thumbnailUrl: resolvedThumb,
                 pdfNotes: notes.length > 0 ? notes : editingLecture.pdfNotes,
               });
               showSecurityToast(`Lecture "${title}" updated.`);
@@ -2186,7 +2187,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 durationMinutes,
                 isFreePreview,
                 order: folderLectures.length + 1,
-                thumbnailUrl: '/assets/default-course-banner.png',
+                thumbnailUrl: resolvedThumb,
                 pdfNotes: notes,
               });
               showSecurityToast(`Lecture "${title}" added.`);

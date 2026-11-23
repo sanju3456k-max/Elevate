@@ -174,6 +174,33 @@ export function probeYouTubeDuration(videoId: string, timeoutMs = 3500): Promise
 }
 
 /**
+ * Converts remote thumbnail URL into an inline Base64 data URL.
+ * Shields the raw YouTube Video ID from student network packet sniffers.
+ */
+export async function convertThumbnailToBase64(url: string, timeoutMs = 2500): Promise<string | null> {
+  if (typeof window === 'undefined' || !url) return null;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        resolve(result && result.startsWith('data:image') ? result : null);
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fetch video metadata with multi-tier failover
  */
 export async function fetchVideoMetadata(inputUrlOrId: string, forceRefresh = false): Promise<VideoMetadata | null> {
@@ -190,14 +217,21 @@ export async function fetchVideoMetadata(inputUrlOrId: string, forceRefresh = fa
 
   // Generate scrambled token so plaintext YouTube ID is never broadcast over HTTP query string
   const token = obfuscateVideoKey(videoId);
-  const cloakedThumbnailUrl = '/assets/default-course-banner.png';
-  const directThumbnailUrl = '/assets/default-course-banner.png';
-  const maxResThumbnailUrl = '/assets/default-course-banner.png';
+  const directThumbnailUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+  // Start duration probe and Base64 thumbnail ingestion in parallel
+  const durationPromise = probeYouTubeDuration(videoId, 3000).catch(() => null);
+  const base64Promise = convertThumbnailToBase64(directThumbnailUrl, 2500).catch(() => null);
+
+  let detectedTitle: string | null = null;
+  let detectedAuthor: string = '';
+  let durationSec: number | null = null;
+  let serverThumbnailUrl: string | null = null;
 
   // Tier 1: Backend video-metadata API via POST with encrypted token
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
 
     const res = await fetch('/api/video-metadata', {
       method: 'POST',
@@ -205,7 +239,7 @@ export async function fetchVideoMetadata(inputUrlOrId: string, forceRefresh = fa
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify({ token, id: token }),
+      body: JSON.stringify({ token, id: videoId, url: `https://www.youtube.com/watch?v=${videoId}` }),
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -215,37 +249,83 @@ export async function fetchVideoMetadata(inputUrlOrId: string, forceRefresh = fa
       if (contentType.includes('application/json')) {
         const data = await res.json();
         if (data && data.success && data.title && data.title !== 'Lecture Video') {
-          const result: VideoMetadata = {
-            videoId,
-            token: data.token || token,
-            title: data.title,
-            durationMinutes: data.durationMinutes || 15,
-            durationSeconds: data.durationSeconds,
-            thumbnailUrl: data.thumbnailUrl || directThumbnailUrl,
-            rawThumbnailUrl: data.rawThumbnailUrl || directThumbnailUrl,
-            author: data.author || '',
-            isAutoDetected: true,
-          };
-          metadataCache.set(videoId, result);
-          return result;
+          detectedTitle = data.title;
+          if (data.author) detectedAuthor = data.author;
+          if (typeof data.durationSeconds === 'number' && data.durationSeconds > 0) {
+            durationSec = data.durationSeconds;
+          }
+          if (data.thumbnailUrl) {
+            serverThumbnailUrl = data.thumbnailUrl;
+          }
         }
       }
     }
   } catch (err) {
-    // In offline or native mode, avoid leaking plaintext URLs over network
+    // In offline or native Android app mode (no localhost express backend), fall through to client probe
   }
 
-  // Safe fallback without issuing public network inspection requests
-  const fallbackResult: VideoMetadata = {
+  // Tier 2: Direct Client-Side YouTube oEmbed API (CORS enabled, fast, highly reliable)
+  if (!detectedTitle) {
+    try {
+      const oembedController = new AbortController();
+      const oembedTimeout = setTimeout(() => oembedController.abort(), 3000);
+      const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+      const oembedRes = await fetch(oembedUrl, { signal: oembedController.signal });
+      clearTimeout(oembedTimeout);
+      if (oembedRes.ok) {
+        const odata = await oembedRes.json();
+        if (odata && odata.title) {
+          detectedTitle = odata.title;
+          if (odata.author_name) detectedAuthor = odata.author_name;
+        }
+      }
+    } catch {
+      // Trying Tier 3 fallback
+    }
+  }
+
+  // Tier 3: NoEmbed Fallback
+  if (!detectedTitle) {
+    try {
+      const noembedController = new AbortController();
+      const noembedTimeout = setTimeout(() => noembedController.abort(), 2500);
+      const noembedUrl = `https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`;
+      const noembedRes = await fetch(noembedUrl, { signal: noembedController.signal });
+      clearTimeout(noembedTimeout);
+      if (noembedRes.ok) {
+        const ndata = await noembedRes.json();
+        if (ndata && ndata.title) {
+          detectedTitle = ndata.title;
+          if (ndata.author_name) detectedAuthor = ndata.author_name;
+        }
+      }
+    } catch {
+      // Graceful fallback
+    }
+  }
+
+  // Await duration probe if not obtained from backend
+  if (!durationSec) {
+    durationSec = await durationPromise;
+  }
+  const durationMin = durationSec && durationSec > 0 ? Math.max(1, Math.round(durationSec / 60)) : 15;
+
+  // Await base64 thumbnail conversion (cloaks raw YouTube ID from student network sniffers)
+  const base64Thumb = await base64Promise;
+  const finalThumbnail = base64Thumb || serverThumbnailUrl || directThumbnailUrl;
+
+  const result: VideoMetadata = {
     videoId,
     token,
-    title: 'Lecture Video',
-    durationMinutes: 15,
-    thumbnailUrl: directThumbnailUrl,
+    title: detectedTitle || 'Lecture Video',
+    durationMinutes: durationMin,
+    durationSeconds: durationSec || undefined,
+    thumbnailUrl: finalThumbnail,
     rawThumbnailUrl: directThumbnailUrl,
-    author: '',
-    isAutoDetected: false,
+    author: detectedAuthor,
+    isAutoDetected: Boolean(detectedTitle),
   };
-  metadataCache.set(videoId, fallbackResult);
-  return fallbackResult;
+
+  metadataCache.set(videoId, result);
+  return result;
 }

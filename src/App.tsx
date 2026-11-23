@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   onAuthStateChanged, 
@@ -62,6 +63,7 @@ import { parseTestFromText, formatTestToText, isJsonFormat } from './utils/testF
 import { 
   studioBackdropVariants, 
   studioModalVariants, 
+  studioDrawerRightVariants,
   gpuAcceleratedStyle, 
   gpuTransformStyle 
 } from './lib/animationConfig';
@@ -216,6 +218,39 @@ const NotificationWatcherHost: React.FC<NotificationWatcherHostProps> = ({
 export default function App() {
   const [activeTab, setActiveTabState] = useState<ActiveTab>('home');
   const [tabHistory, setTabHistory] = useState<ActiveTab[]>([]);
+  const [isDesktopNotificationsOpen, setIsDesktopNotificationsOpen] = useState<boolean>(false);
+  const [isDesktop, setIsDesktop] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      if ((window as any).Capacitor?.isNativePlatform?.() && (window as any).Capacitor?.getPlatform?.() === 'android') {
+        return false;
+      }
+    } catch {}
+    return window.innerWidth >= 768;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      try {
+        if ((window as any).Capacitor?.isNativePlatform?.() && (window as any).Capacitor?.getPlatform?.() === 'android') {
+          setIsDesktop(false);
+          return;
+        }
+      } catch {}
+      setIsDesktop(window.innerWidth >= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // When on desktop and activeTab is set to notifications, convert it into the right-side drawer
+  useEffect(() => {
+    if (isDesktop && activeTab === 'notifications') {
+      setIsDesktopNotificationsOpen(true);
+      setActiveTabState('home');
+    }
+  }, [isDesktop, activeTab]);
+
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [isGuestMigrationOpen, setIsGuestMigrationOpen] = useState<boolean>(false);
   const [guestMigrationSummary, setGuestMigrationSummary] = useState<GuestDataSummary | null>(null);
@@ -473,6 +508,16 @@ export default function App() {
       return newHistory;
     });
   }, []);
+
+  const tabHistoryRef = useRef<ActiveTab[]>(tabHistory);
+  useEffect(() => {
+    tabHistoryRef.current = tabHistory;
+  }, [tabHistory]);
+
+  const goBackRef = useRef(goBack);
+  useEffect(() => {
+    goBackRef.current = goBack;
+  }, [goBack]);
 
   const [returnTabAfterResults, setReturnTabAfterResults] = useState<ActiveTab>('home');
   const [omrInitialTab, setOmrInitialTab] = useState<'print' | 'scan' | 'keys' | 'review'>('print');
@@ -979,15 +1024,29 @@ export default function App() {
           return true;
         }
 
-        // 3. If inside a batch, step back to batch catalog
+        // 3. If inside a batch, step back hierarchically (lecture -> chapter -> batch catalog)
         if (activeTabRef.current === 'batches' && isInsideBatchRef.current) {
-          setSelectedChapterId(null);
-          setSelectedLectureId(null);
-          setSelectedBatchId(null);
+          if (selectedLectureIdRef.current) {
+            setSelectedLectureId(null);
+            return true;
+          }
+          if (selectedChapterIdRef.current) {
+            setSelectedChapterId(null);
+            return true;
+          }
+          if (selectedBatchIdRef.current) {
+            setSelectedBatchId(null);
+            return true;
+          }
+        }
+
+        // 4. Pop through historical route stack (e.g. Analytics -> Tests -> Batches -> Home)
+        if (tabHistoryRef.current.length > 0) {
+          goBackRef.current();
           return true;
         }
 
-        // 4. If in other tabs than home, navigate back to home
+        // 5. If history is empty and user is not on home screen, navigate to home
         if (activeTabRef.current !== 'home') {
           setActiveTab('home');
           return true;
@@ -2234,6 +2293,14 @@ export default function App() {
             onOpenSettings={() => setIsSettingsModalOpen((prev) => !prev)}
             isInsideBatch={isInsideBatch}
             isVideoPlaying={isFullVideoPlayerActive}
+            onOpenNotifications={() => {
+              if (isDesktop) {
+                setIsDesktopNotificationsOpen((prev) => !prev);
+              } else {
+                setActiveTab('notifications');
+              }
+            }}
+            isDesktopNotificationsOpen={isDesktopNotificationsOpen}
           />
         </div>
       )}
@@ -2584,7 +2651,7 @@ export default function App() {
                   setSelectedBatchId(null);
                   setSelectedFolderTab('videos');
                   setBatchesStage('batch_list');
-                  setActiveTab('home');
+                  goBack();
                 }}
                 onStageChange={(stage) => {
                   setBatchesStage(stage);
@@ -2648,7 +2715,7 @@ export default function App() {
           onViewAttemptResult={handleViewAttemptResult}
           onRetakeTest={handleRetakeTestFromId}
           onNavigateToTests={() => setActiveTab('tests')}
-          onBack={() => setActiveTab('home')}
+          onBack={() => goBack()}
           onOpenCustomBuilder={() => setActiveTab('custom-builder')}
           onSignIn={handleSignIn}
           onGenerateThetaCourse={(prompt) => {
@@ -2674,7 +2741,7 @@ export default function App() {
                 onStartTest={handleStartTest}
                 onEditTest={handleEditTest}
                 onNavigateTab={(tab) => setActiveTab((tab as ActiveTab) || 'home')}
-                onBack={() => setActiveTab('home')}
+                onBack={() => goBack()}
               />
             </div>
           )}
@@ -2718,8 +2785,8 @@ export default function App() {
             />
           )}
 
-          {/* Full-Screen Material 3 Real Batch Notifications & Updates Page */}
-          {activeTab === 'notifications' && (
+          {/* Full-Screen Material 3 Real Batch Notifications & Updates Page (Mobile / Small Screen) */}
+          {activeTab === 'notifications' && !isDesktop && (
             <NotificationsView
               onBack={() => goBack()}
               onNavigateTab={(tab) => setActiveTab(tab)}
@@ -2749,6 +2816,76 @@ export default function App() {
             />
           )}
         </main>
+      )}
+
+      {/* Desktop Right-Side Slide-Over Notifications Drawer Panel */}
+      {isDesktop && typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isDesktopNotificationsOpen && (
+            <div className="fixed inset-0 z-50 overflow-hidden pointer-events-auto">
+              {/* Dimmed Backdrop with Light Dismiss */}
+              <motion.div
+                variants={studioBackdropVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="fixed inset-0 bg-black/40 backdrop-blur-[2px] cursor-pointer"
+                onClick={() => setIsDesktopNotificationsOpen(false)}
+                aria-hidden="true"
+              />
+
+              {/* Right Slide-Over Panel */}
+              <motion.div
+                variants={studioDrawerRightVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                style={gpuTransformStyle}
+                className="fixed inset-y-0 right-0 w-full sm:w-[460px] md:w-[480px] max-w-full bg-white dark:bg-[#121316] shadow-[-8px_0_28px_rgba(0,0,0,0.18)] dark:shadow-[-8px_0_32px_rgba(0,0,0,0.65)] border-l border-slate-200/80 dark:border-zinc-800/80 flex flex-col z-10 overflow-hidden"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Notifications & Updates"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <NotificationsView
+                  isDrawer={true}
+                  onBack={() => setIsDesktopNotificationsOpen(false)}
+                  onNavigateTab={(tab) => {
+                    setActiveTab(tab);
+                    setIsDesktopNotificationsOpen(false);
+                  }}
+                  onOpenBatchLecture={(batchId, chapterId, lectureId) => {
+                    setSelectedBatchId(batchId);
+                    setSelectedChapterId(chapterId);
+                    setSelectedLectureId(lectureId);
+                    setSelectedFolderTab('videos');
+                    setActiveTab('batches');
+                    setIsDesktopNotificationsOpen(false);
+                  }}
+                  onOpenBatch={(batchId) => {
+                    setSelectedBatchId(batchId);
+                    setSelectedChapterId(null);
+                    setSelectedLectureId(null);
+                    setSelectedFolderTab('videos');
+                    setActiveTab('batches');
+                    setIsDesktopNotificationsOpen(false);
+                  }}
+                  onOpenTest={(testId) => {
+                    const found = tests.find((t) => t.id === testId) || getCachedFullTest(testId);
+                    if (found) {
+                      setGlobalDetailTest(found);
+                    } else {
+                      setActiveTab('tests');
+                    }
+                    setIsDesktopNotificationsOpen(false);
+                  }}
+                  isDarkMode={isDarkMode}
+                />
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
       )}
 
       {/* Resume Confirmation Modal */}

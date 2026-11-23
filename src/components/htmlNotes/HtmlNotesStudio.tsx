@@ -34,6 +34,7 @@ import { replaceSelectedSnippet } from './components/ai/aiSelectionRefiner';
 import { getFileVersionHistory } from './utils/versionHistory';
 import type { HtmlNotesPreviewPaneHandle } from './components/HtmlNotesPreviewPane';
 import { ensureStableBlockIds } from './utils/docStructureMap';
+import { summarizeNoteHybrid } from '../../lib/geminiClientService';
 import { compressImageForDocument } from './utils/imageCompressor';
 import { HtmlNotesPenToolbar, type PenToolType } from './components/HtmlNotesPenToolbar';
 import { HtmlNotesErrorBoundary } from './components/HtmlNotesErrorBoundary';
@@ -308,17 +309,10 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
       for (const file of activeProjectFiles) {
         if (!newSummaries[file.id] && file.code && file.code.length > 50) {
           try {
-            const res = await fetch('/api/ai/summarize-note', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ title: file.title, code: file.code })
-            });
-            if (res.ok) {
-              const data = await res.json();
-              if (data.summary) {
-                newSummaries[file.id] = data.summary;
-                changed = true;
-              }
+            const data = await summarizeNoteHybrid({ title: file.title, code: file.code });
+            if (data && data.summary) {
+              newSummaries[file.id] = data.summary;
+              changed = true;
             }
           } catch (e) {
             console.warn(`Failed to summarize file ${file.id}:`, e);

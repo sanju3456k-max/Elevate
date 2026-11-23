@@ -134,13 +134,13 @@ export function checkPlatformAccess(isMasterAccount: boolean = false): PlatformG
   }
 
   // Otherwise, on public web browsers without master authorization:
-  // Intercept and display the Welcome to Elevate Learning portal
+  // Intercept and display the Welcome to Elevate Labs portal
   return {
     isBlocked: true,
     isNativeAndroid: false,
     isLocalDevelopment: false,
     hasWebBypass: false,
-    reason: 'Elevate Learning Portal: Verification required for web access.'
+    reason: 'Elevate Labs Portal: Verification required for web access.'
   };
 }
 

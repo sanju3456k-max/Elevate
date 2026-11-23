@@ -54,6 +54,7 @@ import {
   Menu,
 } from 'lucide-react';
 import { TestLeaderboardModal } from './TestLeaderboardModal';
+import { explainMathQuestionHybrid } from '../lib/geminiClientService';
 import { loadScopedAttempts, saveScopedAttempts } from '../lib/storage';
 import { MathRenderer } from './MathRenderer';
 import { QuestionDiagramViewer } from './QuestionDiagramViewer';
@@ -404,15 +405,22 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
   useBackHandler({
     isOpen: viewMode === 'notes' && !isAnyResultOverlayOpen,
     onBack: () => setViewMode('test-review'),
-    priority: 20,
+    priority: 25,
     id: 'results_notes_back_to_review',
   });
 
   useBackHandler({
     isOpen: viewMode === 'test-review' && !isAnyResultOverlayOpen,
+    onBack: () => setViewMode('summary'),
+    priority: 20,
+    id: 'results_review_back_to_summary',
+  });
+
+  useBackHandler({
+    isOpen: !isAnyResultOverlayOpen,
     onBack: handleSafeBackToDashboard,
     priority: 15,
-    id: 'results_base_back',
+    id: 'results_base_back_to_dashboard',
   });
 
   // Load & sync user personal notes (IndexedDB + Google Drive "Mock MC App/Notes")
@@ -849,26 +857,22 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
 
     setLoadingAi((prev) => ({ ...prev, [questionId]: true }));
     try {
-      const res = await fetch('/api/explain-math-question', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          questionText: q.text,
-          options: q.options,
-          userAnswer: attempt.answers[q.id]?.selectedOption || 'Unattempted',
-          correctAnswer: q.correctAnswer,
-          explanation: q.explanation,
-        }),
+      const data = await explainMathQuestionHybrid({
+        questionText: q.text,
+        options: q.options,
+        userAnswer: attempt.answers[q.id]?.selectedOption || 'Unattempted',
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation,
       });
-      const data = await res.json();
-      if (data.explanation) {
+
+      if (data && data.explanation) {
         setAiExplanations((prev) => ({ ...prev, [questionId]: data.explanation }));
       } else {
-        setAiExplanations((prev) => ({ ...prev, [questionId]: "⚠️ **AI explanation is temporarily unavailable.** Daily Gemini API free-tier quota limits have been reached. Please try again after a brief moment (usually resets in a minute)." }));
+        setAiExplanations((prev) => ({ ...prev, [questionId]: "⚠️ **AI explanation is temporarily unavailable.** Please try again in a moment." }));
       }
     } catch (err: any) {
       console.warn('Failed to get AI explanation gracefully:', err.message || err);
-      setAiExplanations((prev) => ({ ...prev, [questionId]: "⚠️ **AI explanation is temporarily unavailable.** Daily Gemini API free-tier quota limits have been reached. Please try again after a brief moment (usually resets in a minute)." }));
+      setAiExplanations((prev) => ({ ...prev, [questionId]: "⚠️ **AI explanation is temporarily unavailable.** Please try again in a moment." }));
     } finally {
       setLoadingAi((prev) => ({ ...prev, [questionId]: false }));
     }

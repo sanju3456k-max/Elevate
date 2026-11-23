@@ -192,20 +192,29 @@ function samplePaperBaselineBrightness(
   try {
     const samples: number[] = [];
     const collectFromBox = (bx: number, by: number, bw: number, bh: number, step = 4) => {
-      const data = ctx.getImageData(bx, by, bw, bh).data;
+      const safeX = Math.max(0, Math.min(width - 1, Math.floor(bx)));
+      const safeY = Math.max(0, Math.min(height - 1, Math.floor(by)));
+      const safeW = Math.max(1, Math.min(width - safeX, Math.floor(bw)));
+      const safeH = Math.max(1, Math.min(height - safeY, Math.floor(bh)));
+      const data = ctx.getImageData(safeX, safeY, safeW, safeH).data;
       for (let i = 0; i < data.length; i += step * 4) {
         samples.push(getGrayscale(data, i));
       }
     };
 
-    // Top paper margin
-    collectFromBox(Math.floor(width * 0.15), Math.max(2, Math.floor(height * 0.01)), Math.floor(width * 0.70), Math.max(4, Math.floor(height * 0.025)));
-    // Bottom paper margin
-    collectFromBox(Math.floor(width * 0.15), Math.max(2, Math.floor(height * 0.965)), Math.floor(width * 0.70), Math.max(4, Math.floor(height * 0.025)));
-    // Left paper margin
-    collectFromBox(Math.max(2, Math.floor(width * 0.01)), Math.floor(height * 0.20), Math.max(4, Math.floor(width * 0.03)), Math.floor(height * 0.60));
-    // Right paper margin
-    collectFromBox(Math.max(2, Math.floor(width * 0.96)), Math.floor(height * 0.20), Math.max(4, Math.floor(width * 0.03)), Math.floor(height * 0.60));
+    // Sample strictly from GUARANTEED INTERIOR PAPER ZONES (immune to outer dark tables/desks)
+    // Zone 1: Gap between Candidate Info header and Question Grid (Y ~ 12% to 15%)
+    collectFromBox(width * 0.20, height * 0.12, width * 0.60, height * 0.04);
+
+    // Zone 2: Column gutters between question bubble columns (100% white paper)
+    collectFromBox(width * 0.22, height * 0.25, width * 0.04, height * 0.45);
+    collectFromBox(width * 0.42, height * 0.25, width * 0.04, height * 0.45);
+    collectFromBox(width * 0.62, height * 0.25, width * 0.04, height * 0.45);
+    collectFromBox(width * 0.82, height * 0.25, width * 0.04, height * 0.45);
+
+    // Zone 3: Interior margin just below the top fiducials (safe interior white paper)
+    collectFromBox(width * 0.10, height * 0.07, width * 0.15, height * 0.03);
+    collectFromBox(width * 0.75, height * 0.07, width * 0.15, height * 0.03);
 
     if (samples.length > 50) {
       samples.sort((a, b) => a - b);
@@ -213,9 +222,9 @@ function samplePaperBaselineBrightness(
       const p85Idx = Math.floor(samples.length * 0.85);
       return Math.min(255, samples[p85Idx]);
     }
-    return 230;
+    return 235;
   } catch {
-    return 230;
+    return 235;
   }
 }
 
@@ -1024,17 +1033,6 @@ export async function evaluateScannedOmrImage(
         bottomLeft: { x: 0, y: targetH },
         bottomRight: { x: targetW, y: targetH },
       };
-
-      // Physical row count auto-calibration for live camera tight crop:
-      const physicalRatio = targetW / Math.max(1, targetH);
-      const physicalSpanY_mm = 190.0 / Math.max(0.2, physicalRatio);
-      const physicalRows = Math.max(5, Math.min(45, Math.round((physicalSpanY_mm - 42.75) / 6.35)));
-      const physicalSheetQs = physicalRows * blueprint.layout.columnCount;
-
-      if (Math.abs(physicalRows - blueprint.layout.questionsPerColumn) >= 1) {
-        console.log(`[OMR Engine] Auto-calibrated physical sheet for live camera tight crop: physical print has ${physicalRows} rows/col (${physicalSheetQs} Qs) while active test has ${totalQs} Qs.`);
-        blueprint = generateOmrSheetBlueprint(physicalSheetQs, blueprint.layout.columnCount, detectedFormat);
-      }
       console.log('[OMR Engine] Calibrated directly from 1:1 Tight Fiducial Precalibrated Crop (Zero-Extrapolation):', fiducials);
     } else {
       const testFiducials = {
@@ -1044,22 +1042,25 @@ export async function evaluateScannedOmrImage(
         bottomRight: { x: precalibratedFiducials.bottomRight.x * scaleX, y: precalibratedFiducials.bottomRight.y * scaleY },
       };
 
-      // Presence check: verify that these coordinates actually hit registration marks on the image
+      // Presence check: verify that these coordinates actually hit real solid registration marks on the image
       const verifyFiducialPresence = (pt: OmrPoint): boolean => {
         const checkRadius = Math.max(6, Math.round(targetW * 0.015));
         let darkCount = 0;
-        for (let dy = -checkRadius; dy <= checkRadius; dy += 3) {
-          for (let dx = -checkRadius; dx <= checkRadius; dx += 3) {
+        let totalCount = 0;
+        for (let dy = -checkRadius; dy <= checkRadius; dy += 2) {
+          for (let dx = -checkRadius; dx <= checkRadius; dx += 2) {
             const px = Math.max(0, Math.min(targetW - 1, Math.round(pt.x + dx)));
             const py = Math.max(0, Math.min(targetH - 1, Math.round(pt.y + dy)));
             const idx = (py * targetW + px) * 4;
             const luma = 0.299 * pixelData[idx] + 0.587 * pixelData[idx + 1] + 0.114 * pixelData[idx + 2];
-            if (luma < paperLuminance - 20) {
+            totalCount++;
+            if (luma < paperLuminance - 35) {
               darkCount++;
             }
           }
         }
-        return darkCount >= 2;
+        // A genuine 5mm fiducial square has substantial solid dark area, not just 2 stray noisy pixels
+        return darkCount >= Math.max(8, Math.round(totalCount * 0.12));
       };
 
       const hasTL = verifyFiducialPresence(testFiducials.topLeft);
@@ -1067,22 +1068,16 @@ export async function evaluateScannedOmrImage(
       const hasBL = verifyFiducialPresence(testFiducials.bottomLeft);
       const hasBR = verifyFiducialPresence(testFiducials.bottomRight);
 
-      if ((hasTL ? 1 : 0) + (hasTR ? 1 : 0) + (hasBL ? 1 : 0) + (hasBR ? 1 : 0) >= 2) {
-        fiducials = testFiducials;
-        console.log('[OMR Engine] Calibrated directly from verified precalibrated corner fiducials:', fiducials);
-
-        // Auto-calibrate physical row count for live camera if camera span differs from test question count
-        const spanX = Math.hypot(fiducials.topRight.x - fiducials.topLeft.x, fiducials.topRight.y - fiducials.topLeft.y);
-        const spanY = Math.hypot(fiducials.bottomLeft.x - fiducials.topLeft.x, fiducials.bottomLeft.y - fiducials.topLeft.y);
-        const physicalRatio = spanX / Math.max(1, spanY);
-
-        const physicalSpanY_mm = 190.0 / Math.max(0.2, physicalRatio);
-        const physicalRows = Math.max(5, Math.min(45, Math.round((physicalSpanY_mm - 42.75) / 6.35)));
-        const physicalSheetQs = physicalRows * blueprint.layout.columnCount;
-
-        if (Math.abs(physicalRows - blueprint.layout.questionsPerColumn) >= 1) {
-          console.log(`[OMR Engine] Auto-calibrated physical sheet for live camera: physical print has ${physicalRows} rows/col (${physicalSheetQs} Qs) while active test has ${totalQs} Qs.`);
-          blueprint = generateOmrSheetBlueprint(physicalSheetQs, blueprint.layout.columnCount, detectedFormat);
+      // Require at least 3 verified fiducials before trusting precalibrated coordinates
+      if ((hasTL ? 1 : 0) + (hasTR ? 1 : 0) + (hasBL ? 1 : 0) + (hasBR ? 1 : 0) >= 3) {
+        // ALWAYS refine fiducials against actual registration square marks on the image canvas
+        const refinedFiducials = detectCornerFiducials(pixelData, targetW, targetH, blueprint.layout, paperLuminance);
+        if (refinedFiducials) {
+          fiducials = refinedFiducials;
+          console.log('[OMR Engine] Calibrated directly from refined image fiducials:', fiducials);
+        } else {
+          fiducials = testFiducials;
+          console.log('[OMR Engine] Calibrated directly from verified precalibrated corner fiducials:', fiducials);
         }
       } else {
         console.warn('[OMR Engine] Precalibrated fiducials failed presence check on canvas, attempting full-image detection');
@@ -1168,6 +1163,9 @@ export async function evaluateScannedOmrImage(
   let globalDy = 0;
   const colDx: { [col: number]: number } = {};
   const colDy: { [col: number]: number } = {};
+  const sampleKeys: { qIdx: number; optIdx: number }[] = [];
+  const dxSamples: number[] = [];
+  const dySamples: number[] = [];
 
   try {
     const colSamplesX: { [col: number]: number[] } = {};
@@ -1178,7 +1176,6 @@ export async function evaluateScannedOmrImage(
     }
 
     // Sample representative bubbles across every column to measure coordinate shifts and column tilt
-    const sampleKeys: { qIdx: number; optIdx: number }[] = [];
     const stepQ = Math.max(1, Math.floor(layout.questionsPerColumn / 3));
     for (let col = 0; col < layout.columnCount; col++) {
       const startQ = col * layout.questionsPerColumn;
@@ -1188,9 +1185,6 @@ export async function evaluateScannedOmrImage(
         sampleKeys.push({ qIdx: q, optIdx: 2 }); // Option C
       }
     }
-
-    const dxSamples: number[] = [];
-    const dySamples: number[] = [];
 
     sampleKeys.forEach(({ qIdx, optIdx }) => {
       const record = blueprint.bubbleMap[`${qIdx}_${optIdx}`];
@@ -1269,6 +1263,18 @@ export async function evaluateScannedOmrImage(
     console.log(`[OMR Engine] Per-column alignment:`, colDx);
   } catch (err) {
     console.warn('[OMR Engine] Grid shift optimization bypassed:', err);
+  }
+
+  // -------------------------------------------------------------
+  // STAGE 2.5: GRID ALIGNMENT SANITY CHECK (ZERO FALSE EVALUATIONS)
+  // -------------------------------------------------------------
+  // On ANY genuine OMR sheet (blank or filled), printed circular bubble outlines exist.
+  // If fewer than 15% of sampled bubble coordinates find circular rings, the sheet is misaligned,
+  // cropped incorrectly, or warped with distorted coordinates.
+  // Reject the evaluation immediately with a structured error so the user is prompted to re-crop!
+  if (sampleKeys.length >= 6 && dxSamples.length < Math.max(2, Math.floor(sampleKeys.length * 0.15))) {
+    console.warn(`[OMR Engine] Grid sanity check failed: only ${dxSamples.length}/${sampleKeys.length} bubble rings detected.`);
+    throw new Error('OMR sheet alignment verification failed: Could not detect valid answer bubbles at expected positions. Please ensure all 4 corner markers [ ■ ] are aligned, or tap "Adjust Crop" to crop manually.');
   }
 
   for (let qIdx = 0; qIdx < totalQs; qIdx++) {

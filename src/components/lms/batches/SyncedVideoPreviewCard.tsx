@@ -21,8 +21,9 @@ export const SyncedVideoPreviewCard: React.FC<SyncedVideoPreviewCardProps> = ({
   if (!videoId) return null;
 
   const thumbnailSrc =
+    metadata?.thumbnailUrl ||
     metadata?.rawThumbnailUrl ||
-    '/assets/default-course-banner.png';
+    (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : '/assets/default-course-banner.png');
 
   const durationText = metadata?.durationSeconds
     ? formatDurationLabel(metadata.durationSeconds, true)
@@ -42,7 +43,12 @@ export const SyncedVideoPreviewCard: React.FC<SyncedVideoPreviewCardProps> = ({
             alt={metadata?.title || 'Lecture Video'}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
             onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = '/assets/default-course-banner.png';
+              const target = e.currentTarget as HTMLImageElement;
+              if (videoId && !target.src.includes('mqdefault')) {
+                target.src = `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
+              } else {
+                target.src = '/assets/default-course-banner.png';
+              }
             }}
           />
           {durationText && (

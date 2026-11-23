@@ -126,18 +126,23 @@ export function getLectureThumbnailUrl(
 ): string {
   if (!lecture) return '/assets/default-course-banner.png';
 
-  // 1. If a custom uploaded thumbnail (Firebase Storage, Cloudinary, internal asset) exists:
+  // 1. If an inline Base64 data URL, custom uploaded thumbnail (Firebase Storage, Cloudinary), or valid URL exists:
   if (
     lecture.thumbnailUrl &&
-    !lecture.thumbnailUrl.includes('i.ytimg.com') &&
-    !lecture.thumbnailUrl.includes('img.youtube.com') &&
-    !lecture.thumbnailUrl.includes('youtube.com') &&
-    lecture.thumbnailUrl.trim() !== ''
+    lecture.thumbnailUrl.trim() !== '' &&
+    lecture.thumbnailUrl !== '/assets/default-course-banner.png'
   ) {
     return lecture.thumbnailUrl;
   }
 
-  // 2. Anti-Leak Default: Never construct plain i.ytimg.com URLs that expose video IDs to HTTP sniffers
+  // 2. High-res YouTube thumbnail resolution fallback (native Android and web compatible)
+  if (lecture.encryptedVideoId) {
+    const ytId = deobfuscateVideoKey(lecture.encryptedVideoId);
+    if (ytId && ytId !== 'WUvTyaaNkzM') {
+      return `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`;
+    }
+  }
+
   return '/assets/default-course-banner.png';
 }
 

@@ -52,48 +52,31 @@ export function useHtmlProjects({
   viewMode,
   setViewMode
 }: UseHtmlProjectsOptions) {
-  const getInitialProjects = () => {
+  // Load local projects once synchronously on initial hook mount to prevent repeated heavy JSON parsing
+  const initialProjectsRef = useRef<HtmlProject[] | null>(null);
+  if (!initialProjectsRef.current) {
     const cachedUid = typeof window !== 'undefined' ? getCachedAuthUser()?.uid || null : null;
-    return loadLocalProjects(TEMPLATE_MATRICES, cachedUid);
-  };
+    initialProjectsRef.current = loadLocalProjects(TEMPLATE_MATRICES, cachedUid);
+  }
+  const initialProjects = initialProjectsRef.current;
+  const firstProject = (initialProjects && initialProjects.length > 0) ? initialProjects[0] : null;
+  const firstFile = (firstProject && firstProject.files && firstProject.files.length > 0) ? firstProject.files[0] : null;
 
-  const [projects, setProjects] = useState<HtmlProject[]>(() => {
-    return getInitialProjects();
-  });
-  const [activeProjectId, setActiveProjectId] = useState<string>(() => {
-    const initial = getInitialProjects();
-    return initial.length > 0 ? initial[0].id : '';
-  });
-  const [activeFileId, setActiveFileId] = useState<string>(() => {
-    const initial = getInitialProjects();
-    return (initial.length > 0 && initial[0].files.length > 0) ? initial[0].files[0].id : '';
-  });
+  const [projects, setProjects] = useState<HtmlProject[]>(() => initialProjects);
+  const [activeProjectId, setActiveProjectId] = useState<string>(() => firstProject?.id || '');
+  const [activeFileId, setActiveFileId] = useState<string>(() => firstFile?.id || '');
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
 
-  const [code, setCode] = useState<string>(() => {
-    const initial = getInitialProjects();
-    return (initial.length > 0 && initial[0].files.length > 0) ? (initial[0].files[0].code || TEMPLATE_MATRICES) : TEMPLATE_MATRICES;
-  });
-  const [title, setTitle] = useState<string>(() => {
-    const initial = getInitialProjects();
-    return (initial.length > 0 && initial[0].files.length > 0) ? (initial[0].files[0].title || 'Notes') : 'Notes';
-  });
+  const [code, setCode] = useState<string>(() => firstFile?.code || TEMPLATE_MATRICES);
+  const [title, setTitle] = useState<string>(() => firstFile?.title || 'Notes');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
 
   // Per-file isolated history map & file loading guard
-  const loadedFileIdRef = useRef<string>((() => {
-    const initial = getInitialProjects();
-    return (initial.length > 0 && initial[0].files.length > 0) ? initial[0].files[0].id : '';
-  })());
-  const fileHistoryMapRef = useRef<Record<string, { stack: string[]; index: number }>>((() => {
-    const initial = getInitialProjects();
-    if (initial.length > 0 && initial[0].files.length > 0) {
-      const f = initial[0].files[0];
-      return { [f.id]: { stack: [f.code || TEMPLATE_MATRICES], index: 0 } };
-    }
-    return {};
-  })());
+  const loadedFileIdRef = useRef<string>(firstFile?.id || '');
+  const fileHistoryMapRef = useRef<Record<string, { stack: string[]; index: number }>>(
+    firstFile ? { [firstFile.id]: { stack: [firstFile.code || TEMPLATE_MATRICES], index: 0 } } : {}
+  );
   const viewModeRef = useRef<ViewMode>(viewMode);
   useEffect(() => {
     viewModeRef.current = viewMode;

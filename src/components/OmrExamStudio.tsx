@@ -331,7 +331,8 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
   const handleLiveCaptureRectified = async (
     rectifiedUrl: string, 
     rawCapturedUrl: string, 
-    precalibratedFiducials?: OmrCorners
+    precalibratedFiducials?: OmrCorners,
+    rectifiedCanvas?: HTMLCanvasElement
   ) => {
     precalibratedFiducialsRef.current = precalibratedFiducials;
     setIsLiveScannerOpen(false);
@@ -346,6 +347,12 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
     setIsScanning(true);
     setScanStatusMessage('Evaluating Optical Bubbles...');
     setScanError(null);
+
+    // If pre-rectified canvas is directly available, evaluate synchronously without waiting for image decoding
+    if (rectifiedCanvas) {
+      await processOmrImage(rectifiedCanvas, precalibratedFiducials);
+      return;
+    }
 
     const img = new Image();
     let handled = false;
@@ -366,6 +373,24 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
     if (img.complete && img.naturalWidth > 0) {
       runScan();
     }
+  };
+
+  // Full clean reset of scan session whenever Retake is clicked
+  const handleRetakeSession = () => {
+    setScanResult(null);
+    setEditableDetections([]);
+    setIsSaved(false);
+    setScanError(null);
+    setIsScanning(false);
+    setScanStatusMessage('');
+    setCapturedImageUrl(null);
+    cleanImageRef.current = '';
+    setRawOriginalImageUrl(null);
+    rawOriginalImageRef.current = '';
+    precalibratedFiducialsRef.current = undefined;
+    setImageSessionId((prev) => prev + 1);
+    setIsCropModalOpen(false);
+    setIsLiveScannerOpen(true);
   };
 
   const handleSwitchToManualCropFromLive = (rawCapturedUrl: string) => {
@@ -1214,7 +1239,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setIsLiveScannerOpen(true)}
+                      onClick={handleRetakeSession}
                       className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#d3e3fd] hover:bg-[#c2e7ff] text-[#041e49] dark:bg-[#004a77] dark:hover:bg-[#00385a] dark:text-[#c2e7ff] rounded-[28px] text-xs font-bold transition-all shadow-xs hover:shadow-sm border-0 cursor-pointer active:scale-95"
                       title="Retake photo with camera"
                     >
@@ -1382,7 +1407,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                             <div className="flex flex-wrap items-center gap-1.5">
                               <button
                                 type="button"
-                                onClick={() => setIsLiveScannerOpen(true)}
+                                onClick={handleRetakeSession}
                                 className="px-3 py-1 bg-[#d3e3fd] hover:bg-[#c2e7ff] text-[#041e49] dark:bg-[#004a77] dark:hover:bg-[#00385a] dark:text-[#c2e7ff] rounded-[28px] text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-xs border-0"
                                 title="Take new photo with camera"
                               >
@@ -1955,13 +1980,13 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
             isOpen={isCropModalOpen}
             imageUrl={rawOriginalImageUrl || rawOriginalImageRef.current || cleanImageRef.current || capturedImageUrl || ''}
             onClose={() => setIsCropModalOpen(false)}
-            onRetake={() => setIsLiveScannerOpen(true)}
+            onRetake={handleRetakeSession}
             onUploadNew={() => fileInputRef.current?.click()}
             targetWidthMm={layoutConfig.pageWidthMm}
             targetHeightMm={layoutConfig.pageHeightMm}
             bottomFiducialY_mm={layoutConfig.bottomFiducialY_mm}
-            onApplyCrop={async (croppedUrl) => {
-              precalibratedFiducialsRef.current = undefined;
+            onApplyCrop={async (croppedUrl, precalibratedFiducials) => {
+              precalibratedFiducialsRef.current = precalibratedFiducials;
               setIsSaved(false);
               setScanResult(null);
               setEditableDetections([]);
@@ -1976,7 +2001,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
               const runScan = async () => {
                 if (handled) return;
                 handled = true;
-                await processOmrImage(img);
+                await processOmrImage(img, precalibratedFiducials);
               };
 
               img.onload = runScan;

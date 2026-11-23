@@ -97,6 +97,7 @@ import {
   syncChatArchiveNow
 } from '../../lib/geminiChatSyncManager';
 import { smartCoordinator } from '../../lib/smartLocalCoordinator';
+import { executeHybridGeminiChatbot } from '../../lib/geminiClientService';
 import { loadScopedChatSessions, saveScopedChatSessions, getCachedAuthUser, getScopedStorageKeys } from '../../lib/storage';
 import { getAllChatSessionsFromIndexedDB, requestPersistentStorage } from '../../lib/indexedDbStorage';
 import { syncHub } from '../../lib/syncEngine';
@@ -3118,93 +3119,76 @@ MANDATORY INSTRUCTIONS:
         targetSessionObj?.selectedTestId || null
       );
 
-      const response = await fetch('/api/gemini/chatbot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          messages: historyPayload,
-          model: effectiveModel,
-          modelTier: effectiveModel,
-          selectedModel: effectiveModel,
-          role: selectedRole,
-          rolePreset: selectedRole,
-          customInstruction: customInstruction.trim() || undefined,
-          customSystemInstruction: customInstruction.trim() || undefined,
-          temperature: effectiveTemperature,
-          enableCodeExecution: Boolean(enableCodeExecution),
-          usePython: Boolean(enableCodeExecution),
-          selectedTestId: targetSessionObj?.selectedTestId || null,
-          appContext,
-          testLibrary: Array.isArray(tests)
-            ? tests.slice(0, 10).map((t) => ({
-                id: t.id,
-                title: t.title,
-                topic: t.topic || 'Math',
-                difficulty: t.difficulty || 'Medium',
-                totalQuestions: t.questions?.length || 0,
-                questions: (targetSessionObj?.selectedTestId === t.id || tests.length <= 2)
-                  ? (t.questions || []).slice(0, 10).map((q: any) => ({
-                      id: q.id,
-                      text: q.text,
-                      type: q.type,
-                      options: q.options,
-                      correctAnswer: q.correctAnswer,
-                      explanation: q.explanation || q.solution
-                    }))
-                  : undefined
-              }))
-            : [],
-          testAttempts: Array.isArray(attempts)
-            ? attempts.slice(0, 10).map((a) => {
-                const incorrectQuestions: any[] = [];
-                if (a.answers && typeof a.answers === 'object') {
-                  Object.entries(a.answers).forEach(([qId, ans]: [string, any]) => {
-                    if (!ans.isCorrect) {
-                      // Find question text if available
-                      const parentTest = tests?.find((t) => t.id === a.testId);
-                      const matchedQ = parentTest?.questions?.find((q) => q.id === qId);
-                      incorrectQuestions.push({
-                        id: qId,
-                        text: matchedQ?.text || `Question ${qId}`,
-                        correctAnswer: matchedQ?.correctAnswer || 'N/A',
-                        selectedAnswer: ans.selectedOption || 'Skipped'
-                      });
-                    }
-                  });
-                }
-                return {
-                  testId: a.testId,
-                  testTitle: a.testTitle,
-                  testTopic: a.testTopic || 'Math',
-                  score: a.score,
-                  totalPoints: a.totalPoints || a.score,
-                  totalQuestions: a.totalPoints || a.score,
-                  percentage: a.percentage,
-                  passed: a.passed,
-                  timeSpentSeconds: a.timeSpentSeconds || 0,
-                  incorrectQuestions: incorrectQuestions.slice(0, 5)
-                };
-              })
-            : [],
-          sessionDocuments: updatedSessionDocs,
-          stagedQuestions: (targetSessionObj?.stagedQuestions || []).slice(0, 25)
-        })
-      });
+      const chatbotPayload = {
+        messages: historyPayload,
+        model: effectiveModel,
+        modelTier: effectiveModel,
+        selectedModel: effectiveModel,
+        role: selectedRole,
+        rolePreset: selectedRole,
+        customInstruction: customInstruction.trim() || undefined,
+        customSystemInstruction: customInstruction.trim() || undefined,
+        temperature: effectiveTemperature,
+        enableCodeExecution: Boolean(enableCodeExecution),
+        usePython: Boolean(enableCodeExecution),
+        selectedTestId: targetSessionObj?.selectedTestId || null,
+        appContext,
+        testLibrary: Array.isArray(tests)
+          ? tests.slice(0, 10).map((t) => ({
+              id: t.id,
+              title: t.title,
+              topic: t.topic || 'Math',
+              difficulty: t.difficulty || 'Medium',
+              totalQuestions: t.questions?.length || 0,
+              questions: (targetSessionObj?.selectedTestId === t.id || tests.length <= 2)
+                ? (t.questions || []).slice(0, 10).map((q: any) => ({
+                    id: q.id,
+                    text: q.text,
+                    type: q.type,
+                    options: q.options,
+                    correctAnswer: q.correctAnswer,
+                    explanation: q.explanation || q.solution
+                  }))
+                : undefined
+            }))
+          : [],
+        testAttempts: Array.isArray(attempts)
+          ? attempts.slice(0, 10).map((a) => {
+              const incorrectQuestions: any[] = [];
+              if (a.answers && typeof a.answers === 'object') {
+                Object.entries(a.answers).forEach(([qId, ans]: [string, any]) => {
+                  if (!ans.isCorrect) {
+                    const parentTest = tests?.find((t) => t.id === a.testId);
+                    const matchedQ = parentTest?.questions?.find((q) => q.id === qId);
+                    incorrectQuestions.push({
+                      id: qId,
+                      text: matchedQ?.text || `Question ${qId}`,
+                      correctAnswer: matchedQ?.correctAnswer || 'N/A',
+                      selectedAnswer: ans.selectedOption || 'Skipped'
+                    });
+                  }
+                });
+              }
+              return {
+                testId: a.testId,
+                testTitle: a.testTitle,
+                testTopic: a.testTopic || 'Math',
+                score: a.score,
+                totalPoints: a.totalPoints || a.score,
+                totalQuestions: a.totalPoints || a.score,
+                percentage: a.percentage,
+                passed: a.passed,
+                timeSpentSeconds: a.timeSpentSeconds || 0,
+                incorrectQuestions: incorrectQuestions.slice(0, 5)
+              };
+            })
+          : [],
+        sessionDocuments: updatedSessionDocs,
+        stagedQuestions: (targetSessionObj?.stagedQuestions || []).slice(0, 25)
+      };
 
+      const data = await executeHybridGeminiChatbot(chatbotPayload, controller.signal);
       clearTimeout(safetyTimeoutId);
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        const status = response.status;
-        const msg = errData.error || errData.message || `Server error (Status ${status})`;
-        const customErr: any = new Error(msg);
-        customErr.status = status;
-        customErr.data = errData;
-        throw customErr;
-      }
-
-      const data = await response.json();
       const assistantText = data.reply || data.text || data.content || 'No response text received from Gemini.';
 
       const newAssistantId = `msg_${Date.now()}`;

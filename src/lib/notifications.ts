@@ -195,7 +195,7 @@ export function deriveRealBatchNotifications(params: {
       timestamp: safeDateToISO(lec.createdAt),
       read: readSet.has(notifId),
       actionTab: 'batches',
-      actionLabel: 'Watch Lecture',
+      actionLabel: 'Watch Video',
       targetBatchId: lec.batchId,
       targetChapterId: lec.chapterId || null,
       targetLectureId: lec.id,

@@ -103,11 +103,14 @@ public class MainActivity extends BridgeActivity {
             registerReceiver(pipActionReceiver, filter);
         }
 
-        // 1. Enterprise Screen Protection: Prevent screenshots and video recording in all builds
-        getWindow().setFlags(
-            WindowManager.LayoutParams.FLAG_SECURE,
-            WindowManager.LayoutParams.FLAG_SECURE
-        );
+        // 1. Enterprise Screen Protection: Prevent screenshots and video recording (disabled in DEBUG for ADB inspection)
+        boolean isDebuggable = (getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+        if (!isDebuggable) {
+            getWindow().setFlags(
+                WindowManager.LayoutParams.FLAG_SECURE,
+                WindowManager.LayoutParams.FLAG_SECURE
+            );
+        }
 
         // 2. DevTools & Sniffer Kill-Switch: Strictly disallow Chrome inspect/debugging in all builds to prevent HTTP Toolkit / DevTools hooking
         try {

@@ -1144,22 +1144,22 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
       return hasDiff;
     };
 
-    // 1. Immediate measurement pass
-    measureDomHeights();
+    // Check if heights are already cached for this test
+    const hasCachedHeights = Boolean(testIdKey && GLOBAL_MEASURED_HEIGHTS_CACHE.has(testIdKey));
 
-    // 2. Next animation frame (after first paint)
+    // 1. If not cached, measure after initial paint; if cached, defer check so initial paint is instant (0ms delay)
     const rafId = requestAnimationFrame(() => {
       measureDomHeights();
     });
 
-    // 3. Staged timeout passes to catch KaTeX rendering and layout shifts
-    const timers = [
-      setTimeout(measureDomHeights, 60),
-      setTimeout(measureDomHeights, 180),
-      setTimeout(measureDomHeights, 360),
-      setTimeout(measureDomHeights, 750),
-      setTimeout(measureDomHeights, 1400),
-    ];
+    // 2. Light staged passes for layout shifts if heights are not yet cached
+    const timers = hasCachedHeights
+      ? [setTimeout(measureDomHeights, 400)]
+      : [
+          setTimeout(measureDomHeights, 100),
+          setTimeout(measureDomHeights, 350),
+          setTimeout(measureDomHeights, 800),
+        ];
 
     // 4. Web fonts ready hook (KaTeX & Inter fonts finish loading)
     if (typeof document !== 'undefined' && 'fonts' in document) {
@@ -1490,7 +1490,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
               <div
                 key={`page_wrap_${page.pageNumber}`}
                 data-page-wrapper="true"
-                className="relative mx-auto shrink-0 print:p-0 print:m-0 print:w-[210mm] print:h-[297mm] print:pb-0 transition-all duration-150 ease-out"
+                className="relative mx-auto shrink-0 print:p-0 print:m-0 print:w-[210mm] print:h-[297mm] print:pb-0 transition-all duration-150 ease-out a4-page-wrapper-virtualized"
                 style={{
                   width: `${pageWPx * effectiveScale}px`,
                   maxWidth: '100%',

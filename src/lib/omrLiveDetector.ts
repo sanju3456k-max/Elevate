@@ -9,7 +9,7 @@
  * and auto-captures reliably without frame lag or false-positive snaps.
  */
 
-import { OMR_GEOMETRY, OmrLayoutConfig, getOmrLayoutConfig } from './omrGeometry';
+import { OMR_GEOMETRY, OmrLayoutConfig, getOmrLayoutConfig, getBubbleNormalizedCoordinates } from './omrGeometry';
 import type { QuadPoint } from './omrPerspectiveWarp';
 
 export type LiveScannerStatus = 'searching' | 'tracking' | 'stabilizing' | 'locked';
@@ -232,10 +232,20 @@ export class OmrLiveDetector {
     ));
 
     // 3. Extract high-res patch candidates from video for all 4 corners
-    const listTL = this.detectCornerCandidatesInPatch(video, expVideoFiducials.tl, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
-    const listTR = this.detectCornerCandidatesInPatch(video, expVideoFiducials.tr, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
-    const listBR = this.detectCornerCandidatesInPatch(video, expVideoFiducials.br, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
-    const listBL = this.detectCornerCandidatesInPatch(video, expVideoFiducials.bl, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
+    let listTL = this.detectCornerCandidatesInPatch(video, expVideoFiducials.tl, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
+    let listTR = this.detectCornerCandidatesInPatch(video, expVideoFiducials.tr, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
+    let listBR = this.detectCornerCandidatesInPatch(video, expVideoFiducials.br, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
+    let listBL = this.detectCornerCandidatesInPatch(video, expVideoFiducials.bl, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
+
+    // Dynamic expanded fallback search if corners missed due to handheld offset
+    const foundInitial = (listTL.length > 0 ? 1 : 0) + (listTR.length > 0 ? 1 : 0) + (listBR.length > 0 ? 1 : 0) + (listBL.length > 0 ? 1 : 0);
+    if (foundInitial < 3) {
+      const expRadius = Math.min(260, Math.round(dynamicPatchRadius * 1.5));
+      if (listTL.length === 0) listTL = this.detectCornerCandidatesInPatch(video, expVideoFiducials.tl, vw, vh, expRadius, expectedBoxVideoPx);
+      if (listTR.length === 0) listTR = this.detectCornerCandidatesInPatch(video, expVideoFiducials.tr, vw, vh, expRadius, expectedBoxVideoPx);
+      if (listBR.length === 0) listBR = this.detectCornerCandidatesInPatch(video, expVideoFiducials.br, vw, vh, expRadius, expectedBoxVideoPx);
+      if (listBL.length === 0) listBL = this.detectCornerCandidatesInPatch(video, expVideoFiducials.bl, vw, vh, expRadius, expectedBoxVideoPx);
+    }
 
     // Multi-candidate geometric pairing (solves the twin-square trap when multiple tests are on one page)
     let bestCombo: { tl: QuadPoint; tr: QuadPoint; br: QuadPoint; bl: QuadPoint } | null = null;
@@ -333,8 +343,8 @@ export class OmrLiveDetector {
       };
 
       const guidanceMsg = boxCount === 0 
-        ? 'Align 4 corner boxes with markers' 
-        : `${boxCount} of 4 corners aligned...`;
+        ? 'Align 4 corner [ ■ ] squares into boxes' 
+        : `${boxCount} of 4 corner [ ■ ] aligned...`;
 
       return {
         status: 'searching',
@@ -550,15 +560,30 @@ export class OmrLiveDetector {
       bl: smoothPt(this.smoothedVideoFiducials ? this.smoothedVideoFiducials.bl : rawVideoFiducials.bl, rawVideoFiducials.bl, smoothAlpha),
     };
 
-    const isLocked = this.stableStreak >= this.requiredStableFrames;
-    const stabilityProgress = Math.min(1.0, this.stableStreak / this.requiredStableFrames);
+    const targetFid = this.smoothedVideoFiducials;
+
+    // 5.1 Container-Zone Invariant Auto-Snap & Bubble Verification
+    // When all 4 corner containers detect their squares, lock and snap with zero latency!
+    let bubblesAligned = false;
+    if (this.stableStreak >= this.requiredStableFrames) {
+      bubblesAligned = this.verifyInternalBubbleAlignment(video, targetFid, vw, vh);
+      if (!bubblesAligned && detectedBoxes.count < 4) {
+        // Soft-decay streak only if not all 4 containers are locked
+        this.stableStreak = Math.max(1, this.stableStreak - 1);
+      }
+    }
+
+    const allContainersLocked = detectedBoxes.count === 4;
+    const isLocked = (allContainersLocked && this.stableStreak >= 1) || (bubblesAligned && this.stableStreak >= this.requiredStableFrames);
+    const stabilityProgress = isLocked 
+      ? 1.0 
+      : Math.min(0.95, this.stableStreak / this.requiredStableFrames);
 
     // 6. Extrapolate outer page boundaries in video coordinates
     const mX = 10 / this.layout.fiducialSpanX_mm;
     const mTop = 10 / this.layout.fiducialSpanY_mm;
     const mBot = (this.layout.pageHeightMm - this.layout.bottomFiducialY_mm) / this.layout.fiducialSpanY_mm;
 
-    const targetFid = this.smoothedVideoFiducials;
     const curTopDx = targetFid.tr.x - targetFid.tl.x;
     const curTopDy = targetFid.tr.y - targetFid.tl.y;
     const curBotDx = targetFid.br.x - targetFid.bl.x;
@@ -602,10 +627,14 @@ export class OmrLiveDetector {
       bl: toScreenPct(videoToScreen(rawVideoOuter.bl.x, rawVideoOuter.bl.y), cw, ch),
     };
 
-    const status: LiveScannerStatus = isLocked ? 'locked' : (this.stableStreak >= 3 ? 'stabilizing' : 'tracking');
+    const status: LiveScannerStatus = isLocked ? 'locked' : (this.stableStreak >= 2 ? 'stabilizing' : 'tracking');
     const guidanceMessage = isLocked 
-      ? 'All 4 corners aligned! Capturing...' 
-      : (this.stableStreak >= 3 ? `Hold steady... (${Math.round(stabilityProgress * 100)}%)` : 'Keep sheet aligned in boxes');
+      ? 'Perfect Shot ✓ Capturing...' 
+      : (allContainersLocked 
+          ? 'All 4 boxes locked! Capturing...' 
+          : (detectedBoxes.count > 0 
+              ? `${detectedBoxes.count} of 4 corners locked` 
+              : 'Fit 4 corner squares inside the boxes'));
 
     return {
       status,
@@ -623,6 +652,146 @@ export class OmrLiveDetector {
       shouldAutoSnap: isLocked,
       detectedBoxes: { tl: true, tr: true, br: true, bl: true, count: 4 },
     };
+  }
+
+  /**
+   * Internal Optical Bubble Ring Verification (Zero Viewfinder Clutter)
+   * Samples representative bubble positions (Top-Left, Top-Right, Center, Bottom-Left, Bottom-Right)
+   * using bilinear interpolation from target fiducials to verify whether physical printed bubbles
+   * actually exist at expected grid positions on the live video frame.
+   * Only returns true if at least 2 out of 5 sampled bubble positions confirm circular rings.
+   */
+  public verifyInternalBubbleAlignment(
+    source: CanvasImageSource,
+    targetFid: LiveQuadCorners,
+    vw: number,
+    vh: number
+  ): boolean {
+    if (!this.patchCtx || !targetFid) return false;
+
+    const qCount = Math.max(1, this.layout.totalQuestions);
+    const qPerCol = Math.max(1, this.layout.questionsPerColumn);
+    const colCount = this.layout.columnCount;
+
+    const sampleQIndices = [
+      0, // Top-Left (Q1)
+      Math.min(qCount - 1, (colCount - 1) * qPerCol), // Top-Right
+      Math.min(qCount - 1, 2 * qPerCol + Math.floor(qPerCol / 2)), // Center
+      Math.min(qCount - 1, qPerCol - 1), // Bottom-Left
+      Math.min(qCount - 1, colCount * qPerCol - 1), // Bottom-Right
+    ];
+
+    const fidSpanPx = Math.hypot(targetFid.tr.x - targetFid.tl.x, targetFid.tr.y - targetFid.tl.y);
+    const rPx = Math.max(3, Math.min(18, Math.round((OMR_GEOMETRY.bubbleRadiusMm / this.layout.fiducialSpanX_mm) * fidSpanPx)));
+    const patchDim = Math.max(20, (rPx + 5) * 2);
+
+    if (this.patchCanvas.width < patchDim || this.patchCanvas.height < patchDim) {
+      this.patchCanvas.width = Math.max(360, patchDim);
+      this.patchCanvas.height = Math.max(360, patchDim);
+      this.patchCtx = this.patchCanvas.getContext('2d', { willReadFrequently: true });
+      if (!this.patchCtx) return false;
+    }
+
+    const numAngles = 12;
+    const anglesCosSin: { cos: number; sin: number }[] = [];
+    for (let i = 0; i < numAngles; i++) {
+      const th = (i * 2 * Math.PI) / numAngles;
+      anglesCosSin.push({ cos: Math.cos(th), sin: Math.sin(th) });
+    }
+
+    let verifiedBubbles = 0;
+    let testedCount = 0;
+
+    for (const qIdx of sampleQIndices) {
+      if (qIdx < 0 || qIdx >= qCount) continue;
+      testedCount++;
+      const coords = getBubbleNormalizedCoordinates(qIdx, 0, this.layout); // Option A
+      const normX = coords.normX;
+      const normY = coords.normY;
+
+      // Bilinear interpolation from fiducial quadrilateral to video space
+      const topX = targetFid.tl.x + (targetFid.tr.x - targetFid.tl.x) * normX;
+      const topY = targetFid.tl.y + (targetFid.tr.y - targetFid.tl.y) * normX;
+      const botX = targetFid.bl.x + (targetFid.br.x - targetFid.bl.x) * normX;
+      const botY = targetFid.bl.y + (targetFid.br.y - targetFid.bl.y) * normX;
+      const bx = topX + (botX - topX) * normY;
+      const by = topY + (botY - topY) * normY;
+
+      if (bx - rPx < 2 || bx + rPx >= vw - 2 || by - rPx < 2 || by + rPx >= vh - 2) {
+        continue;
+      }
+
+      // Draw local patch into patchCtx
+      const sx = Math.max(0, Math.min(vw - patchDim, Math.round(bx - patchDim / 2)));
+      const sy = Math.max(0, Math.min(vh - patchDim, Math.round(by - patchDim / 2)));
+      this.patchCtx.drawImage(source, sx, sy, patchDim, patchDim, 0, 0, patchDim, patchDim);
+      const imgData = this.patchCtx.getImageData(0, 0, patchDim, patchDim);
+      const d = imgData.data;
+
+      const getGray = (px: number, py: number): number => {
+        const x = Math.max(0, Math.min(patchDim - 1, Math.round(px)));
+        const y = Math.max(0, Math.min(patchDim - 1, Math.round(py)));
+        const idx = (y * patchDim + x) * 4;
+        return (d[idx] * 77 + d[idx + 1] * 150 + d[idx + 2] * 29) >> 8;
+      };
+
+      // Patch center
+      const pcx = bx - sx;
+      const pcy = by - sy;
+
+      // Estimate local paper background (average of outer points at 1.8 * rPx)
+      let outerSum = 0;
+      let outerCount = 0;
+      for (let i = 0; i < numAngles; i += 2) {
+        const ox = pcx + rPx * 1.8 * anglesCosSin[i].cos;
+        const oy = pcy + rPx * 1.8 * anglesCosSin[i].sin;
+        if (ox >= 0 && ox < patchDim && oy >= 0 && oy < patchDim) {
+          outerSum += getGray(ox, oy);
+          outerCount++;
+        }
+      }
+
+      if (outerCount < 3) continue;
+      const localPaperLuma = outerSum / outerCount;
+      if (localPaperLuma < 65) continue; // Real-world paper baseline (accommodates indoor shadows)
+
+      const darkThreshold = Math.min(localPaperLuma - 16, localPaperLuma * 0.86);
+
+      // Multi-scale radius testing [rPx - 1, rPx, rPx + 1] to eliminate discrete integer sampling misses
+      const testRadii = [Math.max(2, rPx - 1), rPx, rPx + 1];
+
+      // Check jitter window +-4px for circular ring contrast
+      let bubbleFound = false;
+      for (let jdy = -4; jdy <= 4 && !bubbleFound; jdy += 2) {
+        for (let jdx = -4; jdx <= 4 && !bubbleFound; jdx += 2) {
+          const cx = pcx + jdx;
+          const cy = pcy + jdy;
+
+          for (const testR of testRadii) {
+            let darkRingPts = 0;
+            for (let i = 0; i < numAngles; i++) {
+              const rx = cx + testR * anglesCosSin[i].cos;
+              const ry = cy + testR * anglesCosSin[i].sin;
+              if (getGray(rx, ry) < darkThreshold) {
+                darkRingPts++;
+              }
+            }
+            const minRequired = rPx <= 6 ? 3 : 4;
+            if (darkRingPts >= minRequired) {
+              bubbleFound = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (bubbleFound) {
+        verifiedBubbles++;
+      }
+    }
+
+    // Require at least 30% of sampled positions to confirm circular rings
+    return testedCount > 0 && verifiedBubbles >= Math.max(1, Math.floor(testedCount * 0.30));
   }
 
   /**

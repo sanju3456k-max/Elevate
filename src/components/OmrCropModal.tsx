@@ -9,11 +9,20 @@ import {
   Maximize2,
   Loader2,
   Camera,
-  Upload
+  Upload,
+  Sparkles
 } from 'lucide-react';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { useScrollLock } from '../hooks/useScrollLock';
-import { warpPerspectiveCanvas, QuadPoint } from '../lib/omrPerspectiveWarp';
+import { 
+  warpPerspectiveCanvas, 
+  QuadPoint, 
+  QuadCorners, 
+  autoDetectFiducialsOnCanvas,
+  checkFrameAlignmentQuality,
+  AlignmentQualityResult
+} from '../lib/omrPerspectiveWarp';
+import { OmrCorners } from '../lib/omrGeometry';
 import { 
   studioModalVariants, 
   studioBackdropVariants, 
@@ -25,7 +34,7 @@ interface OmrCropModalProps {
   isOpen: boolean;
   imageUrl: string;
   onClose: () => void;
-  onApplyCrop: (croppedDataUrl: string) => void;
+  onApplyCrop: (croppedDataUrl: string, precalibratedFiducials?: OmrCorners) => void;
   targetWidthMm?: number;
   targetHeightMm?: number;
   bottomFiducialY_mm?: number;
@@ -37,13 +46,6 @@ interface OmrCropModalProps {
 type CornerId = 'tl' | 'tr' | 'br' | 'bl';
 type EdgeId = 'edge-top' | 'edge-right' | 'edge-bottom' | 'edge-left';
 type DragTarget = CornerId | EdgeId | 'move-all' | null;
-
-interface QuadCorners {
-  tl: QuadPoint; // Top-Left (0-100%)
-  tr: QuadPoint; // Top-Right (0-100%)
-  br: QuadPoint; // Bottom-Right (0-100%)
-  bl: QuadPoint; // Bottom-Left (0-100%)
-}
 
 interface DisplayLayout {
   width: number;
@@ -95,8 +97,13 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
 
   // Drag interaction state
   const [activeDragTarget, setActiveDragTarget] = useState<DragTarget>(null);
-  const [loupePos, setLoupePos] = useState<{ x: number; y: number } | null>(null);
+  const [loupePos, setLoupePos] = useState<{ x: number; y: number; isFlippedBelow?: boolean } | null>(null);
   const [isProcessingCrop, setIsProcessingCrop] = useState<boolean>(false);
+  const [alignmentResult, setAlignmentResult] = useState<AlignmentQualityResult>({
+    isGood: false,
+    score: 0,
+    label: 'Align corners to squares',
+  });
 
   const activeLayoutRef = useRef<DisplayLayout>({ width: 0, height: 0, left: 0, top: 0 });
   useEffect(() => {
@@ -238,18 +245,40 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
       const nw = img.naturalWidth || img.width || 800;
       const nh = img.naturalHeight || img.height || 1100;
       setImgNaturalSize({ width: nw, height: nh });
-      setCorners(DEFAULT_CORNERS);
 
-      // Immediately create a fresh canvas for this exact image
+      // Automatically orient landscape phone captures (wider than tall) to upright portrait 90° clockwise
+      const isLandscape = nw > nh;
+      const initialRot = isLandscape ? 90 : 0;
+      setRotationDeg(initialRot);
+
+      let initialCorners = DEFAULT_CORNERS;
+
+      // Immediately create a fresh canvas for this exact image in its initial orientation
+      const rw = isLandscape ? nh : nw;
+      const rh = isLandscape ? nw : nh;
       const canvas = document.createElement('canvas');
-      canvas.width = nw;
-      canvas.height = nh;
+      canvas.width = rw;
+      canvas.height = rh;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.drawImage(img, 0, 0, nw, nh);
+        if (isLandscape) {
+          ctx.translate(rw / 2, rh / 2);
+          ctx.rotate((90 * Math.PI) / 180);
+          ctx.drawImage(img, -nw / 2, -nh / 2, nw, nh);
+        } else {
+          ctx.drawImage(img, 0, 0, nw, nh);
+        }
         rotCanvasRef.current = canvas;
+
+        // Auto-detect printed corner registration squares on image load
+        const autoDetected = autoDetectFiducialsOnCanvas(canvas);
+        if (autoDetected) {
+          initialCorners = autoDetected;
+        }
       }
 
+      setCorners(initialCorners);
+      cornersRef.current = initialCorners;
       setImageLoaded(true);
     };
 
@@ -276,6 +305,13 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
       updateRotatedCanvasCache(imgRef.current);
     }
   }, [imageLoaded, rotationDeg, updateRotatedCanvasCache]);
+
+  // Real-time alignment quality check when corners or rotation change
+  useEffect(() => {
+    if (!imageLoaded || !rotCanvasRef.current) return;
+    const res = checkFrameAlignmentQuality(rotCanvasRef.current, corners);
+    setAlignmentResult(res);
+  }, [corners, imageLoaded, rotationDeg]);
 
   // ResizeObserver for dynamic fullscreen responsiveness
   useEffect(() => {
@@ -304,11 +340,54 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
     };
   }, [isOpen, imageLoaded, updateDisplayLayout]);
 
-  // Rotate 90 degrees clockwise and reset corner box positions
+  // Rotate 90 degrees clockwise and auto-detect fiducials on rotated orientation
   const handleRotate = () => {
     cleanupActiveDrag();
-    setRotationDeg((prev) => (prev + 90) % 360);
+    const nextRot = (rotationDeg + 90) % 360;
+    setRotationDeg(nextRot);
+
+    const img = imgRef.current;
+    if (img) {
+      const nw = img.naturalWidth || img.width || 800;
+      const nh = img.naturalHeight || img.height || 1100;
+      const isRot90or270 = nextRot === 90 || nextRot === 270;
+      const rw = isRot90or270 ? nh : nw;
+      const rh = isRot90or270 ? nw : nh;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = rw;
+      canvas.height = rh;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.translate(rw / 2, rh / 2);
+        ctx.rotate((nextRot * Math.PI) / 180);
+        ctx.drawImage(img, -nw / 2, -nh / 2, nw, nh);
+        rotCanvasRef.current = canvas;
+        const autoDetected = autoDetectFiducialsOnCanvas(canvas);
+        if (autoDetected) {
+          setCorners(autoDetected);
+          cornersRef.current = autoDetected;
+          return;
+        }
+      }
+    }
     setCorners(DEFAULT_CORNERS);
+    cornersRef.current = DEFAULT_CORNERS;
+  };
+
+  // Auto-detect and snap crop corners to the 4 printed registration squares
+  const handleAutoFitSquares = () => {
+    cleanupActiveDrag();
+    if (rotCanvasRef.current) {
+      const detected = autoDetectFiducialsOnCanvas(rotCanvasRef.current);
+      if (detected) {
+        setCorners(detected);
+        cornersRef.current = detected;
+        return;
+      }
+    }
+    setCorners(DEFAULT_CORNERS);
+    cornersRef.current = DEFAULT_CORNERS;
   };
 
   // Reset corner boxes to default balanced positions
@@ -392,7 +471,10 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
     loupeCtx.arc(loupeSize / 2, loupeSize / 2, 1.5, 0, Math.PI * 2);
     loupeCtx.fill();
 
-    setLoupePos({ x: clientX, y: clientY - 80 });
+    const isFlippedBelow = clientY < 140;
+    const loupeY = isFlippedBelow ? clientY + 95 : clientY - 85;
+
+    setLoupePos({ x: clientX, y: loupeY, isFlippedBelow });
   }, []);
 
   // Pointer drag start handler
@@ -705,7 +787,15 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
         }
       }
 
-      onApplyCrop(croppedDataUrl || imageUrl);
+      // Exact tight fiducial coordinates matching the rectified canvas boundaries
+      const tightFiducials: OmrCorners = {
+        topLeft: { x: 0, y: 0 },
+        topRight: { x: dstWidth, y: 0 },
+        bottomLeft: { x: 0, y: dstHeight },
+        bottomRight: { x: dstWidth, y: dstHeight },
+      };
+
+      onApplyCrop(croppedDataUrl || imageUrl, tightFiducials);
       onClose();
     } catch (err) {
       console.error('Cropping error:', err);
@@ -760,13 +850,20 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
             className="bg-[#e5e9f0] dark:bg-[#0b0c10] text-slate-900 dark:text-zinc-100 w-full h-full max-h-[100dvh] rounded-none flex flex-col shadow-none overflow-hidden select-none"
           >
             {/* Minimal Header: 'Crop OMR' on Left, User Instruction badge, 'Close (X)' on Right */}
-            <header className="px-4 py-2 sm:px-6 sm:py-2.5 bg-transparent flex items-center justify-between gap-2 shrink-0 z-30 flex-wrap">
+            <header className="px-4 sm:px-6 pt-[max(2.75rem,calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.75rem))] pb-2.5 bg-transparent flex items-center justify-between gap-2 shrink-0 z-30 flex-wrap">
               <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                 <h2 className="font-bold text-base sm:text-lg text-slate-900 dark:text-zinc-100 tracking-tight select-none">
                   Crop OMR
                 </h2>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-200/80 dark:bg-[#222634] text-slate-700 dark:text-zinc-300 text-[10px] sm:text-[11px] font-medium select-none">
-                  <span>Drag corners to fit OMR sheet</span>
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold select-none transition-all ${
+                    alignmentResult.isGood
+                      ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60 shadow-xs'
+                      : 'bg-slate-200/80 dark:bg-[#222634] text-slate-700 dark:text-zinc-300'
+                  }`}
+                >
+                  {alignmentResult.isGood && <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />}
+                  <span>{alignmentResult.label}</span>
                 </span>
               </div>
 
@@ -876,10 +973,10 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
                 mask="url(#quadMask)"
               />
 
-              {/* Inside Subtle Royal Blue Highlight */}
+              {/* Inside Subtle Highlight (Emerald if aligned, Royal Blue default) */}
               <polygon
                 points={quadPolygonPoints}
-                fill="rgba(37, 99, 235, 0.10)"
+                fill={alignmentResult.isGood ? 'rgba(16, 185, 129, 0.14)' : 'rgba(37, 99, 235, 0.10)'}
               />
 
               {/* 3x3 Perspective Interior Grid Lines */}
@@ -901,7 +998,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
                       y1={topY}
                       x2={botX}
                       y2={botY}
-                      stroke="rgba(37, 99, 235, 0.25)"
+                      stroke={alignmentResult.isGood ? 'rgba(16, 185, 129, 0.30)' : 'rgba(37, 99, 235, 0.25)'}
                       strokeWidth="1"
                       strokeDasharray="3,3"
                       vectorEffect="non-scaling-stroke"
@@ -911,7 +1008,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
                       y1={leftY}
                       x2={rightX}
                       y2={rightY}
-                      stroke="rgba(37, 99, 235, 0.25)"
+                      stroke={alignmentResult.isGood ? 'rgba(16, 185, 129, 0.30)' : 'rgba(37, 99, 235, 0.25)'}
                       strokeWidth="1"
                       strokeDasharray="3,3"
                       vectorEffect="non-scaling-stroke"
@@ -926,8 +1023,8 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
                 y1={corners.tl.y}
                 x2={corners.tr.x}
                 y2={corners.tr.y}
-                stroke="#2563eb"
-                strokeWidth="1.25"
+                stroke={alignmentResult.isGood ? '#10b981' : '#2563eb'}
+                strokeWidth={alignmentResult.isGood ? '1.5' : '1.25'}
                 vectorEffect="non-scaling-stroke"
               />
               <line
@@ -935,8 +1032,8 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
                 y1={corners.tr.y}
                 x2={corners.br.x}
                 y2={corners.br.y}
-                stroke="#2563eb"
-                strokeWidth="1.25"
+                stroke={alignmentResult.isGood ? '#10b981' : '#2563eb'}
+                strokeWidth={alignmentResult.isGood ? '1.5' : '1.25'}
                 vectorEffect="non-scaling-stroke"
               />
               <line
@@ -944,8 +1041,8 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
                 y1={corners.br.y}
                 x2={corners.bl.x}
                 y2={corners.bl.y}
-                stroke="#2563eb"
-                strokeWidth="1.25"
+                stroke={alignmentResult.isGood ? '#10b981' : '#2563eb'}
+                strokeWidth={alignmentResult.isGood ? '1.5' : '1.25'}
                 vectorEffect="non-scaling-stroke"
               />
               <line
@@ -953,8 +1050,8 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
                 y1={corners.bl.y}
                 x2={corners.tl.x}
                 y2={corners.tl.y}
-                stroke="#2563eb"
-                strokeWidth="1.25"
+                stroke={alignmentResult.isGood ? '#10b981' : '#2563eb'}
+                strokeWidth={alignmentResult.isGood ? '1.5' : '1.25'}
                 vectorEffect="non-scaling-stroke"
               />
             </svg>
@@ -1094,7 +1191,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
             </div>
 
             {/* ========================================================
-                4 INDEPENDENTLY DRAGGABLE CORNER SQUARE BOXES (MINOR THIN)
+                4 INDEPENDENTLY DRAGGABLE CORNER SQUARE BOXES (HOLLOW HIGH-PRECISION RETICLE)
                 ======================================================== */}
             {[
               { id: 'tl' as CornerId, label: 'TL', fullLabel: 'Top-Left', pt: corners.tl, align: 'bottom' },
@@ -1103,6 +1200,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
               { id: 'bl' as CornerId, label: 'BL', fullLabel: 'Bottom-Left', pt: corners.bl, align: 'top' },
             ].map(({ id, label, fullLabel, pt, align }) => {
               const isActive = activeDragTarget === id;
+              const isGood = alignmentResult.isGood;
               return (
                 <div
                   key={id}
@@ -1112,21 +1210,37 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
                     top: `${pt.y}%`,
                     touchAction: 'none',
                   }}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center cursor-grab active:cursor-grabbing z-30 group"
+                  className="absolute -translate-x-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center cursor-grab active:cursor-grabbing z-30 group"
                   title={`${fullLabel} - drag to align with sheet corner`}
                 >
-                  {/* Minor Thin Square Corner Box */}
+                  {/* Hollow High-Precision Reticle - Square is completely visible inside without finger blockage */}
                   <div
-                    className={`relative w-5.5 h-5.5 rounded-[2px] border transition-all flex items-center justify-center shadow-md ${
+                    className={`relative w-6 h-6 rounded-[2px] border-2 transition-all flex items-center justify-center ${
                       isActive
-                        ? 'border-blue-300 bg-blue-600/35 scale-120 shadow-blue-500/50'
-                        : 'border-blue-400/90 bg-slate-950/65 group-hover:scale-110 group-hover:border-blue-300'
+                        ? isGood
+                          ? 'border-emerald-300 bg-emerald-500/20 scale-125 shadow-lg shadow-emerald-500/50'
+                          : 'border-blue-300 bg-blue-500/20 scale-125 shadow-lg shadow-blue-500/50'
+                        : isGood
+                        ? 'border-emerald-400 bg-emerald-950/10 group-hover:scale-110 group-hover:border-emerald-300'
+                        : 'border-blue-400 bg-slate-950/10 group-hover:scale-110 group-hover:border-blue-300'
                     }`}
                   >
-                    {/* Precise Center Hairline Crosshair */}
-                    <div className="absolute w-2 h-px bg-blue-400/80 pointer-events-none" />
-                    <div className="absolute h-2 w-px bg-blue-400/80 pointer-events-none" />
-                    <div className="w-1 h-1 bg-blue-300 rounded-full pointer-events-none" />
+                    {/* Transparent center with crisp hairline crosshair */}
+                    <div
+                      className={`absolute w-3 h-px pointer-events-none ${
+                        isGood ? 'bg-emerald-400/90' : 'bg-blue-400/90'
+                      }`}
+                    />
+                    <div
+                      className={`absolute h-3 w-px pointer-events-none ${
+                        isGood ? 'bg-emerald-400/90' : 'bg-blue-400/90'
+                      }`}
+                    />
+                    <div
+                      className={`w-1 h-1 rounded-full pointer-events-none ${
+                        isGood ? 'bg-emerald-300' : 'bg-blue-300'
+                      }`}
+                    />
                   </div>
 
                   {/* Corner Label Badge (Crisp & Compact) */}
@@ -1135,7 +1249,11 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
                       align === 'top' ? '-top-5' : '-bottom-5'
                     } ${
                       isActive
-                        ? 'bg-blue-600 text-white font-extrabold opacity-100'
+                        ? isGood
+                          ? 'bg-emerald-600 text-white font-extrabold opacity-100'
+                          : 'bg-blue-600 text-white font-extrabold opacity-100'
+                        : isGood
+                        ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 opacity-80 group-hover:opacity-100'
                         : 'bg-black/75 text-blue-300 border border-blue-500/30 opacity-70 group-hover:opacity-100'
                     }`}
                   >
@@ -1153,11 +1271,15 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
             style={{
               left: `${loupePos.x}px`,
               top: `${loupePos.y}px`,
-              transform: 'translate(-50%, -100%)',
+              transform: loupePos.isFlippedBelow ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
             }}
             className="fixed pointer-events-none z-50 flex flex-col items-center animate-in fade-in zoom-in-95 duration-100"
           >
-            <div className="w-[110px] h-[110px] rounded-full border-2 border-blue-500 bg-slate-950 shadow-2xl overflow-hidden ring-4 ring-black/60 relative">
+            <div
+              className={`w-[110px] h-[110px] rounded-full border-2 bg-slate-950 shadow-2xl overflow-hidden relative ${
+                alignmentResult.isGood ? 'border-emerald-400 ring-4 ring-emerald-500/30' : 'border-blue-500 ring-4 ring-black/60'
+              }`}
+            >
               <canvas
                 ref={loupeCanvasRef}
                 width={110}
@@ -1165,8 +1287,12 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
                 className="w-full h-full block"
               />
             </div>
-            <div className="mt-1 px-2 py-0.5 rounded bg-blue-600 text-white text-[9px] font-bold shadow-md">
-              Position on printed square
+            <div
+              className={`mt-1 px-2 py-0.5 rounded text-white text-[9px] font-bold shadow-md ${
+                alignmentResult.isGood ? 'bg-emerald-600' : 'bg-blue-600'
+              }`}
+            >
+              {alignmentResult.isGood ? 'Square Centered ✓' : 'Position on printed square'}
             </div>
           </div>
         )}
@@ -1175,8 +1301,19 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
       {/* ========================================================
           FULL-SCREEN FOOTER CONTROLS (Responsive & Safe Bottom Area)
           ======================================================== */}
-      <footer className="px-3 sm:px-6 py-2.5 sm:py-3 border-0 bg-transparent flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shrink-0 z-30 pb-[calc(0.65rem+env(safe-area-inset-bottom,0px))]">
+      <footer className="px-3 sm:px-6 py-2.5 sm:py-3 border-0 bg-transparent flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shrink-0 z-30 pb-[max(1.75rem,calc(env(safe-area-inset-bottom,0px)+0.75rem))]">
         <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-center sm:justify-start">
+          {/* Auto-Fit Squares Button */}
+          <button
+            type="button"
+            onClick={handleAutoFitSquares}
+            className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-full bg-blue-100 hover:bg-blue-200 dark:bg-blue-950/70 dark:hover:bg-blue-900/80 text-blue-800 dark:text-blue-300 text-xs font-bold border border-blue-300 dark:border-blue-700/50 shadow-none transition-all cursor-pointer active:scale-95"
+            title="Auto-detect & snap corners to 4 printed registration squares"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <span>Auto-Fit Squares</span>
+          </button>
+
           {/* Rotate 90° Button */}
           <button
             type="button"
@@ -1227,7 +1364,11 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
             type="button"
             disabled={isProcessingCrop}
             onClick={handleApplyClick}
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2 rounded-full bg-[#0b57d0] hover:bg-blue-600 text-white text-xs font-bold border-0 ring-0 shadow-none transition-all cursor-pointer ${
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2 rounded-full text-white text-xs font-bold border-0 ring-0 shadow-none transition-all cursor-pointer ${
+              alignmentResult.isGood
+                ? 'bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-600/30'
+                : 'bg-[#0b57d0] hover:bg-blue-600'
+            } ${
               isProcessingCrop ? 'opacity-80 cursor-wait' : 'active:scale-95'
             }`}
           >

@@ -194,7 +194,7 @@ export const BatchAdminStudio: React.FC = () => {
     }
 
     const encryptedKey = obfuscateVideoKey(detectedYtId);
-    const generatedThumbnail = `https://i.ytimg.com/vi/${detectedYtId}/hqdefault.jpg`;
+    const generatedThumbnail = batchVideoMeta?.thumbnailUrl || `https://i.ytimg.com/vi/${detectedYtId}/hqdefault.jpg`;
 
     const notesList = [];
     if (pdfTitle.trim()) {

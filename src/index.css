@@ -881,7 +881,15 @@
 /* ==========================================================================
    A4 Examination & OMR Sheet Print Layout Controls
    ========================================================================== */
+.a4-page-wrapper-virtualized {
+  content-visibility: auto;
+  contain-intrinsic-size: 210mm 297mm;
+}
+
 @media print {
+  .a4-page-wrapper-virtualized {
+    content-visibility: visible !important;
+  }
   html, body {
     background: #ffffff !important;
     color: #000000 !important;

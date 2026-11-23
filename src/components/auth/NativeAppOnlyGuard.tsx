@@ -100,18 +100,18 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
         
         {/* Brand Logo & Pill */}
         <div className="flex items-center gap-2.5 mb-4">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#0b57d0] to-indigo-600 p-2 flex items-center justify-center shadow-md shadow-[#0b57d0]/20">
+          <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0">
             <img 
               src="./assets/preplens-icon.svg?v=21" 
-              alt="Elevate" 
-              className="w-full h-full object-contain brightness-200"
+              alt="Elevate Labs" 
+              className="w-full h-full object-contain"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
               }}
             />
           </div>
           <span className="text-xl font-black text-slate-900 tracking-tight">
-            Elevate <span className="text-[#0b57d0] font-bold">Learning</span>
+            Elevate <span className="text-[#0b57d0] font-bold">Labs</span>
           </span>
         </div>
 
@@ -229,7 +229,7 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
 
         <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
           <Sparkles className="w-3 h-3 text-[#0b57d0]" />
-          <span>Elevate Learning Platform</span>
+          <span>Elevate Labs Platform</span>
         </div>
       </div>
     </div>

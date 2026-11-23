@@ -41,6 +41,7 @@ interface NotificationsViewProps {
   onOpenBatch?: (batchId: string) => void;
   onOpenTest?: (testId: string) => void;
   isDarkMode?: boolean;
+  isDrawer?: boolean;
 }
 
 interface ParsedLocation {
@@ -140,6 +141,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   onOpenBatchLecture,
   onOpenBatch,
   onOpenTest,
+  isDrawer = false,
 }) => {
   const { user, batches, lectures, chapters, announcements, batchTests, isEnrolled } = useApp();
   const [readVersion, setReadVersion] = useState(0);
@@ -182,31 +184,6 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
     }
   };
 
-  const handleSendTestNotification = async () => {
-    const sample = filteredNotifications[0] || notifications[0];
-    const testTitle = sample?.title || 'David Guetta live @ Tomorrowland 2026';
-    const testBody = sample?.message || 'Testing.Testing (76 mins)';
-
-    const sent = await sendDeviceNotification({
-      title: testTitle,
-      body: testBody,
-      id: sample?.id || Math.floor(Math.random() * 100000),
-      category: sample?.category || 'lecture',
-      targetBatchId: sample?.targetBatchId,
-      targetChapterId: sample?.targetChapterId,
-      targetLectureId: sample?.targetLectureId,
-      targetTestId: sample?.targetTestId,
-      actionLabel: sample?.actionLabel || 'Watch Lecture',
-      batchTitle: sample?.batchTitle,
-    });
-    if (sent) {
-      showToast('Notification pop-up dispatched!');
-    } else {
-      // If permission wasn't granted yet, prompt user
-      handleEnableNotifications();
-    }
-  };
-
   const isMaster = user?.role === 'admin' || (user?.role as string) === 'superadmin' || isMasterUser(user);
   const enrolledBatches = useMemo(() => batches.filter((b) => isEnrolled(b.id)), [batches, isEnrolled]);
   const enrolledBatchIds = useMemo(() => enrolledBatches.map((b) => b.id), [enrolledBatches]);
@@ -227,8 +204,8 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   // Standardized Back Handler
   useBackHandler({
     isOpen: true,
-    priority: 30,
-    id: 'notifications_view_back',
+    priority: isDrawer ? 45 : 30,
+    id: isDrawer ? 'notifications_drawer_back' : 'notifications_view_back',
     onBack,
   });
 
@@ -288,24 +265,28 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
         notification.targetChapterId || null,
         notification.targetLectureId
       );
+      if (isDrawer) onBack();
       return;
     }
 
     // If it's a real batch test
     if (notification.targetTestId && onOpenTest) {
       onOpenTest(notification.targetTestId);
+      if (isDrawer) onBack();
       return;
     }
 
     // If it's a batch announcement or batch
     if (notification.targetBatchId && onOpenBatch) {
       onOpenBatch(notification.targetBatchId);
+      if (isDrawer) onBack();
       return;
     }
 
     // Fallback tab navigation
     if (notification.actionTab) {
       onNavigateTab(notification.actionTab);
+      if (isDrawer) onBack();
     }
   };
 
@@ -314,33 +295,33 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
       case 'lecture':
         return {
           icon: PlayCircle,
-          label: 'Lecture',
+          label: 'Videos',
           badgeBg: 'bg-blue-100 dark:bg-blue-950/70 text-[#0b57d0] dark:text-[#a8c7fa]',
         };
       case 'test':
         return {
           icon: BookOpen,
           label: 'Test',
-          badgeBg: 'bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300',
+          badgeBg: 'bg-blue-100 dark:bg-blue-950/70 text-[#0b57d0] dark:text-[#a8c7fa]',
         };
       case 'ai':
         return {
           icon: Sparkles,
           label: 'Theta AI',
-          badgeBg: 'bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300',
+          badgeBg: 'bg-blue-100 dark:bg-blue-950/70 text-[#0b57d0] dark:text-[#a8c7fa]',
         };
       case 'notes':
         return {
           icon: FileText,
           label: 'Study Notes',
-          badgeBg: 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300',
+          badgeBg: 'bg-blue-100 dark:bg-blue-950/70 text-[#0b57d0] dark:text-[#a8c7fa]',
         };
       case 'system':
       default:
         return {
           icon: ShieldCheck,
           label: 'Batch Update',
-          badgeBg: 'bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300',
+          badgeBg: 'bg-blue-100 dark:bg-blue-950/70 text-[#0b57d0] dark:text-[#a8c7fa]',
         };
     }
   };
@@ -348,43 +329,53 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   const filterTabs = [
     { id: 'all', label: 'All', icon: Sparkles },
     { id: 'unread', label: 'Unread', icon: Bell, count: unreadCount },
-    { id: 'lecture', label: 'Lectures', icon: PlayCircle },
+    { id: 'lecture', label: 'Videos', icon: PlayCircle },
     { id: 'test', label: 'Tests', icon: BookOpen },
   ];
 
   return (
-    <div className="w-full min-h-screen bg-white dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] select-none flex flex-col">
-      {/* Fixed Sticky Header without any partial line or border - Transparent/Pure White */}
-      <header className="sticky top-0 z-30 bg-white dark:bg-[#0b0c10] border-0 border-none shadow-none pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)] pb-3 px-3.5 sm:px-6 transition-colors">
-        <div className="max-w-4xl mx-auto space-y-3">
-          {/* Top Row: Back Arrow, Title, Count, Actions */}
-          <div className="flex items-center justify-between gap-3 pt-0.5">
-            <div className="flex items-center space-x-2">
-              <button
-                id="notifications-back-btn"
-                type="button"
-                onClick={onBack}
-                title="Back"
-                aria-label="Back"
-                className="p-1.5 -ml-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-[#1f1f1f] dark:text-[#e3e3e3] border-none bg-transparent cursor-pointer flex items-center justify-center transition active:scale-95 shrink-0"
-              >
-                <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
-              </button>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#1f1f1f] dark:text-white">
+    <div className={`w-full ${isDrawer ? 'h-full bg-white dark:bg-[#121316]' : 'min-h-screen bg-white dark:bg-[#0b0c10]'} text-[#1f1f1f] dark:text-[#e3e3e3] select-none flex flex-col overflow-hidden`}>
+      {/* Fixed Sticky Header without any partial line or border */}
+      <header className={`sticky top-0 z-30 bg-white dark:bg-[#121316] ${
+        isDrawer 
+          ? 'border-b border-slate-100 dark:border-zinc-800/80 p-3.5 sm:p-4 pb-2.5 space-y-2.5 shrink-0 shadow-xs' 
+          : 'border-0 border-none shadow-none pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)] pb-3 px-3.5 sm:px-6'
+      } transition-colors`}>
+        <div className={`${isDrawer ? 'w-full space-y-2.5' : 'max-w-4xl mx-auto space-y-3'}`}>
+          {/* Top Row: Back Arrow / Bell Icon, Title, Count, Actions */}
+          <div className="flex items-center justify-between gap-2.5 pt-0.5">
+            <div className="flex items-center space-x-2 min-w-0">
+              {!isDrawer ? (
+                <button
+                  id="notifications-back-btn"
+                  type="button"
+                  onClick={onBack}
+                  title="Back"
+                  aria-label="Back"
+                  className="p-1.5 -ml-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-[#1f1f1f] dark:text-[#e3e3e3] border-none bg-transparent cursor-pointer flex items-center justify-center transition active:scale-95 shrink-0"
+                >
+                  <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
+                </button>
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-[#0b57d0]/10 dark:bg-[#a8c7fa]/15 flex items-center justify-center text-[#0b57d0] dark:text-[#a8c7fa] shrink-0">
+                  <Bell className="w-4 h-4 stroke-[2.2]" />
+                </div>
+              )}
+              <div className="flex items-center gap-2 min-w-0">
+                <h1 className={`${isDrawer ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl'} font-extrabold tracking-tight text-[#1f1f1f] dark:text-white truncate`}>
                   Updates
                 </h1>
                 {unreadCount > 0 && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#041e49] text-xs font-mono font-bold shadow-xs">
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#041e49] text-xs font-mono font-bold shadow-xs shrink-0">
                     {unreadCount}
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Action Header: Allow/Test Notifications & Mark All as Read */}
-            <div className="flex items-center gap-2">
-              {notifPermission !== 'granted' ? (
+            {/* Action Header: Allow Notifications, Mark All as Read & Drawer Close Button */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {notifPermission !== 'granted' && (
                 <button
                   type="button"
                   id="notifications-allow-btn"
@@ -392,22 +383,10 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                   disabled={isRequestingPermission}
                   title="Allow instant notifications"
                   aria-label="Allow instant notifications"
-                  className="h-8 px-3.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] text-xs font-bold transition active:scale-95 cursor-pointer outline-none border-0 flex items-center gap-1.5 shadow-xs"
+                  className="h-7.5 px-3 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] text-xs font-bold transition active:scale-95 cursor-pointer outline-none border-0 flex items-center gap-1.5 shadow-xs"
                 >
                   <Bell className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />
-                  <span>{isRequestingPermission ? 'Enabling...' : 'Allow Notifications'}</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  id="notifications-test-alert-btn"
-                  onClick={handleSendTestNotification}
-                  title="Send a test notification alert"
-                  aria-label="Send a test notification alert"
-                  className="h-8 px-3.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 text-xs font-bold transition active:scale-95 cursor-pointer outline-none border-0 flex items-center gap-1.5"
-                >
-                  <Bell className="w-3.5 h-3.5 shrink-0 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.5]" />
-                  <span>Test Alert</span>
+                  <span className={isDrawer ? 'hidden sm:inline' : ''}>{isRequestingPermission ? 'Enabling...' : 'Allow'}</span>
                 </button>
               )}
 
@@ -418,10 +397,23 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                   onClick={() => markAllNotificationIdsAsRead(notifications.map((n) => n.id))}
                   title="Mark all updates as read"
                   aria-label="Mark all updates as read"
-                  className="h-8 px-3.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 text-xs font-bold transition active:scale-95 cursor-pointer outline-none border-0 flex items-center gap-1.5"
+                  className="h-7.5 px-3 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 text-xs font-bold transition active:scale-95 cursor-pointer outline-none border-0 flex items-center gap-1.5"
                 >
                   <CheckCheck className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />
-                  <span>Mark All as Read</span>
+                  <span className={isDrawer ? 'hidden sm:inline' : ''}>Mark Read</span>
+                </button>
+              )}
+
+              {isDrawer && (
+                <button
+                  type="button"
+                  id="notifications-drawer-close-btn"
+                  onClick={onBack}
+                  title="Close Updates"
+                  aria-label="Close Updates"
+                  className="w-8 h-8 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-slate-700 dark:text-zinc-300 border-none bg-transparent cursor-pointer flex items-center justify-center transition active:scale-95 shrink-0"
+                >
+                  <X className="w-5 h-5 stroke-[2.2]" />
                 </button>
               )}
             </div>
@@ -437,7 +429,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                   key={tab.id}
                   type="button"
                   onClick={() => setSelectedFilter(tab.id as any)}
-                  className={`h-8 px-4 rounded-full text-xs transition-all flex items-center space-x-1.5 outline-none cursor-pointer active:scale-95 border-0 ${
+                  className={`h-7.5 sm:h-8 px-3 sm:px-4 rounded-full text-xs transition-all flex items-center space-x-1.5 outline-none cursor-pointer active:scale-95 border-0 shrink-0 ${
                     isSelected
                       ? 'bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#062e6f] font-bold shadow-xs'
                       : 'bg-transparent text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-100/80 dark:hover:bg-zinc-800/60 font-semibold'
@@ -464,7 +456,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
       </header>
 
       {/* Scrollable Notification List Messages Body */}
-      <div className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 pb-28 sm:pb-28 md:pb-16 pt-1">
+      <div className={`flex-1 ${isDrawer ? 'w-full px-3 sm:px-4 pb-16 pt-1' : 'max-w-4xl w-full mx-auto px-3.5 sm:px-6 pb-28 sm:pb-28 md:pb-16 pt-1'} overflow-y-auto overscroll-contain`}>
         {/* Floating Toast Alert */}
         {toastMessage && (
           <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full bg-slate-900/90 dark:bg-white/95 text-white dark:text-slate-900 text-xs font-bold shadow-lg flex items-center gap-2 backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
@@ -529,7 +521,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                   {/* Middle Content - Maximized Width to Fill Empty Space */}
                   <div className="flex-1 min-w-0 pr-2">
                     <div className="flex items-center gap-1.5 text-xs">
-                      <span className="font-bold text-slate-900 dark:text-zinc-100 text-[11px] sm:text-xs uppercase tracking-wide">
+                      <span className="font-bold text-[#0b57d0] dark:text-[#a8c7fa] text-[11px] sm:text-xs uppercase tracking-wide">
                         {meta.label}
                       </span>
                       {!notif.read && (
