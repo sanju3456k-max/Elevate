@@ -16,6 +16,7 @@ import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { ScreenOrientation } from '@capacitor/screen-orientation';
 import { triggerBack } from '../hooks/useBackNavigation';
+import { warmUpDeviceNotificationPermission } from './deviceNotificationService';
 
 let isNativeVideoPlayingState = false;
 
@@ -33,6 +34,8 @@ export function initNativeHardwareIntegration(callbacks?: {
   try {
     document.body.classList.add('is-native-android');
     document.documentElement.classList.add('is-native-android');
+    // Pre-emptively warm up and cache notification permission to prevent any UI flashing
+    warmUpDeviceNotificationPermission();
   } catch {}
 
   // 1. Configure Immersive Edge-to-Edge Status Bar
@@ -244,6 +247,43 @@ export async function isNativePipSupported(): Promise<boolean> {
     return Boolean(res?.supported);
   } catch {
     return false;
+  }
+}
+
+/**
+ * Checks native media permissions (microphone, camera, photos) on Android
+ */
+export async function checkNativeMediaPermissions(): Promise<{
+  microphone: boolean;
+  camera: boolean;
+  photos: boolean;
+  allGranted: boolean;
+}> {
+  if (!isNativeAndroid()) {
+    return { microphone: true, camera: true, photos: true, allGranted: true };
+  }
+  try {
+    const res = await (Capacitor as any).Plugins?.PipBridge?.checkMediaPermissions();
+    return {
+      microphone: Boolean(res?.microphone),
+      camera: Boolean(res?.camera),
+      photos: Boolean(res?.photos),
+      allGranted: Boolean(res?.allGranted),
+    };
+  } catch {
+    return { microphone: true, camera: true, photos: true, allGranted: true };
+  }
+}
+
+/**
+ * Requests native media permissions (microphone, camera, photos) on Android
+ */
+export async function requestNativeMediaPermissions(): Promise<void> {
+  if (!isNativeAndroid()) return;
+  try {
+    await (Capacitor as any).Plugins?.PipBridge?.requestMediaPermissions();
+  } catch (err) {
+    console.warn('[NativeHardware] requestMediaPermissions notice:', err);
   }
 }
 

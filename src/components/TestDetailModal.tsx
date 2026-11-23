@@ -536,7 +536,7 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
                   onClick={() => setIsLeaderboardOpen(true)}
                   title="View Test Leaderboard & Rankings"
                 >
-                  <Trophy className="w-5 h-5 text-amber-500 hover:text-amber-600 transition-colors" />
+                  <Trophy className="w-5 h-5 text-orange-500 hover:text-orange-600 dark:text-orange-400 transition-colors" />
                 </md-icon-button>
               )}
             </div>

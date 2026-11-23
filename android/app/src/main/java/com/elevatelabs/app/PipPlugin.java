@@ -1,5 +1,7 @@
 package com.elevatelabs.app;
 
+import java.util.List;
+import java.util.ArrayList;
 import android.app.PictureInPictureParams;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -294,6 +296,77 @@ public class PipPlugin extends Plugin {
             ret.put("granted", enabled);
         }
         call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void checkMediaPermissions(PluginCall call) {
+        JSObject ret = new JSObject();
+        if (getActivity() == null) {
+            ret.put("microphone", false);
+            ret.put("camera", false);
+            ret.put("photos", false);
+            ret.put("allGranted", false);
+            call.resolve(ret);
+            return;
+        }
+
+        boolean mic = getActivity().checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+        boolean cam = getActivity().checkSelfPermission(android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+        boolean photos = false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            photos = getActivity().checkSelfPermission(android.Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED;
+        } else {
+            photos = getActivity().checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
+        }
+
+        ret.put("microphone", mic);
+        ret.put("camera", cam);
+        ret.put("photos", photos);
+        ret.put("allGranted", mic && cam && photos);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void requestMediaPermissions(PluginCall call) {
+        if (getActivity() == null) {
+            call.reject("Activity not available");
+            return;
+        }
+
+        List<String> perms = new ArrayList<>();
+        if (getActivity().checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            perms.add(android.Manifest.permission.RECORD_AUDIO);
+        }
+        if (getActivity().checkSelfPermission(android.Manifest.permission.MODIFY_AUDIO_SETTINGS) != PackageManager.PERMISSION_GRANTED) {
+            perms.add(android.Manifest.permission.MODIFY_AUDIO_SETTINGS);
+        }
+        if (getActivity().checkSelfPermission(android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            perms.add(android.Manifest.permission.CAMERA);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (getActivity().checkSelfPermission(android.Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
+                perms.add(android.Manifest.permission.READ_MEDIA_IMAGES);
+            }
+            if (getActivity().checkSelfPermission(android.Manifest.permission.READ_MEDIA_VIDEO) != PackageManager.PERMISSION_GRANTED) {
+                perms.add(android.Manifest.permission.READ_MEDIA_VIDEO);
+            }
+        } else {
+            if (getActivity().checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                perms.add(android.Manifest.permission.READ_EXTERNAL_STORAGE);
+            }
+        }
+
+        if (!perms.isEmpty()) {
+            getActivity().requestPermissions(perms.toArray(new String[0]), 202);
+            JSObject ret = new JSObject();
+            ret.put("requested", true);
+            call.resolve(ret);
+        } else {
+            JSObject ret = new JSObject();
+            ret.put("requested", false);
+            ret.put("allGranted", true);
+            call.resolve(ret);
+        }
     }
 
     private android.graphics.Bitmap getBitmapFromDrawable(android.graphics.drawable.Drawable drawable) {

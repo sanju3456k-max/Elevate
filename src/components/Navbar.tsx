@@ -386,7 +386,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   <Bell className="w-[18px] h-[18px]" />
                   {unreadCount > 0 && activeTab !== 'notifications' && !isDesktopNotificationsOpen && (
-                    <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 text-white font-mono text-[9px] font-bold flex items-center justify-center shadow-xs">
+                    <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-rose-500 text-white font-mono text-[9px] font-bold flex items-center justify-center shadow-xs tabular-nums leading-none pointer-events-none">
                       {unreadCount}
                     </span>
                   )}

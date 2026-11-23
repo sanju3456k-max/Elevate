@@ -64,6 +64,8 @@ import {
   studioBackdropVariants, 
   studioModalVariants, 
   studioDrawerRightVariants,
+  androidBackdropVariants,
+  androidDrawerRightVariants,
   gpuAcceleratedStyle, 
   gpuTransformStyle 
 } from './lib/animationConfig';
@@ -87,6 +89,7 @@ import {
   loadFullTestOnDemand,
   getAllDeletedTestIds,
   getGuestDataSummary,
+  isUserPersonalTest,
   type CachedAuthUser,
   type GuestDataSummary
 } from './lib/storage';
@@ -307,7 +310,7 @@ export default function App() {
         lectureDescription: resolvedDescription,
         batchId: batch.id,
         batchTitle: resolvedBatchTitle,
-        chapterId: chapterId || null,
+        chapterId: chapterId || (lecture as any)?.chapterId || null,
         thumbnailUrl: getLectureThumbnailUrl(lecture) || lecture.thumbnailUrl,
         durationMinutes: lecture.durationMinutes,
         encryptedVideoId: lecture.encryptedVideoId,
@@ -1883,6 +1886,11 @@ export default function App() {
   };
 
   const handleEditTest = async (test: MathTest, options?: { openAiPrompt?: boolean }) => {
+    const isMaster = isMasterUser(currentUser || cachedUser);
+    if (!isMaster && !isUserPersonalTest(test)) {
+      console.warn('Unauthorized: Students cannot edit institutional, batch, or remedial tests:', test.id);
+      return;
+    }
     const targetUid = currentUser?.uid || cachedUser?.uid || null;
     const fullTest = (test.questions && test.questions.length > 0)
       ? test
@@ -1893,6 +1901,12 @@ export default function App() {
   };
 
   const handleSaveTest = async (test: MathTest) => {
+    const isMaster = isMasterUser(currentUser || cachedUser) || (userProfile as any)?.role === 'admin';
+    const existingTest = tests.find((t) => t.id === test.id);
+    if (existingTest && !isMaster && !isUserPersonalTest(existingTest)) {
+      console.warn('Unauthorized: Students cannot modify institutional, batch, or remedial tests:', test.id);
+      return;
+    }
     const targetUid = currentUser?.uid || cachedUser?.uid || auth.currentUser?.uid || null;
     const isAuthenticUser = Boolean(targetUid && targetUid !== 'anonymous' && targetUid !== 'guest-user');
 
@@ -1948,7 +1962,6 @@ export default function App() {
     // Master / Cloud Authoritative Propagation:
     // When Master user saves a test, or when an official/master test is saved,
     // propagate full paper & layout changes to global published tests in Firestore
-    const isMaster = isMasterUser(currentUser || cachedUser) || (userProfile as any)?.role === 'admin';
     if (isMaster || (validatedTest as any).isMasterTest || (validatedTest as any).publishedToStudents) {
       publishMasterTest(validatedTest).catch(console.warn);
     }
@@ -2006,6 +2019,12 @@ export default function App() {
   }, [handleSaveTest, handleStartTest, setActiveTab]);
 
   const handleDeleteTest = (testId: string) => {
+    const isMaster = isMasterUser(currentUser || cachedUser);
+    const targetTest = tests.find((t) => t.id === testId);
+    if (!isMaster && targetTest && !isUserPersonalTest(targetTest)) {
+      console.warn('Unauthorized: Students cannot delete institutional, batch, or remedial tests:', testId);
+      return;
+    }
     const targetUid = currentUser?.uid || cachedUser?.uid || null;
     // Mark as deleted in scoped storage and guest fallback so it stays deleted even on page reload or sample re-hydration
     markTestAsDeletedInScopedStorage(targetUid, testId);
@@ -2190,7 +2209,7 @@ export default function App() {
 
   return (
     <LmsProvider>
-      <div className="min-h-screen bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col font-sans antialiased selection:bg-[#0b57d0]/20 selection:text-[#0b57d0] dark:selection:text-[#a8c7fa] transition-colors duration-200">
+      <div className="min-h-screen w-full bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col font-sans antialiased selection:bg-[#0b57d0]/20 selection:text-[#0b57d0] dark:selection:text-[#a8c7fa] transition-colors duration-200">
       {/* Brand Welcome Screen on App Opening */}
       {!isAppLoaded && (
         <WelcomeSplash onFinish={handleWelcomeFinish} />
@@ -2438,7 +2457,7 @@ export default function App() {
       {/* Main Content Area */}
       {activeTab !== 'take-test' && activeTab !== 'omr-test' && activeTab !== 'results' && activeTab !== 'create' && activeTab !== 'custom-builder' && activeTab !== 'master-console' && (
         <main className={`flex-1 min-w-0 ${
-          isInsideBatch || activeTab === 'notifications'
+          (isInsideBatch || activeTab === 'notifications') && !isFullVideoPlayerActive
             ? 'bg-white dark:bg-[#0b0c10]'
             : 'bg-[#e5e9f0] dark:bg-[#0b0c10]'
         } ${
@@ -2787,61 +2806,62 @@ export default function App() {
 
           {/* Full-Screen Material 3 Real Batch Notifications & Updates Page (Mobile / Small Screen) */}
           {activeTab === 'notifications' && !isDesktop && (
-            <NotificationsView
-              onBack={() => goBack()}
-              onNavigateTab={(tab) => setActiveTab(tab)}
-              onOpenBatchLecture={(batchId, chapterId, lectureId) => {
-                setSelectedBatchId(batchId);
-                setSelectedChapterId(chapterId);
-                setSelectedLectureId(lectureId);
-                setSelectedFolderTab('videos');
-                setActiveTab('batches');
-              }}
-              onOpenBatch={(batchId) => {
-                setSelectedBatchId(batchId);
-                setSelectedChapterId(null);
-                setSelectedLectureId(null);
-                setSelectedFolderTab('videos');
-                setActiveTab('batches');
-              }}
-              onOpenTest={(testId) => {
-                const found = tests.find((t) => t.id === testId) || getCachedFullTest(testId);
-                if (found) {
-                  setGlobalDetailTest(found);
-                } else {
-                  setActiveTab('tests');
-                }
-              }}
-              isDarkMode={isDarkMode}
-            />
+            <div className="fixed inset-0 z-40 w-full h-[100dvh] max-h-[100dvh] bg-white dark:bg-[#0b0c10] overflow-hidden flex flex-col touch-pan-y">
+              <NotificationsView
+                onBack={() => goBack()}
+                onNavigateTab={(tab) => setActiveTab(tab)}
+                onOpenBatchLecture={(batchId, chapterId, lectureId) => {
+                  setSelectedBatchId(batchId);
+                  setSelectedChapterId(chapterId);
+                  setSelectedLectureId(lectureId);
+                  setSelectedFolderTab('videos');
+                  setActiveTab('batches');
+                }}
+                onOpenBatch={(batchId) => {
+                  setSelectedBatchId(batchId);
+                  setSelectedChapterId(null);
+                  setSelectedLectureId(null);
+                  setSelectedFolderTab('videos');
+                  setActiveTab('batches');
+                }}
+                onOpenTest={(testId) => {
+                  const found = tests.find((t) => t.id === testId) || getCachedFullTest(testId);
+                  if (found) {
+                    setGlobalDetailTest(found);
+                  } else {
+                    setActiveTab('tests');
+                  }
+                }}
+                isDarkMode={isDarkMode}
+              />
+            </div>
           )}
         </main>
       )}
 
-      {/* Desktop Right-Side Slide-Over Notifications Drawer Panel */}
+      {/* Desktop Right-Side Slide-Over Notifications Drawer Panel matching navigation drawer animation */}
       {isDesktop && typeof document !== 'undefined' && createPortal(
         <AnimatePresence>
           {isDesktopNotificationsOpen && (
-            <div className="fixed inset-0 z-50 overflow-hidden pointer-events-auto">
-              {/* Dimmed Backdrop with Light Dismiss */}
+            <motion.div
+              variants={androidBackdropVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              style={gpuAcceleratedStyle}
+              className="fixed inset-0 bg-black/40 z-50 flex justify-end select-none cursor-pointer"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setIsDesktopNotificationsOpen(false);
+              }}
+            >
+              {/* Right Slide-Over Panel matching navigation drawer animation and physics */}
               <motion.div
-                variants={studioBackdropVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="fixed inset-0 bg-black/40 backdrop-blur-[2px] cursor-pointer"
-                onClick={() => setIsDesktopNotificationsOpen(false)}
-                aria-hidden="true"
-              />
-
-              {/* Right Slide-Over Panel */}
-              <motion.div
-                variants={studioDrawerRightVariants}
+                variants={androidDrawerRightVariants}
                 initial="initial"
                 animate="animate"
                 exit="exit"
                 style={gpuTransformStyle}
-                className="fixed inset-y-0 right-0 w-full sm:w-[460px] md:w-[480px] max-w-full bg-white dark:bg-[#121316] shadow-[-8px_0_28px_rgba(0,0,0,0.18)] dark:shadow-[-8px_0_32px_rgba(0,0,0,0.65)] border-l border-slate-200/80 dark:border-zinc-800/80 flex flex-col z-10 overflow-hidden"
+                className="bg-white dark:bg-[#121316] w-full sm:w-[460px] md:w-[480px] max-w-full h-full flex flex-col shadow-2xl rounded-l-[24px] overflow-hidden touch-pan-y cursor-default drawer-panel relative z-10 text-[#1f1f1f] dark:text-[#e3e3e3] border-l border-slate-200/80 dark:border-zinc-800/80"
                 role="dialog"
                 aria-modal="true"
                 aria-label="Notifications & Updates"
@@ -2882,7 +2902,7 @@ export default function App() {
                   isDarkMode={isDarkMode}
                 />
               </motion.div>
-            </div>
+            </motion.div>
           )}
         </AnimatePresence>,
         document.body

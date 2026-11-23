@@ -332,8 +332,8 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
               {/* ========================================================= */}
               {/* 1. TOP PERFORMERS PODIUM (Olympic 3-Tier Podium)         */}
               {/* ========================================================= */}
-              <div className="rounded-[24px] sm:rounded-[32px] bg-gradient-to-b from-amber-50/80 to-amber-100/40 dark:from-amber-950/20 dark:to-zinc-900/60 border border-amber-200/70 dark:border-amber-900/40 p-3 sm:p-4.5 lg:p-5 space-y-3 sm:space-y-4 shadow-xs">
-                <div className="text-center text-[11px] sm:text-xs font-black tracking-widest uppercase text-amber-800 dark:text-amber-400 flex items-center justify-center gap-1.5">
+              <div className="space-y-3 sm:space-y-4 pt-1 pb-2">
+                <div className="text-center text-[11px] sm:text-xs font-black tracking-widest uppercase text-slate-800 dark:text-zinc-200 flex items-center justify-center gap-1.5">
                   <span>TOP PERFORMERS</span>
                 </div>
 
@@ -471,75 +471,74 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                 const isTop3 = userRank === 3;
 
                 return (
-                  <div className="relative overflow-hidden rounded-[24px] sm:rounded-[28px] p-4 sm:p-5 bg-gradient-to-br from-[#1a73e8] via-[#0b57d0] to-[#0842a0] dark:from-[#1558b0] dark:via-[#0b57d0] dark:to-[#073273] text-white shadow-lg border-0">
-                    {/* Decorative Ambient Radial Highlights */}
-                    <div className="absolute -right-8 -top-8 w-36 h-36 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-                    <div className="absolute -left-6 -bottom-6 w-28 h-28 rounded-full bg-indigo-300/15 blur-xl pointer-events-none" />
-
-                    <div className="relative z-10 space-y-3">
+                  <div className="rounded-[24px] sm:rounded-[28px] p-4 sm:p-5 bg-white dark:bg-[#1e2024] border border-slate-200/80 dark:border-zinc-800 shadow-[0_2px_6px_rgba(0,0,0,0.05)] space-y-3">
+                    <div className="space-y-3">
                       {/* Top Header Tag Row */}
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] sm:text-[10.5px] font-black tracking-widest text-blue-100 uppercase flex items-center gap-1.5">
-                          <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                        <span className="text-[10px] sm:text-[10.5px] font-black tracking-widest text-slate-800 dark:text-zinc-200 uppercase flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
                           <span>YOUR VERIFIED STANDING</span>
-                        </span>
-
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/15 text-white backdrop-blur-xs border border-white/15 shadow-2xs">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                          <span>{summary.currentUserEntry.attemptMode === 'omr' ? 'OMR Verified' : 'Online Verified'}</span>
                         </span>
                       </div>
 
                       {/* Main Standing Row */}
                       <div className="flex items-center gap-3 sm:gap-4">
-                        {/* High-Definition Rank Badge */}
-                        <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-white/20 dark:bg-white/15 backdrop-blur-md flex flex-col items-center justify-center shrink-0 border border-white/25 shadow-inner">
+                        {/* High-Definition Rank Circle Badge (No hash, Circle icon) */}
+                        <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex flex-col items-center justify-center shrink-0 border ${
+                          isTop1
+                            ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700/60 text-amber-900 dark:text-amber-200 shadow-xs'
+                            : isTop2
+                            ? 'bg-slate-100 dark:bg-zinc-800 border-slate-300 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 shadow-xs'
+                            : isTop3
+                            ? 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-600/30 dark:border-amber-800/40 text-amber-800 dark:text-amber-300 shadow-xs'
+                            : 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/50 text-[#0b57d0] dark:text-[#a8c7fa] shadow-xs'
+                        }`}>
                           {isTop1 ? (
-                            <Trophy className="w-4 h-4 text-amber-300 fill-amber-300 mb-0.5 shrink-0" />
+                            <Trophy className="w-4 h-4 text-amber-500 fill-amber-400 mb-0.5 shrink-0" />
                           ) : isTop2 ? (
-                            <Medal className="w-4 h-4 text-slate-200 shrink-0 mb-0.5" />
+                            <Medal className="w-4 h-4 text-slate-600 dark:text-slate-300 shrink-0 mb-0.5" />
                           ) : isTop3 ? (
-                            <Award className="w-4 h-4 text-amber-200 shrink-0 mb-0.5" />
+                            <Award className="w-4 h-4 text-amber-700 dark:text-amber-300 shrink-0 mb-0.5" />
                           ) : (
-                            <span className="text-[8px] font-black tracking-widest text-blue-200 uppercase leading-none">RANK</span>
+                            <span className="text-[7.5px] font-black tracking-widest uppercase leading-none opacity-80">RANK</span>
                           )}
-                          <span className="text-lg sm:text-xl font-black text-white leading-none mt-0.5 font-mono">
-                            #{userRank}
+                          <span className="text-base sm:text-lg font-black leading-none mt-0.5 font-mono">
+                            {userRank}
                           </span>
                         </div>
 
-                        {/* Rank Heading & Context */}
+                        {/* Rank Heading & Context (No hash) */}
                         <div className="min-w-0 flex-1">
-                          <div className="text-sm sm:text-base md:text-lg font-black text-white flex items-baseline gap-1.5 flex-wrap leading-tight">
+                          <div className="text-sm sm:text-base md:text-lg font-black text-slate-900 dark:text-zinc-100 flex items-baseline gap-1.5 flex-wrap leading-tight">
                             <span>Rank</span>
-                            <span className="text-amber-300 font-mono font-black text-base sm:text-xl">
-                              #{userRank}
+                            <span className="text-[#0b57d0] dark:text-[#a8c7fa] font-mono font-black text-base sm:text-xl">
+                              {userRank}
                             </span>
-                            <span className="text-blue-100/90 font-bold text-xs sm:text-sm">
+                            <span className="text-slate-500 dark:text-zinc-400 font-semibold text-xs sm:text-sm">
                               of {summary.totalParticipants} Students
                             </span>
                           </div>
 
-                          <div className="text-[11px] sm:text-xs text-blue-100/90 font-medium mt-0.5">
-                            You outperformed <span className="font-bold text-white">{Math.max(0, 100 - percentile)}%</span> of test participants
+                          <div className="text-[11px] sm:text-xs text-slate-500 dark:text-zinc-400 font-medium mt-0.5">
+                            You outperformed <span className="font-bold text-slate-900 dark:text-zinc-100">{Math.max(0, 100 - percentile)}%</span> of test participants
                           </div>
                         </div>
                       </div>
 
                       {/* Performance Metric Badges */}
                       <div className="flex items-center gap-2 pt-1 flex-wrap">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 dark:bg-white/15 text-[11px] sm:text-xs font-bold text-white shadow-2xs backdrop-blur-xs border border-white/15">
-                          <span className="text-amber-300">★</span>
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 text-[11px] sm:text-xs font-bold text-slate-700 dark:text-zinc-300 border-0">
+                          <span className="text-amber-500">★</span>
                           <span>Top {percentile}%</span>
                         </span>
 
-                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/20 dark:bg-white/15 text-[11px] sm:text-xs font-bold text-white font-mono shadow-2xs backdrop-blur-xs border border-white/15">
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 text-[11px] sm:text-xs font-bold text-slate-700 dark:text-zinc-300 font-mono border-0">
                           <span>Score: {summary.currentUserEntry.score}/{totalPts} ({summary.currentUserEntry.percentage}%)</span>
                         </span>
 
                         {summary.currentUserEntry.timeSpentSeconds ? (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/20 dark:bg-white/15 text-[11px] sm:text-xs font-bold text-white font-mono shadow-2xs backdrop-blur-xs border border-white/15">
-                            <Clock className="w-3 h-3 text-blue-200" />
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 text-[11px] sm:text-xs font-bold text-slate-700 dark:text-zinc-300 font-mono border-0">
+                            <Clock className="w-3 h-3 text-slate-400 dark:text-zinc-500" />
                             <span>{formatDuration(summary.currentUserEntry.timeSpentSeconds)} taken</span>
                           </span>
                         ) : null}
@@ -617,18 +616,14 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="border-t border-slate-200/80 dark:border-zinc-800/80">
                 {displayedEntries.map((entry) => {
                   const isCurrentUser = currentUser?.uid && entry.userId === currentUser.uid;
                   return (
                     <div
                       key={entry.userId}
                       style={{ contentVisibility: 'auto', containIntrinsicSize: '0 62px' }}
-                      className={`p-3 sm:px-5 sm:py-3.5 rounded-[18px] sm:rounded-[22px] flex items-center justify-between gap-2.5 sm:gap-4 transition-all ${
-                        isCurrentUser
-                          ? 'bg-blue-50/80 border-2 border-[#0b57d0]/60 dark:bg-blue-950/25 dark:border-[#a8c7fa]/50 shadow-xs'
-                          : 'bg-white dark:bg-zinc-900 border border-slate-200/90 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
-                      }`}
+                      className="py-3 sm:py-3.5 px-2 sm:px-3 flex items-center justify-between gap-2.5 sm:gap-4 transition-colors hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 border-b border-slate-200/80 dark:border-zinc-800/80"
                     >
                       {/* Left: Avatar with Corner Number Badge + Name + Mode */}
                       <div className="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1">
@@ -708,7 +703,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                       <span className="w-12 h-px bg-slate-300 dark:bg-zinc-700"></span>
                     </div>
 
-                    <div className="p-3.5 sm:px-5 sm:py-4 rounded-[20px] sm:rounded-[24px] flex items-center justify-between gap-2.5 sm:gap-4 bg-gradient-to-r from-blue-50/80 to-indigo-50/50 dark:from-blue-950/30 dark:to-indigo-950/20 border border-blue-200/80 dark:border-blue-800/50 shadow-xs">
+                    <div className="py-3 sm:py-3.5 px-2 sm:px-3 flex items-center justify-between gap-2.5 sm:gap-4 border-y border-slate-200/80 dark:border-zinc-800/80 transition-colors hover:bg-slate-50/80 dark:hover:bg-zinc-800/40">
                       <div className="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1">
                         <div className="relative shrink-0">
                           <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full ${getAvatarBgColor(summary.currentUserEntry.userName)} text-white font-black text-sm sm:text-base flex items-center justify-center shadow-xs`}>

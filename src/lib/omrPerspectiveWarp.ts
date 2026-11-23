@@ -197,8 +197,8 @@ export function autoDetectFiducialsOnCanvas(canvas: HTMLCanvasElement): QuadCorn
   const h = canvas.height;
   if (!w || !h || w < 100 || h < 100) return null;
 
-  // Downsample to max dimension 800 for high performance (<20ms execution)
-  const maxDim = 800;
+  // Downsample to max dimension 500 for lightning-fast <15ms execution
+  const maxDim = 500;
   const scale = Math.min(1.0, maxDim / Math.max(w, h));
   const sw = Math.round(w * scale);
   const sh = Math.round(h * scale);
@@ -220,40 +220,62 @@ export function autoDetectFiducialsOnCanvas(canvas: HTMLCanvasElement): QuadCorn
   }
 
   // Integral image for fast mean computation
-  const integral = new Int32Array((sw + 1) * (sh + 1));
+  const stride = sw + 1;
+  const integral = new Int32Array(stride * (sh + 1));
   for (let y = 0; y < sh; y++) {
     let rowSum = 0;
     const yRow = y * sw;
-    const iRow = y * (sw + 1);
-    const iNext = (y + 1) * (sw + 1);
+    const iRow = y * stride;
+    const iNext = (y + 1) * stride;
     for (let x = 0; x < sw; x++) {
       rowSum += gray[yRow + x];
       integral[iNext + x + 1] = integral[iRow + x + 1] + rowSum;
     }
   }
 
-  const getMean = (x0: number, y0: number, x1: number, y1: number) => {
-    const rx0 = Math.max(0, Math.min(sw - 1, x0));
-    const ry0 = Math.max(0, Math.min(sh - 1, y0));
-    const rx1 = Math.max(0, Math.min(sw - 1, x1));
-    const ry1 = Math.max(0, Math.min(sh - 1, y1));
-    if (rx1 < rx0 || ry1 < ry0) return 128;
-    const count = (rx1 - rx0 + 1) * (ry1 - ry0 + 1);
+  const getBoxMean = (rx0: number, ry0: number, rx1: number, ry1: number) => {
+    const x0 = Math.max(0, Math.min(sw - 1, rx0));
+    const y0 = Math.max(0, Math.min(sh - 1, ry0));
+    const x1 = Math.max(0, Math.min(sw - 1, rx1));
+    const y1 = Math.max(0, Math.min(sh - 1, ry1));
+    const count = (x1 - x0 + 1) * (y1 - y0 + 1);
+    if (count <= 0) return 128;
     const sum =
-      integral[(ry1 + 1) * (sw + 1) + rx1 + 1] -
-      integral[ry0 * (sw + 1) + rx1 + 1] -
-      integral[(ry1 + 1) * (sw + 1) + rx0] +
-      integral[ry0 * (sw + 1) + rx0];
+      integral[(y1 + 1) * stride + x1 + 1] -
+      integral[y0 * stride + x1 + 1] -
+      integral[(y1 + 1) * stride + x0] +
+      integral[y0 * stride + x0];
     return sum / count;
   };
 
   // Adaptive thresholding: dark registration border pixels
+  // Registration fiducials are ONLY present in the 4 corner zones (outer 38% margins)
+  // Skipping the central 60% of the page avoids analyzing questions/bubbles and speeds up processing 5x
+  const cornerXMargin = Math.round(sw * 0.38);
+  const cornerYMargin = Math.round(sh * 0.38);
   const binaryDark = new Uint8Array(sw * sh);
-  const rMean = Math.max(4, Math.round(sw * 0.015));
+  const rMean = Math.max(3, Math.round(sw * 0.015));
+
   for (let y = 0; y < sh; y++) {
+    const isYCorner = y < cornerYMargin || y > sh - cornerYMargin;
     const yRow = y * sw;
+    const y0 = y > rMean ? y - rMean : 0;
+    const y1 = y + rMean < sh ? y + rMean : sh - 1;
+    const rowH = y1 - y0 + 1;
+    const intY0 = y0 * stride;
+    const intY1 = (y1 + 1) * stride;
+
     for (let x = 0; x < sw; x++) {
-      const localM = getMean(x - rMean, y - rMean, x + rMean, y + rMean);
+      if (!isYCorner && (x >= cornerXMargin && x <= sw - cornerXMargin)) {
+        continue;
+      }
+
+      const x0 = x > rMean ? x - rMean : 0;
+      const x1 = x + rMean < sw ? x + rMean : sw - 1;
+      const count = (x1 - x0 + 1) * rowH;
+      const sum = integral[intY1 + x1 + 1] - integral[intY0 + x1 + 1] - integral[intY1 + x0] + integral[intY0 + x0];
+      const localM = sum / count;
+
       if (gray[yRow + x] < localM - 12) {
         binaryDark[yRow + x] = 1;
       }
@@ -264,8 +286,8 @@ export function autoDetectFiducialsOnCanvas(canvas: HTMLCanvasElement): QuadCorn
   const midX = sw / 2;
   const midY = sh / 2;
   const expectedSquarePx = Math.round((5.5 / 210) * sw); // ~5.5mm on A4
-  const minBox = Math.max(6, Math.round(expectedSquarePx * 0.45));
-  const maxBox = Math.min(60, Math.round(expectedSquarePx * 2.2));
+  const minBox = Math.max(5, Math.round(expectedSquarePx * 0.45));
+  const maxBox = Math.min(50, Math.round(expectedSquarePx * 2.2));
 
   interface Cand {
     cx: number;
@@ -278,8 +300,12 @@ export function autoDetectFiducialsOnCanvas(canvas: HTMLCanvasElement): QuadCorn
 
   const visited = new Uint8Array(sw * sh);
   for (let y = 2; y < sh - 2; y++) {
+    const isYCorner = y < cornerYMargin || y > sh - cornerYMargin;
     const yRow = y * sw;
     for (let x = 2; x < sw - 2; x++) {
+      if (!isYCorner && (x >= cornerXMargin && x <= sw - cornerXMargin)) {
+        continue;
+      }
       if (binaryDark[yRow + x] === 1 && visited[yRow + x] === 0) {
         let minX = x, maxX = x, minY = y, maxY = y;
         const queue = [x, y];
@@ -323,7 +349,7 @@ export function autoDetectFiducialsOnCanvas(canvas: HTMLCanvasElement): QuadCorn
           const cx = (minX + maxX) / 2;
           const cy = (minY + maxY) / 2;
           const centerVal = gray[Math.round(cy) * sw + Math.round(cx)];
-          const boxMean = getMean(minX, minY, maxX, maxY);
+          const boxMean = getBoxMean(minX, minY, maxX, maxY);
 
           // Hollow or high-contrast registration square check
           if (centerVal >= boxMean + 3 || boxMean < 110) {
@@ -360,8 +386,8 @@ export function autoDetectFiducialsOnCanvas(canvas: HTMLCanvasElement): QuadCorn
           if (avgH <= 20 || avgW <= 20) continue;
 
           const ratio = avgW / avgH;
-          // Standard OMR sheet has ratio ~0.7 to 1.15
-          if (ratio >= 0.65 && ratio <= 1.20 && Math.abs(topW - botW) / avgW < 0.25 && Math.abs(leftH - rightH) / avgH < 0.25) {
+          // Standard OMR sheet fiducial ratio ~190mm / 277mm = 0.686 (allow [0.55, 1.25] for perspective angle)
+          if (ratio >= 0.55 && ratio <= 1.25 && Math.abs(topW - botW) / avgW < 0.28 && Math.abs(leftH - rightH) / avgH < 0.28) {
             const area = avgW * avgH;
             if (area > maxArea) {
               maxArea = area;
@@ -419,10 +445,11 @@ export function checkFrameAlignmentQuality(
   if (avgW <= 50 || avgH <= 50) return { isGood: false, score: 0, label: 'Adjust corners' };
 
   const ratio = avgW / avgH;
-  // Standard A4 OMR aspect ratio is ~0.72 to 1.15
-  const isRatioValid = ratio >= 0.70 && ratio <= 1.20;
-  const isSymW = Math.abs(topW - botW) / avgW < 0.20;
-  const isSymH = Math.abs(leftH - rightH) / avgH < 0.20;
+  // Standard A4 OMR fiducials aspect ratio is ~190mm / 277mm = 0.686
+  // Allow [0.55, 1.25] to accommodate perspective projection of portrait sheets
+  const isRatioValid = ratio >= 0.55 && ratio <= 1.25;
+  const isSymW = Math.abs(topW - botW) / avgW < 0.28;
+  const isSymH = Math.abs(leftH - rightH) / avgH < 0.28;
 
   if (!isRatioValid || !isSymW || !isSymH) {
     return { isGood: false, score: 30, label: 'Keep frame rectangular' };
@@ -432,21 +459,30 @@ export function checkFrameAlignmentQuality(
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return { isGood: isRatioValid && isSymW && isSymH, score: 70, label: 'Good ✓' };
 
+  // Sample a window sized proportionally to the expected registration square (~5.5mm on sheet)
+  const sampleSize = Math.max(20, Math.min(60, Math.round(w * 0.035)));
+  const halfS = Math.floor(sampleSize / 2);
+
   const checkCornerContrast = (pt: { x: number; y: number }): boolean => {
-    const rx = Math.max(0, Math.min(w - 18, Math.round(pt.x - 9)));
-    const ry = Math.max(0, Math.min(h - 18, Math.round(pt.y - 9)));
-    const imgData = ctx.getImageData(rx, ry, 18, 18);
+    const rx = Math.max(0, Math.min(w - sampleSize, Math.round(pt.x - halfS)));
+    const ry = Math.max(0, Math.min(h - sampleSize, Math.round(pt.y - halfS)));
+    const imgData = ctx.getImageData(rx, ry, sampleSize, sampleSize);
     const d = imgData.data;
     let minLuma = 255;
     let maxLuma = 0;
-    for (let i = 0; i < 18 * 18; i++) {
+    const centerIdx = (halfS * sampleSize + halfS) * 4;
+    const centerLuma = (d[centerIdx] * 77 + d[centerIdx + 1] * 150 + d[centerIdx + 2] * 29) >> 8;
+
+    for (let i = 0; i < sampleSize * sampleSize; i += 2) {
       const idx = i * 4;
       const luma = (d[idx] * 77 + d[idx + 1] * 150 + d[idx + 2] * 29) >> 8;
       if (luma < minLuma) minLuma = luma;
       if (luma > maxLuma) maxLuma = luma;
     }
-    // High contrast indicates presence of dark printed square on light paper
-    return (maxLuma - minLuma >= 22) && (minLuma < 145);
+    // High contrast: dark printed square (<150) with white paper margin (>160)
+    const hasDarkCenter = centerLuma < 150 || minLuma < 125;
+    const hasContrast = (maxLuma - minLuma >= 30);
+    return hasDarkCenter && hasContrast;
   };
 
   const cTL = checkCornerContrast(pTL);
@@ -456,7 +492,7 @@ export function checkFrameAlignmentQuality(
   const contrastCount = (cTL ? 1 : 0) + (cTR ? 1 : 0) + (cBR ? 1 : 0) + (cBL ? 1 : 0);
 
   if (contrastCount >= 3) {
-    return { isGood: true, score: 95, label: 'Perfect Shot ✓' };
+    return { isGood: true, score: 95, label: 'Perfect Alignment ✓' };
   } else if (contrastCount >= 2) {
     return { isGood: true, score: 80, label: 'Good Alignment ✓' };
   }

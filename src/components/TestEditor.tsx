@@ -17,6 +17,7 @@ import {
   BookOpen, 
   Undo2, 
   Redo2, 
+  MoreVertical, 
   Columns, 
   FileCode, 
   FileText, 
@@ -2855,79 +2856,23 @@ export const TestEditor: React.FC<TestEditorProps> = ({
 
         {/* UNIFIED COMMAND & ASSESSMENT CONTROL CARD */}
         <div className="bg-white dark:bg-[#1e2024] px-3 sm:px-4 py-2 sm:py-2.5 rounded-[24px] flex flex-col gap-2 shrink-0 z-20 border-0 ring-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] w-full">
-          {/* TOP SECTION: ACTION BUTTONS (Equally spaced across 3 columns on mobile, fluid row on desktop) */}
-          <div className="grid grid-cols-3 gap-1 sm:gap-1.5 sm:flex sm:flex-wrap sm:items-center w-full">
-{/* Action Dropdown Menu Button */}
-          <div className="relative w-full sm:w-auto shrink-0" ref={actionsMenuRef}>
-            <button
-              type="button"
-              id="test-editor-actions-menu-btn"
-              onClick={() => setIsActionsMenuOpen(!isActionsMenuOpen)}
-              className="w-full sm:w-auto flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
-            >
-              <Sliders className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-              <span>Action</span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#1f1f1f] dark:text-[#e3e3e3] shrink-0" />
-            </button>
-
-            {isActionsMenuOpen && (
-              <div className="absolute left-0 top-full mt-1.5 w-56 max-w-[calc(100vw-24px)] bg-white dark:bg-[#21222e] text-slate-900 dark:text-zinc-100 rounded-2xl shadow-xl border-0 ring-0 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
-                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-zinc-800/60 mb-1">
-                  Quick Actions
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsActionsMenuOpen(false);
-                    if (onOpenCustomPanel) {
-                      onOpenCustomPanel();
-                    }
-                  }}
-                  className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-[#282a39] text-emerald-700 dark:text-emerald-300 font-bold transition-colors cursor-pointer"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-[#0b7a56] dark:text-emerald-400 shrink-0" />
-                  <span>Create Custom Test</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsActionsMenuOpen(false);
-                    handleCreateNewBlankTest();
-                  }}
-                  className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-[#e6f7f1] dark:hover:bg-emerald-950/40 text-[#0b7a56] dark:text-emerald-300 font-bold transition-colors cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5 text-[#0b7a56] dark:text-emerald-400 shrink-0" />
-                  <span>New Assessment (Blank)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleExportCurrentTest('txt');
-                    setIsActionsMenuOpen(false);
-                  }}
-                  className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-[#282a39] text-slate-700 dark:text-zinc-200 transition-colors cursor-pointer font-bold"
-                >
-                  <Download className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-                  <span>Export Test (.txt)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsActionsMenuOpen(false);
-                    handleDownloadSampleText();
-                  }}
-                  className="w-full px-3 py-2 text-xs text-left flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-[#282a39] text-slate-700 dark:text-zinc-200 transition-colors cursor-pointer font-bold"
-                >
-                  <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span>Sample .txt Template</span>
-                </button>
-              </div>
-            )}
-          </div>
+          {/* TOP SECTION: ACTION BUTTONS (Hidden on mobile, fluid row on desktop) */}
+          <div className="hidden sm:flex sm:flex-wrap sm:items-center gap-1 sm:gap-1.5 w-full">
+          {/* Custom Test Button */}
+          <button
+            type="button"
+            id="test-editor-action-custom-test-btn"
+            onClick={() => {
+              if (onOpenCustomPanel) {
+                onOpenCustomPanel();
+              }
+            }}
+            className="w-full sm:w-auto flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-1.5 rounded-full hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap"
+            title="Open Custom Test Generator"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+            <span>Custom Test</span>
+          </button>
 
           {/* Edit with AI Button */}
           <button
@@ -3011,7 +2956,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
           </div>
 
           {/* DIVIDER */}
-          <div className="h-px bg-slate-100 dark:bg-zinc-800/60 w-full" />
+          <div className="hidden sm:block h-px bg-slate-100 dark:bg-zinc-800/60 w-full" />
 
           {/* BOTTOM SECTION: CURRENT TEST TITLE WITH PARAMETERS DROPDOWN & SHORT "SAVE" BUTTON WITH UNDO/REDO */}
           <div className="flex items-center justify-between gap-2 sm:gap-3 w-full">
@@ -3174,6 +3119,127 @@ export const TestEditor: React.FC<TestEditorProps> = ({
             <Save className="w-3.5 h-3.5" />
             <span>Save</span>
           </button>
+
+          {/* Option Menu Button with Vertical Dots (Far right side of this strip) */}
+          <div className="relative shrink-0" ref={actionsMenuRef}>
+            <button
+              type="button"
+              id="test-editor-actions-menu-btn"
+              onClick={() => setIsActionsMenuOpen(!isActionsMenuOpen)}
+              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[#1d283a] dark:text-zinc-200 bg-slate-100 dark:bg-[#222634] hover:bg-[#dedcd6] dark:hover:bg-[#282a39] active:scale-95 cursor-pointer transition-all ${
+                isActionsMenuOpen ? 'ring-2 ring-[#0b57d0] text-[#0b57d0] dark:text-[#a8c7fa]' : ''
+              }`}
+              title="More Options"
+              aria-label="More Options"
+            >
+              <MoreVertical className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </button>
+
+            {isActionsMenuOpen && (
+              <div className="absolute right-0 top-full mt-2 w-52 sm:w-56 bg-white dark:bg-[#1e2024] rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.6)] p-1.5 z-50 border border-slate-100 dark:border-zinc-800/80 flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100">
+                {/* Custom Test */}
+                <button
+                  type="button"
+                  id="test-editor-menu-custom-test-btn"
+                  onClick={() => {
+                    setIsActionsMenuOpen(false);
+                    if (onOpenCustomPanel) {
+                      onOpenCustomPanel();
+                    }
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer text-left"
+                >
+                  <Sparkles className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+                  <span>Custom Test</span>
+                </button>
+
+                {/* Edit with AI */}
+                <button
+                  type="button"
+                  id="test-editor-menu-edit-with-ai-btn"
+                  onClick={() => {
+                    setIsActionsMenuOpen(false);
+                    const nextState = !isAiPromptOpen;
+                    setIsAiPromptOpen(nextState);
+                    if (nextState) {
+                      setTimeout(() => aiPromptInputRef.current?.focus(), 150);
+                    }
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer text-left ${
+                    isAiPromptOpen 
+                      ? 'bg-blue-50 text-[#0b57d0] dark:bg-blue-950/40 dark:text-[#a8c7fa]' 
+                      : 'hover:bg-slate-100 dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-200'
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+                  <span>Edit with AI</span>
+                </button>
+
+                {/* Export (.txt) */}
+                <button
+                  type="button"
+                  id="test-editor-menu-export-txt-btn"
+                  onClick={() => {
+                    setIsActionsMenuOpen(false);
+                    handleExportCurrentTest('txt');
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer text-left"
+                >
+                  <Download className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+                  <span>Export (.txt)</span>
+                </button>
+
+                {/* Import */}
+                <button
+                  type="button"
+                  id="test-editor-menu-import-btn"
+                  onClick={() => {
+                    setIsActionsMenuOpen(false);
+                    fileInputRef.current?.click();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer text-left"
+                >
+                  <Upload className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] rotate-180 shrink-0" />
+                  <span>Import</span>
+                </button>
+
+                {/* New Template */}
+                <button
+                  type="button"
+                  id="test-editor-menu-new-template-btn"
+                  onClick={() => {
+                    setIsActionsMenuOpen(false);
+                    handleLoadSampleJsonInEditor();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer text-left"
+                >
+                  <Plus className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+                  <span>New Template</span>
+                </button>
+
+                {/* History */}
+                <button
+                  type="button"
+                  id="test-editor-menu-history-btn"
+                  onClick={() => {
+                    setIsActionsMenuOpen(false);
+                    handleOpenHistoryDrawer();
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-200 text-xs font-semibold transition-colors cursor-pointer text-left"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <History className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+                    <span>History</span>
+                  </div>
+                  {allTests.length > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.5 bg-[#0b57d0] text-white rounded-full font-bold shadow-xs">
+                      {allTests.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
           </div>
         </div>
         </div>
@@ -3788,7 +3854,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                       <div
                         ref={codeBackdropRef}
                         aria-hidden="true"
-                        className="absolute inset-0 p-2 sm:p-2.5 font-mono text-xs sm:text-[13px] leading-snug whitespace-pre-wrap break-words overflow-hidden pointer-events-none select-none z-0 text-transparent rounded-xl border border-transparent"
+                        className="absolute inset-0 p-2 sm:p-2.5 font-mono text-xs sm:text-[13px] leading-snug whitespace-pre-wrap break-words overflow-hidden pointer-events-none select-none z-0 text-transparent rounded-none border border-transparent"
                       >
                         {renderHighlightedBackdrop(questionCodeDraft, codeFindQuery, codeFindMatches, codeFindCurrentIdx)}
                       </div>
@@ -3804,7 +3870,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                           codeBackdropRef.current.scrollLeft = e.currentTarget.scrollLeft;
                         }
                       }}
-                      className={`relative z-10 w-full h-full p-2 sm:p-2.5 font-mono text-xs sm:text-[13px] leading-snug text-emerald-300 rounded-xl border border-[#272932] outline-none resize-none overflow-y-auto ${
+                      className={`relative z-10 w-full h-full p-2 sm:p-2.5 font-mono text-xs sm:text-[13px] leading-snug text-emerald-300 rounded-none border border-[#272932] outline-none resize-none overflow-y-auto ${
                         isCodeFindOpen && codeFindQuery && codeFindMatches.length > 0
                           ? 'bg-[#0e0e11]/80'
                           : 'bg-[#0e0e11]'
@@ -4075,7 +4141,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                 <div
                   ref={jsonBackdropRef}
                   aria-hidden="true"
-                  className="absolute inset-x-0 bottom-0 top-2 p-3 sm:p-4 font-mono text-xs sm:text-[13px] leading-relaxed whitespace-pre-wrap break-words overflow-hidden pointer-events-none select-none z-0 text-transparent rounded-2xl"
+                  className="absolute inset-x-0 bottom-0 top-2 p-3 sm:p-4 font-mono text-xs sm:text-[13px] leading-relaxed whitespace-pre-wrap break-words overflow-hidden pointer-events-none select-none z-0 text-transparent rounded-none"
                 >
                   {renderHighlightedBackdrop(jsonText, jsonFindQuery, jsonFindMatches, jsonFindCurrentIdx)}
                 </div>
@@ -4091,7 +4157,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
                     jsonBackdropRef.current.scrollLeft = e.currentTarget.scrollLeft;
                   }
                 }}
-                className={`relative z-10 w-full h-full p-3 sm:p-4 font-mono text-xs sm:text-[13px] leading-relaxed text-emerald-400 dark:text-emerald-300 rounded-2xl outline-none resize-none overflow-y-auto ${
+                className={`relative z-10 w-full h-full p-3 sm:p-4 font-mono text-xs sm:text-[13px] leading-relaxed text-emerald-400 dark:text-emerald-300 rounded-none outline-none resize-none overflow-y-auto ${
                   isJsonFindOpen && jsonFindQuery && jsonFindMatches.length > 0
                     ? 'bg-[#0d1411]/90 dark:bg-[#080d0a]/90'
                     : 'bg-[#0d1411] dark:bg-[#080d0a]'

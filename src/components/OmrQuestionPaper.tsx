@@ -95,7 +95,7 @@ const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 1120;
  */
 export const PREVIEW_BOTTOM_EXTRA_HEIGHT_PX = 0;
 const ITEM_GAP_PX = 0;
-const CHARS_PER_COL_LINE = 56;
+const CHARS_PER_COL_LINE = 43;
 
 export interface OptionDimensionAnalysis {
   effectiveWidthPx: number;
@@ -415,7 +415,7 @@ function estimateSingleOptionHeight(opt: OptionData): number {
   if (isFrac || isInt) return 34;
 
   const analysis = analyzeOptionDimensions(text);
-  const lines = Math.max(1, Math.ceil(analysis.effectiveWidthPx / 315));
+  const lines = Math.max(1, Math.ceil(analysis.effectiveWidthPx / 290));
 
   let baseH = lines * 19;
   return Math.max(20, baseH);
@@ -571,6 +571,12 @@ function findBestTwoColumnSplit(
 
   const heights = items.map((it) => measuredHeightsMap?.[it.id] ?? it.estimatedHeight);
   const totalH = heights.reduce((sum, h) => sum + h + ITEM_GAP_PX, 0);
+
+  // If total height exceeds 2 full columns, impossible to split evenly within colBudget
+  if (totalH > colBudget * 2) {
+    return null;
+  }
+
   const targetH = totalH / 2;
 
   let bestSplit: TwoColumnSplit | null = null;
@@ -666,8 +672,11 @@ function paginateLinearStream(
   while (unplacedUnits.length > 0) {
     const pageIdx = pageNumber - 1;
     const colBudget = getColBudget(pageIdx);
+    const maxPageCapacity = colBudget * 2;
 
     let currentUnitsForPage: typeof questionUnits = [];
+    let runningPageItems: StreamFlowItem[] = [];
+    let runningPageHeight = 0;
     let bestSplitForPage: TwoColumnSplit | null = null;
     let unitsToIncludeCount = 0;
 
@@ -678,13 +687,23 @@ function paginateLinearStream(
         break;
       }
 
-      const testUnits = [...currentUnitsForPage, candidateUnit];
-      const testItems = testUnits.flatMap((u) => u.items);
+      const candidateUnitHeight = candidateUnit.items.reduce(
+        (sum, it) => sum + (measuredHeightsMap?.[it.id] ?? it.estimatedHeight) + ITEM_GAP_PX,
+        0
+      );
 
+      // Early break: if running items + this unit exceed max capacity of 2 columns, cannot fit on this page
+      if (currentUnitsForPage.length > 0 && runningPageHeight + candidateUnitHeight > maxPageCapacity + 20) {
+        break;
+      }
+
+      const testItems = [...runningPageItems, ...candidateUnit.items];
       const split = findBestTwoColumnSplit(testItems, colBudget, measuredHeightsMap);
 
       if (split !== null) {
-        currentUnitsForPage = testUnits;
+        currentUnitsForPage.push(candidateUnit);
+        runningPageItems = testItems;
+        runningPageHeight += candidateUnitHeight;
         bestSplitForPage = split;
         unitsToIncludeCount = i + 1;
       } else {
@@ -1007,8 +1026,37 @@ const RenderStreamItem: React.FC<{
   return null;
 });
 
-// Module-level cache to keep measured DOM heights consistent across test visits within the session
+// Module-level cache + sessionStorage persistence to keep measured DOM heights instant and consistent across navigations
+const SESSION_CACHE_PREFIX = 'elevate_omr_heights_v3_';
 const GLOBAL_MEASURED_HEIGHTS_CACHE = new Map<string, Record<string, number>>();
+
+function getCachedHeights(testKey: string): Record<string, number> | null {
+  if (GLOBAL_MEASURED_HEIGHTS_CACHE.has(testKey)) {
+    return GLOBAL_MEASURED_HEIGHTS_CACHE.get(testKey)!;
+  }
+  if (typeof window !== 'undefined' && window.sessionStorage) {
+    try {
+      const stored = window.sessionStorage.getItem(SESSION_CACHE_PREFIX + testKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === 'object') {
+          GLOBAL_MEASURED_HEIGHTS_CACHE.set(testKey, parsed);
+          return parsed;
+        }
+      }
+    } catch {}
+  }
+  return null;
+}
+
+function setCachedHeights(testKey: string, heights: Record<string, number>) {
+  GLOBAL_MEASURED_HEIGHTS_CACHE.set(testKey, heights);
+  if (typeof window !== 'undefined' && window.sessionStorage) {
+    try {
+      window.sessionStorage.setItem(SESSION_CACHE_PREFIX + testKey, JSON.stringify(heights));
+    } catch {}
+  }
+}
 
 export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
   test,
@@ -1095,8 +1143,9 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
   }, [test.id, test.title, test.questions?.length, layoutDensity]);
 
   const [measuredHeights, setMeasuredHeights] = useState<Record<string, number>>(() => {
-    if (testIdKey && GLOBAL_MEASURED_HEIGHTS_CACHE.has(testIdKey)) {
-      return { ...GLOBAL_MEASURED_HEIGHTS_CACHE.get(testIdKey)! };
+    if (testIdKey) {
+      const cached = getCachedHeights(testIdKey);
+      if (cached) return { ...cached };
     }
     return {};
   });
@@ -1108,16 +1157,19 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
 
   useEffect(() => {
     let isCancelled = false;
+    let passesCompleted = 0;
+    const maxPasses = 2;
 
     const measureDomHeights = () => {
-      if (isCancelled) return false;
+      if (isCancelled || passesCompleted >= maxPasses) return false;
       const root = document.getElementById('question-paper-printable-root');
       if (!root) return false;
 
       const elements = root.querySelectorAll<HTMLElement>('[data-stream-id]');
       if (elements.length === 0) return false;
 
-      let hasDiff = false;
+      let hasSignificantDiff = false;
+      let totalDiffPx = 0;
       const nextHeights: Record<string, number> = { ...heightsRef.current };
 
       elements.forEach((el) => {
@@ -1126,42 +1178,64 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
           const h = el.offsetHeight;
           if (h > 0) {
             const oldH = heightsRef.current[id];
-            if (oldH === undefined || Math.abs(oldH - h) > 2) {
+            if (oldH === undefined) {
               nextHeights[id] = h;
-              hasDiff = true;
+              hasSignificantDiff = true;
+              totalDiffPx += h;
+            } else if (Math.abs(oldH - h) >= 4) {
+              nextHeights[id] = h;
+              hasSignificantDiff = true;
+              totalDiffPx += Math.abs(oldH - h);
             }
           }
         }
       });
 
-      if (hasDiff && !isCancelled) {
+      // Avoid triggering re-render for negligible micro-differences (< 8px total across all items)
+      if (hasSignificantDiff && !isCancelled && totalDiffPx >= 8) {
+        passesCompleted++;
         heightsRef.current = nextHeights;
         if (testIdKey) {
-          GLOBAL_MEASURED_HEIGHTS_CACHE.set(testIdKey, nextHeights);
+          setCachedHeights(testIdKey, nextHeights);
         }
         setMeasuredHeights(nextHeights);
       }
-      return hasDiff;
+      return hasSignificantDiff;
     };
 
-    // Check if heights are already cached for this test
-    const hasCachedHeights = Boolean(testIdKey && GLOBAL_MEASURED_HEIGHTS_CACHE.has(testIdKey));
+    const hasCached = Boolean(testIdKey && getCachedHeights(testIdKey));
+    const timers: any[] = [];
+    let rafId: number | null = null;
 
-    // 1. If not cached, measure after initial paint; if cached, defer check so initial paint is instant (0ms delay)
-    const rafId = requestAnimationFrame(() => {
-      measureDomHeights();
-    });
+    if (!hasCached) {
+      // Pass 1: measure once DOM is mounted
+      rafId = requestAnimationFrame(() => {
+        if (!isCancelled) {
+          measureDomHeights();
+        }
+      });
 
-    // 2. Light staged passes for layout shifts if heights are not yet cached
-    const timers = hasCachedHeights
-      ? [setTimeout(measureDomHeights, 400)]
-      : [
-          setTimeout(measureDomHeights, 100),
-          setTimeout(measureDomHeights, 350),
-          setTimeout(measureDomHeights, 800),
-        ];
+      // Pass 2: secondary pass after math rendering settles
+      timers.push(
+        setTimeout(() => {
+          if (!isCancelled) {
+            measureDomHeights();
+          }
+        }, 300)
+      );
+    } else {
+      // If already cached from sessionStorage, initial layout is already 100% accurate.
+      // Single deferred check (600ms) only to ensure consistency.
+      timers.push(
+        setTimeout(() => {
+          if (!isCancelled) {
+            measureDomHeights();
+          }
+        }, 600)
+      );
+    }
 
-    // 4. Web fonts ready hook (KaTeX & Inter fonts finish loading)
+    // Font ready hook (KaTeX & fonts finished)
     if (typeof document !== 'undefined' && 'fonts' in document) {
       document.fonts.ready
         .then(() => {
@@ -1172,29 +1246,10 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
         .catch(() => {});
     }
 
-    // 5. ResizeObserver to catch any dynamic size changes (math expansion, image load)
-    let resizeObserver: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== 'undefined') {
-      const root = document.getElementById('question-paper-printable-root');
-      if (root) {
-        resizeObserver = new ResizeObserver(() => {
-          if (!isCancelled) {
-            measureDomHeights();
-          }
-        });
-        resizeObserver.observe(root);
-        const elements = root.querySelectorAll<HTMLElement>('[data-stream-id]');
-        elements.forEach((el) => resizeObserver?.observe(el));
-      }
-    }
-
     return () => {
       isCancelled = true;
-      cancelAnimationFrame(rafId);
+      if (rafId) cancelAnimationFrame(rafId);
       timers.forEach((t) => clearTimeout(t));
-      if (resizeObserver) {
-        resizeObserver.disconnect();
-      }
     };
   }, [streamItems, layoutDensity, testIdKey]);
 
@@ -1490,13 +1545,12 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
               <div
                 key={`page_wrap_${page.pageNumber}`}
                 data-page-wrapper="true"
-                className="relative mx-auto shrink-0 print:p-0 print:m-0 print:w-[210mm] print:h-[297mm] print:pb-0 transition-all duration-150 ease-out a4-page-wrapper-virtualized"
+                className="relative mx-auto shrink-0 print:p-0 print:m-0 print:w-[210mm] print:h-[297mm] print:pb-0 a4-page-wrapper-virtualized"
                 style={{
                   width: `${pageWPx * effectiveScale}px`,
                   maxWidth: '100%',
                   height: `${currentPageHPx * effectiveScale}px`,
                   minHeight: `${(pageHPx + PREVIEW_BOTTOM_EXTRA_HEIGHT_PX) * effectiveScale}px`,
-                  transition: 'width 0.15s ease-out, height 0.15s ease-out',
                 }}
               >
                 <div
@@ -1520,7 +1574,6 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                     top: 0,
                     transform: `translateX(-50%) scale(${effectiveScale})`,
                     transformOrigin: 'top center',
-                    transition: 'transform 0.15s ease-out, height 0.15s ease-out',
                     overflow: 'hidden',
                   }}
                 >

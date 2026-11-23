@@ -1273,9 +1273,9 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                 id="review-leaderboard-btn"
                 onClick={() => setIsLeaderboardOpen(true)}
                 title="View Leaderboard"
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all active:scale-95 shrink-0 cursor-pointer border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-orange-500 hover:bg-orange-600 dark:bg-orange-500 dark:hover:bg-orange-600 text-white flex items-center justify-center transition-all active:scale-95 shrink-0 cursor-pointer border-0 shadow-[0_2px_6px_rgba(249,115,22,0.35)]"
               >
-                <Trophy className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-amber-500 shrink-0" />
+                <Trophy className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-white fill-white shrink-0" />
               </button>
 
               {canAccessNotes && (

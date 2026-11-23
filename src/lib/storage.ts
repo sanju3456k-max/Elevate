@@ -120,6 +120,59 @@ export function setOfflineLocalOnlyMode(enabled: boolean): void {
   }
 }
 
+/**
+ * Determines whether a test belongs exclusively to the user's personal private scope (created outside batches).
+ * Tests linked to institutional batches, course curricula, remedial sets, sample tests, or master published tests
+ * are institutional/protected tests and return false.
+ */
+export function isUserPersonalTest(t: Partial<MathTest> | null | undefined): boolean {
+  if (!t || !t.id) return false;
+  
+  // 1. If explicitly linked to a batch or flagged as a batch test
+  if (t.batchId || (t as any).isBatchTest) return false;
+  
+  // 2. Check if test ID starts with remedial_ or is a personalized remedial test
+  if (
+    String(t.id).startsWith('remedial_') || 
+    (t as any).isPersonalizedRemedial || 
+    t.category === 'Remedial' || 
+    t.topic === 'Personalized Test' || 
+    t.topic === 'Targeted Remedial Practice'
+  ) {
+    return false;
+  }
+  
+  // 3. Check if test is one of the default sample tests
+  if (SAMPLE_MATH_TESTS.some((s) => s.id === t.id)) {
+    return false;
+  }
+
+  // 4. Check if test is registered in master published tests or batch test manifests
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const rawPub = localStorage.getItem('master_published_test_ids');
+      if (rawPub) {
+        const arr = JSON.parse(rawPub);
+        if (Array.isArray(arr) && arr.includes(t.id)) return false;
+      }
+    } catch {}
+
+    try {
+      const rawBatchTests = localStorage.getItem('elevatelabs_batch_tests_v2');
+      if (rawBatchTests) {
+        const batchArr = JSON.parse(rawBatchTests);
+        if (Array.isArray(batchArr)) {
+          if (batchArr.some((bt: any) => bt.id === t.id || bt.testId === t.id)) {
+            return false;
+          }
+        }
+      }
+    } catch {}
+  }
+
+  return true;
+}
+
 export interface CachedAuthUser {
   uid: string;
   displayName: string | null;
@@ -1620,7 +1673,9 @@ export function getLocalDataStorageStats(userId?: string | null): {
  * Exports all scoped tests, attempts, sessions, Gemini chats, notes, HTML notes, and app preferences to a downloadable JSON string.
  */
 export async function exportAllLocalDataAsJson(userId?: string | null): Promise<string> {
-  const tests = loadScopedTests(userId);
+  const allTests = loadScopedTests(userId);
+  // Strictly filter to user's personal private tests; protected batch curriculum is excluded
+  const tests = allTests.filter(isUserPersonalTest);
   const attempts = loadScopedAttempts(userId);
   const sessions = loadAllScopedActiveSessions(userId);
   const chatSessions = loadScopedChatSessions(userId);
@@ -1731,6 +1786,11 @@ export async function importAllLocalDataFromJson(
 
       parsed.tests.forEach((t: MathTest) => {
         if (t && t.id) {
+          // SECURITY SAFEGUARD: Never allow imported JSON to overwrite protected batch tests
+          if (!isUserPersonalTest(t)) return;
+          const existing = testMap.get(t.id);
+          if (existing && !isUserPersonalTest(existing)) return;
+
           // Unmark test ID from deleted list so imported tests are always visible
           unmarkTestAsDeletedInScopedStorage(userId, t.id);
           restoredTestIds.push(t.id);
@@ -2075,6 +2135,8 @@ export function wipeAllScopedUserDataFromLocalStorage(userId?: string | null): v
  */
 export function getCustomDataStats(userId?: string | null) {
   const tests = loadScopedTests(userId);
+  // Filter strictly to user's personal private tests (excluding all batch curriculum & institutional tests)
+  const personalAuthoredTests = tests.filter(isUserPersonalTest);
   const attempts = loadScopedAttempts(userId);
   const chatSessions = loadScopedChatSessions(userId);
 
@@ -2108,7 +2170,7 @@ export function getCustomDataStats(userId?: string | null) {
   } catch {}
 
   return {
-    authoredTestsCount: tests.length,
+    authoredTestsCount: personalAuthoredTests.length,
     totalAttemptsCount: attempts.length,
     omrAttemptsCount,
     onlineAttemptsCount,
@@ -2121,21 +2183,27 @@ export function getCustomDataStats(userId?: string | null) {
 
 /**
  * Deletes all authored tests for the user.
+ * PROTECTED: Batch course tests and curriculum items are 100% safeguarded and never deleted.
  */
 export async function deleteCustomDataAuthoredTests(userId?: string | null): Promise<number> {
   const tests = loadScopedTests(userId);
-  const count = tests.length;
-  saveScopedTests(userId, []);
+  const personalTests = tests.filter(isUserPersonalTest);
+  const protectedBatchTests = tests.filter((t) => !isUserPersonalTest(t));
+  const count = personalTests.length;
 
-  for (const t of tests) {
+  // IMPORTANT: Keep protected batch tests intact in local storage and memory
+  saveScopedTests(userId, protectedBatchTests);
+
+  // Only mark personal tests as deleted in scoped storage
+  for (const t of personalTests) {
     markTestAsDeletedInScopedStorage(userId, t.id);
   }
 
   const effectiveUid = userId || auth.currentUser?.uid;
-  if (effectiveUid && effectiveUid !== 'guest-user' && effectiveUid !== 'anonymous' && tests.length > 0) {
+  if (effectiveUid && effectiveUid !== 'guest-user' && effectiveUid !== 'anonymous' && personalTests.length > 0) {
     try {
       const batch = writeBatch(db);
-      tests.forEach((t) => {
+      personalTests.forEach((t) => {
         batch.delete(doc(db, 'users', effectiveUid, 'tests', t.id));
         try {
           batch.delete(doc(db, 'tests', t.id));
@@ -2143,10 +2211,10 @@ export async function deleteCustomDataAuthoredTests(userId?: string | null): Pro
       });
       const userDocRef = doc(db, 'users', effectiveUid);
       const updates: any = {
-        deletedTestIds: arrayUnion(...tests.map((t) => t.id)),
+        deletedTestIds: arrayUnion(...personalTests.map((t) => t.id)),
         updatedAt: new Date().toISOString(),
       };
-      tests.forEach((t) => {
+      personalTests.forEach((t) => {
         updates[`createdTests.${t.id}`] = deleteField();
       });
       batch.set(userDocRef, updates, { merge: true });
@@ -2157,7 +2225,7 @@ export async function deleteCustomDataAuthoredTests(userId?: string | null): Pro
       smartCoordinator.setLocalSyncRevision(effectiveUid, 'testsRev', nowRev);
     } catch (err) {
       console.warn('Batch delete tests failed, falling back to parallel delete:', err);
-      await Promise.allSettled(tests.map((t) => deleteTestFromFirestore(t.id, effectiveUid)));
+      await Promise.allSettled(personalTests.map((t) => deleteTestFromFirestore(t.id, effectiveUid)));
     }
   }
 

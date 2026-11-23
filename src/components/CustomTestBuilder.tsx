@@ -601,7 +601,7 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
 
             {/* Dropdown Menu Popover */}
             {isFilterDropdownOpen && (
-              <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] max-h-64 landscape:max-h-48 overflow-y-auto bg-white dark:bg-[#1e2024] rounded-[28px] shadow-[0_4px_16px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.6)] p-2.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-100 border-0 ring-0">
+              <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] max-h-64 landscape:max-h-48 overflow-y-auto bg-white dark:bg-[#1e2024] rounded-[28px] shadow-[0_4px_16px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.6)] p-2.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-100 border-0 ring-0">
                 <div className="px-3 py-1.5 text-[10px] font-bold text-[#5e5e5e] dark:text-[#9aa0a6] uppercase tracking-wider">
                   Bulk Select by Question Status
                 </div>

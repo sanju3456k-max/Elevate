@@ -4196,8 +4196,8 @@ export async function deleteUserAccountAndAllData(
         );
       }
 
-      // 2. Direct deletion of known authored tests
-      const knownTests = loadScopedTests(userId);
+      // 2. Direct deletion of known personal authored tests (PROTECTED: batch curriculum tests are never purged)
+      const knownTests = loadScopedTests(userId).filter((t: any) => t && t.id && !t.batchId && !t.isBatchTest && !String(t.id).startsWith('remedial_'));
       if (knownTests.length > 0) {
         tasks.push(
           (async () => {

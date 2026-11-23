@@ -22,6 +22,7 @@ import {
   Bot,
   Layers,
   Sparkles,
+  ShieldCheck,
   X
 } from 'lucide-react';
 import { useBackHandler } from '../hooks/useBackNavigation';
@@ -542,6 +543,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
+          {/* PERSONAL DATA BOUNDARY BANNER (Minimal & Elegant Material 3 Notice) */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-900/40 flex items-start gap-3">
+            <ShieldCheck className="w-5 h-5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0 mt-0.5" />
+            <div className="space-y-1 text-xs">
+              <div className="font-bold text-[#0b57d0] dark:text-[#a8c7fa] flex items-center gap-1.5">
+                <span>Personal Data Scope Active</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#0b57d0]/10 dark:bg-[#a8c7fa]/20 font-mono font-bold">
+                  Protected Scope
+                </span>
+              </div>
+              <p className="text-[11.5px] text-slate-700 dark:text-zinc-200 leading-relaxed font-medium">
+                Only your personal private activity is managed here (such as your self-authored tests, exam attempts, notes, and AI chats).
+              </p>
+              <p className="text-[10.5px] text-slate-500 dark:text-zinc-400 leading-relaxed">
+                Batch courses, chapters, video lectures, and batch tests remain fully protected. They will never be affected, deleted, or overwritten from your personal settings or backup space.
+              </p>
+            </div>
+          </div>
+
           {/* SECTION 2: LOCAL FILE BACKUP (.JSON) */}
           <div className="space-y-2 bg-transparent p-1 sm:p-2">
             <div className="flex items-center gap-2 pb-1.5 border-b border-slate-100 dark:border-zinc-800/80">
@@ -727,10 +747,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                   <div className="min-w-0">
                     <div className="text-xs sm:text-sm font-semibold text-[#1a1b1f] dark:text-[#e3e2e6] truncate">
-                      Authored Test Papers
+                      Personal Authored Tests
                     </div>
                     <div className="text-[11px] text-slate-500 dark:text-zinc-400">
-                      {customStats.authoredTestsCount} user-created tests
+                      {customStats.authoredTestsCount} personal tests (outside batches)
                     </div>
                   </div>
                 </div>
@@ -740,8 +760,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   disabled={customStats.authoredTestsCount === 0}
                   onClick={() => setConfirmDeleteTarget({
                     type: 'tests',
-                    title: 'Delete All Authored Test Papers',
-                    description: 'This will permanently remove all test papers authored by you from local storage and cloud databases.',
+                    title: 'Delete Personal Authored Test Papers',
+                    description: 'This will permanently remove only personal test papers authored by you outside of batch courses. Enrolled course batches, curriculum, and batch tests will remain completely safe and untouched.',
                     count: customStats.authoredTestsCount
                   })}
                   variant="danger"

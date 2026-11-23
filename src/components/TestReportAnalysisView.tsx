@@ -1319,10 +1319,10 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                   id="report-top-leaderboard-btn"
                   type="button"
                   onClick={() => setIsLeaderboardOpen(true)}
-                  className="w-9 h-9 sm:w-auto sm:h-9 sm:px-3.5 rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 font-bold text-xs border-0 ring-0 shadow-none flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all outline-none"
+                  className="w-9 h-9 sm:w-auto sm:h-9 sm:px-3.5 rounded-full bg-orange-500 hover:bg-orange-600 dark:bg-orange-500 dark:hover:bg-orange-600 text-white font-bold text-xs border-0 ring-0 shadow-[0_2px_6px_rgba(249,115,22,0.35)] flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all outline-none"
                   title="View Test Leaderboard & Rankings"
                 >
-                  <Trophy className="w-4 h-4 sm:w-3.5 sm:h-3.5 stroke-[2.2]" />
+                  <Trophy className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-white fill-white stroke-[2.2]" />
                   <span className="hidden sm:inline">Leaderboard</span>
                 </button>
               )}
@@ -1364,10 +1364,10 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsLeaderboardOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black bg-amber-500/15 text-amber-800 dark:text-amber-300 hover:bg-amber-500/25 active:scale-95 transition-all cursor-pointer border-0 ring-0 shadow-none shrink-0"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black bg-orange-500/15 text-orange-700 dark:text-orange-300 hover:bg-orange-500/25 active:scale-95 transition-all cursor-pointer border-0 ring-0 shadow-none shrink-0"
                 title={`Leaderboard Rank ${leaderboardSummary.currentUserRank}${leaderboardSummary.totalParticipants > 0 ? ` of ${leaderboardSummary.totalParticipants}` : ''} - Click to view leaderboard`}
               >
-                <Trophy className="w-3.5 h-3.5 text-amber-500 stroke-[2.2]" />
+                <Trophy className="w-3.5 h-3.5 text-orange-500 dark:text-orange-400 stroke-[2.2]" />
                 <span>Rank {leaderboardSummary.currentUserRank}</span>
               </button>
             ) : null}

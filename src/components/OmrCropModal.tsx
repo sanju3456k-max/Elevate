@@ -55,10 +55,10 @@ interface DisplayLayout {
 }
 
 const DEFAULT_CORNERS: QuadCorners = {
-  tl: { x: 5, y: 5 },
-  tr: { x: 95, y: 5 },
-  br: { x: 95, y: 95 },
-  bl: { x: 5, y: 95 },
+  tl: { x: 4.8, y: 3.4 },
+  tr: { x: 95.2, y: 3.4 },
+  br: { x: 95.2, y: 96.6 },
+  bl: { x: 4.8, y: 96.6 },
 };
 
 export const OmrCropModal: React.FC<OmrCropModalProps> = ({
@@ -82,6 +82,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
   const rotCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const loupeCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const currentLoadedUrlRef = useRef<string>('');
+  const lastCachedRotRef = useRef<number>(-1);
 
   const [imageLoaded, setImageLoaded] = useState<boolean>(false);
   const [rotationDeg, setRotationDeg] = useState<number>(0);
@@ -122,15 +123,25 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
   }, []);
 
   // Prepare rotated source canvas cache strictly for the active image
+  // Downsampled to max dimension 1600px for silky-smooth response and instant auto-alignment
   const updateRotatedCanvasCache = useCallback((sourceImg?: HTMLImageElement | null) => {
     const img = sourceImg || imgRef.current;
     if (!img) return;
+    if (lastCachedRotRef.current === rotationDeg && rotCanvasRef.current) {
+      return;
+    }
+
     const nw = img.naturalWidth || img.width || 800;
     const nh = img.naturalHeight || img.height || 1100;
 
+    const maxDim = 1600;
+    const scale = Math.min(1.0, maxDim / Math.max(nw, nh));
+    const snw = Math.max(200, Math.round(nw * scale));
+    const snh = Math.max(200, Math.round(nh * scale));
+
     const isRot90or270 = rotationDeg === 90 || rotationDeg === 270;
-    const rw = isRot90or270 ? nh : nw;
-    const rh = isRot90or270 ? nw : nh;
+    const rw = isRot90or270 ? snh : snw;
+    const rh = isRot90or270 ? snw : snh;
 
     const canvas = document.createElement('canvas');
     canvas.width = rw;
@@ -140,9 +151,10 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
 
     ctx.translate(rw / 2, rh / 2);
     ctx.rotate((rotationDeg * Math.PI) / 180);
-    ctx.drawImage(img, -nw / 2, -nh / 2, nw, nh);
+    ctx.drawImage(img, -snw / 2, -snh / 2, snw, snh);
 
     rotCanvasRef.current = canvas;
+    lastCachedRotRef.current = rotationDeg;
   }, [rotationDeg]);
 
   // Measure stage and calculate image display dimensions to fill maximum viewport
@@ -250,12 +262,18 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
       const isLandscape = nw > nh;
       const initialRot = isLandscape ? 90 : 0;
       setRotationDeg(initialRot);
+      lastCachedRotRef.current = initialRot;
 
       let initialCorners = DEFAULT_CORNERS;
 
-      // Immediately create a fresh canvas for this exact image in its initial orientation
-      const rw = isLandscape ? nh : nw;
-      const rh = isLandscape ? nw : nh;
+      // Downscale to maxDim = 1600 to eliminate canvas allocation lag and speed up auto-detection
+      const maxDim = 1600;
+      const scale = Math.min(1.0, maxDim / Math.max(nw, nh));
+      const snw = Math.max(200, Math.round(nw * scale));
+      const snh = Math.max(200, Math.round(nh * scale));
+
+      const rw = isLandscape ? snh : snw;
+      const rh = isLandscape ? snw : snh;
       const canvas = document.createElement('canvas');
       canvas.width = rw;
       canvas.height = rh;
@@ -264,9 +282,9 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
         if (isLandscape) {
           ctx.translate(rw / 2, rh / 2);
           ctx.rotate((90 * Math.PI) / 180);
-          ctx.drawImage(img, -nw / 2, -nh / 2, nw, nh);
+          ctx.drawImage(img, -snw / 2, -snh / 2, snw, snh);
         } else {
-          ctx.drawImage(img, 0, 0, nw, nh);
+          ctx.drawImage(img, 0, 0, snw, snh);
         }
         rotCanvasRef.current = canvas;
 
@@ -345,14 +363,21 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
     cleanupActiveDrag();
     const nextRot = (rotationDeg + 90) % 360;
     setRotationDeg(nextRot);
+    lastCachedRotRef.current = nextRot;
 
     const img = imgRef.current;
     if (img) {
       const nw = img.naturalWidth || img.width || 800;
       const nh = img.naturalHeight || img.height || 1100;
+
+      const maxDim = 1600;
+      const scale = Math.min(1.0, maxDim / Math.max(nw, nh));
+      const snw = Math.max(200, Math.round(nw * scale));
+      const snh = Math.max(200, Math.round(nh * scale));
+
       const isRot90or270 = nextRot === 90 || nextRot === 270;
-      const rw = isRot90or270 ? nh : nw;
-      const rh = isRot90or270 ? nw : nh;
+      const rw = isRot90or270 ? snh : snw;
+      const rh = isRot90or270 ? snw : snh;
 
       const canvas = document.createElement('canvas');
       canvas.width = rw;
@@ -361,7 +386,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
       if (ctx) {
         ctx.translate(rw / 2, rh / 2);
         ctx.rotate((nextRot * Math.PI) / 180);
-        ctx.drawImage(img, -nw / 2, -nh / 2, nw, nh);
+        ctx.drawImage(img, -snw / 2, -snh / 2, snw, snh);
         rotCanvasRef.current = canvas;
         const autoDetected = autoDetectFiducialsOnCanvas(canvas);
         if (autoDetected) {
@@ -417,7 +442,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
     }));
   };
 
-  // Update magnifier loupe canvas
+  // Update magnifier loupe canvas with concentric square reticle and hairline crosshairs
   const updateLoupe = useCallback((cornerXPercent: number, cornerYPercent: number, clientX: number, clientY: number) => {
     const rotCanvas = rotCanvasRef.current;
     const loupeCanvas = loupeCanvasRef.current;
@@ -450,32 +475,46 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
       loupeSize
     );
 
-    // Crosshair target circle & lines (thin 1px precision)
-    loupeCtx.strokeStyle = '#10b981';
+    const isGood = alignmentResult.isGood;
+
+    // 1. Concentric target square bracket matching 5.5mm registration square at 2.4x zoom
+    const targetBoxSize = 22;
+    loupeCtx.strokeStyle = isGood ? '#10b981' : '#38bdf8';
+    loupeCtx.lineWidth = 1.5;
+    loupeCtx.strokeRect(
+      loupeSize / 2 - targetBoxSize / 2, 
+      loupeSize / 2 - targetBoxSize / 2, 
+      targetBoxSize, 
+      targetBoxSize
+    );
+
+    // 2. Precision hairline crosshairs leading to the target square
     loupeCtx.lineWidth = 1.0;
-
     loupeCtx.beginPath();
-    loupeCtx.arc(loupeSize / 2, loupeSize / 2, 7, 0, Math.PI * 2);
+    // Horizontal lines
+    loupeCtx.moveTo(loupeSize / 2 - 24, loupeSize / 2);
+    loupeCtx.lineTo(loupeSize / 2 - targetBoxSize / 2 - 2, loupeSize / 2);
+    loupeCtx.moveTo(loupeSize / 2 + targetBoxSize / 2 + 2, loupeSize / 2);
+    loupeCtx.lineTo(loupeSize / 2 + 24, loupeSize / 2);
+    // Vertical lines
+    loupeCtx.moveTo(loupeSize / 2, loupeSize / 2 - 24);
+    loupeCtx.lineTo(loupeSize / 2, loupeSize / 2 - targetBoxSize / 2 - 2);
+    loupeCtx.moveTo(loupeSize / 2, loupeSize / 2 + targetBoxSize / 2 + 2);
+    loupeCtx.lineTo(loupeSize / 2, loupeSize / 2 + 24);
     loupeCtx.stroke();
 
+    // 3. Center point indicator
+    loupeCtx.fillStyle = isGood ? '#34d399' : '#38bdf8';
     loupeCtx.beginPath();
-    loupeCtx.moveTo(loupeSize / 2 - 12, loupeSize / 2);
-    loupeCtx.lineTo(loupeSize / 2 + 12, loupeSize / 2);
-    loupeCtx.moveTo(loupeSize / 2, loupeSize / 2 - 12);
-    loupeCtx.lineTo(loupeSize / 2, loupeSize / 2 + 12);
-    loupeCtx.stroke();
-
-    // Center point indicator
-    loupeCtx.fillStyle = '#34d399';
-    loupeCtx.beginPath();
-    loupeCtx.arc(loupeSize / 2, loupeSize / 2, 1.5, 0, Math.PI * 2);
+    loupeCtx.arc(loupeSize / 2, loupeSize / 2, 2, 0, Math.PI * 2);
     loupeCtx.fill();
 
-    const isFlippedBelow = clientY < 140;
-    const loupeY = isFlippedBelow ? clientY + 95 : clientY - 85;
+    // Position loupe well clear of finger
+    const isFlippedBelow = clientY < 150;
+    const loupeY = isFlippedBelow ? clientY + 105 : clientY - 95;
 
     setLoupePos({ x: clientX, y: loupeY, isFlippedBelow });
-  }, []);
+  }, [alignmentResult.isGood]);
 
   // Pointer drag start handler
   const handlePointerDown = (e: React.PointerEvent, target: DragTarget) => {
@@ -695,7 +734,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
   };
 
   // Execute 4-point homography and rectify OMR image:
-  // EXACT 1:1 CROP POSITION WITH ZERO EXTRA MARGINS
+  // Maps corner fiducials to their exact canonical positions within the A4 page
   const executeApplyPerspectiveCrop = () => {
     cleanupActiveDrag();
 
@@ -717,6 +756,12 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
         rotCanvas = fallbackCanvas;
       }
 
+      if (!rotCanvas) {
+        onApplyCrop(imageUrl);
+        onClose();
+        return;
+      }
+
       const rotW = rotCanvas.width || 800;
       const rotH = rotCanvas.height || 1100;
 
@@ -728,74 +773,46 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
         { x: (corners.bl.x / 100) * rotW, y: (corners.bl.y / 100) * rotH }, // Bottom-Left
       ];
 
-      // 2. Compute exact span of the selected quadrilateral in source pixels
-      const topW = Math.hypot(srcQuad[1].x - srcQuad[0].x, srcQuad[1].y - srcQuad[0].y);
-      const botW = Math.hypot(srcQuad[2].x - srcQuad[3].x, srcQuad[2].y - srcQuad[3].y);
-      const leftH = Math.hypot(srcQuad[3].x - srcQuad[0].x, srcQuad[3].y - srcQuad[0].y);
-      const rightH = Math.hypot(srcQuad[2].x - srcQuad[1].x, srcQuad[2].y - srcQuad[1].y);
+      // 2. Canonical target dimensions for rectified A4 OMR sheet
+      const targetW = targetWidthMm || 210;
+      const targetH = targetHeightMm || 297;
+      const botFidY = bottomFiducialY_mm || (totalQuestions && totalQuestions > 100 ? 287 : 282);
 
-      const quadAvgW = Math.max(1, (topW + botW) / 2);
-      const quadAvgH = Math.max(1, (leftH + rightH) / 2);
+      const dstWidth = 1200;
+      const dstHeight = Math.max(600, Math.round((targetH / targetW) * dstWidth));
 
-      // High resolution output width (at least 1260px for high OCR quality, or original pixel span)
-      const dstWidth = Math.max(1260, Math.round(Math.max(topW, botW)));
-      const dstHeight = Math.max(600, Math.round(dstWidth * (quadAvgH / quadAvgW)));
+      // Canonical fiducial centers in rectified canvas pixel coordinates
+      const fx0 = (10 / targetW) * dstWidth;
+      const fx1 = ((targetW - 10) / targetW) * dstWidth;
+      const fy0 = (10 / targetH) * dstHeight;
+      const fy1 = (botFidY / targetH) * dstHeight;
 
-      // 3. Destination Quad: EXACTLY FILLS THE BOUNDARIES [0, 0] -> [dstWidth, dstHeight]!
-      const dstQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint] = [
-        { x: 0, y: 0 },
-        { x: dstWidth, y: 0 },
-        { x: dstWidth, y: dstHeight },
-        { x: 0, y: dstHeight },
-      ];
-
-      // Check if nearly axis-aligned rectangle for direct 2D context crop
-      const isNearRect =
-        Math.abs(corners.tl.x - corners.bl.x) < 0.25 &&
-        Math.abs(corners.tr.x - corners.br.x) < 0.25 &&
-        Math.abs(corners.tl.y - corners.tr.y) < 0.25 &&
-        Math.abs(corners.bl.y - corners.br.y) < 0.25;
-
-      let croppedDataUrl: string | null = null;
-
-      if (isNearRect) {
-        const sx = Math.max(0, Math.min(rotW - 1, Math.min(srcQuad[0].x, srcQuad[3].x)));
-        const sy = Math.max(0, Math.min(rotH - 1, Math.min(srcQuad[0].y, srcQuad[1].y)));
-        const sw = Math.max(1, Math.min(rotW - sx, Math.max(srcQuad[1].x, srcQuad[2].x) - sx));
-        const sh = Math.max(1, Math.min(rotH - sy, Math.max(srcQuad[2].y, srcQuad[3].y) - sy));
-
-        const outCanvas = document.createElement('canvas');
-        outCanvas.width = dstWidth;
-        outCanvas.height = dstHeight;
-        const outCtx = outCanvas.getContext('2d');
-        if (outCtx) {
-          outCtx.imageSmoothingEnabled = true;
-          outCtx.imageSmoothingQuality = 'high';
-          outCtx.drawImage(rotCanvas, sx, sy, sw, sh, 0, 0, dstWidth, dstHeight);
-          croppedDataUrl = outCanvas.toDataURL('image/png', 1.0);
-        }
-      }
-
-      if (!croppedDataUrl) {
-        // Perspective homography transformation for tilted or skewed sheets
-        const rectifiedCanvas = warpPerspectiveCanvas(rotCanvas, srcQuad, dstWidth, dstHeight, dstQuad);
-        if (rectifiedCanvas) {
-          croppedDataUrl = rectifiedCanvas.toDataURL('image/png', 1.0);
-        } else {
-          console.warn('Perspective homography fallback to raw canvas');
-          croppedDataUrl = rotCanvas.toDataURL('image/png', 1.0);
-        }
-      }
-
-      // Exact tight fiducial coordinates matching the rectified canvas boundaries
-      const tightFiducials: OmrCorners = {
-        topLeft: { x: 0, y: 0 },
-        topRight: { x: dstWidth, y: 0 },
-        bottomLeft: { x: 0, y: dstHeight },
-        bottomRight: { x: dstWidth, y: dstHeight },
+      const canonicalFiducials: OmrCorners = {
+        topLeft: { x: fx0, y: fy0 },
+        topRight: { x: fx1, y: fy0 },
+        bottomRight: { x: fx1, y: fy1 },
+        bottomLeft: { x: fx0, y: fy1 },
       };
 
-      onApplyCrop(croppedDataUrl || imageUrl, tightFiducials);
+      // Destination Quad: exactly maps the 4 corner handles to their canonical positions on the A4 page!
+      const dstQuad: [QuadPoint, QuadPoint, QuadPoint, QuadPoint] = [
+        { x: fx0, y: fy0 },
+        { x: fx1, y: fy0 },
+        { x: fx1, y: fy1 },
+        { x: fx0, y: fy1 },
+      ];
+
+      // Perspective homography transformation
+      const rectifiedCanvas = warpPerspectiveCanvas(rotCanvas, srcQuad, dstWidth, dstHeight, dstQuad);
+      let croppedDataUrl: string | null = null;
+      if (rectifiedCanvas) {
+        croppedDataUrl = rectifiedCanvas.toDataURL('image/jpeg', 0.94);
+      } else {
+        console.warn('Perspective homography fallback to rotCanvas');
+        croppedDataUrl = rotCanvas.toDataURL('image/jpeg', 0.92);
+      }
+
+      onApplyCrop(croppedDataUrl || imageUrl, canonicalFiducials);
       onClose();
     } catch (err) {
       console.error('Cropping error:', err);
@@ -828,6 +845,33 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
   const centroidX = (corners.tl.x + corners.tr.x + corners.br.x + corners.bl.x) / 4;
   const centroidY = (corners.tl.y + corners.tr.y + corners.br.y + corners.bl.y) / 4;
 
+  const targetW = targetWidthMm || 210;
+  const targetH = targetHeightMm || 297;
+  const botFidY = bottomFiducialY_mm || (totalQuestions && totalQuestions > 100 ? 287 : 282);
+
+  // Normalized margin proportions relative to the span between fiducial centers:
+  const mX = 10 / Math.max(50, targetW - 20);
+  const mTop = 10 / Math.max(50, botFidY - 10);
+  const mBot = Math.max(0, targetH - botFidY) / Math.max(50, botFidY - 10);
+
+  // Bilinear extrapolation from fiducial corners to full page edges
+  const interpolateQuad = (u: number, v: number) => {
+    const topX = corners.tl.x + (corners.tr.x - corners.tl.x) * u;
+    const topY = corners.tl.y + (corners.tr.y - corners.tl.y) * u;
+    const botX = corners.bl.x + (corners.br.x - corners.bl.x) * u;
+    const botY = corners.bl.y + (corners.br.y - corners.bl.y) * u;
+    return {
+      x: topX + (botX - topX) * v,
+      y: topY + (botY - topY) * v,
+    };
+  };
+
+  const outerTL = interpolateQuad(-mX, -mTop);
+  const outerTR = interpolateQuad(1 + mX, -mTop);
+  const outerBR = interpolateQuad(1 + mX, 1 + mBot);
+  const outerBL = interpolateQuad(-mX, 1 + mBot);
+
+  const outerPolygonPoints = `${outerTL.x.toFixed(2)},${outerTL.y.toFixed(2)} ${outerTR.x.toFixed(2)},${outerTR.y.toFixed(2)} ${outerBR.x.toFixed(2)},${outerBR.y.toFixed(2)} ${outerBL.x.toFixed(2)},${outerBL.y.toFixed(2)}`;
   const quadPolygonPoints = `${corners.tl.x},${corners.tl.y} ${corners.tr.x},${corners.tr.y} ${corners.br.x},${corners.br.y} ${corners.bl.x},${corners.bl.y}`;
 
   return (
@@ -920,6 +964,23 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
               className="relative flex-1 min-h-0 w-full bg-[#d0d7de]/50 dark:bg-[#06070a] flex items-center justify-center overflow-hidden p-2 sm:p-4 select-none"
               style={{ touchAction: 'none' }}
             >
+              {!imageLoaded && (
+                <div className="flex flex-col items-center justify-center gap-3 p-6 text-center select-none animate-in fade-in duration-200">
+                  <div className="relative flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-full border-2 border-blue-500/20 border-t-blue-500 animate-spin" />
+                    <Sparkles className="w-5 h-5 text-blue-500 absolute" />
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-sm font-bold text-slate-800 dark:text-zinc-100">
+                      Auto-Aligning OMR Sheet...
+                    </span>
+                    <span className="text-xs text-slate-500 dark:text-zinc-400">
+                      Detecting 4 corner registration squares
+                    </span>
+                  </div>
+                </div>
+              )}
+
         {imageLoaded && (
           <div
             ref={imageContainerRef}
@@ -956,27 +1017,37 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
               preserveAspectRatio="none"
             >
               <defs>
-                {/* Mask to darken areas outside the 4 corner quad */}
+                {/* Mask to darken background desk outside the extrapolated full sheet boundary */}
                 <mask id="quadMask">
                   <rect x="0" y="0" width="100" height="100" fill="white" />
-                  <polygon points={quadPolygonPoints} fill="black" />
+                  <polygon points={outerPolygonPoints} fill="black" />
                 </mask>
               </defs>
 
-              {/* Outside Dark Scrim */}
+              {/* Outside Dark Scrim - Keeps entire page brightly illuminated */}
               <rect
                 x="0"
                 y="0"
                 width="100"
                 height="100"
-                fill="rgba(0, 0, 0, 0.52)"
+                fill="rgba(0, 0, 0, 0.48)"
                 mask="url(#quadMask)"
               />
 
-              {/* Inside Subtle Highlight (Emerald if aligned, Royal Blue default) */}
+              {/* Full Page Subtle Boundary (Dashed Hairline) */}
+              <polygon
+                points={outerPolygonPoints}
+                fill={alignmentResult.isGood ? 'rgba(16, 185, 129, 0.05)' : 'rgba(37, 99, 235, 0.04)'}
+                stroke={alignmentResult.isGood ? 'rgba(16, 185, 129, 0.55)' : 'rgba(59, 130, 246, 0.45)'}
+                strokeWidth="1"
+                strokeDasharray="4,3"
+                vectorEffect="non-scaling-stroke"
+              />
+
+              {/* Inside Fiducial Grid Highlight */}
               <polygon
                 points={quadPolygonPoints}
-                fill={alignmentResult.isGood ? 'rgba(16, 185, 129, 0.14)' : 'rgba(37, 99, 235, 0.10)'}
+                fill={alignmentResult.isGood ? 'rgba(16, 185, 129, 0.12)' : 'rgba(37, 99, 235, 0.08)'}
               />
 
               {/* 3x3 Perspective Interior Grid Lines */}
@@ -1017,7 +1088,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
                 );
               })}
 
-              {/* Quad Boundary Lines - Thin Precision 1.25px hairline */}
+              {/* Fiducial Frame Boundary Lines - Precision Hairline */}
               <line
                 x1={corners.tl.x}
                 y1={corners.tl.y}
@@ -1191,7 +1262,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
             </div>
 
             {/* ========================================================
-                4 INDEPENDENTLY DRAGGABLE CORNER SQUARE BOXES (HOLLOW HIGH-PRECISION RETICLE)
+                4 INDEPENDENTLY DRAGGABLE CORNER SQUARE BOXES (CONCENTRIC TARGET CONTAINERS)
                 ======================================================== */}
             {[
               { id: 'tl' as CornerId, label: 'TL', fullLabel: 'Top-Left', pt: corners.tl, align: 'bottom' },
@@ -1211,33 +1282,33 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
                     touchAction: 'none',
                   }}
                   className="absolute -translate-x-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center cursor-grab active:cursor-grabbing z-30 group"
-                  title={`${fullLabel} - drag to align with sheet corner`}
+                  title={`${fullLabel} - drag to align with sheet registration square`}
                 >
-                  {/* Hollow High-Precision Reticle - Square is completely visible inside without finger blockage */}
+                  {/* Concentric Hollow Target Box - Sized 32x32px so printed square fits inside with even margin */}
                   <div
-                    className={`relative w-6 h-6 rounded-[2px] border-2 transition-all flex items-center justify-center ${
+                    className={`relative w-8 h-8 rounded-[4px] border-2 transition-all flex items-center justify-center ${
                       isActive
                         ? isGood
                           ? 'border-emerald-300 bg-emerald-500/20 scale-125 shadow-lg shadow-emerald-500/50'
                           : 'border-blue-300 bg-blue-500/20 scale-125 shadow-lg shadow-blue-500/50'
                         : isGood
-                        ? 'border-emerald-400 bg-emerald-950/10 group-hover:scale-110 group-hover:border-emerald-300'
-                        : 'border-blue-400 bg-slate-950/10 group-hover:scale-110 group-hover:border-blue-300'
+                        ? 'border-emerald-400 bg-emerald-950/15 group-hover:scale-110 group-hover:border-emerald-300'
+                        : 'border-blue-400 bg-slate-950/15 group-hover:scale-110 group-hover:border-blue-300'
                     }`}
                   >
-                    {/* Transparent center with crisp hairline crosshair */}
+                    {/* Hairline crosshair guides */}
                     <div
-                      className={`absolute w-3 h-px pointer-events-none ${
+                      className={`absolute w-3.5 h-px pointer-events-none ${
                         isGood ? 'bg-emerald-400/90' : 'bg-blue-400/90'
                       }`}
                     />
                     <div
-                      className={`absolute h-3 w-px pointer-events-none ${
+                      className={`absolute h-3.5 w-px pointer-events-none ${
                         isGood ? 'bg-emerald-400/90' : 'bg-blue-400/90'
                       }`}
                     />
                     <div
-                      className={`w-1 h-1 rounded-full pointer-events-none ${
+                      className={`w-1.5 h-1.5 rounded-full pointer-events-none ${
                         isGood ? 'bg-emerald-300' : 'bg-blue-300'
                       }`}
                     />
@@ -1245,7 +1316,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
 
                   {/* Corner Label Badge (Crisp & Compact) */}
                   <div
-                    className={`absolute pointer-events-none select-none px-1.5 py-0.2 rounded text-[9px] font-bold tracking-tight whitespace-nowrap shadow-xs transition-opacity ${
+                    className={`absolute pointer-events-none select-none px-1.5 py-0.5 rounded text-[9px] font-bold tracking-tight whitespace-nowrap shadow-xs transition-opacity ${
                       align === 'top' ? '-top-5' : '-bottom-5'
                     } ${
                       isActive
@@ -1288,11 +1359,11 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
               />
             </div>
             <div
-              className={`mt-1 px-2 py-0.5 rounded text-white text-[9px] font-bold shadow-md ${
+              className={`mt-1.5 px-2.5 py-0.5 rounded-full text-white text-[10px] font-bold shadow-md tracking-tight whitespace-nowrap transition-colors ${
                 alignmentResult.isGood ? 'bg-emerald-600' : 'bg-blue-600'
               }`}
             >
-              {alignmentResult.isGood ? 'Square Centered ✓' : 'Position on printed square'}
+              {alignmentResult.isGood ? 'Concentric Match ✓' : 'Center on OMR square'}
             </div>
           </div>
         )}

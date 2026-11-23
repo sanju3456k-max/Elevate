@@ -67,7 +67,8 @@ import {
   saveScopedActiveSession,
   clearScopedActiveSession,
   isOfflineLocalOnlyMode,
-  getCachedAuthUser
+  getCachedAuthUser,
+  isUserPersonalTest
 } from './storage';
 
 export type CategoryKey = 'tests' | 'attempts' | 'study' | 'preferences';
@@ -953,10 +954,12 @@ class RealtimeSyncManager {
 
     try {
       const localTests = loadScopedTests(userId);
+      // PROTECTED: Only sync personal authored tests to personal user cloud; institutional batch tests are protected
+      const personalTests = localTests.filter(isUserPersonalTest);
       const localAttempts = loadScopedAttempts(userId);
 
       // Route through SmartLocalCoordinator outbox
-      localTests.forEach((t) => {
+      personalTests.forEach((t) => {
         if (t && t.id) smartCoordinator.recordTest(t, userId, 'set');
       });
 
@@ -979,7 +982,7 @@ class RealtimeSyncManager {
       }
 
       return { 
-        testsBackedUp: localTests.length, 
+        testsBackedUp: personalTests.length, 
         attemptsBackedUp: localAttempts.length, 
         htmlProjectsBackedUp,
         success: true 

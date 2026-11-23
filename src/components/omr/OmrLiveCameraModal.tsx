@@ -69,6 +69,8 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
   const animFrameIdRef = useRef<number | null>(null);
   const isCapturingRef = useRef<boolean>(false);
   const latestDetectionRef = useRef<LiveOmrDetectionFrame | null>(null);
+  const lastStateUpdateRef = useRef<number>(0);
+  const lastReportedBoxCountRef = useRef<number>(-1);
 
   // Component UI State
   const [cameraReady, setCameraReady] = useState(false);
@@ -391,7 +393,8 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
             const expectedBoxVideoPx = Math.max(16, Math.round(
               (5.5 / activeLayout.fiducialSpanX_mm) * expW
             ));
-            const patchRadius = Math.max(90, Math.min(220, Math.round(((64 / 2) / scale) * 1.8)));
+            // Localized patch radius (30-55px) ensures refinement centers on corner squares without reaching internal bubbles
+            const patchRadius = Math.max(30, Math.min(55, Math.round(expectedBoxVideoPx * 1.8)));
 
             const located = detectorRef.current.locateCornerFiducials(
               snapCanvas,
@@ -402,9 +405,32 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
               expectedBoxVideoPx
             );
 
-            if (located && located.detectedCount >= 3) {
-              finalFiducials = located.fiducials;
-              isHomographyValid = true;
+            if (located && located.detectedCount === 4) {
+              // Verify located quad sanity against expected ratio to prevent false bubble locks
+              const topW = Math.hypot(located.fiducials.tr.x - located.fiducials.tl.x, located.fiducials.tr.y - located.fiducials.tl.y);
+              const botW = Math.hypot(located.fiducials.br.x - located.fiducials.bl.x, located.fiducials.br.y - located.fiducials.bl.y);
+              const leftH = Math.hypot(located.fiducials.bl.x - located.fiducials.tl.x, located.fiducials.bl.y - located.fiducials.tl.y);
+              const rightH = Math.hypot(located.fiducials.br.x - located.fiducials.tr.x, located.fiducials.br.y - located.fiducials.tr.y);
+              const avgW = (topW + botW) / 2;
+              const avgH = (leftH + rightH) / 2;
+              const ratio = avgW / Math.max(1, avgH);
+              const expectedRatio = activeLayout.fiducialSpanX_mm / activeLayout.fiducialSpanY_mm;
+
+              const maxDrift = Math.max(
+                Math.hypot(located.fiducials.tl.x - seedFiducials.tl.x, located.fiducials.tl.y - seedFiducials.tl.y),
+                Math.hypot(located.fiducials.tr.x - seedFiducials.tr.x, located.fiducials.tr.y - seedFiducials.tr.y),
+                Math.hypot(located.fiducials.br.x - seedFiducials.br.x, located.fiducials.br.y - seedFiducials.br.y),
+                Math.hypot(located.fiducials.bl.x - seedFiducials.bl.x, located.fiducials.bl.y - seedFiducials.bl.y)
+              );
+
+              if (Math.abs(ratio - expectedRatio) / expectedRatio < 0.15 && maxDrift < expectedBoxVideoPx * 1.5) {
+                finalFiducials = located.fiducials;
+                isHomographyValid = true;
+              } else {
+                // If snap refinement drifted onto bubbles, fallback to the pre-validated live tracking fiducials
+                finalFiducials = seedFiducials;
+                isHomographyValid = true;
+              }
             } else if (seedFiducials && !isNaN(seedFiducials.tl.x)) {
               // Fallback to tracking fiducials or screen guide fiducials
               finalFiducials = seedFiducials;
@@ -511,7 +537,18 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
         const result = detector.processFrame(video, screenFrame, containerDim);
         if (result) {
           latestDetectionRef.current = result;
-          setDetectionState(result);
+
+          const now = performance.now();
+          const shouldUpdateUi =
+            result.shouldAutoSnap ||
+            result.detectedBoxes.count !== lastReportedBoxCountRef.current ||
+            (now - lastStateUpdateRef.current >= 33);
+
+          if (shouldUpdateUi) {
+            lastStateUpdateRef.current = now;
+            lastReportedBoxCountRef.current = result.detectedBoxes.count;
+            setDetectionState(result);
+          }
 
           if (result.shouldAutoSnap && !isCapturingRef.current) {
             executeCapture(result.videoOuterCorners, result.videoFiducials);
@@ -714,18 +751,23 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
                 y: frameMetrics.frameTop + ((100 - marginPctBottom) / 100) * frameMetrics.frameHeight,
               };
 
-              const targetTL = (isTL && fiducials?.tl)
-                ? { x: (fiducials.tl.x / 100) * frameMetrics.containerWidth, y: (fiducials.tl.y / 100) * frameMetrics.containerHeight }
-                : defaultTL;
-              const targetTR = (isTR && fiducials?.tr)
-                ? { x: (fiducials.tr.x / 100) * frameMetrics.containerWidth, y: (fiducials.tr.y / 100) * frameMetrics.containerHeight }
-                : defaultTR;
-              const targetBR = (isBR && fiducials?.br)
-                ? { x: (fiducials.br.x / 100) * frameMetrics.containerWidth, y: (fiducials.br.y / 100) * frameMetrics.containerHeight }
-                : defaultBR;
-              const targetBL = (isBL && fiducials?.bl)
-                ? { x: (fiducials.bl.x / 100) * frameMetrics.containerWidth, y: (fiducials.bl.y / 100) * frameMetrics.containerHeight }
-                : defaultBL;
+              // Keep guide containers firmly FIXED on the camera viewfinder with generous catchment zone
+              const relTL = (isTL && fiducials?.tl) ? {
+                x: Math.max(-24, Math.min(24, (fiducials.tl.x / 100) * frameMetrics.containerWidth - defaultTL.x)),
+                y: Math.max(-24, Math.min(24, (fiducials.tl.y / 100) * frameMetrics.containerHeight - defaultTL.y)),
+              } : null;
+              const relTR = (isTR && fiducials?.tr) ? {
+                x: Math.max(-24, Math.min(24, (fiducials.tr.x / 100) * frameMetrics.containerWidth - defaultTR.x)),
+                y: Math.max(-24, Math.min(24, (fiducials.tr.y / 100) * frameMetrics.containerHeight - defaultTR.y)),
+              } : null;
+              const relBR = (isBR && fiducials?.br) ? {
+                x: Math.max(-24, Math.min(24, (fiducials.br.x / 100) * frameMetrics.containerWidth - defaultBR.x)),
+                y: Math.max(-24, Math.min(24, (fiducials.br.y / 100) * frameMetrics.containerHeight - defaultBR.y)),
+              } : null;
+              const relBL = (isBL && fiducials?.bl) ? {
+                x: Math.max(-24, Math.min(24, (fiducials.bl.x / 100) * frameMetrics.containerWidth - defaultBL.x)),
+                y: Math.max(-24, Math.min(24, (fiducials.bl.y / 100) * frameMetrics.containerHeight - defaultBL.y)),
+              } : null;
 
               const isAllLocked = isTL && isTR && isBR && isBL;
 
@@ -735,15 +777,18 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
 
                   {/* Top-Left Target Box Container */}
                   <div 
-                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-150 flex items-center justify-center ${
+                    className={`absolute w-16 h-16 sm:w-20 sm:h-20 rounded-2xl pointer-events-none transition-all duration-100 flex items-center justify-center ${
                       isTL 
-                        ? (isAllLocked ? 'border-2 border-emerald-400 bg-emerald-400/30 shadow-[0_0_28px_rgba(52,211,153,0.85)] scale-110' : 'border-2 border-emerald-400 bg-emerald-400/25 shadow-[0_0_24px_rgba(52,211,153,0.65)] scale-110')
+                        ? (isAllLocked ? 'border-2 border-emerald-400 bg-emerald-400/30 shadow-[0_0_28px_rgba(52,211,153,0.85)] scale-105' : 'border-2 border-emerald-400 bg-emerald-400/25 shadow-[0_0_24px_rgba(52,211,153,0.65)] scale-105')
                         : 'border-2 border-white/60 bg-black/20 backdrop-blur-[2px] shadow-[0_4px_16px_rgba(0,0,0,0.5)]'
                     }`}
-                    style={{ left: `${targetTL.x}px`, top: `${targetTL.y}px`, transform: 'translate(-50%, -50%)' }}
+                    style={{ left: `${defaultTL.x}px`, top: `${defaultTL.y}px`, transform: 'translate(-50%, -50%)' }}
                   >
                     {isTL ? (
-                      <div className="w-4 h-4 rounded-sm bg-emerald-400 border-2 border-white shadow-[0_0_12px_rgba(52,211,153,0.9)] animate-pulse" />
+                      <div 
+                        className="w-4 h-4 rounded-sm bg-emerald-400 border-2 border-white shadow-[0_0_12px_rgba(52,211,153,0.9)] animate-pulse"
+                        style={relTL ? { transform: `translate(${relTL.x}px, ${relTL.y}px)` } : undefined}
+                      />
                     ) : (
                       <div className="w-5 h-5 rounded-xs border-2 border-white/70 bg-white/10 flex items-center justify-center text-[11px] text-white/90 font-mono font-black select-none">■</div>
                     )}
@@ -751,15 +796,18 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
 
                   {/* Top-Right Target Box Container */}
                   <div 
-                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-150 flex items-center justify-center ${
+                    className={`absolute w-16 h-16 sm:w-20 sm:h-20 rounded-2xl pointer-events-none transition-all duration-100 flex items-center justify-center ${
                       isTR 
-                        ? (isAllLocked ? 'border-2 border-emerald-400 bg-emerald-400/30 shadow-[0_0_28px_rgba(52,211,153,0.85)] scale-110' : 'border-2 border-emerald-400 bg-emerald-400/25 shadow-[0_0_24px_rgba(52,211,153,0.65)] scale-110')
+                        ? (isAllLocked ? 'border-2 border-emerald-400 bg-emerald-400/30 shadow-[0_0_28px_rgba(52,211,153,0.85)] scale-105' : 'border-2 border-emerald-400 bg-emerald-400/25 shadow-[0_0_24px_rgba(52,211,153,0.65)] scale-105')
                         : 'border-2 border-white/60 bg-black/20 backdrop-blur-[2px] shadow-[0_4px_16px_rgba(0,0,0,0.5)]'
                     }`}
-                    style={{ left: `${targetTR.x}px`, top: `${targetTR.y}px`, transform: 'translate(-50%, -50%)' }}
+                    style={{ left: `${defaultTR.x}px`, top: `${defaultTR.y}px`, transform: 'translate(-50%, -50%)' }}
                   >
                     {isTR ? (
-                      <div className="w-4 h-4 rounded-sm bg-emerald-400 border-2 border-white shadow-[0_0_12px_rgba(52,211,153,0.9)] animate-pulse" />
+                      <div 
+                        className="w-4 h-4 rounded-sm bg-emerald-400 border-2 border-white shadow-[0_0_12px_rgba(52,211,153,0.9)] animate-pulse"
+                        style={relTR ? { transform: `translate(${relTR.x}px, ${relTR.y}px)` } : undefined}
+                      />
                     ) : (
                       <div className="w-5 h-5 rounded-xs border-2 border-white/70 bg-white/10 flex items-center justify-center text-[11px] text-white/90 font-mono font-black select-none">■</div>
                     )}
@@ -767,15 +815,18 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
 
                   {/* Bottom-Right Target Box Container */}
                   <div 
-                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-150 flex items-center justify-center ${
+                    className={`absolute w-16 h-16 sm:w-20 sm:h-20 rounded-2xl pointer-events-none transition-all duration-100 flex items-center justify-center ${
                       isBR 
-                        ? (isAllLocked ? 'border-2 border-emerald-400 bg-emerald-400/30 shadow-[0_0_28px_rgba(52,211,153,0.85)] scale-110' : 'border-2 border-emerald-400 bg-emerald-400/25 shadow-[0_0_24px_rgba(52,211,153,0.65)] scale-110')
+                        ? (isAllLocked ? 'border-2 border-emerald-400 bg-emerald-400/30 shadow-[0_0_28px_rgba(52,211,153,0.85)] scale-105' : 'border-2 border-emerald-400 bg-emerald-400/25 shadow-[0_0_24px_rgba(52,211,153,0.65)] scale-105')
                         : 'border-2 border-white/60 bg-black/20 backdrop-blur-[2px] shadow-[0_4px_16px_rgba(0,0,0,0.5)]'
                     }`}
-                    style={{ left: `${targetBR.x}px`, top: `${targetBR.y}px`, transform: 'translate(-50%, -50%)' }}
+                    style={{ left: `${defaultBR.x}px`, top: `${defaultBR.y}px`, transform: 'translate(-50%, -50%)' }}
                   >
                     {isBR ? (
-                      <div className="w-4 h-4 rounded-sm bg-emerald-400 border-2 border-white shadow-[0_0_12px_rgba(52,211,153,0.9)] animate-pulse" />
+                      <div 
+                        className="w-4 h-4 rounded-sm bg-emerald-400 border-2 border-white shadow-[0_0_12px_rgba(52,211,153,0.9)] animate-pulse"
+                        style={relBR ? { transform: `translate(${relBR.x}px, ${relBR.y}px)` } : undefined}
+                      />
                     ) : (
                       <div className="w-5 h-5 rounded-xs border-2 border-white/70 bg-white/10 flex items-center justify-center text-[11px] text-white/90 font-mono font-black select-none">■</div>
                     )}
@@ -783,15 +834,18 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
 
                   {/* Bottom-Left Target Box Container */}
                   <div 
-                    className={`absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl pointer-events-none transition-all duration-150 flex items-center justify-center ${
+                    className={`absolute w-16 h-16 sm:w-20 sm:h-20 rounded-2xl pointer-events-none transition-all duration-100 flex items-center justify-center ${
                       isBL 
-                        ? (isAllLocked ? 'border-2 border-emerald-400 bg-emerald-400/30 shadow-[0_0_28px_rgba(52,211,153,0.85)] scale-110' : 'border-2 border-emerald-400 bg-emerald-400/25 shadow-[0_0_24px_rgba(52,211,153,0.65)] scale-110')
+                        ? (isAllLocked ? 'border-2 border-emerald-400 bg-emerald-400/30 shadow-[0_0_28px_rgba(52,211,153,0.85)] scale-105' : 'border-2 border-emerald-400 bg-emerald-400/25 shadow-[0_0_24px_rgba(52,211,153,0.65)] scale-105')
                         : 'border-2 border-white/60 bg-black/20 backdrop-blur-[2px] shadow-[0_4px_16px_rgba(0,0,0,0.5)]'
                     }`}
-                    style={{ left: `${targetBL.x}px`, top: `${targetBL.y}px`, transform: 'translate(-50%, -50%)' }}
+                    style={{ left: `${defaultBL.x}px`, top: `${defaultBL.y}px`, transform: 'translate(-50%, -50%)' }}
                   >
                     {isBL ? (
-                      <div className="w-4 h-4 rounded-sm bg-emerald-400 border-2 border-white shadow-[0_0_12px_rgba(52,211,153,0.9)] animate-pulse" />
+                      <div 
+                        className="w-4 h-4 rounded-sm bg-emerald-400 border-2 border-white shadow-[0_0_12px_rgba(52,211,153,0.9)] animate-pulse"
+                        style={relBL ? { transform: `translate(${relBL.x}px, ${relBL.y}px)` } : undefined}
+                      />
                     ) : (
                       <div className="w-5 h-5 rounded-xs border-2 border-white/70 bg-white/10 flex items-center justify-center text-[11px] text-white/90 font-mono font-black select-none">■</div>
                     )}

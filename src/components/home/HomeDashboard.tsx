@@ -542,7 +542,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 </div>
 
                 {/* Row 2: Question count & time (Left), Minimal 'New' badge & Chevron (Bottom Right) */}
-                <div className="flex items-center justify-between w-full pt-1 border-t border-[var(--md-sys-color-outline-variant)]/20 pointer-events-none">
+                <div className="flex items-center justify-between w-full pt-0.5 pointer-events-none">
                   <div className="flex items-center gap-2 text-[11px] text-[#5e5e5e] dark:text-[#9aa0a6] font-medium leading-none">
                     <span className="inline-flex items-center gap-1 text-[11px] text-[#444746] dark:text-[#c4c7c5] px-1 py-0.5 leading-none">
                       <Package className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6] shrink-0" strokeWidth={2.2} />

@@ -11,6 +11,7 @@ import {
   Trash2,
   ChevronRight,
   BookOpen,
+  Folder,
   ListVideo,
   Maximize2,
   RotateCcw,
@@ -59,6 +60,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
   const {
     batches = [],
     lectures = [],
+    chapters = [],
     watchProgress,
     personalNotes,
     addPersonalNote,
@@ -360,6 +362,22 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
     return 'Course Batch';
   }, [playback?.batchTitle, playback?.batchId, batches]);
 
+  // Active chapter/folder lookup
+  const activeChapter = useMemo(() => {
+    const rawChapterId = playback?.chapterId || currentLecture?.chapterId;
+    if (rawChapterId) {
+      return chapters.find((c) => c.id === rawChapterId) || null;
+    }
+    return null;
+  }, [playback?.chapterId, currentLecture?.chapterId, chapters]);
+
+  // Fail-safe active chapter / folder name resolution (fallbacks to batch title if no folder)
+  const activeFolderTitle = useMemo(() => {
+    const fromChapter = (activeChapter?.title || '').trim();
+    if (fromChapter) return fromChapter;
+    return activeBatchTitle;
+  }, [activeChapter?.title, activeBatchTitle]);
+
   const currentLectureNotes = useMemo(() => {
     if (!playback) return [];
     return personalNotes.filter((n) => n.lectureId === playback.lectureId);
@@ -386,6 +404,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
             lectureId: lec.id,
             lectureTitle: resolvedTitle,
             lectureDescription: resolvedDescription,
+            chapterId: lec.chapterId || prev.chapterId || null,
             encryptedVideoId: lec.encryptedVideoId,
             thumbnailUrl: lec.thumbnailUrl,
             durationMinutes: lec.durationMinutes,
@@ -436,7 +455,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
               } w-[280px] xs:w-[300px] sm:w-[340px] md:w-[380px] z-50 bg-[#16181d] text-white rounded-2xl md:rounded-3xl shadow-2xl ring-1 ring-black/10 dark:ring-white/10 border-0 border-none p-0 transition-all duration-300 select-none overflow-hidden ${
                 !isTestMode ? 'flex flex-col' : 'hidden'
               }`
-            : `is-expanded fixed inset-x-0 bottom-0 w-full top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] md:top-[62px] md:h-[calc(100vh-62px)] z-[48] bg-[#e5e9f0] dark:bg-[#0b0c10] flex flex-col lg:grid lg:grid-cols-12 lg:grid-rows-[max-content_minmax(0,1fr)] lg:gap-6 xl:gap-8 items-start overflow-hidden lg:overflow-y-auto px-0 lg:px-8 xl:px-10 pt-0 lg:pt-4 pb-0 overscroll-contain select-text max-w-[1750px] mx-auto`
+            : `is-expanded fixed inset-x-0 bottom-0 w-full top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] md:top-[62px] md:h-[calc(100vh-62px)] z-[48] bg-[#e5e9f0] dark:bg-[#0b0c10] flex flex-col lg:grid lg:grid-cols-12 lg:grid-rows-[max-content_minmax(0,1fr)] lg:gap-6 xl:gap-8 items-start overflow-hidden lg:overflow-y-auto px-0 lg:px-8 xl:px-10 pt-0 lg:pt-4 pb-0 overscroll-contain select-text`
         }
       style={
         !isMinimized && !isInNativePip
@@ -670,13 +689,19 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                 </button>
               </div>
 
-              {/* Badges: Batch, Duration, and Playlist position */}
+              {/* Badges: Chapter/Folder, Lecture Position (Out of), and Duration (Timeline) */}
               <div className="flex flex-wrap items-center justify-between gap-3 pb-1 border-0">
                 <div className="flex items-center flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-[#1e2024] text-[#0b57d0] dark:text-[#a8c7fa] text-xs font-bold border-0 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]">
-                    <BookOpen className="w-3.5 h-3.5" />
-                    <span className="truncate max-w-[240px]">{activeBatchTitle}</span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-[#1e2024] text-[#0b57d0] dark:text-[#a8c7fa] text-xs font-bold border-0 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]" title={activeChapter ? `Chapter: ${activeFolderTitle}` : `Batch: ${activeFolderTitle}`}>
+                    {activeChapter ? <Folder className="w-3.5 h-3.5" /> : <BookOpen className="w-3.5 h-3.5" />}
+                    <span className="truncate max-w-[240px]">{activeFolderTitle}</span>
                   </span>
+                  {batchLectures.length > 0 && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white dark:bg-[#1e2024] text-slate-600 dark:text-zinc-400 text-xs font-medium border-0 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]">
+                      <ListVideo className="w-3.5 h-3.5" />
+                      <span>Lecture {batchLectures.findIndex(l => l.id === playback.lectureId) + 1} of {batchLectures.length}</span>
+                    </span>
+                  )}
                   {(totalDuration > 0 || Boolean(playback.durationMinutes)) && (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white dark:bg-[#1e2024] text-slate-700 dark:text-zinc-300 text-xs font-semibold border-0 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]">
                       <Clock className="w-3.5 h-3.5" />
@@ -685,12 +710,6 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
                           ? formatDuration(totalDuration)
                           : `${playback.durationMinutes} mins`}
                       </span>
-                    </span>
-                  )}
-                  {batchLectures.length > 0 && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white dark:bg-[#1e2024] text-slate-600 dark:text-zinc-400 text-xs font-medium border-0 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)]">
-                      <ListVideo className="w-3.5 h-3.5" />
-                      <span>Lecture {batchLectures.findIndex(l => l.id === playback.lectureId) + 1} of {batchLectures.length}</span>
                     </span>
                   )}
                 </div>

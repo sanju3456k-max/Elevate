@@ -27,6 +27,7 @@ import {
 } from '../../lib/notifications';
 import {
   getDeviceNotificationPermission,
+  getDeviceNotificationPermissionSync,
   requestDeviceNotificationPermission,
   sendDeviceNotification,
 } from '../../lib/deviceNotificationService';
@@ -146,14 +147,26 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   const { user, batches, lectures, chapters, announcements, batchTests, isEnrolled } = useApp();
   const [readVersion, setReadVersion] = useState(0);
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'unread' | 'lecture' | 'test'>('all');
-  const [notifPermission, setNotifPermission] = useState<'granted' | 'denied' | 'default'>('default');
+  const [notifPermission, setNotifPermission] = useState<'granted' | 'denied' | 'default'>(() => {
+    return getDeviceNotificationPermissionSync();
+  });
+  const [hasCheckedPermission, setHasCheckedPermission] = useState<boolean>(() => {
+    return getDeviceNotificationPermissionSync() === 'granted';
+  });
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
     getDeviceNotificationPermission().then((status) => {
-      setNotifPermission(status);
+      if (isMounted) {
+        setNotifPermission(status);
+        setHasCheckedPermission(true);
+      }
     });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const showToast = (msg: string) => {
@@ -334,13 +347,13 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   ];
 
   return (
-    <div className={`w-full ${isDrawer ? 'h-full bg-white dark:bg-[#121316]' : 'min-h-screen bg-white dark:bg-[#0b0c10]'} text-[#1f1f1f] dark:text-[#e3e3e3] select-none flex flex-col overflow-hidden`}>
-      {/* Fixed Sticky Header without any partial line or border */}
+    <div className={`w-full ${isDrawer ? 'h-full bg-white dark:bg-[#121316]' : 'h-full min-h-[100dvh] bg-white dark:bg-[#0b0c10]'} text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col overflow-hidden touch-pan-y`}>
+      {/* Fixed Sticky Header without any partition line or border */}
       <header className={`sticky top-0 z-30 bg-white dark:bg-[#121316] ${
         isDrawer 
-          ? 'border-b border-slate-100 dark:border-zinc-800/80 p-3.5 sm:p-4 pb-2.5 space-y-2.5 shrink-0 shadow-xs' 
-          : 'border-0 border-none shadow-none pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)] pb-3 px-3.5 sm:px-6'
-      } transition-colors`}>
+          ? 'border-0 border-none shadow-none p-3 sm:p-4 pb-2.5 space-y-2.5 shrink-0' 
+          : 'border-0 border-none shadow-none pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)] pb-3 px-2.5 sm:px-6 shrink-0'
+      } transition-colors select-none`}>
         <div className={`${isDrawer ? 'w-full space-y-2.5' : 'max-w-4xl mx-auto space-y-3'}`}>
           {/* Top Row: Back Arrow / Bell Icon, Title, Count, Actions */}
           <div className="flex items-center justify-between gap-2.5 pt-0.5">
@@ -375,7 +388,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
 
             {/* Action Header: Allow Notifications, Mark All as Read & Drawer Close Button */}
             <div className="flex items-center gap-1.5 shrink-0">
-              {notifPermission !== 'granted' && (
+              {hasCheckedPermission && notifPermission !== 'granted' && (
                 <button
                   type="button"
                   id="notifications-allow-btn"
@@ -456,7 +469,13 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
       </header>
 
       {/* Scrollable Notification List Messages Body */}
-      <div className={`flex-1 ${isDrawer ? 'w-full px-3 sm:px-4 pb-16 pt-1' : 'max-w-4xl w-full mx-auto px-3.5 sm:px-6 pb-28 sm:pb-28 md:pb-16 pt-1'} overflow-y-auto overscroll-contain`}>
+      <div 
+        className={`flex-1 min-h-0 ${isDrawer ? 'w-full px-2.5 sm:px-4 pb-16 pt-1' : 'max-w-4xl w-full mx-auto px-2 sm:px-6 pb-28 sm:pb-28 md:pb-16 pt-1'} overflow-y-auto overscroll-contain touch-pan-y`}
+        style={{
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-y'
+        }}
+      >
         {/* Floating Toast Alert */}
         {toastMessage && (
           <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full bg-slate-900/90 dark:bg-white/95 text-white dark:text-slate-900 text-xs font-bold shadow-lg flex items-center gap-2 backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
@@ -466,7 +485,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
         )}
 
         {/* Permission Request Prompt Banner if notifications not yet enabled */}
-        {notifPermission !== 'granted' && (
+        {hasCheckedPermission && notifPermission !== 'granted' && (
           <div className="mb-3.5 p-3 sm:p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 flex items-center justify-between gap-3 transition-all">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-full bg-[#0b57d0]/10 dark:bg-[#a8c7fa]/15 flex items-center justify-center shrink-0 text-[#0b57d0] dark:text-[#a8c7fa]">
@@ -511,25 +530,30 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                 <div
                   key={notif.id}
                   onClick={() => handleItemClick(notif)}
-                  className="group relative p-3 sm:p-3.5 rounded-2xl bg-transparent dark:bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 border-0 transition-all duration-150 cursor-pointer flex items-start gap-3 sm:gap-3.5"
+                  className="group relative px-2.5 sm:px-3.5 py-3 rounded-2xl bg-transparent dark:bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 border-0 transition-all duration-150 cursor-pointer flex items-start gap-2.5 sm:gap-3.5 touch-manipulation"
                 >
                   {/* Category Icon Badge with Round Icon Shape */}
-                  <div className={`w-10 h-10 rounded-full ${meta.badgeBg} flex items-center justify-center shrink-0 mt-0.5 border-0 shadow-2xs`}>
-                    <IconComp className="w-5 h-5 stroke-[2.2]" />
+                  <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full ${meta.badgeBg} flex items-center justify-center shrink-0 mt-0.5 border-0 shadow-2xs`}>
+                    <IconComp className="w-4.5 h-4.5 sm:w-5 sm:h-5 stroke-[2.2]" />
                   </div>
 
                   {/* Middle Content - Maximized Width to Fill Empty Space */}
-                  <div className="flex-1 min-w-0 pr-2">
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <span className="font-bold text-[#0b57d0] dark:text-[#a8c7fa] text-[11px] sm:text-xs uppercase tracking-wide">
-                        {meta.label}
-                      </span>
-                      {!notif.read && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#041e49] text-[10px] font-bold shadow-xs shrink-0">
-                          <span className="w-1.5 h-1.5 rounded-full bg-white dark:bg-[#041e49]" />
-                          New
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-bold text-[#0b57d0] dark:text-[#a8c7fa] text-[11px] sm:text-xs uppercase tracking-wide truncate">
+                          {meta.label}
                         </span>
-                      )}
+                        {!notif.read && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#041e49] text-[10px] font-bold shadow-xs shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white dark:bg-[#041e49]" />
+                            New
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-slate-500 dark:text-zinc-400 font-semibold text-[11px] sm:text-xs whitespace-nowrap shrink-0">
+                        {formatRelativeTime(notif.timestamp)}
+                      </span>
                     </div>
 
                     <h3 className={`text-sm sm:text-base tracking-tight leading-snug mt-1 font-bold ${
@@ -586,14 +610,9 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                     )}
                   </div>
 
-                  {/* Far Right Column: Time tag shifted completely rightwards to top-right edge, Chevron at bottom-right */}
-                  <div className="flex flex-col items-end justify-between shrink-0 self-stretch pt-0.5 pl-1.5">
-                    <span className="text-slate-600 dark:text-zinc-400 font-bold text-[11px] sm:text-xs whitespace-nowrap text-right">
-                      {formatRelativeTime(notif.timestamp)}
-                    </span>
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-slate-400 dark:text-zinc-500 group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition mt-auto">
-                      <ChevronRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
-                    </div>
+                  {/* Far Right Chevron */}
+                  <div className="self-center shrink-0 pl-1 text-slate-400 dark:text-zinc-500 group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition">
+                    <ChevronRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
                   </div>
                 </div>
               );

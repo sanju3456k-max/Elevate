@@ -1093,7 +1093,7 @@ export const BatchAdminStudio: React.FC = () => {
               </div>
 
               {/* Student-Fidelity Batch Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 responsive-tablet-batches-grid gap-5 sm:gap-6">
                 {batches
                   .filter((b) => {
                     if (catalogCategoryFilter !== 'all' && b.category !== catalogCategoryFilter) return false;
@@ -1112,7 +1112,7 @@ export const BatchAdminStudio: React.FC = () => {
                     return (
                       <div
                         key={b.id}
-                        className="rounded-3xl bg-[var(--md-sys-color-surface-container)] overflow-hidden shadow-xs hover:shadow-lg transition flex flex-col justify-between border-none group"
+                        className="rounded-3xl bg-[var(--md-sys-color-surface-container)] overflow-hidden shadow-xs hover:shadow-lg transition flex flex-col justify-between border-none group virtual-card-render"
                       >
                         <div>
                           {/* Banner Image with Category & Status Overlay */}

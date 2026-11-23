@@ -66,6 +66,16 @@ export async function ensureMicrophonePermission(): Promise<boolean> {
     return true;
   }
 
+  // 0. On native Android wrapper, prompt native microphone & media permission if needed
+  try {
+    if (typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.()) {
+      const pip = (window as any).Capacitor?.Plugins?.PipBridge;
+      if (pip && typeof pip.requestMediaPermissions === 'function') {
+        await pip.requestMediaPermissions().catch(() => {});
+      }
+    }
+  } catch {}
+
   // 1. Query permissions without locking the hardware microphone device
   try {
     if (navigator.permissions && navigator.permissions.query) {
@@ -97,6 +107,11 @@ export async function ensureMicrophonePermission(): Promise<boolean> {
     return true;
   } catch (err: any) {
     console.warn('Microphone permission check note:', err);
+    // On mobile / Android WebView, getUserMedia might reject if SpeechRecognition handles
+    // permissions independently via native speech service. Allow SpeechRecognition to proceed.
+    if (isSpeechRecognitionSupported()) {
+      return true;
+    }
     if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
       return false;
     }
@@ -587,7 +602,7 @@ class CleanSpeechEngine {
 
         console.warn('Speech recognition dictation error:', err);
         if (err === 'not-allowed' || err === 'service-not-allowed') {
-          notifySpeechMessage('Microphone access is blocked. Please allow microphone permission in your browser address bar.', 'error');
+          notifySpeechMessage('Microphone access is blocked. Please allow microphone permission in your device or app settings.', 'error');
           this.stopAll();
           return;
         }
@@ -666,7 +681,7 @@ class CleanSpeechEngine {
 
     const permitted = await ensureMicrophonePermission();
     if (!permitted) {
-      notifySpeechMessage('Microphone permission was denied. Please allow microphone access in your browser address bar settings.', 'error');
+      notifySpeechMessage('Microphone permission was denied. Please allow microphone access in your device or app settings.', 'error');
       onEnded();
       return;
     }
@@ -712,7 +727,7 @@ class CleanSpeechEngine {
 
     const permitted = await ensureMicrophonePermission();
     if (!permitted) {
-      notifySpeechMessage('Microphone permission was denied. Please allow microphone access in your browser address bar settings.', 'error');
+      notifySpeechMessage('Microphone permission was denied. Please allow microphone access in your device or app settings.', 'error');
       onStatus('paused');
       return;
     }
@@ -945,7 +960,7 @@ class CleanSpeechEngine {
         if (err === 'not-allowed' || err === 'service-not-allowed') {
           this.onStatusCallback?.('paused');
           this.stopAll();
-          notifySpeechMessage('Microphone access is blocked. Please allow microphone permission in your browser address bar.', 'error');
+          notifySpeechMessage('Microphone access is blocked. Please allow microphone permission in your device or app settings.', 'error');
           return;
         }
 

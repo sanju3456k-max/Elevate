@@ -970,27 +970,29 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     return (
       <div className="space-y-6 pb-28 sm:pb-28 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
         {/* Course Filter Toggle: All Courses vs My Courses & Master Actions */}
-        <div className="flex items-center justify-between gap-3 pb-1 flex-wrap">
+        <div className="flex items-center justify-between gap-2 pb-1 flex-nowrap w-full overflow-x-auto [scrollbar-width:none]">
           {isMaster ? (
             <button
               type="button"
+              id="create-new-batch-btn"
               onClick={() => setIsCreateBatchModalOpen(true)}
-              className="px-4 py-2 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white font-bold text-xs flex items-center space-x-1.5 shadow-xs transition border-none cursor-pointer active:scale-95"
+              className="px-3 sm:px-4 py-2 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition border-none cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
+              title="Create New Batch"
             >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>+ Create Course Batch</span>
+              <Plus className="w-4 h-4 stroke-[2.5] shrink-0" />
+              <span>New Batch</span>
             </button>
           ) : (
             <div />
           )}
 
           {/* Unified Single Toggle Container for All Courses vs My Courses */}
-          <div className="inline-flex items-center p-1 rounded-full bg-white dark:bg-[#1e2024] shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] border-0 self-start sm:self-auto">
+          <div className="inline-flex items-center p-1 rounded-full bg-white dark:bg-[#1e2024] shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] border-0 shrink-0">
             <button
               id="batch-filter-all-btn"
               type="button"
               onClick={() => setBatchFilter('all')}
-              className={`h-8.5 px-3.5 sm:px-4 rounded-full text-xs font-bold transition-all duration-200 border-0 outline-none cursor-pointer flex items-center space-x-1.5 active:scale-95 ${
+              className={`h-8 sm:h-8.5 px-3 sm:px-4 rounded-full text-xs font-bold transition-all duration-200 border-0 outline-none cursor-pointer flex items-center gap-1.5 active:scale-95 whitespace-nowrap ${
                 batchFilter === 'all'
                   ? 'bg-[#0b57d0] text-white shadow-[0_2px_6px_rgba(11,87,208,0.25)]'
                   : 'bg-transparent text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-zinc-100 font-semibold'
@@ -998,7 +1000,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             >
               <span>All Courses</span>
               <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums ${
+                className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums ${
                   batchFilter === 'all'
                     ? 'bg-white/20 text-white'
                     : 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300'
@@ -1011,7 +1013,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               id="batch-filter-my-btn"
               type="button"
               onClick={() => setBatchFilter('my-batches')}
-              className={`h-8.5 px-3.5 sm:px-4 rounded-full text-xs font-bold transition-all duration-200 border-0 outline-none cursor-pointer flex items-center space-x-1.5 active:scale-95 ${
+              className={`h-8 sm:h-8.5 px-3 sm:px-4 rounded-full text-xs font-bold transition-all duration-200 border-0 outline-none cursor-pointer flex items-center gap-1.5 active:scale-95 whitespace-nowrap ${
                 batchFilter === 'my-batches'
                   ? 'bg-[#0b57d0] text-white shadow-[0_2px_6px_rgba(11,87,208,0.25)]'
                   : 'bg-transparent text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-zinc-100 font-semibold'
@@ -1019,7 +1021,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             >
               <span>My Courses</span>
               <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums ${
+                className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums ${
                   batchFilter === 'my-batches'
                     ? 'bg-white/20 text-white'
                     : 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300'
@@ -1032,7 +1034,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         </div>
 
         {displayedBatches.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 responsive-tablet-batches-grid gap-4 sm:gap-5">
             {displayedBatches.map((b) => (
               <div
                 key={b.id}
@@ -1398,9 +1400,9 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             </div>
           </div>
 
-          {/* Master Admin Contextual Action Bar (Compact Icon Buttons on Mobile, Full Pills on Desktop) */}
+          {/* Master Admin Contextual Action Bar (Compact Round Icon Buttons on Mobile, Full Pills on Desktop) */}
           {isMaster && (
-            <div className="flex items-center justify-end space-x-1.5 sm:space-x-2 shrink-0 flex-nowrap self-end ml-auto overflow-x-auto py-0.5 [scrollbar-width:none]">
+            <div className="flex items-center justify-end gap-2 sm:gap-2.5 shrink-0 flex-nowrap self-end ml-auto overflow-x-auto pt-2 pb-1.5 px-1.5 [scrollbar-width:none]">
               {/* Batch Management: Students Roster & Batch Settings */}
               <button
                 type="button"
@@ -1408,14 +1410,14 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   setBatchForRoster(currentBatch);
                   setIsBatchRosterModalOpen(true);
                 }}
-                className="relative p-2 md:px-3 md:py-1.5 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
+                className="relative w-9 h-9 md:w-auto md:h-auto p-0 md:px-3 md:py-1.5 aspect-square md:aspect-auto rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center md:space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
                 title={`Manage Students (${getEnrollmentsForBatch(currentBatch?.id || selectedBatchId).length})`}
                 aria-label="Manage Students"
               >
                 <Users className="w-4 h-4 shrink-0" />
                 <span className="hidden md:inline">Students ({getEnrollmentsForBatch(currentBatch?.id || selectedBatchId).length})</span>
                 {getEnrollmentsForBatch(currentBatch?.id || selectedBatchId).length > 0 && (
-                  <span className="md:hidden absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-950 text-white text-[9px] font-bold flex items-center justify-center shadow-xs">
+                  <span className="md:hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-950 text-white text-[10px] font-extrabold flex items-center justify-center shadow-xs leading-none pointer-events-none z-10 tabular-nums">
                     {getEnrollmentsForBatch(currentBatch?.id || selectedBatchId).length}
                   </span>
                 )}
@@ -1427,7 +1429,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   setBatchToEdit(currentBatch);
                   setIsEditBatchModalOpen(true);
                 }}
-                className="p-2 md:px-3 md:py-1.5 rounded-full bg-slate-700 hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
+                className="relative w-9 h-9 md:w-auto md:h-auto p-0 md:px-3 md:py-1.5 aspect-square md:aspect-auto rounded-full bg-slate-700 hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500 text-white font-bold text-xs flex items-center justify-center md:space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
                 title="Edit Batch Settings, Pricing and Access"
                 aria-label="Batch Settings"
               >
@@ -1443,7 +1445,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   setEditingFolder(null);
                   setIsFolderModalOpen(true);
                 }}
-                className="p-2 md:px-3 md:py-1.5 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#041e49] font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs hover:opacity-90 active:scale-95 transition border-none cursor-pointer shrink-0"
+                className="w-9 h-9 md:w-auto md:h-auto p-0 md:px-3 md:py-1.5 aspect-square md:aspect-auto rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#041e49] font-bold text-xs flex items-center justify-center md:space-x-1.5 shadow-xs hover:opacity-90 active:scale-95 transition border-none cursor-pointer shrink-0"
                 title={selectedChapterId ? "Add Subfolder" : "Add Chapter Folder"}
                 aria-label={selectedChapterId ? "Add Subfolder" : "Add Folder"}
               >
@@ -1457,7 +1459,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   setEditingLecture(null);
                   setIsVideoModalOpen(true);
                 }}
-                className="p-2 md:px-3 md:py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
+                className="w-9 h-9 md:w-auto md:h-auto p-0 md:px-3 md:py-1.5 aspect-square md:aspect-auto rounded-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center md:space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
                 title="Add Video Lecture"
                 aria-label="Add Lecture"
               >
@@ -1471,7 +1473,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   setEditingNote(null);
                   setIsNoteModalOpen(true);
                 }}
-                className="p-2 md:px-3 md:py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
+                className="w-9 h-9 md:w-auto md:h-auto p-0 md:px-3 md:py-1.5 aspect-square md:aspect-auto rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center md:space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
                 title="Add Notes or Document Files"
                 aria-label="Add File"
               >
@@ -1482,7 +1484,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsLinkTestModalOpen(true)}
-                className="p-2 md:px-3 md:py-1.5 rounded-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
+                className="w-9 h-9 md:w-auto md:h-auto p-0 md:px-3 md:py-1.5 aspect-square md:aspect-auto rounded-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center md:space-x-1.5 shadow-xs active:scale-95 transition border-none cursor-pointer shrink-0"
                 title="Link Mock Test"
                 aria-label="Link Test"
               >
@@ -1590,17 +1592,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           </div>
         )}
 
-        {/* SECTION 1: SUBFOLDERS GRID (Google Drive Folder Cards) */}
+        {/* SECTION 1: SUBFOLDERS GRID (Spacious 2-Col Wide Folder Cards on Desktop, Full Width on Mobile with Partition Lines) */}
         {currentSubfolders.length > 0 && (
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs sm:text-sm font-bold text-[var(--md-sys-color-on-surface)] flex items-center space-x-2">
-                <Folder className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
-                <span>Subfolders ({currentSubfolders.length})</span>
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 sm:gap-x-8 gap-y-0">
               {currentSubfolders.map((fld) => {
                 const subLectures = lectures.filter((l) => l.chapterId === fld.id && l.batchId === currentBatch.id);
                 let notesCount = (fld.pdfNotes?.length || 0);
@@ -1627,7 +1622,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   <div
                     key={fld.id}
                     onClick={() => goToFolderContent(fld.id)}
-                    className="p-3.5 rounded-2xl bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 border border-slate-200 dark:border-zinc-700 hover:border-slate-300 dark:hover:border-zinc-600 cursor-pointer transition-colors duration-150 flex items-center justify-between group relative"
+                    className="py-3 sm:py-3.5 px-2 sm:px-3 bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 border-b border-slate-200/80 dark:border-zinc-800/80 cursor-pointer transition-colors duration-150 flex items-center justify-between group relative"
                   >
                     <div className="flex items-center space-x-3 min-w-0 flex-1">
                       <div
@@ -2084,7 +2079,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   </div>
                 )
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3">
+                <div className="grid grid-cols-1 responsive-tablet-tests-grid gap-2.5 sm:gap-3">
                   {folderTests.map((t, idx) => (
                     <M3TestCard
                       key={t.id || `folder-test-${idx}`}

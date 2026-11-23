@@ -107,6 +107,7 @@
     font-family: var(--font-body);
     overflow-x: clip;
     overscroll-behavior-x: none;
+    background-color: var(--color-bg);
   }
 
   body, button, input, optgroup, select, textarea {
@@ -154,7 +155,9 @@
       top: 0 !important;
       left: 0 !important;
       right: 0 !important;
+      width: 100% !important;
       z-index: 50 !important;
+      background-color: var(--color-bg) !important;
     }
 
     body:not(.is-native-android) #global-persistent-player-host.is-expanded {
@@ -162,6 +165,13 @@
       height: calc(100vh - 62px) !important;
       bottom: 0 !important;
       overflow: hidden !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+      background-color: var(--color-bg) !important;
+      padding-left: max(1.5rem, calc((100% - 1720px) / 2)) !important;
+      padding-right: max(1.5rem, calc((100% - 1720px) / 2)) !important;
     }
   }
 
@@ -175,8 +185,8 @@
       grid-template-rows: max-content minmax(0, 1fr) !important;
       overflow-y: auto !important;
       overscroll-behavior-y: contain !important;
-      padding-left: max(1.5rem, calc((100vw - 1720px) / 2)) !important;
-      padding-right: max(1.5rem, calc((100vw - 1720px) / 2)) !important;
+      padding-left: max(1.5rem, calc((100% - 1720px) / 2)) !important;
+      padding-right: max(1.5rem, calc((100% - 1720px) / 2)) !important;
       padding-bottom: max(5rem, calc(3.5rem + env(safe-area-inset-bottom, 0px))) !important;
     }
   }
@@ -1342,4 +1352,46 @@ body.in-native-pip footer {
 @keyframes splashProgress {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(250%); }
+}
+
+/* Modern Hardware Accelerated Scrolling & Viewport Optimization (60-120 FPS) */
+.smooth-gpu-scroll {
+  -webkit-overflow-scrolling: touch;
+  contain: paint;
+}
+
+/* Offscreen List & Card Optimization: Skips offscreen layout & paint until scrolled into viewport */
+.virtual-item-render {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 140px;
+}
+
+.virtual-card-render {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 240px;
+}
+
+/* Responsive 2-Column Grid for All Tablets & Foldables (≥500px) */
+@media (min-width: 500px) {
+  .responsive-tablet-batches-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .responsive-tablet-tests-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+@media (min-width: 1280px) {
+  .responsive-tablet-batches-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  .responsive-tablet-tests-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+@media (min-width: 1536px) {
+  .responsive-tablet-tests-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
 }

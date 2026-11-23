@@ -82,13 +82,18 @@ export class OmrLiveDetector {
   // Temporal coordinate smoothing & stability gate
   private smoothedVideoFiducials: LiveQuadCorners | null = null;
   private stableStreak = 0;
-  // 2 consecutive stable frames (~60ms of steady alignment) allows fast, responsive auto-snap
-  private readonly requiredStableFrames = 2; 
-  // 30.0 screen px threshold accommodates natural human hand tremor across all resolutions (720p, 1080p, 4K)
-  private readonly maxScreenJitterPx = 30.0; 
+  // Hold-steady auto-snap timer tracking
+  private lockedStartTime = 0;
+  private lastAllLockedTime = 0;
+  // 1200ms (~1.2s) continuous hold-steady inside the 4 containers triggers auto-snap
+  private readonly requiredHoldSteadyMs = 1200;
+  // 200ms grace window accommodates momentary camera frame drops or hand micro-tremors
+  private readonly lockGraceMs = 200;
+  // 35.0 screen px threshold accommodates handheld micro-movements
+  private readonly maxScreenJitterPx = 35.0; 
   private lastProcessTimestamp = 0;
-  // 36ms interval (~27 FPS) keeps auto-detection ultra fast and responsive
-  private readonly minProcessIntervalMs = 36; 
+  // 25ms interval (~40 FPS) provides fluid real-time detection without starving the JS UI thread
+  private readonly minProcessIntervalMs = 25; 
 
   constructor(layoutConfigOrQuestionCount: OmrLayoutConfig | number = 50) {
     if (typeof layoutConfigOrQuestionCount === 'number') {
@@ -126,6 +131,8 @@ export class OmrLiveDetector {
     this.smoothedVideoFiducials = null;
     this.stableStreak = 0;
     this.lastProcessTimestamp = 0;
+    this.lockedStartTime = 0;
+    this.lastAllLockedTime = 0;
   }
 
   /**
@@ -232,19 +239,19 @@ export class OmrLiveDetector {
     ));
 
     // 3. Extract high-res patch candidates from video for all 4 corners
-    let listTL = this.detectCornerCandidatesInPatch(video, expVideoFiducials.tl, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
-    let listTR = this.detectCornerCandidatesInPatch(video, expVideoFiducials.tr, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
-    let listBR = this.detectCornerCandidatesInPatch(video, expVideoFiducials.br, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
-    let listBL = this.detectCornerCandidatesInPatch(video, expVideoFiducials.bl, vw, vh, dynamicPatchRadius, expectedBoxVideoPx);
+    let listTL = this.detectCornerCandidatesInPatch(video, expVideoFiducials.tl, vw, vh, dynamicPatchRadius, expectedBoxVideoPx, 'tl');
+    let listTR = this.detectCornerCandidatesInPatch(video, expVideoFiducials.tr, vw, vh, dynamicPatchRadius, expectedBoxVideoPx, 'tr');
+    let listBR = this.detectCornerCandidatesInPatch(video, expVideoFiducials.br, vw, vh, dynamicPatchRadius, expectedBoxVideoPx, 'br');
+    let listBL = this.detectCornerCandidatesInPatch(video, expVideoFiducials.bl, vw, vh, dynamicPatchRadius, expectedBoxVideoPx, 'bl');
 
     // Dynamic expanded fallback search if corners missed due to handheld offset
     const foundInitial = (listTL.length > 0 ? 1 : 0) + (listTR.length > 0 ? 1 : 0) + (listBR.length > 0 ? 1 : 0) + (listBL.length > 0 ? 1 : 0);
     if (foundInitial < 3) {
       const expRadius = Math.min(260, Math.round(dynamicPatchRadius * 1.5));
-      if (listTL.length === 0) listTL = this.detectCornerCandidatesInPatch(video, expVideoFiducials.tl, vw, vh, expRadius, expectedBoxVideoPx);
-      if (listTR.length === 0) listTR = this.detectCornerCandidatesInPatch(video, expVideoFiducials.tr, vw, vh, expRadius, expectedBoxVideoPx);
-      if (listBR.length === 0) listBR = this.detectCornerCandidatesInPatch(video, expVideoFiducials.br, vw, vh, expRadius, expectedBoxVideoPx);
-      if (listBL.length === 0) listBL = this.detectCornerCandidatesInPatch(video, expVideoFiducials.bl, vw, vh, expRadius, expectedBoxVideoPx);
+      if (listTL.length === 0) listTL = this.detectCornerCandidatesInPatch(video, expVideoFiducials.tl, vw, vh, expRadius, expectedBoxVideoPx, 'tl');
+      if (listTR.length === 0) listTR = this.detectCornerCandidatesInPatch(video, expVideoFiducials.tr, vw, vh, expRadius, expectedBoxVideoPx, 'tr');
+      if (listBR.length === 0) listBR = this.detectCornerCandidatesInPatch(video, expVideoFiducials.br, vw, vh, expRadius, expectedBoxVideoPx, 'br');
+      if (listBL.length === 0) listBL = this.detectCornerCandidatesInPatch(video, expVideoFiducials.bl, vw, vh, expRadius, expectedBoxVideoPx, 'bl');
     }
 
     // Multi-candidate geometric pairing (solves the twin-square trap when multiple tests are on one page)
@@ -300,51 +307,76 @@ export class OmrLiveDetector {
     let initialCount = (candTL ? 1 : 0) + (candTR ? 1 : 0) + (candBR ? 1 : 0) + (candBL ? 1 : 0);
 
     // Parallelogram geometric completion: if 3 of 4 corners are found,
-    // mathematically extrapolate the 4th corner and attempt localized refinement!
+    // only refine if the 4th corner can be physically confirmed by detection.
+    // Do NOT substitute synthetic points for live auto-snapping.
     if (initialCount === 3 && !bestCombo) {
       if (!candTL && candTR && candBL && candBR) {
         const predTL = { x: candTR.x + candBL.x - candBR.x, y: candTR.y + candBL.y - candBR.y };
         const refTL = this.detectCornerInPatch(video, predTL, vw, vh, Math.round(dynamicPatchRadius * 0.75), expectedBoxVideoPx);
-        candTL = refTL || predTL;
+        if (refTL) candTL = refTL;
       } else if (!candTR && candTL && candBL && candBR) {
         const predTR = { x: candTL.x + candBR.x - candBL.x, y: candTL.y + candBR.y - candBL.y };
         const refTR = this.detectCornerInPatch(video, predTR, vw, vh, Math.round(dynamicPatchRadius * 0.75), expectedBoxVideoPx);
-        candTR = refTR || predTR;
+        if (refTR) candTR = refTR;
       } else if (!candBR && candTL && candTR && candBL) {
         const predBR = { x: candTR.x + candBL.x - candTL.x, y: candTR.y + candBL.y - candTL.y };
         const refBR = this.detectCornerInPatch(video, predBR, vw, vh, Math.round(dynamicPatchRadius * 0.75), expectedBoxVideoPx);
-        candBR = refBR || predBR;
+        if (refBR) candBR = refBR;
       } else if (!candBL && candTL && candTR && candBR) {
         const predBL = { x: candTL.x + candBR.x - candTR.x, y: candTL.y + candBR.y - candTR.y };
         const refBL = this.detectCornerInPatch(video, predBL, vw, vh, Math.round(dynamicPatchRadius * 0.75), expectedBoxVideoPx);
-        candBL = refBL || predBL;
+        if (refBL) candBL = refBL;
       }
     }
 
-    const boxCount = (candTL ? 1 : 0) + (candTR ? 1 : 0) + (candBR ? 1 : 0) + (candBL ? 1 : 0);
+    // Container-Zone Invariance:
+    // Guide container boxes on screen are 64px-80px.
+    // Generously allow candidate squares anywhere within the container zone (~50-65px half-size).
+    const containerHalfSizePx = Math.max(48, Math.min(65, Math.round(screenFrame.width * 0.12)));
+
+    const isInsideContainer = (pt: QuadPoint | null, center: QuadPoint): boolean => {
+      if (!pt) return false;
+      const sPt = videoToScreen(pt.x, pt.y);
+      return Math.abs(sPt.x - center.x) <= containerHalfSizePx &&
+             Math.abs(sPt.y - center.y) <= containerHalfSizePx;
+    };
+
+    const inBoxTL = isInsideContainer(candTL, expScreenFiducials.tl);
+    const inBoxTR = isInsideContainer(candTR, expScreenFiducials.tr);
+    const inBoxBR = isInsideContainer(candBR, expScreenFiducials.br);
+    const inBoxBL = isInsideContainer(candBL, expScreenFiducials.bl);
+
+    const boxCount = (inBoxTL ? 1 : 0) + (inBoxTR ? 1 : 0) + (inBoxBR ? 1 : 0) + (inBoxBL ? 1 : 0);
     const detectedBoxes: DetectedBoxesState = {
-      tl: Boolean(candTL),
-      tr: Boolean(candTR),
-      br: Boolean(candBR),
-      bl: Boolean(candBL),
+      tl: inBoxTL,
+      tr: inBoxTR,
+      br: inBoxBR,
+      bl: inBoxBL,
       count: boxCount,
     };
 
     const allDetected = boxCount === 4 && Boolean(candTL && candTR && candBR && candBL);
 
     if (!allDetected || !candTL || !candTR || !candBR || !candBL) {
+      if (now - this.lastAllLockedTime > this.lockGraceMs) {
+        this.lockedStartTime = 0;
+      }
       this.decayStreak();
 
       const fallbackScreenFiducials: LiveQuadCorners = {
-        tl: { x: (expScreenFiducials.tl.x / cw) * 100, y: (expScreenFiducials.tl.y / ch) * 100 },
-        tr: { x: (expScreenFiducials.tr.x / cw) * 100, y: (expScreenFiducials.tr.y / ch) * 100 },
-        br: { x: (expScreenFiducials.br.x / cw) * 100, y: (expScreenFiducials.br.y / ch) * 100 },
-        bl: { x: (expScreenFiducials.bl.x / cw) * 100, y: (expScreenFiducials.bl.y / ch) * 100 },
+        tl: candTL && inBoxTL ? toScreenPct(videoToScreen(candTL.x, candTL.y), cw, ch) : { x: (expScreenFiducials.tl.x / cw) * 100, y: (expScreenFiducials.tl.y / ch) * 100 },
+        tr: candTR && inBoxTR ? toScreenPct(videoToScreen(candTR.x, candTR.y), cw, ch) : { x: (expScreenFiducials.tr.x / cw) * 100, y: (expScreenFiducials.tr.y / ch) * 100 },
+        br: candBR && inBoxBR ? toScreenPct(videoToScreen(candBR.x, candBR.y), cw, ch) : { x: (expScreenFiducials.br.x / cw) * 100, y: (expScreenFiducials.br.y / ch) * 100 },
+        bl: candBL && inBoxBL ? toScreenPct(videoToScreen(candBL.x, candBL.y), cw, ch) : { x: (expScreenFiducials.bl.x / cw) * 100, y: (expScreenFiducials.bl.y / ch) * 100 },
       };
 
       const guidanceMsg = boxCount === 0 
         ? 'Align 4 corner [ ■ ] squares into boxes' 
-        : `${boxCount} of 4 corner [ ■ ] aligned...`;
+        : `${boxCount} of 4 corners locked in boxes...`;
+
+      const progress = this.lockedStartTime > 0
+        ? Math.min(0.95, Math.max(0.15, (now - this.lockedStartTime) / this.requiredHoldSteadyMs))
+        : (boxCount / 4) * 0.25;
 
       return {
         status: 'searching',
@@ -355,7 +387,7 @@ export class OmrLiveDetector {
         videoFiducials: expVideoFiducials,
         videoOuterCorners: frameCornersVideo,
         frameCorners: frameCornersScreenPct,
-        stabilityProgress: (boxCount / 4) * 0.4,
+        stabilityProgress: progress,
         guidanceMessage: guidanceMsg,
         tiltAngleDeg: 0,
         ratioMatchPercentage: 0,
@@ -396,6 +428,9 @@ export class OmrLiveDetector {
     const lumaBL = this.sampleVideoAreaLuma(video, candBL.x, candBL.y, 20, vw, vh);
 
     if (lumaTL < 60 || lumaTR < 60 || lumaBR < 60 || lumaBL < 60) {
+      if (now - this.lastAllLockedTime > this.lockGraceMs) {
+        this.lockedStartTime = 0;
+      }
       this.decayStreak();
       const fallbackScreenFiducials: LiveQuadCorners = {
         tl: { x: (expScreenFiducials.tl.x / cw) * 100, y: (expScreenFiducials.tl.y / ch) * 100 },
@@ -432,6 +467,9 @@ export class OmrLiveDetector {
     const lumaRight = this.sampleVideoAreaLuma(video, sheetMidX + (avgW * 0.25), sheetMidY, 20, vw, vh);
 
     if (lumaCenter < 60 || lumaTop < 60 || lumaBottom < 60 || lumaLeft < 60 || lumaRight < 60) {
+      if (now - this.lastAllLockedTime > this.lockGraceMs) {
+        this.lockedStartTime = 0;
+      }
       this.decayStreak();
       const fallbackScreenFiducials: LiveQuadCorners = {
         tl: { x: (expScreenFiducials.tl.x / cw) * 100, y: (expScreenFiducials.tl.y / ch) * 100 },
@@ -458,10 +496,13 @@ export class OmrLiveDetector {
       };
     }
 
-    // Physical span check: must span alignment frame within +-45% (accommodates normal hand viewing distance)
+    // Physical span check: must span alignment frame within +-30% (accommodates handheld distance while rejecting internal bubble grids)
     const spanDiffW = Math.abs(avgW - expW) / Math.max(1, expW);
     const spanDiffH = Math.abs(avgH - expH) / Math.max(1, expH);
-    if (spanDiffW > 0.45 || spanDiffH > 0.45) {
+    if (spanDiffW > 0.30 || spanDiffH > 0.30) {
+      if (now - this.lastAllLockedTime > this.lockGraceMs) {
+        this.lockedStartTime = 0;
+      }
       this.decayStreak();
       return {
         status: 'searching',
@@ -483,9 +524,12 @@ export class OmrLiveDetector {
 
     const measuredRatio = avgW / Math.max(1, avgH);
     const ratioDiff = Math.abs(measuredRatio - this.expectedRatio);
-    const maxRatioTolerance = this.expectedRatio * 0.40;
+    const maxRatioTolerance = this.expectedRatio * 0.22;
 
     if (ratioDiff > maxRatioTolerance) {
+      if (now - this.lastAllLockedTime > this.lockGraceMs) {
+        this.lockedStartTime = 0;
+      }
       this.decayStreak();
       return {
         status: 'searching',
@@ -509,6 +553,9 @@ export class OmrLiveDetector {
     const dotTopBot = (topDx * botDx + topDy * botDy) / Math.max(1, topLen * botLen);
     const dotLeftRight = (leftDx * rightDx + leftDy * rightDy) / Math.max(1, leftLen * rightLen);
     if (dotTopBot < 0.65 || dotLeftRight < 0.65) {
+      if (now - this.lastAllLockedTime > this.lockGraceMs) {
+        this.lockedStartTime = 0;
+      }
       this.decayStreak();
       return {
         status: 'searching',
@@ -562,22 +609,21 @@ export class OmrLiveDetector {
 
     const targetFid = this.smoothedVideoFiducials;
 
-    // 5.1 Container-Zone Invariant Auto-Snap & Bubble Verification
-    // When all 4 corner containers detect their squares, lock and snap with zero latency!
-    let bubblesAligned = false;
-    if (this.stableStreak >= this.requiredStableFrames) {
-      bubblesAligned = this.verifyInternalBubbleAlignment(video, targetFid, vw, vh);
-      if (!bubblesAligned && detectedBoxes.count < 4) {
-        // Soft-decay streak only if not all 4 containers are locked
-        this.stableStreak = Math.max(1, this.stableStreak - 1);
-      }
+    // 5.1 Continuous Hold-Steady Auto-Snap Timer (1.2 seconds):
+    // When all 4 corner containers hold their genuine printed fiducial squares,
+    // require steady positioning for 1.2s to capture razor-sharp focus without hand jitter.
+    const curNow = performance.now();
+    this.lastAllLockedTime = curNow;
+    if (this.lockedStartTime === 0) {
+      this.lockedStartTime = curNow;
     }
 
+    const elapsedHoldMs = curNow - this.lockedStartTime;
     const allContainersLocked = detectedBoxes.count === 4;
-    const isLocked = (allContainersLocked && this.stableStreak >= 1) || (bubblesAligned && this.stableStreak >= this.requiredStableFrames);
+    const isLocked = allContainersLocked && elapsedHoldMs >= this.requiredHoldSteadyMs;
     const stabilityProgress = isLocked 
       ? 1.0 
-      : Math.min(0.95, this.stableStreak / this.requiredStableFrames);
+      : Math.max(0.15, Math.min(0.95, elapsedHoldMs / this.requiredHoldSteadyMs));
 
     // 6. Extrapolate outer page boundaries in video coordinates
     const mX = 10 / this.layout.fiducialSpanX_mm;
@@ -627,11 +673,11 @@ export class OmrLiveDetector {
       bl: toScreenPct(videoToScreen(rawVideoOuter.bl.x, rawVideoOuter.bl.y), cw, ch),
     };
 
-    const status: LiveScannerStatus = isLocked ? 'locked' : (this.stableStreak >= 2 ? 'stabilizing' : 'tracking');
+    const status: LiveScannerStatus = isLocked ? 'locked' : (elapsedHoldMs >= 150 ? 'stabilizing' : 'tracking');
     const guidanceMessage = isLocked 
       ? 'Perfect Shot ✓ Capturing...' 
       : (allContainersLocked 
-          ? 'All 4 boxes locked! Capturing...' 
+          ? `Hold steady... Scanning (${Math.round(stabilityProgress * 100)}%)` 
           : (detectedBoxes.count > 0 
               ? `${detectedBoxes.count} of 4 corners locked` 
               : 'Fit 4 corner squares inside the boxes'));
@@ -803,7 +849,8 @@ export class OmrLiveDetector {
     vw: number,
     vh: number,
     patchRadius: number,
-    expectedBoxPx: number
+    expectedBoxPx: number,
+    cornerType?: 'tl' | 'tr' | 'bl' | 'br'
   ): QuadPoint[] {
     if (!this.patchCtx || !expectedCenter || isNaN(expectedCenter.x) || isNaN(expectedCenter.y)) return [];
 
@@ -831,7 +878,7 @@ export class OmrLiveDetector {
       gray[i] = (pixels[idx] * 77 + pixels[idx + 1] * 150 + pixels[idx + 2] * 29) >> 8;
     }
 
-    const cands = findHollowSquaresInPatch(gray, patchDim, patchDim, expectedBoxPx);
+    const cands = findHollowSquaresInPatch(gray, patchDim, patchDim, expectedBoxPx, cornerType);
     return cands.map((c) => ({
       x: srcX + c.cx,
       y: srcY + c.cy,
@@ -847,9 +894,10 @@ export class OmrLiveDetector {
     vw: number,
     vh: number,
     patchRadius: number,
-    expectedBoxPx: number
+    expectedBoxPx: number,
+    cornerType?: 'tl' | 'tr' | 'bl' | 'br'
   ): QuadPoint | null {
-    const list = this.detectCornerCandidatesInPatch(source, expectedCenter, vw, vh, patchRadius, expectedBoxPx);
+    const list = this.detectCornerCandidatesInPatch(source, expectedCenter, vw, vh, patchRadius, expectedBoxPx, cornerType);
     return list.length > 0 ? list[0] : null;
   }
 
@@ -897,10 +945,10 @@ export class OmrLiveDetector {
     detectedCount: number;
     detectedBoxes: DetectedBoxesState;
   } {
-    const listTL = this.detectCornerCandidatesInPatch(source, expFiducials.tl, vw, vh, patchRadius, expectedBoxPx);
-    const listTR = this.detectCornerCandidatesInPatch(source, expFiducials.tr, vw, vh, patchRadius, expectedBoxPx);
-    const listBR = this.detectCornerCandidatesInPatch(source, expFiducials.br, vw, vh, patchRadius, expectedBoxPx);
-    const listBL = this.detectCornerCandidatesInPatch(source, expFiducials.bl, vw, vh, patchRadius, expectedBoxPx);
+    const listTL = this.detectCornerCandidatesInPatch(source, expFiducials.tl, vw, vh, patchRadius, expectedBoxPx, 'tl');
+    const listTR = this.detectCornerCandidatesInPatch(source, expFiducials.tr, vw, vh, patchRadius, expectedBoxPx, 'tr');
+    const listBR = this.detectCornerCandidatesInPatch(source, expFiducials.br, vw, vh, patchRadius, expectedBoxPx, 'br');
+    const listBL = this.detectCornerCandidatesInPatch(source, expFiducials.bl, vw, vh, patchRadius, expectedBoxPx, 'bl');
 
     // Multi-candidate geometric pairing (solves the twin-square trap when multiple tests are on one page)
     let bestCombo: { tl: QuadPoint; tr: QuadPoint; br: QuadPoint; bl: QuadPoint } | null = null;
@@ -950,6 +998,13 @@ export class OmrLiveDetector {
     let cTR = bestCombo ? bestCombo.tr : (listTR[0] || null);
     let cBR = bestCombo ? bestCombo.br : (listBR[0] || null);
     let cBL = bestCombo ? bestCombo.bl : (listBL[0] || null);
+
+    // Validate candidates against expFiducials: reject drift into bubbles/text
+    const maxAllowedDrift = Math.max(30, Math.round(expectedBoxPx * 1.6));
+    if (cTL && Math.hypot(cTL.x - expFiducials.tl.x, cTL.y - expFiducials.tl.y) > maxAllowedDrift) cTL = null;
+    if (cTR && Math.hypot(cTR.x - expFiducials.tr.x, cTR.y - expFiducials.tr.y) > maxAllowedDrift) cTR = null;
+    if (cBR && Math.hypot(cBR.x - expFiducials.br.x, cBR.y - expFiducials.br.y) > maxAllowedDrift) cBR = null;
+    if (cBL && Math.hypot(cBL.x - expFiducials.bl.x, cBL.y - expFiducials.bl.y) > maxAllowedDrift) cBL = null;
 
     const count = (cTL ? 1 : 0) + (cTR ? 1 : 0) + (cBR ? 1 : 0) + (cBL ? 1 : 0);
     const detectedBoxes: DetectedBoxesState = {
@@ -1005,16 +1060,17 @@ export class OmrLiveDetector {
  * Robust Fiducial Square Detector:
  * Validates square geometry, physical size matching printed blueprint,
  * four-sided closed dark ring, and surrounding paper contrast.
- * Rejects irregular surfaces, text blocks, wood grain, tile borders, and dark desks.
+ * Strictly discriminates true squares from circular OMR bubbles.
  */
 function findHollowSquaresInPatch(
   gray: Uint8Array, 
   w: number, 
   h: number, 
-  expectedBoxPx: number
+  expectedBoxPx: number,
+  cornerType?: 'tl' | 'tr' | 'bl' | 'br'
 ): PatchCandidate[] {
   const pixelCount = w * h;
-  if (pixelCount === 0) return null;
+  if (pixelCount === 0) return [];
 
   // 1. Absolute Patch Luminance Check: Paper under indoor lighting / shadow is >= 60.
   let patchSum = 0;
@@ -1023,7 +1079,7 @@ function findHollowSquaresInPatch(
   }
   const patchAvg = patchSum / pixelCount;
   if (patchAvg < 60) {
-    return null;
+    return [];
   }
 
   // 2. Compute integral image for O(1) rectangle luminance checks
@@ -1076,7 +1132,7 @@ function findHollowSquaresInPatch(
       const mean = getLocalMean(x, y, 7);
       const val = gray[yRow + x];
       // Border pixels must be dark and significantly lower than local background
-      if (val < mean - 10 && val < patchAvg * 0.90) {
+      if (val < mean - 8 && val < patchAvg * 0.92) {
         binaryDark[yRow + x] = 1;
       }
     }
@@ -1086,8 +1142,11 @@ function findHollowSquaresInPatch(
   const patchMidY = h / 2;
   const candidates: PatchCandidate[] = [];
 
-  const minBox = Math.max(8, Math.round(expectedBoxPx * 0.45));
-  const maxBox = Math.min(90, Math.round(expectedBoxPx * 1.65));
+  // Scale filter: The corner fiducial is a 5.5mm x 5.5mm square.
+  // Standard OMR bubbles are 3.5mm diameter (~63% of fiducial scale).
+  // A minimum box constraint of 0.72 * expectedBoxPx strictly blocks 3.5mm bubbles from ever being considered!
+  const minBox = Math.max(12, Math.round(expectedBoxPx * 0.72));
+  const maxBox = Math.min(65, Math.round(expectedBoxPx * 1.45));
 
   // Connected component labeling on binaryDark
   const visited = new Uint8Array(pixelCount);
@@ -1133,14 +1192,14 @@ function findHollowSquaresInPatch(
         const bh = maxY - minY + 1;
         const aspect = bw / bh;
 
-        // Must be a square matching physical fiducial scale
-        if (bw >= minBox && bw <= maxBox && bh >= minBox && bh <= maxBox && aspect >= 0.70 && aspect <= 1.40) {
+        // Must be a square matching physical fiducial scale (strictly rejects 3.5mm bubbles)
+        if (bw >= minBox && bw <= maxBox && bh >= minBox && bh <= maxBox && aspect >= 0.78 && aspect <= 1.28) {
           const cx = (minX + maxX) / 2;
           const cy = (minY + maxY) / 2;
           const distToPatchCenter = Math.hypot(cx - patchMidX, cy - patchMidY);
 
-          // Must be positioned inside or reasonably close to UI guide container center
-          if (distToPatchCenter <= w * 0.48) {
+          // Allow candidates anywhere within the generous container catchment patch
+          if (distToPatchCenter <= w * 0.58) {
             const margin = Math.max(3, Math.round(bw * 0.35));
 
             // Check surrounding paper margins on all 4 individual sides
@@ -1151,33 +1210,48 @@ function findHollowSquaresInPatch(
 
             const minMargin = Math.min(outerTop, outerBot, outerLeft, outerRight);
             // Rejects candidates at dark table edge, surface borders, or non-white backgrounds (works on paper & screens)
-            if (minMargin >= 50) {
+            if (minMargin >= 45) {
               const boxMean = getRectMean(minX, minY, maxX, maxY);
               const ringMean = (outerTop + outerBot + outerLeft + outerRight) / 4;
 
-              if (ringMean - boxMean >= 10) {
-                // Four-sided border check: borders must be darker than surrounding paper/background
-                const topBorder = getRectMean(minX, minY, maxX, minY + 2);
-                const botBorder = getRectMean(minX, maxY - 2, maxX, maxY);
-                const leftBorder = getRectMean(minX, minY, minX + 2, maxY);
-                const rightBorder = getRectMean(maxX - 2, minY, maxX, maxY);
-                const maxBorder = Math.max(topBorder, botBorder, leftBorder, rightBorder);
+              if (ringMean - boxMean >= 8) {
+                // Square vs Circle corner pixel check:
+                // A circle's bounding box corners are empty white paper.
+                // A true hollow printed square has dark border ink in its corners!
+                const cTL = gray[(minY + 1) * w + (minX + 1)];
+                const cTR = gray[(minY + 1) * w + (maxX - 1)];
+                const cBL = gray[(maxY - 1) * w + (minX + 1)];
+                const cBR = gray[(maxY - 1) * w + (maxX - 1)];
+                const darkCornerThreshold = ringMean - 5;
+                const darkCorners = (cTL <= darkCornerThreshold ? 1 : 0) +
+                                    (cTR <= darkCornerThreshold ? 1 : 0) +
+                                    (cBL <= darkCornerThreshold ? 1 : 0) +
+                                    (cBR <= darkCornerThreshold ? 1 : 0);
 
-                if (maxBorder <= ringMean - 6) {
-                  const centerVal = gray[Math.round(cy) * w + Math.round(cx)];
-                  const isHollow = centerVal >= boxMean + 6;
-                  const isSolid = boxMean < ringMean - 20;
+                // Reject circular bubbles (bubbles have 0 or 1 dark corners)
+                if (darkCorners < 2) continue;
 
-                  if (isHollow || isSolid) {
-                    const distScore = 1.0 / (1.0 + distToPatchCenter * 0.03);
-                    const aspectScore = 1.0 - Math.abs(1.0 - aspect) * 1.2;
-                    const contrastScore = Math.min(1.0, (ringMean - boxMean) / 60);
-                    const score = distScore * 0.40 + aspectScore * 0.35 + contrastScore * 0.25;
+                const centerVal = gray[Math.round(cy) * w + Math.round(cx)];
+                const isHollow = centerVal >= boxMean + 5;
+                if (!isHollow) continue;
 
-                    if (score >= 0.42) {
-                      candidates.push({ cx, cy, bw, bh, score });
-                    }
-                  }
+                // Outer margin check: fiducial corner squares are located on page margins
+                if (cornerType === 'tl' && (outerTop < 45 || outerLeft < 45)) continue;
+                if (cornerType === 'tr' && (outerTop < 45 || outerRight < 45)) continue;
+                if (cornerType === 'bl' && (outerBot < 45 || outerLeft < 45)) continue;
+                if (cornerType === 'br' && (outerBot < 45 || outerRight < 45)) continue;
+
+                // Prioritize squareness, scale, and hollow contrast without penalizing distance from center
+                const aspectScore = Math.max(0, 1.0 - Math.abs(1.0 - aspect) * 2.5);
+                const contrastScore = Math.min(1.0, (ringMean - boxMean) / 40);
+                const scaleScore = 1.0 - Math.min(1.0, Math.abs(bw - expectedBoxPx) / expectedBoxPx);
+                const cornerBonus = (darkCorners / 4.0) * 0.25;
+                const distBonus = Math.max(0, 0.15 * (1.0 - distToPatchCenter / (w * 0.7)));
+
+                const score = aspectScore * 0.30 + contrastScore * 0.25 + scaleScore * 0.20 + cornerBonus + distBonus;
+
+                if (score >= 0.38) {
+                  candidates.push({ cx, cy, bw, bh, score });
                 }
               }
             }
@@ -1189,16 +1263,17 @@ function findHollowSquaresInPatch(
 
   if (candidates.length === 0) return [];
   candidates.sort((a, b) => b.score - a.score);
-  return candidates.slice(0, 3);
+  return candidates.slice(0, 6);
 }
 
 function findHollowSquareInPatch(
   gray: Uint8Array, 
   w: number, 
   h: number, 
-  expectedBoxPx: number
+  expectedBoxPx: number,
+  cornerType?: 'tl' | 'tr' | 'bl' | 'br'
 ): PatchCandidate | null {
-  const list = findHollowSquaresInPatch(gray, w, h, expectedBoxPx);
+  const list = findHollowSquaresInPatch(gray, w, h, expectedBoxPx, cornerType);
   return list.length > 0 ? list[0] : null;
 }
 

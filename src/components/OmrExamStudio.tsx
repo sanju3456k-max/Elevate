@@ -452,26 +452,37 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
     cleanImageRef.current = '';
     setRawOriginalImageUrl(null);
     rawOriginalImageRef.current = '';
-    setIsCropModalOpen(false);
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      if (dataUrl) {
-        setRawOriginalImageUrl(dataUrl);
-        rawOriginalImageRef.current = dataUrl;
-        setCapturedImageUrl(dataUrl);
-        cleanImageRef.current = dataUrl;
+    // Instant zero-copy object URL (<1ms) instead of heavy Base64 FileReader encoding
+    try {
+      const objectUrl = URL.createObjectURL(file);
+      setRawOriginalImageUrl(objectUrl);
+      rawOriginalImageRef.current = objectUrl;
+      setCapturedImageUrl(objectUrl);
+      cleanImageRef.current = objectUrl;
 
-        // Open crop page directly for manual user cropping without auto-calibration
-        setIsScanning(false);
-        setIsCropModalOpen(true);
-      }
-    };
-    reader.onerror = () => {
-      setScanError('Failed to read image file. Please try again.');
-    };
-    reader.readAsDataURL(file);
+      // Open crop page directly for manual user cropping
+      setIsScanning(false);
+      setIsCropModalOpen(true);
+    } catch (err) {
+      console.warn('Object URL creation fallback to FileReader:', err);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        if (dataUrl) {
+          setRawOriginalImageUrl(dataUrl);
+          rawOriginalImageRef.current = dataUrl;
+          setCapturedImageUrl(dataUrl);
+          cleanImageRef.current = dataUrl;
+          setIsScanning(false);
+          setIsCropModalOpen(true);
+        }
+      };
+      reader.onerror = () => {
+        setScanError('Failed to read image file. Please try again.');
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // Handle Photo Capture from System Camera or Gallery
@@ -876,54 +887,58 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
 
             {/* Single Static Document View */}
             <div className="space-y-4">
-              <div className={printSubTab === 'paper' ? 'space-y-3' : 'hidden'}>
-                <div className="flex justify-end gap-2 print:hidden">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const cleanTitle = (test.title || 'Question_Paper').replace(/[^a-zA-Z0-9_-]/g, '_');
-                      await triggerSystemPrint('question-paper-printable-root', `${cleanTitle}_Question_Paper_A4`, 210, 297);
-                    }}
-                    className="flex items-center gap-1.5 px-4 py-1.5 bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] rounded-full text-xs font-bold transition-all duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-xs hover:shadow-sm border-0 ring-0 cursor-pointer active:scale-[0.97]"
-                    title="Print Question Paper"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    <span>Print</span>
-                  </button>
+              {printSubTab === 'paper' && (
+                <div className="space-y-3">
+                  <div className="flex justify-end gap-2 print:hidden">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const cleanTitle = (test.title || 'Question_Paper').replace(/[^a-zA-Z0-9_-]/g, '_');
+                        await triggerSystemPrint('question-paper-printable-root', `${cleanTitle}_Question_Paper_A4`, 210, 297);
+                      }}
+                      className="flex items-center gap-1.5 px-4 py-1.5 bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] rounded-full text-xs font-bold transition-all duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-xs hover:shadow-sm border-0 ring-0 cursor-pointer active:scale-[0.97]"
+                      title="Print Question Paper"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>Print</span>
+                    </button>
+                  </div>
+                  <OmrQuestionPaper test={test} hideHeaderContainer={true} />
                 </div>
-                <OmrQuestionPaper test={test} hideHeaderContainer={true} />
-              </div>
+              )}
 
-              <div className={printSubTab === 'sheet' ? 'space-y-3' : 'hidden'}>
-                <div className="flex justify-end gap-2 print:hidden">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const totalQs = test.questions?.length || test.questionCount || 50;
-                      await triggerOmrSheetPrint(totalQs, test.title || '');
-                    }}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] rounded-full text-xs font-bold transition-all duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-xs hover:shadow-sm border-0 ring-0 cursor-pointer active:scale-[0.97]"
-                    title="Open default printer interface to print or save as PDF"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    <span>Print</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const totalQs = test.questions?.length || test.questionCount || 50;
-                      const cleanTitle = (test.title || 'OMR_Sheet').replace(/[^a-zA-Z0-9_-]/g, '_');
-                      await exportOmrSheetToPng(totalQs, test.title || '', `${cleanTitle}_OMR_Sheet_A4.png`);
-                    }}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full text-xs font-bold transition-all duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-xs hover:shadow-sm border-0 ring-0 cursor-pointer active:scale-[0.97]"
-                    title="Export high-resolution OMR PNG image"
-                  >
-                    <ImageIcon className="w-3.5 h-3.5" />
-                    <span>Download PNG</span>
-                  </button>
+              {printSubTab === 'sheet' && (
+                <div className="space-y-3">
+                  <div className="flex justify-end gap-2 print:hidden">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const totalQs = test.questions?.length || test.questionCount || 50;
+                        await triggerOmrSheetPrint(totalQs, test.title || '');
+                      }}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] rounded-full text-xs font-bold transition-all duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-xs hover:shadow-sm border-0 ring-0 cursor-pointer active:scale-[0.97]"
+                      title="Open default printer interface to print or save as PDF"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>Print</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const totalQs = test.questions?.length || test.questionCount || 50;
+                        const cleanTitle = (test.title || 'OMR_Sheet').replace(/[^a-zA-Z0-9_-]/g, '_');
+                        await exportOmrSheetToPng(totalQs, test.title || '', `${cleanTitle}_OMR_Sheet_A4.png`);
+                      }}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full text-xs font-bold transition-all duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-xs hover:shadow-sm border-0 ring-0 cursor-pointer active:scale-[0.97]"
+                      title="Export high-resolution OMR PNG image"
+                    >
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      <span>Download PNG</span>
+                    </button>
+                  </div>
+                  <OmrSheetGenerator test={test} hideHeaderContainer={true} />
                 </div>
-                <OmrSheetGenerator test={test} hideHeaderContainer={true} />
-              </div>
+              )}
             </div>
 
             {/* Bottom Next Action Helper Banner */}
@@ -1985,6 +2000,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
             targetWidthMm={layoutConfig.pageWidthMm}
             targetHeightMm={layoutConfig.pageHeightMm}
             bottomFiducialY_mm={layoutConfig.bottomFiducialY_mm}
+            totalQuestions={totalQs}
             onApplyCrop={async (croppedUrl, precalibratedFiducials) => {
               precalibratedFiducialsRef.current = precalibratedFiducials;
               setIsSaved(false);

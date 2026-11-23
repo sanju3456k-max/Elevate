@@ -125,8 +125,36 @@ public class MainActivity extends BridgeActivity {
             }
 
             if (getBridge() != null && getBridge().getWebView() != null) {
-                getBridge().getWebView().setBackgroundColor(android.graphics.Color.TRANSPARENT);
+                WebView webView = getBridge().getWebView();
+                webView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+
+                // 1. Force hardware-accelerated layer for 60-120 FPS rendering
+                webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+
+                // 2. High priority rendering thread (Android 8.0+ / Oreo+)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    try {
+                        webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false);
+                    } catch (Exception ignored) {}
+                }
+
+                // 3. Hardware acceleration & performance settings
+                try {
+                    android.webkit.WebSettings settings = webView.getSettings();
+                    settings.setMediaPlaybackRequiresUserGesture(false);
+                    settings.setDomStorageEnabled(true);
+                    settings.setDatabaseEnabled(true);
+                    settings.setCacheMode(android.webkit.WebSettings.LOAD_DEFAULT);
+
+                    // Render offscreen DOM beforehand for stutter-free scrolling if supported
+                    try {
+                        settings.getClass().getMethod("setOffscreenPreRaster", boolean.class).invoke(settings, true);
+                    } catch (Throwable ignored) {}
+                } catch (Exception ignored) {}
             }
+
+            // Proactively verify & request essential permissions (Microphone, Camera, Images)
+            checkAndRequestAppPermissions();
             View decorView = getWindow().getDecorView();
             ViewCompat.setOnApplyWindowInsetsListener(decorView, (v, windowInsets) -> {
                 int statusBarHeightPx = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
@@ -287,6 +315,35 @@ public class MainActivity extends BridgeActivity {
             getBridge().getWebView().post(() -> {
                 getBridge().getWebView().evaluateJavascript(js, null);
             });
+        }
+    }
+
+    private void checkAndRequestAppPermissions() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
+        List<String> needed = new ArrayList<>();
+        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            needed.add(android.Manifest.permission.RECORD_AUDIO);
+        }
+        if (checkSelfPermission(android.Manifest.permission.MODIFY_AUDIO_SETTINGS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            needed.add(android.Manifest.permission.MODIFY_AUDIO_SETTINGS);
+        }
+        if (checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            needed.add(android.Manifest.permission.CAMERA);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.READ_MEDIA_IMAGES) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                needed.add(android.Manifest.permission.READ_MEDIA_IMAGES);
+            }
+            if (checkSelfPermission(android.Manifest.permission.READ_MEDIA_VIDEO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                needed.add(android.Manifest.permission.READ_MEDIA_VIDEO);
+            }
+        } else {
+            if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                needed.add(android.Manifest.permission.READ_EXTERNAL_STORAGE);
+            }
+        }
+        if (!needed.isEmpty()) {
+            requestPermissions(needed.toArray(new String[0]), 1002);
         }
     }
 

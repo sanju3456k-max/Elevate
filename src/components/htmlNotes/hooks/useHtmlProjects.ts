@@ -83,8 +83,7 @@ export function useHtmlProjects({
   }, [viewMode]);
 
   const [historyStack, setHistoryStack] = useState<string[]>(() => {
-    const initial = getInitialProjects();
-    return (initial.length > 0 && initial[0].files.length > 0) ? [initial[0].files[0].code || TEMPLATE_MATRICES] : [TEMPLATE_MATRICES];
+    return (firstFile?.code) ? [firstFile.code] : [TEMPLATE_MATRICES];
   });
   const [historyIndex, setHistoryIndex] = useState<number>(0);
 

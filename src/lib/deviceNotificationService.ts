@@ -38,25 +38,75 @@ export function playNotificationChime(): void {
   // No-op: Native system notifications handle alert sounds
 }
 
+let cachedNotificationPermission: 'granted' | 'denied' | 'default' | null = null;
+
+export function getDeviceNotificationPermissionSync(): 'granted' | 'denied' | 'default' {
+  if (cachedNotificationPermission) return cachedNotificationPermission;
+
+  if (isNativeAndroid()) {
+    const saved = localStorage.getItem('elevate_native_notif_granted');
+    if (saved === 'true') {
+      cachedNotificationPermission = 'granted';
+      return 'granted';
+    }
+    if (saved === 'denied' || saved === 'false') {
+      cachedNotificationPermission = 'denied';
+      return 'denied';
+    }
+    return 'default';
+  }
+
+  if (typeof window !== 'undefined' && 'Notification' in window) {
+    cachedNotificationPermission = Notification.permission;
+    return Notification.permission;
+  }
+
+  return 'denied';
+}
+
 export async function getDeviceNotificationPermission(): Promise<'granted' | 'denied' | 'default'> {
   if (isNativeAndroid()) {
     try {
       const pip = (Capacitor as any).Plugins?.PipBridge || (window as any).Capacitor?.Plugins?.PipBridge;
-      if (pip && typeof pip.requestNotificationPermission === 'function') {
-        const res = await pip.requestNotificationPermission();
-        if (res && res.granted) return 'granted';
+      if (pip) {
+        if (typeof pip.checkNotificationPermission === 'function') {
+          const res = await pip.checkNotificationPermission();
+          const status = res?.granted ? 'granted' : 'denied';
+          cachedNotificationPermission = status;
+          localStorage.setItem('elevate_native_notif_granted', status === 'granted' ? 'true' : 'denied');
+          return status;
+        }
+        if (typeof pip.requestNotificationPermission === 'function') {
+          const res = await pip.requestNotificationPermission();
+          if (res && res.granted) {
+            cachedNotificationPermission = 'granted';
+            localStorage.setItem('elevate_native_notif_granted', 'true');
+            return 'granted';
+          }
+        }
       }
-      return localStorage.getItem('elevate_native_notif_granted') === 'true' ? 'granted' : 'default';
+      const saved = localStorage.getItem('elevate_native_notif_granted');
+      const fallback = saved === 'true' ? 'granted' : saved === 'denied' ? 'denied' : 'default';
+      cachedNotificationPermission = fallback;
+      return fallback;
     } catch {
       return 'default';
     }
   }
 
   if (typeof window !== 'undefined' && 'Notification' in window) {
+    cachedNotificationPermission = Notification.permission;
     return Notification.permission;
   }
   return 'denied';
 }
+
+export function warmUpDeviceNotificationPermission(): void {
+  getDeviceNotificationPermission().catch(() => {});
+}
+
+// Immediately warm up permission state on module load
+warmUpDeviceNotificationPermission();
 
 export async function requestDeviceNotificationPermission(): Promise<boolean> {
   // 1. Android Native via Capacitor PipBridge
@@ -68,6 +118,10 @@ export async function requestDeviceNotificationPermission(): Promise<boolean> {
         const granted = !!res?.granted;
         if (granted) {
           localStorage.setItem('elevate_native_notif_granted', 'true');
+          cachedNotificationPermission = 'granted';
+        } else {
+          localStorage.setItem('elevate_native_notif_granted', 'denied');
+          cachedNotificationPermission = 'denied';
         }
         return granted;
       }
@@ -75,6 +129,7 @@ export async function requestDeviceNotificationPermission(): Promise<boolean> {
       console.warn('Native notification permission error:', err);
     }
     localStorage.setItem('elevate_native_notif_granted', 'true');
+    cachedNotificationPermission = 'granted';
     return true;
   }
 
