@@ -17,123 +17,39 @@ import { extractGoogleDriveId } from '../../../lms/security';
 export interface BatchBannerPreset {
   id: string;
   title: string;
-  category: 'Math & Calculus' | 'Physics & Tech' | 'Olympiad & Elite' | 'Study & Practice';
+  category: 'Complete Course' | 'TGT Maths';
   url: string;
   thumbUrl: string;
 }
 
 export const PRESET_BATCH_BANNERS: BatchBannerPreset[] = [
   {
-    id: 'preset-math-calc-3d',
-    title: 'Calculus & 3D Vector Geometry',
-    category: 'Math & Calculus',
-    url: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=1920&auto=format&fit=crop&q=85',
-    thumbUrl: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=600&auto=format&fit=crop&q=80',
+    id: 'preset-complete-coral',
+    title: 'Complete Course Batch (Coral)',
+    category: 'Complete Course',
+    url: '/assets/batch-banners/batch-banner-1.jpg',
+    thumbUrl: '/assets/batch-banners/batch-banner-1.jpg',
   },
   {
-    id: 'preset-math-chalkboard',
-    title: 'Algebra & Coordinate Geometry',
-    category: 'Math & Calculus',
-    url: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=1920&auto=format&fit=crop&q=85',
-    thumbUrl: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=600&auto=format&fit=crop&q=80',
+    id: 'preset-complete-yellow',
+    title: 'Complete Course Batch (Yellow)',
+    category: 'Complete Course',
+    url: '/assets/batch-banners/batch-banner-2.jpg',
+    thumbUrl: '/assets/batch-banners/batch-banner-2.jpg',
   },
   {
-    id: 'preset-math-waves',
-    title: 'Differential Equations & Waves',
-    category: 'Math & Calculus',
-    url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1920&auto=format&fit=crop&q=85',
-    thumbUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80',
+    id: 'preset-tgt-math-sketch',
+    title: 'Math for TGT Exam (Sketch)',
+    category: 'TGT Maths',
+    url: '/assets/batch-banners/batch-banner-3.jpg',
+    thumbUrl: '/assets/batch-banners/batch-banner-3.jpg',
   },
   {
-    id: 'preset-math-polyhedra',
-    title: 'Abstract Polyhedra & Matrices',
-    category: 'Math & Calculus',
-    url: 'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?w=1920&auto=format&fit=crop&q=85',
-    thumbUrl: 'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'preset-physics-quantum',
-    title: 'Quantum Mechanics & Microelectronics',
-    category: 'Physics & Tech',
-    url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1920&auto=format&fit=crop&q=85',
-    thumbUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'preset-physics-astro',
-    title: 'Astrophysics & Gravitation',
-    category: 'Physics & Tech',
-    url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1920&auto=format&fit=crop&q=85',
-    thumbUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'preset-tech-code',
-    title: 'High-Performance Computational Math',
-    category: 'Physics & Tech',
-    url: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1920&auto=format&fit=crop&q=85',
-    thumbUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'preset-tech-network',
-    title: 'Digital Networks & AI Algorithms',
-    category: 'Physics & Tech',
-    url: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1920&auto=format&fit=crop&q=85',
-    thumbUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'preset-olympiad-hall',
-    title: 'Olympiad & Advanced Lecture Hall',
-    category: 'Olympiad & Elite',
-    url: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=1920&auto=format&fit=crop&q=85',
-    thumbUrl: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'preset-olympiad-cohort',
-    title: 'Competitive Coaching Cohort',
-    category: 'Olympiad & Elite',
-    url: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=1920&auto=format&fit=crop&q=85',
-    thumbUrl: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'preset-olympiad-target',
-    title: 'All India Rank Target Batch',
-    category: 'Olympiad & Elite',
-    url: 'https://images.unsplash.com/photo-1501504905252-473c47e087f8?w=1920&auto=format&fit=crop&q=85',
-    thumbUrl: 'https://images.unsplash.com/photo-1501504905252-473c47e087f8?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'preset-study-desk',
-    title: 'Intensive Practice & Mock Tests',
-    category: 'Study & Practice',
-    url: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1920&auto=format&fit=crop&q=85',
-    thumbUrl: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'preset-study-books',
-    title: 'Complete Reference & Standard Notes',
-    category: 'Study & Practice',
-    url: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=1920&auto=format&fit=crop&q=85',
-    thumbUrl: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'preset-study-exam',
-    title: 'JEE / Olympiad Mock Test Series',
-    category: 'Study & Practice',
-    url: 'https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?w=1920&auto=format&fit=crop&q=85',
-    thumbUrl: 'https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'preset-study-workspace',
-    title: 'Daily Revision & Doubt Clearing',
-    category: 'Study & Practice',
-    url: 'https://images.unsplash.com/photo-1517842645767-c639042777db?w=1920&auto=format&fit=crop&q=85',
-    thumbUrl: 'https://images.unsplash.com/photo-1517842645767-c639042777db?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'preset-physics-chemistry',
-    title: 'Advanced Science & Laboratory',
-    category: 'Physics & Tech',
-    url: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=1920&auto=format&fit=crop&q=85',
-    thumbUrl: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=600&auto=format&fit=crop&q=80',
+    id: 'preset-tgt-maths-green',
+    title: 'Maths for TGT Exam (Chalkboard)',
+    category: 'TGT Maths',
+    url: '/assets/batch-banners/batch-banner-4.jpg',
+    thumbUrl: '/assets/batch-banners/batch-banner-4.jpg',
   },
 ];
 
@@ -165,7 +81,7 @@ export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
 
   const activeUrl = value && value.trim() ? value.trim() : DEFAULT_HIGH_RES_BANNER;
 
-  const categories = ['All', 'Math & Calculus', 'Physics & Tech', 'Olympiad & Elite', 'Study & Practice'];
+  const categories = ['All', 'Complete Course', 'TGT Maths'];
 
   const filteredPresets = useMemo(() => {
     if (selectedCategory === 'All') return PRESET_BATCH_BANNERS;
