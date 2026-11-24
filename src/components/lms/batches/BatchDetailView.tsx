@@ -1,5 +1,6 @@
 import { DEFAULT_HIGH_RES_BANNER } from './BatchThumbnailPicker';
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { Capacitor } from '@capacitor/core';
 import {
   Megaphone,
   ChevronLeft,
@@ -178,6 +179,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   const [batchForRoster, setBatchForRoster] = useState<Batch | null>(null);
 
   const [activeCardMenuBatchId, setActiveCardMenuBatchId] = useState<string | null>(null);
+  const isNativeAndroidApp = Capacitor.isNativePlatform();
 
   const handleBroadcastBatchAsHero = (targetB: Batch) => {
     const existing = announcements?.find((a) => a.batchId === targetB.id && a.isHeroBanner);
@@ -1676,7 +1678,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   <div
                     key={fld.id}
                     onClick={() => goToFolderContent(fld.id)}
-                    className="py-3 sm:py-3.5 px-2 sm:px-3 bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 border-b border-slate-200/80 dark:border-zinc-800/80 cursor-pointer transition-colors duration-150 flex items-center justify-between group relative"
+                    className={`py-3 sm:py-3.5 px-2 sm:px-3 bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 ${isNativeAndroidApp ? '' : 'md:border-b border-slate-200/80 dark:border-zinc-800/80'} cursor-pointer transition-colors duration-150 flex items-center justify-between group relative`}
                   >
                     <div className="flex items-center space-x-3 min-w-0 flex-1">
                       <div
@@ -1816,7 +1818,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   </div>
                 )
               ) : (
-                <div className="divide-y divide-slate-100 dark:divide-zinc-800/80 bg-transparent rounded-2xl">
+                <div className={`${isNativeAndroidApp ? '' : 'md:divide-y'} divide-slate-100 dark:divide-zinc-800/80 bg-transparent rounded-2xl`}>
                   {folderLectures.map((lec) => (
                     <div
                       key={lec.id}
@@ -2015,7 +2017,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   </div>
                 )
               ) : (
-                <div className="divide-y divide-slate-100 dark:divide-zinc-800/80 bg-transparent rounded-2xl">
+                <div className={`${isNativeAndroidApp ? '' : 'md:divide-y'} divide-slate-100 dark:divide-zinc-800/80 bg-transparent rounded-2xl`}>
                   {folderNotesContent.map((note) => (
                     <div
                       key={note.id || note.fileUrl || note.url}
