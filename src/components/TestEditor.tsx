@@ -53,6 +53,7 @@ import {
   Package,
   Plus,
   PlusCircle,
+  Play,
   ArrowUpDown,
   ArrowLeft,
   Camera,
@@ -70,7 +71,9 @@ import {
   formatTestToText, 
   parseQuestionFromText, 
   formatQuestionToText, 
-  isJsonFormat 
+  isJsonFormat,
+  SAMPLE_DYNAMIC_TEST_TEMPLATE,
+  SAMPLE_DYNAMIC_TEST_QUESTIONS
 } from '../utils/testFormatConverter';
 import { encodeTestToShareUrl, createShareUrlAsync } from '../utils/shareUtils';
 import { MathRenderer } from './MathRenderer';
@@ -101,6 +104,7 @@ interface TestEditorProps {
   onImportTests?: (imported: MathTest[]) => void;
   onOpenCustomPanel?: () => void;
   onUnloadTest?: () => void;
+  onStartTest?: (test: MathTest, mode?: 'timed' | 'practice') => void;
 }
 
 export function formatQuestionCompact(q: Partial<MathQuestion>): Record<string, any> {
@@ -414,47 +418,13 @@ export function normalizeQuestion(raw: any, index: number): MathQuestion {
   return qObj;
 }
 
-const DEFAULT_BLANK_QUESTION: MathQuestion = {
-  id: 'q1',
-  text: '',
-  topic: '',
-  subtopic: '',
-  type: 'mcq',
-  options: ['', '', '', ''],
-  correctAnswer: '0',
-  correctOptionIndex: 0,
-  explanation: '',
-  points: 1,
-};
+const DEFAULT_BLANK_QUESTION: MathQuestion = SAMPLE_DYNAMIC_TEST_QUESTIONS[0];
 
-const DEFAULT_QUESTIONS: MathQuestion[] = [DEFAULT_BLANK_QUESTION];
+const DEFAULT_QUESTIONS: MathQuestion[] = SAMPLE_DYNAMIC_TEST_QUESTIONS;
 
-const SAMPLE_TEST_JSON = {
-  title: '',
-  topic: '',
-  time: 15,
-  questions: [DEFAULT_BLANK_QUESTION],
-};
+const SAMPLE_TEST_JSON = SAMPLE_DYNAMIC_TEST_TEMPLATE;
 
-const DEFAULT_TEST_TEMPLATE = {
-  title: '',
-  topic: '' as MathTopic,
-  time: 15,
-  questions: [
-    {
-      id: 'q1',
-      text: '',
-      topic: '',
-      subtopic: '',
-      type: 'mcq',
-      options: ['', '', '', ''],
-      correctAnswer: '0',
-      correctOptionIndex: 0,
-      explanation: '',
-      points: 1,
-    }
-  ],
-};
+const DEFAULT_TEST_TEMPLATE = SAMPLE_DYNAMIC_TEST_TEMPLATE;
 
 export const TestEditor: React.FC<TestEditorProps> = ({
   initialTest,
@@ -468,15 +438,16 @@ export const TestEditor: React.FC<TestEditorProps> = ({
   onImportTests,
   onOpenCustomPanel,
   onUnloadTest,
+  onStartTest,
 }) => {
   // Test Metadata
   const [editingTestId, setEditingTestId] = useState<string | null>(initialTest?.id || null);
-  const [title, setTitle] = useState<string>(initialTest?.title || 'Untitled Assessment');
+  const [title, setTitle] = useState<string>(initialTest?.title || (SAMPLE_DYNAMIC_TEST_TEMPLATE.title as string) || 'Sample Mathematics Assessment');
   const [description, setDescription] = useState<string>(
-    initialTest?.description || ''
+    initialTest?.description ?? (SAMPLE_DYNAMIC_TEST_TEMPLATE.description as string) ?? ''
   );
 
-  const initialTopicStr = (initialTest?.topic as string) || 'General Mathematics';
+  const initialTopicStr = (initialTest?.topic as string) || (SAMPLE_DYNAMIC_TEST_TEMPLATE.topic as string) || 'Statics, Dynamics & Conic Sections';
   const isInitialCustom = !DEFAULT_TOPICS.some((dt) => dt.toLowerCase() === initialTopicStr.toLowerCase());
 
   const [topic, setTopic] = useState<string>(initialTopicStr);
@@ -660,6 +631,8 @@ export const TestEditor: React.FC<TestEditorProps> = ({
   const historySearchInputRef = useRef<HTMLInputElement | null>(null);
   const [historyTopicFilter, setHistoryTopicFilter] = useState<string>('all');
   const [historySortBy, setHistorySortBy] = useState<'recent' | 'title' | 'questions'>('recent');
+  const [isHistoryTopicDropdownOpen, setIsHistoryTopicDropdownOpen] = useState<boolean>(false);
+  const historyTopicDropdownRef = useRef<HTMLDivElement | null>(null);
 
   // View Layout & Responsiveness
   const [isDesktop, setIsDesktop] = useState<boolean>(() => 
@@ -843,39 +816,15 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     id: 'editor_code_find',
   });
 
+  // Base editor back gesture: If no modal or drawer is open, pressing back invokes onCancel
   useBackHandler({
-    isOpen: isActionsMenuOpen || isJumpMenuOpen || isTitleSettingsMenuOpen,
-    onBack: () => {
-      setIsActionsMenuOpen(false);
-      setIsJumpMenuOpen(false);
-      setIsTitleSettingsMenuOpen(false);
-    },
-    priority: 25,
-    id: 'editor_dropdown_menus',
-  });
-
-  // Base editor back gesture: If no modal or menu is open, pressing back invokes onCancel
-  const isAnyEditorOverlayOpen = 
-    diagramModalTarget.isOpen ||
-    isSaveConfirmModalOpen || 
-    !!testToDeleteId || 
-    isImportModalOpen || 
-    isTestSettingsModalOpen || 
-    isHistoryDrawerOpen || 
-    isJsonFindOpen || 
-    isCodeFindOpen || 
-    isActionsMenuOpen || 
-    isJumpMenuOpen || 
-    isTitleSettingsMenuOpen;
-
-  useBackHandler({
-    isOpen: !isAnyEditorOverlayOpen,
+    isOpen: true,
     onBack: () => onCancel(),
-    priority: 15,
+    priority: 5,
     id: 'editor_base_back',
   });
 
-  // Close menus on outside click
+  // Close menus on outside click or Escape key
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
@@ -888,9 +837,26 @@ export const TestEditor: React.FC<TestEditorProps> = ({
       if (titleSettingsMenuRef.current && !titleSettingsMenuRef.current.contains(target)) {
         setIsTitleSettingsMenuOpen(false);
       }
+      if (historyTopicDropdownRef.current && !historyTopicDropdownRef.current.contains(target)) {
+        setIsHistoryTopicDropdownOpen(false);
+      }
     };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsActionsMenuOpen(false);
+        setIsJumpMenuOpen(false);
+        setIsTitleSettingsMenuOpen(false);
+        setIsHistoryTopicDropdownOpen(false);
+      }
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   const currentQuestion: MathQuestion = questions[currentQIndex] || {
@@ -2193,24 +2159,11 @@ export const TestEditor: React.FC<TestEditorProps> = ({
   };
 
   const handleDownloadSampleText = () => {
-    const blankQuestion: MathQuestion = {
-      id: 'q1',
-      text: '',
-      type: 'mcq',
-      options: ['', '', '', ''],
-      correctAnswer: '0',
-      correctOptionIndex: 0,
-      explanation: '',
-      points: 1,
-    };
-    const textContent = formatTestToText({
-      timeLimitMinutes: 15,
-      questions: [blankQuestion],
-    });
+    const textContent = formatTestToText(SAMPLE_DYNAMIC_TEST_TEMPLATE);
     const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
-    triggerBlobDownload(blob, 'blank_math_test_template.txt');
+    triggerBlobDownload(blob, 'sample_math_test_template.txt');
 
-    setSaveSuccessNotice('Downloaded Blank .txt Template');
+    setSaveSuccessNotice('Downloaded Sample Dynamic .txt Template');
     setTimeout(() => setSaveSuccessNotice(''), 3000);
     setIsActionsMenuOpen(false);
   };
@@ -2221,33 +2174,20 @@ export const TestEditor: React.FC<TestEditorProps> = ({
     }
     setEditingTestId(null);
 
-    const blankQuestion: MathQuestion = {
-      id: 'q1',
-      text: '',
-      type: 'mcq',
-      options: ['', '', '', ''],
-      correctAnswer: '0',
-      correctOptionIndex: 0,
-      explanation: '',
-      points: 1,
-    };
+    const sampleTemplate = SAMPLE_DYNAMIC_TEST_TEMPLATE;
+    const sampleQuestions = SAMPLE_DYNAMIC_TEST_QUESTIONS.map((q, idx) => normalizeQuestion(q, idx));
 
-    const blankTemplate: Partial<MathTest> = {
-      timeLimitMinutes: 15,
-      questions: [blankQuestion],
-    };
-
-    setTitle('Untitled Assessment');
-    setDescription('');
-    setTopic('General Mathematics');
-    setTimeLimitMinutes(15);
+    setTitle(sampleTemplate.title || 'Sample Mathematics Assessment');
+    setDescription(sampleTemplate.description || '');
+    setTopic((sampleTemplate.topic as string) || 'Statics, Dynamics & Conic Sections');
+    setTimeLimitMinutes(sampleTemplate.timeLimitMinutes || sampleTemplate.time || 15);
     setPassingScorePercentage(70);
-    setQuestions([blankQuestion]);
+    setQuestions(sampleQuestions);
     setCurrentQIndex(0);
 
-    const textString = formatTestToText(blankTemplate);
+    const textString = formatTestToText(sampleTemplate);
     setJsonText(textString);
-    const firstDraft = formatQuestionToText(blankQuestion, 0);
+    const firstDraft = formatQuestionToText(sampleQuestions[0], 0);
     setQuestionCodeDraft(firstDraft);
 
     historyRef.current = {
@@ -2263,7 +2203,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
       setLayoutMode('split');
     }
 
-    setSaveSuccessNotice('Loaded New Blank Template in TestCodeEditor<TXT>.');
+    setSaveSuccessNotice('Loaded Sample Dynamic Template in TestCodeEditor<TXT>.');
     setTimeout(() => setSaveSuccessNotice(''), 3500);
   };
 
@@ -2587,12 +2527,12 @@ export const TestEditor: React.FC<TestEditorProps> = ({
       if (editingTestId === testToDeleteId) {
         setEditingTestId(null);
         const defaultTest = { ...DEFAULT_TEST_TEMPLATE, id: `test-${Date.now()}` };
-        setTitle(defaultTest.title);
-        setDescription('');
-        setTopic(defaultTest.topic);
-        setTimeLimitMinutes(defaultTest.time || 15);
+        setTitle(defaultTest.title || 'Sample Mathematics Assessment');
+        setDescription(defaultTest.description || '');
+        setTopic((defaultTest.topic as string) || 'Statics, Dynamics & Conic Sections');
+        setTimeLimitMinutes(defaultTest.timeLimitMinutes || defaultTest.time || 15);
         setPassingScorePercentage(70);
-        setQuestions(defaultTest.questions.map((q, idx) => normalizeQuestion(q, idx)));
+        setQuestions((defaultTest.questions || []).map((q, idx) => normalizeQuestion(q, idx)));
         setCurrentQIndex(0);
         const formatted = formatTestToText(defaultTest as any);
         setJsonText(formatted);
@@ -2625,46 +2565,7 @@ export const TestEditor: React.FC<TestEditorProps> = ({
   };
 
   const handleCreateNewBlankTest = () => {
-    if (onUnloadTest) {
-      onUnloadTest();
-    }
-    setEditingTestId(null);
-    const newBlankQ: MathQuestion = {
-      id: 'q1',
-      text: '',
-      type: 'mcq',
-      options: ['', '', '', ''],
-      correctAnswer: '0',
-      correctOptionIndex: 0,
-      explanation: '',
-      hint: '',
-      points: 1,
-    };
-    const newQs = [newBlankQ];
-    setTitle('Untitled Assessment');
-    setDescription('');
-    setTopic('General Mathematics');
-    setTimeLimitMinutes(15);
-    setPassingScorePercentage(70);
-    setQuestions(newQs);
-    setCurrentQIndex(0);
-    const formatted = formatTestToText({
-      timeLimitMinutes: 15,
-      questions: newQs,
-    });
-    setJsonText(formatted);
-    const firstDraft = formatQuestionToText(newBlankQ, 0);
-    setQuestionCodeDraft(firstDraft);
-    historyRef.current = {
-      stack: [{ jsonText: formatted, questionCodeDraft: firstDraft, currentQIndex: 0 }],
-      index: 0,
-    };
-    setHistoryVersion((v) => v + 1);
-    setJsonError(null);
-    setIsHistoryDrawerOpen(false);
-    setIsActionsMenuOpen(false);
-    setSaveSuccessNotice('Created a new blank assessment.');
-    setTimeout(() => setSaveSuccessNotice(''), 3500);
+    handleLoadSampleJsonInEditor();
   };
 
   const handleOpenHistoryDrawer = () => {
@@ -4436,32 +4337,79 @@ export const TestEditor: React.FC<TestEditorProps> = ({
             </div>
 
             {/* Next Row: Small Topic Dropdown (Left) & Sort Pills Shifted Rightwards (Plain Background, No Lines) */}
-            <div className="px-3 sm:px-6 py-2 border-0 bg-[#e5e9f0] dark:bg-[#0b0c10] shrink-0 overflow-x-auto no-scrollbar">
-              <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-max w-full">
-                {/* Topic Select Dropdown */}
-                <div className="relative shrink-0">
-                  <div className="h-8 flex items-center gap-1 sm:gap-1.5 bg-white dark:bg-[#1e2024] border-0 ring-0 outline-none hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] px-2.5 rounded-full transition-all cursor-pointer shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
+            <div className="px-3 sm:px-6 py-2 border-0 bg-[#e5e9f0] dark:bg-[#0b0c10] shrink-0 overflow-visible relative z-30">
+              <div className="flex items-center justify-between gap-1.5 sm:gap-2.5 w-full">
+                {/* Custom Topic Filter Dropdown */}
+                <div className="relative shrink-0" ref={historyTopicDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsHistoryTopicDropdownOpen(!isHistoryTopicDropdownOpen)}
+                    className="h-8 flex items-center gap-1.5 bg-white dark:bg-[#1e2024] border-0 ring-0 outline-none hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] px-3 rounded-full transition-all cursor-pointer shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] active:scale-95"
+                    title="Filter assessments by topic"
+                  >
                     <SlidersHorizontal className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
-                    <select
-                      value={historyTopicFilter}
-                      onChange={(e) => setHistoryTopicFilter(e.target.value)}
-                      className="bg-transparent text-[11px] sm:text-xs font-bold text-[#1f1f1f] dark:text-[#e3e3e3] outline-none border-0 ring-0 cursor-pointer pr-1 appearance-none font-sans max-w-[80px] xs:max-w-[95px] sm:max-w-[125px] truncate"
-                      title="Filter assessments by topic"
-                    >
-                      <option value="all" className="bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] font-bold">
-                        All Topics ({allTests.length})
-                      </option>
+                    <span className="text-[11px] sm:text-xs font-bold text-[#1f1f1f] dark:text-[#e3e3e3] max-w-[90px] xs:max-w-[120px] sm:max-w-[160px] truncate">
+                      {historyTopicFilter === 'all'
+                        ? `All Topics (${allTests.length})`
+                        : `${historyTopicFilter} (${allTests.filter(test => (test.topic || '').toLowerCase() === historyTopicFilter.toLowerCase()).length})`}
+                    </span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-[#1f1f1f] dark:text-[#e3e3e3] transition-transform duration-200 shrink-0 ${isHistoryTopicDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isHistoryTopicDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-2 w-64 max-h-60 overflow-y-auto bg-white dark:bg-[#1e2024] rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.15)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.6)] p-1.5 z-50 border border-slate-100 dark:border-zinc-800/80 flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHistoryTopicFilter('all');
+                          setIsHistoryTopicDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer text-left ${
+                          historyTopicFilter === 'all'
+                            ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49] font-bold shadow-xs'
+                            : 'hover:bg-slate-100 dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-200'
+                        }`}
+                      >
+                        <span>All Topics</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                          historyTopicFilter === 'all'
+                            ? 'bg-white/20 text-white dark:bg-black/20 dark:text-[#041e49]'
+                            : 'bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300'
+                        }`}>
+                          {allTests.length}
+                        </span>
+                      </button>
+
                       {allAvailableTopicsList.filter(t => allTests.some(test => (test.topic || '').toLowerCase() === t.toLowerCase())).map((top) => {
                         const count = allTests.filter(test => (test.topic || '').toLowerCase() === top.toLowerCase()).length;
+                        const isSelected = historyTopicFilter.toLowerCase() === top.toLowerCase();
                         return (
-                          <option key={top} value={top} className="bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] font-bold">
-                            {top} ({count})
-                          </option>
+                          <button
+                            key={top}
+                            type="button"
+                            onClick={() => {
+                              setHistoryTopicFilter(top);
+                              setIsHistoryTopicDropdownOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer text-left ${
+                              isSelected
+                                ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49] font-bold shadow-xs'
+                                : 'hover:bg-slate-100 dark:hover:bg-[#282a30] text-slate-800 dark:text-zinc-200'
+                            }`}
+                          >
+                            <span className="truncate pr-2">{top}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ${
+                              isSelected
+                                ? 'bg-white/20 text-white dark:bg-black/20 dark:text-[#041e49]'
+                                : 'bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300'
+                            }`}>
+                              {count}
+                            </span>
+                          </button>
                         );
                       })}
-                    </select>
-                    <ChevronDown className="w-3 h-3 text-[#1f1f1f] dark:text-[#e3e3e3] pointer-events-none -ml-0.5 shrink-0" />
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Sort Toggle - Shifted Rightwards */}

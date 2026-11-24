@@ -58,13 +58,12 @@ export const GeminiChatSidebar: React.FC<GeminiChatSidebarProps> = ({
 }) => {
   return (
     <aside
-      style={{ top: 'var(--android-status-bar-height, env(safe-area-inset-top, 0px))', height: 'calc(100% - var(--android-status-bar-height, env(safe-area-inset-top, 0px)))' }}
-      className={`fixed bottom-0 right-0 z-50 w-[88vw] max-w-[340px] sm:max-w-sm bg-white dark:bg-[#1e2024] shadow-2xl rounded-l-[28px] flex flex-col justify-between overflow-hidden touch-pan-y cursor-default drawer-panel relative z-10 text-[#1f1f1f] dark:text-[#e3e3e3] border-0 ring-0 landscape:pr-[calc(max(0.5rem,var(--android-cutout-right,env(safe-area-inset-right,0px))))] transition-transform duration-200 ease-out ${
+      className={`fixed inset-y-0 right-0 z-50 h-full w-[88vw] max-w-[340px] sm:max-w-sm bg-white dark:bg-[#1e2024] shadow-2xl rounded-l-[28px] flex flex-col justify-between overflow-hidden touch-pan-y cursor-default drawer-panel relative z-10 text-[#1f1f1f] dark:text-[#e3e3e3] border-0 ring-0 landscape:pr-[calc(max(0.5rem,var(--android-cutout-right,env(safe-area-inset-right,0px))))] transition-transform duration-200 ease-out ${
         isSidebarOpen ? 'translate-x-0' : 'translate-x-full'
       }`}
     >
       {/* Sidebar Header */}
-      <div className="p-4 sm:p-5 pt-3.5 sm:pt-4 bg-white dark:bg-[#1e2024] flex items-center gap-3 shrink-0 rounded-tl-[28px] border-b border-slate-100 dark:border-zinc-800/80">
+      <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] bg-white dark:bg-[#1e2024] flex items-center gap-3 shrink-0 rounded-tl-[28px] border-b border-slate-100 dark:border-zinc-800/80">
         <button
           onClick={() => setIsSidebarOpen(false)}
           className="w-9 h-9 rounded-full bg-[#f0f4f9] dark:bg-[#282a30] hover:bg-[#e2e8f0] dark:hover:bg-[#32363d] text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all cursor-pointer active:scale-95 border-0 shadow-none shrink-0"

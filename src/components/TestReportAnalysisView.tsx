@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 import type { TestAttempt, MathTest, MathQuestion, TestLeaderboardSummary } from '../types';
 import { getQuestionExplanation } from '../types';
-import { isAttemptOmrMode, loadScopedAttempts } from '../lib/storage';
+import { isAttemptOmrMode, loadScopedAttempts, loadFullTestOnDemand } from '../lib/storage';
 import { fetchTestLeaderboard } from '../lib/firebase';
 import { TestLeaderboardModal } from './TestLeaderboardModal';
 import { APP_STYLES } from './ui/AppStyles';
@@ -339,6 +339,27 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
 
   const [leaderboardSummary, setLeaderboardSummary] = useState<TestLeaderboardSummary | null>(null);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState<boolean>(false);
+  const [asyncHydratedTest, setAsyncHydratedTest] = useState<MathTest | null>(null);
+
+  useEffect(() => {
+    if (test && Array.isArray(test.questions) && test.questions.length > 0) return;
+    const testId = test?.id || attempt?.testId;
+    if (!testId) return;
+
+    let isMounted = true;
+    loadFullTestOnDemand(testId, allTests, null, (test as any)?.batchId || (attempt as any)?.batchId)
+      .then((full) => {
+        if (!isMounted) return;
+        if (full && Array.isArray(full.questions) && full.questions.length > 0) {
+          setAsyncHydratedTest(full);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [test, attempt, allTests]);
 
   useEffect(() => {
     if (!isRemedial && (attempt?.testId || attempt?.testTitle)) {
@@ -493,6 +514,9 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
 
   // Find associated test from props, embedded attempt data, or local storage
   const resolvedTest = useMemo(() => {
+    if (asyncHydratedTest && Array.isArray(asyncHydratedTest.questions) && asyncHydratedTest.questions.length > 0) {
+      return asyncHydratedTest;
+    }
     if (test && Array.isArray(test.questions) && test.questions.length > 0) return test;
 
     // 1. Check allTests prop by ID or Title
@@ -558,7 +582,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
     }
 
     return test || foundInProps || null;
-  }, [test, allTests, attempt]);
+  }, [test, allTests, attempt, asyncHydratedTest]);
 
   const isOmr = isAttemptOmrMode(attempt);
 
@@ -1330,7 +1354,12 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                 <button
                   id="report-top-view-solutions-btn"
                   type="button"
-                  onClick={() => onViewRawSolutions(attempt)}
+                  onClick={() => {
+                    const attWithTest = (resolvedTest && Array.isArray(resolvedTest.questions) && resolvedTest.questions.length > 0)
+                      ? { ...attempt, test: resolvedTest }
+                      : attempt;
+                    onViewRawSolutions(attWithTest);
+                  }}
                   className="w-9 h-9 sm:w-auto sm:h-9 sm:px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white font-bold text-xs shadow-xs border-0 flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all outline-none"
                   title="View full step-by-step solutions"
                 >

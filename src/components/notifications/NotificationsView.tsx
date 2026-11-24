@@ -56,15 +56,27 @@ interface ParsedLocation {
   rawFallback?: string;
 }
 
+function cleanBatchName(raw: string): string {
+  if (!raw) return '';
+  const trimmed = raw.trim();
+  const match = trimmed.match(/^\[(.*?)\]\s*(.*)$/);
+  if (match) {
+    const inside = match[1].trim();
+    const rest = match[2].trim();
+    return (!rest || rest.toLowerCase() === inside.toLowerCase()) ? inside : rest;
+  }
+  return trimmed.replace(/^\[(.*?)\]$/, '$1').trim();
+}
+
 function parseLocation(notif: AppNotification): ParsedLocation {
   const prefixRegex = /^(?:Course\s+Lecture|Lecture|Mock\s+Test|Test|Course)\b\s*[:•-]?\s*/i;
 
-  let batch = (notif.batchTitle || '').replace(/^\[(.*?)\]$/, '$1').trim();
+  let batch = cleanBatchName(notif.batchTitle || '');
   // Only blank out batch if it's purely one of the generic placeholder words
   if (/^(?:Lecture|Course|Test|Mock Test)$/i.test(batch)) {
     batch = '';
   } else if (/^(?:Course\s+Lecture|Lecture|Mock\s+Test|Course)\b\s*[:•-]/i.test(batch)) {
-    batch = batch.replace(prefixRegex, '').trim();
+    batch = cleanBatchName(batch.replace(prefixRegex, '').trim());
   }
 
   if (batch) {
@@ -125,7 +137,7 @@ function parseLocation(notif: AppNotification): ParsedLocation {
 
   if (cleanSegments.length > 0) {
     return {
-      batch: cleanSegments[0],
+      batch: cleanBatchName(cleanSegments[0]),
       folders: cleanSegments.slice(1),
       duration,
       details,

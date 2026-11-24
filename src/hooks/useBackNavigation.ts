@@ -92,7 +92,12 @@ function initGlobalListeners() {
   isInitialized = true;
 
   // 1. Popstate listener (System back gestures, Android back button, Browser back button)
-  window.addEventListener('popstate', () => {
+  window.addEventListener('popstate', (e: PopStateEvent) => {
+    // If this popstate was triggered programmatically by popping a layer history entry, ignore it!
+    if (isPoppingLayerHistory || (e as any)?.state?.mockmc_layer) {
+      return;
+    }
+
     // If currently in fullscreen, exiting fullscreen is the authoritative back action
     if (isBrowserFullscreen()) {
       exitBrowserFullscreen();

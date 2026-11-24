@@ -561,8 +561,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               initial="initial"
               animate="animate"
               exit="exit"
-              style={{ ...gpuAcceleratedStyle, top: 'var(--android-status-bar-height, env(safe-area-inset-top, 0px))' }}
-              className="fixed inset-x-0 bottom-0 top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] bg-black/40 z-50 flex justify-start select-none cursor-pointer"
+              style={gpuAcceleratedStyle}
+              className="fixed inset-0 bg-black/40 z-50 flex justify-start select-none cursor-pointer"
               onClick={(e) => {
                 if (e.target === e.currentTarget) toggleDrawer(false);
               }}
@@ -578,7 +578,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Drawer Top Drag Indicator & Header */}
-                <div className="p-4 sm:p-5 pt-3.5 sm:pt-4 bg-white dark:bg-[#1e2024] flex items-center justify-between shrink-0 rounded-tr-[24px] border-b border-slate-100 dark:border-zinc-800/80">
+                <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)] bg-white dark:bg-[#1e2024] flex items-center justify-between shrink-0 rounded-tr-[24px] border-b border-slate-100 dark:border-zinc-800/80">
                   <div className="flex items-center gap-2.5">
                     <div className="w-11 h-11 flex items-center justify-center shrink-0">
                       <img 

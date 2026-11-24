@@ -52,10 +52,12 @@ import {
   Bookmark,
   Trophy,
   Menu,
+  Loader2,
 } from 'lucide-react';
 import { TestLeaderboardModal } from './TestLeaderboardModal';
 import { explainMathQuestionHybrid } from '../lib/geminiClientService';
-import { loadScopedAttempts, saveScopedAttempts } from '../lib/storage';
+import { loadScopedAttempts, saveScopedAttempts, loadFullTestOnDemand } from '../lib/storage';
+import { interpolateVariables } from '../lib/dynamicMathEngine/localMathEngine';
 import { MathRenderer } from './MathRenderer';
 import { QuestionDiagramViewer } from './QuestionDiagramViewer';
 import { DriveFileManager } from './DriveFileManager';
@@ -113,6 +115,19 @@ interface TestResultViewProps {
 
 type QuestionFilterTab = 'all' | 'attempted' | 'unattempted' | 'correct' | 'incorrect' | 'marked';
 
+function interpolateQuestionWithFixedVars(q: MathQuestion): MathQuestion {
+  if (!q) return q;
+  const scope: Record<string, number | string> = (q.fixedVars && typeof q.fixedVars === 'object') ? q.fixedVars : {};
+  return {
+    ...q,
+    text: interpolateVariables(q.text, scope),
+    options: Array.isArray(q.options) ? q.options.map((opt) => interpolateVariables(opt, scope)) : [],
+    explanation: q.explanation ? interpolateVariables(q.explanation, scope) : undefined,
+    solution: q.solution ? interpolateVariables(q.solution, scope) : undefined,
+    hint: q.hint ? interpolateVariables(q.hint, scope) : undefined,
+  };
+}
+
 export const TestResultView: React.FC<TestResultViewProps> = ({
   test,
   attempt,
@@ -129,6 +144,59 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
   const { studentFeatureAccess } = useApp();
   const isMaster = isMasterUser(currentUser);
   const canAccessNotes = isMaster || Boolean(studentFeatureAccess?.enableNotesStudio);
+
+  // Self-healing rehydration state for test questions & full derivation solutions
+  const [activeTest, setActiveTest] = useState<MathTest>(() => {
+    if (test && Array.isArray(test.questions) && test.questions.length > 0) return test;
+    if ((attempt as any)?.test && Array.isArray((attempt as any).test.questions) && (attempt as any).test.questions.length > 0) {
+      return (attempt as any).test;
+    }
+    return test;
+  });
+
+  const [isLoadingPaper, setIsLoadingPaper] = useState<boolean>(() => {
+    const hasQ = (test?.questions && test.questions.length > 0) || ((attempt as any)?.test?.questions?.length > 0);
+    return !hasQ;
+  });
+
+  useEffect(() => {
+    if (test && Array.isArray(test.questions) && test.questions.length > 0) {
+      setActiveTest(test);
+      setIsLoadingPaper(false);
+      return;
+    }
+    if ((attempt as any)?.test && Array.isArray((attempt as any).test.questions) && (attempt as any).test.questions.length > 0) {
+      setActiveTest((attempt as any).test);
+      setIsLoadingPaper(false);
+      return;
+    }
+
+    const testIdToLoad = test?.id || attempt?.testId;
+    if (!testIdToLoad) return;
+
+    let isMounted = true;
+    setIsLoadingPaper(true);
+
+    loadFullTestOnDemand(testIdToLoad, undefined, currentUser?.uid, (test as any)?.batchId || (attempt as any)?.batchId)
+      .then((full) => {
+        if (!isMounted) return;
+        if (full && Array.isArray(full.questions) && full.questions.length > 0) {
+          setActiveTest(full);
+        }
+      })
+      .catch((err) => {
+        console.warn('[TestResultView] Failed to rehydrate test on demand:', err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingPaper(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [test, attempt, currentUser?.uid]);
+
+  const testQuestions = activeTest?.questions || [];
 
   const [viewMode, setViewMode] = useState<'test-review' | 'notes'>('test-review');
   const [reviewIndex, setReviewIndex] = useState<number>(0);
@@ -163,7 +231,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
   });
 
   const handleToggleFlagReview = useCallback(() => {
-    const curQ = test.questions[reviewIndex] || test.questions[0];
+    const curQ = testQuestions[reviewIndex] || testQuestions[0];
     if (!curQ) return;
     const targetId = curQ.id || `q-${reviewIndex}`;
     const willBeFlagged = !flaggedMap[targetId];
@@ -196,7 +264,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
         }
       } catch {}
     }
-  }, [test.questions, reviewIndex, flaggedMap, attempt, currentUser]);
+  }, [testQuestions, reviewIndex, flaggedMap, attempt, currentUser]);
 
   const [aiExplanations, setAiExplanations] = useState<Record<string, string>>({});
   const [loadingAi, setLoadingAi] = useState<Record<string, boolean>>({});
@@ -843,16 +911,16 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
         setReviewIndex((prev) => Math.max(0, prev - 1));
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        setReviewIndex((prev) => Math.min(test.questions.length - 1, prev + 1));
+        setReviewIndex((prev) => Math.min(Math.max(0, testQuestions.length - 1), prev + 1));
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [viewMode, isQuestionPanelOpen, test.questions.length]);
+  }, [viewMode, isQuestionPanelOpen, testQuestions.length]);
 
   const handleAskAiTutor = async (questionId: string) => {
-    const q = test.questions.find((x) => x.id === questionId);
+    const q = testQuestions.find((x) => x.id === questionId);
     if (!q) return;
 
     setLoadingAi((prev) => ({ ...prev, [questionId]: true }));
@@ -888,15 +956,18 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
   const answersList = Object.values(safeAnswers) as { selectedOption: string; isCorrect: boolean; flagged?: boolean }[];
   const correctCount = answersList.filter((a) => a.isCorrect).length;
   const incorrectCount = answersList.filter((a) => a.selectedOption && !a.isCorrect).length;
-  const unattemptedCount = (test?.questions?.length || 0) - (correctCount + incorrectCount);
-  const markedCount = (test?.questions || []).filter((q, idx) => {
+  const unattemptedCount = Math.max(0, (testQuestions.length || 0) - (correctCount + incorrectCount));
+  const markedCount = testQuestions.filter((q, idx) => {
     const key = q.id || `q-${idx}`;
     const ans = safeAnswers[key] || (q.id ? safeAnswers[q.id] : null) || safeAnswers[`q-${idx}`] || Object.values(safeAnswers)[idx];
     return !!(flaggedMap[key] ?? ans?.flagged);
   }).length;
   const attemptedCount = correctCount + incorrectCount;
 
-  const currentQ = test?.questions?.[reviewIndex] || test?.questions?.[0];
+  const rawCurrentQ = testQuestions[reviewIndex] || testQuestions[0] || null;
+  const currentQ = useMemo(() => {
+    return rawCurrentQ ? interpolateQuestionWithFixedVars(rawCurrentQ) : null;
+  }, [rawCurrentQ]);
   const qId = currentQ?.id || `q-${reviewIndex}`;
   const currentUserAns = currentQ 
     ? (safeAnswers[qId] || (currentQ.id ? safeAnswers[currentQ.id] : null) || safeAnswers[`q-${reviewIndex}`] || Object.values(safeAnswers)[reviewIndex]) 
@@ -955,7 +1026,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
 
   // Next incorrect question shortcut
   const handleJumpNextIncorrect = () => {
-    const nextIncorrectIdx = (test?.questions || []).findIndex((q, i) => {
+    const nextIncorrectIdx = testQuestions.findIndex((q, i) => {
       if (i <= reviewIndex) return false;
       const key = q.id || `q-${i}`;
       const ans = safeAnswers[key] || (q.id ? safeAnswers[q.id] : null) || safeAnswers[`q-${i}`] || Object.values(safeAnswers)[i];
@@ -966,7 +1037,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
     if (nextIncorrectIdx !== -1) {
       setReviewIndex(nextIncorrectIdx);
     } else {
-      const firstIncorrect = (test?.questions || []).findIndex((q, i) => {
+      const firstIncorrect = testQuestions.findIndex((q, i) => {
         const key = q.id || `q-${i}`;
         const ans = safeAnswers[key] || (q.id ? safeAnswers[q.id] : null) || safeAnswers[`q-${i}`] || Object.values(safeAnswers)[i];
         if (!ans) return true;
@@ -977,7 +1048,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
   };
 
   // Filter questions for the drawer panel
-  const filteredDrawerQuestions = (test?.questions || [])
+  const filteredDrawerQuestions = testQuestions
     .map((q, idx) => ({ q, idx }))
     .filter(({ q, idx }) => {
       const key = q.id || `q-${idx}`;
@@ -997,8 +1068,8 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
 
   // Drawer Question Panel Component with Filter Dropdown
   const renderQuestionPanel = () => {
-    const progressPercentage = test.questions.length > 0 
-      ? Math.round((attemptedCount / test.questions.length) * 100) 
+    const progressPercentage = testQuestions.length > 0 
+      ? Math.round((attemptedCount / testQuestions.length) * 100) 
       : 0;
 
     return typeof document !== 'undefined' ? createPortal(
@@ -1010,8 +1081,8 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
             animate="animate"
             exit="exit"
             transition={androidFastTransition}
-            style={{ ...gpuAcceleratedStyle, top: 'var(--android-status-bar-height, env(safe-area-inset-top, 0px))' }}
-            className="fixed inset-x-0 bottom-0 top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] bg-black/40 flex justify-end z-50 cursor-pointer"
+            style={gpuAcceleratedStyle}
+            className="fixed inset-0 bg-black/40 flex justify-end z-50 cursor-pointer"
             onClick={(e) => {
               if (e.target === e.currentTarget) {
                 setIsQuestionPanelOpen(false);
@@ -1030,7 +1101,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header Section */}
-              <div className="p-4 sm:p-5 pt-3.5 sm:pt-4 shrink-0 space-y-3.5 border-b border-slate-100 dark:border-zinc-800/80">
+              <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] shrink-0 space-y-3.5 border-b border-slate-100 dark:border-zinc-800/80">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <h3 className="text-base sm:text-lg font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] tracking-tight">
@@ -1055,7 +1126,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
 
                 <div className="flex items-center justify-between text-[11px] font-medium text-slate-700 dark:text-zinc-300">
                   <span>Attempt Progress</span>
-                  <span className="tabular-nums text-[#0b57d0] dark:text-[#a8c7fa] font-bold">{attemptedCount}/{test.questions.length} Answered</span>
+                  <span className="tabular-nums text-[#0b57d0] dark:text-[#a8c7fa] font-bold">{attemptedCount}/{testQuestions.length} Answered</span>
                 </div>
 
                 {/* COLLAPSIBLE FILTER DROPDOWN */}
@@ -1073,7 +1144,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                     <div className="absolute left-0 right-0 top-full mt-1.5 bg-white dark:bg-[#21222e] rounded-2xl shadow-xl border border-slate-100 dark:border-zinc-700/60 ring-0 p-1.5 space-y-1 z-50 animate-in fade-in zoom-in-95 duration-100">
                       {(['all', 'attempted', 'unattempted', 'correct', 'incorrect', 'marked'] as QuestionFilterTab[]).map((tab) => {
                         const countMap = {
-                          all: test.questions.length,
+                          all: testQuestions.length,
                           attempted: attemptedCount,
                           unattempted: unattemptedCount,
                           correct: correctCount,
@@ -1250,7 +1321,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                 Score: {attempt.percentage}%
               </span>
               <span className="text-xs text-slate-700 dark:text-zinc-300 font-semibold tabular-nums hidden sm:inline">
-                ({correctCount}/{test.questions.length} Correct)
+                ({correctCount}/{testQuestions.length} Correct)
               </span>
             </div>
 
@@ -1314,7 +1385,14 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
 
         {/* Main Question Display Area */}
         <main className={`${isSplitView ? 'max-w-7xl' : 'max-w-3xl'} w-full mx-auto px-3 sm:px-6 pt-3 sm:pt-4 pb-6 flex-1 overflow-y-auto min-h-0 flex flex-col justify-start`}>
-          {currentQ && (
+          {isLoadingPaper ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-3">
+              <Loader2 className="w-8 h-8 animate-spin text-[#0b57d0] dark:text-[#a8c7fa]" />
+              <p className="text-sm font-semibold text-[#1f1f1f] dark:text-[#e3e3e3]">
+                Loading question paper and solutions...
+              </p>
+            </div>
+          ) : currentQ ? (
             isSplitView ? (
               /* SPLIT SCREEN VIEW */
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-start">
@@ -1626,7 +1704,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                       </div>
                       {renderSolutionCardTags(true)}
                     </div>
-                    {currentQ.explanation && (
+                    {(currentQ.explanation || currentQ.solution) && (
                       <div className="pt-0.5 text-[18px] sm:text-[19px] font-medium leading-relaxed max-w-full overflow-x-auto overflow-y-hidden text-[#1f1f1f] dark:text-[#e3e3e3]">
                         <MathRenderer content={currentQ.explanation || currentQ.solution || ''} />
                       </div>
@@ -1644,6 +1722,16 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                 )}
               </div>
             )
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3 bg-white dark:bg-[#1e2024] rounded-[28px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08)]">
+              <AlertCircle className="w-8 h-8 text-amber-500" />
+              <h3 className="text-base font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
+                Detailed Solutions Unavailable
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm">
+                The original questions for this assessment could not be rehydrated from storage. You scored {attempt.score} / {attempt.totalPoints} ({attempt.percentage}%).
+              </p>
+            </div>
           )}
         </main>
 
@@ -1690,7 +1778,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
             </button>
 
             {/* Right: Next / View Notes Button */}
-            {reviewIndex < test.questions.length - 1 ? (
+            {reviewIndex < testQuestions.length - 1 ? (
               <button
                 type="button"
                 id="review-next-btn"
@@ -1949,7 +2037,7 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                   className="w-full text-xs p-2.5 rounded-xl bg-slate-100 dark:bg-[#252838] border-0 ring-0 text-slate-800 dark:text-zinc-100 focus:outline-none shadow-xs"
                 >
                   <option value={0}>General Test Note</option>
-                  {test.questions.map((_, idx) => (
+                  {testQuestions.map((_, idx) => (
                     <option key={idx} value={idx + 1}>
                       Question {idx + 1}
                     </option>

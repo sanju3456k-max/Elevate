@@ -1785,6 +1785,9 @@ export default function App() {
     // Add to local state immediately and sync via local coordinator & syncHub (both online and OMR mode)
     setAttempts(pruned);
     setLastAttempt(validatedAttempt);
+    if ((attempt as any)?.test && Array.isArray((attempt as any).test.questions) && (attempt as any).test.questions.length > 0) {
+      setCurrentTest((attempt as any).test);
+    }
     syncHub.addAttempt(validatedAttempt);
 
     // Update local userProfile immediately so test detail modal and stats refresh without lag
@@ -2144,10 +2147,31 @@ export default function App() {
   };
 
   // Analytics View Action
-  const handleViewAttemptResult = (attempt: TestAttempt) => {
+  const handleViewAttemptResult = async (attempt: TestAttempt) => {
     captureOriginContext();
+    const targetUid = currentUser?.uid || cachedUser?.uid || null;
     const foundTest = tests.find((t) => t.id === attempt.testId);
-    let targetTest = foundTest;
+    let targetTest: MathTest | null = (attempt as any)?.test && Array.isArray((attempt as any).test.questions) && (attempt as any).test.questions.length > 0
+      ? (attempt as any).test
+      : (foundTest || null);
+
+    // If candidate test is missing or stripped of questions in catalog pointer, rehydrate on-demand
+    if (!targetTest || !targetTest.questions || targetTest.questions.length === 0) {
+      try {
+        const rehydrated = await loadFullTestOnDemand(
+          attempt.testId,
+          tests,
+          targetUid,
+          (attempt as any).batchId || (targetTest as any)?.batchId
+        );
+        if (rehydrated && Array.isArray(rehydrated.questions) && rehydrated.questions.length > 0) {
+          targetTest = rehydrated;
+        }
+      } catch (err) {
+        console.warn('Failed to load full test on demand for attempt view:', err);
+      }
+    }
+
     if (!targetTest) {
       // Create minimal fallback test structure from attempt
       targetTest = {
@@ -2371,16 +2395,20 @@ export default function App() {
 
       {activeTab === 'results' && lastAttempt && (
         <TestResultView
-          test={currentTest || tests.find((t) => t.id === lastAttempt.testId) || {
-            id: lastAttempt.testId,
-            title: lastAttempt.testTitle,
-            topic: lastAttempt.testTopic,
-            description: '',
-            difficulty: 'Medium',
-            timeLimitMinutes: 0,
-            passingScorePercentage: 60,
-            questions: []
-          }}
+          test={(currentTest && currentTest.questions && currentTest.questions.length > 0)
+            ? currentTest
+            : ((lastAttempt as any)?.test && (lastAttempt as any).test.questions?.length > 0)
+            ? (lastAttempt as any).test
+            : (currentTest || tests.find((t) => t.id === lastAttempt.testId) || {
+                id: lastAttempt.testId,
+                title: lastAttempt.testTitle,
+                topic: lastAttempt.testTopic,
+                description: '',
+                difficulty: 'Medium',
+                timeLimitMinutes: 0,
+                passingScorePercentage: 60,
+                questions: []
+              })}
           attempt={lastAttempt}
           currentUser={currentUser}
           onSignIn={handleSignIn}
@@ -2434,6 +2462,9 @@ export default function App() {
           onUnloadTest={() => {
             setEditingTest(null);
             setEditorAiPromptOpen(false);
+          }}
+          onStartTest={(testToRun, mode = 'timed') => {
+            handleStartTest(testToRun, mode);
           }}
         />
       )}
@@ -2856,8 +2887,8 @@ export default function App() {
               initial="initial"
               animate="animate"
               exit="exit"
-              style={{ ...gpuAcceleratedStyle, top: 'var(--android-status-bar-height, env(safe-area-inset-top, 0px))' }}
-              className="fixed inset-x-0 bottom-0 top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] bg-black/40 z-50 flex justify-end select-none cursor-pointer"
+              style={gpuAcceleratedStyle}
+              className="fixed inset-0 bg-black/40 z-50 flex justify-end select-none cursor-pointer"
               onClick={(e) => {
                 if (e.target === e.currentTarget) setIsDesktopNotificationsOpen(false);
               }}

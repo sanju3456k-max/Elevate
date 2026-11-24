@@ -726,15 +726,15 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                           All Students
                         </span>
                       )}
-                      {/* Live duration / remaining time badge */}
+                      {/* Live duration / remaining time badge - Matching Campus Announcement pill style without border rings */}
                       {banner.expiresAt ? (
-                        <span className="inline-flex items-center gap-1 text-[9.5px] sm:text-[11px] font-bold text-amber-300 bg-black/60 backdrop-blur-md border border-amber-400/30 px-2 py-0.5 rounded-full shadow-sm">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[9.5px] sm:text-[10.5px] font-bold select-none border border-white/20 shadow-sm">
                           <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400" />
                           <span>{getRemainingTimeBadge(banner.expiresAt)}</span>
                         </span>
                       ) : (
                         isMaster && (
-                          <span className="inline-flex items-center gap-1 text-[9.5px] sm:text-[11px] font-bold text-emerald-300 bg-black/60 backdrop-blur-md border border-emerald-400/30 px-2 py-0.5 rounded-full shadow-sm">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[9.5px] sm:text-[10.5px] font-bold select-none border border-white/20 shadow-sm">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                             <span>Always Live</span>
                           </span>
@@ -750,40 +750,9 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                     </div>
                   ) : null}
 
-                  {/* Floating Master Controls */}
-                  {isMaster && (
-                    <div className="absolute top-2 right-2 sm:top-3.5 sm:right-3.5 z-20 flex items-center gap-1.5 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 shadow-md pointer-events-auto" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          updateAnnouncement(banner.id, { isHeroBanner: false });
-                        }}
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-white/90 hover:text-white transition-colors cursor-pointer border-0 shadow-none outline-none"
-                        title="Unpin from Home feed"
-                      >
-                        <PinOff className="w-3 h-3" />
-                        <span>Unpin</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (window.confirm('Delete this broadcast post?')) {
-                            deleteAnnouncement(banner.id);
-                          }
-                        }}
-                        className="p-1 rounded-full text-white/70 hover:text-red-400 transition-colors cursor-pointer border-0 shadow-none outline-none"
-                        title="Delete broadcast post"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Interactive 'Open Course' CTA for Course Batches */}
-                  {bBatch && (
-                    <div className="absolute bottom-2.5 right-2.5 sm:bottom-3.5 sm:right-3.5 z-20 pointer-events-auto">
+                  {/* Interactive Bottom-Right Action Buttons: Open Course CTA & Master Unpin Controls */}
+                  <div className="absolute bottom-2.5 right-2.5 sm:bottom-3.5 sm:right-3.5 z-30 flex items-center gap-2 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+                    {bBatch && (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -795,13 +764,43 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                         <span>Open Course</span>
                         <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
                       </button>
-                    </div>
-                  )}
+                    )}
+
+                    {isMaster && (
+                      <div className="flex items-center gap-1.5 bg-black/70 backdrop-blur-md px-2.5 py-1 sm:py-1.5 rounded-full border border-white/20 shadow-md">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateAnnouncement(banner.id, { isHeroBanner: false });
+                          }}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-white/90 hover:text-white transition-colors cursor-pointer border-0 shadow-none outline-none"
+                          title="Unpin from Home feed"
+                        >
+                          <PinOff className="w-3 h-3" />
+                          <span>Unpin</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm('Delete this broadcast post?')) {
+                              deleteAnnouncement(banner.id);
+                            }
+                          }}
+                          className="p-1 rounded-full text-white/70 hover:text-red-400 transition-colors cursor-pointer border-0 shadow-none outline-none"
+                          title="Delete broadcast post"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
 
                   {/* If text is provided, display bottom scrim overlay so 1200x500 banner is never squished or cut */}
                   {hasText && (
-                    <div className="absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black/90 via-black/55 to-transparent p-2.5 sm:p-4 md:p-5 pt-6 sm:pt-10 rounded-b-[24px]">
-                      <div className="space-y-0.5 sm:space-y-1">
+                    <div className="absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black/90 via-black/55 to-transparent p-2.5 sm:p-4 md:p-5 pt-6 sm:pt-10 rounded-b-[24px] pointer-events-none">
+                      <div className="space-y-0.5 sm:space-y-1 max-w-[55%] sm:max-w-[62%]">
                         {hasTitle && (
                           <h2 className="text-xs sm:text-base md:text-lg font-bold text-white leading-tight line-clamp-1 drop-shadow-sm">
                             {banner.title}
@@ -845,13 +844,13 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                         )}
                         {/* Live duration / remaining time badge */}
                         {banner.expiresAt ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 border border-amber-500/20 px-2.5 py-0.5 rounded-full">
+                          <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 border-0 px-2.5 py-0.5 rounded-full">
                             <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                             <span>{getRemainingTimeBadge(banner.expiresAt)}</span>
                           </span>
                         ) : (
                           isMaster && (
-                            <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
+                            <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 border-0 px-2.5 py-0.5 rounded-full">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                               <span>Always Live</span>
                             </span>
@@ -1458,9 +1457,9 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
         </div>
       </div>
 
-      <div className="px-3.5 sm:px-4.5 pt-1.5 sm:pt-2 pb-2.5 sm:pb-3 flex-1 min-w-0 flex flex-col justify-between space-y-1.5 sm:space-y-2">
+      <div className="px-3.5 sm:px-4 pt-1.5 sm:pt-2 pb-1.5 sm:pb-2 flex-1 min-w-0 flex flex-col justify-between space-y-1 sm:space-y-1.5">
         <div>
-          <h3 className="text-[15px] sm:text-base font-bold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition leading-snug line-clamp-2">
+          <h3 className="text-[14.5px] sm:text-base font-bold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition leading-snug line-clamp-2">
             {batch.title}
           </h3>
           {batch.description && (
@@ -1471,18 +1470,18 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
         </div>
 
         {/* Instructor info with faculty profile icon */}
-        <div className="flex items-center space-x-2 pt-1.5 border-t border-[var(--md-sys-color-outline-variant)]/20">
+        <div className="flex items-center space-x-2 pt-0.5 border-0">
           <img
             src={getFacultyAvatarUrl(batch.instructor?.avatarUrl)}
             alt={batch.instructor?.name || 'Faculty'}
-            className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full object-cover shrink-0 border-0"
+            className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full object-cover shrink-0 border-0"
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).src = '/assets/default-profile.png';
             }}
           />
           <div className="text-[11px] sm:text-xs min-w-0">
             <p className="font-bold text-[#1f1f1f] dark:text-[#e3e3e3] truncate leading-tight">{batch.instructor?.name || 'Elevate Faculty'}</p>
-            <p className="text-[10px] text-slate-500 dark:text-zinc-400 truncate leading-tight">
+            <p className="text-[9.5px] sm:text-[10px] text-slate-500 dark:text-zinc-400 truncate leading-tight">
               {batch.instructor?.designation || 'Master Educator'}
             </p>
           </div>
@@ -1491,7 +1490,7 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
         {/* Footer: Enrolled Status & Open Batch Button */}
         <div className="flex items-center justify-between pt-0.5">
           {isEnrolled ? (
-            <div className="flex items-center space-x-1.5 text-[11px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full border-0">
+            <div className="flex items-center space-x-1.5 text-[10.5px] sm:text-[11.5px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border-0">
               <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
               <span>Full Access</span>
             </div>
@@ -1502,7 +1501,7 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
           {isEnrolled ? (
             <button
               type="button"
-              className="h-8 sm:h-8.5 px-3.5 sm:px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-[11px] sm:text-xs font-bold flex items-center space-x-1.5 border-0 shadow-[0_2px_6px_rgba(11,87,208,0.25)] outline-none cursor-pointer active:scale-95 transition-all"
+              className="h-7 sm:h-7.5 px-3 sm:px-3.5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-[11px] sm:text-xs font-bold flex items-center space-x-1.5 border-0 shadow-[0_2px_6px_rgba(11,87,208,0.25)] outline-none cursor-pointer active:scale-95 transition-all"
             >
               <span>Continue</span>
               <ArrowRight className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
@@ -1510,7 +1509,7 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
           ) : (
             <button
               type="button"
-              className="h-8 sm:h-8.5 px-3.5 sm:px-4 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[11px] sm:text-xs font-bold flex items-center space-x-1.5 border-0 outline-none cursor-pointer"
+              className="h-7 sm:h-7.5 px-3 sm:px-3.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[11px] sm:text-xs font-bold flex items-center space-x-1.5 border-0 outline-none cursor-pointer"
             >
               <Lock className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
               <span>Locked</span>

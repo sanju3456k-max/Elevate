@@ -9,6 +9,72 @@ import type { MathQuestion, MathTest } from '../types';
 export const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
 /**
+ * Canonical Sample Dynamic Math Questions used for templates and previews
+ */
+export const SAMPLE_DYNAMIC_TEST_QUESTIONS: MathQuestion[] = [
+  {
+    id: 'q1',
+    text: 'A block of mass {m} kg rests on an inclined plane of inclination {theta}° with coefficient of static friction \\mu. What is the minimum coefficient \\mu required to prevent slipping down the incline?',
+    topic: 'Statics, Dynamics & Conic Sections',
+    subtopic: 'Inclined Plane & Limiting Friction',
+    type: 'mcq',
+    options: [
+      '\\mu \\ge \\tan({theta}°)',
+      '\\mu \\ge \\sin({theta}°)',
+      '\\mu \\ge \\cos({theta}°)',
+      '\\mu \\ge \\cot({theta}°)',
+    ],
+    correctAnswer: 'A',
+    correctOptionIndex: 0,
+    explanation: 'Resolving forces along the incline: $mg \\sin\\theta - f_s = 0$. Normal reaction $N = mg \\cos\\theta$. Since maximum static friction $f_s \\le \\mu N$, we have $mg \\sin\\theta \\le \\mu mg \\cos\\theta \\implies \\mu \\ge \\tan\\theta$.',
+    hint: 'Equate the component of gravity along the incline to the limiting friction force.',
+    fixedVars: {
+      m: 5,
+      theta: 30,
+    },
+    isDynamic: true,
+    points: 1,
+  },
+  {
+    id: 'q2',
+    text: 'A projectile is launched from ground level with initial speed {u} m/s at an angle {angle}° to the horizontal. Assuming gravitational acceleration $g = {g}$ m/s², what is the total horizontal range $R$?',
+    topic: 'Statics, Dynamics & Conic Sections',
+    subtopic: 'Projectile Motion & Range',
+    type: 'mcq',
+    options: [
+      'R = \\frac{u^2 \\sin(2\\theta)}{g}',
+      'R = \\frac{u^2 \\sin^2\\theta}{2g}',
+      'R = \\frac{2u \\sin\\theta}{g}',
+      'R = \\frac{u^2 \\cos(2\\theta)}{g}',
+    ],
+    correctAnswer: 'A',
+    correctOptionIndex: 0,
+    explanation: 'Total flight time is $T = \\frac{2u \\sin\\theta}{g}$. Horizontal speed is constant at $u_x = u \\cos\\theta$. Therefore, horizontal range $R = u_x T = \\frac{u^2 \\sin(2\\theta)}{g}$.',
+    hint: 'Multiply the horizontal velocity component by the total time of flight.',
+    fixedVars: {
+      u: 20,
+      angle: 45,
+      g: 10,
+    },
+    isDynamic: true,
+    points: 1,
+  },
+];
+
+/**
+ * Standard High-Yield Dynamic Test Template for Test Creator & Exporter
+ */
+export const SAMPLE_DYNAMIC_TEST_TEMPLATE: Partial<MathTest> = {
+  title: 'Sample Mathematics Assessment',
+  topic: 'Statics, Dynamics & Conic Sections',
+  time: 15,
+  timeLimitMinutes: 15,
+  difficulty: 'Medium',
+  description: 'High-yield practice test with algorithmic dynamic math variables and LaTeX equations.',
+  questions: SAMPLE_DYNAMIC_TEST_QUESTIONS,
+};
+
+/**
  * Checks whether the input text is raw JSON format
  */
 export function isJsonFormat(text: string): boolean {

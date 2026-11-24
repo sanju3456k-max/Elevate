@@ -1213,17 +1213,19 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   )}
                 </div>
 
-                <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
-                  <div className="space-y-1.5">
-                    <h3 className="text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition line-clamp-1">
+                <div className="px-3.5 sm:px-4.5 pt-1.5 sm:pt-2 pb-2.5 sm:pb-3 flex-1 min-w-0 flex flex-col justify-between space-y-1.5 sm:space-y-2">
+                  <div>
+                    <h3 className="text-[15px] sm:text-base font-bold text-[var(--md-sys-color-on-surface)] group-hover:text-[var(--md-sys-color-primary)] transition leading-snug line-clamp-1">
                       {b.title}
                     </h3>
-                    <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2">
-                      {b.description}
-                    </p>
+                    {b.description && (
+                      <p className="text-[11px] sm:text-xs text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 mt-0.5">
+                        {b.description}
+                      </p>
+                    )}
                   </div>
 
-                  <div className="flex items-center justify-between pt-3 border-t border-[var(--md-sys-color-outline-variant)]/20 text-xs text-[var(--md-sys-color-on-surface-variant)] mt-auto">
+                  <div className="flex items-center justify-between pt-0.5 border-0 text-xs text-[var(--md-sys-color-on-surface-variant)] mt-auto">
                     <div className="flex items-center space-x-2">
                       <img
                         src={getFacultyAvatarUrl(b.instructor?.avatarUrl)}
