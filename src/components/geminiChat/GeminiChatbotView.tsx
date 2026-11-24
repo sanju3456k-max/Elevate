@@ -3753,7 +3753,7 @@ MANDATORY INSTRUCTIONS:
 
   return (
     <div 
-      className={`w-full h-full flex overflow-hidden ${APP_STYLES.page} relative`}
+      className="w-full h-full flex overflow-hidden bg-white dark:bg-[#131314] text-[#1f1f1f] dark:text-[#e3e3e3] font-sans antialiased relative"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -5435,7 +5435,7 @@ MANDATORY INSTRUCTIONS:
         )}
 
         {/* Google AI Studio Prompt Bar Architecture */}
-        <div className="pt-1.5 sm:pt-2 pb-[calc(max(0.85rem,env(safe-area-inset-bottom,0px))+0.25rem)] px-2 sm:px-4 bg-white dark:bg-[#131314] shrink-0 border-0 shadow-none">
+        <div className="pt-1.5 sm:pt-2 pb-[calc(max(0.35rem,env(safe-area-inset-bottom,0px)))] px-2 sm:px-4 bg-white dark:bg-[#131314] shrink-0 border-0 shadow-none">
           <GeminiStudioPromptBar
             inputMessage={inputMessage}
             setInputMessage={setInputMessage}

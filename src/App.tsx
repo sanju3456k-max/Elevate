@@ -118,6 +118,7 @@ import { GlobalPersistentPlayer, type PersistentPlaybackData } from './component
 import { BatchAdminStudio } from './components/lms/BatchAdminStudio';
 import { HomeDashboard } from './components/home/HomeDashboard';
 import { NotificationsView } from './components/notifications/NotificationsView';
+import { CreatePostModal } from './components/admin/CreatePostModal';
 import { useNotificationWatcher } from './hooks/useNotificationWatcher';
 import { setAppThemeColor } from './lib/appThemeColor';
 import { LmsProvider, useApp } from './lms/LmsContext';
@@ -255,6 +256,7 @@ export default function App() {
   }, [isDesktop, activeTab]);
 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
+  const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState<boolean>(false);
   const [isGuestMigrationOpen, setIsGuestMigrationOpen] = useState<boolean>(false);
   const [guestMigrationSummary, setGuestMigrationSummary] = useState<GuestDataSummary | null>(null);
   const [chatbotInitialPrompt, setChatbotInitialPrompt] = useState<string | null>(null);
@@ -2320,6 +2322,7 @@ export default function App() {
               }
             }}
             isDesktopNotificationsOpen={isDesktopNotificationsOpen}
+            onOpenCreatePost={() => setIsCreatePostModalOpen(true)}
           />
         </div>
       )}
@@ -2389,6 +2392,8 @@ export default function App() {
           }}
           onBackToDashboard={() => {
             const origin = testOriginContextRef.current || testOriginContext;
+            setCurrentTest(null);
+            setLastAttempt(null);
             if (origin) {
               if (origin.batchId !== undefined) setSelectedBatchId(origin.batchId);
               if (origin.chapterId !== undefined) setSelectedChapterId(origin.chapterId);
@@ -2608,6 +2613,7 @@ export default function App() {
               onOpenThetaAI={() => setActiveTab('chatbot')}
               onOpenOmr={() => setActiveTab('bulk-print')}
               onOpenCustomBuilder={() => setActiveTab('custom-builder')}
+              onOpenCreatePost={() => setIsCreatePostModalOpen(true)}
             />
           )}
 
@@ -2747,7 +2753,7 @@ export default function App() {
 
           {/* Dedicated Gemini Multi-Turn Chatbot (Full-Screen Immersive Canvas without top header offset) */}
           {activeTab === 'chatbot' && (
-            <div className="fixed inset-0 w-full h-full bg-[#e5e9f0] dark:bg-[#0b0c10] pb-[calc(max(0.5rem,env(safe-area-inset-bottom,0px)))] overflow-hidden flex flex-col z-40">
+            <div className="fixed inset-0 w-full h-full bg-white dark:bg-[#131314] overflow-hidden flex flex-col z-40">
               <GeminiChatbotView 
                 isDarkMode={isDarkMode} 
                 tests={tests}
@@ -2833,6 +2839,7 @@ export default function App() {
                   }
                 }}
                 isDarkMode={isDarkMode}
+                onOpenCreatePost={() => setIsCreatePostModalOpen(true)}
               />
             </div>
           )}
@@ -2900,6 +2907,10 @@ export default function App() {
                     setIsDesktopNotificationsOpen(false);
                   }}
                   isDarkMode={isDarkMode}
+                  onOpenCreatePost={() => {
+                    setIsDesktopNotificationsOpen(false);
+                    setIsCreatePostModalOpen(true);
+                  }}
                 />
               </motion.div>
             </motion.div>
@@ -3121,6 +3132,13 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+      {/* Master Broadcast Post Composer Modal */}
+      <CreatePostModal
+        isOpen={isCreatePostModalOpen}
+        onClose={() => setIsCreatePostModalOpen(false)}
+        currentUser={currentUser || cachedUser}
+      />
+
       {/* Persistent Single-Instance YouTube-Style Video Player (Never unmounts across Mini/Expanded transitions) */}
       <GlobalPersistentPlayer
         playback={persistentPlayback}

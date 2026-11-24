@@ -53,7 +53,7 @@ export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({
             {/* Authentic Elevate Aperture Emblem with Brand Wordmark */}
             <div className="relative w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center drop-shadow-sm">
               <img
-                src="./assets/preplens-icon.svg?v=23"
+                src="./assets/preplens-icon.svg?v=25"
                 alt="Elevate"
                 className="w-full h-full object-contain dark:brightness-125"
               />

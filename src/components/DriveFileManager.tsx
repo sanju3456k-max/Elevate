@@ -1189,7 +1189,7 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
         <div className="p-2.5 rounded-xl bg-[#f0f2f5] dark:bg-[#222634] border-0 shadow-xs space-y-1 text-[11px]">
           <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400 font-semibold">
             <span className="uppercase text-[9px] tracking-wider text-[#0084ff] font-bold">Details</span>
-            <span className="font-mono text-[10px]">{new Date(item.createdAt).toLocaleDateString()}</span>
+            <span className="text-[10px] font-medium">{new Date(item.createdAt).toLocaleDateString()}</span>
           </div>
           <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
             <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#f8fafc] dark:bg-[#222634] text-slate-700 dark:text-zinc-200 border-0 shadow-xs">
@@ -1561,7 +1561,7 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
                         >
                           <span className="truncate pr-2">{t.title}</span>
                           <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-[10px] px-2 py-0.5 rounded-full font-mono bg-[#f0f4f9] dark:bg-[#282a30]">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-[#f0f4f9] dark:bg-[#282a30]">
                               {testNoteCount}
                             </span>
                             {selectedTestFilter === t.id && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
@@ -2399,7 +2399,7 @@ export const DriveFileManager: React.FC<DriveFileManagerProps> = ({
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 block mb-0.5">
                       Date Added
                     </span>
-                    <span className="font-semibold font-mono text-slate-700 dark:text-zinc-200">
+                    <span className="font-semibold text-slate-700 dark:text-zinc-200">
                       {new Date(detailsTarget.createdAt).toLocaleDateString()}
                     </span>
                   </div>

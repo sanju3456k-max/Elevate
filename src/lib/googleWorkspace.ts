@@ -1582,113 +1582,313 @@ export function sanitizeFolderName(name: string): string {
   return name.replace(/[/\\?%*:|"<>]/g, '-').trim().slice(0, 80);
 }
 
-export const NOTES_STUDIO_ROOT_FOLDER_NAME = 'Notes Studio';
+export const ELEVATE_STUDIO_ROOT_FOLDER_NAME = 'Elevate Studio';
+export const ELEVATE_HTML_NOTES_FOLDER_NAME = 'HTML Notes Studio';
+export const ELEVATE_TEST_NOTES_FOLDER_NAME = 'Test Notes';
+export const ELEVATE_METADATA_FOLDER_NAME = 'System & Metadata';
 
+export const NOTES_STUDIO_ROOT_FOLDER_NAME = ELEVATE_STUDIO_ROOT_FOLDER_NAME;
+
+let cachedElevateStudioRootFolderId: string | null = null;
+let cachedElevateHtmlNotesFolderId: string | null = null;
+let cachedElevateTestNotesFolderId: string | null = null;
 let cachedNotesStudioRootFolderId: string | null = null;
 
 /**
- * Resolves or creates the canonical "Notes Studio" folder in the user's My Drive.
- * Guarantees that EXACTLY ONE unique folder exists in Google Drive.
- * If duplicate folders exist from previous runs or other devices, merges them into
- * the oldest canonical folder, trashes empty duplicates, and caches the folder ID.
+ * Resolves or creates the canonical "Elevate Studio" root folder in user's My Drive.
+ * Seamlessly upgrades and adopts legacy "Notes Studio" folder if present so zero files are lost.
+ * Guarantees that EXACTLY ONE unique root folder exists in Google Drive.
  */
-export async function getOrCreateNotesStudioRootFolder(accessToken: string): Promise<string> {
-  if (cachedNotesStudioRootFolderId) {
-    return cachedNotesStudioRootFolderId;
+export async function getOrCreateElevateStudioRootFolder(accessToken: string): Promise<string> {
+  if (cachedElevateStudioRootFolderId) {
+    return cachedElevateStudioRootFolderId;
   }
   const cachedFromStorage =
     typeof window !== 'undefined'
-      ? sessionStorage.getItem('mockmc_canonical_notes_studio_folder_id') ||
+      ? sessionStorage.getItem('elevate_canonical_root_folder_id') ||
+        localStorage.getItem('elevate_canonical_root_folder_id') ||
+        sessionStorage.getItem('mockmc_canonical_notes_studio_folder_id') ||
         localStorage.getItem('mockmc_canonical_notes_studio_folder_id')
       : null;
   if (cachedFromStorage) {
+    cachedElevateStudioRootFolderId = cachedFromStorage;
     cachedNotesStudioRootFolderId = cachedFromStorage;
     return cachedFromStorage;
   }
 
   try {
-    // Deduplicate: Find all folders named "Notes Studio", merge files into canonical, trash duplicates
-    const canonicalId = await deduplicateDriveFolder(accessToken, NOTES_STUDIO_ROOT_FOLDER_NAME, undefined);
+    // 1. Deduplicate & resolve canonical "Elevate Studio" root folder
+    const canonicalId = await deduplicateDriveFolder(accessToken, ELEVATE_STUDIO_ROOT_FOLDER_NAME, undefined);
     if (canonicalId) {
+      cachedElevateStudioRootFolderId = canonicalId;
       cachedNotesStudioRootFolderId = canonicalId;
       if (typeof window !== 'undefined') {
-        sessionStorage.setItem('mockmc_canonical_notes_studio_folder_id', canonicalId);
-        localStorage.setItem('mockmc_canonical_notes_studio_folder_id', canonicalId);
+        sessionStorage.setItem('elevate_canonical_root_folder_id', canonicalId);
+        localStorage.setItem('elevate_canonical_root_folder_id', canonicalId);
       }
       return canonicalId;
     }
+
+    // 2. Seamless Migration/Fallback: Check if legacy "Notes Studio" folder exists
+    const legacyNotesStudioId = await deduplicateDriveFolder(accessToken, 'Notes Studio', undefined);
+    if (legacyNotesStudioId) {
+      try {
+        await authedDriveFetch(`https://www.googleapis.com/drive/v3/files/${legacyNotesStudioId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: ELEVATE_STUDIO_ROOT_FOLDER_NAME }),
+        }, accessToken);
+      } catch (renameErr) {
+        console.warn('Note: Could not rename legacy Notes Studio folder to Elevate Studio, keeping existing:', renameErr);
+      }
+
+      cachedElevateStudioRootFolderId = legacyNotesStudioId;
+      cachedNotesStudioRootFolderId = legacyNotesStudioId;
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('elevate_canonical_root_folder_id', legacyNotesStudioId);
+        localStorage.setItem('elevate_canonical_root_folder_id', legacyNotesStudioId);
+      }
+      return legacyNotesStudioId;
+    }
   } catch (e) {
-    console.warn('Could not query/deduplicate Notes Studio root folder:', e);
+    console.warn('Could not query/deduplicate Elevate Studio root folder:', e);
   }
 
-  // If none exists, create ONE single canonical folder
-  const createdId = await createDriveFolder(accessToken, NOTES_STUDIO_ROOT_FOLDER_NAME, undefined, { app: 'notes_studio', role: 'root' });
+  // 3. If neither exists, create ONE single canonical root folder in My Drive
+  const createdId = await createDriveFolder(accessToken, ELEVATE_STUDIO_ROOT_FOLDER_NAME, undefined, { app: 'elevate_studio', role: 'root' });
+  cachedElevateStudioRootFolderId = createdId;
   cachedNotesStudioRootFolderId = createdId;
   if (typeof window !== 'undefined') {
-    sessionStorage.setItem('mockmc_canonical_notes_studio_folder_id', createdId);
-    localStorage.setItem('mockmc_canonical_notes_studio_folder_id', createdId);
+    sessionStorage.setItem('elevate_canonical_root_folder_id', createdId);
+    localStorage.setItem('elevate_canonical_root_folder_id', createdId);
   }
   return createdId;
 }
 
+// Backward-compatible alias
+export const getOrCreateNotesStudioRootFolder = getOrCreateElevateStudioRootFolder;
+
 /**
- * Resolves the primary Notes folder reference inside "Notes Studio".
+ * Resolves or creates the canonical "Test Notes" intermediate folder under "Elevate Studio".
  */
-export async function getOrCreateNotesFolder(
-  accessToken: string
-): Promise<{ appFolderId: string; notesFolderId: string }> {
-  const rootId = await getOrCreateNotesStudioRootFolder(accessToken);
+export async function getOrCreateTestNotesRootFolder(accessToken: string): Promise<string> {
+  if (cachedElevateTestNotesFolderId) {
+    return cachedElevateTestNotesFolderId;
+  }
+  const rootId = await getOrCreateElevateStudioRootFolder(accessToken);
+  const testNotesRootId = await deduplicateDriveFolder(accessToken, ELEVATE_TEST_NOTES_FOLDER_NAME, rootId);
+  if (testNotesRootId) {
+    cachedElevateTestNotesFolderId = testNotesRootId;
+    return testNotesRootId;
+  }
+  const createdId = await createDriveFolder(accessToken, ELEVATE_TEST_NOTES_FOLDER_NAME, rootId, { app: 'elevate_studio', role: 'test_notes_root' });
+  cachedElevateTestNotesFolderId = createdId;
+  return createdId;
+}
+
+/**
+ * Resolves or creates the canonical "HTML Notes Studio" intermediate folder under "Elevate Studio".
+ */
+export async function getOrCreateHtmlNotesRootFolder(accessToken: string): Promise<string> {
+  if (cachedElevateHtmlNotesFolderId) {
+    return cachedElevateHtmlNotesFolderId;
+  }
+  const rootId = await getOrCreateElevateStudioRootFolder(accessToken);
+  const htmlRootId = await deduplicateDriveFolder(accessToken, ELEVATE_HTML_NOTES_FOLDER_NAME, rootId);
+  if (htmlRootId) {
+    cachedElevateHtmlNotesFolderId = htmlRootId;
+    return htmlRootId;
+  }
+  const createdId = await createDriveFolder(accessToken, ELEVATE_HTML_NOTES_FOLDER_NAME, rootId, { app: 'elevate_studio', role: 'html_notes_root' });
+  cachedElevateHtmlNotesFolderId = createdId;
+  return createdId;
+}
+
+/**
+ * Resolves or creates a dedicated project subfolder inside "HTML Notes Studio".
+ */
+export async function getOrCreateHtmlNotesProjectFolder(
+  accessToken: string,
+  projectName?: string
+): Promise<{ htmlNotesFolderId: string; projectFolderId: string; projectName: string }> {
+  const htmlNotesRootId = await getOrCreateHtmlNotesRootFolder(accessToken);
+  const cleanProjectName = sanitizeFolderName(projectName || 'Default Project');
+
+  try {
+    const existingProjectFolder = await deduplicateDriveFolder(accessToken, cleanProjectName, htmlNotesRootId);
+    if (existingProjectFolder) {
+      return {
+        htmlNotesFolderId: htmlNotesRootId,
+        projectFolderId: existingProjectFolder,
+        projectName: cleanProjectName,
+      };
+    }
+
+    const newProjectFolderId = await createDriveFolder(accessToken, cleanProjectName, htmlNotesRootId, {
+      app: 'elevate_studio',
+      role: 'html_project_folder',
+      projectName: cleanProjectName,
+    });
+    return {
+      htmlNotesFolderId: htmlNotesRootId,
+      projectFolderId: newProjectFolderId,
+      projectName: cleanProjectName,
+    };
+  } catch (err) {
+    console.warn('Failed to resolve HTML notes project folder, defaulting to HTML Notes root:', err);
+    return {
+      htmlNotesFolderId: htmlNotesRootId,
+      projectFolderId: htmlNotesRootId,
+      projectName: cleanProjectName,
+    };
+  }
+}
+
+/**
+ * Synchronizes an HTML Project and its files to Elevate Studio > HTML Notes Studio in Google Drive.
+ * Uses strict in-place PATCH upserts so duplicate files are impossible.
+ */
+export async function syncHtmlProjectToGoogleDrive(
+  accessToken: string,
+  project: {
+    id: string;
+    name: string;
+    files: Array<{
+      id: string;
+      title: string;
+      code: string;
+      updatedAt?: number;
+      driveFileId?: string;
+      driveWebViewLink?: string;
+    }>;
+    driveFolderId?: string;
+    updatedAt?: number;
+  }
+): Promise<{
+  projectFolderId: string;
+  files: Array<{ id: string; driveFileId: string; webViewLink?: string }>;
+}> {
+  const { projectFolderId } = await getOrCreateHtmlNotesProjectFolder(accessToken, project.name);
+  const updatedFiles: Array<{ id: string; driveFileId: string; webViewLink?: string }> = [];
+
+  for (const file of project.files) {
+    const safeTitle = sanitizeFolderName(file.title || 'index');
+    const fileName = `${safeTitle}.html`;
+    const res = await upsertFileToGoogleDrive(
+      accessToken,
+      fileName,
+      'text/html',
+      file.code || '',
+      projectFolderId,
+      file.id,
+      project.id,
+      file.driveFileId
+    );
+    updatedFiles.push({
+      id: file.id,
+      driveFileId: res.id,
+      webViewLink: res.webViewLink,
+    });
+  }
+
+  // Also save a project.json descriptor in the project folder
+  try {
+    const manifestJson = JSON.stringify(
+      {
+        id: project.id,
+        name: project.name,
+        updatedAt: project.updatedAt || Date.now(),
+        fileCount: project.files.length,
+        files: updatedFiles.map((f) => ({ id: f.id, driveFileId: f.driveFileId, webViewLink: f.webViewLink })),
+      },
+      null,
+      2
+    );
+
+    await upsertFileToGoogleDrive(
+      accessToken,
+      'project.json',
+      'application/json',
+      manifestJson,
+      projectFolderId,
+      `manifest_${project.id}`,
+      project.id,
+      null
+    );
+  } catch (manifestErr) {
+    console.warn('Failed to save project.json manifest in Drive folder:', manifestErr);
+  }
+
   return {
-    appFolderId: rootId,
-    notesFolderId: rootId,
+    projectFolderId,
+    files: updatedFiles,
   };
 }
 
 /**
- * Resolves or creates a dedicated test/topic subfolder inside "Notes Studio" in Google Drive.
+ * Resolves the primary Notes folder reference inside "Elevate Studio".
+ */
+export async function getOrCreateNotesFolder(
+  accessToken: string
+): Promise<{ appFolderId: string; notesFolderId: string }> {
+  const rootId = await getOrCreateElevateStudioRootFolder(accessToken);
+  const testNotesRootId = await getOrCreateTestNotesRootFolder(accessToken);
+  return {
+    appFolderId: rootId,
+    notesFolderId: testNotesRootId,
+  };
+}
+
+/**
+ * Resolves or creates a dedicated test/topic subfolder inside "Elevate Studio > Test Notes" in Google Drive.
  * Keeps all study materials organized, visible, and 100% accessible in Google Drive & Docs.
  */
 export async function getOrCreateTestNotesFolder(
   accessToken: string,
   testTitle?: string
 ): Promise<{ appFolderId: string; notesFolderId: string; testFolderId: string; testFolderName: string }> {
-  const rootId = await getOrCreateNotesStudioRootFolder(accessToken);
+  const rootId = await getOrCreateElevateStudioRootFolder(accessToken);
+  const testNotesRootId = await getOrCreateTestNotesRootFolder(accessToken);
   const testFolderName = sanitizeFolderName(testTitle || 'General Repository');
 
   if (testFolderName === 'General Repository' || testFolderName === 'Study Materials Repository' || testFolderName === 'global_repo') {
     return {
       appFolderId: rootId,
-      notesFolderId: rootId,
-      testFolderId: rootId,
+      notesFolderId: testNotesRootId,
+      testFolderId: testNotesRootId,
       testFolderName,
     };
   }
 
-  // Deduplicate and resolve subfolder under canonical Notes Studio root
+  // Deduplicate and resolve subfolder under canonical Test Notes root
   try {
-    const existingSubfolder = await deduplicateDriveFolder(accessToken, testFolderName, rootId);
+    const existingSubfolder = await deduplicateDriveFolder(accessToken, testFolderName, testNotesRootId);
     if (existingSubfolder) {
       return {
         appFolderId: rootId,
-        notesFolderId: rootId,
+        notesFolderId: testNotesRootId,
         testFolderId: existingSubfolder,
         testFolderName,
       };
     }
 
-    const newSubfolderId = await createDriveFolder(accessToken, testFolderName, rootId, { app: 'notes_studio', testFolderName });
+    const newSubfolderId = await createDriveFolder(accessToken, testFolderName, testNotesRootId, {
+      app: 'elevate_studio',
+      role: 'test_subfolder',
+      testFolderName,
+    });
     return {
       appFolderId: rootId,
-      notesFolderId: rootId,
+      notesFolderId: testNotesRootId,
       testFolderId: newSubfolderId,
       testFolderName,
     };
   } catch (err) {
-    console.warn('Failed to resolve test subfolder, defaulting to Notes Studio root:', err);
+    console.warn('Failed to resolve test subfolder, defaulting to Test Notes root:', err);
     return {
       appFolderId: rootId,
-      notesFolderId: rootId,
-      testFolderId: rootId,
+      notesFolderId: testNotesRootId,
+      testFolderId: testNotesRootId,
       testFolderName,
     };
   }

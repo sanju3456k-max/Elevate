@@ -70,7 +70,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
   );
 
   useScrollLock(isOpen && !isRemedial);
-  useBackHandler({ isOpen: isOpen && !isRemedial, onBack: onClose, priority: 60 });
+  useBackHandler({ isOpen: isOpen && !isRemedial, onBack: onClose, priority: 80, id: 'test_leaderboard_modal' });
 
   // 1. Immediately hydrate initial summary synchronously to prevent layout shifts & loading flashes on open
   const initialCache = useMemo(() => {

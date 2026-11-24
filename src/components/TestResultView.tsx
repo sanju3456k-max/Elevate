@@ -405,21 +405,21 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
   useBackHandler({
     isOpen: viewMode === 'notes' && !isAnyResultOverlayOpen,
     onBack: () => setViewMode('test-review'),
-    priority: 25,
+    priority: 35,
     id: 'results_notes_back_to_review',
   });
 
   useBackHandler({
     isOpen: viewMode === 'test-review' && !isAnyResultOverlayOpen,
     onBack: () => setViewMode('summary'),
-    priority: 20,
+    priority: 30,
     id: 'results_review_back_to_summary',
   });
 
   useBackHandler({
     isOpen: !isAnyResultOverlayOpen,
     onBack: handleSafeBackToDashboard,
-    priority: 15,
+    priority: 25,
     id: 'results_base_back_to_dashboard',
   });
 

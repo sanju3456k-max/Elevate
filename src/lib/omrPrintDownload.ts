@@ -1088,7 +1088,7 @@ export async function triggerOmrSheetPrint(
     if (bridge && typeof bridge.print === 'function') {
       try {
         await bridge.print({
-          title: examTitle || 'OMR Bubble Sheet',
+          title: printTitle || 'OMR Bubble Sheet',
           html: fullHtml,
         });
         return;
@@ -1534,7 +1534,7 @@ export async function triggerMultiUpOmrPrint(
     if (bridge && typeof bridge.print === 'function') {
       try {
         await bridge.print({
-          title: examTitle || 'OMR Bubble Sheet',
+          title: printTitle || 'OMR Bubble Sheet',
           html: fullHtml,
         });
         return;

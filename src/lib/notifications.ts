@@ -5,7 +5,7 @@ export interface AppNotification {
   id: string;
   title: string;
   message: string;
-  category: 'lecture' | 'test' | 'ai' | 'notes' | 'system';
+  category: 'lecture' | 'test' | 'ai' | 'notes' | 'system' | 'post';
   timestamp: string;
   read: boolean;
   actionTab?: ActiveTab;
@@ -19,6 +19,10 @@ export interface AppNotification {
   folderSegments?: string[];
   durationText?: string;
   testDetails?: string;
+  imageUrl?: string;
+  authorName?: string;
+  authorRole?: string;
+  announcementId?: string;
 }
 
 /**
@@ -206,7 +210,7 @@ export function deriveRealBatchNotifications(params: {
     });
   });
 
-  // 2. REAL BATCH ANNOUNCEMENTS
+  // 2. REAL BATCH ANNOUNCEMENTS & MASTER BROADCAST POSTS
   announcements.forEach((ann) => {
     if (ann.batchId && !isEnrolledBatch(ann.batchId)) return;
     const notifId = `notif-ann-${ann.id}`;
@@ -218,15 +222,19 @@ export function deriveRealBatchNotifications(params: {
 
     notifs.push({
       id: notifId,
-      title: `${batchPrefix}${ann.title}`,
+      title: `${batchPrefix}${ann.title || 'Campus Update'}`,
       message: ann.message || '',
-      category: 'system',
-      timestamp: safeDateToISO(ann.date),
+      category: 'post',
+      timestamp: safeDateToISO(ann.date || (ann.createdAt ? new Date(ann.createdAt).toISOString() : new Date().toISOString())),
       read: readSet.has(notifId),
-      actionTab: 'batches',
-      actionLabel: 'Open Batch',
+      actionTab: ann.batchId ? 'batches' : undefined,
+      actionLabel: ann.batchId ? 'Open Batch' : undefined,
       targetBatchId: ann.batchId,
       batchTitle: parentBatch?.title,
+      imageUrl: ann.imageUrl,
+      authorName: ann.authorName,
+      authorRole: ann.authorRole,
+      announcementId: ann.id,
     });
   });
 

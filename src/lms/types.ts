@@ -125,11 +125,17 @@ export interface WatchProgress {
 
 export interface Announcement {
   id: string;
-  batchId?: string; // null means global
-  title: string;
-  message: string;
+  batchId?: string; // null or undefined means global (all students)
+  title?: string;
+  message?: string;
   date: string;
   isImportant?: boolean;
+  imageUrl?: string;
+  authorName?: string;
+  authorRole?: string;
+  createdAt?: number;
+  isHeroBanner?: boolean;
+  themeColor?: 'orange' | 'blue' | 'green' | 'purple' | 'rose' | 'slate' | string;
 }
 
 export interface PlaybackSessionToken {
@@ -183,6 +189,7 @@ export interface SecuritySettingsConfig {
   enableExamAnswerMasking: boolean; // Mask answers/solutions until test submission
   enableDevToolsDeterrence: boolean; // Auto-pause/detect inspect shortcuts across all pages
   enableStorageEncryption: boolean; // Transparent AES cryptographic storage vault for client data
+  enableTestShareButton?: boolean; // Controls student visibility of Test Share button in Test Detail page
 }
 
 export const DEFAULT_SECURITY_SETTINGS: SecuritySettingsConfig = {
@@ -191,6 +198,7 @@ export const DEFAULT_SECURITY_SETTINGS: SecuritySettingsConfig = {
   enableExamAnswerMasking: true,
   enableDevToolsDeterrence: true,
   enableStorageEncryption: true,
+  enableTestShareButton: false, // Default is OFF (hidden) per security policy
 };
 
 export interface StudentFeatureAccessConfig {

@@ -16,7 +16,6 @@ import {
   UserCheck,
   UserX,
   Trash2,
-  ShieldAlert,
   FileText,
   BarChart2,
   Bot,
@@ -40,7 +39,6 @@ import {
   deleteCustomDataHtmlNotes
 } from '../lib/storage';
 import { syncHub } from '../lib/syncEngine';
-import { DeleteAccountModal } from './DeleteAccountModal';
 import { APP_STYLES } from './ui/AppStyles';
 import { M3Switch, M3Button, M3Divider } from './ui/Material3';
 import { Sun, Moon, Monitor, Sliders } from 'lucide-react';
@@ -81,7 +79,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     type: 'idle',
     message: '',
   });
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [confirmDeleteTarget, setConfirmDeleteTarget] = useState<ConfirmDeleteTarget>(null);
   const [isDeletingCustomData, setIsDeletingCustomData] = useState(false);
   const [isDraggingBackup, setIsDraggingBackup] = useState(false);
@@ -950,37 +947,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
-          {/* SECTION 5: ACCOUNT & DANGER ZONE */}
-          {currentUser && (
-            <div className="p-4 sm:p-5 bg-rose-500/10 dark:bg-rose-950/20 rounded-2xl border border-rose-500/20 space-y-3">
-              <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold text-xs uppercase tracking-wider">
-                <ShieldAlert className="w-4 h-4" />
-                <span>Account Deletion Safeguard (Danger Zone)</span>
-              </div>
-
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div>
-                  <div className="text-xs sm:text-sm font-semibold text-rose-900 dark:text-rose-200">
-                    Delete Entire Account & Permanent Cloud Wipe
-                  </div>
-                  <div className="text-[11px] text-rose-700/80 dark:text-rose-300/80 mt-0.5">
-                    Triggers 3-step permanent deletion of account credentials, cloud Firestore records, and local caches.
-                  </div>
-                </div>
-
-                <M3Button
-                  id="open-delete-account-modal-btn"
-                  onClick={() => setIsDeleteDialogOpen(true)}
-                  variant="danger"
-                  className="h-9 px-4 text-xs shrink-0 rounded-full"
-                  icon={<Trash2 className="w-3.5 h-3.5" />}
-                >
-                  Delete Account
-                </M3Button>
-              </div>
-            </div>
-          )}
-
         </div>
 
         {/* CUSTOM DATA DELETE CONFIRMATION DIALOG (M3 DIALOG 28PX) */}
@@ -1041,19 +1007,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* 3-STEP DELETE ACCOUNT MODAL */}
-        <DeleteAccountModal
-          isOpen={isDeleteDialogOpen}
-          onClose={() => setIsDeleteDialogOpen(false)}
-          currentUser={currentUser || null}
-          onAccountDeleted={() => {
-            setIsDeleteDialogOpen(false);
-            refreshStats();
-            onDataChanged?.();
-            onClose();
-          }}
-        />
         </motion.div>
       </div>
     </AnimatePresence>

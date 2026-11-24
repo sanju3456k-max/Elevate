@@ -13,6 +13,8 @@ import {
   RotateCcw,
   CheckCheck,
   Check,
+  Megaphone,
+  Plus,
 } from 'lucide-react';
 import { type ActiveTab } from '../../types';
 import {
@@ -43,6 +45,7 @@ interface NotificationsViewProps {
   onOpenTest?: (testId: string) => void;
   isDarkMode?: boolean;
   isDrawer?: boolean;
+  onOpenCreatePost?: () => void;
 }
 
 interface ParsedLocation {
@@ -143,10 +146,11 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   onOpenBatch,
   onOpenTest,
   isDrawer = false,
+  onOpenCreatePost,
 }) => {
-  const { user, batches, lectures, chapters, announcements, batchTests, isEnrolled } = useApp();
+  const { user, batches, lectures, chapters, announcements, batchTests, isEnrolled, deleteAnnouncement } = useApp();
   const [readVersion, setReadVersion] = useState(0);
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'unread' | 'lecture' | 'test'>('all');
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'unread' | 'lecture' | 'test' | 'post'>('all');
   const [notifPermission, setNotifPermission] = useState<'granted' | 'denied' | 'default'>(() => {
     return getDeviceNotificationPermissionSync();
   });
@@ -329,6 +333,12 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
           label: 'Study Notes',
           badgeBg: 'bg-blue-100 dark:bg-blue-950/70 text-[#0b57d0] dark:text-[#a8c7fa]',
         };
+      case 'post':
+        return {
+          icon: Megaphone,
+          label: 'Post',
+          badgeBg: 'bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300',
+        };
       case 'system':
       default:
         return {
@@ -342,6 +352,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   const filterTabs = [
     { id: 'all', label: 'All', icon: Sparkles },
     { id: 'unread', label: 'Unread', icon: Bell, count: unreadCount },
+    { id: 'post', label: 'Posts', icon: Megaphone },
     { id: 'lecture', label: 'Videos', icon: PlayCircle },
     { id: 'test', label: 'Tests', icon: BookOpen },
   ];
@@ -388,6 +399,20 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
 
             {/* Action Header: Allow Notifications, Mark All as Read & Drawer Close Button */}
             <div className="flex items-center gap-1.5 shrink-0">
+              {isMaster && onOpenCreatePost && (
+                <button
+                  type="button"
+                  id="notifications-create-post-btn"
+                  onClick={onOpenCreatePost}
+                  title="Create Broadcast Post"
+                  aria-label="Create Broadcast Post"
+                  className="h-7.5 px-3 rounded-full bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 text-xs font-bold transition cursor-pointer outline-none border-0 flex items-center gap-1.5 shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />
+                  <span className={isDrawer ? 'hidden sm:inline' : ''}>New Post</span>
+                </button>
+              )}
+
               {hasCheckedPermission && notifPermission !== 'granted' && (
                 <button
                   type="button"
@@ -599,20 +624,50 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                       )}
                     </div>
 
-                    {/* Action Pill Chip utilizing horizontal space */}
-                    {notif.actionLabel && (
-                      <div className="mt-2 flex items-center gap-1.5">
+                    {/* Attached Image Preview (if present) */}
+                    {notif.imageUrl && (
+                      <div className="mt-2 rounded-xl overflow-hidden border border-slate-200/80 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 max-h-60 sm:max-h-80">
+                        <img
+                          src={notif.imageUrl}
+                          alt={notif.title}
+                          className="w-full h-auto max-h-60 sm:max-h-80 object-cover rounded-xl"
+                          loading="lazy"
+                        />
+                      </div>
+                    )}
+
+                    {/* Author badge if available */}
+                    {notif.authorName && (
+                      <div className="mt-1 flex items-center gap-1.5 text-[10.5px] font-medium text-amber-700 dark:text-amber-300">
+                        <span>By {notif.authorName}</span>
+                      </div>
+                    )}
+
+                    {/* Action Pill Chip set to the far right corner & optional Master Delete */}
+                    <div className="mt-2 flex items-center justify-between">
+                      {isMaster && notif.announcementId ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm('Delete this broadcast post?')) {
+                              deleteAnnouncement(notif.announcementId!);
+                            }
+                          }}
+                          className="p-1.5 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                          title="Delete broadcast post"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      ) : <span />}
+
+                      {notif.actionLabel && (
                         <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] bg-[#0b57d0]/10 dark:bg-[#a8c7fa]/15 px-3 py-1 rounded-full group-hover:bg-[#0b57d0] group-hover:text-white dark:group-hover:bg-[#a8c7fa] dark:group-hover:text-[#062e6f] transition-all">
                           {notif.actionLabel}
                           <ChevronRight className="w-3 h-3 stroke-[2.5]" />
                         </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Far Right Chevron */}
-                  <div className="self-center shrink-0 pl-1 text-slate-400 dark:text-zinc-500 group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition">
-                    <ChevronRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
+                      )}
+                    </div>
                   </div>
                 </div>
               );

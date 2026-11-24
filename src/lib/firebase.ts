@@ -662,7 +662,7 @@ export async function requestGoogleDriveTokenInteractive(userEmail?: string): Pr
 
 /**
  * Ensures a valid Google Drive token is available. If near expiration (> 50 min),
- * silently refreshes before returning.
+ * silently refreshes before returning. On native Android, routes through Google Play Services bridge.
  */
 export async function ensureValidGoogleDriveToken(): Promise<string | null> {
   const user = auth.currentUser;
@@ -676,6 +676,23 @@ export async function ensureValidGoogleDriveToken(): Promise<string | null> {
 
   if (currentToken && ageMs < 50 * 60 * 1000) {
     return currentToken;
+  }
+
+  // 1. Android Native Environment: Request silent/persistent token from Play Services via PipBridge
+  const isNative = typeof window !== 'undefined' && Boolean(
+    (window as any).Capacitor?.isNativePlatform?.() || 
+    (window as any).Capacitor?.Plugins?.PipBridge
+  );
+  if (isNative && (window as any).Capacitor?.Plugins?.PipBridge) {
+    try {
+      const nativeRes = await (window as any).Capacitor.Plugins.PipBridge.nativeGetGoogleDriveAccessToken();
+      if (nativeRes && nativeRes.success && nativeRes.accessToken) {
+        setCachedGoogleAccessToken(nativeRes.accessToken, user.uid, nativeRes.expiresIn || 3600, nativeRes.email || user.email);
+        return nativeRes.accessToken;
+      }
+    } catch (nativeErr) {
+      console.warn('Native Google Drive silent token request error:', nativeErr);
+    }
   }
 
   const refreshed = await refreshGoogleDriveTokenSilently(user.email || undefined);
@@ -694,15 +711,7 @@ export async function ensureValidGoogleDriveToken(): Promise<string | null> {
 /**
  * Single-flight unified Google Drive connection function.
  * Guarantees that AT MOST ONE interactive popup window is ever displayed to the user.
- * 
- * Flow:
- * 1. Checks if a valid token already exists or can be silently refreshed (0 popups).
- * 2. If user is signed into Firebase Auth, requests Drive authorization via Google Identity Services
- *    (GIS) with login_hint set to user.email (a single focused consent popup).
- * 3. If user is NOT signed into Firebase Auth (or GIS is unavailable), invokes signInWithGoogle()
- *    (which signs into Firebase and requests Drive scopes in a single Firebase Auth popup).
- * 4. Never executes GIS and signInWithGoogle() in parallel or in cascading fallback loops.
- * 5. Uses a concurrency lock so rapid clicks cannot spawn duplicate windows.
+ * On Android, uses native Google Play Services dialog with zero web popup glitches.
  */
 let activeConnectDrivePromise: Promise<string | null> | null = null;
 
@@ -722,6 +731,48 @@ export async function connectGoogleDrive(preferredEmail?: string): Promise<strin
       const user = auth.currentUser;
       const isRegisteredUser = user && !user.isAnonymous;
 
+      // 2. Android Native Environment: Route through native Google Play Services
+      const isNative = typeof window !== 'undefined' && Boolean(
+        (window as any).Capacitor?.isNativePlatform?.() || 
+        (window as any).Capacitor?.Plugins?.PipBridge
+      );
+      if (isNative && (window as any).Capacitor?.Plugins?.PipBridge) {
+        try {
+          // Check if token can be acquired directly (e.g. user already signed in on device)
+          const nativeTokenRes = await (window as any).Capacitor.Plugins.PipBridge.nativeGetGoogleDriveAccessToken();
+          if (nativeTokenRes && nativeTokenRes.success && nativeTokenRes.accessToken) {
+            const effectiveUid = user?.uid || 'user';
+            setCachedGoogleAccessToken(nativeTokenRes.accessToken, effectiveUid, 3600, nativeTokenRes.email);
+            return nativeTokenRes.accessToken;
+          }
+
+          // Otherwise, launch native Google Sign-In with Drive scopes dialog
+          const signInRes = await (window as any).Capacitor.Plugins.PipBridge.nativeGoogleSignInWithDrive({
+            serverClientId: GOOGLE_OAUTH_CLIENT_ID,
+          });
+
+          if (signInRes) {
+            // If user isn't signed in to Firebase Auth yet, authenticate seamlessly
+            if (!user && signInRes.idToken) {
+              try {
+                const credential = GoogleAuthProvider.credential(signInRes.idToken);
+                await signInWithCredential(auth, credential);
+              } catch (credErr) {
+                console.warn('Firebase credential sign-in warning:', credErr);
+              }
+            }
+
+            if (signInRes.accessToken) {
+              const effectiveUid = auth.currentUser?.uid || user?.uid || 'user';
+              setCachedGoogleAccessToken(signInRes.accessToken, effectiveUid, 3600, signInRes.email);
+              return signInRes.accessToken;
+            }
+          }
+        } catch (nativeErr) {
+          console.warn('Native Google Drive connection error:', nativeErr);
+        }
+      }
+
       if (isRegisteredUser) {
         // User already has an authenticated Firebase session.
         // Use GIS interactive consent popup with their known email.
@@ -732,14 +783,11 @@ export async function connectGoogleDrive(preferredEmail?: string): Promise<strin
           if (gisToken) {
             return gisToken;
           }
-          // Note: If GIS failed (e.g. user closed popup or origin_mismatch occurred),
-          // DO NOT immediately fire signInWithGoogle()! Chaining them was the exact cause
-          // of the dual-popup issue.
           return null;
         }
       }
 
-      // 2. User is not signed in to Firebase (or GIS is missing from environment).
+      // 3. User is not signed in to Firebase (or GIS is missing from environment).
       // Fire the Firebase Auth Google Popup (a single popup handling both Auth & Drive scopes).
       const signedInUser = await signInWithGoogle();
       if (signedInUser) {
@@ -4096,238 +4144,6 @@ export function executeDiagnosticAuthProbe(): { uid: string | null; email: strin
     statusCode: user ? 'AUTH_ACTIVE' : 'ANONYMOUS_GUEST',
   });
   return ctx;
-}
-
-export interface DeleteAccountProgress {
-  step: 'idle' | 'deleting_firestore' | 'deleting_auth' | 'clearing_local' | 'reauth_required' | 'completed' | 'error';
-  message: string;
-  deletedTestsCount?: number;
-  deletedAttemptsCount?: number;
-  error?: string;
-}
-
-/**
- * Permanently deletes a user's account and all associated cloud data in Firestore,
- * purges local storage caches, and deletes their Firebase Authentication record.
- */
-export async function deleteUserAccountAndAllData(
-  user: User,
-  onProgress?: (progress: DeleteAccountProgress) => void
-): Promise<{ success: boolean; error?: string; requiresReauth?: boolean; deletedTestsCount?: number; deletedAttemptsCount?: number }> {
-  if (!user || !user.uid) {
-    return { success: false, error: 'No active authenticated user provided.' };
-  }
-
-  const userId = user.uid;
-  const userEmail = user.email || null;
-
-  try {
-    // 1. Delete all Firestore documents associated with this user
-    onProgress?.({
-      step: 'deleting_firestore',
-      message: 'Purging all test papers, attempts, notes, bookmarks, and chat history from Google Cloud...',
-    });
-
-    let deletedTestsCount = 0;
-    let deletedAttemptsCount = 0;
-
-    // Fast non-blocking timeout helper (defaults to 2500ms max per task)
-    const withTimeout = <T>(promise: Promise<T>, ms: number = 2500): Promise<T | null> => {
-      return Promise.race([
-        promise,
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
-      ]);
-    };
-
-    // Fast safe batch committer with timeout
-    const safeBatchCommit = async (batch: any, ms: number = 2500): Promise<boolean> => {
-      try {
-        const res = await withTimeout(batch.commit(), ms);
-        return res !== null;
-      } catch (err) {
-        console.warn('Batch commit timed out or failed:', err);
-        return false;
-      }
-    };
-
-    // Safe chunked batch delete with timeout per chunk
-    const chunkBatchDelete = async (docs: any[]): Promise<number> => {
-      if (!docs || docs.length === 0) return 0;
-      let count = 0;
-      const chunkSize = 250;
-      for (let i = 0; i < docs.length; i += chunkSize) {
-        const chunk = docs.slice(i, i + chunkSize);
-        const batch = writeBatch(db);
-        chunk.forEach((d) => batch.delete(d.ref || d));
-        await safeBatchCommit(batch, 2500);
-        count += chunk.length;
-      }
-      return count;
-    };
-
-    // Execute all cloud Firestore purges fully in parallel with a strict global 4.5s deadline
-    const firestorePurgePromise = async () => {
-      const tasks: Promise<any>[] = [];
-
-      // 1. Subcollections under users/{userId}
-      const subcollections = [
-        'htmlNotesProjects',
-        'chatSessions',
-        'chat_sessions',
-        'notes',
-        'bookmarks',
-        'attempts',
-        'tests',
-        'sync_beacon',
-      ];
-
-      for (const subcol of subcollections) {
-        tasks.push(
-          (async () => {
-            try {
-              const subSnap = await withTimeout(getDocs(collection(db, 'users', userId, subcol)), 2500);
-              if (subSnap && !subSnap.empty) {
-                await chunkBatchDelete(subSnap.docs);
-              }
-            } catch (err) {
-              console.warn(`Could not clear subcollection ${subcol}:`, err);
-            }
-          })()
-        );
-      }
-
-      // 2. Direct deletion of known personal authored tests (PROTECTED: batch curriculum tests are never purged)
-      const knownTests = loadScopedTests(userId).filter((t: any) => t && t.id && !t.batchId && !t.isBatchTest && !String(t.id).startsWith('remedial_'));
-      if (knownTests.length > 0) {
-        tasks.push(
-          (async () => {
-            try {
-              const batch = writeBatch(db);
-              knownTests.forEach((t) => batch.delete(doc(db, 'tests', t.id)));
-              await safeBatchCommit(batch, 2500);
-              deletedTestsCount += knownTests.length;
-            } catch {}
-          })()
-        );
-      }
-
-      // Query root tests by authorId in case there are remote ones
-      tasks.push(
-        (async () => {
-          try {
-            const testsQuery = query(collection(db, 'tests'), where('authorId', '==', userId), limit(50));
-            const testsSnap = await withTimeout(getDocs(testsQuery), 2500);
-            if (testsSnap && !testsSnap.empty) {
-              deletedTestsCount += await chunkBatchDelete(testsSnap.docs);
-            }
-          } catch {}
-        })()
-      );
-
-      // 3. Direct deletion of known attempts
-      const knownAttempts = loadScopedAttempts(userId);
-      if (knownAttempts.length > 0) {
-        tasks.push(
-          (async () => {
-            try {
-              const batch = writeBatch(db);
-              knownAttempts.forEach((a) => batch.delete(doc(db, 'attempts', a.id)));
-              await safeBatchCommit(batch, 2500);
-              deletedAttemptsCount += knownAttempts.length;
-            } catch {}
-          })()
-        );
-      }
-
-      // Query root attempts by userId in case there are remote ones
-      tasks.push(
-        (async () => {
-          try {
-            const attemptsQuery = query(collection(db, 'attempts'), where('userId', '==', userId), limit(50));
-            const attemptsSnap = await withTimeout(getDocs(attemptsQuery), 2500);
-            if (attemptsSnap && !attemptsSnap.empty) {
-              deletedAttemptsCount += await chunkBatchDelete(attemptsSnap.docs);
-            }
-          } catch {}
-        })()
-      );
-
-      // 4. Root docs
-      tasks.push(withTimeout(deleteDoc(doc(db, 'users', userId)).catch(() => {}), 2500));
-      tasks.push(withTimeout(deleteDoc(doc(db, 'user_sync_beacons', userId)).catch(() => {}), 2500));
-      tasks.push(withTimeout(deleteDoc(doc(db, 'chat_archives', userId)).catch(() => {}), 2500));
-
-      await Promise.allSettled(tasks);
-    };
-
-    // Enforce strict 4.5s global deadline so account deletion never hangs
-    await withTimeout(firestorePurgePromise(), 4500);
-
-    // Record deletion telemetry
-    firestoreTelemetry.record({
-      type: 'WRITE',
-      collection: 'users',
-      path: `users/${userId}`,
-      operation: 'deleteDoc',
-      data: { userId, userEmail, deletedTestsCount, deletedAttemptsCount },
-      caller: 'Permanent Account & Data Wipe',
-      statusCode: '200 DELETED',
-    });
-
-    // 2. Clear local storage
-    onProgress?.({
-      step: 'clearing_local',
-      message: 'Purging local storage cache, offline queues, and session state...',
-      deletedTestsCount,
-      deletedAttemptsCount,
-    });
-    wipeAllScopedUserDataFromLocalStorage(userId);
-
-    // 3. Delete Firebase Auth User Account
-    onProgress?.({
-      step: 'deleting_auth',
-      message: 'Deleting Firebase Authentication user credentials...',
-      deletedTestsCount,
-      deletedAttemptsCount,
-    });
-
-    try {
-      await deleteUser(user);
-    } catch (authErr: any) {
-      if (authErr?.code === 'auth/requires-recent-login') {
-        onProgress?.({
-          step: 'reauth_required',
-          message: 'Recent security authentication required. Opening Google sign-in to confirm...',
-          deletedTestsCount,
-          deletedAttemptsCount,
-        });
-        const provider = new GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: 'select_account' });
-        await reauthenticateWithPopup(user, provider);
-        await deleteUser(user);
-      } else {
-        throw authErr;
-      }
-    }
-
-    onProgress?.({
-      step: 'completed',
-      message: 'Your account and all associated cloud data have been completely deleted.',
-      deletedTestsCount,
-      deletedAttemptsCount,
-    });
-
-    return { success: true, deletedTestsCount, deletedAttemptsCount };
-  } catch (err: any) {
-    const errMsg = err?.message || String(err);
-    console.error('Error during account & data deletion:', err);
-    onProgress?.({
-      step: 'error',
-      message: `Account deletion failed: ${errMsg}`,
-      error: errMsg,
-    });
-    return { success: false, error: errMsg };
-  }
 }
 
 export { onAuthStateChanged };

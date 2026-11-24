@@ -1829,33 +1829,29 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                       </div>
 
                       {/* Right affordance and Master Actions */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        {(!hasFullBatchAccess && !lec.isFreePreview) ? (
-                          <span className="text-amber-700 dark:text-amber-400 font-bold flex items-center space-x-1 shrink-0 text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-amber-500/10">
-                            <Lock className="w-3 h-3" />
-                            <span>Locked</span>
-                          </span>
-                        ) : (
-                          <span className="text-[#0b57d0] dark:text-[#a8c7fa] font-bold flex items-center space-x-1 shrink-0 text-xs group-hover:translate-x-0.5 transition-transform">
-                            <span className="hidden sm:inline">Watch</span>
-                            <ChevronRight className="w-4 h-4" />
-                          </span>
-                        )}
+                      {((!hasFullBatchAccess && !lec.isFreePreview) || isMaster) && (
+                        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                          {(!hasFullBatchAccess && !lec.isFreePreview) && (
+                            <span className="text-amber-700 dark:text-amber-400 font-bold flex items-center space-x-1 shrink-0 text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-amber-500/10">
+                              <Lock className="w-3 h-3" />
+                              <span>Locked</span>
+                            </span>
+                          )}
 
-                        {/* Master Corner Menu */}
-                        {isMaster && (
-                          <div 
-                            className="relative shrink-0"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => setActiveMenuId(activeMenuId === `lec_${lec.id}` ? null : `lec_${lec.id}`)}
-                              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 text-slate-500 dark:text-zinc-400 transition border-none bg-transparent cursor-pointer"
-                              title="Lecture Options"
+                          {/* Master Corner Menu */}
+                          {isMaster && (
+                            <div 
+                              className="relative shrink-0"
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
+                              <button
+                                type="button"
+                                onClick={() => setActiveMenuId(activeMenuId === `lec_${lec.id}` ? null : `lec_${lec.id}`)}
+                                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 text-slate-500 dark:text-zinc-400 transition border-none bg-transparent cursor-pointer"
+                                title="Lecture Options"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
                             {activeMenuId === `lec_${lec.id}` && (
                               <>
                                 <div 
@@ -1900,6 +1896,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                           </div>
                         )}
                       </div>
+                    )}
                     </div>
                   ))}
                 </div>

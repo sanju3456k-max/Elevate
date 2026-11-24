@@ -415,7 +415,7 @@ const HtmlNotesHeaderComponent: React.FC<HtmlNotesHeaderProps> = ({
             {/* Document Size Validator Guardrail Badge */}
             {docSizeResult && (
               <div 
-                className={`hidden sm:flex items-center gap-1.5 h-9 px-3 rounded-full text-xs font-mono font-medium transition-all select-none border-0 shrink-0 ${
+                className={`hidden sm:flex items-center gap-1.5 h-9 px-3 rounded-full text-xs font-medium transition-all select-none border-0 shrink-0 ${
                   docSizeResult.isExceeded
                     ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 animate-pulse'
                     : docSizeResult.isApproachingLimit

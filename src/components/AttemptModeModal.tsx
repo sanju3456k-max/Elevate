@@ -24,7 +24,7 @@ export const AttemptModeModal: React.FC<AttemptModeModalProps> = ({
   onSelectOmrMode,
 }) => {
   useScrollLock(isOpen);
-  useBackHandler({ isOpen, onBack: onClose });
+  useBackHandler({ isOpen, onBack: onClose, priority: 50, id: 'attempt_mode_modal' });
 
   if (!isOpen || !test) return null;
 

@@ -102,7 +102,7 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
         <div className="flex items-center gap-2.5 mb-4">
           <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0">
             <img 
-              src="./assets/preplens-icon.svg?v=21" 
+              src="./assets/preplens-icon.svg?v=25" 
               alt="Elevate Labs" 
               className="w-full h-full object-contain"
               onError={(e) => {

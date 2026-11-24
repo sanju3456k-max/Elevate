@@ -227,7 +227,7 @@ export const HtmlNotesModals: React.FC<HtmlNotesModalsProps> = ({
                   <div className="flex flex-col min-w-0 flex-1">
                     <span className="text-xs font-bold text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-between gap-1">
                       <span>Download Full Project</span>
-                      <span className="text-[9px] px-1.5 py-0.2 bg-[#0b57d0] text-white rounded font-mono font-bold shrink-0">ZIP</span>
+                      <span className="text-[9px] px-1.5 py-0.2 bg-[#0b57d0] text-white rounded font-bold shrink-0">ZIP</span>
                     </span>
                     <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-normal truncate">
                       {projectFilesCount ? `${projectFilesCount} files included (${activeProjectName || 'Project'})` : 'All project files with README (.zip)'}

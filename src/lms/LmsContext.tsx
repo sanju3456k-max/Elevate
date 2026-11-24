@@ -85,6 +85,8 @@ interface AppContextType {
   updateWatchProgress: (lectureId: string, currentSeconds: number, totalSeconds: number) => void;
   announcements: Announcement[];
   addAnnouncement: (announcement: Omit<Announcement, 'id'>) => void;
+  updateAnnouncement: (id: string, updated: Partial<Announcement>) => void;
+  deleteAnnouncement: (id: string) => void;
   personalNotes: PersonalNote[];
   addPersonalNote: (note: Omit<PersonalNote, 'id' | 'createdAt'>) => void;
   deletePersonalNote: (id: string) => void;
@@ -331,6 +333,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           enableExamAnswerMasking: true,
           enableDevToolsDeterrence: true,
           enableStorageEncryption: true,
+          enableTestShareButton: false,
           ...JSON.parse(saved),
         };
       } catch {}
@@ -341,6 +344,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       enableExamAnswerMasking: true,
       enableDevToolsDeterrence: true,
       enableStorageEncryption: true,
+      enableTestShareButton: false,
     };
   });
 
@@ -478,11 +482,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     );
 
+    // Live listener for global announcements and master broadcast posts
+    const unsubAnnouncements = listenerManager.subscribeDocument(
+      'master_catalog/lms_announcements',
+      () => doc(db, 'master_catalog', 'lms_announcements'),
+      (snap) => {
+        if (snap.exists()) {
+          const val = snap.data();
+          if (Array.isArray(val?.list)) {
+            setAnnouncements(val.list);
+            try {
+              secureStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(val.list));
+            } catch {}
+          }
+        }
+      },
+      (err) => {
+        console.warn('LMS announcements live listener notice:', err);
+      }
+    );
+
     return () => {
       unsubBatchCatalogBeacon();
       unsubPolicy();
       unsubSecurity();
       unsubStudentFeatures();
+      unsubAnnouncements();
     };
   }, []);
 
@@ -1221,12 +1246,65 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addAnnouncement = (annData: Omit<Announcement, 'id'>) => {
-    const newAnn: Announcement = {
+    const rawAnn: Announcement = {
       ...annData,
-      id: `ann_${Date.now()}`,
+      id: `ann_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      createdAt: Date.now(),
+      date: annData.date || new Date().toISOString(),
     };
-    setAnnouncements((prev) => [newAnn, ...prev]);
+    const newAnn: Announcement = sanitizeForFirestore(rawAnn);
+    setAnnouncements((prev) => {
+      const next = [newAnn, ...prev.filter((a) => a.id !== newAnn.id)];
+      try {
+        secureStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(next));
+      } catch {}
+      setDoc(
+        doc(db, 'master_catalog', 'lms_announcements'),
+        sanitizeForFirestore({ list: next, updatedAt: new Date().toISOString() }),
+        { merge: true }
+      ).catch((err) => {
+        console.warn('Failed to sync announcement to Firestore:', err);
+      });
+      return next;
+    });
+    showSecurityToast('Broadcast post published');
   };
+
+  const updateAnnouncement = useCallback((id: string, updated: Partial<Announcement>) => {
+    setAnnouncements((prev) => {
+      const next = prev.map((a) => (a.id === id ? sanitizeForFirestore({ ...a, ...updated }) : a));
+      try {
+        secureStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(next));
+      } catch {}
+      setDoc(
+        doc(db, 'master_catalog', 'lms_announcements'),
+        sanitizeForFirestore({ list: next, updatedAt: new Date().toISOString() }),
+        { merge: true }
+      ).catch((err) => {
+        console.warn('Failed to sync updated announcement to Firestore:', err);
+      });
+      return next;
+    });
+    showSecurityToast('Broadcast post updated');
+  }, []);
+
+  const deleteAnnouncement = useCallback((id: string) => {
+    setAnnouncements((prev) => {
+      const next = prev.filter((a) => a.id !== id);
+      try {
+        secureStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(next));
+      } catch {}
+      setDoc(
+        doc(db, 'master_catalog', 'lms_announcements'),
+        sanitizeForFirestore({ list: next, updatedAt: new Date().toISOString() }),
+        { merge: true }
+      ).catch((err) => {
+        console.warn('Failed to sync deleted announcement to Firestore:', err);
+      });
+      return next;
+    });
+    showSecurityToast('Broadcast post removed');
+  }, []);
 
   const addPersonalNote = (noteData: Omit<PersonalNote, 'id' | 'createdAt'>) => {
     const newNote: PersonalNote = {
@@ -1880,6 +1958,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateWatchProgress,
         announcements,
         addAnnouncement,
+        updateAnnouncement,
+        deleteAnnouncement,
         personalNotes,
         addPersonalNote,
         deletePersonalNote,

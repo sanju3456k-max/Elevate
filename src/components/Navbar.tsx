@@ -37,7 +37,8 @@ import {
   FileCode,
   Crown,
   ShieldCheck,
-  Home
+  Home,
+  Megaphone,
 } from 'lucide-react';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { useScrollLock } from '../hooks/useScrollLock';
@@ -76,6 +77,7 @@ interface NavbarProps {
   isVideoPlaying?: boolean;
   onOpenNotifications?: () => void;
   isDesktopNotificationsOpen?: boolean;
+  onOpenCreatePost?: () => void;
 }
 
 // Google multi-colored G logo component
@@ -127,6 +129,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   isVideoPlaying = false,
   onOpenNotifications,
   isDesktopNotificationsOpen = false,
+  onOpenCreatePost,
 }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState<boolean>(false);
@@ -276,7 +279,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <div className="w-9.5 h-9.5 sm:w-10 sm:h-10 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                   <img 
-                    src="./assets/preplens-icon.svg?v=21" 
+                    src="./assets/preplens-icon.svg?v=25" 
                     alt="Elevate" 
                     className="w-full h-full object-contain dark:brightness-125"
                   />
@@ -574,7 +577,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <div className="flex items-center gap-2.5">
                     <div className="w-11 h-11 flex items-center justify-center shrink-0">
                       <img 
-                        src="./assets/preplens-icon.svg?v=21" 
+                        src="./assets/preplens-icon.svg?v=25" 
                         alt="Elevate" 
                         className="w-full h-full object-contain dark:brightness-125"
                       />
@@ -787,6 +790,31 @@ export const Navbar: React.FC<NavbarProps> = ({
                               </span>
                               <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
                                 Adaptive Remedial Engine
+                              </span>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 opacity-70" />
+                        </button>
+
+                        <button
+                          id="drawer-item-create-post"
+                          onClick={() => {
+                            setIsDrawerOpen(false);
+                            onOpenCreatePost?.();
+                          }}
+                          className={`${APP_STYLES.nav.item} relative overflow-hidden`}
+                        >
+                          <md-ripple />
+                          <div className="flex items-center gap-3">
+                            <div className="w-7 h-7 flex items-center justify-center shrink-0 bg-transparent text-amber-600 dark:text-amber-400">
+                              <Megaphone className="w-5 h-5 stroke-[2.2]" />
+                            </div>
+                            <div className="flex flex-col items-start text-left leading-tight">
+                              <span className="text-[17px] font-semibold text-amber-900 dark:text-amber-200">
+                                Broadcast Post
+                              </span>
+                              <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                                Publish updates & notices
                               </span>
                             </div>
                           </div>

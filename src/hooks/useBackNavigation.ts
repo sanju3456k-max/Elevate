@@ -218,6 +218,14 @@ export function useBackHandler(options: {
       if (index !== -1) {
         backStack.splice(index, 1);
       }
+
+      // If this layer was closed organically (e.g. In-app button click rather than popstate),
+      // synchronize browser history by popping the dummy entry so mobile hardware back gestures don't hit dead layers
+      try {
+        if (!isNativePlatform() && typeof window !== 'undefined' && window.history.state?.mockmc_layer === currentId) {
+          window.history.back();
+        }
+      } catch {}
     };
   }, [isOpen, priority]);
 }

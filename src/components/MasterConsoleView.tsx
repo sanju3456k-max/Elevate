@@ -56,7 +56,8 @@ import {
   Printer,
   Bot,
   SlidersHorizontal,
-  FileEdit
+  FileEdit,
+  Share2
 } from 'lucide-react';
 import type { MathTest, TestAttempt, RemedialFilterType, AssignedRemedialTest } from '../types';
 import { getTestDurationMinutes } from '../utils/testFormatConverter';
@@ -538,6 +539,16 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
       next
         ? 'Video dynamic watermark enabled.'
         : 'Video dynamic watermark disabled.'
+    );
+  };
+
+  const handleToggleTestShare = () => {
+    const next = !securitySettings?.enableTestShareButton;
+    updateSecuritySettings({ enableTestShareButton: next });
+    showNotification(
+      next
+        ? 'Test Share button enabled. Visible on test detail pages.'
+        : 'Test Share button disabled (hidden on test detail pages).'
     );
   };
 
@@ -2148,6 +2159,34 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                       <M3Switch
                         checked={securitySettings?.enableStorageEncryption !== false}
                         onChange={handleToggleEncryption}
+                      />
+                    </div>
+
+                    {/* Toggle: Test Share Enable Button */}
+                    <div className="flex items-center justify-between gap-4 p-3 sm:p-3.5 rounded-2xl bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 transition-colors">
+                      <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-zinc-800 text-[#1a1b1f] dark:text-[#e3e2e6] flex items-center justify-center shrink-0 border-0">
+                          <Share2 className="w-5 h-5 text-blue-500" />
+                        </div>
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-zinc-200 truncate">
+                              Allow Test Sharing (Test Detail Share Button)
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                              securitySettings?.enableTestShareButton ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-700'
+                            }`}>
+                              {securitySettings?.enableTestShareButton ? 'Enabled' : 'Disabled (Hidden)'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-700 dark:text-zinc-300">
+                            Controls whether the share button is visible on test detail pages. Turn on only if you want students to share test links.
+                          </p>
+                        </div>
+                      </div>
+                      <M3Switch
+                        checked={Boolean(securitySettings?.enableTestShareButton)}
+                        onChange={handleToggleTestShare}
                       />
                     </div>
                   </div>

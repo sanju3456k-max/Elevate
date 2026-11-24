@@ -386,7 +386,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
   useBackHandler({
     isOpen: !!selectedSubtopicQuestionsModal,
     onBack: () => setSelectedSubtopicQuestionsModal(null),
-    priority: 40,
+    priority: 75,
     id: 'subtopic_questions_full_view',
   });
 
@@ -394,7 +394,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
   useBackHandler({
     isOpen: !!fullScreenChapterId && !selectedSubtopicQuestionsModal,
     onBack: () => setFullScreenChapterId(null),
-    priority: 30,
+    priority: 70,
     id: 'fullscreen_chapter_subtopics_view',
   });
 
@@ -402,7 +402,7 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
   useBackHandler({
     isOpen: !fullScreenChapterId && !selectedSubtopicQuestionsModal,
     onBack: onClose,
-    priority: 20,
+    priority: 65,
     id: 'test_report_analysis_view',
   });
 

@@ -169,7 +169,7 @@ export const HtmlNotesSlantEditPopover: React.FC<HtmlNotesSlantEditPopoverProps>
           <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 truncate">
             Edit Selection ({paneMode === 'editor' ? 'Code' : 'Canvas'})
           </span>
-          <span className="text-[10px] text-slate-400 font-mono truncate max-w-[130px]" title={selectedText}>
+          <span className="text-[10px] text-slate-400 truncate max-w-[130px]" title={selectedText}>
             "{cleanSnippetPreview}"
           </span>
         </div>

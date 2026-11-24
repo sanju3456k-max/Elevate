@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Play,
   CheckCircle,
@@ -23,7 +23,13 @@ import {
   Target,
   Package,
   ChevronRight,
-  Lock
+  Lock,
+  Megaphone,
+  Plus,
+  X,
+  Trash2,
+  PinOff,
+  Crown
 } from 'lucide-react';
 import type { MathTest, TestAttempt, UserProfile } from '../../types';
 import type { User } from 'firebase/auth';
@@ -34,6 +40,52 @@ import { isMasterUser, isDeprecatedTest, DEPRECATED_TEST_IDS } from '../../lib/m
 import { getTestDurationMinutes } from '../../utils/testFormatConverter';
 import { DEFAULT_HIGH_RES_BANNER } from '../lms/batches/BatchThumbnailPicker';
 import { TestDetailModal } from '../TestDetailModal';
+
+interface BannerThemeStyle {
+  container: string;
+  badge: string;
+  batchBadge: string;
+  dotActive: string;
+}
+
+const BANNER_THEMES: Record<string, BannerThemeStyle> = {
+  orange: {
+    container: 'bg-gradient-to-br from-[#fff7ed] via-[#ffedd5]/60 to-[#fed7aa]/20 dark:from-[#2a170a]/90 dark:via-[#1e130c] dark:to-[#17120e]',
+    badge: 'bg-orange-500/15 dark:bg-orange-500/25 text-orange-600 dark:text-orange-400',
+    batchBadge: 'bg-orange-500/15 dark:bg-orange-500/25 text-orange-700 dark:text-orange-300',
+    dotActive: 'bg-orange-500 w-6',
+  },
+  blue: {
+    container: 'bg-gradient-to-br from-[#eff6ff] via-[#dbeafe]/60 to-[#bfdbfe]/20 dark:from-[#0b172a]/90 dark:via-[#0c1422] dark:to-[#0f172a]',
+    badge: 'bg-blue-500/15 dark:bg-blue-500/25 text-blue-600 dark:text-blue-400',
+    batchBadge: 'bg-blue-500/15 dark:bg-blue-500/25 text-blue-700 dark:text-blue-300',
+    dotActive: 'bg-blue-500 w-6',
+  },
+  green: {
+    container: 'bg-gradient-to-br from-[#ecfdf5] via-[#d1fae5]/60 to-[#a7f3d0]/20 dark:from-[#062419]/90 dark:via-[#0b1a14] dark:to-[#0d1f18]',
+    badge: 'bg-emerald-500/15 dark:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400',
+    batchBadge: 'bg-emerald-500/15 dark:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300',
+    dotActive: 'bg-emerald-500 w-6',
+  },
+  purple: {
+    container: 'bg-gradient-to-br from-[#faf5ff] via-[#f3e8ff]/60 to-[#e9d5ff]/20 dark:from-[#220d33]/90 dark:via-[#190c24] dark:to-[#170e20]',
+    badge: 'bg-purple-500/15 dark:bg-purple-500/25 text-purple-600 dark:text-purple-400',
+    batchBadge: 'bg-purple-500/15 dark:bg-purple-500/25 text-purple-700 dark:text-purple-300',
+    dotActive: 'bg-purple-500 w-6',
+  },
+  rose: {
+    container: 'bg-gradient-to-br from-[#fff1f2] via-[#ffe4e6]/60 to-[#fecdd3]/20 dark:from-[#2e0b14]/90 dark:via-[#200c12] dark:to-[#1b0d12]',
+    badge: 'bg-rose-500/15 dark:bg-rose-500/25 text-rose-600 dark:text-rose-400',
+    batchBadge: 'bg-rose-500/15 dark:bg-rose-500/25 text-rose-700 dark:text-rose-300',
+    dotActive: 'bg-rose-500 w-6',
+  },
+  slate: {
+    container: 'bg-gradient-to-br from-[#f8fafc] via-[#f1f5f9]/70 to-[#e2e8f0]/30 dark:from-[#1e2024] dark:via-[#18191d] dark:to-[#141518]',
+    badge: 'bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-200',
+    batchBadge: 'bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300',
+    dotActive: 'bg-slate-700 dark:bg-zinc-300 w-6',
+  },
+};
 
 interface HomeDashboardProps {
   tests: MathTest[];
@@ -53,6 +105,7 @@ interface HomeDashboardProps {
   onOpenThetaAI?: () => void;
   onOpenOmr?: () => void;
   onOpenCustomBuilder?: () => void;
+  onOpenCreatePost?: () => void;
 }
 
 interface DayActivity {
@@ -83,6 +136,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onOpenThetaAI,
   onOpenOmr,
   onOpenCustomBuilder,
+  onOpenCreatePost,
 }) => {
   const {
     batches,
@@ -97,10 +151,16 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     isGuestAllowedForBatch,
     enrollAsGuest,
     showSecurityToast,
+    updateAnnouncement,
+    deleteAnnouncement,
   } = useApp();
   
   // Selected test for Test Details & Dual Mode (OMR + Online) Modal
   const [detailedTest, setDetailedTest] = useState<MathTest | null>(null);
+
+  // Slideshow state for hero announcement banners
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [isSlidePaused, setIsSlidePaused] = useState(false);
 
   // Filter state for the 4 core buttons: 'all-batches' | 'my-batches' | 'test-library' | 'activity'
   const [activeView, setActiveView] = useState<'all-batches' | 'my-batches' | 'test-library' | 'activity'>('all-batches');
@@ -149,6 +209,67 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   );
   const displayedBatches = activeView === 'my-batches' ? enrolledBatches : visibleBatches;
 
+  // Active Hero Announcement Banners for Home Feed (Filtered by student batch enrollment / master)
+  const heroBanners = useMemo(() => {
+    if (!announcements || announcements.length === 0) return [];
+    return announcements.filter((ann) => {
+      if (!ann.isHeroBanner) return false;
+      if (isMaster) return true; // Master always sees all active banners
+      if (!ann.batchId) return true; // Global broadcast
+      return enrolledBatchIdSet.has(ann.batchId);
+    });
+  }, [announcements, isMaster, enrolledBatchIdSet]);
+
+  // Keep index within bounds if heroBanners count changes
+  useEffect(() => {
+    if (currentSlideIndex >= heroBanners.length && heroBanners.length > 0) {
+      setCurrentSlideIndex(0);
+    }
+  }, [heroBanners.length, currentSlideIndex]);
+
+  // Slideshow auto-advance every 4.5 seconds if multiple banners (Infinite repeating loop)
+  useEffect(() => {
+    if (heroBanners.length <= 1 || isSlidePaused) return;
+    const timer = setInterval(() => {
+      setCurrentSlideIndex((prev) => (prev + 1) % heroBanners.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [heroBanners.length, isSlidePaused]);
+
+  // Touch swipe handling for mobile devices
+  const touchStartXRef = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    setIsSlidePaused(true);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current !== null) {
+      const deltaX = e.changedTouches[0].clientX - touchStartXRef.current;
+      if (Math.abs(deltaX) > 35 && heroBanners.length > 1) {
+        if (deltaX < 0) {
+          // Swipe left -> Next slide (Infinite loop)
+          setCurrentSlideIndex((prev) => (prev + 1) % heroBanners.length);
+        } else {
+          // Swipe right -> Prev slide (Infinite loop)
+          setCurrentSlideIndex((prev) => (prev - 1 + heroBanners.length) % heroBanners.length);
+        }
+      }
+      touchStartXRef.current = null;
+    }
+    setIsSlidePaused(false);
+  };
+
+  const activeHeroBanner = heroBanners[currentSlideIndex] || null;
+
+  const activeHeroBannerBatch = useMemo(() => {
+    if (!activeHeroBanner?.batchId) return null;
+    return batches.find((b) => b.id === activeHeroBanner.batchId) || null;
+  }, [batches, activeHeroBanner]);
+
+  const currentTheme = BANNER_THEMES[activeHeroBanner?.themeColor || 'orange'] || BANNER_THEMES.orange;
+
   const currentBatch = batches[0]; // Testing Batch
   const freeLectures = lectures.filter((l) => l.isFreePreview);
 
@@ -161,6 +282,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   }, [lectures, enrolledBatchIdSet, isMaster]);
 
   const latestLecture = eligibleLectures.length > 0 ? eligibleLectures[eligibleLectures.length - 1] : null;
+
+  const latestLectureBatchTitle = useMemo(() => {
+    if (!latestLecture?.batchId) return '';
+    const b = batches.find((batch) => batch.id === latestLecture.batchId);
+    return b ? b.title : '';
+  }, [batches, latestLecture]);
 
   // Derive latest test strictly for student's enrolled batches (or all if master)
   const latestTest = useMemo(() => {
@@ -462,6 +589,349 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-4 sm:pb-8 md:pb-12 max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-2 sm:py-3">
+      {/* Master Admin Top Right 'New Post' Action Button (Clean dedicated row without negative margin overlap) */}
+      {isMaster && onOpenCreatePost && (
+        <div className="flex items-center justify-end pb-1 relative z-20">
+          <button
+            id="home-master-new-post-btn"
+            type="button"
+            onClick={onOpenCreatePost}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 active:scale-95 text-white font-bold text-xs sm:text-[13px] shadow-sm shadow-orange-500/25 hover:shadow-md transition-all cursor-pointer border-0 outline-none select-none shrink-0"
+            title="Create Broadcast Post or Home Screen Banner"
+          >
+            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.8]" />
+            <span>New Post</span>
+          </button>
+        </div>
+      )}
+
+      {/* Hero Announcement Banner Section (Auto-Advancing Infinite Carousel with Uniform Fixed-Height Template) */}
+      {activeHeroBanner && (() => {
+        const hasImage = Boolean(activeHeroBanner.imageUrl);
+        const hasTitle = Boolean(activeHeroBanner.title?.trim());
+        const hasMessage = Boolean(activeHeroBanner.message?.trim());
+        const hasText = hasTitle || hasMessage;
+        const isPosterOnly = hasImage && !hasText;
+
+        return (
+          <div className="space-y-2">
+            {/* Main Clean Banner Card with strictly UNIFORM fixed height across all templates */}
+            <div
+              id="hero-campus-banner-card"
+              key={activeHeroBanner.id || currentSlideIndex}
+              className={`relative rounded-[24px] overflow-hidden ${currentTheme.container} border-0 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.4)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_6px_24px_rgba(0,0,0,0.5)] transition-all duration-300 select-none h-[220px] sm:h-[240px] md:h-[260px]`}
+              onMouseEnter={() => setIsSlidePaused(true)}
+              onMouseLeave={() => setIsSlidePaused(false)}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+            >
+              {/* 1. CASE A: POSTER-ONLY TEMPLATE (Full-bleed image, no text) */}
+              {isPosterOnly ? (
+                <div className="relative w-full h-full">
+                  <img
+                    src={activeHeroBanner.imageUrl}
+                    alt={activeHeroBanner.title || 'Campus Poster'}
+                    className="w-full h-full object-cover rounded-[24px]"
+                    loading="lazy"
+                  />
+                  {/* Floating Glass Header Badge */}
+                  <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex items-center gap-2 flex-wrap">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[10.5px] font-black uppercase tracking-wider select-none border border-white/20 shadow-sm">
+                      <Megaphone className="w-3 h-3 fill-current text-orange-400" />
+                      <span>Campus Announcement</span>
+                    </span>
+                    {activeHeroBannerBatch && (
+                      <span className="text-[11px] font-bold text-white bg-black/60 backdrop-blur-md border border-white/20 px-2.5 py-0.5 rounded-full shadow-sm">
+                        {activeHeroBannerBatch.title}
+                      </span>
+                    )}
+                    {!activeHeroBanner.batchId && (
+                      <span className="text-[11px] font-bold text-white bg-black/60 backdrop-blur-md border border-white/20 px-2.5 py-0.5 rounded-full shadow-sm">
+                        All Students
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Floating Master Admin Controls (Bottom Right) */}
+                  {isMaster && (
+                    <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 flex items-center gap-2 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20 shadow-md">
+                      <button
+                        type="button"
+                        onClick={() => updateAnnouncement(activeHeroBanner.id, { isHeroBanner: false })}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-white/90 hover:text-white transition-colors cursor-pointer border-0 shadow-none outline-none"
+                        title="Unpin from Home feed"
+                      >
+                        <PinOff className="w-3 h-3" />
+                        <span>Unpin</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm('Delete this broadcast post?')) {
+                            deleteAnnouncement(activeHeroBanner.id);
+                          }
+                        }}
+                        className="p-1 rounded-full text-white/70 hover:text-red-400 transition-colors cursor-pointer border-0 shadow-none outline-none"
+                        title="Delete broadcast post"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : hasImage ? (
+                /* 2. CASE B: COMBINED TEMPLATE (Text on top / image on bottom on mobile, Side-by-side on desktop) */
+                <div className="w-full h-full">
+                  {/* Mobile View (< md): Compact text header on top, Image fills the lower area */}
+                  <div className="flex md:hidden flex-col h-full p-3.5 justify-between">
+                    {/* Top Text Area */}
+                    <div className="space-y-1 shrink-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${currentTheme.badge} text-[10px] font-black uppercase tracking-wider select-none border-0`}
+                          >
+                            <Megaphone className="w-2.5 h-2.5 fill-current" />
+                            <span>Campus Update</span>
+                          </span>
+                          {activeHeroBannerBatch && (
+                            <span
+                              className={`text-[10px] font-bold ${currentTheme.batchBadge} px-2 py-0.5 rounded-full border-0`}
+                            >
+                              {activeHeroBannerBatch.title}
+                            </span>
+                          )}
+                        </div>
+                        {isMaster && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => updateAnnouncement(activeHeroBanner.id, { isHeroBanner: false })}
+                              className="p-1 rounded-full text-slate-500 hover:text-slate-800 dark:hover:text-zinc-200 transition-colors border-0"
+                              title="Unpin"
+                            >
+                              <PinOff className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm('Delete this broadcast post?')) {
+                                  deleteAnnouncement(activeHeroBanner.id);
+                                }
+                              }}
+                              className="p-1 rounded-full text-slate-500 hover:text-red-500 transition-colors border-0"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {hasTitle && (
+                        <h2 className="text-sm font-bold text-[#1f1f1f] dark:text-[#f3f4f6] leading-tight line-clamp-1">
+                          {activeHeroBanner.title}
+                        </h2>
+                      )}
+                      {hasMessage && (
+                        <p className="text-[11.5px] text-slate-700 dark:text-zinc-300 line-clamp-1 leading-snug">
+                          {activeHeroBanner.message}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Bottom Image Area */}
+                    <div className="flex-1 min-h-0 w-full mt-1.5 rounded-xl overflow-hidden bg-black/5 dark:bg-black/30">
+                      <img
+                        src={activeHeroBanner.imageUrl}
+                        alt={activeHeroBanner.title || 'Announcement'}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Desktop / Tablet View (md+): Side-by-side with full height */}
+                  <div className="hidden md:flex flex-row items-stretch justify-between h-full p-5 lg:p-6 gap-6">
+                    <div className="flex-1 min-w-0 flex flex-col justify-between">
+                      <div className="space-y-2.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full ${currentTheme.badge} text-[10.5px] font-black uppercase tracking-wider select-none border-0`}
+                          >
+                            <Megaphone className="w-3 h-3 fill-current" />
+                            <span>Campus Announcement</span>
+                          </span>
+                          {activeHeroBannerBatch && (
+                            <span
+                              className={`text-[11px] font-bold ${currentTheme.batchBadge} px-2.5 py-0.5 rounded-full border-0`}
+                            >
+                              {activeHeroBannerBatch.title}
+                            </span>
+                          )}
+                          {!activeHeroBanner.batchId && (
+                            <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 bg-black/5 dark:bg-white/10 px-2.5 py-0.5 rounded-full border-0">
+                              All Students
+                            </span>
+                          )}
+                        </div>
+
+                        {hasTitle && (
+                          <h2 className="text-lg lg:text-xl font-bold text-[#1f1f1f] dark:text-[#f3f4f6] leading-tight line-clamp-2">
+                            {activeHeroBanner.title}
+                          </h2>
+                        )}
+
+                        {hasMessage && (
+                          <p className="text-xs sm:text-[13px] text-slate-700 dark:text-zinc-300 leading-relaxed line-clamp-3">
+                            {activeHeroBanner.message}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="pt-2 flex items-center justify-between text-xs text-slate-600 dark:text-zinc-400">
+                        <div className="flex items-center gap-1.5 font-medium">
+                          <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                          <span>{activeHeroBanner.authorName || 'Master Academic Head'}</span>
+                        </div>
+
+                        {isMaster && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => updateAnnouncement(activeHeroBanner.id, { isHeroBanner: false })}
+                              className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-slate-700 dark:text-zinc-200 transition-colors cursor-pointer border-0 shadow-none outline-none"
+                              title="Unpin from Home feed"
+                            >
+                              <PinOff className="w-3 h-3" />
+                              <span>Unpin from Home</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm('Delete this broadcast post?')) {
+                                  deleteAnnouncement(activeHeroBanner.id);
+                                }
+                              }}
+                              className="p-1.5 rounded-full text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer border-0 shadow-none outline-none"
+                              title="Delete broadcast post"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="w-72 lg:w-96 h-full rounded-2xl overflow-hidden bg-black/5 dark:bg-black/30 shrink-0">
+                      <img
+                        src={activeHeroBanner.imageUrl}
+                        alt={activeHeroBanner.title || 'Announcement'}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* 3. CASE C: TEXT-ONLY TEMPLATE (No image, fills uniform fixed height with comfortable vertical spacing) */
+                <div className="flex flex-col justify-between h-full p-4.5 sm:p-5 md:p-6">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full ${currentTheme.badge} text-[10.5px] font-black uppercase tracking-wider select-none border-0`}
+                      >
+                        <Megaphone className="w-3 h-3 fill-current" />
+                        <span>Campus Announcement</span>
+                      </span>
+                      {activeHeroBannerBatch && (
+                        <span
+                          className={`text-[11px] font-bold ${currentTheme.batchBadge} px-2.5 py-0.5 rounded-full border-0`}
+                        >
+                          {activeHeroBannerBatch.title}
+                        </span>
+                      )}
+                      {!activeHeroBanner.batchId && (
+                        <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 bg-black/5 dark:bg-white/10 px-2.5 py-0.5 rounded-full border-0">
+                          All Students
+                        </span>
+                      )}
+                    </div>
+
+                    {hasTitle && (
+                      <h2 className="text-[17px] sm:text-lg md:text-xl font-bold text-[#1f1f1f] dark:text-[#f3f4f6] leading-tight line-clamp-2">
+                        {activeHeroBanner.title}
+                      </h2>
+                    )}
+
+                    {hasMessage && (
+                      <p className="text-xs sm:text-[13.5px] text-slate-700 dark:text-zinc-300 leading-relaxed line-clamp-3 sm:line-clamp-4">
+                        {activeHeroBanner.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-between text-xs text-slate-600 dark:text-zinc-400">
+                    <div className="flex items-center gap-1.5 font-medium">
+                      <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                      <span>{activeHeroBanner.authorName || 'Master Academic Head'}</span>
+                    </div>
+
+                    {isMaster && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => updateAnnouncement(activeHeroBanner.id, { isHeroBanner: false })}
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-slate-700 dark:text-zinc-200 transition-colors cursor-pointer border-0 shadow-none outline-none"
+                          title="Unpin from Home feed"
+                        >
+                          <PinOff className="w-3 h-3" />
+                          <span>Unpin from Home</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm('Delete this broadcast post?')) {
+                              deleteAnnouncement(activeHeroBanner.id);
+                            }
+                          }}
+                          className="p-1.5 rounded-full text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer border-0 shadow-none outline-none"
+                          title="Delete broadcast post"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Centered Minimal Carousel Pagination Bar (Pill for active, dots for inactive - Flipkart/Motorola/iPhone style) */}
+            {heroBanners.length > 1 && (
+              <div className="flex items-center justify-center gap-1.5 pt-1.5 pb-0.5">
+                {heroBanners.map((b, idx) => {
+                  const isActive = currentSlideIndex === idx;
+                  return (
+                    <button
+                      key={b.id || idx}
+                      type="button"
+                      onClick={() => setCurrentSlideIndex(idx)}
+                      className={`transition-all duration-300 rounded-full cursor-pointer border-0 outline-none p-0 ${
+                        isActive
+                          ? 'w-7 sm:w-8 h-1.5 sm:h-2 bg-slate-800 dark:bg-white shadow-xs'
+                          : 'w-1.5 sm:w-2 h-1.5 sm:h-2 bg-slate-300/80 dark:bg-zinc-700/80 hover:bg-slate-400 dark:hover:bg-zinc-500'
+                      }`}
+                      title={`Go to announcement ${idx + 1}`}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* 1. LATEST UPDATES (Featured Lecture Full Preview & Mock Test) - Strictly shown for enrolled batches only */}
       {(latestLecture || latestTest) && (
         <div className="space-y-2.5 sm:space-y-3">
@@ -511,8 +981,13 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                   </div>
                 </div>
 
-                {/* Content: ONLY Lecture Title Name */}
-                <div className="flex-1 min-w-0 flex items-center p-3.5 sm:p-5">
+                {/* Content: Batch Name above Lecture Title Name */}
+                <div className="flex-1 min-w-0 flex flex-col justify-start p-3.5 sm:p-4 space-y-0.5 pointer-events-none">
+                  {latestLectureBatchTitle && (
+                    <span className="text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wider block truncate text-[#0b57d0] dark:text-[#a8c7fa]">
+                      {latestLectureBatchTitle}
+                    </span>
+                  )}
                   <h3 className="text-sm sm:text-base font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors leading-snug line-clamp-2">
                     {latestLecture.title}
                   </h3>

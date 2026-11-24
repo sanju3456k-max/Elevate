@@ -196,7 +196,7 @@ export const HtmlNotesHomeView: React.FC<HtmlNotesHomeViewProps> = ({
 
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-extrabold text-slate-900 dark:text-white m-0">Your Projects & Chapters</h2>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white m-0">Your Projects & Chapters</h2>
             <p className="text-xs font-medium text-slate-500 m-0">
               {isSearching
                 ? `Showing search results for "${searchQuery}"`
@@ -295,7 +295,7 @@ export const HtmlNotesHomeView: React.FC<HtmlNotesHomeViewProps> = ({
                   title="Open project in editor"
                 >
                   <div className="flex items-center justify-between w-full pb-1">
-                    <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-wider text-slate-500 dark:text-zinc-400 font-semibold">
+                    <span className="text-[10.5px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
                       Chapter
                     </span>
                   </div>
@@ -373,7 +373,7 @@ export const HtmlNotesHomeView: React.FC<HtmlNotesHomeViewProps> = ({
                   {/* Bottom Footer: Stats & Dropdown Chevron */}
                   <div className="pt-0.5 flex items-center justify-between gap-2 text-xs text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">
                     <div className="flex items-center gap-2 pointer-events-none text-[11px] sm:text-xs text-[#444746] dark:text-[#c4c7c5]">
-                      <span className="font-mono tabular-nums">
+                      <span>
                         {(Array.isArray(proj.files) ? proj.files : []).length} {(Array.isArray(proj.files) ? proj.files : []).length === 1 ? 'file' : 'files'}
                       </span>
                       {isSearching && hasMatchingFiles && (
@@ -382,7 +382,7 @@ export const HtmlNotesHomeView: React.FC<HtmlNotesHomeViewProps> = ({
                         </span>
                       )}
                       <span className="text-slate-300 dark:text-zinc-700">·</span>
-                      <span className="font-mono tabular-nums">
+                      <span>
                         Updated {formatUpdatedDateTime(proj.updatedAt || proj.createdAt)}
                       </span>
                     </div>
@@ -443,7 +443,7 @@ export const HtmlNotesHomeView: React.FC<HtmlNotesHomeViewProps> = ({
                                 <div className="font-semibold text-xs sm:text-sm text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors break-words leading-snug">
                                   {file.title || 'Untitled Note'}
                                 </div>
-                                <div className="flex flex-wrap items-center gap-2 text-[10px] font-medium text-[#5e5e5e] dark:text-[#9aa0a6] mt-1 font-mono tabular-nums">
+                                <div className="flex flex-wrap items-center gap-2 text-[10.5px] sm:text-xs font-medium text-[#5e5e5e] dark:text-[#9aa0a6] mt-1">
                                   <span>{(file.code || '').split('\n').length} lines</span>
                                   <span className="text-slate-300 dark:text-zinc-700">·</span>
                                   <span>Updated {formatUpdatedDateTime(file.updatedAt || file.createdAt)}</span>

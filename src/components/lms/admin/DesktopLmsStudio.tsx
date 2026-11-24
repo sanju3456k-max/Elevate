@@ -47,6 +47,7 @@ import {
   BookOpen,
   Info,
   Loader2,
+  Share2,
 } from 'lucide-react';
 import { adminResetDeviceLock } from '../../../lib/deviceAuthService';
 import { fetchVideoMetadata, extractYouTubeVideoId, type VideoMetadata } from '../../../lms/videoMetadataService';
@@ -2067,6 +2068,32 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                         onChange={() => {
                           const next = securitySettings?.enableStorageEncryption === false;
                           updateSecuritySettings({ enableStorageEncryption: next });
+                        }}
+                      />
+                    </div>
+
+                    {/* Security Toggle 6: Allow Test Sharing */}
+                    <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)]/60 border border-[var(--md-sys-color-outline-variant)]/10">
+                      <div className="space-y-0.5 flex-1 pr-2">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">
+                            Allow Test Sharing (Test Detail Share Button)
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            securitySettings?.enableTestShareButton ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-500/15 text-slate-500'
+                          }`}>
+                            {securitySettings?.enableTestShareButton ? 'Enabled' : 'Disabled (Hidden)'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] leading-normal">
+                          Controls whether students can see and click the share button on the test detail page. Keep disabled to prevent test link distribution.
+                        </p>
+                      </div>
+                      <M3Switch
+                        checked={Boolean(securitySettings?.enableTestShareButton)}
+                        onChange={() => {
+                          const next = !securitySettings?.enableTestShareButton;
+                          updateSecuritySettings({ enableTestShareButton: next });
                         }}
                       />
                     </div>

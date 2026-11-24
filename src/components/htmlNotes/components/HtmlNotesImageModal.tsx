@@ -201,7 +201,7 @@ export const HtmlNotesImageModal: React.FC<HtmlNotesImageModalProps> = ({
                   {isDragging ? 'Release to compress and insert into note' : 'or drag & drop file directly here'}
                 </p>
               </div>
-              <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">PNG, JPG, WebP, SVG, GIF up to 10MB</span>
+              <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">PNG, JPG, WebP, SVG, GIF up to 10MB</span>
             </div>
           )}
 

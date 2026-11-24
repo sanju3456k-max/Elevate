@@ -12,7 +12,7 @@
  *    - Zero Google Drive dependency for document persistence.
  */
 
-import { auth } from './firebase';
+import { auth, ensureValidGoogleDriveToken, connectGoogleDrive as connectGoogleDriveService } from './firebase';
 import {
   type HtmlProject,
   type HtmlNoteItem,
@@ -25,6 +25,7 @@ import {
   deleteFileFromFirestore,
 } from './htmlNotesSync';
 import { getCachedAuthUser } from './storage';
+import { syncHtmlProjectToGoogleDrive, getOrCreateHtmlNotesRootFolder } from './googleWorkspace';
 
 export type DriveSyncState = 'disconnected' | 'idle' | 'syncing' | 'synced' | 'error';
 
@@ -97,19 +98,53 @@ export function isDriveConnected(): boolean {
 }
 
 export async function connectGoogleDrive(): Promise<boolean> {
-  updateStatus({
-    state: 'idle',
-    message: 'Firebase Realtime Cloud Storage Active',
-    lastSyncTime: Date.now(),
-    folderUrl: null,
-  });
-  return true;
+  try {
+    updateStatus({
+      state: 'syncing',
+      message: 'Connecting Google Drive...',
+      lastSyncTime: Date.now(),
+      folderUrl: null,
+    });
+
+    const token = await connectGoogleDriveService();
+    if (token) {
+      updateStatus({
+        state: 'synced',
+        message: 'Google Drive connected (Elevate Studio)',
+        lastSyncTime: Date.now(),
+        folderUrl: null,
+      });
+
+      // Background backup projects to Elevate Studio > HTML Notes Studio
+      const projs = loadLocalProjects();
+      if (projs.length > 0) {
+        syncHtmlNotesWithDrive(projs).catch((err) => console.warn('Background Drive backup warning:', err));
+      }
+      return true;
+    } else {
+      updateStatus({
+        state: 'disconnected',
+        message: 'Google Drive connection cancelled or failed',
+        lastSyncTime: Date.now(),
+        folderUrl: null,
+      });
+      return false;
+    }
+  } catch (err: any) {
+    updateStatus({
+      state: 'error',
+      message: err?.message || 'Google Drive connection failed',
+      lastSyncTime: Date.now(),
+      folderUrl: null,
+    });
+    return false;
+  }
 }
 
 export function disconnectGoogleDrive(): void {
   updateStatus({
     state: 'disconnected',
-    message: 'Storage disconnected',
+    message: 'Google Drive disconnected',
     folderUrl: null,
   });
 }
@@ -132,16 +167,85 @@ export async function syncHtmlNotesWithDrive(
   projects: HtmlProject[]
 ): Promise<{ success: boolean; message: string; projects?: HtmlProject[] }> {
   try {
+    // 1. Instant real-time multi-device sync via Firestore
     queueFirestoreSync(projects, true);
-    updateStatus({
-      state: 'synced',
-      message: 'All projects synced to Firebase Firestore',
-      lastSyncTime: Date.now(),
-    });
+
+    // 2. Persistent Google Drive Cloud Backup (Elevate Studio > HTML Notes Studio)
+    const token = await ensureValidGoogleDriveToken();
+    let updatedProjects = [...projects];
+
+    if (token) {
+      updateStatus({
+        state: 'syncing',
+        message: 'Syncing to Google Drive (Elevate Studio)...',
+        lastSyncTime: Date.now(),
+        folderUrl: null,
+      });
+
+      try {
+        const rootFolderId = await getOrCreateHtmlNotesRootFolder(token);
+        const nextProjects: HtmlProject[] = [];
+
+        for (const proj of projects) {
+          const syncRes = await syncHtmlProjectToGoogleDrive(token, proj);
+          const fileDriveMap = new Map(syncRes.files.map((f) => [f.id, f]));
+
+          const updatedFiles = proj.files.map((file) => {
+            const mapped = fileDriveMap.get(file.id);
+            if (mapped) {
+              return {
+                ...file,
+                driveFileId: mapped.driveFileId,
+                driveWebViewLink: mapped.webViewLink,
+              };
+            }
+            return file;
+          });
+
+          nextProjects.push({
+            ...proj,
+            driveFolderId: syncRes.projectFolderId,
+            files: updatedFiles,
+          });
+        }
+
+        updatedProjects = nextProjects;
+        saveLocalProjects(updatedProjects);
+
+        updateStatus({
+          state: 'synced',
+          message: `All ${updatedProjects.length} project(s) saved to Google Drive (Elevate Studio)!`,
+          lastSyncTime: Date.now(),
+          folderUrl: `https://drive.google.com/drive/folders/${rootFolderId}`,
+        });
+
+        return {
+          success: true,
+          message: `Saved to Google Drive (Elevate Studio) & Cloud`,
+          projects: updatedProjects,
+        };
+      } catch (driveErr: any) {
+        console.warn('Google Drive project upload warning:', driveErr);
+        updateStatus({
+          state: 'synced',
+          message: 'Saved to Cloud (Google Drive sync pending)',
+          lastSyncTime: Date.now(),
+          folderUrl: null,
+        });
+      }
+    } else {
+      updateStatus({
+        state: 'synced',
+        message: 'Saved to Cloud Database (Connect Drive to backup to Drive)',
+        lastSyncTime: Date.now(),
+        folderUrl: null,
+      });
+    }
+
     return {
       success: true,
-      message: 'Synced to Firebase Cloud Storage',
-      projects,
+      message: 'Saved to Cloud',
+      projects: updatedProjects,
     };
   } catch (err: any) {
     return {

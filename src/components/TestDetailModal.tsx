@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -37,6 +37,7 @@ import { APP_STYLES } from './ui/AppStyles';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { studioBackdropVariants, studioModalVariants, gpuAcceleratedStyle } from '../lib/animationConfig';
 import { setAppThemeColor } from '../lib/appThemeColor';
+import { useApp } from '../lms/LmsContext';
 
 export interface TestDetailModalProps {
   test: MathTest | null;
@@ -61,9 +62,39 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
   onStartOmrTest,
   onViewAttemptResult,
 }) => {
+  let securitySettings: any = null;
+  try {
+    const appContext = useApp();
+    securitySettings = appContext.securitySettings;
+  } catch {
+    // Graceful fallback if rendered outside LmsProvider
+  }
+
   const [isCopied, setIsCopied] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [selectedReportAttempt, setSelectedReportAttempt] = useState<TestAttempt | null>(null);
+
+  // Synchronously reset child sub-views when test changes or unmounts
+  useEffect(() => {
+    setSelectedReportAttempt(null);
+    setIsLeaderboardOpen(false);
+    setIsCopied(false);
+  }, [test?.id]);
+
+  useEffect(() => {
+    if (!test) {
+      setSelectedReportAttempt(null);
+      setIsLeaderboardOpen(false);
+      setIsCopied(false);
+    }
+  }, [test]);
+
+  const handleModalClose = useCallback(() => {
+    setSelectedReportAttempt(null);
+    setIsLeaderboardOpen(false);
+    setIsCopied(false);
+    onClose();
+  }, [onClose]);
 
   // Sync mobile status bar theme-color
   useEffect(() => {
@@ -73,11 +104,11 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
     setAppThemeColor(targetColor);
   }, [test]);
 
-  // Back Navigation handler for the modal
+  // Back Navigation handler for the modal (Priority 50 ensures nested sub-views take precedence)
   useBackHandler({
     isOpen: !!test && !isLeaderboardOpen && !selectedReportAttempt,
-    onBack: onClose,
-    priority: 35,
+    onBack: handleModalClose,
+    priority: 50,
     id: 'test_detail_modal',
   });
 
@@ -436,12 +467,12 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
                   e.stopPropagation();
                   setSelectedReportAttempt(attemptItem);
                 }}
-                className="inline-flex items-center justify-center gap-1 px-2.5 sm:px-3 py-1 bg-[#d3e3fd] hover:bg-[#c2e7ff] dark:bg-[#004a77] dark:hover:bg-[#005a92] active:scale-95 text-[#041e49] dark:text-[#c2e7ff] text-[10.5px] sm:text-xs font-bold rounded-full border-0 transition-all cursor-pointer whitespace-nowrap shrink-0"
+                className="inline-flex items-center justify-center gap-1 px-2.5 sm:px-3 py-1 min-h-[30px] bg-[#d3e3fd] hover:bg-[#c2e7ff] dark:bg-[#004a77] dark:hover:bg-[#005a92] active:scale-95 text-[#041e49] dark:text-[#c2e7ff] text-[10.5px] sm:text-xs font-bold rounded-full border-0 transition-all cursor-pointer whitespace-nowrap shrink-0 touch-manipulation"
                 title="View detailed test report & analysis"
                 aria-label="Analysis"
               >
-                <BarChart2 className="w-3.5 h-3.5 stroke-[2.2] shrink-0" />
-                <span className="hidden sm:inline">Analysis</span>
+                <BarChart2 className="w-3.5 h-3.5 stroke-[2.2] shrink-0 pointer-events-none" />
+                <span className="pointer-events-none">Analysis</span>
               </button>
 
               {onViewAttemptResult && (
@@ -449,15 +480,15 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onClose();
+                    handleModalClose();
                     onViewAttemptResult(attemptItem);
                   }}
-                  className="inline-flex items-center justify-center gap-1 px-3 py-1 bg-[#0b57d0] hover:bg-[#0842a0] text-white active:scale-95 text-[10.5px] sm:text-xs font-bold rounded-full border-0 shadow-[0_2px_6px_rgba(11,87,208,0.25)] transition-all cursor-pointer whitespace-nowrap shrink-0"
+                  className="inline-flex items-center justify-center gap-1 px-3 py-1 min-h-[30px] bg-[#0b57d0] hover:bg-[#0842a0] text-white active:scale-95 text-[10.5px] sm:text-xs font-bold rounded-full border-0 shadow-[0_2px_6px_rgba(11,87,208,0.25)] transition-all cursor-pointer whitespace-nowrap shrink-0 touch-manipulation"
                   title="View detailed test solutions"
                   aria-label="Solutions"
                 >
-                  <Eye className="w-3.5 h-3.5 stroke-[2.2] shrink-0" />
-                  <span>Solutions</span>
+                  <Eye className="w-3.5 h-3.5 stroke-[2.2] shrink-0 pointer-events-none" />
+                  <span className="pointer-events-none">Solutions</span>
                 </button>
               )}
             </div>
@@ -476,7 +507,7 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
         exit="exit"
         style={gpuAcceleratedStyle}
         className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex flex-col p-0 cursor-default"
-        onClick={onClose}
+        onClick={handleModalClose}
       >
         <motion.div
           variants={studioModalVariants}
@@ -493,7 +524,7 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
               <button
                 type="button"
                 id="close-detailed-modal-btn"
-                onClick={onClose}
+                onClick={handleModalClose}
                 className="p-1 -ml-1 rounded-full text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 border-none border-0 bg-transparent shadow-none outline-none"
                 title="Back"
                 aria-label="Back"
@@ -518,17 +549,19 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <md-icon-button
-                id="share-detailed-test-modal-btn"
-                onClick={handleShare}
-                title={isCopied ? 'Share link copied!' : 'Share Test Link'}
-              >
-                {isCopied ? (
-                  <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                ) : (
-                  <Share2 className="w-5 h-5 text-[#5e5e5e] dark:text-[#9aa0a6]" />
-                )}
-              </md-icon-button>
+              {Boolean(securitySettings?.enableTestShareButton) && (
+                <md-icon-button
+                  id="share-detailed-test-modal-btn"
+                  onClick={handleShare}
+                  title={isCopied ? 'Share link copied!' : 'Share Test Link'}
+                >
+                  {isCopied ? (
+                    <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <Share2 className="w-5 h-5 text-[#5e5e5e] dark:text-[#9aa0a6]" />
+                  )}
+                </md-icon-button>
+              )}
 
               {!isRemedial && (
                 <md-icon-button

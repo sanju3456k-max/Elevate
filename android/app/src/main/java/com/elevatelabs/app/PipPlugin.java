@@ -24,8 +24,12 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.auth.GoogleAuthUtil;
+import com.google.android.gms.auth.UserRecoverableAuthException;
+import com.google.android.gms.common.api.Scope;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.Task;
+import android.accounts.Account;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.media.MediaScannerConnection;
@@ -271,6 +275,198 @@ public class PipPlugin extends Plugin {
         } catch (ApiException e) {
             android.util.Log.e("PipPlugin", "Google Sign-In failed with status code " + e.getStatusCode(), e);
             call.reject("Google Sign-In error (" + e.getStatusCode() + "): " + e.getMessage(), String.valueOf(e.getStatusCode()));
+        }
+    }
+
+    private static final String DRIVE_SCOPE_STRING = "oauth2:https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.appdata";
+
+    @PluginMethod
+    public void nativeGetGoogleDriveAccessToken(PluginCall call) {
+        Context context = getContext();
+        if (context == null) {
+            call.reject("Context is not available");
+            return;
+        }
+
+        GoogleSignInAccount account = GoogleSignIn.getLastSignedInAccount(context);
+        if (account == null || account.getAccount() == null) {
+            JSObject ret = new JSObject();
+            ret.put("success", false);
+            ret.put("reason", "NOT_SIGNED_IN");
+            ret.put("message", "No active Google account found on device. Sign in first.");
+            call.resolve(ret);
+            return;
+        }
+
+        String scopeString = call.getString("scopes", DRIVE_SCOPE_STRING);
+
+        new Thread(() -> {
+            try {
+                String token = GoogleAuthUtil.getToken(context, account.getAccount(), scopeString);
+                android.util.Log.i("PipPlugin", "Native Google Drive token acquired successfully for " + account.getEmail());
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                ret.put("accessToken", token);
+                ret.put("email", account.getEmail());
+                ret.put("expiresIn", 3600);
+                call.resolve(ret);
+            } catch (UserRecoverableAuthException e) {
+                android.util.Log.i("PipPlugin", "User consent required for Google Drive, launching consent dialog");
+                Intent consentIntent = e.getIntent();
+                if (consentIntent != null && getActivity() != null) {
+                    startActivityForResult(call, consentIntent, "handleDriveConsentResult");
+                } else {
+                    JSObject ret = new JSObject();
+                    ret.put("success", false);
+                    ret.put("reason", "CONSENT_REQUIRED_NO_ACTIVITY");
+                    call.resolve(ret);
+                }
+            } catch (Exception e) {
+                android.util.Log.w("PipPlugin", "Failed to retrieve native Google Drive token: " + e.getMessage());
+                JSObject ret = new JSObject();
+                ret.put("success", false);
+                ret.put("reason", "ERROR");
+                ret.put("error", e.getMessage());
+                call.resolve(ret);
+            }
+        }).start();
+    }
+
+    @ActivityCallback
+    private void handleDriveConsentResult(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        Context context = getContext();
+        if (context == null) {
+            call.reject("Context is not available");
+            return;
+        }
+
+        if (result == null || result.getResultCode() != android.app.Activity.RESULT_OK) {
+            JSObject ret = new JSObject();
+            ret.put("success", false);
+            ret.put("reason", "CONSENT_CANCELLED");
+            ret.put("message", "Google Drive consent was cancelled by user.");
+            call.resolve(ret);
+            return;
+        }
+
+        GoogleSignInAccount account = GoogleSignIn.getLastSignedInAccount(context);
+        if (account == null || account.getAccount() == null) {
+            JSObject ret = new JSObject();
+            ret.put("success", false);
+            ret.put("reason", "NO_ACCOUNT_AFTER_CONSENT");
+            call.resolve(ret);
+            return;
+        }
+
+        String scopeString = call.getString("scopes", DRIVE_SCOPE_STRING);
+        new Thread(() -> {
+            try {
+                String token = GoogleAuthUtil.getToken(context, account.getAccount(), scopeString);
+                android.util.Log.i("PipPlugin", "Native Google Drive token acquired post-consent for " + account.getEmail());
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                ret.put("accessToken", token);
+                ret.put("email", account.getEmail());
+                ret.put("expiresIn", 3600);
+                call.resolve(ret);
+            } catch (Exception e) {
+                android.util.Log.e("PipPlugin", "Failed to get token after consent: " + e.getMessage(), e);
+                JSObject ret = new JSObject();
+                ret.put("success", false);
+                ret.put("reason", "POST_CONSENT_ERROR");
+                ret.put("error", e.getMessage());
+                call.resolve(ret);
+            }
+        }).start();
+    }
+
+    @PluginMethod
+    public void nativeGoogleSignInWithDrive(PluginCall call) {
+        if (getActivity() == null) {
+            call.reject("Activity not available");
+            return;
+        }
+
+        String serverClientId = call.getString("serverClientId", "649642031919-tmtgoi10dbdq6jka2662pqdrnkdkpp9s.apps.googleusercontent.com");
+        getActivity().runOnUiThread(() -> {
+            try {
+                Scope driveFileScope = new Scope("https://www.googleapis.com/auth/drive.file");
+                Scope driveAppDataScope = new Scope("https://www.googleapis.com/auth/drive.appdata");
+
+                GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                    .requestEmail()
+                    .requestProfile()
+                    .requestIdToken(serverClientId)
+                    .requestScopes(driveFileScope, driveAppDataScope)
+                    .build();
+
+                GoogleSignInClient client = GoogleSignIn.getClient(getActivity(), gso);
+                Intent signInIntent = client.getSignInIntent();
+                startActivityForResult(call, signInIntent, "handleGoogleSignInWithDriveResult");
+            } catch (Exception e) {
+                android.util.Log.e("PipPlugin", "Google Sign-In with Drive initialization failed: " + e.getMessage(), e);
+                call.reject("Google Sign-In with Drive initialization failed: " + e.getMessage());
+            }
+        });
+    }
+
+    @ActivityCallback
+    private void handleGoogleSignInWithDriveResult(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result == null || result.getData() == null) {
+            call.reject("Google Sign-In cancelled");
+            return;
+        }
+
+        Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(result.getData());
+        try {
+            GoogleSignInAccount account = task.getResult(ApiException.class);
+            if (account != null && account.getAccount() != null) {
+                android.util.Log.i("PipPlugin", "Google Sign-In with Drive succeeded for " + account.getEmail());
+                new Thread(() -> {
+                    String accessToken = null;
+                    try {
+                        accessToken = GoogleAuthUtil.getToken(getContext(), account.getAccount(), DRIVE_SCOPE_STRING);
+                    } catch (Exception tokenErr) {
+                        android.util.Log.w("PipPlugin", "Failed to pre-fetch access token: " + tokenErr.getMessage());
+                    }
+                    JSObject ret = new JSObject();
+                    ret.put("idToken", account.getIdToken());
+                    ret.put("serverAuthCode", account.getServerAuthCode());
+                    ret.put("email", account.getEmail());
+                    ret.put("displayName", account.getDisplayName());
+                    ret.put("photoUrl", account.getPhotoUrl() != null ? account.getPhotoUrl().toString() : null);
+                    ret.put("accessToken", accessToken);
+                    call.resolve(ret);
+                }).start();
+            } else {
+                call.reject("Account is null");
+            }
+        } catch (ApiException e) {
+            android.util.Log.e("PipPlugin", "Google Sign-In with Drive failed (" + e.getStatusCode() + "): " + e.getMessage(), e);
+            call.reject("Google Sign-In error (" + e.getStatusCode() + "): " + e.getMessage(), String.valueOf(e.getStatusCode()));
+        }
+    }
+
+    @PluginMethod
+    public void nativeClearGoogleDriveToken(PluginCall call) {
+        Context context = getContext();
+        String token = call.getString("token");
+        if (context != null && token != null && !token.isEmpty()) {
+            new Thread(() -> {
+                try {
+                    GoogleAuthUtil.clearToken(context, token);
+                    android.util.Log.i("PipPlugin", "Native Google Drive token cleared from cache");
+                } catch (Exception ignored) {}
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                call.resolve(ret);
+            }).start();
+        } else {
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
         }
     }
 

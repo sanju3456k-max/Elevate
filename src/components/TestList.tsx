@@ -497,14 +497,6 @@ export const TestList: React.FC<TestListProps> = ({
   // Lock body scroll strictly when full page modal is open
   useScrollLock(!!detailedTest);
 
-  // System navigation back gesture & button handling for modals
-  useBackHandler({
-    isOpen: !!detailedTest,
-    onBack: () => setDetailedTest(null),
-    priority: 30,
-    id: 'test_details_modal',
-  });
-
   // Synchronize status bar theme-color for Detailed Test overlay to match page body (#e5e9f0 light / #0b0c10 dark)
   useEffect(() => {
     if (!detailedTest) return;

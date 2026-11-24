@@ -115,7 +115,7 @@ export const HtmlNotesAiMessageList: React.FC<HtmlNotesAiMessageListProps> = ({
                         <Sparkles className="w-3.5 h-3.5 text-blue-500 animate-pulse shrink-0" />
                         <span>Execution & Optimization Progress</span>
                       </div>
-                      <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
                         {msg.steps.filter(s => s.status === 'completed').length} / {msg.steps.length} done
                       </span>
                     </div>
@@ -169,7 +169,7 @@ export const HtmlNotesAiMessageList: React.FC<HtmlNotesAiMessageListProps> = ({
                               : (msg.actionBadge?.label || 'Surgical Patch Proposed')}
                           </span>
                           {(msg.surgicalCommand?.type || msg.actionBadge?.actionType) && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-100 dark:bg-blue-900/80 text-blue-700 dark:text-blue-300">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-900/80 text-blue-700 dark:text-blue-300">
                               {(msg.surgicalCommand?.type || msg.actionBadge?.actionType || '').replace(/_/g, ' ')}
                             </span>
                           )}

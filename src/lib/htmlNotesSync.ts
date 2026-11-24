@@ -28,6 +28,7 @@ export interface HtmlProject {
   createdAt: number;
   updatedAt: number;
   files: HtmlNoteItem[];
+  driveFolderId?: string;
   _syncStatus?: 'pending' | 'synced';
   localUpdatedAt?: number;
 }
