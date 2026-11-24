@@ -55,6 +55,7 @@ export interface NativeDocumentViewerProps {
   initialIndex?: number;
   isOpen: boolean;
   onClose: () => void;
+  publicOnly?: boolean;
 }
 
 const PRODUCTION_API_ORIGIN = 'https://labselevate.vercel.app';
@@ -188,6 +189,7 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
   initialIndex = 0,
   isOpen,
   onClose,
+  publicOnly = false,
 }) => {
   const { currentUser, studentFeatureAccess } = useApp();
   const isMaster = isMasterUser(currentUser);
@@ -338,6 +340,8 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
       if (rawUrl.includes('docs.google.com/presentation')) {
         return `https://docs.google.com/presentation/d/${driveId}/preview`;
       }
+      // For public batch notes, never fall back to Google Drive's iframe (which may show Google Sign-in)
+      if (publicOnly) return null;
       return getDriveEmbedPreviewUrl(driveId);
     }
     if (rawUrl && /^https?:\/\//i.test(rawUrl)) {
@@ -412,9 +416,9 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
 
       setLoadProgress(35);
 
-      // 2. If Drive ID is present, use already-cached Drive OAuth token if available (never force Google Drive consent popup for students viewing batch notes)
+      // 2. If Drive ID is present and NOT publicOnly (e.g. user's own Notes Studio content), use cached Drive OAuth token
       let driveToken: string | null = null;
-      if (driveId) {
+      if (driveId && !publicOnly) {
         driveToken = getCachedGoogleAccessToken();
         if (driveToken) {
           try {
@@ -536,11 +540,13 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
       }
 
       setErrorMessage(
-        err?.message || 'Unable to open document. Please verify network access or permissions.'
+        publicOnly
+          ? 'Unable to load this note. Please ask your admin to ensure the Google Drive link is shared as "Anyone with the link".'
+          : err?.message || 'Unable to open document. Please verify network access or permissions.'
       );
       setLoading(false);
     }
-  }, [rawUrl, driveId, ytId, cacheKey, currentItem, embedFallbackUrl]);
+  }, [rawUrl, driveId, ytId, cacheKey, currentItem, embedFallbackUrl, publicOnly]);
 
   const handleLoadedData = useCallback(
     (arrayBuffer: ArrayBuffer, contentType: string) => {

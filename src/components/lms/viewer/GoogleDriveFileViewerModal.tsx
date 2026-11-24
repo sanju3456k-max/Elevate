@@ -8,6 +8,7 @@ export interface GoogleDriveFileViewerModalProps {
   initialIndex?: number;
   isOpen: boolean;
   onClose: () => void;
+  publicOnly?: boolean;
 }
 
 /**
@@ -20,6 +21,7 @@ export const GoogleDriveFileViewerModal: React.FC<GoogleDriveFileViewerModalProp
   initialIndex = 0,
   isOpen,
   onClose,
+  publicOnly = false,
 }) => {
   return (
     <NativeDocumentViewer
@@ -27,6 +29,7 @@ export const GoogleDriveFileViewerModal: React.FC<GoogleDriveFileViewerModalProp
       initialIndex={initialIndex}
       isOpen={isOpen}
       onClose={onClose}
+      publicOnly={publicOnly}
     />
   );
 };

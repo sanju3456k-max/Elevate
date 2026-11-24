@@ -2175,6 +2175,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
           items={viewerItems}
           initialIndex={viewerInitialIndex}
           onClose={() => setIsViewerOpen(false)}
+          publicOnly={true}
         />
 
         {/* MODAL 1: CREATE OR EDIT FOLDER */}
@@ -2567,6 +2568,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         items={viewerItems}
         initialIndex={viewerInitialIndex}
         onClose={() => setIsViewerOpen(false)}
+        publicOnly={true}
       />
     </div>
   );
