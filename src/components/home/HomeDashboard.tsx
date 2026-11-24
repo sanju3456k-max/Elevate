@@ -588,15 +588,15 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   );
 
   return (
-    <div className="space-y-6 sm:space-y-8 pb-4 sm:pb-8 md:pb-12 max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-2 sm:py-3">
-      {/* Master Admin Top Right 'New Post' Action Button (Clean dedicated row without negative margin overlap) */}
+    <div className="space-y-5 sm:space-y-7 pb-4 sm:pb-8 md:pb-12 max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-2 sm:py-3">
+      {/* Master Admin Top Right 'New Post' Action Button (Clean dedicated row with full clearance, no overlap) */}
       {isMaster && onOpenCreatePost && (
-        <div className="flex items-center justify-end pb-1 relative z-20">
+        <div className="w-full flex items-center justify-end pt-1 pb-2 relative z-30">
           <button
             id="home-master-new-post-btn"
             type="button"
             onClick={onOpenCreatePost}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 active:scale-95 text-white font-bold text-xs sm:text-[13px] shadow-sm shadow-orange-500/25 hover:shadow-md transition-all cursor-pointer border-0 outline-none select-none shrink-0"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 active:scale-95 text-white font-bold text-xs sm:text-[13px] shadow-sm shadow-orange-500/25 hover:shadow-md transition-all cursor-pointer border-0 outline-none select-none shrink-0"
             title="Create Broadcast Post or Home Screen Banner"
           >
             <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.8]" />
@@ -614,7 +614,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         const isPosterOnly = hasImage && !hasText;
 
         return (
-          <div className="space-y-2">
+          <div className="space-y-2 mt-1">
             {/* Main Clean Banner Card with strictly UNIFORM fixed height across all templates */}
             <div
               id="hero-campus-banner-card"
@@ -634,23 +634,25 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                     className="w-full h-full object-cover rounded-[24px]"
                     loading="lazy"
                   />
-                  {/* Floating Glass Header Badge */}
-                  <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex items-center gap-2 flex-wrap">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[10.5px] font-black uppercase tracking-wider select-none border border-white/20 shadow-sm">
-                      <Megaphone className="w-3 h-3 fill-current text-orange-400" />
-                      <span>Campus Announcement</span>
-                    </span>
-                    {activeHeroBannerBatch && (
-                      <span className="text-[11px] font-bold text-white bg-black/60 backdrop-blur-md border border-white/20 px-2.5 py-0.5 rounded-full shadow-sm">
-                        {activeHeroBannerBatch.title}
+                  {/* Floating Glass Header Badge - STRICTLY FOR MASTER CONSOLE ONLY */}
+                  {isMaster && (
+                    <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex items-center gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[10.5px] font-black uppercase tracking-wider select-none border border-white/20 shadow-sm">
+                        <Megaphone className="w-3 h-3 fill-current text-orange-400" />
+                        <span>Campus Announcement</span>
                       </span>
-                    )}
-                    {!activeHeroBanner.batchId && (
-                      <span className="text-[11px] font-bold text-white bg-black/60 backdrop-blur-md border border-white/20 px-2.5 py-0.5 rounded-full shadow-sm">
-                        All Students
-                      </span>
-                    )}
-                  </div>
+                      {activeHeroBannerBatch && (
+                        <span className="text-[11px] font-bold text-white bg-black/60 backdrop-blur-md border border-white/20 px-2.5 py-0.5 rounded-full shadow-sm">
+                          {activeHeroBannerBatch.title}
+                        </span>
+                      )}
+                      {!activeHeroBanner.batchId && (
+                        <span className="text-[11px] font-bold text-white bg-black/60 backdrop-blur-md border border-white/20 px-2.5 py-0.5 rounded-full shadow-sm">
+                          All Students
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   {/* Floating Master Admin Controls (Bottom Right) */}
                   {isMaster && (
@@ -687,23 +689,31 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                     {/* Top Text Area */}
                     <div className="space-y-1 shrink-0">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${currentTheme.badge} text-[10px] font-black uppercase tracking-wider select-none border-0`}
-                          >
-                            <Megaphone className="w-2.5 h-2.5 fill-current" />
-                            <span>Campus Update</span>
-                          </span>
-                          {activeHeroBannerBatch && (
-                            <span
-                              className={`text-[10px] font-bold ${currentTheme.batchBadge} px-2 py-0.5 rounded-full border-0`}
-                            >
-                              {activeHeroBannerBatch.title}
-                            </span>
-                          )}
-                        </div>
+                        {/* Tags strictly for Master Console Account only */}
                         {isMaster && (
-                          <div className="flex items-center gap-1 shrink-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${currentTheme.badge} text-[10px] font-black uppercase tracking-wider select-none border-0`}
+                            >
+                              <Megaphone className="w-2.5 h-2.5 fill-current" />
+                              <span>Campus Announcement</span>
+                            </span>
+                            {activeHeroBannerBatch && (
+                              <span
+                                className={`text-[10px] font-bold ${currentTheme.batchBadge} px-2 py-0.5 rounded-full border-0`}
+                              >
+                                {activeHeroBannerBatch.title}
+                              </span>
+                            )}
+                            {!activeHeroBanner.batchId && (
+                              <span className="text-[10px] font-bold text-slate-700 dark:text-zinc-300 bg-black/5 dark:bg-white/10 px-2 py-0.5 rounded-full border-0">
+                                All Students
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {isMaster && (
+                          <div className="flex items-center gap-1 shrink-0 ml-auto">
                             <button
                               type="button"
                               onClick={() => updateAnnouncement(activeHeroBanner.id, { isHeroBanner: false })}
@@ -755,26 +765,29 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                   <div className="hidden md:flex flex-row items-stretch justify-between h-full p-5 lg:p-6 gap-6">
                     <div className="flex-1 min-w-0 flex flex-col justify-between">
                       <div className="space-y-2.5">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full ${currentTheme.badge} text-[10.5px] font-black uppercase tracking-wider select-none border-0`}
-                          >
-                            <Megaphone className="w-3 h-3 fill-current" />
-                            <span>Campus Announcement</span>
-                          </span>
-                          {activeHeroBannerBatch && (
+                        {/* Tags strictly for Master Console Account only */}
+                        {isMaster && (
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span
-                              className={`text-[11px] font-bold ${currentTheme.batchBadge} px-2.5 py-0.5 rounded-full border-0`}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full ${currentTheme.badge} text-[10.5px] font-black uppercase tracking-wider select-none border-0`}
                             >
-                              {activeHeroBannerBatch.title}
+                              <Megaphone className="w-3 h-3 fill-current" />
+                              <span>Campus Announcement</span>
                             </span>
-                          )}
-                          {!activeHeroBanner.batchId && (
-                            <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 bg-black/5 dark:bg-white/10 px-2.5 py-0.5 rounded-full border-0">
-                              All Students
-                            </span>
-                          )}
-                        </div>
+                            {activeHeroBannerBatch && (
+                              <span
+                                className={`text-[11px] font-bold ${currentTheme.batchBadge} px-2.5 py-0.5 rounded-full border-0`}
+                              >
+                                {activeHeroBannerBatch.title}
+                              </span>
+                            )}
+                            {!activeHeroBanner.batchId && (
+                              <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 bg-black/5 dark:bg-white/10 px-2.5 py-0.5 rounded-full border-0">
+                                All Students
+                              </span>
+                            )}
+                          </div>
+                        )}
 
                         {hasTitle && (
                           <h2 className="text-lg lg:text-xl font-bold text-[#1f1f1f] dark:text-[#f3f4f6] leading-tight line-clamp-2">
@@ -837,26 +850,29 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 /* 3. CASE C: TEXT-ONLY TEMPLATE (No image, fills uniform fixed height with comfortable vertical spacing) */
                 <div className="flex flex-col justify-between h-full p-4.5 sm:p-5 md:p-6">
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full ${currentTheme.badge} text-[10.5px] font-black uppercase tracking-wider select-none border-0`}
-                      >
-                        <Megaphone className="w-3 h-3 fill-current" />
-                        <span>Campus Announcement</span>
-                      </span>
-                      {activeHeroBannerBatch && (
+                    {/* Tags strictly for Master Console Account only */}
+                    {isMaster && (
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span
-                          className={`text-[11px] font-bold ${currentTheme.batchBadge} px-2.5 py-0.5 rounded-full border-0`}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full ${currentTheme.badge} text-[10.5px] font-black uppercase tracking-wider select-none border-0`}
                         >
-                          {activeHeroBannerBatch.title}
+                          <Megaphone className="w-3 h-3 fill-current" />
+                          <span>Campus Announcement</span>
                         </span>
-                      )}
-                      {!activeHeroBanner.batchId && (
-                        <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 bg-black/5 dark:bg-white/10 px-2.5 py-0.5 rounded-full border-0">
-                          All Students
-                        </span>
-                      )}
-                    </div>
+                        {activeHeroBannerBatch && (
+                          <span
+                            className={`text-[11px] font-bold ${currentTheme.batchBadge} px-2.5 py-0.5 rounded-full border-0`}
+                          >
+                            {activeHeroBannerBatch.title}
+                          </span>
+                        )}
+                        {!activeHeroBanner.batchId && (
+                          <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 bg-black/5 dark:bg-white/10 px-2.5 py-0.5 rounded-full border-0">
+                            All Students
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {hasTitle && (
                       <h2 className="text-[17px] sm:text-lg md:text-xl font-bold text-[#1f1f1f] dark:text-[#f3f4f6] leading-tight line-clamp-2">
