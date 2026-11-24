@@ -759,10 +759,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               ) : (
                 /* TEXT-ONLY TEMPLATE: Respects 1200x500 Aspect Ratio with comfortable layout */
                 <div className="flex flex-col justify-between h-full p-4 sm:p-5 md:p-6 lg:p-7 relative overflow-hidden">
-                  {/* Subtle 4-point corner sparkle matching template aesthetic */}
-                  <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 pointer-events-none opacity-35 dark:opacity-25">
-                    <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-slate-800 dark:text-white" />
-                  </div>
+
                   <div className="space-y-1 sm:space-y-2">
                     {isMaster && (
                       <div className="flex items-center gap-2 flex-wrap">

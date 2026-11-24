@@ -21,7 +21,7 @@ import { getTestDurationMinutes } from '../utils/testFormatConverter';
 import { listenerManager } from '../lib/listenerManager';
 import { DEFAULT_HIGH_RES_BANNER } from '../components/lms/batches/BatchThumbnailPicker';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, collection, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, onSnapshot, arrayUnion } from 'firebase/firestore';
 import {
   syncBatchToFirestore,
   deleteBatchFromFirestore,
@@ -490,17 +490,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (snap.exists()) {
           const val = snap.data();
           if (Array.isArray(val?.list)) {
+            const firestoreDeletedIds = new Set<string>(
+              Array.isArray(val?.deletedIds) ? val.deletedIds : []
+            );
+            const localDeletedIds = getLocalDeletedAnnouncementIds();
+            const allDeletedIds = new Set([...firestoreDeletedIds, ...localDeletedIds]);
+
             setAnnouncements((currentLocal) => {
-              // Merge Firestore announcements with local announcements to guarantee zero post drops
               const map = new Map<string, Announcement>();
+
+              // Authoritative published announcements from Firestore, strictly excluding deleted items
               val.list.forEach((item: Announcement) => {
-                if (item?.id) map.set(item.id, item);
-              });
-              currentLocal.forEach((item) => {
-                if (item?.id && !map.has(item.id)) {
+                if (item?.id && !allDeletedIds.has(item.id)) {
                   map.set(item.id, item);
                 }
               });
+
+              // Only preserve freshly composed local drafts created in the last 45s (prevent post loss during composition)
+              const now = Date.now();
+              currentLocal.forEach((item) => {
+                if (
+                  item?.id &&
+                  !map.has(item.id) &&
+                  !allDeletedIds.has(item.id) &&
+                  item.createdAt &&
+                  now - item.createdAt < 45000
+                ) {
+                  map.set(item.id, item);
+                }
+              });
+
               const merged = Array.from(map.values()).sort(
                 (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
               );
@@ -1314,6 +1333,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const deleteAnnouncement = useCallback((id: string) => {
+    addLocalDeletedAnnouncementId(id);
     setAnnouncements((prev) => {
       const next = prev.filter((a) => a.id !== id);
       try {
@@ -1321,7 +1341,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch {}
       setDoc(
         doc(db, 'master_catalog', 'lms_announcements'),
-        sanitizeForFirestore({ list: next, updatedAt: new Date().toISOString() }),
+        sanitizeForFirestore({
+          list: next,
+          deletedIds: arrayUnion(id),
+          updatedAt: new Date().toISOString(),
+        }),
         { merge: true }
       ).catch((err) => {
         console.warn('Failed to sync deleted announcement to Firestore:', err);

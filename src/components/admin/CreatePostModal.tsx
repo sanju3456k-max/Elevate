@@ -423,7 +423,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                         className="w-full aspect-[1200/500] rounded-lg shadow-2xs relative overflow-hidden flex items-end justify-end p-0.5 border border-black/5"
                         style={{ backgroundColor: tmpl.colorHex }}
                       >
-                        <Sparkles className="w-2.5 h-2.5 text-white/90 drop-shadow-xs" />
+                        
                         {isSelected && (
                           <div className="absolute inset-0 bg-black/30 backdrop-blur-2xs flex items-center justify-center">
                             <Check className="w-3.5 h-3.5 text-white stroke-[3]" />
