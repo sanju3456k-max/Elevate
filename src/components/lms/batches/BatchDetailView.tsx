@@ -2046,7 +2046,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                                       ? 'bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300'
                                       : 'bg-rose-500/10 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300'
                                   }`}>
-                                    {noteIsImage ? 'IMAGE' : 'PDF'}
+                                    {noteIsImage ? 'IMG' : 'PDF'}
                                   </span>
                             {!hasFullBatchAccess ? (
                               <span className="text-[9.5px] font-bold tracking-wide px-1.5 py-0.2 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 flex items-center space-x-0.5">
