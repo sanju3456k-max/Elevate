@@ -54,6 +54,7 @@ import { isMasterUser, getGlobalPublishedTests, isDeprecatedTest, DEPRECATED_TES
 import { getTestDurationMinutes } from '../../../utils/testFormatConverter';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
 import { formatDuration, extractYouTubeId, obfuscateVideoKey, getLectureThumbnailUrl, deobfuscateVideoKey } from '../../../lms/security';
+import { stripFileExtension } from '../../../lms/documentMetadataService';
 import type { PdfNote, Chapter, Lecture, Batch } from '../../../lms/types';
 import type { MathTest, TestAttempt, UserProfile } from '../../../types';
 import { M3TestCard } from '../../ui/M3TestCard';
@@ -2038,7 +2039,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                               </div>
                               <div className="min-w-0 flex-1">
                                 <h4 className="text-sm sm:text-[14.5px] font-semibold text-slate-800 dark:text-slate-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors break-words leading-snug">
-                                  {note.title}
+                                  {stripFileExtension(note.title || 'Untitled Note')}
                                 </h4>
                                 <div className="flex items-center gap-1.5 mt-0.5">
                                   <span className={`text-[9.5px] font-bold tracking-wide px-1.5 py-0.2 rounded-md ${

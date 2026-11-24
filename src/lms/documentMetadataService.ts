@@ -18,6 +18,15 @@ export interface DocumentMetadataResult {
 const metadataCache = new Map<string, DocumentMetadataResult>();
 
 /**
+ * Strips trailing file extensions like .pdf, .png, .jpg, .docx from display/auto titles.
+ */
+export function stripFileExtension(title: string): string {
+  return (title || '')
+    .replace(/\.(pdf|png|jpe?g|webp|gif|svg|bmp|heic|tiff?|docx?|pptx?|xlsx?|txt|html?)$/i, '')
+    .trim();
+}
+
+/**
  * Fallback local title extraction from URL pathname when offline or API unavailable.
  */
 function extractFallbackTitleFromUrl(rawUrl: string): string {
@@ -26,7 +35,7 @@ function extractFallbackTitleFromUrl(rawUrl: string): string {
     const segments = parsed.pathname.split('/').filter(Boolean);
     const last = decodeURIComponent(segments[segments.length - 1] || '');
     if (last && !['view', 'edit', 'preview', 'uc', 'open', 'watch'].includes(last.toLowerCase())) {
-      return last.replace(/[_]+/g, ' ').trim();
+      return stripFileExtension(last.replace(/[_]+/g, ' '));
     }
   } catch {
     // Ignore invalid URL parse
@@ -62,7 +71,7 @@ export async function fetchDocumentMetadata(rawUrl: string): Promise<DocumentMet
         const driveData = (await driveRes.json()) as { name?: string };
         if (driveData?.name && driveData.name.trim()) {
           const result: DocumentMetadataResult = {
-            title: driveData.name.trim(),
+            title: stripFileExtension(driveData.name),
             kind: 'drive',
             driveFileId: driveId,
           };
@@ -86,9 +95,9 @@ export async function fetchDocumentMetadata(rawUrl: string): Promise<DocumentMet
         const titleMatch = viewRes.data.match(/<meta[^>]*property="og:title"[^>]*content="([^"]+)"/i)
           || viewRes.data.match(/<title>([^<]+)<\/title>/i);
         if (titleMatch?.[1]) {
-          const clean = titleMatch[1]
-            .replace(/\s*-\s*Google\s+(Drive|Docs|Sheets|Slides)\s*$/i, '')
-            .trim();
+          const clean = stripFileExtension(
+            titleMatch[1].replace(/\s*-\s*Google\s+(Drive|Docs|Sheets|Slides)\s*$/i, '')
+          );
           if (clean && !/^Google\s+Drive$/i.test(clean)) {
             const result: DocumentMetadataResult = { title: clean, kind: 'drive', driveFileId: driveId };
             metadataCache.set(trimmed, result);
@@ -110,7 +119,7 @@ export async function fetchDocumentMetadata(rawUrl: string): Promise<DocumentMet
       const data = (await res.json()) as { title?: string; kind?: 'drive' | 'youtube' | 'url'; driveFileId?: string };
       if (data?.title && data.title.trim()) {
         const result: DocumentMetadataResult = {
-          title: data.title.trim(),
+          title: stripFileExtension(data.title),
           kind: data.kind || (driveId ? 'drive' : ytId ? 'youtube' : 'url'),
           driveFileId: data.driveFileId || driveId || undefined,
         };
