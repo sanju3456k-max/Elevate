@@ -241,9 +241,21 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
     };
   }, []);
 
-  // Touch Pinch-to-Zoom (1x to 3x) & Double-Tap Zoom (1x <-> 2x) anchored at exact touch midpoint
-  const pinchStartDistRef = useRef<number | null>(null);
-  const pinchStartZoomRef = useRef<number>(1.0);
+  // Touch Pinch-to-Zoom (1x to 3x) & Double-Tap Zoom (1x <-> 2x)
+  // Uses 60fps GPU CSS transform during active pinch, then commits crisp PDF.js render ONCE on touchend.
+  const pdfContentRef = useRef<HTMLDivElement | null>(null);
+  const pinchStateRef = useRef<{
+    active: boolean;
+    startDist: number;
+    startZoom: number;
+    startContentX: number;
+    startContentY: number;
+    startScrollLeft: number;
+    startScrollTop: number;
+    lastNextZoom: number;
+    lastClientX: number;
+    lastClientY: number;
+  } | null>(null);
   const lastTapTimeRef = useRef<number>(0);
   const zoomRef = useRef<number>(zoom);
   zoomRef.current = zoom;
@@ -293,31 +305,70 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
   };
 
   const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length === 2) {
-      pinchStartDistRef.current = getTouchDistance(e.touches[0], e.touches[1]);
-      pinchStartZoomRef.current = zoomRef.current;
+    if (e.touches.length === 2 && scrollContainerRef.current) {
+      const el = scrollContainerRef.current;
+      const rect = el.getBoundingClientRect();
+      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      const relX = midX - rect.left;
+      const relY = midY - rect.top;
+      pinchStateRef.current = {
+        active: true,
+        startDist: Math.max(1, getTouchDistance(e.touches[0], e.touches[1])),
+        startZoom: zoomRef.current,
+        startContentX: el.scrollLeft + relX,
+        startContentY: el.scrollTop + relY,
+        startScrollLeft: el.scrollLeft,
+        startScrollTop: el.scrollTop,
+        lastNextZoom: zoomRef.current,
+        lastClientX: midX,
+        lastClientY: midY,
+      };
     }
   }, []);
 
-  const handleTouchMove = useCallback(
-    (e: React.TouchEvent<HTMLDivElement>) => {
-      if (e.touches.length === 2 && pinchStartDistRef.current) {
-        e.preventDefault();
-        const currentDist = getTouchDistance(e.touches[0], e.touches[1]);
-        const ratio = currentDist / pinchStartDistRef.current;
-        const nextZoom = Math.min(3.0, Math.max(1.0, Number((pinchStartZoomRef.current * ratio).toFixed(3))));
-        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-        applyAnchoredZoom(nextZoom, midX, midY);
-      }
-    },
-    [applyAnchoredZoom]
-  );
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    const ps = pinchStateRef.current;
+    const el = scrollContainerRef.current;
+    const contentEl = pdfContentRef.current;
+    if (e.touches.length === 2 && ps?.active && el && contentEl) {
+      e.preventDefault();
+      const currentDist = getTouchDistance(e.touches[0], e.touches[1]);
+      const ratio = currentDist / ps.startDist;
+      const nextZoom = Math.min(3.0, Math.max(1.0, Number((ps.startZoom * ratio).toFixed(3))));
+      const relScale = nextZoom / ps.startZoom;
+
+      const rect = el.getBoundingClientRect();
+      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      const curRelX = midX - rect.left;
+      const curRelY = midY - rect.top;
+
+      const tx = ps.startScrollLeft + curRelX - relScale * ps.startContentX;
+      const ty = ps.startScrollTop + curRelY - relScale * ps.startContentY;
+
+      contentEl.style.transformOrigin = '0 0';
+      contentEl.style.willChange = 'transform';
+      contentEl.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(${relScale})`;
+
+      ps.lastNextZoom = nextZoom;
+      ps.lastClientX = midX;
+      ps.lastClientY = midY;
+    }
+  }, []);
 
   const handleTouchEnd = useCallback(
     (e: React.TouchEvent<HTMLDivElement>) => {
-      if (e.touches.length < 2) {
-        pinchStartDistRef.current = null;
+      const ps = pinchStateRef.current;
+      if (e.touches.length < 2 && ps?.active) {
+        pinchStateRef.current = null;
+        if (pdfContentRef.current) {
+          pdfContentRef.current.style.transform = '';
+          pdfContentRef.current.style.transformOrigin = '';
+          pdfContentRef.current.style.willChange = '';
+        }
+        applyAnchoredZoom(ps.lastNextZoom, ps.lastClientX, ps.lastClientY);
+        return;
       }
       if (e.touches.length === 0 && e.changedTouches.length === 1) {
         const now = Date.now();
@@ -910,7 +961,7 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
                 touchAction: zoom > 1.02 ? 'pan-x pan-y' : 'pan-y',
               }}
             >
-              <div className={`flex flex-col ${zoom > 1.02 ? 'items-start' : 'items-center'} min-w-full my-0`}>
+              <div ref={pdfContentRef} className={`flex flex-col ${zoom > 1.02 ? 'items-start' : 'items-center'} min-w-full my-0`}>
                 {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((pNum) => (
                   <ContinuousPageItem
                     key={`page-${pNum}`}
