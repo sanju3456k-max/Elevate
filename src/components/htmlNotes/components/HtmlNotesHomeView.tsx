@@ -368,10 +368,8 @@ export const HtmlNotesHomeView: React.FC<HtmlNotesHomeViewProps> = ({
                     )}
                   </div>
 
-                  <div className="w-full border-t border-[#edf0f5] dark:border-[#2f3238] my-1.5 pointer-events-none" />
-
                   {/* Bottom Footer: Stats & Dropdown Chevron */}
-                  <div className="pt-0.5 flex items-center justify-between gap-2 text-xs text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">
+                  <div className="pt-1.5 flex items-center justify-between gap-2 text-xs text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">
                     <div className="flex items-center gap-2 pointer-events-none text-[11px] sm:text-xs text-[#444746] dark:text-[#c4c7c5]">
                       <span>
                         {(Array.isArray(proj.files) ? proj.files : []).length} {(Array.isArray(proj.files) ? proj.files : []).length === 1 ? 'file' : 'files'}

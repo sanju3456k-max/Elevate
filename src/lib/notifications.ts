@@ -52,7 +52,23 @@ export function getFolderHierarchyPath(
 
 const READ_STORAGE_KEY = 'elevate_read_notification_ids_v2';
 const DISMISSED_STORAGE_KEY = 'elevate_dismissed_notification_ids_v2';
+const APP_INSTALL_TIMESTAMP_KEY = 'elevate_app_install_timestamp_v2';
 export const NOTIFICATIONS_EVENT = 'elevate-notifications-updated';
+
+export function getAppInstallTimestamp(): number {
+  try {
+    const stored = localStorage.getItem(APP_INSTALL_TIMESTAMP_KEY);
+    if (stored) {
+      const num = parseInt(stored, 10);
+      if (!isNaN(num) && num > 0) return num;
+    }
+    const now = Date.now();
+    localStorage.setItem(APP_INSTALL_TIMESTAMP_KEY, now.toString());
+    return now;
+  } catch {
+    return Date.now();
+  }
+}
 
 function getStoredIdSet(key: string): Set<string> {
   try {
@@ -164,12 +180,28 @@ export function deriveRealBatchNotifications(params: {
 
   const readSet = getReadNotificationIds();
   const dismissedSet = getDismissedNotificationIds();
+  const installTime = getAppInstallTimestamp();
+
+  // Helper: Returns true if content was created on or after app installation (with 2-min clock skew buffer)
+  const isAfterInstall = (dateVal?: unknown): boolean => {
+    if (!dateVal) return false;
+    try {
+      const d = new Date(dateVal as any);
+      const t = d.getTime();
+      if (!isNaN(t) && isFinite(t)) {
+        return t >= installTime - 120000;
+      }
+    } catch {}
+    return false;
+  };
+
   const notifs: AppNotification[] = [];
   const seenIds = new Set<string>();
 
-  // 1. REAL BATCH LECTURE UPDATES (Only for enrolled batches for students)
+  // 1. REAL BATCH LECTURE UPDATES (Only newly published lectures since app installation)
   lectures.forEach((lec) => {
     if (!isEnrolledBatch(lec.batchId)) return;
+    if (!isAfterInstall(lec.createdAt)) return;
     const notifId = `notif-lec-${lec.id}`;
     if (seenIds.has(notifId) || dismissedSet.has(notifId)) return;
     seenIds.add(notifId);
@@ -210,19 +242,30 @@ export function deriveRealBatchNotifications(params: {
     });
   });
 
-  // 2. REAL BATCH ANNOUNCEMENTS & MASTER BROADCAST POSTS
+  // 2. REAL BATCH ANNOUNCEMENTS & MASTER BROADCAST POSTS (Welcome post & new broadcasts)
   announcements.forEach((ann) => {
     // Auto-expiry check: skip if banner/post duration has elapsed
     if (ann.expiresAt && typeof ann.expiresAt === 'number' && Date.now() > ann.expiresAt) return;
     if (ann.batchId && !isEnrolledBatch(ann.batchId)) return;
+
+    // Filter out old historical announcements unless it's the official Welcome announcement or marked important
+    const isWelcomeOrImportant = ann.id === 'ann_welcome_1' || ann.id === 'ann_test_1' || ann.isImportant;
+    if (!isWelcomeOrImportant && !isAfterInstall(ann.date || ann.createdAt)) return;
+
     const notifId = `notif-ann-${ann.id}`;
     if (seenIds.has(notifId) || dismissedSet.has(notifId)) return;
     seenIds.add(notifId);
 
     const parentBatch = batches.find((b) => b.id === ann.batchId);
 
-    // Clean title: strip any closed brackets around batch names e.g. "[Testing] Testing" -> "Testing", "[Testing]" -> "Testing"
+    // Transform legacy testing environment post to Welcome to Act Elevate
     let cleanTitle = (ann.title || '').trim();
+    let cleanMessage = ann.message || '';
+    if (ann.id === 'ann_test_1' || cleanTitle.includes('Testing Environment Active')) {
+      cleanTitle = '🎉 Welcome to Act Elevate';
+      cleanMessage = 'Welcome to Elevate! Explore your course batches, practice interactive mock tests, and track your progress seamlessly.';
+    }
+
     const bracketMatch = cleanTitle.match(/^\[(.*?)\]\s*(.*)$/);
     if (bracketMatch) {
       const insideBracket = bracketMatch[1].trim();
@@ -249,7 +292,7 @@ export function deriveRealBatchNotifications(params: {
     notifs.push({
       id: notifId,
       title: finalTitle,
-      message: ann.message || '',
+      message: cleanMessage,
       category: 'post',
       timestamp: safeDateToISO(ann.date || (ann.createdAt ? new Date(ann.createdAt).toISOString() : new Date().toISOString())),
       read: readSet.has(notifId),
@@ -264,9 +307,10 @@ export function deriveRealBatchNotifications(params: {
     });
   });
 
-  // 3. REAL BATCH TESTS & DPP ASSIGNMENTS (Only for enrolled batches for students)
+  // 3. REAL BATCH TESTS & DPP ASSIGNMENTS (Only newly assigned tests since installation)
   batchTests.forEach((bTest) => {
     if (!isEnrolledBatch(bTest.batchId)) return;
+    if (!isAfterInstall(bTest.publishedAt || (bTest as any).createdAt)) return;
     const testKey = bTest.testId || bTest.id || '';
     const notifId = `notif-btest-${testKey}`;
     if (seenIds.has(notifId) || dismissedSet.has(notifId)) return;
@@ -308,26 +352,6 @@ export function deriveRealBatchNotifications(params: {
       folderPath,
       folderSegments,
       testDetails,
-    });
-  });
-
-  // 4. REAL NEW BATCHES PUBLISHED (Enrolled courses for enrolled students, or all if master)
-  batches.forEach((b) => {
-    if (!isMaster && enrolledSet && !enrolledSet.has(b.id)) return;
-    const notifId = `notif-batch-${b.id}`;
-    if (seenIds.has(notifId) || dismissedSet.has(notifId)) return;
-    seenIds.add(notifId);
-
-    notifs.push({
-      id: notifId,
-      title: `Course: ${b.title}`,
-      message: b.tagline || b.description || 'Full curriculum module available for enrollment.',
-      category: 'lecture',
-      timestamp: safeDateToISO(b.startDate),
-      read: readSet.has(notifId),
-      actionTab: 'batches',
-      actionLabel: 'View Course',
-      targetBatchId: b.id,
     });
   });
 

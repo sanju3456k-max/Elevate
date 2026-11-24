@@ -2372,6 +2372,42 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                         }}
                       />
                     </div>
+
+                    {/* 6. Allow Print & Download in Notes Viewer (PDF / Images) */}
+                    <div className="flex items-center justify-between gap-4 p-3 sm:p-3.5 rounded-2xl bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 transition-colors">
+                      <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
+                        <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border-0">
+                          <Download className="w-5 h-5" />
+                        </div>
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-zinc-200 truncate">
+                              Print &amp; Download in Notes Viewer (PDF / Images)
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                              studentFeatureAccess?.allowFilesToBeDownloadedInNotesViaPdfOrImages ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-700'
+                            }`}>
+                              {studentFeatureAccess?.allowFilesToBeDownloadedInNotesViaPdfOrImages ? 'Allowed for Students' : 'Admin Only'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-700 dark:text-zinc-300">
+                            Allows students to print or download PDF notes and images inside the viewer (Masters always have access).
+                          </p>
+                        </div>
+                      </div>
+                      <M3Switch
+                        checked={Boolean(studentFeatureAccess?.allowFilesToBeDownloadedInNotesViaPdfOrImages)}
+                        onChange={() => {
+                          const next = !studentFeatureAccess?.allowFilesToBeDownloadedInNotesViaPdfOrImages;
+                          updateStudentFeatureAccess({ allowFilesToBeDownloadedInNotesViaPdfOrImages: next });
+                          showNotification(
+                            next
+                              ? 'Notes Print & Download enabled for students.'
+                              : 'Notes Print & Download restricted to Admins.'
+                          );
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

@@ -209,6 +209,7 @@ export interface StudentFeatureAccessConfig {
   enableOmrPrintStudio: boolean;    // Controls student visibility of OMR & Print Studio
   enableNotesStudio: boolean;       // Controls student visibility of Notes Studio (including Results page)
   enableThetaAiChatbot: boolean;    // Controls student visibility of Theta AI Chatbot
+  allowFilesToBeDownloadedInNotesViaPdfOrImages: boolean; // Controls student Print & Download options in Notes PDF/Image Viewer
   updatedAt?: string;
   updatedBy?: string;
 }
@@ -219,4 +220,5 @@ export const DEFAULT_STUDENT_FEATURE_ACCESS: StudentFeatureAccessConfig = {
   enableOmrPrintStudio: false,
   enableNotesStudio: false,
   enableThetaAiChatbot: false,
+  allowFilesToBeDownloadedInNotesViaPdfOrImages: false,
 };

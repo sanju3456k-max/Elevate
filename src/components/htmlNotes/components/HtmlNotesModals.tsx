@@ -116,15 +116,15 @@ export const HtmlNotesModals: React.FC<HtmlNotesModalsProps> = ({
       {/* STUDIO OPTIONS MODAL POPOVER */}
       {isMobileMoreOpen && (
         <div 
-          className="fixed inset-0 z-50 flex items-start justify-end p-3 sm:p-4 cursor-default m3-fade-in"
+          className="fixed inset-0 z-[9999] flex items-start justify-end p-3 sm:p-4 cursor-default m3-fade-in"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}
           onClick={() => setIsMobileMoreOpen(false)}
         >
           <div 
-            className="mt-12 mr-1 w-76 max-w-[calc(100vw-32px)] bg-white dark:bg-[#1e2024] rounded-2xl p-3.5 shadow-2xl border border-slate-200/80 dark:border-zinc-800 space-y-2 m3-popover-in text-[#1f1f1f] dark:text-[#e3e3e3]"
+            className="mt-12 mr-1 w-80 max-w-[calc(100vw-32px)] bg-white dark:bg-[#1e2024] rounded-2xl p-3.5 shadow-2xl space-y-2 m3-popover-in text-[#1f1f1f] dark:text-[#e3e3e3]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
+            <div className="flex items-center justify-between pb-2">
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
                 Studio Options
               </span>
@@ -139,7 +139,7 @@ export const HtmlNotesModals: React.FC<HtmlNotesModalsProps> = ({
 
             <div className="flex flex-col gap-1 text-xs font-medium pt-1">
               {/* Firebase Cloud Storage Section */}
-              <div className="px-3 py-2 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 space-y-1 mb-1">
+              <div className="px-3 py-2 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 space-y-1 mb-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
                     <Cloud className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
@@ -220,7 +220,7 @@ export const HtmlNotesModals: React.FC<HtmlNotesModalsProps> = ({
                     setIsMobileMoreOpen(false);
                     onExportFullProject();
                   }}
-                  className="w-full px-3 py-2.5 rounded-xl bg-blue-50/90 hover:bg-blue-100/90 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center gap-2.5 text-left font-semibold border border-blue-200/80 dark:border-blue-900/60 outline-none transition-all cursor-pointer group active:scale-[0.98]"
+                  className="w-full px-3 py-2.5 rounded-xl bg-blue-50/90 hover:bg-blue-100/90 dark:bg-blue-950/40 dark:hover:bg-blue-900/50 text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center gap-2.5 text-left font-semibold outline-none transition-all cursor-pointer group active:scale-[0.98]"
                   title="Download all files in this project as a ZIP archive"
                 >
                   <FolderArchive className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0 group-hover:scale-110 transition-transform" />

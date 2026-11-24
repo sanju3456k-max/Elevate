@@ -132,6 +132,56 @@ export const HtmlNotesPreviewPane = React.forwardRef<HtmlNotesPreviewPaneHandle,
   const [resizeBadgeText, setResizeBadgeText] = useState<string | null>(null);
   const [previewCanvasWidth, setPreviewCanvasWidth] = useState<number>(1000);
 
+  // ── Pinch-to-Zoom & Double-Tap for preview ──────────────────────────────
+  const pinchStartDistRef = useRef<number>(0);
+  const pinchStartZoomRef = useRef<number>(100);
+  const lastTapTimeRef = useRef<number>(0);
+  const lastTapTargetRef = useRef<EventTarget | null>(null);
+
+  const handlePreviewTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (isPenModeActive) return;
+    if (e.touches.length === 2) {
+      // Pinch start — record initial distance and current zoom
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchStartDistRef.current = Math.hypot(dx, dy);
+      pinchStartZoomRef.current = zoomLevel; // e.g. 100
+    } else if (e.touches.length === 1) {
+      // Double-tap detection
+      const now = Date.now();
+      if (now - lastTapTimeRef.current < 300 && e.target === lastTapTargetRef.current) {
+        // Double tap → toggle 100% ↔ 150%
+        if (zoomLevel > 110) {
+          onZoomReset(); // back to 100
+        } else {
+          onZoomIn(); onZoomIn(); onZoomIn(); // +30 (each step is ~10%)
+        }
+        lastTapTimeRef.current = 0; // reset so triple-tap doesn't re-trigger
+        return;
+      }
+      lastTapTimeRef.current = now;
+      lastTapTargetRef.current = e.target;
+    }
+  }, [isPenModeActive, zoomLevel, onZoomIn, onZoomReset]);
+
+  const handlePreviewTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (isPenModeActive || e.touches.length !== 2) return;
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const dist = Math.hypot(dx, dy);
+    if (pinchStartDistRef.current === 0) return;
+    const scale = dist / pinchStartDistRef.current;
+    // Compute target zoom: clamp between 50% and 300%
+    const targetZoom = Math.min(300, Math.max(50, Math.round(pinchStartZoomRef.current * scale)));
+    // Drive onZoomIn / onZoomOut relative to current zoomLevel
+    // We step in increments of 10 to match existing zoom logic
+    if (targetZoom > zoomLevel + 5) {
+      onZoomIn();
+    } else if (targetZoom < zoomLevel - 5) {
+      onZoomOut();
+    }
+  }, [isPenModeActive, zoomLevel, onZoomIn, onZoomOut]);
+
   // Dynamic ResizeObserver to monitor preview canvas width and seamlessly trigger fluid flow (desktop <-> mobile/tablet)
   useEffect(() => {
     const el = canvasRef.current || scrollWrapperRef.current;
@@ -2400,7 +2450,7 @@ export const HtmlNotesPreviewPane = React.forwardRef<HtmlNotesPreviewPaneHandle,
 
       {/* Dedicated Preview Search Bar */}
       {isPreviewSearchOpen && (
-        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-zinc-800/95 border-b border-slate-200 dark:border-zinc-700 text-xs shrink-0 z-20 shadow-xs">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-zinc-800/95 text-xs shrink-0 z-20 shadow-xs">
           <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <input
             ref={previewSearchInputRef}
@@ -2467,6 +2517,8 @@ export const HtmlNotesPreviewPane = React.forwardRef<HtmlNotesPreviewPaneHandle,
         onDragOver={handleContainerDragOver}
         onDragLeave={handleContainerDragLeave}
         onDrop={handleContainerDrop}
+        onTouchStart={handlePreviewTouchStart}
+        onTouchMove={handlePreviewTouchMove}
         className={`preview-scroll-wrapper ${viewportMode === 'a4' ? 'is-a4-mode' : ''} ${isPenModeActive ? 'pen-mode-active' : ''}`}
         data-scrollable="true"
         style={{ 

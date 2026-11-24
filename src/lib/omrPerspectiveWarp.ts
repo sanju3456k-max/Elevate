@@ -197,8 +197,8 @@ export function autoDetectFiducialsOnCanvas(canvas: HTMLCanvasElement): QuadCorn
   const h = canvas.height;
   if (!w || !h || w < 100 || h < 100) return null;
 
-  // Downsample to max dimension 500 for lightning-fast <15ms execution
-  const maxDim = 500;
+  // Downsample to max dimension 700 for high precision while maintaining fast <20ms execution
+  const maxDim = 700;
   const scale = Math.min(1.0, maxDim / Math.max(w, h));
   const sw = Math.round(w * scale);
   const sh = Math.round(h * scale);
@@ -249,10 +249,9 @@ export function autoDetectFiducialsOnCanvas(canvas: HTMLCanvasElement): QuadCorn
   };
 
   // Adaptive thresholding: dark registration border pixels
-  // Registration fiducials are ONLY present in the 4 corner zones (outer 38% margins)
-  // Skipping the central 60% of the page avoids analyzing questions/bubbles and speeds up processing 5x
-  const cornerXMargin = Math.round(sw * 0.38);
-  const cornerYMargin = Math.round(sh * 0.38);
+  // Registration fiducials are present in the 4 corner zones (outer 45% margins)
+  const cornerXMargin = Math.round(sw * 0.46);
+  const cornerYMargin = Math.round(sh * 0.46);
   const binaryDark = new Uint8Array(sw * sh);
   const rMean = Math.max(3, Math.round(sw * 0.015));
 
@@ -285,9 +284,10 @@ export function autoDetectFiducialsOnCanvas(canvas: HTMLCanvasElement): QuadCorn
   // Filter connected components into 4 quadrants
   const midX = sw / 2;
   const midY = sh / 2;
-  const expectedSquarePx = Math.round((5.5 / 210) * sw); // ~5.5mm on A4
-  const minBox = Math.max(5, Math.round(expectedSquarePx * 0.45));
-  const maxBox = Math.min(50, Math.round(expectedSquarePx * 2.2));
+  const minDim = Math.min(sw, sh);
+  const maxDimSize = Math.max(sw, sh);
+  const minBox = Math.max(4, Math.round(minDim * 0.012));
+  const maxBox = Math.max(minBox + 10, Math.round(maxDimSize * 0.09));
 
   interface Cand {
     cx: number;
@@ -345,14 +345,16 @@ export function autoDetectFiducialsOnCanvas(canvas: HTMLCanvasElement): QuadCorn
         const bh = maxY - minY + 1;
         const aspect = bw / bh;
 
-        if (bw >= minBox && bw <= maxBox && bh >= minBox && bh <= maxBox && aspect >= 0.70 && aspect <= 1.40) {
+        if (bw >= minBox && bw <= maxBox && bh >= minBox && bh <= maxBox && aspect >= 0.55 && aspect <= 1.80) {
           const cx = (minX + maxX) / 2;
           const cy = (minY + maxY) / 2;
           const centerVal = gray[Math.round(cy) * sw + Math.round(cx)];
           const boxMean = getBoxMean(minX, minY, maxX, maxY);
 
-          // Hollow or high-contrast registration square check
-          if (centerVal >= boxMean + 3 || boxMean < 110) {
+          // Support hollow or solid dark registration squares
+          const isHollow = centerVal >= boxMean + 2;
+          const isSolidDark = boxMean < 140;
+          if (isHollow || isSolidDark) {
             // Check quadrant position (must be in outer margin regions)
             if (cx < midX && cy < midY && (cx < sw * 0.48 || cy < sh * 0.48)) {
               candsTL.push({ cx, cy });
@@ -386,8 +388,8 @@ export function autoDetectFiducialsOnCanvas(canvas: HTMLCanvasElement): QuadCorn
           if (avgH <= 20 || avgW <= 20) continue;
 
           const ratio = avgW / avgH;
-          // Standard OMR sheet fiducial ratio ~190mm / 277mm = 0.686 (allow [0.55, 1.25] for perspective angle)
-          if (ratio >= 0.55 && ratio <= 1.25 && Math.abs(topW - botW) / avgW < 0.28 && Math.abs(leftH - rightH) / avgH < 0.28) {
+          // Support portrait, landscape, sideways, and perspective tilted sheet orientations
+          if (ratio >= 0.25 && ratio <= 3.4 && Math.abs(topW - botW) / avgW < 0.38 && Math.abs(leftH - rightH) / avgH < 0.38) {
             const area = avgW * avgH;
             if (area > maxArea) {
               maxArea = area;
@@ -399,7 +401,10 @@ export function autoDetectFiducialsOnCanvas(canvas: HTMLCanvasElement): QuadCorn
     }
   }
 
-  if (!bestQuad) return null;
+  if (!bestQuad) {
+    // Fallback: detect document paper boundary if printed fiducials are obscured
+    return detectDocumentPaperCorners(gray, sw, sh);
+  }
 
   // Convert back to original unscaled canvas percentage (0 - 100%)
   return {
@@ -407,6 +412,48 @@ export function autoDetectFiducialsOnCanvas(canvas: HTMLCanvasElement): QuadCorn
     tr: { x: Number(((bestQuad.tr.cx / sw) * 100).toFixed(2)), y: Number(((bestQuad.tr.cy / sh) * 100).toFixed(2)) },
     br: { x: Number(((bestQuad.br.cx / sw) * 100).toFixed(2)), y: Number(((bestQuad.br.cy / sh) * 100).toFixed(2)) },
     bl: { x: Number(((bestQuad.bl.cx / sw) * 100).toFixed(2)), y: Number(((bestQuad.bl.cy / sh) * 100).toFixed(2)) },
+  };
+}
+
+/**
+ * Fallback detector: detects high-contrast document paper boundaries on desk
+ */
+function detectDocumentPaperCorners(gray: Uint8Array, sw: number, sh: number): QuadCorners | null {
+  let sum = 0;
+  for (let i = 0; i < sw * sh; i += 4) sum += gray[i];
+  const avgLuma = sum / ((sw * sh) / 4);
+  const thresh = Math.max(90, avgLuma * 0.82);
+
+  let minX = sw, maxX = 0, minY = sh, maxY = 0;
+  for (let y = 6; y < sh - 6; y += 2) {
+    const row = y * sw;
+    for (let x = 6; x < sw - 6; x += 2) {
+      if (gray[row + x] > thresh) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  const docW = maxX - minX;
+  const docH = maxY - minY;
+  if (docW < sw * 0.35 || docH < sh * 0.35) return null;
+
+  // Inset 3.5% from detected paper edge to land on registration square coordinates
+  const insetX = (docW * 0.035) / sw * 100;
+  const insetY = (docH * 0.035) / sh * 100;
+  const x0 = (minX / sw) * 100 + insetX;
+  const x1 = (maxX / sw) * 100 - insetX;
+  const y0 = (minY / sh) * 100 + insetY;
+  const y1 = (maxY / sh) * 100 - insetY;
+
+  return {
+    tl: { x: Number(Math.max(2, x0).toFixed(2)), y: Number(Math.max(2, y0).toFixed(2)) },
+    tr: { x: Number(Math.min(98, x1).toFixed(2)), y: Number(Math.max(2, y0).toFixed(2)) },
+    br: { x: Number(Math.min(98, x1).toFixed(2)), y: Number(Math.min(98, y1).toFixed(2)) },
+    bl: { x: Number(Math.max(2, x0).toFixed(2)), y: Number(Math.min(98, y1).toFixed(2)) },
   };
 }
 
@@ -446,10 +493,10 @@ export function checkFrameAlignmentQuality(
 
   const ratio = avgW / avgH;
   // Standard A4 OMR fiducials aspect ratio is ~190mm / 277mm = 0.686
-  // Allow [0.55, 1.25] to accommodate perspective projection of portrait sheets
-  const isRatioValid = ratio >= 0.55 && ratio <= 1.25;
-  const isSymW = Math.abs(topW - botW) / avgW < 0.28;
-  const isSymH = Math.abs(leftH - rightH) / avgH < 0.28;
+  // Allow wide range [0.25, 3.4] to accommodate perspective projection, landscape, and sideways sheets
+  const isRatioValid = ratio >= 0.25 && ratio <= 3.4;
+  const isSymW = Math.abs(topW - botW) / avgW < 0.38;
+  const isSymH = Math.abs(leftH - rightH) / avgH < 0.38;
 
   if (!isRatioValid || !isSymW || !isSymH) {
     return { isGood: false, score: 30, label: 'Keep frame rectangular' };

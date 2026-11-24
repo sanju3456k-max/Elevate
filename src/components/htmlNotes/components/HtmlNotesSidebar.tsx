@@ -178,15 +178,15 @@ const HtmlNotesSidebarComponent: React.FC<HtmlNotesSidebarProps> = ({
       {/* EXPANDABLE SIDEBAR DRAWER */}
       {isSidebarOpen && (
         <aside className="sidebar-drawer mobile-sheet m3-slide-left-in">
-          <div className="sidebar-drawer-header !py-2 !px-2.5">
-            {/* Segmented Tab Bar inside Drawer Header */}
-            <div className="flex items-center p-0.5 bg-slate-100 dark:bg-zinc-800/80 rounded-full gap-0.5 w-full mr-2">
+          <div className="sidebar-drawer-header shrink-0 !py-2 !px-2.5">
+            {/* Segmented Tab Bar inside Drawer Header with Transparent White Background */}
+            <div className="flex items-center p-0.5 bg-white/50 dark:bg-white/10 backdrop-blur-md rounded-full gap-0.5 w-full mr-2 border border-white/60 dark:border-white/10 shadow-2xs">
               <button
                 onClick={() => setActiveSidebarTab('files')}
                 className={`flex-1 text-[11px] font-bold py-1 px-2 rounded-full border-0 transition-all duration-150 ease-[cubic-bezier(0.2,0,0,1)] active:scale-95 cursor-pointer text-center truncate ${
                   activeSidebarTab === 'files'
-                    ? 'bg-white dark:bg-zinc-700 text-[#0b57d0] dark:text-[#a8c7fa] shadow-xs'
-                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
+                    ? 'bg-white dark:bg-zinc-800 text-[#0b57d0] dark:text-[#a8c7fa] shadow-xs font-extrabold'
+                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/5'
                 }`}
               >
                 Files
@@ -195,8 +195,8 @@ const HtmlNotesSidebarComponent: React.FC<HtmlNotesSidebarProps> = ({
                 onClick={() => setActiveSidebarTab('outline')}
                 className={`flex-1 text-[11px] font-bold py-1 px-2 rounded-full border-0 transition-all duration-150 ease-[cubic-bezier(0.2,0,0,1)] active:scale-95 cursor-pointer text-center truncate ${
                   activeSidebarTab === 'outline'
-                    ? 'bg-white dark:bg-zinc-700 text-[#0b57d0] dark:text-[#a8c7fa] shadow-xs'
-                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
+                    ? 'bg-white dark:bg-zinc-800 text-[#0b57d0] dark:text-[#a8c7fa] shadow-xs font-extrabold'
+                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/5'
                 }`}
               >
                 Outline {headingsList.length > 0 ? `(${headingsList.length})` : ''}
@@ -205,8 +205,8 @@ const HtmlNotesSidebarComponent: React.FC<HtmlNotesSidebarProps> = ({
                 onClick={() => setActiveSidebarTab('margins')}
                 className={`flex-1 text-[11px] font-bold py-1 px-2 rounded-full border-0 transition-all duration-150 ease-[cubic-bezier(0.2,0,0,1)] active:scale-95 cursor-pointer text-center truncate ${
                   activeSidebarTab === 'margins'
-                    ? 'bg-white dark:bg-zinc-700 text-[#0b57d0] dark:text-[#a8c7fa] shadow-xs'
-                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
+                    ? 'bg-white dark:bg-zinc-800 text-[#0b57d0] dark:text-[#a8c7fa] shadow-xs font-extrabold'
+                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/5'
                 }`}
               >
                 Margins
@@ -215,14 +215,14 @@ const HtmlNotesSidebarComponent: React.FC<HtmlNotesSidebarProps> = ({
 
             <button
               onClick={() => setIsSidebarOpen(false)}
-              className="w-7 h-7 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200 flex items-center justify-center shrink-0 border-0 outline-none cursor-pointer transition-colors"
+              className="w-7 h-7 rounded-full bg-white/60 dark:bg-white/10 hover:bg-white/90 dark:hover:bg-white/20 border border-white/60 dark:border-white/10 text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200 flex items-center justify-center shrink-0 outline-none cursor-pointer transition-all active:scale-95 shadow-2xs"
               title="Close Drawer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <div className="sidebar-drawer-content !p-3 scrollbar-thin">
+          <div className="sidebar-drawer-content flex-1 min-h-0 overflow-y-auto overscroll-contain !p-3 scrollbar-thin">
             {/* TAB 1: FILES LIST WITH INTEGRATED SEARCH BAR */}
             {activeSidebarTab === 'files' && (
               <div className="space-y-2.5">
@@ -345,12 +345,17 @@ const HtmlNotesSidebarComponent: React.FC<HtmlNotesSidebarProps> = ({
                           } ${
                             isActive
                               ? 'bg-[#0b57d0]/10 dark:bg-[#004a77]/40 ring-1 ring-[#0b57d0]/60 text-[#0b57d0] dark:text-[#a8c7fa] font-bold shadow-xs'
-                              : 'bg-white dark:bg-[#222631] ring-1 ring-slate-200/80 dark:ring-[#2f3542] text-[#1f1f1f] dark:text-[#e8eaed] hover:ring-slate-300 dark:hover:ring-[#3c4252]'
+                              : 'bg-white dark:bg-[#1f2229] ring-1 ring-slate-200/80 dark:ring-[#2f3542] text-[#1f1f1f] dark:text-[#e8eaed] hover:ring-[#0b57d0]/40 dark:hover:ring-[#a8c7fa]/40 hover:bg-slate-50/60 dark:hover:bg-[#252932]'
                           }`}
                           title="Click to open, hold & drag to reorder anywhere in file list"
                         >
-                          <div className="flex items-center gap-1.5 min-w-0 pr-1">
-                            <GripVertical className="w-3 h-3 text-slate-300 dark:text-zinc-600 group-hover:text-slate-500 dark:group-hover:text-zinc-400 shrink-0 cursor-grab active:cursor-grabbing" />
+                          <div className="flex items-center gap-2 min-w-0 pr-1">
+                            <span
+                              className="p-1 -ml-1 rounded-md text-slate-400 dark:text-zinc-500 group-hover:text-slate-600 dark:group-hover:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors shrink-0 cursor-grab active:cursor-grabbing flex items-center justify-center"
+                              title="Drag to reorder"
+                            >
+                              <GripVertical className="w-3.5 h-3.5" />
+                            </span>
                             <FileCode className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-[#0b57d0] dark:text-[#a8c7fa]' : 'text-slate-400'}`} />
                             <span className="truncate font-medium">{file.title || 'Untitled'}</span>
                           </div>
@@ -427,7 +432,7 @@ const HtmlNotesSidebarComponent: React.FC<HtmlNotesSidebarProps> = ({
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-1 max-h-[calc(100vh-220px)] overflow-y-auto pr-0.5 scrollbar-thin">
+                  <div className="space-y-1 pr-0.5">
                     {(() => {
                       let lastH2Id: string | null = null;
                       const filtered = outlineFilter.trim()
@@ -623,30 +628,32 @@ const HtmlNotesSidebarComponent: React.FC<HtmlNotesSidebarProps> = ({
                 </div>
 
                 {/* Left Binding Gutter Section */}
-                <div className="p-3 rounded-2xl border-0 ring-1 ring-blue-200 dark:ring-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20 space-y-2.5">
+                <div className="p-3 rounded-2xl border-0 ring-1 ring-blue-100 dark:ring-blue-900/40 bg-blue-50/40 dark:bg-blue-950/20 space-y-2.5 shadow-2xs">
                   <div className="flex items-center justify-between">
                     <span className="font-extrabold text-[11px] text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
                       <BookMarked className="w-3.5 h-3.5" />
                       <span>Left Binding Gutter ({leftBindingGutterMm}mm)</span>
                     </span>
-                    <span className="text-[10.5px] font-bold text-blue-600 dark:text-blue-400 bg-white dark:bg-[#1b1e27] px-2 py-0.5 rounded-full shadow-2xs">
+                    <span className="text-[10.5px] font-bold text-blue-600 dark:text-blue-400 bg-white dark:bg-[#1b1e27] border border-blue-200/50 dark:border-blue-900/40 px-2 py-0.5 rounded-full shadow-2xs">
                       Total Left: {totalLeftMarginMm}mm
                     </span>
                   </div>
 
-                  <input
-                    type="range"
-                    min="0"
-                    max="35"
-                    step="1"
-                    value={leftBindingGutterMm}
-                    onChange={(e) => setLeftBindingGutterMm(parseInt(e.target.value, 10))}
-                    className="w-full accent-[#0b57d0] cursor-pointer"
-                  />
+                  <div className="pt-0.5 pb-1">
+                    <input
+                      type="range"
+                      min="0"
+                      max="35"
+                      step="1"
+                      value={leftBindingGutterMm}
+                      onChange={(e) => setLeftBindingGutterMm(parseInt(e.target.value, 10))}
+                      className="w-full accent-[#0b57d0] dark:accent-[#a8c7fa] cursor-pointer"
+                    />
+                  </div>
 
                   <button
                     onClick={() => setLeftBindingGutterMm(leftBindingGutterMm === 15 ? 0 : 15)}
-                    className={`w-full text-[11px] font-bold py-1.5 px-3 rounded-xl border-0 transition-all cursor-pointer shadow-2xs ${
+                    className={`w-full text-[11px] font-bold py-1.5 px-3 rounded-xl border-0 transition-all cursor-pointer shadow-2xs active:scale-98 ${
                       leftBindingGutterMm === 15 
                         ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49]' 
                         : 'bg-white dark:bg-[#222631] text-[#1f1f1f] dark:text-[#e8eaed] hover:bg-blue-100/60 dark:hover:bg-[#2c313f]'
@@ -657,65 +664,71 @@ const HtmlNotesSidebarComponent: React.FC<HtmlNotesSidebarProps> = ({
                 </div>
 
                 {/* Side Margins */}
-                <div className="p-3 rounded-2xl bg-white dark:bg-[#222631] ring-1 ring-slate-200/80 dark:ring-[#2f3542] space-y-2">
+                <div className="p-3 rounded-2xl bg-white dark:bg-[#1a1d24] ring-1 ring-slate-200/70 dark:ring-zinc-800 space-y-2 shadow-2xs">
                   <div className="flex justify-between items-center">
                     <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-zinc-300">
                       Side Margins
                     </span>
-                    <span className="text-[11px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] bg-[#f0f4f9] dark:bg-[#1b1e27] px-2 py-0.5 rounded-full">
+                    <span className="text-[11px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] bg-[#f0f4f9] dark:bg-blue-950/60 border border-slate-200/60 dark:border-blue-900/40 px-2 py-0.5 rounded-full">
                       {sideMarginMm}mm
                     </span>
                   </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="40"
-                    step="1"
-                    value={sideMarginMm}
-                    onChange={(e) => setSideMarginMm(parseInt(e.target.value, 10))}
-                    className="w-full accent-[#0b57d0] cursor-pointer"
-                  />
+                  <div className="pt-0.5 pb-1">
+                    <input
+                      type="range"
+                      min="0"
+                      max="40"
+                      step="1"
+                      value={sideMarginMm}
+                      onChange={(e) => setSideMarginMm(parseInt(e.target.value, 10))}
+                      className="w-full accent-[#0b57d0] dark:accent-[#a8c7fa] cursor-pointer"
+                    />
+                  </div>
                 </div>
 
                 {/* Vertical Margins */}
-                <div className="p-3 rounded-2xl bg-white dark:bg-[#222631] ring-1 ring-slate-200/80 dark:ring-[#2f3542] space-y-2">
+                <div className="p-3 rounded-2xl bg-white dark:bg-[#1a1d24] ring-1 ring-slate-200/70 dark:ring-zinc-800 space-y-2 shadow-2xs">
                   <div className="flex justify-between items-center">
                     <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-zinc-300">
                       Vertical Margins
                     </span>
-                    <span className="text-[11px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] bg-[#f0f4f9] dark:bg-[#1b1e27] px-2 py-0.5 rounded-full">
+                    <span className="text-[11px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] bg-[#f0f4f9] dark:bg-blue-950/60 border border-slate-200/60 dark:border-blue-900/40 px-2 py-0.5 rounded-full">
                       {verticalMarginMm}mm
                     </span>
                   </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="40"
-                    step="1"
-                    value={verticalMarginMm}
-                    onChange={(e) => setVerticalMarginMm(parseInt(e.target.value, 10))}
-                    className="w-full accent-[#0b57d0] cursor-pointer"
-                  />
+                  <div className="pt-0.5 pb-1">
+                    <input
+                      type="range"
+                      min="0"
+                      max="40"
+                      step="1"
+                      value={verticalMarginMm}
+                      onChange={(e) => setVerticalMarginMm(parseInt(e.target.value, 10))}
+                      className="w-full accent-[#0b57d0] dark:accent-[#a8c7fa] cursor-pointer"
+                    />
+                  </div>
                 </div>
 
                 {/* Font Size */}
-                <div className="p-3 rounded-2xl bg-white dark:bg-[#222631] ring-1 ring-slate-200/80 dark:ring-[#2f3542] space-y-2">
+                <div className="p-3 rounded-2xl bg-white dark:bg-[#1a1d24] ring-1 ring-slate-200/70 dark:ring-zinc-800 space-y-2 shadow-2xs">
                   <div className="flex justify-between items-center">
                     <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-zinc-300">
                       Font Size
                     </span>
-                    <span className="text-[11px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] bg-[#f0f4f9] dark:bg-[#1b1e27] px-2 py-0.5 rounded-full">
+                    <span className="text-[11px] font-bold text-[#0b57d0] dark:text-[#a8c7fa] bg-[#f0f4f9] dark:bg-blue-950/60 border border-slate-200/60 dark:border-blue-900/40 px-2 py-0.5 rounded-full">
                       {fontSizePx}px
                     </span>
                   </div>
-                  <input
-                    type="range"
-                    min="12"
-                    max="24"
-                    value={fontSizePx}
-                    onChange={(e) => setFontSizePx(parseInt(e.target.value, 10))}
-                    className="w-full accent-[#0b57d0] cursor-pointer"
-                  />
+                  <div className="pt-0.5 pb-1">
+                    <input
+                      type="range"
+                      min="12"
+                      max="24"
+                      value={fontSizePx}
+                      onChange={(e) => setFontSizePx(parseInt(e.target.value, 10))}
+                      className="w-full accent-[#0b57d0] dark:accent-[#a8c7fa] cursor-pointer"
+                    />
+                  </div>
                 </div>
               </div>
             )}

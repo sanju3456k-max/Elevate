@@ -1795,7 +1795,7 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
       {isFullScreenPreview && (
         <div className="fixed inset-0 z-[100] bg-white dark:bg-[#0b0c10] flex flex-col overflow-hidden m3-fade-in">
           {/* Compact Top Bar directly under Device Status Bar */}
-          <div className="min-h-[38px] px-3 sm:px-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.15rem)] pb-1 bg-white/95 dark:bg-[#0b0c10]/95 backdrop-blur-md border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-2 shrink-0 z-20">
+          <div className="min-h-[38px] px-3 sm:px-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.15rem)] pb-1 bg-white/95 dark:bg-[#0b0c10]/95 backdrop-blur-md flex items-center justify-between gap-2 shrink-0 z-20">
             <div className="flex items-center gap-2 min-w-0">
               <FileCode className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
               <span className="font-bold text-xs sm:text-sm text-slate-800 dark:text-zinc-200 truncate max-w-[150px] sm:max-w-[400px]">
@@ -1854,7 +1854,50 @@ export const HtmlNotesStudio: React.FC<HtmlNotesStudioProps> = ({
               ref={fullScreenIframeRef}
               title="Full Screen Notes Preview Engine"
               srcDoc={iframeSrcDoc}
-              onLoad={() => applyIframeZoom(zoomLevel)}
+              onLoad={() => {
+                applyIframeZoom(zoomLevel);
+                try {
+                  const doc = fullScreenIframeRef.current?.contentDocument;
+                  if (!doc || (doc as any).__pinchZoomBound) return;
+                  (doc as any).__pinchZoomBound = true;
+                  let startDist = 0;
+                  let startZoom = zoomLevel;
+                  let lastTap = 0;
+                  let lastTarget: EventTarget | null = null;
+                  doc.addEventListener('touchstart', (e: TouchEvent) => {
+                    if (e.touches.length === 2) {
+                      startDist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                      );
+                      setZoomLevel((curr) => {
+                        startZoom = curr;
+                        return curr;
+                      });
+                    } else if (e.touches.length === 1) {
+                      const now = Date.now();
+                      if (now - lastTap < 300 && e.target === lastTarget) {
+                        setZoomLevel((prev) => (prev > 110 ? 100 : 150));
+                        lastTap = 0;
+                        return;
+                      }
+                      lastTap = now;
+                      lastTarget = e.target;
+                    }
+                  }, { passive: true });
+                  doc.addEventListener('touchmove', (e: TouchEvent) => {
+                    if (e.touches.length !== 2 || startDist === 0) return;
+                    const dist = Math.hypot(
+                      e.touches[0].clientX - e.touches[1].clientX,
+                      e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    const nextZoom = Math.min(300, Math.max(50, Math.round(startZoom * (dist / startDist))));
+                    setZoomLevel(nextZoom);
+                  }, { passive: true });
+                } catch {
+                  // Ignore cross-origin frame access errors
+                }
+              }}
               className="w-full h-full border-0 block bg-white dark:bg-[#14161d]"
               style={{ width: '100%', height: '100%', border: 0, display: 'block', touchAction: 'pan-x pan-y' }}
             />

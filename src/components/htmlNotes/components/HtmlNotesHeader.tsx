@@ -227,7 +227,7 @@ const HtmlNotesHeaderComponent: React.FC<HtmlNotesHeaderProps> = ({
     <>
       {/* COMPACT TOPBAR (Header Row 1: Back, Title, Viewport switcher, Save, Menu) */}
       {!hideTopBar && (
-        <header className="topbar sticky top-0 z-30 bg-white dark:bg-[#0b0c10] border-b border-slate-200 dark:border-zinc-800/80 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)] pb-2.5 px-3 sm:px-6 flex items-center justify-between gap-2 shrink-0">
+        <header className="topbar sticky top-0 z-30 bg-white dark:bg-[#0b0c10] pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)] pb-2.5 px-3 sm:px-6 flex items-center justify-between gap-2 shrink-0">
           {/* Left: Clean Back Arrow & Brand Title */}
           <div className="flex items-center gap-2 min-w-0">
             <button
@@ -512,7 +512,7 @@ const HtmlNotesHeaderComponent: React.FC<HtmlNotesHeaderProps> = ({
       )}
 
       {/* ROW 2: Global Actions Row (Mobile Only - Hidden on Tablet & Desktop) */}
-      <div className={`sticky ${hideTopBar ? 'top-0' : 'top-[48px] sm:top-[52px]'} z-25 flex md:hidden items-center justify-between gap-1.5 px-2 sm:px-3 py-1.5 bg-white dark:bg-[#0b0c10] border-b border-slate-200 dark:border-zinc-800/80 shrink-0`}>
+      <div className={`sticky ${hideTopBar ? 'top-0' : 'top-[48px] sm:top-[52px]'} z-25 flex md:hidden items-center justify-between gap-1.5 px-2 sm:px-3 py-1.5 bg-white dark:bg-[#0b0c10] shrink-0`}>
         {/* Left: Outline (mobile only), Undo, Redo, Find/Search Buttons, AI Button */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Outline / Drawer button: Shown ONLY on mobile when side 3-button activity rail is hidden */}
@@ -681,7 +681,7 @@ const HtmlNotesHeaderComponent: React.FC<HtmlNotesHeaderProps> = ({
       </div>
 
       {/* FILES ROW (Header Row 3: File tabs) */}
-      <div className="sticky top-[86px] sm:top-[90px] md:top-[48px] sm:md:top-[52px] z-20 flex items-center justify-between gap-2 px-3 py-1.5 bg-white dark:bg-[#0b0c10] border-b border-slate-200 dark:border-zinc-800/80 shrink-0 min-h-[38px]">
+      <div className="sticky top-[86px] sm:top-[90px] md:top-[48px] sm:md:top-[52px] z-20 flex items-center justify-between gap-2 px-3 py-1.5 bg-white dark:bg-[#0b0c10] shrink-0 min-h-[38px]">
         {/* Left: Scrollable file tabs (in-line according to available space) */}
         <div ref={tabsScrollRef} className="flex items-center gap-1.5 min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] py-0.5">
           {(activeProjectFiles || []).map((file) => {

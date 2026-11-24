@@ -121,21 +121,43 @@ async function fetchPublicDriveFile(fileId: string): Promise<{ buffer: Buffer; c
       if (detected === "text/html") {
         const html = rawBuffer.toString("utf-8");
 
-        // Try extracting confirm form or link
+        // Try extracting confirm form (with hidden uuid/confirm inputs) or direct link
+        const formActionMatch = html.match(/action="([^"]*drive\.usercontent\.google\.com\/download[^"]*)"/i);
         const confirmMatch =
           html.match(/href="(\/download\?[^"]*confirm=[^"]*)"/) ||
-          html.match(/action="([^"]*drive\.usercontent\.google\.com\/download[^"]*)"/) ||
           html.match(/id="uc-download-link"\s+href="([^"]+)"/);
 
-        if (confirmMatch && confirmMatch[1]) {
-          let nextUrl = confirmMatch[1].replace(/&amp;/g, "&");
+        let nextUrl = "";
+        if (formActionMatch && formActionMatch[1]) {
+          const baseAction = formActionMatch[1].replace(/&amp;/g, "&");
+          const params = new URLSearchParams();
+          const inputRegex = /<input[^>]+type=["']hidden["'][^>]*>/gi;
+          let inp: RegExpExecArray | null;
+          while ((inp = inputRegex.exec(html)) !== null) {
+            const nameMatch = inp[0].match(/name=["']([^"']+)["']/i);
+            const valMatch = inp[0].match(/value=["']([^"']*)["']/i);
+            if (nameMatch?.[1]) {
+              params.set(nameMatch[1], (valMatch?.[1] || "").replace(/&amp;/g, "&"));
+            }
+          }
+          if (!params.has("id")) params.set("id", fileId);
+          if (!params.has("export")) params.set("export", "download");
+          if (!params.has("confirm")) params.set("confirm", "t");
+          const sep = baseAction.includes("?") ? "&" : "?";
+          nextUrl = `${baseAction}${sep}${params.toString()}`;
+        } else if (confirmMatch && confirmMatch[1]) {
+          nextUrl = confirmMatch[1].replace(/&amp;/g, "&");
           if (nextUrl.startsWith("/")) {
             nextUrl = `https://drive.google.com${nextUrl}`;
           }
+        }
+
+        if (nextUrl) {
           const confirmedRes = await fetch(nextUrl, {
             redirect: "follow",
             headers: {
               "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+              Accept: "application/pdf,image/*,*/*;q=0.8",
             },
           });
           if (confirmedRes.ok) {
@@ -159,11 +181,23 @@ async function fetchPublicDriveFile(fileId: string): Promise<{ buffer: Buffer; c
   return null;
 }
 
+function extractDriveIdFromUrl(urlOrId: string): string {
+  if (!urlOrId) return "";
+  const trimmed = urlOrId.trim();
+  if (/^[a-zA-Z0-9_-]{25,50}$/.test(trimmed)) return trimmed;
+  const dMatch = trimmed.match(/\/(?:file|document|spreadsheets|presentation)\/d\/([a-zA-Z0-9_-]+)/);
+  if (dMatch && dMatch[1]) return dMatch[1];
+  const idMatch = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idMatch && idMatch[1]) return idMatch[1];
+  return "";
+}
+
 /**
  * Handle streaming logic for a fileId or external URL
  */
 async function handleStream(req: any, res: any, fileId: string, externalUrl?: string) {
-  const cacheKey = externalUrl ? `url_${externalUrl}` : `drive_${fileId}`;
+  const resolvedFileId = fileId || (externalUrl ? extractDriveIdFromUrl(externalUrl) : "");
+  const cacheKey = resolvedFileId ? `drive_${resolvedFileId}` : `url_${externalUrl}`;
 
   // Check In-Memory Cache first
   const cached = getFromCache(cacheKey);
@@ -182,12 +216,16 @@ async function handleStream(req: any, res: any, fileId: string, externalUrl?: st
   let mimeType = "application/octet-stream";
 
   // Case 1: External URL (Firebase, AWS, direct PDF link)
-  if (externalUrl && !fileId) {
+  if (externalUrl && !resolvedFileId) {
     try {
       const extRes = await fetch(externalUrl, { redirect: "follow" });
       if (extRes.ok) {
-        fileBuffer = Buffer.from(await extRes.arrayBuffer());
-        mimeType = detectMimeType(fileBuffer, extRes.headers.get("content-type") || "application/pdf");
+        const candidateBuf = Buffer.from(await extRes.arrayBuffer());
+        const detectedExt = detectMimeType(candidateBuf, extRes.headers.get("content-type") || "application/pdf");
+        if (detectedExt !== "text/html") {
+          fileBuffer = candidateBuf;
+          mimeType = detectedExt;
+        }
       }
     } catch (e: any) {
       return res.status(502).json({ error: "Failed to fetch external document", details: e?.message });
@@ -195,7 +233,7 @@ async function handleStream(req: any, res: any, fileId: string, externalUrl?: st
   }
 
   // Case 2: Google Drive File
-  if (!fileBuffer && fileId) {
+  if (!fileBuffer && resolvedFileId) {
     const authHeader = req.headers.authorization;
     const queryToken = req.query.token as string | undefined;
     const token = queryToken || (authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : "");
@@ -203,21 +241,25 @@ async function handleStream(req: any, res: any, fileId: string, externalUrl?: st
     if (token) {
       // Authenticated fetch via Google Drive API
       try {
-        let fetchUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true&acknowledgeAbuse=true`;
+        let fetchUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(resolvedFileId)}?alt=media&supportsAllDrives=true&acknowledgeAbuse=true`;
         const driveRes = await fetch(fetchUrl, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
         if (driveRes.ok) {
-          fileBuffer = Buffer.from(await driveRes.arrayBuffer());
-          mimeType = detectMimeType(fileBuffer, driveRes.headers.get("content-type") || "application/pdf");
+          const authBuf = Buffer.from(await driveRes.arrayBuffer());
+          const authType = detectMimeType(authBuf, driveRes.headers.get("content-type") || "application/pdf");
+          if (authType !== "text/html") {
+            fileBuffer = authBuf;
+            mimeType = authType;
+          }
         }
       } catch {}
     }
 
     // If no token or token fetch failed, try robust public streaming pipeline
     if (!fileBuffer) {
-      const publicResult = await fetchPublicDriveFile(fileId);
+      const publicResult = await fetchPublicDriveFile(resolvedFileId);
       if (publicResult) {
         fileBuffer = publicResult.buffer;
         mimeType = publicResult.contentType;
@@ -282,6 +324,141 @@ router.get("/thumbnail/:fileId", async (req, res) => {
     }
   } catch {}
   return res.redirect(`https://lh3.googleusercontent.com/d/${encodeURIComponent(fileId)}`);
+});
+
+// 4. Auto-Title / Metadata resolution endpoint: /api/drive/metadata?url=...
+router.get("/metadata", async (req, res) => {
+  const rawUrl = ((req.query.url as string) || "").trim();
+  const explicitFileId = ((req.query.fileId as string) || "").trim();
+  const driveId = explicitFileId || extractDriveIdFromUrl(rawUrl);
+
+  if (!rawUrl && !driveId) {
+    return res.status(400).json({ error: "Missing url or fileId" });
+  }
+
+  let title = "";
+  let kind: "drive" | "youtube" | "url" = "url";
+
+  const cleanTitleString = (t: string) =>
+    t
+      .replace(/\s*[-–|]\s*(Google Drive|Google Docs|Google Sheets|Google Slides|YouTube)\s*$/i, "")
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, '"')
+      .trim();
+
+  // Case A: Google Drive / Docs / Sheets / Slides
+  if (driveId) {
+    kind = "drive";
+    const authHeader = req.headers.authorization;
+    const queryToken = req.query.token as string | undefined;
+    const token = queryToken || (authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : "");
+
+    // 1. Authenticated Drive v3 API metadata lookup (works even on restricted/private files)
+    if (token) {
+      try {
+        const metaRes = await fetch(
+          `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(driveId)}?fields=name,mimeType&supportsAllDrives=true`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (metaRes.ok) {
+          const metaJson = (await metaRes.json()) as { name?: string };
+          if (metaJson?.name && metaJson.name.trim()) {
+            return res.json({ title: metaJson.name.trim(), kind, driveFileId: driveId });
+          }
+        }
+      } catch {}
+    }
+
+    const viewUrls = [
+      rawUrl && (rawUrl.includes("docs.google.com") || rawUrl.includes("drive.google.com"))
+        ? rawUrl
+        : `https://drive.google.com/file/d/${encodeURIComponent(driveId)}/view`,
+      `https://drive.google.com/file/d/${encodeURIComponent(driveId)}/view`,
+    ];
+
+    for (const vUrl of viewUrls) {
+      try {
+        const viewRes = await fetch(vUrl, {
+          redirect: "follow",
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          },
+        });
+        if (viewRes.ok) {
+          const html = await viewRes.text();
+          const ogMatch = html.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i);
+          const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+          const candidate = cleanTitleString((ogMatch?.[1] || titleMatch?.[1] || "").trim());
+          if (
+            candidate &&
+            !/^(Google Drive|Meet Google Drive|Sign in|Access denied|Error)/i.test(candidate)
+          ) {
+            title = candidate;
+            break;
+          }
+        }
+      } catch {}
+    }
+
+    // Fallback: Check Content-Disposition filename from download headers
+    if (!title) {
+      try {
+        const headRes = await fetch(
+          `https://drive.usercontent.google.com/download?id=${encodeURIComponent(driveId)}&export=download&confirm=t`,
+          { method: "HEAD", redirect: "follow" }
+        );
+        const cd = headRes.headers.get("content-disposition") || "";
+        const fnStar = cd.match(/filename\*=UTF-8''([^;]+)/i);
+        const fnPlain = cd.match(/filename=["']?([^"';]+)["']?/i);
+        const rawName = fnStar?.[1] ? decodeURIComponent(fnStar[1]) : fnPlain?.[1] || "";
+        if (rawName && rawName.trim()) {
+          title = rawName.trim();
+        }
+      } catch {}
+    }
+
+    return res.json({ title, kind, driveFileId: driveId });
+  }
+
+  // Case B: YouTube link
+  if (/(?:youtube\.com|youtu\.be)/i.test(rawUrl)) {
+    kind = "youtube";
+    try {
+      const oembedRes = await fetch(
+        `https://www.youtube.com/oembed?url=${encodeURIComponent(rawUrl)}&format=json`
+      );
+      if (oembedRes.ok) {
+        const data = (await oembedRes.json()) as { title?: string };
+        if (data?.title) {
+          title = cleanTitleString(data.title);
+        }
+      }
+    } catch {}
+    return res.json({ title, kind, driveFileId: "" });
+  }
+
+  // Case C: Generic URL (extract filename from Content-Disposition or URL path)
+  try {
+    const parsed = new URL(rawUrl);
+    const lastSeg = decodeURIComponent(parsed.pathname.split("/").filter(Boolean).pop() || "");
+    if (lastSeg && lastSeg.includes(".")) {
+      title = lastSeg;
+    }
+  } catch {}
+
+  if (!title && rawUrl.startsWith("http")) {
+    try {
+      const headRes = await fetch(rawUrl, { method: "HEAD", redirect: "follow" });
+      const cd = headRes.headers.get("content-disposition") || "";
+      const fnMatch = cd.match(/filename=["']?([^"';]+)["']?/i);
+      if (fnMatch?.[1]) {
+        title = fnMatch[1].trim();
+      }
+    } catch {}
+  }
+
+  return res.json({ title, kind, driveFileId: "" });
 });
 
 export default router;

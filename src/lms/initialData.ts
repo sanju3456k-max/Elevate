@@ -155,9 +155,9 @@ export const INITIAL_LECTURES: Lecture[] = [
 
 export const INITIAL_ANNOUNCEMENTS: Announcement[] = [
   {
-    id: 'ann_test_1',
-    title: '🚀 Elevate Labs: Testing Environment Active',
-    message: 'Welcome to the clean testing sandbox. Only the Testing Batch is currently active.',
+    id: 'ann_welcome_1',
+    title: '🎉 Welcome to Act Elevate',
+    message: 'Welcome to Elevate! Explore your course batches, practice interactive mock tests, and track your progress seamlessly.',
     date: 'Just now',
     isImportant: true,
   },

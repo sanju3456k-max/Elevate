@@ -285,7 +285,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed.filter((a: any) => a?.id && !deletedSet.has(String(a.id)));
+          const sanitized = parsed.map((a: any) => {
+            if (a.id === 'ann_test_1' || (a.title && String(a.title).includes('Testing Environment Active'))) {
+              return INITIAL_ANNOUNCEMENTS[0];
+            }
+            return a;
+          });
+          const filtered = sanitized.filter((a: any) => a?.id && !deletedSet.has(String(a.id)));
+          if (filtered.length === 0) return INITIAL_ANNOUNCEMENTS;
+          return filtered;
         }
       }
     } catch {}

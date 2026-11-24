@@ -380,8 +380,8 @@ export function extractGoogleDriveId(urlOrId: string): string | null {
     return trimmed;
   }
 
-  // https://drive.google.com/file/d/FILE_ID/view
-  const fileDMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  // https://drive.google.com/file/d/FILE_ID/view or docs/spreadsheets/presentation/d/FILE_ID
+  const fileDMatch = trimmed.match(/\/(?:file|document|spreadsheets|presentation)\/d\/([a-zA-Z0-9_-]+)/);
   if (fileDMatch && fileDMatch[1]) return fileDMatch[1];
 
   // https://drive.google.com/open?id=FILE_ID or ?id=FILE_ID

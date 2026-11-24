@@ -364,9 +364,9 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   const filterTabs = [
     { id: 'all', label: 'All', icon: Sparkles },
     { id: 'unread', label: 'Unread', icon: Bell, count: unreadCount },
-    { id: 'post', label: 'Posts', icon: Megaphone },
     { id: 'lecture', label: 'Videos', icon: PlayCircle },
     { id: 'test', label: 'Tests', icon: BookOpen },
+    { id: 'post', label: 'Posts', icon: Megaphone },
   ];
 
   return (
@@ -418,9 +418,9 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                   onClick={onOpenCreatePost}
                   title="Create Broadcast Post"
                   aria-label="Create Broadcast Post"
-                  className="h-7.5 px-3 rounded-full bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 text-xs font-bold transition cursor-pointer outline-none border-0 flex items-center gap-1.5 shadow-xs"
+                  className="h-7.5 px-3 rounded-full bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-xs font-bold transition cursor-pointer outline-none border-0 flex items-center gap-1.5 shadow-xs select-none"
                 >
-                  <Plus className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />
+                  <Plus className="w-3.5 h-3.5 shrink-0 stroke-[2.8] text-white" />
                   <span className={isDrawer ? 'hidden sm:inline' : ''}>New Post</span>
                 </button>
               )}

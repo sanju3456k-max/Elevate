@@ -41,7 +41,9 @@ import {
   Settings,
   Smartphone,
   Globe,
+  Image as ImageIcon,
 } from 'lucide-react';
+import { isImageFile } from '../../../lib/filePreviewUtils';
 import { useApp, getFacultyAvatarUrl } from '../../../lms/LmsContext';
 import { auth, db, getCachedFullTest } from '../../../lib/firebase';
 import { loadFullTestOnDemand } from '../../../lib/storage';
@@ -279,7 +281,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       url: n.fileUrl || n.url || '',
       fileUrl: n.fileUrl || n.url || '',
       previewImageUrl: n.previewImageUrl,
-      type: 'pdf',
+      type: isImageFile({ fileName: n.title, fileUrl: n.fileUrl || n.url }) ? 'image' : 'pdf',
       subtitle: currFold?.title || currBatch?.title || 'Chapter Resource',
       uploadedAt: n.createdAt,
     }));
@@ -2011,17 +2013,29 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                       className="p-3 sm:p-3.5 rounded-2xl bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 transition-colors flex items-center justify-between group cursor-pointer relative"
                     >
                       <div className="flex items-center space-x-3.5 min-w-0 flex-1">
-                        <div className="w-10 h-10 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
-                          <FileText className="w-5 h-5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h4 className="text-sm sm:text-[14.5px] font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
-                            {note.title}
-                          </h4>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="text-[9.5px] font-bold tracking-wide px-1.5 py-0.2 rounded-md bg-rose-500/10 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300">
-                              PDF
-                            </span>
+                        {(() => {
+                          const noteIsImage = isImageFile({ fileName: note.title, fileUrl: note.fileUrl || note.url });
+                          return (
+                            <>
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                                noteIsImage
+                                  ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                                  : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                              }`}>
+                                {noteIsImage ? <ImageIcon className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <h4 className="text-sm sm:text-[14.5px] font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+                                  {note.title}
+                                </h4>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className={`text-[9.5px] font-bold tracking-wide px-1.5 py-0.2 rounded-md ${
+                                    noteIsImage
+                                      ? 'bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300'
+                                      : 'bg-rose-500/10 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300'
+                                  }`}>
+                                    {noteIsImage ? 'IMAGE' : 'PDF'}
+                                  </span>
                             {!hasFullBatchAccess ? (
                               <span className="text-[9.5px] font-bold tracking-wide px-1.5 py-0.2 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 flex items-center space-x-0.5">
                                 <Lock className="w-2.5 h-2.5" />
@@ -2032,8 +2046,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                                 Drive Viewer
                               </span>
                             )}
-                          </div>
-                        </div>
+                                </div>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
 
                       <div className="flex items-center space-x-1 shrink-0 ml-2">

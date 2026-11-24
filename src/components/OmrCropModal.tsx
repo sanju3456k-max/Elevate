@@ -100,6 +100,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
   const [activeDragTarget, setActiveDragTarget] = useState<DragTarget>(null);
   const [loupePos, setLoupePos] = useState<{ x: number; y: number; isFlippedBelow?: boolean } | null>(null);
   const [isProcessingCrop, setIsProcessingCrop] = useState<boolean>(false);
+  const [autoCropNotification, setAutoCropNotification] = useState<string | null>(null);
   const [alignmentResult, setAlignmentResult] = useState<AlignmentQualityResult>({
     isGood: false,
     score: 0,
@@ -408,28 +409,39 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
       if (detected) {
         setCorners(detected);
         cornersRef.current = detected;
+        setAutoCropNotification('4 Corner Squares Auto-Aligned ✓');
+        setTimeout(() => setAutoCropNotification(null), 2500);
         return;
       }
     }
     setCorners(DEFAULT_CORNERS);
     cornersRef.current = DEFAULT_CORNERS;
+    setAutoCropNotification('Standard OMR Frame Applied');
+    setTimeout(() => setAutoCropNotification(null), 2000);
   };
 
   // Reset corner boxes to default balanced positions
   const handleResetCorners = () => {
     cleanupActiveDrag();
     setCorners(DEFAULT_CORNERS);
+    cornersRef.current = DEFAULT_CORNERS;
+    setAutoCropNotification('Corners Reset to Default');
+    setTimeout(() => setAutoCropNotification(null), 2000);
   };
 
   // Snap crop frame to absolute 100% full image dimensions
   const handleSnapFullImage = () => {
     cleanupActiveDrag();
-    setCorners({
+    const fullCorners = {
       tl: { x: 0, y: 0 },
       tr: { x: 100, y: 0 },
       br: { x: 100, y: 100 },
       bl: { x: 0, y: 100 },
-    });
+    };
+    setCorners(fullCorners);
+    cornersRef.current = fullCorners;
+    setAutoCropNotification('Full Image Frame (100%)');
+    setTimeout(() => setAutoCropNotification(null), 2000);
   };
 
   // Extend right edge dragger all the way to 100% image width
@@ -900,13 +912,17 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
                   Crop OMR
                 </h2>
                 <span
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold select-none transition-all ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold select-none transition-all shadow-xs ${
                     alignmentResult.isGood
-                      ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60 shadow-xs'
-                      : 'bg-slate-200/80 dark:bg-[#222634] text-slate-700 dark:text-zinc-300'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40'
+                      : 'bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] border border-black/5 dark:border-white/10'
                   }`}
                 >
-                  {alignmentResult.isGood && <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />}
+                  {alignmentResult.isGood ? (
+                    <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  )}
                   <span>{alignmentResult.label}</span>
                 </span>
               </div>
@@ -919,10 +935,10 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
                       cleanupActiveDrag();
                       onRetake();
                     }}
-                    className="px-3 py-1.5 bg-[#d3e3fd] hover:bg-[#c2e7ff] text-[#041e49] dark:bg-[#004a77] dark:hover:bg-[#00385a] dark:text-[#c2e7ff] rounded-full text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 border-0 shadow-none"
+                    className="px-3.5 py-1.5 bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] rounded-full text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 border border-black/5 dark:border-white/10 shadow-xs"
                     title="Take another photo with camera"
                   >
-                    <Camera className="w-3.5 h-3.5" />
+                    <Camera className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
                     <span>Retake</span>
                   </button>
                 )}
@@ -933,7 +949,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
                       cleanupActiveDrag();
                       onUploadNew();
                     }}
-                    className="px-3 py-1.5 bg-slate-200/80 hover:bg-slate-300 dark:bg-[#222634] dark:hover:bg-[#282a39] text-slate-800 dark:text-zinc-100 rounded-full text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 border-0 shadow-none"
+                    className="px-3.5 py-1.5 bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] rounded-full text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 border border-black/5 dark:border-white/10 shadow-xs"
                     title="Upload a different image"
                   >
                     <Upload className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
@@ -948,7 +964,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
                     cleanupActiveDrag();
                     onClose();
                   }}
-                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-200/80 dark:bg-[#222634] hover:bg-slate-300 dark:hover:bg-[#282a39] text-slate-800 dark:text-zinc-100 flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 border-0 ring-0 shadow-none"
+                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 border border-black/5 dark:border-white/10 shadow-xs"
                   title="Close"
                 >
                   <X className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
@@ -1369,19 +1385,35 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
         )}
       </main>
 
+      {/* Auto-Crop Notification Floating Badge */}
+      <AnimatePresence>
+        {autoCropNotification && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -5, scale: 0.95 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-[#041e49] dark:bg-[#c2e7ff] text-white dark:text-[#041e49] px-4 py-2 rounded-full text-xs font-bold shadow-xl flex items-center gap-2 pointer-events-none select-none"
+          >
+            <Sparkles className="w-4 h-4 text-[#a8c7fa] dark:text-[#0b57d0]" />
+            <span>{autoCropNotification}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ========================================================
           FULL-SCREEN FOOTER CONTROLS (Responsive & Safe Bottom Area)
           ======================================================== */}
       <footer className="px-3 sm:px-6 py-2.5 sm:py-3 border-0 bg-transparent flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shrink-0 z-30 pb-[max(1.75rem,calc(env(safe-area-inset-bottom,0px)+0.75rem))]">
         <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-center sm:justify-start">
-          {/* Auto-Fit Squares Button */}
+          {/* Auto-Fit Squares Button - Completely borderless, NO ring, Elevate design tokens */}
           <button
             type="button"
+            id="auto-fit-squares-btn"
             onClick={handleAutoFitSquares}
-            className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-full bg-blue-100 hover:bg-blue-200 dark:bg-blue-950/70 dark:hover:bg-blue-900/80 text-blue-800 dark:text-blue-300 text-xs font-bold border border-blue-300 dark:border-blue-700/50 shadow-none transition-all cursor-pointer active:scale-95"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#0b57d0] dark:text-[#a8c7fa] text-xs font-bold border-0 border-none ring-0 outline-none shadow-xs transition-all cursor-pointer active:scale-95 select-none"
             title="Auto-detect & snap corners to 4 printed registration squares"
           >
-            <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <Sparkles className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
             <span>Auto-Fit Squares</span>
           </button>
 
@@ -1389,10 +1421,10 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
           <button
             type="button"
             onClick={handleRotate}
-            className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-full bg-slate-200/80 hover:bg-slate-300 dark:bg-[#222634] dark:hover:bg-[#282a39] text-slate-800 dark:text-zinc-200 text-xs font-semibold border-0 ring-0 shadow-none transition-all cursor-pointer active:scale-95"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-semibold border border-black/5 dark:border-white/10 shadow-xs transition-all cursor-pointer active:scale-95"
             title="Rotate sheet 90° clockwise"
           >
-            <RotateCw className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <RotateCw className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
             <span>Rotate 90°</span>
           </button>
 
@@ -1400,10 +1432,10 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
           <button
             type="button"
             onClick={handleResetCorners}
-            className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-full bg-slate-200/80 hover:bg-slate-300 dark:bg-[#222634] dark:hover:bg-[#282a39] text-slate-800 dark:text-zinc-200 text-xs font-semibold border-0 ring-0 shadow-none transition-all cursor-pointer active:scale-95"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-semibold border border-black/5 dark:border-white/10 shadow-xs transition-all cursor-pointer active:scale-95"
             title="Reset corner boxes to default"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            <RotateCcw className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
             <span className="hidden xs:inline">Reset</span>
           </button>
 
@@ -1411,10 +1443,10 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
           <button
             type="button"
             onClick={handleSnapFullImage}
-            className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-full bg-slate-200/80 hover:bg-slate-300 dark:bg-[#222634] dark:hover:bg-[#282a39] text-slate-800 dark:text-zinc-200 text-xs font-semibold border-0 ring-0 shadow-none transition-all cursor-pointer active:scale-95"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-semibold border border-black/5 dark:border-white/10 shadow-xs transition-all cursor-pointer active:scale-95"
             title="Expand crop frame to 100% full image"
           >
-            <Maximize2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <Maximize2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
             <span>Full Image (100%)</span>
           </button>
         </div>
@@ -1426,7 +1458,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
               cleanupActiveDrag();
               onClose();
             }}
-            className="flex-1 sm:flex-none px-4 py-2 rounded-full bg-slate-200/80 hover:bg-slate-300 dark:bg-[#222634] dark:hover:bg-[#282a39] text-slate-800 dark:text-zinc-200 text-xs font-semibold border-0 ring-0 shadow-none transition-all cursor-pointer text-center active:scale-95"
+            className="flex-1 sm:flex-none px-4 py-2 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] text-xs font-semibold border border-black/5 dark:border-white/10 shadow-xs transition-all cursor-pointer text-center active:scale-95"
           >
             Cancel
           </button>

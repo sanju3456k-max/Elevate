@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  ArrowLeft,
+  ChevronLeft,
   ZoomIn,
   ZoomOut,
   RotateCw,
@@ -610,15 +610,18 @@ export const UnifiedFileViewerModal: React.FC<UnifiedFileViewerModalProps> = ({ 
 
   if (!file) return null;
 
-  // Delegate PDF and Image files to authentic Google Drive native lightbox
-  if (resolvedType === 'image' || resolvedType === 'pdf') {
+  // Delegate PDF, Image, and binary/Drive link files (without inline text content) to our unified NativeDocumentViewer
+  const hasMediaSource = Boolean(activeMediaUrl || file.fileUrl || file.url || file.driveFileId);
+  const isMediaOnlyDriveOrUrl = resolvedType === 'file' && hasMediaSource && !textContent?.trim() && !file.content?.trim();
+
+  if (resolvedType === 'image' || resolvedType === 'pdf' || isMediaOnlyDriveOrUrl) {
     const driveItem: DriveViewerItem = {
       id: file.id || file.noteId || file.driveFileId,
       title: displayTitle || file.fileName || file.name || 'Document',
       url: activeMediaUrl || file.fileUrl || file.url || '',
       fileUrl: activeMediaUrl || file.fileUrl || file.url || '',
       previewImageUrl: activeMediaUrl || file.fileUrl || file.url,
-      type: resolvedType,
+      type: resolvedType === 'image' ? 'image' : 'pdf',
       size: (file as any).size,
       driveFileId: file.driveFileId,
       uploadedAt: file.createdAt,
@@ -654,7 +657,7 @@ export const UnifiedFileViewerModal: React.FC<UnifiedFileViewerModalProps> = ({ 
         className={`fixed inset-0 z-50 w-screen h-screen flex flex-col ${APP_STYLES.page} overflow-hidden`}
       >
         {/* Sleek Minimal Unified Top Header Bar */}
-        <header className="h-13 px-3 sm:px-5 py-2 bg-white/95 dark:bg-[#21222e]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-zinc-800/80 shrink-0 flex items-center justify-between gap-3 select-none z-20">
+        <header className="h-13 px-3 sm:px-5 py-2 bg-white/95 dark:bg-[#21222e]/95 backdrop-blur-md border-0 shrink-0 flex items-center justify-between gap-3 select-none z-20">
             {/* Left Group: Close/Back, Icon, Title, and Badges */}
             <div className="flex items-center gap-2.5 min-w-0">
               <button
@@ -663,7 +666,7 @@ export const UnifiedFileViewerModal: React.FC<UnifiedFileViewerModalProps> = ({ 
                 className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer active:scale-95"
                 title="Close Preview (Esc)"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <ChevronLeft className="w-5 h-5 stroke-[2.4]" />
               </button>
 
               <div className="w-px h-4 bg-slate-200 dark:bg-zinc-800" />
@@ -984,6 +987,7 @@ export const UnifiedFileViewerModal: React.FC<UnifiedFileViewerModalProps> = ({ 
                 fileName={rawFileName || displayTitle}
                 onClose={onClose}
                 hideTopToolbar={true}
+                hideBottomDock={true}
               />
             </div>
           ) : resolvedType === 'pdf' && (file.driveFileId || driveEmbedUrl) ? (
@@ -995,6 +999,7 @@ export const UnifiedFileViewerModal: React.FC<UnifiedFileViewerModalProps> = ({ 
                 fileName={rawFileName || displayTitle}
                 onClose={onClose}
                 hideTopToolbar={true}
+                hideBottomDock={true}
               />
             </div>
           ) : (

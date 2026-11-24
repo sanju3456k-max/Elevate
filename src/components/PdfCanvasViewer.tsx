@@ -51,6 +51,11 @@ const ContinuousPageItem: React.FC<ContinuousPageItemProps> = ({
   const [rendering, setRendering] = useState<boolean>(false);
   const [pageDims, setPageDims] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const activeTaskRef = useRef<any>(null);
+  const renderingRef = useRef<boolean>(false);
+  const renderedRef = useRef<boolean>(false);
+  const isNearViewportRef = useRef<boolean>(false);
+  const onEnterViewRef = useRef(onEnterView);
+  onEnterViewRef.current = onEnterView;
 
   // Measure initial page dimensions
   useEffect(() => {
@@ -65,9 +70,9 @@ const ContinuousPageItem: React.FC<ContinuousPageItemProps> = ({
     };
   }, [pdfDoc, pageNumber, scale, rotation]);
 
-  // Render on intersection / visibility
+  // Render on intersection / visibility (stable callback: never depends on `rendering` or `onEnterView`)
   const renderPage = useCallback(async () => {
-    if (!canvasRef.current || rendering) return;
+    if (!canvasRef.current || renderingRef.current) return;
 
     if (activeTaskRef.current) {
       try {
@@ -76,6 +81,7 @@ const ContinuousPageItem: React.FC<ContinuousPageItemProps> = ({
       } catch {}
     }
 
+    renderingRef.current = true;
     setRendering(true);
     try {
       const page = await pdfDoc.getPage(pageNumber);
@@ -85,7 +91,7 @@ const ContinuousPageItem: React.FC<ContinuousPageItemProps> = ({
       if (!context) return;
 
       const viewport = page.getViewport({ scale, rotation });
-      const outputScale = Math.max(window.devicePixelRatio || 1, 2);
+      const outputScale = Math.min(Math.max(window.devicePixelRatio || 1, 2), 3);
 
       canvas.width = Math.floor(viewport.width * outputScale);
       canvas.height = Math.floor(viewport.height * outputScale);
@@ -102,6 +108,7 @@ const ContinuousPageItem: React.FC<ContinuousPageItemProps> = ({
       });
       activeTaskRef.current = renderTask;
       await renderTask.promise;
+      renderedRef.current = true;
       setRendered(true);
     } catch (err: any) {
       if (err?.name !== 'RenderingCancelledException') {
@@ -109,43 +116,62 @@ const ContinuousPageItem: React.FC<ContinuousPageItemProps> = ({
       }
     } finally {
       activeTaskRef.current = null;
+      renderingRef.current = false;
       setRendering(false);
     }
-  }, [pdfDoc, pageNumber, scale, rotation, rendering]);
+  }, [pdfDoc, pageNumber, scale, rotation]);
 
-  // IntersectionObserver to lazy-render and track active page
+  // IntersectionObserver 1: Lazy-render pages near the viewport
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
-    const observer = new IntersectionObserver(
+    const renderObserver = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            onEnterView?.(pageNumber);
+          isNearViewportRef.current = entry.isIntersecting;
+          if (entry.isIntersecting && !renderedRef.current) {
             renderPage();
           }
         });
       },
-      { rootMargin: '300px 0px', threshold: 0.1 }
+      { rootMargin: '350px 0px', threshold: 0.01 }
     );
 
-    observer.observe(el);
+    // IntersectionObserver 2: Track which page is actually centered in view
+    const activeObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            onEnterViewRef.current?.(pageNumber);
+          }
+        });
+      },
+      { rootMargin: '-35% 0px -35% 0px', threshold: 0 }
+    );
+
+    renderObserver.observe(el);
+    activeObserver.observe(el);
     return () => {
-      observer.disconnect();
+      renderObserver.disconnect();
+      activeObserver.disconnect();
       if (activeTaskRef.current) {
         try {
           activeTaskRef.current.cancel();
         } catch {}
       }
+      renderingRef.current = false;
     };
-  }, [pageNumber, onEnterView, renderPage]);
+  }, [pageNumber, renderPage]);
 
-  // Re-render when scale or rotation changes
+  // Re-render only visible/near-viewport pages when scale or rotation changes
   useEffect(() => {
+    renderedRef.current = false;
     setRendered(false);
-    renderPage();
-  }, [scale, rotation]);
+    if (isNearViewportRef.current || pageNumber <= 2) {
+      renderPage();
+    }
+  }, [scale, rotation, pageNumber, renderPage]);
 
   return (
     <div
@@ -155,7 +181,7 @@ const ContinuousPageItem: React.FC<ContinuousPageItemProps> = ({
         width: pageDims.width ? `${pageDims.width}px` : '100%',
         minHeight: pageDims.height ? `${pageDims.height}px` : '320px',
       }}
-      className="relative flex items-center justify-center bg-white dark:bg-[#181a20] transition-all duration-75 overflow-hidden my-[2px] first:mt-0 last:mb-0 shadow-xs dark:shadow-md border-0"
+      className="relative flex items-center justify-center bg-white dark:bg-[#181a20] transition-all duration-75 overflow-hidden my-0 border-0 rounded-none"
     >
       <canvas ref={canvasRef} className="block max-w-none" />
       {(!rendered || rendering) && (
@@ -191,8 +217,111 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
   const [pageWidth, setPageWidth] = useState<number>(0);
   const [pageHeight, setPageHeight] = useState<number>(0);
 
-  // View Mode: 'continuous' (all slides stacked vertically with 0/minor gap) or 'single' (one slide at a time)
+  // View Mode: 'continuous' (default seamless continuous scroll)
   const [displayMode, setDisplayMode] = useState<'continuous' | 'single'>('continuous');
+  const [zoom, setZoom] = useState<number>(1.0);
+
+  // Google-Drive-style scroll-only page indicator
+  const [isScrolling, setIsScrolling] = useState<boolean>(false);
+  const scrollHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleContainerScroll = useCallback(() => {
+    setIsScrolling(true);
+    if (scrollHideTimerRef.current) {
+      clearTimeout(scrollHideTimerRef.current);
+    }
+    scrollHideTimerRef.current = setTimeout(() => {
+      setIsScrolling(false);
+    }, 1500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (scrollHideTimerRef.current) clearTimeout(scrollHideTimerRef.current);
+    };
+  }, []);
+
+  // Touch Pinch-to-Zoom (1x to 3x) & Double-Tap Zoom (1x <-> 2x) for Continuous Scroll
+  const pinchStartDistRef = useRef<number | null>(null);
+  const pinchStartZoomRef = useRef<number>(1.0);
+  const lastTapTimeRef = useRef<number>(0);
+
+  const getTouchDistance = (t1: React.Touch, t2: React.Touch) => {
+    const dx = t1.clientX - t2.clientX;
+    const dy = t1.clientY - t2.clientY;
+    return Math.hypot(dx, dy);
+  };
+
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2) {
+      pinchStartDistRef.current = getTouchDistance(e.touches[0], e.touches[1]);
+      pinchStartZoomRef.current = zoom;
+    }
+  }, [zoom]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2 && pinchStartDistRef.current) {
+      e.preventDefault();
+      const currentDist = getTouchDistance(e.touches[0], e.touches[1]);
+      const ratio = currentDist / pinchStartDistRef.current;
+      const nextZoom = Math.min(3.0, Math.max(1.0, Number((pinchStartZoomRef.current * ratio).toFixed(3))));
+      setZoom(nextZoom);
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length < 2) {
+      pinchStartDistRef.current = null;
+    }
+    if (e.touches.length === 0 && e.changedTouches.length === 1) {
+      const now = Date.now();
+      if (now - lastTapTimeRef.current < 280) {
+        setZoom((z) => (z > 1.15 ? 1.0 : 2.0));
+        lastTapTimeRef.current = 0;
+      } else {
+        lastTapTimeRef.current = now;
+      }
+    }
+  }, []);
+
+  const handleDoubleClickZoom = useCallback(() => {
+    setZoom((z) => (z > 1.15 ? 1.0 : 2.0));
+  }, []);
+
+  // Desktop mouse grab-and-drag pan for zoomed Continuous Scroll
+  const scrollPanRef = useRef<{ active: boolean; startX: number; startY: number; scrollLeft: number; scrollTop: number }>({
+    active: false,
+    startX: 0,
+    startY: 0,
+    scrollLeft: 0,
+    scrollTop: 0,
+  });
+
+  const handleScrollMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (zoom <= 1.02 || !scrollContainerRef.current) return;
+      scrollPanRef.current = {
+        active: true,
+        startX: e.clientX,
+        startY: e.clientY,
+        scrollLeft: scrollContainerRef.current.scrollLeft,
+        scrollTop: scrollContainerRef.current.scrollTop,
+      };
+    },
+    [zoom]
+  );
+
+  const handleScrollMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!scrollPanRef.current.active || !scrollContainerRef.current) return;
+    const dx = e.clientX - scrollPanRef.current.startX;
+    const dy = e.clientY - scrollPanRef.current.startY;
+    scrollContainerRef.current.scrollLeft = scrollPanRef.current.scrollLeft - dx;
+    scrollContainerRef.current.scrollTop = scrollPanRef.current.scrollTop - dy;
+  }, []);
+
+  const handleScrollMouseUp = useCallback(() => {
+    scrollPanRef.current.active = false;
+  }, []);
 
   // Compute PDF File Size if it is base64 Data URI
   const pdfSizeStr = useMemo(() => {
@@ -208,8 +337,7 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
     }
   }, [url]);
 
-  // Zoom & Pan state
-  const [zoom, setZoom] = useState<number>(1.0);
+  // Pan state
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [panPosition, setPanPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -251,18 +379,17 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
           setTotalPages(pdf.numPages);
           setPageNum(1);
 
-          // Flush-fit: Calculate exact 100% full width/height fit without empty margins
+          // Device-Resolution Fit-to-Width (crisp edge-to-edge on mobile, readable max-width on desktop)
           try {
             const firstPage = await pdf.getPage(1);
             const unscaledViewport = firstPage.getViewport({ scale: 1 });
             const containerWidth = containerRef.current?.clientWidth || window.innerWidth || 800;
-            const containerHeight = (containerRef.current?.clientHeight || window.innerHeight || 900) - (hideTopToolbar ? 0 : 56);
-
-            // Fit full width cleanly (minor 8px margin instead of 64px)
-            const widthScale = (containerWidth - 8) / unscaledViewport.width;
-            const heightScale = containerHeight / unscaledViewport.height;
-            const autoScale = Math.min(widthScale, heightScale);
-            setFitScale(Math.max(0.4, Number(autoScale.toFixed(2))));
+            const targetWidth =
+              containerWidth < 768
+                ? Math.max(containerWidth - 8, 280)
+                : Math.min(containerWidth - 32, 920);
+            const autoScale = targetWidth / unscaledViewport.width;
+            setFitScale(Math.max(0.4, Number(autoScale.toFixed(3))));
           } catch {
             setFitScale(1.0);
           }
@@ -283,6 +410,49 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
       isCancelled = true;
     };
   }, [url, hideTopToolbar]);
+
+  // Dynamically re-fit PDF pages when device rotates or viewport resizes
+  useEffect(() => {
+    if (!pdfDoc || !containerRef.current) return;
+    let cancelled = false;
+
+    const recalcFit = async () => {
+      if (cancelled || !containerRef.current) return;
+      try {
+        const firstPage = await pdfDoc.getPage(1);
+        const unscaledViewport = firstPage.getViewport({ scale: 1, rotation });
+        const containerWidth = containerRef.current.clientWidth || window.innerWidth || 800;
+        const containerHeight =
+          (containerRef.current.clientHeight || window.innerHeight || 900) - (hideTopToolbar ? 0 : 56);
+
+        let autoScale: number;
+        if (displayMode === 'single') {
+          const wScale = (containerWidth - 16) / unscaledViewport.width;
+          const hScale = containerHeight / unscaledViewport.height;
+          autoScale = Math.min(wScale, hScale);
+        } else {
+          const targetWidth =
+            containerWidth < 768
+              ? Math.max(containerWidth - 8, 280)
+              : Math.min(containerWidth - 32, 920);
+          autoScale = targetWidth / unscaledViewport.width;
+        }
+        if (!cancelled && Number.isFinite(autoScale) && autoScale > 0) {
+          setFitScale(Math.max(0.4, Number(autoScale.toFixed(3))));
+        }
+      } catch {}
+    };
+
+    recalcFit();
+
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => recalcFit()) : null;
+    if (ro) ro.observe(containerRef.current);
+
+    return () => {
+      cancelled = true;
+      ro?.disconnect();
+    };
+  }, [pdfDoc, displayMode, rotation, hideTopToolbar]);
 
   // Active render task ref for single slide mode
   const activeRenderTaskRef = useRef<any>(null);
@@ -328,7 +498,6 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
           canvasContext: context,
           viewport: layoutViewport,
           transform,
-          canvas,
         });
         activeRenderTaskRef.current = renderTask;
         await renderTask.promise;
@@ -545,42 +714,53 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        className={`flex-1 w-full h-full relative overflow-hidden flex flex-col items-center justify-start bg-white dark:bg-[#0b0c10] select-none ${
+        className={`flex-1 w-full h-full relative overflow-hidden flex flex-col items-center justify-start bg-slate-100/90 dark:bg-[#0b0c10] select-none ${
           isDragging ? 'cursor-grabbing' : ''
         }`}
       >
-        {/* Floating Minimal Controls Dock when top toolbar is hidden and bottom dock not suppressed */}
-        {hideTopToolbar && !hideBottomDock && (
-          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/95 dark:bg-[#16171d]/95 border border-slate-200/80 dark:border-white/10 shadow-2xl backdrop-blur-md text-xs select-none">
+        {/* Google-Drive-Style Scroll-Only Page Counter Pill (auto-hides when not scrolling) */}
+        {hideTopToolbar && hideBottomDock && pdfDoc && !error && !loading && (
+          <div
+            className={`pointer-events-none absolute bottom-5 left-1/2 -translate-x-1/2 z-30 px-3.5 py-1.5 rounded-full bg-black/75 dark:bg-zinc-900/90 text-white border-0 ring-0 shadow-[0_6px_20px_rgba(0,0,0,0.22)] backdrop-blur-md text-[11.5px] font-semibold tabular-nums whitespace-nowrap select-none transition-opacity duration-300 ${
+              isScrolling ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            {pageNum} / {totalPages}
+          </div>
+        )}
+
+        {/* Floating Minimal Borderless Controls Dock (only shown when bottom dock is explicitly enabled) */}
+        {hideTopToolbar && !hideBottomDock && pdfDoc && !error && !loading && (
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/95 dark:bg-[#181a20]/95 border-0 ring-0 shadow-[0_8px_28px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_10px_32px_rgba(0,0,0,0.55)] backdrop-blur-xl text-xs select-none">
             <button
               type="button"
               onClick={handlePrevPage}
               disabled={pageNum <= 1 || loading}
-              className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-700 dark:text-slate-300 disabled:opacity-20 cursor-pointer border-0 bg-transparent"
+              className="w-7 h-7 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-700 dark:text-slate-300 disabled:opacity-25 cursor-pointer border-0 outline-none bg-transparent transition-colors active:scale-95"
               title="Previous Slide"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="text-slate-800 dark:text-slate-200 font-mono font-bold px-1.5 text-[11px]">
+            <span className="text-slate-800 dark:text-slate-200 font-semibold tabular-nums whitespace-nowrap px-1.5 text-[11.5px]">
               {pageNum} / {totalPages}
             </span>
             <button
               type="button"
               onClick={handleNextPage}
               disabled={pageNum >= totalPages || loading}
-              className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-700 dark:text-slate-300 disabled:opacity-20 cursor-pointer border-0 bg-transparent"
+              className="w-7 h-7 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-700 dark:text-slate-300 disabled:opacity-25 cursor-pointer border-0 outline-none bg-transparent transition-colors active:scale-95"
               title="Next Slide"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
 
-            <div className="w-px h-3.5 bg-slate-200 dark:bg-white/15 mx-1" />
+            <div className="w-px h-3.5 bg-slate-200/80 dark:bg-white/12 mx-1" />
 
             <button
               type="button"
               onClick={handleZoomOut}
               disabled={zoom <= 0.5 || loading}
-              className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-700 dark:text-slate-300 disabled:opacity-20 cursor-pointer border-0 bg-transparent"
+              className="w-7 h-7 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-700 dark:text-slate-300 disabled:opacity-25 cursor-pointer border-0 outline-none bg-transparent transition-colors active:scale-95"
               title="Zoom Out"
             >
               <ZoomOut className="w-3.5 h-3.5" />
@@ -588,7 +768,7 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
             <button
               type="button"
               onClick={handleResetZoom}
-              className="text-[11px] font-bold text-sky-600 dark:text-sky-400 px-1 cursor-pointer border-0 bg-transparent"
+              className="text-[11.5px] font-bold tabular-nums text-[#0b57d0] dark:text-[#a8c7fa] px-1.5 py-0.5 rounded-full hover:bg-[#0b57d0]/10 dark:hover:bg-[#a8c7fa]/10 cursor-pointer border-0 outline-none bg-transparent transition-colors"
               title="Reset Zoom"
             >
               {Math.round(zoom * 100)}%
@@ -597,21 +777,25 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
               type="button"
               onClick={handleZoomIn}
               disabled={zoom >= 4.0 || loading}
-              className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-700 dark:text-slate-300 disabled:opacity-20 cursor-pointer border-0 bg-transparent"
+              className="w-7 h-7 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-700 dark:text-slate-300 disabled:opacity-25 cursor-pointer border-0 outline-none bg-transparent transition-colors active:scale-95"
               title="Zoom In"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
 
-            <div className="w-px h-3.5 bg-slate-200 dark:bg-white/15 mx-1" />
+            <div className="w-px h-3.5 bg-slate-200/80 dark:bg-white/12 mx-1" />
 
             <button
               type="button"
               onClick={() => setDisplayMode((prev) => (prev === 'continuous' ? 'single' : 'continuous'))}
-              className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-700 dark:text-slate-300 cursor-pointer border-0 bg-transparent"
+              className={`w-7 h-7 flex items-center justify-center rounded-full cursor-pointer border-0 outline-none transition-colors active:scale-95 ${
+                displayMode === 'continuous'
+                  ? 'bg-[#0b57d0]/12 text-[#0b57d0] dark:bg-[#a8c7fa]/15 dark:text-[#a8c7fa]'
+                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 bg-transparent'
+              }`}
               title={displayMode === 'continuous' ? 'Switch to Single Slide' : 'Switch to Continuous Scroll'}
             >
-              {displayMode === 'continuous' ? <Scroll className="w-3.5 h-3.5 text-sky-500" /> : <Square className="w-3.5 h-3.5" />}
+              {displayMode === 'continuous' ? <Scroll className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
             </button>
           </div>
         )}
@@ -655,25 +839,30 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
           displayMode === 'continuous' ? (
             <div
               ref={scrollContainerRef}
-              className="w-full h-full overflow-y-auto overflow-x-hidden flex flex-col items-center p-0 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-zinc-700"
+              onScroll={handleContainerScroll}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onDoubleClick={handleDoubleClickZoom}
+              onMouseDown={handleScrollMouseDown}
+              onMouseMove={handleScrollMouseMove}
+              onMouseUp={handleScrollMouseUp}
+              onMouseLeave={handleScrollMouseUp}
+              className={`w-full h-full overflow-y-auto ${
+                zoom > 1.02 ? 'overflow-x-auto items-start cursor-grab active:cursor-grabbing' : 'overflow-x-hidden items-center'
+              } flex flex-col p-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden`}
               style={{
-                scrollBehavior: 'smooth',
+                scrollBehavior: zoom > 1.02 ? 'auto' : 'smooth',
+                touchAction: zoom > 1.02 ? 'pan-x pan-y' : 'pan-y',
               }}
             >
-              <div
-                className="flex flex-col items-center w-full max-w-full my-0"
-                style={{
-                  transform: `scale(${zoom})`,
-                  transformOrigin: 'top center',
-                  transition: 'transform 0.1s ease-out',
-                }}
-              >
+              <div className={`flex flex-col ${zoom > 1.02 ? 'items-start' : 'items-center'} min-w-full my-0`}>
                 {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((pNum) => (
                   <ContinuousPageItem
                     key={`page-${pNum}`}
                     pdfDoc={pdfDoc}
                     pageNumber={pNum}
-                    scale={fitScale}
+                    scale={fitScale * zoom}
                     rotation={rotation}
                     onEnterView={(currentVisible) => setPageNum(currentVisible)}
                   />

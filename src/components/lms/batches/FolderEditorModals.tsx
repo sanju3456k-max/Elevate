@@ -19,6 +19,7 @@ import type { Lecture, PdfNote } from '../../../lms/types';
 import type { MathTest } from '../../../types';
 import { extractYouTubeId, obfuscateVideoKey } from '../../../lms/security';
 import { fetchVideoMetadata, extractYouTubeVideoId, type VideoMetadata } from '../../../lms/videoMetadataService';
+import { fetchDocumentMetadata } from '../../../lms/documentMetadataService';
 import { SyncedVideoPreviewCard } from './SyncedVideoPreviewCard';
 import { M3Switch, M3CircularProgress } from '../../ui/Material3';
 import { getTestDurationMinutes } from '../../../utils/testFormatConverter';
@@ -476,7 +477,17 @@ export const AddOrEditVideoModal: React.FC<AddOrEditVideoModalProps> = ({
             <input
               type="url"
               value={pdfNoteUrl}
-              onChange={(e) => setPdfNoteUrl(e.target.value)}
+              onChange={(e) => {
+                const nextUrl = e.target.value;
+                setPdfNoteUrl(nextUrl);
+                if (nextUrl.trim().startsWith('http') && !pdfNoteTitle.trim()) {
+                  fetchDocumentMetadata(nextUrl).then((meta) => {
+                    if (meta?.title) {
+                      setPdfNoteTitle((prev) => prev.trim() ? prev : meta.title);
+                    }
+                  }).catch(() => {});
+                }
+              }}
               placeholder="https://drive.google.com/... or Direct PDF Link"
               className="w-full px-3 py-2 rounded-xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 border border-slate-200/80 dark:border-zinc-700/60 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 dark:placeholder:text-zinc-500 font-medium outline-hidden"
             />
@@ -524,8 +535,30 @@ export const AddOrEditNoteModal: React.FC<AddOrEditNoteModalProps> = ({
 }) => {
   const [title, setTitle] = useState('');
   const [fileUrl, setFileUrl] = useState('');
+  const [isAutoFetchingTitle, setIsAutoFetchingTitle] = useState(false);
   const isInitializedRef = useRef(false);
   const activeNoteIdRef = useRef<string | null>(null);
+  const lastFetchedUrlRef = useRef<string>('');
+
+  const handleFileUrlChange = async (nextUrl: string) => {
+    setFileUrl(nextUrl);
+    const trimmed = nextUrl.trim();
+    if (!trimmed || !/^https?:\/\//i.test(trimmed)) return;
+    if (trimmed === lastFetchedUrlRef.current) return;
+    lastFetchedUrlRef.current = trimmed;
+
+    setIsAutoFetchingTitle(true);
+    try {
+      const meta = await fetchDocumentMetadata(trimmed);
+      if (meta?.title) {
+        setTitle((prev) => (prev.trim() ? prev : meta.title));
+      }
+    } catch {
+      // Ignore auto-title errors
+    } finally {
+      setIsAutoFetchingTitle(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -537,6 +570,7 @@ export const AddOrEditNoteModal: React.FC<AddOrEditNoteModalProps> = ({
           setTitle(initialData.title || '');
           setFileUrl(initialData.fileUrl || initialData.url || '');
         } else {
+          lastFetchedUrlRef.current = '';
           setTitle('');
           setFileUrl('');
         }
@@ -544,6 +578,7 @@ export const AddOrEditNoteModal: React.FC<AddOrEditNoteModalProps> = ({
     } else {
       isInitializedRef.current = false;
       activeNoteIdRef.current = null;
+      lastFetchedUrlRef.current = '';
     }
   }, [isOpen, initialData?.id]);
 
@@ -589,34 +624,42 @@ export const AddOrEditNoteModal: React.FC<AddOrEditNoteModalProps> = ({
 
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
-              Document Title <span className="text-rose-500">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200">
+                Document Title <span className="text-rose-500">*</span>
+              </label>
+              {isAutoFetchingTitle && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#0b57d0] dark:text-[#a8c7fa]">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Auto-detecting title...</span>
+                </span>
+              )}
+            </div>
             <input
               type="text"
               required
               autoFocus
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Formula Sheet & Cheat Sheet"
+              placeholder="e.g. Formula Sheet & Cheat Sheet (auto-fills from link)"
               className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 dark:focus:bg-zinc-900/80 border border-slate-200/80 focus:border-[#0b57d0] dark:border-zinc-700/60 dark:focus:border-[#a8c7fa] text-xs sm:text-sm text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 dark:placeholder:text-zinc-500 focus:outline-hidden backdrop-blur-xs transition font-medium"
             />
           </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
-              PDF Document Link (Google Drive / Direct URL) <span className="text-rose-500">*</span>
+              Document / Note Link (Google Drive / YouTube / Direct URL) <span className="text-rose-500">*</span>
             </label>
             <input
               type="url"
               required
               value={fileUrl}
-              onChange={(e) => setFileUrl(e.target.value)}
-              placeholder="https://drive.google.com/file/d/... or Direct PDF link"
+              onChange={(e) => handleFileUrlChange(e.target.value)}
+              placeholder="https://drive.google.com/file/d/... or Direct URL"
               className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 dark:focus:bg-zinc-900/80 border border-slate-200/80 focus:border-[#0b57d0] dark:border-zinc-700/60 dark:focus:border-[#a8c7fa] text-xs sm:text-sm text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 dark:placeholder:text-zinc-500 focus:outline-hidden backdrop-blur-xs transition font-medium"
             />
             <p className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium mt-1">
-              Supports Google Drive share links, preview links, or secure HTTPS PDF URLs.
+              Supports Google Drive share links, preview links, YouTube links, or HTTPS PDF URLs.
             </p>
           </div>
 
