@@ -267,18 +267,20 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
 
   const applyAnchoredImageZoom = useCallback((nextZoom: number, clientX?: number, clientY?: number) => {
     const el = imgScrollRef.current;
+    const contentEl = imgContentRef.current;
     const prevZoom = imgZoomRef.current;
-    if (el && Math.abs(nextZoom - prevZoom) > 0.001) {
-      const rect = el.getBoundingClientRect();
-      const relX = clientX !== undefined ? clientX - rect.left : rect.width / 2;
-      const relY = clientY !== undefined ? clientY - rect.top : rect.height / 2;
+    if (el && contentEl && Math.abs(nextZoom - prevZoom) > 0.001) {
+      const elRect = el.getBoundingClientRect();
+      const contentRect = contentEl.getBoundingClientRect();
+      const relX = clientX !== undefined ? clientX - elRect.left : elRect.width / 2;
+      const relY = clientY !== undefined ? clientY - elRect.top : elRect.height / 2;
       imgPendingAnchorRef.current = {
         prevZoom,
         nextZoom,
         relX,
         relY,
-        contentX: el.scrollLeft + relX,
-        contentY: el.scrollTop + relY,
+        contentX: (clientX !== undefined ? clientX : elRect.left + elRect.width / 2) - contentRect.left,
+        contentY: (clientY !== undefined ? clientY : elRect.top + elRect.height / 2) - contentRect.top,
       };
     }
     setImageZoom(nextZoom);
@@ -287,11 +289,12 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
   useLayoutEffect(() => {
     const anchor = imgPendingAnchorRef.current;
     const el = imgScrollRef.current;
-    if (!anchor || !el) return;
+    const contentEl = imgContentRef.current;
+    if (!anchor || !el || !contentEl) return;
     imgPendingAnchorRef.current = null;
     const scale = anchor.nextZoom / anchor.prevZoom;
-    el.scrollLeft = Math.max(0, anchor.contentX * scale - anchor.relX);
-    el.scrollTop = Math.max(0, anchor.contentY * scale - anchor.relY);
+    el.scrollLeft = Math.max(0, contentEl.offsetLeft + anchor.contentX * scale - anchor.relX);
+    el.scrollTop = Math.max(0, contentEl.offsetTop + anchor.contentY * scale - anchor.relY);
   }, [imageZoom]);
 
   // Non-passive touchmove listener so 2-finger pinch cancels native scroll on Android WebView
@@ -351,23 +354,22 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
     } else {
       imgTapOriginRef.current = null;
     }
-    if (e.touches.length === 2 && imgScrollRef.current) {
+    if (e.touches.length === 2 && imgScrollRef.current && imgContentRef.current) {
       const el = imgScrollRef.current;
-      const rect = el.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const contentRect = imgContentRef.current.getBoundingClientRect();
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
       const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-      const relX = midX - rect.left;
-      const relY = midY - rect.top;
       imgPinchStateRef.current = {
         active: true,
         startDist: Math.max(1, Math.hypot(dx, dy)),
         startZoom: imgZoomRef.current,
-        startContentX: el.scrollLeft + relX,
-        startContentY: el.scrollTop + relY,
-        startScrollLeft: el.scrollLeft,
-        startScrollTop: el.scrollTop,
+        startContentX: midX - contentRect.left,
+        startContentY: midY - contentRect.top,
+        startScrollLeft: contentRect.left - elRect.left,
+        startScrollTop: contentRect.top - elRect.top,
         lastNextZoom: imgZoomRef.current,
         lastClientX: midX,
         lastClientY: midY,
@@ -401,8 +403,8 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
       const curRelX = midX - rect.left;
       const curRelY = midY - rect.top;
 
-      const tx = ps.startScrollLeft + curRelX - relScale * ps.startContentX;
-      const ty = ps.startScrollTop + curRelY - relScale * ps.startContentY;
+      const tx = curRelX - ps.startScrollLeft - relScale * ps.startContentX;
+      const ty = curRelY - ps.startScrollTop - relScale * ps.startContentY;
 
       contentEl.style.transformOrigin = '0 0';
       contentEl.style.willChange = 'transform';
