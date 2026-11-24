@@ -490,10 +490,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (snap.exists()) {
           const val = snap.data();
           if (Array.isArray(val?.list)) {
-            setAnnouncements(val.list);
-            try {
-              secureStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(val.list));
-            } catch {}
+            setAnnouncements((currentLocal) => {
+              // Merge Firestore announcements with local announcements to guarantee zero post drops
+              const map = new Map<string, Announcement>();
+              val.list.forEach((item: Announcement) => {
+                if (item?.id) map.set(item.id, item);
+              });
+              currentLocal.forEach((item) => {
+                if (item?.id && !map.has(item.id)) {
+                  map.set(item.id, item);
+                }
+              });
+              const merged = Array.from(map.values()).sort(
+                (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+              );
+              try {
+                secureStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(merged));
+              } catch {}
+              return merged;
+            });
           }
         }
       },
@@ -1254,7 +1269,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     const newAnn: Announcement = sanitizeForFirestore(rawAnn);
     setAnnouncements((prev) => {
-      const next = [newAnn, ...prev.filter((a) => a.id !== newAnn.id)];
+      // Prepend new announcement and preserve all previous announcements cleanly
+      const map = new Map<string, Announcement>();
+      map.set(newAnn.id, newAnn);
+      prev.forEach((a) => {
+        if (a.id && !map.has(a.id)) {
+          map.set(a.id, a);
+        }
+      });
+      const next = Array.from(map.values()).sort(
+        (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+      );
       try {
         secureStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(next));
       } catch {}

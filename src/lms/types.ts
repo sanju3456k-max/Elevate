@@ -135,7 +135,7 @@ export interface Announcement {
   authorRole?: string;
   createdAt?: number;
   isHeroBanner?: boolean;
-  themeColor?: 'orange' | 'blue' | 'green' | 'purple' | 'rose' | 'slate' | string;
+  themeColor?: 'yellow' | 'orange' | 'blue' | 'green' | 'purple' | 'rose' | 'slate' | string;
 }
 
 export interface PlaybackSessionToken {

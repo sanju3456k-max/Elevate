@@ -21,18 +21,19 @@ import type { User } from 'firebase/auth';
 import type { Announcement } from '../../lms/types';
 
 const THEME_OPTIONS = [
-  { id: 'orange', label: 'Orange', bg: 'bg-orange-500', swatch: 'from-orange-500 to-amber-500' },
-  { id: 'blue', label: 'Blue', bg: 'bg-blue-500', swatch: 'from-blue-500 to-indigo-500' },
-  { id: 'green', label: 'Emerald', bg: 'bg-emerald-500', swatch: 'from-emerald-500 to-teal-500' },
-  { id: 'purple', label: 'Purple', bg: 'bg-purple-500', swatch: 'from-purple-500 to-fuchsia-500' },
-  { id: 'rose', label: 'Rose', bg: 'bg-rose-500', swatch: 'from-rose-500 to-pink-500' },
-  { id: 'slate', label: 'Slate', bg: 'bg-slate-600', swatch: 'from-slate-600 to-zinc-700' },
+  { id: 'yellow', label: 'Plain Yellow', bg: 'bg-[#fbc404]', swatch: 'from-[#ffd000] to-[#fbc404]' },
+  { id: 'orange', label: 'Sunset Orange', bg: 'bg-orange-500', swatch: 'from-orange-500 to-amber-500' },
+  { id: 'blue', label: 'Ocean Blue', bg: 'bg-blue-500', swatch: 'from-blue-500 to-indigo-500' },
+  { id: 'green', label: 'Emerald Green', bg: 'bg-emerald-500', swatch: 'from-emerald-500 to-teal-500' },
+  { id: 'purple', label: 'Royal Purple', bg: 'bg-purple-500', swatch: 'from-purple-500 to-fuchsia-500' },
+  { id: 'rose', label: 'Blossom Rose', bg: 'bg-rose-500', swatch: 'from-rose-500 to-pink-500' },
+  { id: 'slate', label: 'Slate Minimal', bg: 'bg-slate-600', swatch: 'from-slate-600 to-zinc-700' },
 ] as const;
 
 interface CreatePostModalProps {
   isOpen: boolean;
   onClose: () => void;
-  currentUser?: User | null;
+  currentUser?: any;
   defaultBatchId?: string;
 }
 
@@ -45,7 +46,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const { batches, addAnnouncement } = useApp();
 
   const [postMode, setPostMode] = useState<'banner' | 'notification'>('banner');
-  const [themeColor, setThemeColor] = useState<'orange' | 'blue' | 'green' | 'purple' | 'rose' | 'slate'>('orange');
+  const [themeColor, setThemeColor] = useState<'yellow' | 'orange' | 'blue' | 'green' | 'purple' | 'rose' | 'slate'>('yellow');
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [selectedBatchId, setSelectedBatchId] = useState<string>(defaultBatchId || '');
@@ -134,7 +135,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     setImageUrl('');
     setShowUrlInput(false);
     setPostMode('banner');
-    setThemeColor('orange');
+    setThemeColor('yellow');
     onClose();
   };
 
@@ -260,17 +261,17 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
             {/* Banner Theme Background Color Picker (When Home Screen Banner is selected) */}
             {postMode === 'banner' && (
-              <div className="space-y-2 p-3 rounded-2xl bg-orange-500/5 dark:bg-orange-950/20 border border-orange-500/20 dark:border-orange-500/15">
+              <div className="space-y-3 p-3.5 rounded-2xl bg-amber-500/5 dark:bg-amber-950/20 border border-amber-500/20 dark:border-amber-500/15">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
-                    <Palette className="w-3.5 h-3.5 text-orange-500" />
+                    <Palette className="w-3.5 h-3.5 text-amber-500" />
                     <span>Banner Theme Color</span>
                   </label>
-                  <span className="text-[11px] font-bold text-orange-600 dark:text-orange-400 capitalize">
-                    {THEME_OPTIONS.find((t) => t.id === themeColor)?.label || 'Orange'} (Default)
+                  <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 capitalize">
+                    {THEME_OPTIONS.find((t) => t.id === themeColor)?.label || 'Golden Amber'} {themeColor === 'yellow' ? '(Default)' : ''}
                   </span>
                 </div>
-                <div className="grid grid-cols-6 gap-2 pt-0.5">
+                <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5 pt-0.5">
                   {THEME_OPTIONS.map((theme) => {
                     const isSelected = themeColor === theme.id;
                     return (
@@ -280,24 +281,54 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                         onClick={() => setThemeColor(theme.id)}
                         className={`group flex flex-col items-center gap-1.5 p-1.5 rounded-xl transition-all cursor-pointer border ${
                           isSelected
-                            ? 'border-orange-500 bg-white dark:bg-zinc-800 shadow-sm scale-105'
+                            ? 'border-amber-500 bg-white dark:bg-zinc-800 shadow-sm scale-105'
                             : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5 opacity-75 hover:opacity-100'
                         }`}
                         title={`${theme.label} theme`}
                       >
                         <div
                           className={`w-7 h-7 rounded-full bg-gradient-to-br ${theme.swatch} shadow-xs flex items-center justify-center text-white transition-transform ${
-                            isSelected ? 'scale-110 ring-2 ring-orange-500/40 ring-offset-1 dark:ring-offset-zinc-900' : ''
+                            isSelected ? 'scale-110 ring-2 ring-amber-500/50 ring-offset-1 dark:ring-offset-zinc-900' : ''
                           }`}
                         >
                           {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                         </div>
-                        <span className="text-[10px] font-semibold text-slate-700 dark:text-zinc-300 truncate max-w-full">
-                          {theme.label}
+                        <span className="text-[10px] font-semibold text-slate-700 dark:text-zinc-300 truncate max-w-full text-center">
+                          {theme.label.split(' ')[0]}
                         </span>
                       </button>
                     );
                   })}
+                </div>
+
+                {/* Banner Dimensions Guide for External Graphic Designers & Admin */}
+                <div className="mt-1 pt-2 border-t border-amber-500/15 text-slate-700 dark:text-zinc-300 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      Universal Banner Dimensions Guide
+                    </span>
+                    <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                      Mobile • Tablet • Desktop Fit
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="p-2 rounded-xl bg-white/80 dark:bg-zinc-900/80 border border-slate-200/60 dark:border-zinc-800/80">
+                      <span className="text-slate-400 dark:text-zinc-500 text-[10px] font-medium block">Standard Banner Size</span>
+                      <strong className="text-slate-900 dark:text-zinc-100 font-extrabold text-xs block mt-0.5">1200 × 500 px</strong>
+                      <span className="text-[9.5px] text-amber-600 dark:text-amber-400 font-semibold block mt-0.5">2.4 : 1 Aspect Ratio</span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white/80 dark:bg-zinc-900/80 border border-slate-200/60 dark:border-zinc-800/80">
+                      <span className="text-slate-400 dark:text-zinc-500 text-[10px] font-medium block">Safe Content Area</span>
+                      <strong className="text-emerald-600 dark:text-emerald-400 font-extrabold text-xs block mt-0.5">1000 × 420 px</strong>
+                      <span className="text-[9.5px] text-slate-500 dark:text-zinc-400 font-medium block mt-0.5">Centered (Logo & Text)</span>
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-slate-500 dark:text-zinc-400 leading-tight">
+                    💡 <em>Tip:</em> Share this standard size (1200×500) with your graphic designer. Keeping important text and logos within the 1000×420 center zone guarantees zero cropping across all mobile screens, iPads, and wide desktop monitors.
+                  </p>
                 </div>
               </div>
             )}

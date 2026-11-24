@@ -1355,7 +1355,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             </button>
 
             {/* Google Drive Breadcrumbs Trail */}
-            <div className="flex items-center space-x-1.5 text-xs font-semibold overflow-x-auto py-1 scrollbar-none">
+            <div className="flex items-center space-x-1.5 text-[13px] sm:text-xs font-semibold overflow-x-auto py-1 scrollbar-none">
               <button
                 onClick={handleGoToAllCourses}
                 className="px-2 py-1 rounded-lg hover:bg-[var(--md-sys-color-surface-container)] text-slate-700 dark:text-zinc-300 font-semibold border-none bg-transparent cursor-pointer shrink-0"
@@ -1548,7 +1548,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 setFolderActiveTab('videos');
                 onFolderTabChange?.('videos');
               }}
-              className={`flex-1 h-9 px-3.5 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-0 outline-none cursor-pointer active:scale-95 ${
+              className={`flex-1 h-9 px-3.5 sm:px-4 rounded-full text-[13px] sm:text-xs font-bold transition flex items-center justify-center space-x-1.5 border-0 outline-none cursor-pointer active:scale-95 ${
                 folderActiveTab === 'videos'
                   ? 'bg-[#0b57d0] text-white shadow-[0_2px_6px_rgba(11,87,208,0.25)]'
                   : 'text-slate-700 dark:text-zinc-300 hover:text-[#1f1f1f] dark:hover:text-[#e3e3e3] bg-transparent'
@@ -1564,7 +1564,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 setFolderActiveTab('notes_content');
                 onFolderTabChange?.('notes_content');
               }}
-              className={`flex-1 h-9 px-3.5 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-0 outline-none cursor-pointer active:scale-95 ${
+              className={`flex-1 h-9 px-3.5 sm:px-4 rounded-full text-[13px] sm:text-xs font-bold transition flex items-center justify-center space-x-1.5 border-0 outline-none cursor-pointer active:scale-95 ${
                 folderActiveTab === 'notes_content'
                   ? 'bg-[#0b57d0] text-white shadow-[0_2px_6px_rgba(11,87,208,0.25)]'
                   : 'text-slate-700 dark:text-zinc-300 hover:text-[#1f1f1f] dark:hover:text-[#e3e3e3] bg-transparent'
@@ -1580,7 +1580,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 setFolderActiveTab('tests');
                 onFolderTabChange?.('tests');
               }}
-              className={`flex-1 h-9 px-3.5 sm:px-4 rounded-full text-xs font-bold transition flex items-center justify-center space-x-1.5 border-0 outline-none cursor-pointer active:scale-95 ${
+              className={`flex-1 h-9 px-3.5 sm:px-4 rounded-full text-[13px] sm:text-xs font-bold transition flex items-center justify-center space-x-1.5 border-0 outline-none cursor-pointer active:scale-95 ${
                 folderActiveTab === 'tests'
                   ? 'bg-[#0b57d0] text-white shadow-[0_2px_6px_rgba(11,87,208,0.25)]'
                   : 'text-slate-700 dark:text-zinc-300 hover:text-[#1f1f1f] dark:hover:text-[#e3e3e3] bg-transparent'
@@ -1635,10 +1635,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                         />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h4 className="text-xs sm:text-sm font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition truncate">
+                        <h4 className="text-sm sm:text-[14.5px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition truncate">
                           {fld.title}
                         </h4>
-                        <p className="text-[10.5px] text-slate-700 dark:text-zinc-300 font-medium tabular-nums truncate mt-0.5">
+                        <p className="text-[11.5px] sm:text-xs text-slate-700 dark:text-zinc-300 font-medium tabular-nums truncate mt-0.5">
                           {nestedChildFolders.length > 0 && `${nestedChildFolders.length} Folders • `}
                           {subLectures.length} Videos • {notesCount} Notes • {subTestsCount} Tests
                         </p>
@@ -1740,7 +1740,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 ) : (
                   <div className="p-8 text-center bg-white dark:bg-[#1e2024] rounded-3xl border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-2">
                     <Video className="w-8 h-8 mx-auto text-indigo-500 opacity-60" />
-                    <h4 className="text-xs sm:text-sm font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
+                    <h4 className="text-sm sm:text-base font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
                       No Video Lectures in this folder yet
                     </h4>
                     {isMaster ? (
@@ -1814,7 +1814,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
                         {/* Lecture Meta & Title */}
                         <div className="min-w-0 flex-1 py-0.5">
-                          <h4 className="text-xs sm:text-sm font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition line-clamp-2 leading-snug">
+                          <h4 className="text-sm sm:text-[14.5px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition line-clamp-2 leading-snug">
                             {lec.title}
                           </h4>
                           <p className="hidden sm:block text-[11px] text-slate-700 dark:text-zinc-300 font-medium line-clamp-1 mt-0.5">
@@ -1929,7 +1929,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 ) : (
                   <div className="p-8 text-center bg-white dark:bg-[#1e2024] rounded-3xl border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-2">
                     <FileText className="w-8 h-8 mx-auto text-emerald-500 opacity-60" />
-                    <h4 className="text-xs sm:text-sm font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
+                    <h4 className="text-sm sm:text-base font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
                       No PDF Notes in this folder yet
                     </h4>
                     {isMaster ? (
@@ -1963,7 +1963,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                           <FileText className="w-5 h-5" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h4 className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+                          <h4 className="text-sm sm:text-[14.5px] font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
                             {note.title}
                           </h4>
                           <div className="flex items-center gap-1.5 mt-0.5">
@@ -2057,7 +2057,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 ) : (
                   <div className="p-8 text-center bg-white dark:bg-[#1e2024] rounded-3xl border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-2">
                     <Award className="w-8 h-8 mx-auto text-amber-500 opacity-60" />
-                    <h4 className="text-xs sm:text-sm font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
+                    <h4 className="text-sm sm:text-base font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
                       No Mock Tests in this folder yet
                     </h4>
                     {isMaster ? (

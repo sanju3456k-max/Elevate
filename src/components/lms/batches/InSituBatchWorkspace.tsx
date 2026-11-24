@@ -634,7 +634,7 @@ export const InSituBatchWorkspace: React.FC<InSituBatchWorkspaceProps> = ({
                     </div>
 
                     <div>
-                      <h4 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] line-clamp-1">
+                      <h4 className="text-sm font-bold text-[var(--md-sys-color-on-surface)] line-clamp-1">
                         {lec.title}
                       </h4>
                       <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] line-clamp-2 mt-0.5">
@@ -724,7 +724,7 @@ export const InSituBatchWorkspace: React.FC<InSituBatchWorkspaceProps> = ({
                       </span>
                     </div>
 
-                    <h4 className="text-xs font-bold text-[var(--md-sys-color-on-surface)] line-clamp-1">
+                    <h4 className="text-sm font-bold text-[var(--md-sys-color-on-surface)] line-clamp-1">
                       {test.title}
                     </h4>
                     <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">

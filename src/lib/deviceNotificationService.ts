@@ -20,7 +20,7 @@ export interface InAppNotificationPayload {
   body: string;
   id?: number | string;
   icon?: string;
-  category?: 'lecture' | 'test' | 'ai' | 'notes' | 'system';
+  category?: 'lecture' | 'test' | 'ai' | 'notes' | 'system' | 'post';
   targetBatchId?: string;
   targetChapterId?: string | null;
   targetLectureId?: string;
