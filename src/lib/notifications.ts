@@ -212,6 +212,8 @@ export function deriveRealBatchNotifications(params: {
 
   // 2. REAL BATCH ANNOUNCEMENTS & MASTER BROADCAST POSTS
   announcements.forEach((ann) => {
+    // Auto-expiry check: skip if banner/post duration has elapsed
+    if (ann.expiresAt && typeof ann.expiresAt === 'number' && Date.now() > ann.expiresAt) return;
     if (ann.batchId && !isEnrolledBatch(ann.batchId)) return;
     const notifId = `notif-ann-${ann.id}`;
     if (seenIds.has(notifId) || dismissedSet.has(notifId)) return;

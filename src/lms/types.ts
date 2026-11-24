@@ -136,6 +136,8 @@ export interface Announcement {
   createdAt?: number;
   isHeroBanner?: boolean;
   themeColor?: 'yellow' | 'orange' | 'blue' | 'green' | 'purple' | 'rose' | 'slate' | string;
+  expiresAt?: number | null;
+  durationLabel?: string;
 }
 
 export interface PlaybackSessionToken {

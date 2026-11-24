@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Play,
   CheckCircle,
@@ -216,16 +216,47 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   );
   const displayedBatches = activeView === 'my-batches' ? enrolledBatches : visibleBatches;
 
-  // Active Hero Announcement Banners for Home Feed (Filtered by student batch enrollment / master)
+  // Real-time ticker to auto-expire announcements dynamically without page refresh
+  const [currentTime, setCurrentTime] = useState<number>(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Format remaining time for live banners
+  const getRemainingTimeBadge = useCallback((expiresAt?: number | null) => {
+    if (!expiresAt) return null;
+    const diff = expiresAt - currentTime;
+    if (diff <= 0) return 'Expired';
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const days = Math.floor(hours / 24);
+    if (days > 0) {
+      const remHours = hours % 24;
+      return `${days}d ${remHours}h left`;
+    }
+    if (hours > 0) {
+      return `${hours}h ${minutes}m left`;
+    }
+    return `${Math.max(1, minutes)}m left`;
+  }, [currentTime]);
+
+  // Active Hero Announcement Banners for Home Feed (Filtered by student batch enrollment / master and live duration)
   const heroBanners = useMemo(() => {
     if (!announcements || announcements.length === 0) return [];
     return announcements.filter((ann) => {
       if (!ann.isHeroBanner) return false;
-      if (isMaster) return true; // Master always sees all active banners
+      // Auto-expiry check: remove banner if live duration has lapsed
+      if (ann.expiresAt && typeof ann.expiresAt === 'number' && currentTime > ann.expiresAt) {
+        return false;
+      }
+      if (isMaster) return true; // Master sees all unexpired active banners
       if (!ann.batchId) return true; // Global broadcast
       return enrolledBatchIdSet.has(ann.batchId);
     });
-  }, [announcements, isMaster, enrolledBatchIdSet]);
+  }, [announcements, isMaster, enrolledBatchIdSet, currentTime]);
 
   // Keep index within bounds if heroBanners count changes
   useEffect(() => {
@@ -695,6 +726,20 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                           All Students
                         </span>
                       )}
+                      {/* Live duration / remaining time badge */}
+                      {banner.expiresAt ? (
+                        <span className="inline-flex items-center gap-1 text-[9.5px] sm:text-[11px] font-bold text-amber-300 bg-black/60 backdrop-blur-md border border-amber-400/30 px-2 py-0.5 rounded-full shadow-sm">
+                          <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400" />
+                          <span>{getRemainingTimeBadge(banner.expiresAt)}</span>
+                        </span>
+                      ) : (
+                        isMaster && (
+                          <span className="inline-flex items-center gap-1 text-[9.5px] sm:text-[11px] font-bold text-emerald-300 bg-black/60 backdrop-blur-md border border-emerald-400/30 px-2 py-0.5 rounded-full shadow-sm">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <span>Always Live</span>
+                          </span>
+                        )
+                      )}
                     </div>
                   ) : bBatch ? (
                     <div className="absolute top-2 left-2 sm:top-3.5 sm:left-3.5 z-20 flex items-center gap-1.5 flex-wrap pointer-events-auto" onClick={(e) => e.stopPropagation()}>
@@ -797,6 +842,20 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                           <span className="text-[10px] sm:text-[11px] font-bold text-slate-700 dark:text-zinc-300 bg-black/5 dark:bg-white/10 px-2.5 py-0.5 rounded-full border-0">
                             All Students
                           </span>
+                        )}
+                        {/* Live duration / remaining time badge */}
+                        {banner.expiresAt ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 border border-amber-500/20 px-2.5 py-0.5 rounded-full">
+                            <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                            <span>{getRemainingTimeBadge(banner.expiresAt)}</span>
+                          </span>
+                        ) : (
+                          isMaster && (
+                            <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              <span>Always Live</span>
+                            </span>
+                          )
                         )}
                       </div>
                     )}

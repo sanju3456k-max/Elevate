@@ -14,6 +14,8 @@ import {
   CheckCircle2,
   Palette,
   Check,
+  Clock,
+  Calendar,
 } from 'lucide-react';
 import { useApp } from '../../lms/LmsContext';
 import { compressImageToDataUrl } from '../../lib/diagramPresets';
@@ -57,6 +59,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [isCompressing, setIsCompressing] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [urlInputVal, setUrlInputVal] = useState('');
+  const [durationMode, setDurationMode] = useState<'permanent' | '1h' | '6h' | '12h' | '24h' | '3d' | '7d' | 'custom'>('permanent');
+  const [customExpiryDate, setCustomExpiryDate] = useState<string>('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -117,6 +121,37 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     const hasText = Boolean(title.trim() || message.trim());
     if (!hasImage && !hasText) return;
 
+    // Compute banner display duration / auto-expiry timestamp
+    let calculatedExpiresAt: number | null = null;
+    let durationLabel = 'Permanent';
+
+    const now = Date.now();
+    if (durationMode === '1h') {
+      calculatedExpiresAt = now + 1 * 60 * 60 * 1000;
+      durationLabel = '1 Hour';
+    } else if (durationMode === '6h') {
+      calculatedExpiresAt = now + 6 * 60 * 60 * 1000;
+      durationLabel = '6 Hours';
+    } else if (durationMode === '12h') {
+      calculatedExpiresAt = now + 12 * 60 * 60 * 1000;
+      durationLabel = '12 Hours';
+    } else if (durationMode === '24h') {
+      calculatedExpiresAt = now + 24 * 60 * 60 * 1000;
+      durationLabel = '24 Hours';
+    } else if (durationMode === '3d') {
+      calculatedExpiresAt = now + 3 * 24 * 60 * 60 * 1000;
+      durationLabel = '3 Days';
+    } else if (durationMode === '7d') {
+      calculatedExpiresAt = now + 7 * 24 * 60 * 60 * 1000;
+      durationLabel = '7 Days';
+    } else if (durationMode === 'custom' && customExpiryDate) {
+      const parsed = new Date(customExpiryDate).getTime();
+      if (!isNaN(parsed) && parsed > now) {
+        calculatedExpiresAt = parsed;
+        durationLabel = `Custom: ${new Date(parsed).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+      }
+    }
+
     const postPayload: Omit<Announcement, 'id'> = {
       title: title.trim(),
       message: message.trim(),
@@ -125,6 +160,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       createdAt: Date.now(),
       date: new Date().toISOString(),
       isHeroBanner: postMode === 'banner' || postMode === 'broadcast_batch',
+      expiresAt: calculatedExpiresAt,
+      durationLabel,
     };
 
     if (postMode === 'banner') {
@@ -147,6 +184,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     setShowUrlInput(false);
     setPostMode('banner');
     setThemeColor('yellow');
+    setDurationMode('permanent');
+    setCustomExpiryDate('');
     onClose();
   };
 
@@ -455,6 +494,98 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Banner Live Duration / Auto-Expiry Control */}
+            <div className="space-y-2 p-3 sm:p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent border border-amber-500/25 dark:border-amber-500/30">
+              <div className="flex items-center justify-between gap-2">
+                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-zinc-200">
+                  <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  <span>Banner Live Duration (प्रसारण अवधि)</span>
+                </label>
+                <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-800 dark:text-amber-300 shrink-0">
+                  Auto-Expiry Control
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                तय करें कि यह बैनर कितनी देर तक लाइव रहेगा। समय पूरा होते ही यह अपने आप होम स्क्रीन से हट जाएगा।
+              </p>
+
+              {/* Quick Preset Duration Chips */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1">
+                {[
+                  { id: 'permanent', label: '⚡ Always Live', sub: 'Until Deleted' },
+                  { id: '1h', label: '1 Hour', sub: 'Flash Alert' },
+                  { id: '6h', label: '6 Hours', sub: 'Half Day' },
+                  { id: '12h', label: '12 Hours', sub: 'Day Event' },
+                  { id: '24h', label: '24 Hours', sub: '1 Full Day' },
+                  { id: '3d', label: '3 Days', sub: 'Short Notice' },
+                  { id: '7d', label: '7 Days', sub: '1 Full Week' },
+                  { id: 'custom', label: '🗓️ Custom', sub: 'Pick Date/Time' },
+                ].map((item) => {
+                  const isSelected = durationMode === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setDurationMode(item.id as any)}
+                      className={`p-2 rounded-xl text-left transition-all border cursor-pointer ${
+                        isSelected
+                          ? 'bg-amber-500 text-slate-950 font-black border-amber-500 shadow-sm shadow-amber-500/25 ring-2 ring-amber-400/40'
+                          : 'bg-white/90 dark:bg-zinc-800/80 text-slate-700 dark:text-zinc-300 border-slate-200/70 dark:border-zinc-700/60 hover:border-amber-300 dark:hover:border-amber-500/50'
+                      }`}
+                    >
+                      <span className={`text-[11px] font-extrabold block leading-tight ${isSelected ? 'text-slate-950' : 'text-slate-900 dark:text-zinc-100'}`}>
+                        {item.label}
+                      </span>
+                      <span className={`text-[9.5px] block leading-tight mt-0.5 ${isSelected ? 'text-slate-900/80' : 'text-slate-400 dark:text-zinc-500'}`}>
+                        {item.sub}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Date/Time Picker */}
+              {durationMode === 'custom' && (
+                <div className="pt-1.5 space-y-1 animate-fade-in">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-amber-500" />
+                    <span>Select Exact Expiry Date & Time:</span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={customExpiryDate}
+                    min={new Date().toISOString().slice(0, 16)}
+                    onChange={(e) => setCustomExpiryDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-slate-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              )}
+
+              {/* Status pill showing current auto-expiry time */}
+              <div className="p-2 rounded-xl bg-white/80 dark:bg-zinc-900/80 border border-slate-200/60 dark:border-zinc-800 flex items-center justify-between text-[11px]">
+                <span className="text-slate-500 dark:text-zinc-400 font-medium">Auto-Expiry:</span>
+                <span className="font-extrabold text-slate-800 dark:text-zinc-100 flex items-center gap-1.5">
+                  {durationMode === 'permanent' && (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>Permanent (Always Live until deleted)</span>
+                    </>
+                  )}
+                  {durationMode === '1h' && 'Live for 1 Hour (Flash)'}
+                  {durationMode === '6h' && 'Live for 6 Hours'}
+                  {durationMode === '12h' && 'Live for 12 Hours'}
+                  {durationMode === '24h' && 'Live for 24 Hours (1 Day)'}
+                  {durationMode === '3d' && 'Live for 3 Days'}
+                  {durationMode === '7d' && 'Live for 7 Days (1 Week)'}
+                  {durationMode === 'custom' && (
+                    customExpiryDate
+                      ? `Expires: ${new Date(customExpiryDate).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`
+                      : 'Please choose expiry date above'
+                  )}
+                </span>
+              </div>
             </div>
 
             {/* Post Title */}
