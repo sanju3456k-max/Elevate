@@ -412,10 +412,10 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
 
       setLoadProgress(35);
 
-      // 2. If Drive ID is present, try authenticated Drive v3 API first (works for private/restricted files too)
+      // 2. If Drive ID is present, use already-cached Drive OAuth token if available (never force Google Drive consent popup for students viewing batch notes)
       let driveToken: string | null = null;
       if (driveId) {
-        driveToken = getCachedGoogleAccessToken() || (await ensureValidGoogleDriveToken().catch(() => null));
+        driveToken = getCachedGoogleAccessToken();
         if (driveToken) {
           try {
             const directDriveRes = await fetch(

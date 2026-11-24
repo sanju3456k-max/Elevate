@@ -48,13 +48,8 @@ export async function fetchDocumentMetadata(rawUrl: string): Promise<DocumentMet
   const driveId = extractGoogleDriveId(trimmed);
   const ytId = extractYouTubeId(trimmed);
 
-  let token: string | null = null;
-  if (driveId) {
-    token = getCachedGoogleAccessToken();
-    if (!token) {
-      token = await ensureValidGoogleDriveToken().catch(() => null);
-    }
-  }
+  // Use already-cached token only — never trigger interactive Google Drive consent popup
+  const token: string | null = driveId ? getCachedGoogleAccessToken() : null;
 
   // 1. Direct Google Drive v3 API lookup in browser if OAuth token is available
   if (driveId && token) {
