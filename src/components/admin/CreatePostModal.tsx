@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../lms/LmsContext';
 import { compressImageToDataUrl } from '../../lib/diagramPresets';
+import { PLAIN_BANNER_TEMPLATES } from '../../lib/bannerTemplates';
 import type { User } from 'firebase/auth';
 import type { Announcement } from '../../lms/types';
 
@@ -70,7 +71,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
     try {
       setIsCompressing(true);
-      const compressedDataUrl = await compressImageToDataUrl(file, 900, 0.85);
+      // High-fidelity compression preserving full 1200x500px banner resolution
+      const compressedDataUrl = await compressImageToDataUrl(file, 1200, 0.88);
       setImageUrl(compressedDataUrl);
     } catch (err) {
       console.error('Image compression failed:', err);
@@ -384,11 +386,63 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             </div>
 
             {/* Image Attachment Section */}
+            {/* Quick 1-Click Plain Templates (Official 1200x500 Minimal Style) */}
+            <div className="space-y-2 p-3 rounded-2xl bg-slate-50 dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Choose Plain Template (1200 × 500 px)</span>
+                </span>
+                <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium">
+                  {PLAIN_BANNER_TEMPLATES.find(t => t.dataUrl === imageUrl)?.name || 'Optional 1-Click Canvas'}
+                </span>
+              </div>
+              <div className="grid grid-cols-5 gap-2 pt-0.5">
+                {PLAIN_BANNER_TEMPLATES.map((tmpl) => {
+                  const isSelected = imageUrl === tmpl.dataUrl;
+                  return (
+                    <button
+                      key={tmpl.id}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setImageUrl('');
+                        } else {
+                          setImageUrl(tmpl.dataUrl);
+                          setThemeColor(tmpl.themeColor);
+                        }
+                      }}
+                      className={`group flex flex-col items-center gap-1.5 p-1 rounded-xl transition-all cursor-pointer border ${
+                        isSelected
+                          ? 'border-orange-500 bg-white dark:bg-zinc-800 shadow-sm ring-2 ring-orange-500/50 scale-102'
+                          : 'border-slate-200/70 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 bg-white/50 dark:bg-zinc-800/50'
+                      }`}
+                      title={`Apply ${tmpl.name} (1200x500) plain template`}
+                    >
+                      <div
+                        className="w-full aspect-[1200/500] rounded-lg shadow-2xs relative overflow-hidden flex items-end justify-end p-0.5 border border-black/5"
+                        style={{ backgroundColor: tmpl.colorHex }}
+                      >
+                        <Sparkles className="w-2.5 h-2.5 text-white/90 drop-shadow-xs" />
+                        {isSelected && (
+                          <div className="absolute inset-0 bg-black/30 backdrop-blur-2xs flex items-center justify-center">
+                            <Check className="w-3.5 h-3.5 text-white stroke-[3]" />
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-700 dark:text-zinc-300 truncate max-w-full text-center">
+                        {tmpl.name.split(' ')[0]}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-zinc-300">
                   <ImageIcon className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Attach Image (Optional)</span>
+                  <span>Attach Banner Image (Standard 1200x500px, 12:5 ratio)</span>
                 </label>
                 {!imageUrl && (
                   <button
@@ -409,7 +463,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     type="url"
                     value={urlInputVal}
                     onChange={(e) => setUrlInputVal(e.target.value)}
-                    placeholder="https://example.com/image.png"
+                    placeholder="https://example.com/banner-1200x500.png"
                     className="flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
                   />
                   <button
@@ -422,18 +476,24 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 </div>
               )}
 
-              {/* Image Preview / File Picker */}
+              {/* Image Preview / File Picker (Strictly 1200x500 Aspect Ratio) */}
               {imageUrl ? (
-                <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 group">
+                <div
+                  className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 group w-full aspect-[1200/500] flex items-center justify-center"
+                  style={{ aspectRatio: '1200 / 500' }}
+                >
                   <img
                     src={imageUrl}
-                    alt="Post preview"
-                    className="w-full max-h-56 object-cover rounded-2xl"
+                    alt="Banner preview 1200x500"
+                    className="w-full h-full object-cover rounded-2xl"
                   />
+                  <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/70 text-[10px] text-white font-medium backdrop-blur-xs select-none">
+                    1200 × 500 px · Full View (No side cutting)
+                  </div>
                   <button
                     type="button"
                     onClick={handleRemoveImage}
-                    className="absolute top-2 right-2 p-1.5 rounded-full bg-black/70 hover:bg-red-600 text-white transition-colors shadow-md"
+                    className="absolute top-2 right-2 p-1.5 rounded-full bg-black/70 hover:bg-red-600 text-white transition-colors shadow-md cursor-pointer"
                     title="Remove image"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -452,20 +512,23 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     type="button"
                     disabled={isCompressing}
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full py-3.5 px-4 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-800 hover:border-orange-500 dark:hover:border-orange-400 bg-slate-50/50 dark:bg-zinc-900/50 flex items-center justify-center gap-2 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-orange-600 dark:hover:text-orange-400 transition-all"
+                    className="w-full py-3.5 px-4 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-800 hover:border-orange-500 dark:hover:border-orange-400 bg-slate-50/50 dark:bg-zinc-900/50 flex items-center justify-center gap-2 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-orange-600 dark:hover:text-orange-400 transition-all cursor-pointer"
                   >
                     {isCompressing ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
-                        <span>Optimizing image for fast delivery...</span>
+                        <span>Optimizing 1200x500 banner for lightning-fast loading...</span>
                       </>
                     ) : (
                       <>
                         <ImageIcon className="w-4 h-4" />
-                        <span>Choose image from device (auto-compressed)</span>
+                        <span>Choose 1200x500 banner image from device</span>
                       </>
                     )}
                   </button>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1 pl-1">
+                    Standard dimension: <strong>1200 × 500 px</strong> (2.4:1 ratio). Displayed in full without side cropping across phone, tablet, and desktop.
+                  </p>
                 </div>
               )}
             </div>
