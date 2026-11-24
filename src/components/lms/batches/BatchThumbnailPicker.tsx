@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   Image as ImageIcon,
   Sparkles,
@@ -10,7 +10,9 @@ import {
   ChevronDown,
   ChevronUp,
   Eye,
+  Upload,
 } from 'lucide-react';
+import { extractGoogleDriveId } from '../../../lms/security';
 
 export interface BatchBannerPreset {
   id: string;
@@ -159,6 +161,7 @@ export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
   const [customUrlInput, setCustomUrlInput] = useState<string>('');
   const [hasRepairNotice, setHasRepairNotice] = useState<boolean>(false);
   const [imageLoadError, setImageLoadError] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const activeUrl = value && value.trim() ? value.trim() : DEFAULT_HIGH_RES_BANNER;
 
@@ -181,14 +184,53 @@ export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
     setImageLoadError(false);
   };
 
-  const handleApplyCustomUrl = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (customUrlInput.trim()) {
-      onChange(customUrlInput.trim());
-      setCustomUrlInput('');
-      setIsUrlInputOpen(false);
-      setImageLoadError(false);
-    }
+  const handleApplyCustomUrl = () => {
+    const raw = customUrlInput.trim();
+    if (!raw) return;
+    const driveId = extractGoogleDriveId(raw);
+    const resolvedUrl = driveId
+      ? `https://lh3.googleusercontent.com/d/${encodeURIComponent(driveId)}=s1920`
+      : raw;
+    onChange(resolvedUrl);
+    setCustomUrlInput('');
+    setIsUrlInputOpen(false);
+    setImageLoadError(false);
+  };
+
+  const handleManualFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === 'string' ? reader.result : '';
+      if (!dataUrl) return;
+      const img = new Image();
+      img.onload = () => {
+        const maxW = 1200;
+        const scale = img.width > maxW ? maxW / img.width : 1;
+        const targetW = Math.max(1, Math.round(img.width * scale));
+        const targetH = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, targetW, targetH);
+          const compressed = canvas.toDataURL('image/jpeg', 0.86);
+          onChange(compressed);
+        } else {
+          onChange(dataUrl);
+        }
+        setImageLoadError(false);
+      };
+      img.onerror = () => {
+        onChange(dataUrl);
+        setImageLoadError(false);
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -207,8 +249,25 @@ export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
           )}
         </div>
 
-        {/* Thumbnail Repair Button (थंबनेल रिपेयर ऑप्शन) */}
-        <div className="flex items-center space-x-1.5">
+        {/* Thumbnail Repair, Upload & Paste URL Buttons */}
+        <div className="flex items-center flex-wrap gap-1.5">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleManualFileSelect}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/12 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 transition flex items-center space-x-1 cursor-pointer"
+            title="Choose custom thumbnail image from your device"
+          >
+            <Upload className="w-3 h-3" />
+            <span>Select Image</span>
+          </button>
+
           <button
             type="button"
             onClick={handleRepairToDefault}
@@ -289,23 +348,31 @@ export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
         </div>
       </div>
 
-      {/* Custom URL Input Section */}
+      {/* Custom URL Input Section (div instead of nested form so outer modal form doesn't break it) */}
       {isUrlInputOpen && (
-        <form onSubmit={handleApplyCustomUrl} className="flex items-center space-x-2 animate-fade-in">
+        <div className="flex items-center space-x-2 animate-fade-in">
           <input
-            type="url"
+            type="text"
             value={customUrlInput}
             onChange={(e) => setCustomUrlInput(e.target.value)}
-            placeholder="Paste custom image URL (https://...)"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                handleApplyCustomUrl();
+              }
+            }}
+            placeholder="Paste image URL or Google Drive link (https://...)"
             className="flex-1 px-3 py-2 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs text-[var(--md-sys-color-on-surface)] border border-[var(--md-sys-color-outline-variant)]/40 outline-none font-mono text-[11px]"
           />
           <button
-            type="submit"
+            type="button"
+            onClick={handleApplyCustomUrl}
             className="px-3 py-2 rounded-xl bg-[#0b57d0] text-white text-xs font-bold border-none cursor-pointer hover:bg-[#0842a0] transition"
           >
             Apply
           </button>
-        </form>
+        </div>
       )}
 
       {/* Preset Category Filter Chips */}
