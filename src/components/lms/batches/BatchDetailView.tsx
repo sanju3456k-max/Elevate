@@ -1689,7 +1689,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                         />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h4 className="text-sm sm:text-[14.5px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition truncate">
+                        <h4 className="text-sm sm:text-[14.5px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition break-words leading-snug">
                           {fld.title}
                         </h4>
                         <p className="text-[11.5px] sm:text-xs text-slate-700 dark:text-zinc-300 font-medium tabular-nums truncate mt-0.5">
@@ -1878,7 +1878,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
                         {/* Lecture Meta & Title */}
                         <div className="min-w-0 flex-1 py-0.5">
-                          <h4 className="text-sm sm:text-[14.5px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition line-clamp-2 leading-snug">
+                          <h4 className="text-sm sm:text-[14.5px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition break-words leading-snug">
                             {lec.title}
                           </h4>
                           <p className="hidden sm:block text-[11px] text-slate-700 dark:text-zinc-300 font-medium line-clamp-1 mt-0.5">
@@ -2035,7 +2035,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                                 {noteIsImage ? <ImageIcon className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
                               </div>
                               <div className="min-w-0 flex-1">
-                                <h4 className="text-sm sm:text-[14.5px] font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+                                <h4 className="text-sm sm:text-[14.5px] font-semibold text-slate-800 dark:text-slate-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors break-words leading-snug">
                                   {note.title}
                                 </h4>
                                 <div className="flex items-center gap-1.5 mt-0.5">
