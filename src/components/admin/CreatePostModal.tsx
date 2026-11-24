@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../lms/LmsContext';
 import { compressImageToDataUrl } from '../../lib/diagramPresets';
+import { useBackHandler } from '../../hooks/useBackNavigation';
 import { PLAIN_BANNER_TEMPLATES } from '../../lib/bannerTemplates';
 import type { User } from 'firebase/auth';
 import type { Announcement, Batch } from '../../lms/types';
@@ -63,6 +64,13 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [customExpiryDate, setCustomExpiryDate] = useState<string>('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useBackHandler({
+    isOpen,
+    onBack: onClose,
+    priority: 35,
+    id: 'create_post_modal',
+  });
 
   if (!isOpen) return null;
 
@@ -217,10 +225,10 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               </div>
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-tight">
-                  Academic Broadcast Station
+                  Create Post & Announcement
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
-                  Publish to Home Screen Banner or Student Notifications
+                  Publish Campus Post, Broadcast Course Batch, or Send Notification
                 </p>
               </div>
             </div>
@@ -789,7 +797,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:from-slate-300 disabled:to-slate-300 dark:disabled:from-zinc-800 dark:disabled:to-zinc-800 disabled:text-slate-500 text-white text-xs sm:text-sm font-bold shadow-md shadow-orange-500/20 active:scale-95 transition-all cursor-pointer"
               >
                 <Send className="w-3.5 h-3.5" />
-                <span>{postMode === 'banner' ? 'Broadcast Banner' : 'Send Notification'}</span>
+                <span>{postMode === 'broadcast_batch' ? 'Broadcast Batch Banner' : postMode === 'banner' ? 'Publish Post & Banner' : 'Send Notification'}</span>
               </button>
             </div>
           </form>

@@ -372,6 +372,14 @@ export function normalizeQuestion(raw: any, index: number): MathQuestion {
     qtopic: rawQtopic,
   };
 
+  // Preserve algorithmic dynamic variables
+  if (raw.fixedVars && typeof raw.fixedVars === 'object') {
+    qObj.fixedVars = raw.fixedVars;
+    qObj.isDynamic = true;
+  } else if (raw.isDynamic) {
+    qObj.isDynamic = true;
+  }
+
   // Only assign diagram / layout fields if present (never empty arrays or empty strings!)
   if (normalizedImageUrl) qObj.imageUrl = normalizedImageUrl;
   if (extractedImageWidth) qObj.imageWidth = extractedImageWidth;

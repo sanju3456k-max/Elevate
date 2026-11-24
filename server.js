@@ -2359,6 +2359,12 @@ function formatQuestionToText(q, index) {
   if (q.hint && q.hint.trim()) {
     lines.push(`Hint: ${q.hint.trim()}`);
   }
+  if (q.fixedVars && Object.keys(q.fixedVars).length > 0) {
+    lines.push("Vars:");
+    for (const [k, v] of Object.entries(q.fixedVars)) {
+      lines.push(`${k}: ${v}`);
+    }
+  }
   return lines.join("\n");
 }
 function formatTestToText(test) {

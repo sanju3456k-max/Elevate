@@ -734,12 +734,13 @@ export default function App() {
       return;
     }
 
-    // Check student feature flags
+    // Check student feature flags (synced from storage/Firestore)
     let access = DEFAULT_STUDENT_FEATURE_ACCESS;
     try {
-      const saved = secureStorage.getItem('elevatelabs_student_feature_access_v2');
+      const saved = secureStorage.getItem('elevatelabs_student_feature_access_v2') || secureStorage.getItem('student_feature_access');
       if (saved) {
-        access = { ...DEFAULT_STUDENT_FEATURE_ACCESS, ...JSON.parse(saved) };
+        const parsed = typeof saved === 'string' ? JSON.parse(saved) : saved;
+        access = { ...DEFAULT_STUDENT_FEATURE_ACCESS, ...parsed };
       }
     } catch {}
 

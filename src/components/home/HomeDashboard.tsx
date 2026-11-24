@@ -1458,7 +1458,7 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
         </div>
       </div>
 
-      <div className="px-3.5 sm:px-4.5 pt-2.5 sm:pt-3 pb-3 sm:pb-3.5 flex-1 min-w-0 flex flex-col justify-between space-y-2 sm:space-y-2.5">
+      <div className="px-3.5 sm:px-4.5 pt-1.5 sm:pt-2 pb-2.5 sm:pb-3 flex-1 min-w-0 flex flex-col justify-between space-y-1.5 sm:space-y-2">
         <div>
           <h3 className="text-[15px] sm:text-base font-bold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition leading-snug line-clamp-2">
             {batch.title}
@@ -1471,7 +1471,7 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
         </div>
 
         {/* Instructor info with faculty profile icon */}
-        <div className="flex items-center space-x-2 pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
+        <div className="flex items-center space-x-2 pt-1.5 border-t border-[var(--md-sys-color-outline-variant)]/20">
           <img
             src={getFacultyAvatarUrl(batch.instructor?.avatarUrl)}
             alt={batch.instructor?.name || 'Faculty'}

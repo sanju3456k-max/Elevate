@@ -244,6 +244,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   });
 
   const handleNavClick = (tab: ActiveTab) => {
+    try {
+      if (typeof window !== 'undefined' && window.history.state?.mockmc_layer === 'navbar_drawer') {
+        window.history.replaceState({ mockmc_view: tab }, '');
+      }
+    } catch {}
     setActiveTab(tab);
     toggleDrawer(false);
   };
@@ -694,9 +699,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                           <button
                             id="drawer-item-create"
                             onClick={() => {
-                              toggleDrawer(false);
                               if (onCreateNewTest) onCreateNewTest();
-                              else handleNavClick('create');
+                              handleNavClick('create');
                             }}
                             className={`${activeTab === 'create' ? APP_STYLES.nav.itemActive : APP_STYLES.nav.item} relative overflow-hidden`}
                           >

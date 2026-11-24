@@ -40,6 +40,7 @@ import type { User } from 'firebase/auth';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { APP_STYLES } from './ui/AppStyles';
 import { formatTestToText } from '../utils/testFormatConverter';
+import { isQuestionDynamicEligible, instantiateQuestion } from '../lib/dynamicMathEngine';
 
 interface CustomTestBuilderProps {
   tests: MathTest[];
@@ -71,6 +72,7 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
   const [isTopicDropdownOpen, setIsTopicDropdownOpen] = useState<boolean>(false);
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState<boolean>(false);
   const [isSavedToast, setIsSavedToast] = useState(false);
+  const [isDynamicMode, setIsDynamicMode] = useState<boolean>(false);
 
   // Time Limit: 1 min per question default (dynamically tracked unless manually edited)
   const [isManualTime, setIsManualTime] = useState<boolean>(false);
@@ -488,6 +490,20 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
     });
   };
 
+  // Count how many chosen questions support algorithmic dynamic generation
+  const dynamicCount = useMemo(() => {
+    let count = 0;
+    tests.forEach((t) => {
+      (t.questions || []).forEach((q, idx) => {
+        const key = getQuestionKey(t.id, q.id || `q_${idx + 1}`);
+        if (selectedQuestionIds.has(key) && isQuestionDynamicEligible(q)) {
+          count++;
+        }
+      });
+    });
+    return count;
+  }, [tests, selectedQuestionIds]);
+
   // Map selected questions into a new MathTest object
   const buildCustomTest = (): MathTest | null => {
     if (selectedQuestionIds.size === 0) return null;
@@ -514,18 +530,28 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
 
     if (chosenQuestions.length === 0) return null;
 
+    // In Dynamic Mode, evaluate fresh cognitive difficulty-preserved numbers
+    const finalQuestions = isDynamicMode
+      ? chosenQuestions.map((q) => (isQuestionDynamicEligible(q) ? instantiateQuestion(q) : q))
+      : chosenQuestions;
+
+    const baseTitle = customTitle.trim() || 'Custom Revision Test';
+    const finalTitle = isDynamicMode ? `${baseTitle} (⚡ Dynamic)` : baseTitle;
+
     const customTest: MathTest = {
       id: `custom-${Date.now()}`,
-      title: customTitle.trim() || 'Custom Revision Test',
-      description: `Custom curated practice test comprising ${chosenQuestions.length} selected questions from multiple assessments.`,
+      title: finalTitle,
+      description: isDynamicMode
+        ? `Algorithmic Dynamic test with ${finalQuestions.length} questions, generating unique numerical variations with strict difficulty preservation.`
+        : `Custom curated practice test comprising ${finalQuestions.length} selected questions from multiple assessments.`,
       topic: activeFilterTopic !== 'All' ? activeFilterTopic : 'General Mathematics',
       difficulty: 'Medium',
-      timeLimitMinutes: Number(timeLimitMinutes) || Math.max(1, chosenQuestions.length),
+      timeLimitMinutes: Number(timeLimitMinutes) || Math.max(1, finalQuestions.length),
       passingScorePercentage: 60,
       authorId: currentUser?.uid || 'custom-user',
       authorName: currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User',
       isPublic: true,
-      questions: chosenQuestions,
+      questions: finalQuestions,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -1025,6 +1051,12 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
                                     Marked
                                   </span>
                                 )}
+                                {isQuestionDynamicEligible(q) && (
+                                  <span className="px-1.5 py-0.2 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-bold border-0 ring-0 flex items-center gap-0.5">
+                                    <Zap className="w-2.5 h-2.5 fill-current text-amber-500" />
+                                    <span>Dynamic</span>
+                                  </span>
+                                )}
                               </div>
                               <div className="line-clamp-3">
                                 <MathRenderer content={q.text} />
@@ -1094,6 +1126,27 @@ export const CustomTestBuilder: React.FC<CustomTestBuilderProps> = ({
             <div className="h-9 landscape:h-8 px-3 sm:px-3.5 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] text-[#0b57d0] dark:text-[#c2e7ff] font-mono text-xs font-bold shrink-0 whitespace-nowrap border-0 flex items-center">
               {selectedCount} Qs
             </div>
+
+            {/* Algorithmic Dynamic Mode Toggle */}
+            <button
+              type="button"
+              onClick={() => setIsDynamicMode(!isDynamicMode)}
+              className={`h-9 landscape:h-8 px-3 sm:px-3.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border shrink-0 ${
+                isDynamicMode
+                  ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 border-amber-500 shadow-sm shadow-amber-500/25 ring-2 ring-amber-400/40'
+                  : 'bg-[#f0f4f9] dark:bg-[#141619] hover:bg-slate-200/60 dark:hover:bg-zinc-800 text-[#5e5e5e] dark:text-[#9aa0a6] border-0'
+              }`}
+              title="Dynamic Mode: Automatically generates fresh numbers & options for questions with variables while strictly preserving difficulty level"
+            >
+              <Zap className={`w-3.5 h-3.5 ${isDynamicMode ? 'text-slate-950 fill-current' : 'text-amber-500'}`} />
+              <span className="hidden sm:inline">Dynamic Mode:</span>
+              <span>{isDynamicMode ? 'ON' : 'OFF'}</span>
+              {dynamicCount > 0 && (
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${isDynamicMode ? 'bg-black/20 text-slate-950' : 'bg-amber-500/20 text-amber-700 dark:text-amber-300'}`}>
+                  {dynamicCount}
+                </span>
+              )}
+            </button>
           </div>
 
           {/* Action Buttons: Save, OMR, Start Exam - Standardized to Home Screen Pill Buttons */}

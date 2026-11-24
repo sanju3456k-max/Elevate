@@ -12,6 +12,7 @@ interface StackItem {
 
 const backStack: StackItem[] = [];
 let isInitialized = false;
+let isPoppingLayerHistory = false;
 
 const isNativePlatform = (): boolean => {
   return typeof window !== 'undefined' && Boolean((window as any).Capacitor?.isNativePlatform?.());
@@ -223,7 +224,11 @@ export function useBackHandler(options: {
       // synchronize browser history by popping the dummy entry so mobile hardware back gestures don't hit dead layers
       try {
         if (!isNativePlatform() && typeof window !== 'undefined' && window.history.state?.mockmc_layer === currentId) {
+          isPoppingLayerHistory = true;
           window.history.back();
+          setTimeout(() => {
+            isPoppingLayerHistory = false;
+          }, 150);
         }
       } catch {}
     };
@@ -254,6 +259,9 @@ export function useViewHistory<T extends string>(
     } catch {}
 
     const handlePopState = (e: PopStateEvent) => {
+      // If a modal/drawer overlay is popping its own layer history, do NOT change view!
+      if (isPoppingLayerHistory || e.state?.mockmc_layer) return;
+
       // If a modal/drawer overlay handled it, don't change view
       if (backStack.length > 0) return;
 
