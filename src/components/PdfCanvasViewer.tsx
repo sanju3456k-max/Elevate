@@ -256,7 +256,9 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
     lastClientX: number;
     lastClientY: number;
   } | null>(null);
-  const lastTapTimeRef = useRef<number>(0);
+  const lastTapRef = useRef<{ time: number; x: number; y: number }>({ time: 0, x: 0, y: 0 });
+  const touchTapOriginRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const lastTouchDoubleTapAtRef = useRef<number>(0);
   const zoomRef = useRef<number>(zoom);
   zoomRef.current = zoom;
 
@@ -305,6 +307,15 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
   };
 
   const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 1) {
+      touchTapOriginRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+        moved: false,
+      };
+    } else {
+      touchTapOriginRef.current = null;
+    }
     if (e.touches.length === 2 && scrollContainerRef.current) {
       const el = scrollContainerRef.current;
       const rect = el.getBoundingClientRect();
@@ -328,6 +339,13 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 1 && touchTapOriginRef.current && !touchTapOriginRef.current.moved) {
+      const dx = e.touches[0].clientX - touchTapOriginRef.current.x;
+      const dy = e.touches[0].clientY - touchTapOriginRef.current.y;
+      if (Math.hypot(dx, dy) > 14) {
+        touchTapOriginRef.current.moved = true;
+      }
+    }
     const ps = pinchStateRef.current;
     const el = scrollContainerRef.current;
     const contentEl = pdfContentRef.current;
@@ -371,14 +389,24 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
         return;
       }
       if (e.touches.length === 0 && e.changedTouches.length === 1) {
+        const tapOrigin = touchTapOriginRef.current;
+        touchTapOriginRef.current = null;
+        if (tapOrigin?.moved) {
+          lastTapRef.current = { time: 0, x: 0, y: 0 };
+          return;
+        }
+        const t = e.changedTouches[0];
         const now = Date.now();
-        if (now - lastTapTimeRef.current < 280) {
-          const t = e.changedTouches[0];
+        const prev = lastTapRef.current;
+        const tapDist = Math.hypot(t.clientX - prev.x, t.clientY - prev.y);
+        if (now - prev.time < 320 && tapDist < 56) {
+          e.preventDefault();
+          lastTouchDoubleTapAtRef.current = now;
           const nextZoom = zoomRef.current > 1.15 ? 1.0 : 2.0;
           applyAnchoredZoom(nextZoom, t.clientX, t.clientY);
-          lastTapTimeRef.current = 0;
+          lastTapRef.current = { time: 0, x: 0, y: 0 };
         } else {
-          lastTapTimeRef.current = now;
+          lastTapRef.current = { time: now, x: t.clientX, y: t.clientY };
         }
       }
     },
@@ -387,6 +415,8 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
 
   const handleDoubleClickZoom = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
+      // Ignore synthetic dblclick fired by mobile browsers right after touch double-tap
+      if (Date.now() - lastTouchDoubleTapAtRef.current < 500) return;
       const nextZoom = zoomRef.current > 1.15 ? 1.0 : 2.0;
       applyAnchoredZoom(nextZoom, e.clientX, e.clientY);
     },

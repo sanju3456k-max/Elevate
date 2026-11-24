@@ -250,7 +250,9 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
     lastClientX: number;
     lastClientY: number;
   } | null>(null);
-  const imgLastTapRef = useRef<number>(0);
+  const imgLastTapRef = useRef<{ time: number; x: number; y: number }>({ time: 0, x: 0, y: 0 });
+  const imgTapOriginRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const imgLastTouchDoubleTapAtRef = useRef<number>(0);
   const imgScrollRef = useRef<HTMLDivElement | null>(null);
   const imgZoomRef = useRef<number>(imageZoom);
   imgZoomRef.current = imageZoom;
@@ -327,6 +329,15 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
   }, []);
 
   const handleImageTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 1) {
+      imgTapOriginRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+        moved: false,
+      };
+    } else {
+      imgTapOriginRef.current = null;
+    }
     if (e.touches.length === 2 && imgScrollRef.current) {
       const el = imgScrollRef.current;
       const rect = el.getBoundingClientRect();
@@ -352,6 +363,13 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
   }, []);
 
   const handleImageTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 1 && imgTapOriginRef.current && !imgTapOriginRef.current.moved) {
+      const dx = e.touches[0].clientX - imgTapOriginRef.current.x;
+      const dy = e.touches[0].clientY - imgTapOriginRef.current.y;
+      if (Math.hypot(dx, dy) > 14) {
+        imgTapOriginRef.current.moved = true;
+      }
+    }
     const ps = imgPinchStateRef.current;
     const el = imgScrollRef.current;
     const contentEl = imgContentRef.current;
@@ -397,14 +415,24 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
         return;
       }
       if (e.touches.length === 0 && e.changedTouches.length === 1) {
+        const tapOrigin = imgTapOriginRef.current;
+        imgTapOriginRef.current = null;
+        if (tapOrigin?.moved) {
+          imgLastTapRef.current = { time: 0, x: 0, y: 0 };
+          return;
+        }
+        const t = e.changedTouches[0];
         const now = Date.now();
-        if (now - imgLastTapRef.current < 280) {
-          const t = e.changedTouches[0];
+        const prev = imgLastTapRef.current;
+        const tapDist = Math.hypot(t.clientX - prev.x, t.clientY - prev.y);
+        if (now - prev.time < 320 && tapDist < 56) {
+          e.preventDefault();
+          imgLastTouchDoubleTapAtRef.current = now;
           const nextZoom = imgZoomRef.current > 1.15 ? 1.0 : 2.2;
           applyAnchoredImageZoom(nextZoom, t.clientX, t.clientY);
-          imgLastTapRef.current = 0;
+          imgLastTapRef.current = { time: 0, x: 0, y: 0 };
         } else {
-          imgLastTapRef.current = now;
+          imgLastTapRef.current = { time: now, x: t.clientX, y: t.clientY };
         }
       }
     },
@@ -1056,6 +1084,7 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
               onMouseUp={handleImageMouseUp}
               onMouseLeave={handleImageMouseUp}
               onDoubleClick={(e) => {
+                if (Date.now() - imgLastTouchDoubleTapAtRef.current < 500) return;
                 const nextZoom = imgZoomRef.current > 1.15 ? 1.0 : 2.2;
                 applyAnchoredImageZoom(nextZoom, e.clientX, e.clientY);
               }}
