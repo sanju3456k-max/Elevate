@@ -32,6 +32,8 @@ import { isMasterUser } from '../../../lib/masterAccount';
 import { useScrollLock } from '../../../hooks/useScrollLock';
 import { useBackHandler } from '../../../hooks/useBackNavigation';
 import { getCachedDocument, saveCachedDocument } from '../../../lib/documentCache';
+import { setAppThemeColor } from '../../../lib/appThemeColor';
+import { syncNativeStatusBarTheme } from '../../../lib/nativeHardwareBridge';
 import { PdfCanvasViewer } from '../../PdfCanvasViewer';
 
 export type ReadingTheme = 'paper' | 'sepia' | 'dark';
@@ -762,6 +764,27 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
     }
   }, [theme]);
 
+  // Sync Android Status Bar icons & theme-color with active viewer reading theme (paper / sepia / dark)
+  useEffect(() => {
+    if (!isOpen) return;
+    const appIsDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+    if (theme === 'sepia') {
+      syncNativeStatusBarTheme(false);
+      setAppThemeColor('#f4ecd8');
+    } else if (theme === 'dark') {
+      syncNativeStatusBarTheme(true);
+      setAppThemeColor('#0f1117');
+    } else {
+      syncNativeStatusBarTheme(appIsDark);
+      setAppThemeColor(appIsDark ? '#121318' : '#ffffff');
+    }
+    return () => {
+      const currentAppDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+      syncNativeStatusBarTheme(currentAppDark);
+      setAppThemeColor(currentAppDark ? '#0b0c10' : '#f8f9fa');
+    };
+  }, [isOpen, theme]);
+
   if (!isOpen || !currentItem) return null;
 
   return (
@@ -773,7 +796,6 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
         transition={{ duration: 0.18 }}
         className={`fixed inset-0 z-50 flex flex-col select-none overflow-hidden ${themeClasses.wrapper}`}
         style={{
-          paddingTop: 'var(--android-status-bar-height, 0px)',
           paddingBottom: 'var(--android-cutout-bottom, 0px)',
         }}
       >
@@ -781,7 +803,10 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
         {/* 1. BORDERLESS MINIMAL HEADER BAR                          */}
         {/* ========================================================= */}
         <header
-          className={`shrink-0 h-14 px-3 sm:px-6 flex items-center justify-between border-0 backdrop-blur-xl z-30 transition-colors ${themeClasses.header}`}
+          className={`shrink-0 h-[calc(3.5rem+var(--android-status-bar-height,0px))] px-3 sm:px-6 flex items-center justify-between border-0 backdrop-blur-xl z-30 transition-colors ${themeClasses.header}`}
+          style={{
+            paddingTop: 'var(--android-status-bar-height, 0px)',
+          }}
         >
           {/* Left: Back Arrow + Document Title + Badges */}
           <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1 mr-2">
