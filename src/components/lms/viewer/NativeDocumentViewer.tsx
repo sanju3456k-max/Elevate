@@ -294,6 +294,19 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
     el.scrollTop = Math.max(0, anchor.contentY * scale - anchor.relY);
   }, [imageZoom]);
 
+  // Non-passive touchmove listener so 2-finger pinch cancels native scroll on Android WebView
+  useEffect(() => {
+    const el = imgScrollRef.current;
+    if (!el) return;
+    const preventPinchScroll = (ev: TouchEvent) => {
+      if (ev.touches.length === 2) {
+        ev.preventDefault();
+      }
+    };
+    el.addEventListener('touchmove', preventPinchScroll, { passive: false });
+    return () => el.removeEventListener('touchmove', preventPinchScroll);
+  }, [isOpen, detectedKind]);
+
   const imgPanRef = useRef<{ active: boolean; startX: number; startY: number; scrollLeft: number; scrollTop: number }>({
     active: false,
     startX: 0,

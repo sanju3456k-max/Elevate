@@ -49,7 +49,7 @@ const ContinuousPageItem: React.FC<ContinuousPageItemProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [rendered, setRendered] = useState<boolean>(false);
   const [rendering, setRendering] = useState<boolean>(false);
-  const [pageDims, setPageDims] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const [baseDims, setBaseDims] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const activeTaskRef = useRef<any>(null);
   const renderingRef = useRef<boolean>(false);
   const renderedRef = useRef<boolean>(false);
@@ -57,18 +57,23 @@ const ContinuousPageItem: React.FC<ContinuousPageItemProps> = ({
   const onEnterViewRef = useRef(onEnterView);
   onEnterViewRef.current = onEnterView;
 
-  // Measure initial page dimensions
+  // Measure base page dimensions at scale=1 ONCE so zoomed dimensions update synchronously
   useEffect(() => {
     let active = true;
     pdfDoc.getPage(pageNumber).then((page) => {
       if (!active) return;
-      const viewport = page.getViewport({ scale, rotation });
-      setPageDims({ width: viewport.width, height: viewport.height });
+      const viewport = page.getViewport({ scale: 1, rotation });
+      setBaseDims({ width: viewport.width, height: viewport.height });
     }).catch(() => {});
     return () => {
       active = false;
     };
-  }, [pdfDoc, pageNumber, scale, rotation]);
+  }, [pdfDoc, pageNumber, rotation]);
+
+  const pageDims = useMemo(() => ({
+    width: baseDims.width ? Math.floor(baseDims.width * scale) : 0,
+    height: baseDims.height ? Math.floor(baseDims.height * scale) : 0,
+  }), [baseDims, scale]);
 
   // Render on intersection / visibility (stable callback: never depends on `rendering` or `onEnterView`)
   const renderPage = useCallback(async () => {
@@ -95,10 +100,8 @@ const ContinuousPageItem: React.FC<ContinuousPageItemProps> = ({
 
       canvas.width = Math.floor(viewport.width * outputScale);
       canvas.height = Math.floor(viewport.height * outputScale);
-      canvas.style.width = `${Math.floor(viewport.width)}px`;
-      canvas.style.height = `${Math.floor(viewport.height)}px`;
-
-      setPageDims({ width: viewport.width, height: viewport.height });
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
 
       const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined;
       const renderTask = page.render({
@@ -167,7 +170,6 @@ const ContinuousPageItem: React.FC<ContinuousPageItemProps> = ({
   // Re-render only visible/near-viewport pages when scale or rotation changes
   useEffect(() => {
     renderedRef.current = false;
-    setRendered(false);
     if (isNearViewportRef.current || pageNumber <= 2) {
       renderPage();
     }
@@ -179,12 +181,13 @@ const ContinuousPageItem: React.FC<ContinuousPageItemProps> = ({
       id={`pdf-page-container-${pageNumber}`}
       style={{
         width: pageDims.width ? `${pageDims.width}px` : '100%',
+        height: pageDims.height ? `${pageDims.height}px` : undefined,
         minHeight: pageDims.height ? `${pageDims.height}px` : '320px',
       }}
-      className="relative flex items-center justify-center bg-white dark:bg-[#181a20] transition-all duration-75 overflow-hidden my-0 border-0 rounded-none"
+      className="relative flex items-center justify-center bg-white dark:bg-[#181a20] overflow-hidden my-0 border-0 rounded-none shrink-0"
     >
-      <canvas ref={canvasRef} className="block max-w-none" />
-      {(!rendered || rendering) && (
+      <canvas ref={canvasRef} className="block w-full h-full max-w-none" />
+      {!rendered && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/70 dark:bg-black/30 backdrop-blur-2xs text-[11px] text-slate-500 dark:text-zinc-400 font-mono">
           <RefreshCw className="w-4 h-4 animate-spin text-emerald-500 mr-1.5" />
           <span>Slide {pageNumber}</span>
@@ -299,6 +302,19 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
     el.scrollLeft = Math.max(0, anchor.contentX * scale - anchor.relX);
     el.scrollTop = Math.max(0, anchor.contentY * scale - anchor.relY);
   }, [zoom]);
+
+  // Non-passive touchmove listener so 2-finger pinch actually cancels native scroll on Android WebView
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const preventPinchScroll = (ev: TouchEvent) => {
+      if (ev.touches.length === 2) {
+        ev.preventDefault();
+      }
+    };
+    el.addEventListener('touchmove', preventPinchScroll, { passive: false });
+    return () => el.removeEventListener('touchmove', preventPinchScroll);
+  }, [pdfDoc, displayMode]);
 
   const getTouchDistance = (t1: React.Touch, t2: React.Touch) => {
     const dx = t1.clientX - t2.clientX;
