@@ -126,21 +126,36 @@ export function getLectureThumbnailUrl(
 ): string {
   if (!lecture) return '/assets/default-course-banner.png';
 
-  // 1. If an inline Base64 data URL, custom uploaded thumbnail (Firebase Storage, Cloudinary), or valid URL exists:
-  if (
-    lecture.thumbnailUrl &&
-    lecture.thumbnailUrl.trim() !== '' &&
-    lecture.thumbnailUrl !== '/assets/default-course-banner.png'
-  ) {
-    return lecture.thumbnailUrl;
-  }
+  const ytId = lecture.encryptedVideoId ? deobfuscateVideoKey(lecture.encryptedVideoId) : '';
+  const hasValidYtId = Boolean(ytId && ytId !== 'WUvTyaaNkzM');
+  const rawThumb = (lecture.thumbnailUrl || '').trim();
 
-  // 2. High-res YouTube thumbnail resolution fallback (native Android and web compatible)
-  if (lecture.encryptedVideoId) {
-    const ytId = deobfuscateVideoKey(lecture.encryptedVideoId);
-    if (ytId && ytId !== 'WUvTyaaNkzM') {
+  // 1. Legacy relative /api/video-thumbnail URLs fail on Capacitor Android (https://localhost).
+  //    Prefer direct YouTube hqdefault thumbnail when encryptedVideoId is available, or production origin.
+  if (rawThumb.startsWith('/api/')) {
+    if (hasValidYtId) {
       return `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`;
     }
+    if (
+      typeof window !== 'undefined' &&
+      Boolean((window as any).Capacitor?.isNativePlatform?.())
+    ) {
+      return `https://labselevate.vercel.app${rawThumb}`;
+    }
+    return rawThumb;
+  }
+
+  // 2. If an inline Base64 data URL, custom uploaded thumbnail (Firebase Storage, Cloudinary), or valid URL exists:
+  if (
+    rawThumb !== '' &&
+    rawThumb !== '/assets/default-course-banner.png'
+  ) {
+    return rawThumb;
+  }
+
+  // 3. High-res YouTube thumbnail resolution fallback (native Android and web compatible)
+  if (hasValidYtId) {
+    return `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`;
   }
 
   return '/assets/default-course-banner.png';

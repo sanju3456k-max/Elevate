@@ -1832,8 +1832,18 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                             className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                             onError={(e) => {
                               const target = e.currentTarget as HTMLImageElement;
-                              if (target.src.includes('i.ytimg.com')) {
+                              if (target.src.includes('maxresdefault.jpg')) {
+                                target.src = target.src.replace('maxresdefault.jpg', 'hqdefault.jpg');
+                              } else if (target.src.includes('i.ytimg.com')) {
                                 target.src = target.src.replace('i.ytimg.com', 'img.youtube.com');
+                              } else if (lec.encryptedVideoId && !target.dataset.ytFallbackTried) {
+                                const fallbackYtId = deobfuscateVideoKey(lec.encryptedVideoId);
+                                if (fallbackYtId && fallbackYtId !== 'WUvTyaaNkzM') {
+                                  target.dataset.ytFallbackTried = '1';
+                                  target.src = `https://i.ytimg.com/vi/${fallbackYtId}/hqdefault.jpg`;
+                                  return;
+                                }
+                                target.src = '/assets/default-course-banner.png';
                               } else if (!target.src.includes('default-course-banner.png')) {
                                 target.src = '/assets/default-course-banner.png';
                               }
