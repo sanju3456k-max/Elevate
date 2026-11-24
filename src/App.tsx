@@ -2856,8 +2856,8 @@ export default function App() {
               initial="initial"
               animate="animate"
               exit="exit"
-              style={gpuAcceleratedStyle}
-              className="fixed inset-0 bg-black/40 z-50 flex justify-end select-none cursor-pointer"
+              style={{ ...gpuAcceleratedStyle, top: 'var(--android-status-bar-height, env(safe-area-inset-top, 0px))' }}
+              className="fixed inset-x-0 bottom-0 top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] bg-black/40 z-50 flex justify-end select-none cursor-pointer"
               onClick={(e) => {
                 if (e.target === e.currentTarget) setIsDesktopNotificationsOpen(false);
               }}

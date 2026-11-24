@@ -1395,8 +1395,8 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
             initial="initial"
             animate="animate"
             exit="exit"
-            style={gpuAcceleratedStyle}
-            className="fixed inset-0 bg-black/40 flex justify-end z-50 cursor-pointer select-none"
+            style={{ ...gpuAcceleratedStyle, top: 'var(--android-status-bar-height, env(safe-area-inset-top, 0px))' }}
+            className="fixed inset-x-0 bottom-0 top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] bg-black/40 flex justify-end z-50 cursor-pointer select-none"
             onClick={(e) => {
               if (e.target === e.currentTarget) setIsQuestionPanelOpen(false);
             }}
@@ -1411,7 +1411,7 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header Section */}
-              <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] shrink-0 space-y-3.5 border-b border-slate-100 dark:border-zinc-800/80">
+              <div className="p-4 sm:p-5 pt-3.5 sm:pt-4 shrink-0 space-y-3.5 border-b border-slate-100 dark:border-zinc-800/80">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <h3 className="text-base sm:text-lg font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] tracking-tight">

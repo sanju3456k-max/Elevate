@@ -3779,8 +3779,8 @@ MANDATORY INSTRUCTIONS:
             initial="initial"
             animate="animate"
             exit="exit"
-            style={gpuAcceleratedStyle}
-            className="fixed inset-0 bg-black/40 z-50 flex justify-end select-none cursor-pointer"
+            style={{ ...gpuAcceleratedStyle, top: 'var(--android-status-bar-height, env(safe-area-inset-top, 0px))' }}
+            className="fixed inset-x-0 bottom-0 top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] bg-black/40 z-50 flex justify-end select-none cursor-pointer"
             onClick={(e) => {
               if (e.target === e.currentTarget) setIsSidebarOpen(false);
             }}
@@ -3795,7 +3795,7 @@ MANDATORY INSTRUCTIONS:
               onClick={(e) => e.stopPropagation()}
             >
               {/* Drawer Top Header */}
-              <div className="p-4 sm:p-5 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)] bg-white dark:bg-[#1e2024] flex items-center gap-3 shrink-0 rounded-tl-[28px] border-b border-slate-100 dark:border-zinc-800/80">
+              <div className="p-4 sm:p-5 pt-3.5 sm:pt-4 bg-white dark:bg-[#1e2024] flex items-center gap-3 shrink-0 rounded-tl-[28px] border-b border-slate-100 dark:border-zinc-800/80">
                 <button
                   id="close-chat-history-drawer-btn"
                   onClick={() => setIsSidebarOpen(false)}
