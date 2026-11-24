@@ -96,6 +96,14 @@ export function formatQuestionToText(q: MathQuestion, index?: number): string {
     lines.push(`Hint: ${q.hint.trim()}`);
   }
 
+  // Fixed Variables for Algorithmic Dynamic Questions
+  if (q.fixedVars && Object.keys(q.fixedVars).length > 0) {
+    lines.push('Vars:');
+    for (const [k, v] of Object.entries(q.fixedVars)) {
+      lines.push(`${k}: ${v}`);
+    }
+  }
+
   return lines.join('\n');
 }
 
@@ -129,6 +137,55 @@ export function formatTestToText(test: Partial<MathTest>): string {
 }
 
 /**
+ * Scans text for inline variable definitions like {speed = 60} or [speed: 60]
+ * Extracts the variable name and value into target dictionary,
+ * and returns the cleaned text with standard {varName} placeholders.
+ */
+export function extractInlineVariables(
+  text: string,
+  targetVars: Record<string, number | string>
+): string {
+  if (!text) return '';
+
+  // 1. Matches {name = val} or {name: val}
+  let result = text.replace(/\{([a-zA-Z_][a-zA-Z0-9_]*)\s*[:=]\s*([^}]+)\}/g, (_, key, valStr) => {
+    const trimmedVal = valStr.trim();
+    const num = parseFloat(trimmedVal);
+    targetVars[key] = !isNaN(num) && String(num) === trimmedVal ? num : trimmedVal;
+    return `{${key}}`;
+  });
+
+  // 2. Matches [name = val] or [name: val]
+  result = result.replace(/\[([a-zA-Z_][a-zA-Z0-9_]*)\s*[:=]\s*([^\]]+)\]/g, (_, key, valStr) => {
+    const trimmedVal = valStr.trim();
+    const num = parseFloat(trimmedVal);
+    targetVars[key] = !isNaN(num) && String(num) === trimmedVal ? num : trimmedVal;
+    return `{${key}}`;
+  });
+
+  return result;
+}
+
+/**
+ * Helper to parse variable definitions like "speed: 60, time: 2.5" or "speed: 60"
+ */
+function parseVarDefinitions(rawLine: string, target: Record<string, number | string>) {
+  if (!rawLine) return;
+  const tokens = rawLine.includes(',') ? rawLine.split(',') : [rawLine];
+  for (const token of tokens) {
+    const trimmedToken = token.trim();
+    if (!trimmedToken) continue;
+    const m = trimmedToken.match(/^([a-zA-Z0-9_]+)\s*[:=]\s*(.+)$/);
+    if (m) {
+      const key = m[1].trim();
+      const valStr = m[2].trim();
+      const num = parseFloat(valStr);
+      target[key] = !isNaN(num) && String(num) === valStr ? num : valStr;
+    }
+  }
+}
+
+/**
  * Parses a single question block from sequential plain text.
  */
 export function parseQuestionFromText(rawBlock: string, fallbackTopic?: string, defaultId?: string): MathQuestion {
@@ -140,11 +197,12 @@ export function parseQuestionFromText(rawBlock: string, fallbackTopic?: string, 
   let qImageUrl = '';
   let qExplanationImageUrl = '';
   const optionsMap: Record<string, string> = {};
+  const fixedVars: Record<string, number | string> = {};
   let correctRaw = 'A';
   let explanation = '';
   let hint = '';
 
-  let currentField: 'text' | 'explanation' | 'hint' | 'opt' | 'none' = 'none';
+  let currentField: 'text' | 'explanation' | 'hint' | 'opt' | 'vars' | 'none' = 'none';
   let currentOptKey = '';
 
   for (let i = 0; i < lines.length; i++) {
@@ -157,6 +215,17 @@ export function parseQuestionFromText(rawBlock: string, fallbackTopic?: string, 
       else if (currentField === 'explanation' && explanation) explanation += '\n';
       else if (currentField === 'hint' && hint) hint += '\n';
       continue;
+    }
+
+    // When inside vars block, parse variable definitions directly until a known section keyword is encountered
+    if (currentField === 'vars') {
+      const isNewSection = /^(?:(?:Q|Question)\s*\d+|Topic:|Subtopic:|Question:|Text:|Prompt:|Image:|ExplanationImage:|Correct(?:\s*Answer)?:\s*[A-H]|Explanation:|Solution:|Exp:|Hint:)/i.test(trimmed);
+      if (!isNewSection) {
+        parseVarDefinitions(line, fixedVars);
+        continue;
+      } else {
+        currentField = 'none';
+      }
     }
 
     // Question number header e.g. "Q1", "Question 1:", "::Q1"
@@ -223,8 +292,8 @@ export function parseQuestionFromText(rawBlock: string, fallbackTopic?: string, 
       continue;
     }
 
-    // Explanation / Solution prefix
-    const explMatch = trimmed.match(/^(?:Explanation|Solution|Sol):\s*(.*)$/i);
+    // Explanation / Solution prefix (supports Explanation:, Solution:, Sol:, Exp:)
+    const explMatch = trimmed.match(/^(?:Explanation|Solution|Sol|Exp):\s*(.*)$/i);
     if (explMatch) {
       explanation = explMatch[1];
       currentField = 'explanation';
@@ -239,6 +308,17 @@ export function parseQuestionFromText(rawBlock: string, fallbackTopic?: string, 
       continue;
     }
 
+    // Fixed Variables prefix e.g. "Vars:", "Variables:", "FixedVars:"
+    const varsMatch = trimmed.match(/^(?:Vars|Variables|FixedVars):\s*(.*)$/i);
+    if (varsMatch) {
+      currentField = 'vars';
+      const inlineRest = varsMatch[1].trim();
+      if (inlineRest) {
+        parseVarDefinitions(inlineRest, fixedVars);
+      }
+      continue;
+    }
+
     // If no keyword matches, append to currently active multi-line field!
     if (currentField === 'text') {
       qText = qText ? `${qText}\n${line}` : line;
@@ -246,6 +326,8 @@ export function parseQuestionFromText(rawBlock: string, fallbackTopic?: string, 
       explanation = explanation ? `${explanation}\n${line}` : line;
     } else if (currentField === 'hint') {
       hint = hint ? `${hint}\n${line}` : line;
+    } else if (currentField === 'vars') {
+      parseVarDefinitions(line, fixedVars);
     } else if (currentField === 'opt' && currentOptKey) {
       optionsMap[currentOptKey] = optionsMap[currentOptKey] ? `${optionsMap[currentOptKey]}\n${line}` : line;
     } else if (!qText && trimmed) {
@@ -277,13 +359,19 @@ export function parseQuestionFromText(rawBlock: string, fallbackTopic?: string, 
     }
   }
 
+  // Extract any inline variable assignments: {speed = 60} or [speed: 60]
+  qText = extractInlineVariables(qText, fixedVars);
+  const cleanedOptions = options.map(opt => extractInlineVariables(opt, fixedVars));
+  explanation = extractInlineVariables(explanation, fixedVars);
+  if (hint) hint = extractInlineVariables(hint, fixedVars);
+
   const question: MathQuestion = {
     id: defaultId || `q-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     text: qText.trim(),
     topic: qTopic,
     subtopic: qSubtopic || undefined,
     type: 'mcq',
-    options,
+    options: cleanedOptions,
     correctAnswer: String(correctIdx),
     correctOptionIndex: correctIdx,
     explanation: explanation.trim() || undefined,
@@ -294,6 +382,15 @@ export function parseQuestionFromText(rawBlock: string, fallbackTopic?: string, 
 
   if (qImageUrl) question.imageUrl = qImageUrl;
   if (qExplanationImageUrl) question.explanationImageUrl = qExplanationImageUrl;
+
+  // Fixed variables & dynamic template registration
+  const hasFixedVars = Object.keys(fixedVars).length > 0;
+  if (hasFixedVars) {
+    question.fixedVars = fixedVars;
+    question.isDynamic = true;
+  } else if (/\{[a-zA-Z0-9_]+\}/.test(qText)) {
+    question.isDynamic = true;
+  }
 
   return question;
 }

@@ -15,6 +15,7 @@ import { SAMPLE_MATH_TESTS } from '../data/sampleTests';
 import { syncBatchTestToFirestore } from './batchCloudSync';
 import { getTestDurationMinutes } from '../utils/testFormatConverter';
 import { getAllAttemptsAcrossAllUsersFromIndexedDB } from './indexedDbStorage';
+import { isQuestionDynamicEligible, instantiateQuestion } from './dynamicMathEngine';
 import { 
   auth, 
   db, 
@@ -1969,6 +1970,7 @@ export async function dispatchAdaptiveRemedialTests(params: {
   allAttempts: TestAttempt[];
   currentStudentId?: string;
   currentStudentName?: string;
+  isDynamic?: boolean;
 }): Promise<{
   success: boolean;
   dispatchedCount: number;
@@ -1984,6 +1986,7 @@ export async function dispatchAdaptiveRemedialTests(params: {
     allAttempts,
     currentStudentId,
     currentStudentName,
+    isDynamic,
   } = params;
 
   const cohort = previewRemedialCohort({
@@ -2014,7 +2017,7 @@ export async function dispatchAdaptiveRemedialTests(params: {
 
     if (!studentPointers || studentPointers.length === 0) continue;
 
-    // Lean normalized pointers for optimal cloud storage
+    // Lean normalized pointers for optimal cloud storage with embedded offline fallback
     const normalizedPointers = studentPointers.map((p) => ({
       sourceTestId: p.sourceTestId,
       questionIndex: p.questionIndex,
@@ -2022,6 +2025,7 @@ export async function dispatchAdaptiveRemedialTests(params: {
       topic: p.topic || p.questionData?.topic || p.questionData?.qtopic,
       difficulty: p.difficulty || p.questionData?.difficulty,
       sourceTestTitle: p.sourceTestTitle,
+      questionData: p.questionData,
     }));
 
     const assignmentId = `remedial_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -2041,6 +2045,7 @@ export async function dispatchAdaptiveRemedialTests(params: {
       createdAt: new Date().toISOString(),
       dispatchedBy: MASTER_ADMIN_EMAIL,
       isCompleted: false,
+      isDynamic: Boolean(isDynamic),
     };
 
     // Save locally strictly under specific student ID & email (never broadcast to all students)
@@ -2201,14 +2206,25 @@ export function materializeRemedialTest(
     }
 
     if (q) {
-      const qKey = q.id || `${ptr.sourceTestId}_${ptr.questionIndex}`;
+      let finalQ = q;
+      // Local dynamic calculation if assignment or question is marked dynamic
+      if ((assignment.isDynamic || q.isDynamic) && isQuestionDynamicEligible(q)) {
+        const seedStr = `${assignment.id}_${ptr.sourceTestId}_${ptr.questionIndex}_${assignment.studentId || ''}`;
+        let hash = 0;
+        for (let i = 0; i < seedStr.length; i++) {
+          hash = (Math.imul(31, hash) + seedStr.charCodeAt(i)) | 0;
+        }
+        finalQ = instantiateQuestion(q, Math.abs(hash) || undefined);
+      }
+
+      const qKey = finalQ.id || `${ptr.sourceTestId}_${ptr.questionIndex}`;
       if (!seenQKeys.has(qKey)) {
         seenQKeys.add(qKey);
         resolvedQuestions.push({
-          ...q,
-          id: q.id || `remedial_q_${ptr.sourceTestId}_${ptr.questionIndex}`,
-          qtopic: q.qtopic || ptr.topic || sourceTest?.topic || 'Targeted Practice',
-          topic: q.topic || ptr.topic || sourceTest?.topic || 'Targeted Practice',
+          ...finalQ,
+          id: finalQ.id || `remedial_q_${ptr.sourceTestId}_${ptr.questionIndex}`,
+          qtopic: finalQ.qtopic || ptr.topic || sourceTest?.topic || 'Targeted Practice',
+          topic: finalQ.topic || ptr.topic || sourceTest?.topic || 'Targeted Practice',
         });
       }
     }
@@ -2224,6 +2240,7 @@ export function materializeRemedialTest(
     timeLimitMinutes: assignment.timeLimitMinutes || Math.max(10, resolvedQuestions.length * 2),
     questions: resolvedQuestions,
     questionCount: resolvedQuestions.length,
+    isDynamic: Boolean(assignment.isDynamic),
     authorName: 'Academic Head (Master)',
     authorEmail: MASTER_ADMIN_EMAIL,
     isPublic: false,

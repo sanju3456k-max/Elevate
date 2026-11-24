@@ -47,6 +47,17 @@ export interface MathQuestion {
   explanationImageUrls?: string[]; // Multiple explanation diagrams
   explanationImageWidths?: (number | undefined)[]; // Custom widths for multiple explanation diagrams
   paperLayout?: QuestionPaperLayout;
+  // Algorithmic Dynamic Math Questions
+  isDynamic?: boolean;
+  fixedVars?: Record<string, number | string>;
+  dynamicTemplate?: {
+    templateText?: string;
+    templateOptions?: string[];
+    templateExplanation?: string;
+    templateHint?: string;
+    fixedVars: Record<string, number | string>;
+    inferredArchetype?: string;
+  };
 }
 
 export type Question = MathQuestion;
@@ -77,6 +88,7 @@ export interface MathTest {
   remedialAssignment?: AssignedRemedialTest;
   batchId?: string;
   batchTitle?: string;
+  isDynamic?: boolean;
   _syncStatus?: 'synced' | 'pending' | 'failed';
 }
 
@@ -505,6 +517,7 @@ export interface AssignedRemedialTest {
   completedAt?: string;
   isUnassigned?: boolean;
   unassignedAt?: string;
+  isDynamic?: boolean;
 }
 
 export interface ParsedAppAction {

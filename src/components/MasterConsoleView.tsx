@@ -559,6 +559,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   const [selectedCategories, setSelectedCategories] = useState<('wrong' | 'unattempted' | 'marked' | 'unmarked')[]>(['wrong', 'unattempted', 'marked']);
   const [customTitle, setCustomTitle] = useState<string>('Custom Practice Set');
   const [timeLimitMinutes, setTimeLimitMinutes] = useState<number>(30);
+  const [isDynamicMode, setIsDynamicMode] = useState<boolean>(false);
   const [isDispatching, setIsDispatching] = useState<boolean>(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
 
@@ -894,6 +895,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
         allAttempts: combinedRemedialAttempts,
         currentStudentId: currentUserId || 'master-academic-admin',
         currentStudentName: currentUserName || 'Master Admin (Sanju)',
+        isDynamic: isDynamicMode,
       });
 
       if (result.success) {
@@ -2750,6 +2752,41 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                         </span>
                       </div>
                     </div>
+
+                    {/* Dynamic Math Mode Toggle */}
+                    <div className="p-3 rounded-[20px] bg-[#f0f4f9] dark:bg-[#141619] border-0 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                          isDynamicMode 
+                            ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' 
+                            : 'bg-slate-200 dark:bg-zinc-800 text-slate-500'
+                        }`}>
+                          <Zap className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-[#1f1f1f] dark:text-[#e3e3e3]">
+                              Dynamic Math Mode
+                            </span>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                              isDynamicMode 
+                                ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' 
+                                : 'bg-slate-200 dark:bg-zinc-800 text-slate-500'
+                            }`}>
+                              {isDynamicMode ? 'ON' : 'OFF'}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-700 dark:text-zinc-300 truncate">
+                            Randomize question numbers locally per student
+                          </p>
+                        </div>
+                      </div>
+                      <M3Switch
+                        checked={isDynamicMode}
+                        onChange={setIsDynamicMode}
+                        aria-label="Toggle Dynamic Math Mode"
+                      />
+                    </div>
                   </div>
 
                   {/* Cohort Summary Box */}
@@ -2997,6 +3034,12 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                           <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-white dark:bg-[#1e2024] text-slate-700 dark:text-zinc-300 border-0">
                             {d.filterType}
                           </span>
+                          {d.isDynamic && (
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-400 flex items-center gap-1 border-0">
+                              <Zap className="w-2.5 h-2.5" />
+                              Dynamic
+                            </span>
+                          )}
                           {d.isUnassigned && (
                             <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-400 border-0">
                               Revoked
