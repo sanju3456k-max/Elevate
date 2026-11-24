@@ -100,7 +100,7 @@ export function isQuestionDynamicEligible(q: MathQuestion): boolean {
  */
 export function instantiateQuestion(
   q: MathQuestion,
-  options?: DynamicGenerationOptions
+  options?: DynamicGenerationOptions | number
 ): MathQuestion {
   // If question is not dynamic eligible, return unmodified
   if (!isQuestionDynamicEligible(q)) {
@@ -112,9 +112,10 @@ export function instantiateQuestion(
     return q;
   }
 
-  const difficulty: DifficultyLevel = options?.difficulty || q.difficulty || 'Easy';
+  const optObj: DynamicGenerationOptions = typeof options === 'number' ? { seed: options } : (options || {});
+  const difficulty: DifficultyLevel = optObj.difficulty || q.difficulty || 'Easy';
   const constraints = getCognitiveConstraints(difficulty);
-  const rng = createRandom(options?.seed);
+  const rng = createRandom(optObj.seed);
 
   const relation = inferMathRelation(rawFixedVars, q.text);
   const newScope: Record<string, number | string> = {};
@@ -267,11 +268,11 @@ export function instantiateQuestion(
       const factor = pickRandom(cleanFactors, rng);
 
       for (const k of relation.inputKeys) {
-        const base = baseNumVars[k] || 1;
+        const base = baseNumVars[k] ?? 1;
         const scaled = Number.isInteger(base) ? Math.round(base * factor) : parseFloat((base * factor).toFixed(2));
         newScope[k] = scaled;
       }
-      const baseAns = baseNumVars[relation.outputKey] || 1;
+      const baseAns = baseNumVars[relation.outputKey] ?? 0;
       newScope[relation.outputKey] = Number.isInteger(baseAns)
         ? Math.round(baseAns * factor)
         : parseFloat((baseAns * factor).toFixed(2));
@@ -296,9 +297,12 @@ export function instantiateQuestion(
       dVal = ansVal + 10;
     }
 
-    // Ensure distractor is non-negative and unique
-    if (dVal <= 0 || usedDistractorVals.has(dVal)) {
-      dVal = ansVal + (usedDistractorVals.size * (ansVal > 50 ? 10 : 2));
+    // Ensure distractor is unique and does not introduce unwanted non-positive numbers if original was strictly positive
+    const origDistractorVal = rawFixedVars[dRule.targetKey];
+    const origWasPositive = typeof origDistractorVal === 'number' ? origDistractorVal > 0 : (parseFloat(String(origDistractorVal)) > 0);
+    const isDisallowedNonPositive = origWasPositive && dVal <= 0;
+    if (isDisallowedNonPositive || usedDistractorVals.has(dVal)) {
+      dVal = ansVal + (usedDistractorVals.size * (Math.abs(ansVal) > 50 ? 10 : 2));
     }
 
     usedDistractorVals.add(dVal);
