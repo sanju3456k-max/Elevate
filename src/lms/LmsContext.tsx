@@ -93,6 +93,7 @@ interface AppContextType {
   deletePersonalNote: (id: string) => void;
   activeBatchId: string | null;
   setActiveBatchId: (id: string | null) => void;
+  refreshCloudContent: () => Promise<void>;
   activeLectureId: string | null;
   setActiveLectureId: (id: string | null) => void;
   securityToast: string | null;
@@ -2058,6 +2059,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return batchTests.filter((t) => t.batchId === batchId && !isDeprecatedTest(t));
   };
 
+  const refreshCloudContent = useCallback(async () => {
+    try {
+      const cloudBatches = await fetchBatchesFromFirestore({ forceRefresh: true });
+      if (cloudBatches && cloudBatches.length > 0) {
+        setBatches(cloudBatches);
+      }
+      if (activeBatchId) {
+        await loadCurriculumForBatch(activeBatchId, true).catch(() => {});
+      }
+    } catch (err) {
+      console.warn('Pull-to-refresh cloud content error:', err);
+    }
+  }, [activeBatchId, loadCurriculumForBatch]);
+
   return (
     <AppContext.Provider
       value={{
@@ -2097,6 +2112,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deletePersonalNote,
         activeBatchId,
         setActiveBatchId,
+        refreshCloudContent,
         activeLectureId,
         setActiveLectureId,
         securityToast,
