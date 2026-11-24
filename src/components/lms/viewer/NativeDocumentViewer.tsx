@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -239,6 +239,46 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
   const imgPinchStartZoomRef = useRef<number>(1.0);
   const imgLastTapRef = useRef<number>(0);
   const imgScrollRef = useRef<HTMLDivElement | null>(null);
+  const imgZoomRef = useRef<number>(imageZoom);
+  imgZoomRef.current = imageZoom;
+  const imgPendingAnchorRef = useRef<{
+    prevZoom: number;
+    nextZoom: number;
+    relX: number;
+    relY: number;
+    contentX: number;
+    contentY: number;
+  } | null>(null);
+
+  const applyAnchoredImageZoom = useCallback((nextZoom: number, clientX?: number, clientY?: number) => {
+    const el = imgScrollRef.current;
+    const prevZoom = imgZoomRef.current;
+    if (el && Math.abs(nextZoom - prevZoom) > 0.001) {
+      const rect = el.getBoundingClientRect();
+      const relX = clientX !== undefined ? clientX - rect.left : rect.width / 2;
+      const relY = clientY !== undefined ? clientY - rect.top : rect.height / 2;
+      imgPendingAnchorRef.current = {
+        prevZoom,
+        nextZoom,
+        relX,
+        relY,
+        contentX: el.scrollLeft + relX,
+        contentY: el.scrollTop + relY,
+      };
+    }
+    setImageZoom(nextZoom);
+  }, []);
+
+  useLayoutEffect(() => {
+    const anchor = imgPendingAnchorRef.current;
+    const el = imgScrollRef.current;
+    if (!anchor || !el) return;
+    imgPendingAnchorRef.current = null;
+    const scale = anchor.nextZoom / anchor.prevZoom;
+    el.scrollLeft = Math.max(0, anchor.contentX * scale - anchor.relX);
+    el.scrollTop = Math.max(0, anchor.contentY * scale - anchor.relY);
+  }, [imageZoom]);
+
   const imgPanRef = useRef<{ active: boolean; startX: number; startY: number; scrollLeft: number; scrollTop: number }>({
     active: false,
     startX: 0,
@@ -273,44 +313,51 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
     imgPanRef.current.active = false;
   }, []);
 
-  const handleImageTouchStart = useCallback(
-    (e: React.TouchEvent<HTMLDivElement>) => {
-      if (e.touches.length === 2) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        imgPinchStartDistRef.current = Math.hypot(dx, dy);
-        imgPinchStartZoomRef.current = imageZoom;
-      }
-    },
-    [imageZoom]
-  );
-
-  const handleImageTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length === 2 && imgPinchStartDistRef.current) {
-      e.preventDefault();
+  const handleImageTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
-      const dist = Math.hypot(dx, dy);
-      const ratio = dist / imgPinchStartDistRef.current;
-      const nextZoom = Math.min(3.5, Math.max(1.0, Number((imgPinchStartZoomRef.current * ratio).toFixed(3))));
-      setImageZoom(nextZoom);
+      imgPinchStartDistRef.current = Math.hypot(dx, dy);
+      imgPinchStartZoomRef.current = imgZoomRef.current;
     }
   }, []);
 
-  const handleImageTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length < 2) {
-      imgPinchStartDistRef.current = null;
-    }
-    if (e.touches.length === 0 && e.changedTouches.length === 1) {
-      const now = Date.now();
-      if (now - imgLastTapRef.current < 280) {
-        setImageZoom((z) => (z > 1.15 ? 1.0 : 2.2));
-        imgLastTapRef.current = 0;
-      } else {
-        imgLastTapRef.current = now;
+  const handleImageTouchMove = useCallback(
+    (e: React.TouchEvent<HTMLDivElement>) => {
+      if (e.touches.length === 2 && imgPinchStartDistRef.current) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        const ratio = dist / imgPinchStartDistRef.current;
+        const nextZoom = Math.min(3.5, Math.max(1.0, Number((imgPinchStartZoomRef.current * ratio).toFixed(3))));
+        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        applyAnchoredImageZoom(nextZoom, midX, midY);
       }
-    }
-  }, []);
+    },
+    [applyAnchoredImageZoom]
+  );
+
+  const handleImageTouchEnd = useCallback(
+    (e: React.TouchEvent<HTMLDivElement>) => {
+      if (e.touches.length < 2) {
+        imgPinchStartDistRef.current = null;
+      }
+      if (e.touches.length === 0 && e.changedTouches.length === 1) {
+        const now = Date.now();
+        if (now - imgLastTapRef.current < 280) {
+          const t = e.changedTouches[0];
+          const nextZoom = imgZoomRef.current > 1.15 ? 1.0 : 2.2;
+          applyAnchoredImageZoom(nextZoom, t.clientX, t.clientY);
+          imgLastTapRef.current = 0;
+        } else {
+          imgLastTapRef.current = now;
+        }
+      }
+    },
+    [applyAnchoredImageZoom]
+  );
 
   // PDF page tracker state (synced with bottom dock)
   const [pdfPageNum, setPdfPageNum] = useState<number>(1);
@@ -933,14 +980,16 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
               onMouseMove={handleImageMouseMove}
               onMouseUp={handleImageMouseUp}
               onMouseLeave={handleImageMouseUp}
-              onDoubleClick={() => {
-                setImageZoom((z) => (z > 1.15 ? 1.0 : 2.2));
+              onDoubleClick={(e) => {
+                const nextZoom = imgZoomRef.current > 1.15 ? 1.0 : 2.2;
+                applyAnchoredImageZoom(nextZoom, e.clientX, e.clientY);
               }}
               onWheel={(e) => {
                 if (e.ctrlKey || e.metaKey) {
                   e.preventDefault();
                   const delta = e.deltaY < 0 ? 0.2 : -0.2;
-                  setImageZoom((z) => Math.max(1.0, Math.min(3.5, Number((z + delta).toFixed(2)))));
+                  const nextZoom = Math.max(1.0, Math.min(3.5, Number((imgZoomRef.current + delta).toFixed(2))));
+                  applyAnchoredImageZoom(nextZoom, e.clientX, e.clientY);
                 }
               }}
               className={`w-full h-full overflow-y-auto ${
