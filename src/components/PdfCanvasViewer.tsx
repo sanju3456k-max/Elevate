@@ -97,20 +97,32 @@ const ContinuousPageItem: React.FC<ContinuousPageItemProps> = ({
 
       const viewport = page.getViewport({ scale, rotation });
       const outputScale = Math.min(Math.max(window.devicePixelRatio || 1, 2), 3);
+      const targetW = Math.floor(viewport.width * outputScale);
+      const targetH = Math.floor(viewport.height * outputScale);
 
-      canvas.width = Math.floor(viewport.width * outputScale);
-      canvas.height = Math.floor(viewport.height * outputScale);
-      canvas.style.width = '100%';
-      canvas.style.height = '100%';
+      // Render into an offscreen buffer first so the visible canvas NEVER flashes blank white during zoom
+      const offscreen = document.createElement('canvas');
+      offscreen.width = targetW;
+      offscreen.height = targetH;
+      const offCtx = offscreen.getContext('2d');
+      if (!offCtx) return;
 
       const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined;
       const renderTask = page.render({
-        canvasContext: context,
+        canvasContext: offCtx,
         viewport,
         transform,
       });
       activeTaskRef.current = renderTask;
       await renderTask.promise;
+
+      if (canvasRef.current === canvas) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        context.drawImage(offscreen, 0, 0);
+      }
       renderedRef.current = true;
       setRendered(true);
     } catch (err: any) {
@@ -274,24 +286,27 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
     contentY: number;
   } | null>(null);
 
-  const applyAnchoredZoom = useCallback((nextZoom: number, clientX?: number, clientY?: number) => {
-    const el = scrollContainerRef.current;
-    const prevZoom = zoomRef.current;
-    if (el && Math.abs(nextZoom - prevZoom) > 0.001) {
-      const rect = el.getBoundingClientRect();
-      const relX = clientX !== undefined ? clientX - rect.left : rect.width / 2;
-      const relY = clientY !== undefined ? clientY - rect.top : rect.height / 2;
-      pendingZoomAnchorRef.current = {
-        prevZoom,
-        nextZoom,
-        relX,
-        relY,
-        contentX: el.scrollLeft + relX,
-        contentY: el.scrollTop + relY,
-      };
-    }
-    setZoom(nextZoom);
-  }, []);
+  const applyAnchoredZoom = useCallback(
+    (nextZoom: number, clientX?: number, clientY?: number, overrideContentX?: number, overrideContentY?: number) => {
+      const el = scrollContainerRef.current;
+      const prevZoom = zoomRef.current;
+      if (el && Math.abs(nextZoom - prevZoom) > 0.001) {
+        const rect = el.getBoundingClientRect();
+        const relX = clientX !== undefined ? clientX - rect.left : rect.width / 2;
+        const relY = clientY !== undefined ? clientY - rect.top : rect.height / 2;
+        pendingZoomAnchorRef.current = {
+          prevZoom,
+          nextZoom,
+          relX,
+          relY,
+          contentX: overrideContentX !== undefined ? overrideContentX : el.scrollLeft + relX,
+          contentY: overrideContentY !== undefined ? overrideContentY : el.scrollTop + relY,
+        };
+      }
+      setZoom(nextZoom);
+    },
+    []
+  );
 
   useLayoutEffect(() => {
     const anchor = pendingZoomAnchorRef.current;
@@ -401,7 +416,7 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
           pdfContentRef.current.style.transformOrigin = '';
           pdfContentRef.current.style.willChange = '';
         }
-        applyAnchoredZoom(ps.lastNextZoom, ps.lastClientX, ps.lastClientY);
+        applyAnchoredZoom(ps.lastNextZoom, ps.lastClientX, ps.lastClientY, ps.startContentX, ps.startContentY);
         return;
       }
       if (e.touches.length === 0 && e.changedTouches.length === 1) {
@@ -1003,7 +1018,7 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
                 zoom > 1.02 ? 'overflow-x-auto items-start cursor-grab active:cursor-grabbing' : 'overflow-x-hidden items-center'
               } flex flex-col p-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden`}
               style={{
-                scrollBehavior: zoom > 1.02 ? 'auto' : 'smooth',
+                scrollBehavior: 'auto',
                 touchAction: zoom > 1.02 ? 'pan-x pan-y' : 'pan-y',
               }}
             >

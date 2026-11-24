@@ -265,26 +265,29 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
     contentY: number;
   } | null>(null);
 
-  const applyAnchoredImageZoom = useCallback((nextZoom: number, clientX?: number, clientY?: number) => {
-    const el = imgScrollRef.current;
-    const contentEl = imgContentRef.current;
-    const prevZoom = imgZoomRef.current;
-    if (el && contentEl && Math.abs(nextZoom - prevZoom) > 0.001) {
-      const elRect = el.getBoundingClientRect();
-      const contentRect = contentEl.getBoundingClientRect();
-      const relX = clientX !== undefined ? clientX - elRect.left : elRect.width / 2;
-      const relY = clientY !== undefined ? clientY - elRect.top : elRect.height / 2;
-      imgPendingAnchorRef.current = {
-        prevZoom,
-        nextZoom,
-        relX,
-        relY,
-        contentX: (clientX !== undefined ? clientX : elRect.left + elRect.width / 2) - contentRect.left,
-        contentY: (clientY !== undefined ? clientY : elRect.top + elRect.height / 2) - contentRect.top,
-      };
-    }
-    setImageZoom(nextZoom);
-  }, []);
+  const applyAnchoredImageZoom = useCallback(
+    (nextZoom: number, clientX?: number, clientY?: number, overrideContentX?: number, overrideContentY?: number) => {
+      const el = imgScrollRef.current;
+      const contentEl = imgContentRef.current;
+      const prevZoom = imgZoomRef.current;
+      if (el && contentEl && Math.abs(nextZoom - prevZoom) > 0.001) {
+        const elRect = el.getBoundingClientRect();
+        const contentRect = contentEl.getBoundingClientRect();
+        const relX = clientX !== undefined ? clientX - elRect.left : elRect.width / 2;
+        const relY = clientY !== undefined ? clientY - elRect.top : elRect.height / 2;
+        imgPendingAnchorRef.current = {
+          prevZoom,
+          nextZoom,
+          relX,
+          relY,
+          contentX: overrideContentX !== undefined ? overrideContentX : (clientX !== undefined ? clientX : elRect.left + elRect.width / 2) - contentRect.left,
+          contentY: overrideContentY !== undefined ? overrideContentY : (clientY !== undefined ? clientY : elRect.top + elRect.height / 2) - contentRect.top,
+        };
+      }
+      setImageZoom(nextZoom);
+    },
+    []
+  );
 
   useLayoutEffect(() => {
     const anchor = imgPendingAnchorRef.current;
@@ -426,7 +429,7 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
           imgContentRef.current.style.transformOrigin = '';
           imgContentRef.current.style.willChange = '';
         }
-        applyAnchoredImageZoom(ps.lastNextZoom, ps.lastClientX, ps.lastClientY);
+        applyAnchoredImageZoom(ps.lastNextZoom, ps.lastClientX, ps.lastClientY, ps.startContentX, ps.startContentY);
         return;
       }
       if (e.touches.length === 0 && e.changedTouches.length === 1) {
