@@ -15,6 +15,7 @@ import {
 import { enableContentSecurityDeterrence, obfuscateVideoKey, initConsoleSecurityNotice } from './security';
 import { secureStorage } from '../lib/secureStorage';
 import { auth, db, getCachedFullTest, sanitizeForFirestore } from '../lib/firebase';
+import { dismissNotificationId, NOTIFICATIONS_EVENT } from '../lib/notifications';
 import { isMasterUser, publishTestToBatchCatalog, isDeprecatedTest, DEPRECATED_TEST_IDS } from '../lib/masterAccount';
 import { hydrateQuestionsForTest } from '../lib/questionCatalogService';
 import { getTestDurationMinutes } from '../utils/testFormatConverter';
@@ -151,7 +152,35 @@ const STORAGE_KEYS = {
   GUEST_ACCESS_MODE: 'elevatelabs_guest_access_mode_v2',
   SECURITY_SETTINGS: 'elevatelabs_security_settings_v2',
   STUDENT_FEATURE_ACCESS: 'elevatelabs_student_feature_access_v2',
+  DELETED_ANNOUNCEMENTS: 'elevatelabs_deleted_announcements_v2',
 };
+
+export function getLocalDeletedAnnouncementIds(): Set<string> {
+  try {
+    const raw =
+      secureStorage.getItem(STORAGE_KEYS.DELETED_ANNOUNCEMENTS) ||
+      (typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.DELETED_ANNOUNCEMENTS) : null);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr.map(String).filter(Boolean) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function addLocalDeletedAnnouncementId(id: string): void {
+  if (!id) return;
+  try {
+    const set = getLocalDeletedAnnouncementIds();
+    set.add(String(id));
+    const arr = Array.from(set).slice(-500);
+    const jsonStr = JSON.stringify(arr);
+    secureStorage.setItem(STORAGE_KEYS.DELETED_ANNOUNCEMENTS, jsonStr);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEYS.DELETED_ANNOUNCEMENTS, jsonStr);
+    }
+  } catch {}
+}
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -251,13 +280,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
     try {
+      const deletedSet = getLocalDeletedAnnouncementIds();
       const saved = secureStorage.getItem(STORAGE_KEYS.ANNOUNCEMENTS);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.filter((a: any) => a?.id && !deletedSet.has(String(a.id)));
+        }
       }
     } catch {}
-    return INITIAL_ANNOUNCEMENTS;
+    const deletedSet = getLocalDeletedAnnouncementIds();
+    return INITIAL_ANNOUNCEMENTS.filter((a) => a?.id && !deletedSet.has(String(a.id)));
   });
 
   const [personalNotes, setPersonalNotes] = useState<PersonalNote[]>(() => {
@@ -482,7 +515,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     );
 
-    // Live listener for global announcements and master broadcast posts
+    // Live listener for global announcements and master broadcast posts (Real-time student & admin sync)
     const unsubAnnouncements = listenerManager.subscribeDocument(
       'master_catalog/lms_announcements',
       () => doc(db, 'master_catalog', 'lms_announcements'),
@@ -490,9 +523,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (snap.exists()) {
           const val = snap.data();
           if (Array.isArray(val?.list)) {
+            // Robust parsing of deleted announcement IDs from Firestore (supports arrays and legacy maps)
+            const rawDeleted = Array.isArray(val?.deletedIds)
+              ? val.deletedIds
+              : Array.isArray(val?.deletedIdsList)
+              ? val.deletedIdsList
+              : typeof val?.deletedIds === 'object' && val?.deletedIds !== null
+              ? Object.values(val.deletedIds)
+              : [];
+
             const firestoreDeletedIds = new Set<string>(
-              Array.isArray(val?.deletedIds) ? val.deletedIds : []
+              rawDeleted.map((x: any) => String(x)).filter(Boolean)
             );
+
+            // Persist all deleted IDs into local storage on this client (student or admin)
+            firestoreDeletedIds.forEach((delId) => {
+              addLocalDeletedAnnouncementId(delId);
+              try {
+                dismissNotificationId(`notif-ann-${delId}`);
+              } catch {}
+            });
+
             const localDeletedIds = getLocalDeletedAnnouncementIds();
             const allDeletedIds = new Set([...firestoreDeletedIds, ...localDeletedIds]);
 
@@ -501,8 +552,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
               // Authoritative published announcements from Firestore, strictly excluding deleted items
               val.list.forEach((item: Announcement) => {
-                if (item?.id && !allDeletedIds.has(item.id)) {
-                  map.set(item.id, item);
+                if (item?.id && !allDeletedIds.has(String(item.id))) {
+                  map.set(String(item.id), item);
                 }
               });
 
@@ -511,12 +562,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               currentLocal.forEach((item) => {
                 if (
                   item?.id &&
-                  !map.has(item.id) &&
-                  !allDeletedIds.has(item.id) &&
-                  item.createdAt &&
+                  !map.has(String(item.id)) &&
+                  !allDeletedIds.has(String(item.id)) &&
+                  typeof item.createdAt === 'number' &&
                   now - item.createdAt < 45000
                 ) {
-                  map.set(item.id, item);
+                  map.set(String(item.id), item);
                 }
               });
 
@@ -528,6 +579,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               } catch {}
               return merged;
             });
+
+            // Trigger notification update event so all notification views re-render
+            try {
+              window.dispatchEvent(new CustomEvent(NOTIFICATIONS_EVENT));
+            } catch {}
           }
         }
       },
@@ -1333,23 +1389,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const deleteAnnouncement = useCallback((id: string) => {
-    addLocalDeletedAnnouncementId(id);
+    if (!id) return;
+    const cleanId = String(id).trim();
+    addLocalDeletedAnnouncementId(cleanId);
+
+    // Dismiss any corresponding notification on this device immediately
+    try {
+      dismissNotificationId(`notif-ann-${cleanId}`);
+      window.dispatchEvent(
+        new CustomEvent('elevate-inapp-notification-dismiss', { detail: { id: `notif-ann-${cleanId}` } })
+      );
+      window.dispatchEvent(new CustomEvent(NOTIFICATIONS_EVENT));
+    } catch {}
+
     setAnnouncements((prev) => {
-      const next = prev.filter((a) => a.id !== id);
+      const next = prev.filter((a) => a.id !== cleanId);
       try {
         secureStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(next));
       } catch {}
-      setDoc(
-        doc(db, 'master_catalog', 'lms_announcements'),
-        sanitizeForFirestore({
-          list: next,
-          deletedIds: arrayUnion(id),
-          updatedAt: new Date().toISOString(),
-        }),
-        { merge: true }
-      ).catch((err) => {
-        console.warn('Failed to sync deleted announcement to Firestore:', err);
-      });
+
+      // Write authoritative updated list and append deleted ID to Firestore
+      const allDeletedList = Array.from(getLocalDeletedAnnouncementIds());
+      const payload = {
+        list: sanitizeForFirestore(next),
+        deletedIds: arrayUnion(cleanId), // real FieldValue
+        deletedIdsList: allDeletedList, // plain array fallback for direct queries
+        updatedAt: new Date().toISOString(),
+      };
+
+      setDoc(doc(db, 'master_catalog', 'lms_announcements'), payload, { merge: true })
+        .then(() => {
+          console.log(`[LMS] Broadcast post ${cleanId} successfully deleted across all student clients.`);
+        })
+        .catch((err) => {
+          console.warn('Failed to sync deleted announcement to Firestore:', err);
+        });
+
       return next;
     });
     showSecurityToast('Broadcast post removed');

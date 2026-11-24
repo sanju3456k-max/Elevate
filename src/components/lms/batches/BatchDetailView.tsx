@@ -1,5 +1,7 @@
+import { DEFAULT_HIGH_RES_BANNER } from './BatchThumbnailPicker';
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
+  Megaphone,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -147,6 +149,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     deletePersonalNote,
     loadCurriculumForBatch,
     showSecurityToast,
+    announcements,
+    addAnnouncement,
     batchTests,
     deleteBatchTest,
     addBatch,
@@ -172,6 +176,26 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   const [batchForRoster, setBatchForRoster] = useState<Batch | null>(null);
 
   const [activeCardMenuBatchId, setActiveCardMenuBatchId] = useState<string | null>(null);
+
+  const handleBroadcastBatchAsHero = (targetB: Batch) => {
+    const existing = announcements?.find((a) => a.batchId === targetB.id && a.isHeroBanner);
+    if (existing) {
+      showSecurityToast(`Batch "${targetB.title}" is already broadcasting on the Home Screen!`);
+      return;
+    }
+    addAnnouncement({
+      title: targetB.title,
+      message: targetB.description || `Explore ${targetB.title} curriculum, lectures, and mock tests.`,
+      batchId: targetB.id,
+      imageUrl: targetB.bannerUrl || targetB.thumbnailUrl || DEFAULT_HIGH_RES_BANNER,
+      isHeroBanner: true,
+      themeColor: 'yellow',
+      authorName: targetB.instructor?.name || 'Master Academic Head',
+      authorRole: 'Master Admin',
+      date: new Date().toISOString(),
+    });
+    showSecurityToast(`Batch "${targetB.title}" broadcasted to Home Screen as 1200x500 banner!`);
+  };
 
   // Close 3-dots card menu when clicking outside
   useEffect(() => {
@@ -1121,6 +1145,18 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                             type="button"
                             onClick={() => {
                               setActiveCardMenuBatchId(null);
+                              handleBroadcastBatchAsHero(b);
+                            }}
+                            className="w-full px-3.5 py-2 text-left text-orange-600 dark:text-orange-400 hover:bg-orange-500/10 flex items-center space-x-2 border-none bg-transparent cursor-pointer font-bold"
+                          >
+                            <Megaphone className="w-3.5 h-3.5" />
+                            <span>Broadcast to Home Banner</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveCardMenuBatchId(null);
                               const willPublish = b.isPublished === false;
                               updateBatch(b.id, { isPublished: willPublish });
                               showSecurityToast(
@@ -1421,6 +1457,17 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                     {getEnrollmentsForBatch(currentBatch?.id || selectedBatchId).length}
                   </span>
                 )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => currentBatch && handleBroadcastBatchAsHero(currentBatch)}
+                className="relative w-9 h-9 md:w-auto md:h-auto p-0 md:px-3 md:py-1.5 aspect-square md:aspect-auto rounded-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 active:scale-95 text-white font-bold text-xs flex items-center justify-center md:space-x-1.5 shadow-xs transition border-none cursor-pointer shrink-0"
+                title="Broadcast this Course Batch as a 1200x500 Hero Banner on Home Screen"
+                aria-label="Broadcast Batch"
+              >
+                <Megaphone className="w-4 h-4 shrink-0" />
+                <span className="hidden md:inline">Broadcast Batch</span>
               </button>
 
               <button
@@ -2084,6 +2131,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                       attempts={attempts}
                       index={idx}
                       isMaster={isMaster && !!selectedChapterId}
+                      titleClassName="text-sm sm:text-[14.5px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors leading-snug break-words"
                       onDelete={() => {
                         const targetBatchId = currentBatch?.id || selectedBatchId;
                         deleteBatchTest(targetBatchId, t.id, t.title);

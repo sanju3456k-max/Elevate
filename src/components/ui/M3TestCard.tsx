@@ -14,6 +14,7 @@ export interface M3TestCardProps {
   batchBadge?: string | null;
   isMaster?: boolean;
   onDelete?: () => void;
+  titleClassName?: string;
 }
 
 export const M3TestCard: React.FC<M3TestCardProps> = ({
@@ -24,6 +25,7 @@ export const M3TestCard: React.FC<M3TestCardProps> = ({
   batchBadge,
   isMaster = false,
   onDelete,
+  titleClassName,
 }) => {
   const questionCount = (() => {
     if (Array.isArray(test.questions) && test.questions.length > 0) return test.questions.length;
@@ -118,7 +120,12 @@ export const M3TestCard: React.FC<M3TestCardProps> = ({
           )}
         </div>
 
-        <h3 className="text-[17px] sm:text-[17px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors leading-snug break-words">
+        <h3
+          className={
+            titleClassName ||
+            'text-[17px] sm:text-[17px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition-colors leading-snug break-words'
+          }
+        >
           {test.title}
         </h3>
       </div>

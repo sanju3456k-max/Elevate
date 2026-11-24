@@ -59,10 +59,23 @@ export const InAppNotificationBanner: React.FC<InAppNotificationBannerProps> = (
     };
 
     window.addEventListener(ELEVATE_INAPP_NOTIF_EVENT as any, handleInAppNotif);
+
+    const handleDismissNotif = (event: CustomEvent<{ id?: string }>) => {
+      const targetId = event.detail?.id;
+      if (!targetId || (currentNotif && String(currentNotif.id) === String(targetId))) {
+        setCurrentNotif(null);
+        setProgress(100);
+        if (timerRef.current) clearTimeout(timerRef.current);
+        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      }
+    };
+    window.addEventListener('elevate-inapp-notification-dismiss' as any, handleDismissNotif);
+
     return () => {
       window.removeEventListener(ELEVATE_INAPP_NOTIF_EVENT as any, handleInAppNotif);
+      window.removeEventListener('elevate-inapp-notification-dismiss' as any, handleDismissNotif);
     };
-  }, []);
+  }, [currentNotif]);
 
   // Handle countdown & auto-dismiss
   useEffect(() => {

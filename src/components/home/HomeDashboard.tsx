@@ -234,21 +234,11 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     }
   }, [heroBanners.length, currentSlideIndex]);
 
-  const [desktopSlideIndex, setDesktopSlideIndex] = useState<number>(0);
-  const desktopPageCount = Math.ceil(heroBanners.length / 2);
-
-  useEffect(() => {
-    if (desktopSlideIndex >= desktopPageCount && desktopPageCount > 0) {
-      setDesktopSlideIndex(0);
-    }
-  }, [desktopPageCount, desktopSlideIndex]);
-
   // Slideshow auto-advance every 4.5 seconds if multiple banners (Infinite repeating loop)
   useEffect(() => {
     if (heroBanners.length <= 1 || isSlidePaused) return;
     const timer = setInterval(() => {
       setCurrentSlideIndex((prev) => (prev + 1) % heroBanners.length);
-      setDesktopSlideIndex((prev) => (prev + 1) % Math.max(1, Math.ceil(heroBanners.length / 2)));
     }, 4500);
     return () => clearInterval(timer);
   }, [heroBanners.length, isSlidePaused]);
@@ -264,13 +254,11 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   };
 
   const handlePrevDesktop = () => {
-    if (desktopPageCount <= 1) return;
-    setDesktopSlideIndex((prev) => (prev - 1 + desktopPageCount) % desktopPageCount);
+    handlePrevSlide();
   };
 
   const handleNextDesktop = () => {
-    if (desktopPageCount <= 1) return;
-    setDesktopSlideIndex((prev) => (prev + 1) % desktopPageCount);
+    handleNextSlide();
   };
 
   // Touch swipe handling for mobile devices
@@ -287,10 +275,10 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       if (Math.abs(deltaX) > 35 && heroBanners.length > 1) {
         if (deltaX < 0) {
           // Swipe left -> Next slide (Infinite loop)
-          setCurrentSlideIndex((prev) => (prev + 1) % heroBanners.length);
+          handleNextSlide();
         } else {
           // Swipe right -> Prev slide (Infinite loop)
-          setCurrentSlideIndex((prev) => (prev - 1 + heroBanners.length) % heroBanners.length);
+          handlePrevSlide();
         }
       }
       touchStartXRef.current = null;
@@ -656,7 +644,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             <div
               id={`hero-campus-banner-card-${idx}`}
               key={banner.id || idx}
-              className={`relative rounded-[24px] overflow-hidden ${hasImage ? "bg-slate-950 dark:bg-black" : bTheme.container} border-0 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.4)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_6px_24px_rgba(0,0,0,0.5)] transition-all duration-300 select-none w-full aspect-[1200/500]`}
+              onClick={() => {
+                if (banner.batchId && onSelectBatch) {
+                  onSelectBatch(banner.batchId);
+                }
+              }}
+              className={`relative rounded-[24px] overflow-hidden ${hasImage ? "bg-slate-950 dark:bg-black" : bTheme.container} border-0 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.4)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_6px_24px_rgba(0,0,0,0.5)] transition-all duration-300 select-none w-full aspect-[1200/500] ${banner.batchId ? 'cursor-pointer group/batch hover:ring-2 hover:ring-[#0b57d0]/40' : ''}`}
               style={{ aspectRatio: '1200 / 500' }}
               onMouseEnter={() => setIsSlidePaused(true)}
               onMouseLeave={() => setIsSlidePaused(false)}
@@ -685,9 +678,9 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                     loading="lazy"
                   />
 
-                  {/* Floating Header Badges - Strictly for Master Console */}
-                  {isMaster && (
-                    <div className="absolute top-2 left-2 sm:top-3.5 sm:left-3.5 z-20 flex items-center gap-1.5 flex-wrap pointer-events-auto">
+                  {/* Floating Header Badges - Master Badges or Course Badge */}
+                  {isMaster ? (
+                    <div className="absolute top-2 left-2 sm:top-3.5 sm:left-3.5 z-20 flex items-center gap-1.5 flex-wrap pointer-events-auto" onClick={(e) => e.stopPropagation()}>
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[9.5px] sm:text-[10.5px] font-black uppercase tracking-wider select-none border border-white/20 shadow-sm">
                         <Megaphone className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-current text-amber-400" />
                         <span>Campus Announcement</span>
@@ -703,14 +696,24 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                         </span>
                       )}
                     </div>
-                  )}
+                  ) : bBatch ? (
+                    <div className="absolute top-2 left-2 sm:top-3.5 sm:left-3.5 z-20 flex items-center gap-1.5 flex-wrap pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0b57d0]/90 backdrop-blur-md text-white text-[9.5px] sm:text-[10.5px] font-bold uppercase tracking-wider select-none border border-white/20 shadow-sm">
+                        <BookOpen className="w-3 h-3 fill-current" />
+                        <span>Course: {bBatch.title}</span>
+                      </span>
+                    </div>
+                  ) : null}
 
                   {/* Floating Master Controls */}
                   {isMaster && (
-                    <div className="absolute top-2 right-2 sm:top-3.5 sm:right-3.5 z-20 flex items-center gap-1.5 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 shadow-md pointer-events-auto">
+                    <div className="absolute top-2 right-2 sm:top-3.5 sm:right-3.5 z-20 flex items-center gap-1.5 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 shadow-md pointer-events-auto" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
-                        onClick={() => updateAnnouncement(banner.id, { isHeroBanner: false })}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateAnnouncement(banner.id, { isHeroBanner: false });
+                        }}
                         className="inline-flex items-center gap-1 text-[11px] font-semibold text-white/90 hover:text-white transition-colors cursor-pointer border-0 shadow-none outline-none"
                         title="Unpin from Home feed"
                       >
@@ -719,7 +722,8 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           if (window.confirm('Delete this broadcast post?')) {
                             deleteAnnouncement(banner.id);
                           }
@@ -728,6 +732,23 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                         title="Delete broadcast post"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Interactive 'Open Course' CTA for Course Batches */}
+                  {bBatch && (
+                    <div className="absolute bottom-2.5 right-2.5 sm:bottom-3.5 sm:right-3.5 z-20 pointer-events-auto">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onSelectBatch) onSelectBatch(banner.batchId!);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-full bg-white/95 dark:bg-black/90 hover:bg-white dark:hover:bg-black text-[#0b57d0] dark:text-[#a8c7fa] text-[11px] sm:text-xs font-bold backdrop-blur-md shadow-lg border border-black/10 dark:border-white/15 active:scale-95 transition-all cursor-pointer select-none"
+                      >
+                        <span>Open Course</span>
+                        <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
                       </button>
                     </div>
                   )}
@@ -829,17 +850,21 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
         const isMultiple = heroBanners.length > 1;
         const desktopHasGrid = heroBanners.length >= 2;
-        const firstDesktopBanner = heroBanners[(desktopSlideIndex * 2) % heroBanners.length];
-        const secondDesktopBanner = heroBanners[(desktopSlideIndex * 2 + 1) % heroBanners.length];
+        const firstDesktopBanner = heroBanners[currentSlideIndex % heroBanners.length];
+        const secondDesktopBanner = heroBanners[(currentSlideIndex + 1) % heroBanners.length];
 
         return (
           <div className="space-y-2 mt-1">
-            {/* Desktop View (lg+): 2 Banner Templates Side-by-Side in 1200x500 Aspect Ratio */}
+            {/* Desktop & Tablet Landscape View (lg+): 2 Banner Templates Side-by-Side with full Touch Swipe support */}
             {desktopHasGrid ? (
-              <div className="hidden lg:block relative group">
+              <div
+                className="hidden lg:block relative group"
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+              >
                 <div className="grid grid-cols-2 gap-4 lg:gap-6">
-                  {renderBannerCard(firstDesktopBanner, (desktopSlideIndex * 2) % heroBanners.length, true)}
-                  {renderBannerCard(secondDesktopBanner, (desktopSlideIndex * 2 + 1) % heroBanners.length, true)}
+                  {renderBannerCard(firstDesktopBanner, currentSlideIndex % heroBanners.length, true)}
+                  {renderBannerCard(secondDesktopBanner, (currentSlideIndex + 1) % heroBanners.length, true)}
                 </div>
 
                 {/* Desktop Left / Right Navigation Buttons (When more than 2 banners exist) */}
@@ -909,7 +934,6 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                       type="button"
                       onClick={() => {
                         setCurrentSlideIndex(idx);
-                        setDesktopSlideIndex(Math.floor(idx / 2));
                       }}
                       className={`transition-all duration-300 rounded-full cursor-pointer border-0 outline-none p-0 ${
                         isActive
@@ -1055,7 +1079,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-[var(--md-sys-color-on-surface)] tracking-tight flex items-center space-x-2">
                   <BookOpen className="w-4 h-4 text-[var(--md-sys-color-primary)]" />
-                  <span>{activeView === 'my-batches' ? 'My Enrolled Batches' : 'Coaching Batches'}</span>
+                  <span>{activeView === 'my-batches' ? 'My Enrolled Batches' : 'Course Batches'}</span>
                 </h2>
                 <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
                   {activeView === 'my-batches'
@@ -1092,7 +1116,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                   No Enrolled Batches
                 </h3>
                 <p className="text-xs text-[var(--md-sys-color-on-surface-variant)] max-w-sm mx-auto">
-                  You are not currently enrolled in any coaching batches. Explore our available batches to get started.
+                  You are not currently enrolled in any course batches. Explore our available batches to get started.
                 </p>
                 <button
                   type="button"
@@ -1372,41 +1396,41 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
         </div>
       </div>
 
-      <div className="p-4 sm:p-5 flex-1 min-w-0 flex flex-col justify-between space-y-3">
+      <div className="px-3.5 sm:px-4.5 pt-2.5 sm:pt-3 pb-3 sm:pb-3.5 flex-1 min-w-0 flex flex-col justify-between space-y-2 sm:space-y-2.5">
         <div>
-          <h3 className="text-base sm:text-lg font-bold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition leading-snug line-clamp-2">
+          <h3 className="text-[15px] sm:text-base font-bold text-[#1f1f1f] dark:text-[#e3e3e3] group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa] transition leading-snug line-clamp-2">
             {batch.title}
           </h3>
           {batch.description && (
-            <p className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-2 mt-1">
+            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-zinc-400 line-clamp-2 mt-0.5">
               {batch.description}
             </p>
           )}
         </div>
 
         {/* Instructor info with faculty profile icon */}
-        <div className="flex items-center space-x-2.5 pt-2.5 border-t border-[var(--md-sys-color-outline-variant)]/20">
+        <div className="flex items-center space-x-2 pt-2 border-t border-[var(--md-sys-color-outline-variant)]/20">
           <img
             src={getFacultyAvatarUrl(batch.instructor?.avatarUrl)}
             alt={batch.instructor?.name || 'Faculty'}
-            className="w-8 h-8 rounded-full object-cover shrink-0 border-0"
+            className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full object-cover shrink-0 border-0"
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).src = '/assets/default-profile.png';
             }}
           />
           <div className="text-[11px] sm:text-xs min-w-0">
-            <p className="font-bold text-[#1f1f1f] dark:text-[#e3e3e3] truncate">{batch.instructor?.name || 'Elevate Faculty'}</p>
-            <p className="text-[10px] text-slate-500 dark:text-zinc-400 truncate">
+            <p className="font-bold text-[#1f1f1f] dark:text-[#e3e3e3] truncate leading-tight">{batch.instructor?.name || 'Elevate Faculty'}</p>
+            <p className="text-[10px] text-slate-500 dark:text-zinc-400 truncate leading-tight">
               {batch.instructor?.designation || 'Master Educator'}
             </p>
           </div>
         </div>
 
         {/* Footer: Enrolled Status & Open Batch Button */}
-        <div className="flex items-center justify-between pt-1">
+        <div className="flex items-center justify-between pt-0.5">
           {isEnrolled ? (
-            <div className="flex items-center space-x-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border-0">
-              <CheckCircle className="w-3.5 h-3.5" />
+            <div className="flex items-center space-x-1.5 text-[11px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full border-0">
+              <CheckCircle className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
               <span>Full Access</span>
             </div>
           ) : (
@@ -1416,17 +1440,17 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
           {isEnrolled ? (
             <button
               type="button"
-              className="h-9 px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold flex items-center space-x-1.5 border-0 shadow-[0_2px_6px_rgba(11,87,208,0.25)] outline-none cursor-pointer active:scale-95 transition-all"
+              className="h-8 sm:h-8.5 px-3.5 sm:px-4 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-[11px] sm:text-xs font-bold flex items-center space-x-1.5 border-0 shadow-[0_2px_6px_rgba(11,87,208,0.25)] outline-none cursor-pointer active:scale-95 transition-all"
             >
               <span>Continue</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <ArrowRight className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
             </button>
           ) : (
             <button
               type="button"
-              className="h-9 px-4 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-xs font-bold flex items-center space-x-1.5 border-0 outline-none cursor-pointer"
+              className="h-8 sm:h-8.5 px-3.5 sm:px-4 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[11px] sm:text-xs font-bold flex items-center space-x-1.5 border-0 outline-none cursor-pointer"
             >
-              <Lock className="w-3.5 h-3.5" />
+              <Lock className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
               <span>Locked</span>
             </button>
           )}

@@ -19,7 +19,9 @@ import { useApp } from '../../lms/LmsContext';
 import { compressImageToDataUrl } from '../../lib/diagramPresets';
 import { PLAIN_BANNER_TEMPLATES } from '../../lib/bannerTemplates';
 import type { User } from 'firebase/auth';
-import type { Announcement } from '../../lms/types';
+import type { Announcement, Batch } from '../../lms/types';
+import { DEFAULT_HIGH_RES_BANNER } from '../lms/batches/BatchThumbnailPicker';
+import { BookOpen } from 'lucide-react';
 
 const THEME_OPTIONS = [
   { id: 'yellow', label: 'Plain Yellow', bg: 'bg-[#fbc404]', swatch: 'from-[#ffd000] to-[#fbc404]' },
@@ -46,7 +48,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 }) => {
   const { batches, addAnnouncement } = useApp();
 
-  const [postMode, setPostMode] = useState<'banner' | 'notification'>('banner');
+  const [postMode, setPostMode] = useState<'banner' | 'broadcast_batch' | 'notification'>('banner');
   const [themeColor, setThemeColor] = useState<'yellow' | 'orange' | 'blue' | 'green' | 'purple' | 'rose' | 'slate'>('yellow');
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
@@ -97,6 +99,13 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     }
   };
 
+  const handleSelectBatchForBroadcast = (b: Batch) => {
+    setSelectedBatchId(b.id);
+    setImageUrl(b.bannerUrl || b.thumbnailUrl || DEFAULT_HIGH_RES_BANNER);
+    setTitle(b.title);
+    setMessage(b.description || `Explore ${b.title} curriculum, lectures, and mock tests.`);
+  };
+
   const handleRemoveImage = () => {
     setImageUrl('');
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -115,7 +124,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       authorRole: 'Master Admin',
       createdAt: Date.now(),
       date: new Date().toISOString(),
-      isHeroBanner: postMode === 'banner',
+      isHeroBanner: postMode === 'banner' || postMode === 'broadcast_batch',
     };
 
     if (postMode === 'banner') {
@@ -192,57 +201,96 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               <label className="text-xs font-bold text-slate-700 dark:text-zinc-300">
                 Broadcast Destination
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5">
                 {/* Option A: Home Screen Hero Banner */}
                 <div
                   onClick={() => setPostMode('banner')}
-                  className={`p-3 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-2.5 relative ${
+                  className={`p-2.5 sm:p-3 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-2 relative ${
                     postMode === 'banner'
                       ? 'border-orange-500 bg-orange-500/10 dark:bg-orange-950/30 shadow-xs'
                       : 'border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 bg-slate-50/50 dark:bg-zinc-900/50'
                   }`}
                 >
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                    className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
                       postMode === 'banner'
                         ? 'bg-orange-500 text-white'
                         : 'bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'
                     }`}
                   >
-                    <Megaphone className="w-4 h-4 stroke-[2.2]" />
+                    <Megaphone className="w-3.5 h-3.5 stroke-[2.2]" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
                       <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
-                        Home Screen Banner
+                        Custom Banner
                       </h4>
                       {postMode === 'banner' && (
                         <CheckCircle2 className="w-4 h-4 text-orange-500 shrink-0" />
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-600 dark:text-zinc-400 leading-tight mt-1">
-                      Prominent hero banner at top of Home feed (pushes latest classes down).
+                    <p className="text-[10px] text-slate-600 dark:text-zinc-400 leading-tight mt-1">
+                      Announcements with 1200x500 banner.
                     </p>
                   </div>
                 </div>
 
-                {/* Option B: Notification Only */}
+                {/* Option B: Broadcast a Course Batch */}
+                <div
+                  onClick={() => {
+                    setPostMode('broadcast_batch');
+                    if (batches.length > 0) {
+                      const initial = batches.find(b => b.id === selectedBatchId) || batches[0];
+                      handleSelectBatchForBroadcast(initial);
+                    }
+                  }}
+                  className={`p-2.5 sm:p-3 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-2 relative ${
+                    postMode === 'broadcast_batch'
+                      ? 'border-emerald-500 bg-emerald-500/10 dark:bg-emerald-950/30 shadow-xs'
+                      : 'border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 bg-slate-50/50 dark:bg-zinc-900/50'
+                  }`}
+                >
+                  <div
+                    className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                      postMode === 'broadcast_batch'
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'
+                    }`}
+                  >
+                    <BookOpen className="w-3.5 h-3.5 stroke-[2.2]" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                        Broadcast a Batch
+                      </h4>
+                      {postMode === 'broadcast_batch' && (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                      )}
+                    </div>
+                    <p className="text-[10px] text-slate-600 dark:text-zinc-400 leading-tight mt-1">
+                      Pin course batch. Tapping it navigates to batch!
+                    </p>
+                  </div>
+                </div>
+
+                {/* Option C: Notification Only */}
                 <div
                   onClick={() => setPostMode('notification')}
-                  className={`p-3 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-2.5 relative ${
+                  className={`p-2.5 sm:p-3 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-2 relative ${
                     postMode === 'notification'
                       ? 'border-[#0b57d0] dark:border-[#a8c7fa] bg-blue-500/10 dark:bg-blue-950/30 shadow-xs'
                       : 'border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 bg-slate-50/50 dark:bg-zinc-900/50'
                   }`}
                 >
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                    className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
                       postMode === 'notification'
                         ? 'bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#041e49]'
                         : 'bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'
                     }`}
                   >
-                    <Bell className="w-4 h-4 stroke-[2.2]" />
+                    <Bell className="w-3.5 h-3.5 stroke-[2.2]" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
@@ -253,13 +301,67 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                         <CheckCircle2 className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-600 dark:text-zinc-400 leading-tight mt-1">
-                      Message alert delivered strictly to the Updates feed.
+                    <p className="text-[10px] text-slate-600 dark:text-zinc-400 leading-tight mt-1">
+                      Alert sent to Updates feed only.
                     </p>
                   </div>
                 </div>
               </div>
             </div>
+
+                        {/* Dedicated Batch Selector for 'Broadcast a Batch' Mode */}
+            {postMode === 'broadcast_batch' && (
+              <div className="space-y-2 p-3.5 rounded-2xl bg-emerald-500/5 dark:bg-emerald-950/20 border border-emerald-500/20">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>Select Course Batch to Broadcast</span>
+                  </label>
+                  <span className="text-[10.5px] font-bold text-emerald-600 dark:text-emerald-400">
+                    {batches.find(b => b.id === selectedBatchId)?.title || 'Select a batch'}
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 max-h-48 overflow-y-auto pr-1">
+                  {batches.map((b) => {
+                    const isSelected = selectedBatchId === b.id;
+                    const thumb = b.bannerUrl || b.thumbnailUrl || DEFAULT_HIGH_RES_BANNER;
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => handleSelectBatchForBroadcast(b)}
+                        className={`p-2 rounded-xl flex items-center gap-2.5 text-left border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'border-emerald-500 bg-white dark:bg-zinc-800 shadow-sm ring-2 ring-emerald-500/30'
+                            : 'border-slate-200/80 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 bg-white/50 dark:bg-zinc-900/50'
+                        }`}
+                      >
+                        <img
+                          src={thumb}
+                          alt={b.title}
+                          className="w-12 h-7.5 object-cover rounded-lg shrink-0 border border-black/5"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                            {b.title}
+                          </p>
+                          <p className="text-[10px] text-slate-500 dark:text-zinc-400 truncate">
+                            {b.category || 'Course'} • {b.instructor?.name || 'Faculty'}
+                          </p>
+                        </div>
+                        {isSelected && (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-zinc-400 pt-0.5">
+                  💡 This batch's <strong>1200×500 thumbnail</strong> will be pinned to the Home Screen. When students tap it, they will be taken straight into the batch curriculum.
+                </p>
+              </div>
+            )}
 
             {/* Banner Theme Background Color Picker (When Home Screen Banner is selected) */}
             {postMode === 'banner' && (
