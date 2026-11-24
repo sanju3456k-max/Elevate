@@ -26,7 +26,7 @@ import { deobfuscateVideoKey, extractYouTubeId, formatDuration, getLectureThumbn
 import { requestPlaybackToken } from '../../../lms/playbackTokenService';
 import { useApp } from '../../../lms/LmsContext';
 import { useBackHandler, isBrowserFullscreen, exitBrowserFullscreen } from '../../../hooks/useBackNavigation';
-import { enterNativePip, setNativePlaybackPlaying, isNativeAndroid, hideNativeStatusBar, showNativeStatusBar, lockOrientationLandscape, unlockOrientationPortrait } from '../../../lib/nativeHardwareBridge';
+import { enterNativePip, setNativePlaybackPlaying, isNativeAndroid, hideNativeStatusBar, showNativeStatusBar, lockOrientationLandscape, unlockOrientationPortrait, triggerLightHaptic } from '../../../lib/nativeHardwareBridge';
 import type { User, TimelineMilestone, PlaybackSessionToken } from '../../../lms/types';
 
 declare global {
@@ -1068,6 +1068,22 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     // ALWAYS mark touch handled on any touch release so synthetic mouse clicks are reliably suppressed
     lastTouchHandledTimeRef.current = Date.now();
 
+    // YouTube-style vertical swipe on video surface:
+    // Swipe UP while in portrait -> enter Fullscreen & rotate to Landscape
+    // Swipe DOWN while in fullscreen -> exit Fullscreen & restore Portrait
+    if (!was2x && !isMini && dur < 650 && Math.abs(dy) >= 48 && Math.abs(dy) > Math.abs(dx) * 1.4) {
+      if (dy < 0 && !isFullscreen) {
+        triggerLightHaptic();
+        toggleFullscreen();
+        return;
+      }
+      if (dy > 0 && isFullscreen) {
+        triggerLightHaptic();
+        toggleFullscreen();
+        return;
+      }
+    }
+
     // If this release was from a 2X hold or long press, do NOT trigger any tap
     if (was2x || dur >= 350) {
       return;
@@ -1756,7 +1772,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         onMouseLeave={handleSurfaceMouseLeave}
         onClick={handleSurfaceClick}
         className="absolute inset-0 z-20 flex select-none cursor-pointer bg-transparent pointer-events-auto"
-        style={{ touchAction: 'manipulation' }}
+        style={{ touchAction: 'none' }}
       >
         {/* Left 35%: double-tap rewind feedback (Ringless Minimal Modern UI) */}
         <div className="relative w-[35%] h-full flex items-center justify-center pointer-events-none overflow-hidden">
