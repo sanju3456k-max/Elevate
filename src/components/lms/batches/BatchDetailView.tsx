@@ -1065,7 +1065,10 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 onClick={() => goToBatchFolders(b.id)}
                 className="bg-white dark:bg-[#1e2024] rounded-3xl border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] overflow-hidden transition-all duration-200 group cursor-pointer flex flex-col justify-between"
               >
-                <div className="relative aspect-video w-full overflow-hidden bg-slate-900">
+                <div
+                  className="relative aspect-[1200/500] w-full overflow-hidden bg-slate-900"
+                  style={{ aspectRatio: '1200 / 500' }}
+                >
                   <img
                     src={b.bannerUrl || b.thumbnailUrl}
                     alt={b.title}

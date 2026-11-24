@@ -149,8 +149,8 @@ interface BatchThumbnailPickerProps {
 export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
   value,
   onChange,
-  label = 'Batch Preview Thumbnail & Course Banner',
-  helperText = 'Select from curated Ultra-HD presets or repair with one click for crystal-clear batch cards.',
+  label = 'Batch Preview Thumbnail & Course Banner (1200 × 500 px)',
+  helperText = 'Select from curated Ultra-HD presets or paste custom URL. Unified 1200 × 500 px (12:5 ratio) renders identically in batch cards and Home Hero banner.',
   previewTitle,
   previewCategory,
 }) => {
@@ -237,8 +237,11 @@ export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
         </div>
       )}
 
-      {/* Live 16:9 Thumbnail Preview Card */}
-      <div className="relative rounded-2xl overflow-hidden aspect-video w-full bg-slate-900 border border-[var(--md-sys-color-outline-variant)]/30 shadow-md group">
+      {/* Live 1200x500 Thumbnail Preview Card */}
+      <div
+        className="relative rounded-2xl overflow-hidden aspect-[1200/500] w-full bg-slate-900 border border-[var(--md-sys-color-outline-variant)]/30 shadow-md group"
+        style={{ aspectRatio: '1200 / 500' }}
+      >
         <img
           src={imageLoadError ? DEFAULT_HIGH_RES_BANNER : activeUrl}
           alt="Thumbnail Preview"
@@ -253,7 +256,7 @@ export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
           <div className="flex items-center justify-between">
             <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-black/60 backdrop-blur-md text-emerald-400 border border-emerald-400/30 flex items-center space-x-1">
               <Sparkles className="w-2.5 h-2.5" />
-              <span>Ultra-HD 4K Preview</span>
+              <span>1200 × 500 px Ultra-HD Preview</span>
             </span>
 
             {previewCategory && (
@@ -268,7 +271,7 @@ export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
               {previewTitle || 'Batch Card Live Preview'}
             </p>
             <p className="text-[10px] text-white/80 font-medium">
-              16:9 Ratio • High Quality Crisp Display for Student Catalog
+              1200 × 500 px (12:5 Ratio) • Exact 1:1 Match with Home Banner & Batch Cards
             </p>
           </div>
         </div>
@@ -342,11 +345,12 @@ export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
               <div
                 key={preset.id}
                 onClick={() => handleSelectPreset(preset)}
-                className={`relative rounded-xl overflow-hidden aspect-video cursor-pointer border-2 transition-all transform hover:scale-[1.02] ${
+                className={`relative rounded-xl overflow-hidden aspect-[1200/500] cursor-pointer border-2 transition-all transform hover:scale-[1.02] ${
                   isSelected
                     ? 'border-[#0b57d0] ring-2 ring-[#0b57d0]/40 shadow-sm'
                     : 'border-transparent opacity-75 hover:opacity-100'
                 }`}
+                style={{ aspectRatio: '1200 / 500' }}
                 title={`${preset.title} (${preset.category})`}
               >
                 <img

@@ -1361,7 +1361,10 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
       onClick={onSelect}
       className="bg-white dark:bg-[#1e2024] rounded-3xl border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] dark:hover:shadow-[0_6px_20px_rgba(0,0,0,0.5)] overflow-hidden group cursor-pointer transition-all duration-200 flex flex-col justify-between"
     >
-      <div className="relative w-full aspect-video shrink-0 overflow-hidden bg-slate-900/10 dark:bg-black/40">
+      <div
+        className="relative w-full aspect-[1200/500] shrink-0 overflow-hidden bg-slate-900/10 dark:bg-black/40"
+        style={{ aspectRatio: '1200 / 500' }}
+      >
         <img
           src={batch.bannerUrl || batch.thumbnailUrl || DEFAULT_HIGH_RES_BANNER}
           alt={batch.title}

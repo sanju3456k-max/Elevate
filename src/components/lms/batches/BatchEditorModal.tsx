@@ -276,7 +276,7 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
             </div>
           </div>
 
-          {/* High-Resolution Thumbnail & Course Banner with Live 16:9 Preview & Repair */}
+          {/* High-Resolution Thumbnail & Course Banner with Live 1200x500 Preview & Repair */}
           <div className="p-4 rounded-2xl bg-white/50 dark:bg-zinc-800/40 border border-slate-200/60 dark:border-zinc-700/50 backdrop-blur-xs">
             <BatchThumbnailPicker
               value={bannerUrl}
