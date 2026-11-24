@@ -18,3 +18,5 @@ test_canvas.mjs
 *.ttf
 .leaderboards/
 loadtest-*-results.json
+scripts/synthetic-tester/reports/
+scripts/synthetic-tester/last-run-manifest.json

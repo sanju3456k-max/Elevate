@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "clean": "rm -rf dist build",
     "lint": "tsc --noEmit --skipLibCheck",
-    "test:load": "tsx scripts/load-tester.ts"
+    "test:load": "tsx scripts/load-tester.ts",
+    "test:bot": "tsx scripts/synthetic-tester/runAudit.ts",
+    "test:bot:turbo": "tsx scripts/synthetic-tester/runAudit.ts --mode=turbo",
+    "test:bot:purge": "tsx scripts/synthetic-tester/purge.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.6.2",
