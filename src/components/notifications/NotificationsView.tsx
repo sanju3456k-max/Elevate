@@ -59,7 +59,7 @@ interface ParsedLocation {
 function parseLocation(notif: AppNotification): ParsedLocation {
   const prefixRegex = /^(?:Course\s+Lecture|Lecture|Mock\s+Test|Test|Course)\b\s*[:•-]?\s*/i;
 
-  let batch = (notif.batchTitle || '').trim();
+  let batch = (notif.batchTitle || '').replace(/^\[(.*?)\]$/, '$1').trim();
   // Only blank out batch if it's purely one of the generic placeholder words
   if (/^(?:Lecture|Course|Test|Mock Test)$/i.test(batch)) {
     batch = '';
@@ -543,11 +543,19 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
               const meta = getCategoryMeta(notif.category);
               const IconComp = meta.icon;
 
+              let rawTitle = (notif.title || '').trim();
+              const bracketMatch = rawTitle.match(/^\[(.*?)\]\s*(.*)$/);
+              if (bracketMatch) {
+                const inside = bracketMatch[1].trim();
+                const rest = bracketMatch[2].trim();
+                rawTitle = (!rest || rest.toLowerCase() === inside.toLowerCase()) ? inside : rest;
+              }
+
               const displayTitle = notif.category === 'test'
-                ? (notif.title || 'Test').replace(/^\[?Mock\s+Test\]?\s*[:-]?\s*/i, '').replace(/^Test\s*[:-]?\s*/i, '').trim()
+                ? rawTitle.replace(/^\[?Mock\s+Test\]?\s*[:-]?\s*/i, '').replace(/^Test\s*[:-]?\s*/i, '').trim() || 'Test'
                 : notif.category === 'lecture'
-                ? (notif.title || 'Lecture').replace(/^Course\s+Lecture\s*[:-]?\s*/i, '').replace(/^Lecture\s*[:-]?\s*/i, '').trim()
-                : notif.title;
+                ? rawTitle.replace(/^Course\s+Lecture\s*[:-]?\s*/i, '').replace(/^Lecture\s*[:-]?\s*/i, '').trim() || 'Lecture'
+                : rawTitle;
 
               const loc = parseLocation(notif);
 

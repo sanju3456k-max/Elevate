@@ -17,6 +17,18 @@ import {
 import { markNotificationIdAsRead } from '../../lib/notifications';
 import { type ActiveTab } from '../../types';
 
+const cleanNotificationTitle = (rawTitle: string): string => {
+  if (!rawTitle) return '';
+  const trimmed = rawTitle.trim();
+  const match = trimmed.match(/^\[(.*?)\]\s*(.*)$/);
+  if (match) {
+    const inside = match[1].trim();
+    const rest = match[2].trim();
+    return (!rest || rest.toLowerCase() === inside.toLowerCase()) ? inside : rest;
+  }
+  return trimmed;
+};
+
 interface InAppNotificationBannerProps {
   onNavigateTab?: (tab: ActiveTab) => void;
   onOpenBatchLecture?: (batchId: string, chapterId: string | null, lectureId: string) => void;
@@ -199,7 +211,7 @@ export const InAppNotificationBanner: React.FC<InAppNotificationBannerProps> = (
           {/* Content Body */}
           <div className="px-4 pb-3">
             <h4 className="text-sm font-semibold text-[#1f1f1f] dark:text-white line-clamp-2 leading-snug">
-              {currentNotif.title}
+              {cleanNotificationTitle(currentNotif.title)}
             </h4>
             {currentNotif.body && (
               <p className="mt-1 text-xs text-slate-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">

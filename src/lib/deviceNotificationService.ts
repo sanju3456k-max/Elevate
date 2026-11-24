@@ -152,7 +152,18 @@ export async function requestDeviceNotificationPermission(): Promise<boolean> {
 }
 
 export async function sendDeviceNotification(params: InAppNotificationPayload): Promise<boolean> {
-  const { title, body, id, icon = '/icon-192.png' } = params;
+  let { title, body, id, icon = '/icon-192.png' } = params;
+
+  // Clean any bracketed batch name if passed e.g. "[Testing] Testing" -> "Testing", "[Testing]" -> "Testing"
+  if (title) {
+    const trimmed = title.trim();
+    const match = trimmed.match(/^\[(.*?)\]\s*(.*)$/);
+    if (match) {
+      const inside = match[1].trim();
+      const rest = match[2].trim();
+      title = (!rest || rest.toLowerCase() === inside.toLowerCase()) ? inside : rest;
+    }
+  }
 
   // 1. Android Native via Capacitor PipBridge (for native Android app)
   if (isNativeAndroid()) {

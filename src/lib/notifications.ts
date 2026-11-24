@@ -220,11 +220,35 @@ export function deriveRealBatchNotifications(params: {
     seenIds.add(notifId);
 
     const parentBatch = batches.find((b) => b.id === ann.batchId);
-    const batchPrefix = parentBatch?.title ? `[${parentBatch.title}] ` : '';
+
+    // Clean title: strip any closed brackets around batch names e.g. "[Testing] Testing" -> "Testing", "[Testing]" -> "Testing"
+    let cleanTitle = (ann.title || '').trim();
+    const bracketMatch = cleanTitle.match(/^\[(.*?)\]\s*(.*)$/);
+    if (bracketMatch) {
+      const insideBracket = bracketMatch[1].trim();
+      const rest = bracketMatch[2].trim();
+      if (!rest || rest.toLowerCase() === insideBracket.toLowerCase()) {
+        cleanTitle = insideBracket;
+      } else {
+        cleanTitle = rest;
+      }
+    }
+
+    // Determine final title: display only the clean name without closed brackets
+    let finalTitle = cleanTitle;
+    if (!finalTitle && parentBatch?.title) {
+      finalTitle = parentBatch.title;
+    } else if (finalTitle && parentBatch?.title) {
+      if (finalTitle.toLowerCase() === parentBatch.title.toLowerCase()) {
+        finalTitle = parentBatch.title;
+      }
+    } else if (!finalTitle) {
+      finalTitle = 'Campus Update';
+    }
 
     notifs.push({
       id: notifId,
-      title: `${batchPrefix}${ann.title || 'Campus Update'}`,
+      title: finalTitle,
       message: ann.message || '',
       category: 'post',
       timestamp: safeDateToISO(ann.date || (ann.createdAt ? new Date(ann.createdAt).toISOString() : new Date().toISOString())),
