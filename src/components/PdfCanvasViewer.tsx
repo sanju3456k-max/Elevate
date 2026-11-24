@@ -318,17 +318,21 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
     el.scrollTop = Math.max(0, anchor.contentY * scale - anchor.relY);
   }, [zoom]);
 
-  // Non-passive touchmove listener so 2-finger pinch actually cancels native scroll on Android WebView
+  // Non-passive touchstart & touchmove listeners so 2-finger pinch actually cancels native scroll on Android WebView
   useEffect(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
     const preventPinchScroll = (ev: TouchEvent) => {
-      if (ev.touches.length === 2) {
+      if (ev.touches.length >= 2) {
         ev.preventDefault();
       }
     };
+    el.addEventListener('touchstart', preventPinchScroll, { passive: false });
     el.addEventListener('touchmove', preventPinchScroll, { passive: false });
-    return () => el.removeEventListener('touchmove', preventPinchScroll);
+    return () => {
+      el.removeEventListener('touchstart', preventPinchScroll);
+      el.removeEventListener('touchmove', preventPinchScroll);
+    };
   }, [pdfDoc, displayMode]);
 
   const getTouchDistance = (t1: React.Touch, t2: React.Touch) => {

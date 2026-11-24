@@ -300,17 +300,21 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
     el.scrollTop = Math.max(0, contentEl.offsetTop + anchor.contentY * scale - anchor.relY);
   }, [imageZoom]);
 
-  // Non-passive touchmove listener so 2-finger pinch cancels native scroll on Android WebView
+  // Non-passive touchstart & touchmove listeners so 2-finger pinch cancels native scroll on Android WebView
   useEffect(() => {
     const el = imgScrollRef.current;
     if (!el) return;
     const preventPinchScroll = (ev: TouchEvent) => {
-      if (ev.touches.length === 2) {
+      if (ev.touches.length >= 2) {
         ev.preventDefault();
       }
     };
+    el.addEventListener('touchstart', preventPinchScroll, { passive: false });
     el.addEventListener('touchmove', preventPinchScroll, { passive: false });
-    return () => el.removeEventListener('touchmove', preventPinchScroll);
+    return () => {
+      el.removeEventListener('touchstart', preventPinchScroll);
+      el.removeEventListener('touchmove', preventPinchScroll);
+    };
   }, [isOpen, detectedKind]);
 
   const imgPanRef = useRef<{ active: boolean; startX: number; startY: number; scrollLeft: number; scrollTop: number }>({
@@ -1124,7 +1128,7 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
               {docBlobUrl && (
                 <div
                   ref={imgContentRef}
-                  className={`flex ${imageZoom > 1.02 ? 'justify-start' : 'justify-center'} my-auto shrink-0`}
+                  className="flex justify-center my-auto shrink-0"
                   style={{
                     width: imageZoom > 1.02 ? `${imageZoom * 100}%` : '100%',
                   }}
@@ -1133,6 +1137,7 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
                     src={docBlobUrl}
                     alt={currentItem.title}
                     draggable={false}
+                    decoding="async"
                     style={{
                       filter: themeClasses.canvasFilter,
                       maxWidth: imageZoom > 1.02 ? `${Math.round(920 * imageZoom)}px` : undefined,
