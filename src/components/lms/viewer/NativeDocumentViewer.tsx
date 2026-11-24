@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowLeft,
@@ -54,6 +55,132 @@ export interface NativeDocumentViewerProps {
   initialIndex?: number;
   isOpen: boolean;
   onClose: () => void;
+}
+
+const PRODUCTION_API_ORIGIN = 'https://labselevate.vercel.app';
+
+function inspectMagicBytesStatic(buffer: ArrayBuffer): 'pdf' | 'image' | 'unknown' {
+  if (!buffer || buffer.byteLength < 4) return 'unknown';
+  const bytes = new Uint8Array(buffer.slice(0, 12));
+  if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) {
+    return 'pdf';
+  }
+  if (
+    (bytes[0] === 0xff && bytes[1] === 0xd8) ||
+    (bytes[0] === 0x89 && bytes[1] === 0x50) ||
+    (bytes[0] === 0x47 && bytes[1] === 0x49) ||
+    (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46)
+  ) {
+    return 'image';
+  }
+  return 'unknown';
+}
+
+function decodeCapacitorDataToArrayBuffer(data: unknown): ArrayBuffer | null {
+  if (!data) return null;
+  if (data instanceof ArrayBuffer) return data;
+  if (ArrayBuffer.isView(data)) {
+    return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+  }
+  if (typeof data === 'string') {
+    try {
+      const cleanB64 = data.replace(/\s+/g, '');
+      const binary = atob(cleanB64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes.buffer;
+    } catch {
+      return new TextEncoder().encode(data).buffer;
+    }
+  }
+  return null;
+}
+
+async function fetchBinaryNativeHttp(
+  url: string,
+  headers?: Record<string, string>
+): Promise<{ ok: boolean; status: number; contentType: string; arrayBuffer: ArrayBuffer } | null> {
+  try {
+    const res = await CapacitorHttp.get({
+      url,
+      headers,
+      responseType: 'arraybuffer',
+    });
+    const ok = res.status >= 200 && res.status < 300;
+    const rawHeaders = res.headers || {};
+    const contentType =
+      rawHeaders['content-type'] ||
+      rawHeaders['Content-Type'] ||
+      'application/octet-stream';
+    const arrayBuffer = decodeCapacitorDataToArrayBuffer(res.data);
+    if (!ok || !arrayBuffer) return null;
+    return { ok, status: res.status, contentType, arrayBuffer };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchDriveBinaryOnNative(
+  driveId: string,
+  driveToken: string | null
+): Promise<{ arrayBuffer: ArrayBuffer; contentType: string } | null> {
+  // 1. Direct Drive uc?export=download via Capacitor native HTTP (no CORS)
+  const ucUrl = `https://drive.google.com/uc?export=download&id=${encodeURIComponent(driveId)}`;
+  const ucRes = await fetchBinaryNativeHttp(ucUrl);
+  if (ucRes) {
+    const magic = inspectMagicBytesStatic(ucRes.arrayBuffer);
+    if (magic === 'pdf' || magic === 'image') {
+      return { arrayBuffer: ucRes.arrayBuffer, contentType: ucRes.contentType };
+    }
+    // Check for Google Drive virus-scan HTML confirmation form
+    const htmlSnippet = new TextDecoder().decode(ucRes.arrayBuffer.slice(0, 24000));
+    if (htmlSnippet.includes('download-form') || htmlSnippet.includes('confirm=')) {
+      const actionMatch = htmlSnippet.match(/<form[^>]*id="download-form"[^>]*action="([^"]+)"/i);
+      const baseAction = (actionMatch?.[1] || 'https://drive.usercontent.google.com/download').replace(/&amp;/g, '&');
+      const params = new URLSearchParams();
+      const inputMatches = htmlSnippet.matchAll(/<input[^>]*type="hidden"[^>]*>/gi);
+      for (const m of inputMatches) {
+        const tag = m[0];
+        const nameMatch = tag.match(/name="([^"]+)"/i);
+        const valMatch = tag.match(/value="([^"]*)"/i);
+        if (nameMatch?.[1]) {
+          params.set(nameMatch[1], valMatch?.[1] || '');
+        }
+      }
+      if (!params.has('id')) params.set('id', driveId);
+      if (!params.has('export')) params.set('export', 'download');
+      if (!params.has('confirm')) params.set('confirm', 't');
+      const confirmUrl = `${baseAction}${baseAction.includes('?') ? '&' : '?'}${params.toString()}`;
+      const confirmedRes = await fetchBinaryNativeHttp(confirmUrl);
+      if (confirmedRes) {
+        const cMagic = inspectMagicBytesStatic(confirmedRes.arrayBuffer);
+        if (cMagic === 'pdf' || cMagic === 'image') {
+          return { arrayBuffer: confirmedRes.arrayBuffer, contentType: confirmedRes.contentType };
+        }
+      }
+    }
+  }
+
+  // 2. Direct lh3 CDN (works seamlessly for Drive-hosted images)
+  const lh3Res = await fetchBinaryNativeHttp(`https://lh3.googleusercontent.com/d/${encodeURIComponent(driveId)}=s4096`);
+  if (lh3Res && inspectMagicBytesStatic(lh3Res.arrayBuffer) === 'image') {
+    return { arrayBuffer: lh3Res.arrayBuffer, contentType: lh3Res.contentType };
+  }
+
+  // 3. Production backend proxy fallback (Vercel)
+  const tokenQuery = driveToken ? `?token=${encodeURIComponent(driveToken)}` : '';
+  const prodUrl = `${PRODUCTION_API_ORIGIN}/api/drive/media/${encodeURIComponent(driveId)}${tokenQuery}`;
+  const prodRes = await fetchBinaryNativeHttp(prodUrl);
+  if (prodRes) {
+    const pMagic = inspectMagicBytesStatic(prodRes.arrayBuffer);
+    if (pMagic === 'pdf' || pMagic === 'image') {
+      return { arrayBuffer: prodRes.arrayBuffer, contentType: prodRes.contentType };
+    }
+  }
+
+  return null;
 }
 
 export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
@@ -310,7 +437,54 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
         }
       }
 
-      // 3. Build stream proxy URL
+      // 3. Native Android/iOS HTTP loader (bypasses https://localhost origin & CORS)
+      if (Capacitor.isNativePlatform()) {
+        if (driveId) {
+          const nativeDrive = await fetchDriveBinaryOnNative(driveId, driveToken);
+          if (nativeDrive) {
+            setLoadProgress(95);
+            handleLoadedData(nativeDrive.arrayBuffer, nativeDrive.contentType);
+            return;
+          }
+          throw new Error('Failed to download Google Drive file natively.');
+        }
+
+        if (rawUrl.startsWith('data:')) {
+          const dataRes = await fetch(rawUrl);
+          if (dataRes.ok) {
+            const buf = await dataRes.arrayBuffer();
+            setLoadProgress(95);
+            handleLoadedData(buf, dataRes.headers.get('content-type') || 'application/pdf');
+            return;
+          }
+        } else {
+          const directUrl = rawUrl.startsWith('/api/')
+            ? `${PRODUCTION_API_ORIGIN}${rawUrl}`
+            : rawUrl;
+          const nativeDirect = await fetchBinaryNativeHttp(directUrl);
+          if (
+            nativeDirect &&
+            inspectMagicBytesStatic(nativeDirect.arrayBuffer) !== 'unknown'
+          ) {
+            setLoadProgress(95);
+            handleLoadedData(nativeDirect.arrayBuffer, nativeDirect.contentType);
+            return;
+          }
+          const proxyUrl = `${PRODUCTION_API_ORIGIN}/api/drive/stream?url=${encodeURIComponent(rawUrl)}`;
+          const nativeProxy = await fetchBinaryNativeHttp(proxyUrl);
+          if (
+            nativeProxy &&
+            inspectMagicBytesStatic(nativeProxy.arrayBuffer) !== 'unknown'
+          ) {
+            setLoadProgress(95);
+            handleLoadedData(nativeProxy.arrayBuffer, nativeProxy.contentType);
+            return;
+          }
+        }
+        throw new Error('Failed to load document natively on device.');
+      }
+
+      // 4. Web stream proxy URL
       let targetUrl = '';
       if (driveId) {
         const tokenQuery = driveToken ? `?token=${encodeURIComponent(driveToken)}` : '';

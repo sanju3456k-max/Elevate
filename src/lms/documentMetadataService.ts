@@ -5,6 +5,7 @@
  * (both public and private/restricted via OAuth token), Google Docs/Sheets/Slides,
  * YouTube URLs, and direct PDF/document URLs.
  */
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { extractGoogleDriveId, extractYouTubeId } from './security';
 import { getCachedGoogleAccessToken, ensureValidGoogleDriveToken } from '../lib/firebase';
 
@@ -79,10 +80,36 @@ export async function fetchDocumentMetadata(rawUrl: string): Promise<DocumentMet
     }
   }
 
-  // 2. Try backend metadata resolver (/api/drive/metadata)
+  // 2. Try native Drive view HTML title or backend metadata resolver (/api/drive/metadata)
+  if (Capacitor.isNativePlatform() && driveId) {
+    try {
+      const viewRes = await CapacitorHttp.get({
+        url: `https://drive.google.com/file/d/${encodeURIComponent(driveId)}/view`,
+        responseType: 'text',
+      });
+      if (viewRes.status >= 200 && viewRes.status < 300 && typeof viewRes.data === 'string') {
+        const titleMatch = viewRes.data.match(/<meta[^>]*property="og:title"[^>]*content="([^"]+)"/i)
+          || viewRes.data.match(/<title>([^<]+)<\/title>/i);
+        if (titleMatch?.[1]) {
+          const clean = titleMatch[1]
+            .replace(/\s*-\s*Google\s+(Drive|Docs|Sheets|Slides)\s*$/i, '')
+            .trim();
+          if (clean && !/^Google\s+Drive$/i.test(clean)) {
+            const result: DocumentMetadataResult = { title: clean, kind: 'drive', driveFileId: driveId };
+            metadataCache.set(trimmed, result);
+            return result;
+          }
+        }
+      }
+    } catch {
+      // Fall through to Vercel backend metadata endpoint
+    }
+  }
+
   try {
     const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
-    const res = await fetch(`/api/drive/metadata?url=${encodeURIComponent(trimmed)}${tokenParam}`);
+    const apiBase = Capacitor.isNativePlatform() ? 'https://labselevate.vercel.app' : '';
+    const res = await fetch(`${apiBase}/api/drive/metadata?url=${encodeURIComponent(trimmed)}${tokenParam}`);
     const contentType = res.headers.get('content-type') || '';
     if (res.ok && contentType.includes('application/json')) {
       const data = (await res.json()) as { title?: string; kind?: 'drive' | 'youtube' | 'url'; driveFileId?: string };

@@ -705,7 +705,7 @@ export const STUDIO_CSS_STYLES = `
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    z-index: 20;
+    z-index: 45;
   }
 
   /* Minimal Clean Range Sliders & Draggers */
