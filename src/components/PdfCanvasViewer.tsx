@@ -549,14 +549,17 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
           setTotalPages(pdf.numPages);
           setPageNum(1);
 
-          // Device-Resolution Fit-to-Width (crisp edge-to-edge on mobile, readable max-width on desktop)
+          // Device-Resolution Fit-to-Width (full desktop width for landscape/PPT slides, readable max-width for portrait docs)
           try {
             const firstPage = await pdf.getPage(1);
             const unscaledViewport = firstPage.getViewport({ scale: 1 });
             const containerWidth = containerRef.current?.clientWidth || window.innerWidth || 800;
+            const isLandscapeSlide = unscaledViewport.width > unscaledViewport.height * 1.05;
             const targetWidth =
               containerWidth < 768
                 ? Math.max(containerWidth - 8, 280)
+                : isLandscapeSlide
+                ? Math.max(containerWidth - 24, 280)
                 : Math.min(containerWidth - 32, 920);
             const autoScale = targetWidth / unscaledViewport.width;
             setFitScale(Math.max(0.4, Number(autoScale.toFixed(3))));
@@ -601,9 +604,12 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
           const hScale = containerHeight / unscaledViewport.height;
           autoScale = Math.min(wScale, hScale);
         } else {
+          const isLandscapeSlide = unscaledViewport.width > unscaledViewport.height * 1.05;
           const targetWidth =
             containerWidth < 768
               ? Math.max(containerWidth - 8, 280)
+              : isLandscapeSlide
+              ? Math.max(containerWidth - 24, 280)
               : Math.min(containerWidth - 32, 920);
           autoScale = targetWidth / unscaledViewport.width;
         }

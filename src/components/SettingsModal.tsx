@@ -441,7 +441,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <div 
                       onClick={(e) => {
                         e.stopPropagation();
-                        onToggleTheme();
                       }}
                       className="shrink-0"
                     >

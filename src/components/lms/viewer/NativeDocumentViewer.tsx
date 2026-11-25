@@ -222,6 +222,23 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
 
   // Reading Theme state (persists across document switches in session)
   const [theme, setTheme] = useState<ReadingTheme>('paper');
+  const [isThemeDockOpen, setIsThemeDockOpen] = useState<boolean>(false);
+  const themeDockRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isThemeDockOpen) return;
+    const handleOutside = (e: MouseEvent | TouchEvent) => {
+      if (themeDockRef.current && !themeDockRef.current.contains(e.target as Node)) {
+        setIsThemeDockOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('touchstart', handleOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('touchstart', handleOutside);
+    };
+  }, [isThemeDockOpen]);
 
   // Loading & Document Data State
   const [loading, setLoading] = useState<boolean>(true);
@@ -230,6 +247,32 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
   const [docBlobUrl, setDocBlobUrl] = useState<string>('');
   const [detectedKind, setDetectedKind] = useState<'pdf' | 'image' | 'text' | 'embed'>('pdf');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const loadGenerationRef = useRef<number>(0);
+  const loadedSourceKeyRef = useRef<string>('');
+  const activeBlobUrlRef = useRef<string>('');
+
+  const commitBlobUrl = useCallback((nextUrl: string) => {
+    const prevUrl = activeBlobUrlRef.current;
+    if (prevUrl && prevUrl !== nextUrl && prevUrl.startsWith('blob:')) {
+      try {
+        URL.revokeObjectURL(prevUrl);
+      } catch {}
+    }
+    activeBlobUrlRef.current = nextUrl;
+    setDocBlobUrl(nextUrl);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      const prevUrl = activeBlobUrlRef.current;
+      if (prevUrl && prevUrl.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(prevUrl);
+        } catch {}
+      }
+      activeBlobUrlRef.current = '';
+    };
+  }, []);
 
   // Visual Transforms (for Image Mode)
   const [imageZoom, setImageZoom] = useState<number>(1.0);
@@ -521,8 +564,19 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
   };
 
   // Primary loader: checks IndexedDB -> streams via backend proxy -> fallback direct / embed
-  const loadDocument = useCallback(async () => {
+  const loadDocument = useCallback(async (forceReload = false) => {
+    const sourceKey = `${currentItem?.id || ''}|${rawUrl}|${driveId || ''}`;
+    if (!forceReload && loadedSourceKeyRef.current === sourceKey && activeBlobUrlRef.current) {
+      setLoading(false);
+      setErrorMessage(null);
+      return;
+    }
+
+    const myGen = ++loadGenerationRef.current;
+    const isStale = () => myGen !== loadGenerationRef.current;
+
     if (!rawUrl && !driveId) {
+      if (isStale()) return;
       setErrorMessage('No document source provided.');
       setLoading(false);
       return;
@@ -530,13 +584,17 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
 
     setLoading(true);
     setErrorMessage(null);
-    setDocBlobUrl('');
+    if (loadedSourceKeyRef.current !== sourceKey) {
+      commitBlobUrl('');
+    }
     setLoadProgress(15);
 
     // If YouTube link, render directly in embedded player
     if (ytId) {
+      if (isStale()) return;
+      loadedSourceKeyRef.current = sourceKey;
       setDetectedKind('embed');
-      setDocBlobUrl(`https://www.youtube.com/embed/${ytId}`);
+      commitBlobUrl(`https://www.youtube.com/embed/${ytId}`);
       setLoadProgress(100);
       setLoading(false);
       return;
@@ -546,9 +604,11 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
       // 1. Try local IndexedDB cache first (<10ms instant load offline), strictly validating magic bytes
       if (cacheKey) {
         const cached = await getCachedDocument(cacheKey);
+        if (isStale()) return;
         if (cached && cached.data) {
           const magic = inspectMagicBytes(cached.data);
           if (magic === 'pdf' || magic === 'image') {
+            loadedSourceKeyRef.current = sourceKey;
             setLoadProgress(100);
             setDocBuffer(cached.data);
             setDetectedKind(magic);
@@ -556,7 +616,7 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
             const resolvedMime = magic === 'pdf' ? 'application/pdf' : cached.contentType || 'image/png';
             const blob = new Blob([cached.data], { type: resolvedMime });
             const bUrl = URL.createObjectURL(blob);
-            setDocBlobUrl(bUrl);
+            commitBlobUrl(bUrl);
             setLoading(false);
             return;
           }
@@ -674,16 +734,26 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
       console.warn('Document binary fetch failed, switching to in-app preview:', err);
       // Fallback for direct image preview URL if driveId is present
       if (driveId && (currentItem?.type === 'image' || rawUrl.match(/\.(jpe?g|png|webp|svg)$/i))) {
+        loadedSourceKeyRef.current = sourceKey;
         setDetectedKind('image');
-        setDocBlobUrl(`https://lh3.googleusercontent.com/d/${driveId}`);
+        commitBlobUrl(`https://lh3.googleusercontent.com/d/${driveId}`);
+        setLoading(false);
+        return;
+      }
+
+      if (isStale()) return;
+
+      // Never overwrite an already-loaded document if a stale/background check fails
+      if (loadedSourceKeyRef.current === sourceKey && activeBlobUrlRef.current) {
         setLoading(false);
         return;
       }
 
       // Real-time in-app iframe embed fallback for Drive / Docs / External URLs
       if (embedFallbackUrl) {
+        loadedSourceKeyRef.current = sourceKey;
         setDetectedKind('embed');
-        setDocBlobUrl(embedFallbackUrl);
+        commitBlobUrl(embedFallbackUrl);
         setLoading(false);
         return;
       }
@@ -695,21 +765,24 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
       );
       setLoading(false);
     }
-  }, [rawUrl, driveId, ytId, cacheKey, currentItem, embedFallbackUrl, publicOnly]);
+  }, [rawUrl, driveId, ytId, cacheKey, currentItem, embedFallbackUrl, publicOnly, commitBlobUrl]);
 
   const handleLoadedData = useCallback(
     (arrayBuffer: ArrayBuffer, contentType: string) => {
+      const sourceKey = `${currentItem?.id || ''}|${rawUrl}|${driveId || ''}`;
       const magic = inspectMagicBytes(arrayBuffer);
 
       // Never feed HTML/invalid bytes to PdfCanvasViewer or IndexedDB
       if (magic === 'unknown') {
         if (embedFallbackUrl) {
+          loadedSourceKeyRef.current = sourceKey;
           setDetectedKind('embed');
-          setDocBlobUrl(embedFallbackUrl);
+          commitBlobUrl(embedFallbackUrl);
           setLoading(false);
           return;
         }
         if (contentType.includes('text/plain') || currentItem?.content) {
+          loadedSourceKeyRef.current = sourceKey;
           setDetectedKind('text');
           setDocBuffer(arrayBuffer);
           setLoading(false);
@@ -723,12 +796,13 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
       const resolvedKind: 'pdf' | 'image' = magic;
       const resolvedType = magic === 'pdf' ? 'application/pdf' : contentType.startsWith('image/') ? contentType : 'image/png';
 
+      loadedSourceKeyRef.current = sourceKey;
       setDetectedKind(resolvedKind);
       setDocBuffer(arrayBuffer);
 
       const blob = new Blob([arrayBuffer], { type: resolvedType });
       const bUrl = URL.createObjectURL(blob);
-      setDocBlobUrl(bUrl);
+      commitBlobUrl(bUrl);
 
       // Save only validated PDF/image bytes to IndexedDB cache
       if (cacheKey) {
@@ -737,7 +811,7 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
 
       setLoading(false);
     },
-    [cacheKey, currentItem, embedFallbackUrl]
+    [cacheKey, currentItem, embedFallbackUrl, rawUrl, driveId, commitBlobUrl]
   );
 
   // Trigger load on index/item change
@@ -748,14 +822,8 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
     setPdfPageNum(1);
     setPdfTotalPages(1);
 
-    loadDocument();
-
-    return () => {
-      if (docBlobUrl && docBlobUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(docBlobUrl);
-      }
-    };
-  }, [currentIndex, currentItem?.id, rawUrl, driveId]);
+    loadDocument(false);
+  }, [currentIndex, currentItem?.id, rawUrl, driveId, loadDocument]);
 
   // Carousel navigation
   const canGoPrev = currentIndex > 0;
@@ -896,112 +964,90 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
         transition={{ duration: 0.18 }}
         className={`fixed inset-0 z-50 flex flex-col select-none overflow-hidden ${themeClasses.wrapper}`}
         style={{
+          paddingTop: 'var(--android-status-bar-height, 0px)',
           paddingBottom: 'var(--android-cutout-bottom, 0px)',
         }}
       >
         {/* ========================================================= */}
-        {/* 1. BORDERLESS MINIMAL HEADER BAR                          */}
+        {/* 1. FLOATING CORNER THEME DROPDOWN DOCK (FULLSCREEN SPACE) */}
         {/* ========================================================= */}
-        <header
-          className={`shrink-0 h-[calc(3.5rem+var(--android-status-bar-height,0px))] px-3 sm:px-6 flex items-center justify-between border-0 backdrop-blur-xl z-30 transition-colors ${themeClasses.header}`}
+        <div
+          ref={themeDockRef}
+          className="fixed right-3 sm:right-5 z-40 flex flex-col items-end gap-2"
           style={{
-            paddingTop: 'var(--android-status-bar-height, 0px)',
+            top: 'calc(0.75rem + var(--android-status-bar-height, 0px))',
           }}
         >
-          {/* Left: Back Arrow + Document Title + Badges */}
-          <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1 mr-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer border-none bg-transparent active:scale-95 shrink-0"
-              title="Close Note Viewer (Esc)"
-              aria-label="Close"
-            >
-              <ChevronLeft className="w-5 h-5 stroke-[2.4]" />
-            </button>
+          <button
+            type="button"
+            onClick={() => setIsThemeDockOpen((prev) => !prev)}
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-white/90 dark:bg-[#1a1c24]/90 text-slate-800 dark:text-zinc-100 backdrop-blur-md shadow-lg border border-black/10 dark:border-white/10 cursor-pointer transition active:scale-95"
+            title="Reading Theme"
+            aria-label="Reading Theme Menu"
+            aria-expanded={isThemeDockOpen}
+          >
+            {theme === 'paper' ? (
+              <Sun className="w-4.5 h-4.5 text-amber-500" />
+            ) : theme === 'sepia' ? (
+              <BookOpen className="w-4.5 h-4.5 text-[#6b4f2a] dark:text-amber-300" />
+            ) : (
+              <Moon className="w-4.5 h-4.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+            )}
+          </button>
 
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <h3 className="text-xs sm:text-sm font-bold truncate leading-tight">
-                  {currentItem.title || 'Course Lecture Note'}
-                </h3>
-                <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[9.5px] font-mono font-extrabold tracking-wider uppercase bg-[#0b57d0]/10 text-[#0b57d0] dark:bg-blue-950/60 dark:text-blue-400">
-                  {detectedKind.toUpperCase()}
-                </span>
-                {items.length > 1 && (
-                  <span className="text-[10px] sm:text-xs text-slate-500 dark:text-zinc-400 font-medium shrink-0">
-                    ({currentIndex + 1} of {items.length})
-                  </span>
-                )}
-              </div>
-              {currentItem.subtitle && (
-                <p className="text-[10px] text-slate-500 dark:text-zinc-400 truncate mt-0.5">
-                  {currentItem.subtitle}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Right Actions: Reading Theme Pill, Print, Download, Fullscreen, Close */}
-          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-            {/* Reading Theme Switcher (Paper, Sepia, OLED Night) */}
-            <div className="flex items-center p-0.5 rounded-full bg-black/5 dark:bg-white/10 border border-black/5 dark:border-white/5 mr-1">
+          {isThemeDockOpen && (
+            <div className="flex flex-col items-center gap-1.5 p-1.5 rounded-full bg-white/95 dark:bg-[#1a1c24]/95 backdrop-blur-xl shadow-xl border border-black/10 dark:border-white/10">
               <button
                 type="button"
-                onClick={() => setTheme('paper')}
-                className={`p-1.5 rounded-full transition cursor-pointer border-none ${
-                  theme === 'paper' ? 'bg-white dark:bg-white/20 shadow-xs' : 'bg-transparent opacity-60 hover:opacity-100'
+                onClick={() => {
+                  setTheme('paper');
+                  setIsThemeDockOpen(false);
+                }}
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition cursor-pointer border-none ${
+                  theme === 'paper'
+                    ? 'bg-amber-100 text-amber-700 shadow-xs'
+                    : 'bg-transparent text-slate-600 dark:text-zinc-300 hover:bg-black/5 dark:hover:bg-white/10'
                 }`}
                 title="Paper White Mode"
+                aria-label="Paper White Mode"
               >
-                <Sun className="w-3.5 h-3.5" />
+                <Sun className="w-4 h-4" />
               </button>
               <button
                 type="button"
-                onClick={() => setTheme('sepia')}
-                className={`p-1.5 rounded-full transition cursor-pointer border-none ${
-                  theme === 'sepia' ? 'bg-[#f4ecd8] text-[#433422] shadow-xs' : 'bg-transparent opacity-60 hover:opacity-100'
+                onClick={() => {
+                  setTheme('sepia');
+                  setIsThemeDockOpen(false);
+                }}
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition cursor-pointer border-none ${
+                  theme === 'sepia'
+                    ? 'bg-[#f4ecd8] text-[#433422] shadow-xs'
+                    : 'bg-transparent text-slate-600 dark:text-zinc-300 hover:bg-black/5 dark:hover:bg-white/10'
                 }`}
                 title="Warm Sepia Eye-Care Reading Mode"
+                aria-label="Reading Mode"
               >
-                <BookOpen className="w-3.5 h-3.5" />
+                <BookOpen className="w-4 h-4" />
               </button>
               <button
                 type="button"
-                onClick={() => setTheme('dark')}
-                className={`p-1.5 rounded-full transition cursor-pointer border-none ${
-                  theme === 'dark' ? 'bg-[#090a0d] text-white shadow-xs' : 'bg-transparent opacity-60 hover:opacity-100'
+                onClick={() => {
+                  setTheme('dark');
+                  setIsThemeDockOpen(false);
+                }}
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition cursor-pointer border-none ${
+                  theme === 'dark'
+                    ? 'bg-[#090a0d] text-white shadow-xs'
+                    : 'bg-transparent text-slate-600 dark:text-zinc-300 hover:bg-black/5 dark:hover:bg-white/10'
                 }`}
                 title="OLED Night Mode"
+                aria-label="Dark Mode"
               >
-                <Moon className="w-3.5 h-3.5" />
+                <Moon className="w-4 h-4" />
               </button>
             </div>
-
-            {/* Print & Download (Controlled by Master Console `allowFilesToBeDownloadedInNotesViaPdfOrImages`) */}
-            {canPrintAndDownload && (
-              <>
-                <button
-                  type="button"
-                  onClick={handlePrint}
-                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer border-none bg-transparent active:scale-95"
-                  title="Print Note"
-                >
-                  <Printer className="w-4 h-4" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleDownload}
-                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer border-none bg-transparent active:scale-95"
-                  title="Save / Download File"
-                >
-                  <Download className="w-4 h-4" />
-                </button>
-              </>
-            )}
-          </div>
-        </header>
+          )}
+        </div>
 
         {/* ========================================================= */}
         {/* 2. MAIN DOCUMENT CANVAS VIEWPORT                          */}
@@ -1040,7 +1086,7 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
               <div className="flex items-center justify-center gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => loadDocument()}
+                  onClick={() => loadDocument(true)}
                   className="px-4 py-2 rounded-full bg-[#0b57d0] text-white text-xs font-bold border-none cursor-pointer hover:bg-blue-700 transition"
                 >
                   <RefreshCw className="w-3.5 h-3.5 inline mr-1.5" />
