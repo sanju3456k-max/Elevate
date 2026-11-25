@@ -616,14 +616,14 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                   </p>
                 </div>
               ) : (
-                <div className="border-t border-slate-200/80 dark:border-zinc-800/80">
+                <div className="lg:border-t border-slate-200/80 dark:border-zinc-800/80">
                 {displayedEntries.map((entry) => {
                   const isCurrentUser = currentUser?.uid && entry.userId === currentUser.uid;
                   return (
                     <div
                       key={entry.userId}
                       style={{ contentVisibility: 'auto', containIntrinsicSize: '0 62px' }}
-                      className="py-3 sm:py-3.5 px-2 sm:px-3 flex items-center justify-between gap-2.5 sm:gap-4 transition-colors hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 border-b border-slate-200/80 dark:border-zinc-800/80"
+                      className="py-3 sm:py-3.5 px-2 sm:px-3 flex items-center justify-between gap-2.5 sm:gap-4 transition-colors hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 lg:border-b border-slate-200/80 dark:border-zinc-800/80"
                     >
                       {/* Left: Avatar with Corner Number Badge + Name + Mode */}
                       <div className="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1">
@@ -703,7 +703,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
                       <span className="w-12 h-px bg-slate-300 dark:bg-zinc-700"></span>
                     </div>
 
-                    <div className="py-3 sm:py-3.5 px-2 sm:px-3 flex items-center justify-between gap-2.5 sm:gap-4 border-y border-slate-200/80 dark:border-zinc-800/80 transition-colors hover:bg-slate-50/80 dark:hover:bg-zinc-800/40">
+                    <div className="py-3 sm:py-3.5 px-2 sm:px-3 flex items-center justify-between gap-2.5 sm:gap-4 lg:border-y border-slate-200/80 dark:border-zinc-800/80 transition-colors hover:bg-slate-50/80 dark:hover:bg-zinc-800/40">
                       <div className="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1">
                         <div className="relative shrink-0">
                           <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full ${getAvatarBgColor(summary.currentUserEntry.userName)} text-white font-black text-sm sm:text-base flex items-center justify-center shadow-xs`}>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { setAppThemeColor } from '../lib/appThemeColor';
+import { McbUxAuditPanel } from './McbUxAuditPanel';
 import {
   ArrowLeft,
   Crown,
@@ -118,7 +119,8 @@ export type MasterConsoleNavTab =
   | 'remedial'
   | 'analytics'
   | 'publishing'
-  | 'settings';
+  | 'settings'
+  | 'ux_audit';
 
 export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   onBack,
@@ -1453,6 +1455,24 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 {currentBatchTests.length}/{tests.length}
               </span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => { setActiveTab('ux_audit'); setIsMobileMenuOpen(false); }}
+              title="MCB UI Performance & Visual Audit"
+              className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center transition border-0 cursor-pointer ${
+                isDesktopSidebarCollapsed ? 'lg:justify-center lg:px-2' : 'justify-between'
+              } ${
+                activeTab === 'ux_audit'
+                  ? 'bg-[#0b57d0] text-white shadow-xs'
+                  : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Activity className="w-4 h-4 text-cyan-500 shrink-0" />
+                <span className={isDesktopSidebarCollapsed ? 'lg:hidden' : ''}>MCB UX Audit</span>
+              </div>
+            </button>
           </div>
         </div>
 
@@ -1529,6 +1549,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 {activeTab === 'remedial' && 'Adaptive Remedial Engine'}
                 {activeTab === 'analytics' && 'Per-Test Performance Analytics'}
                 {activeTab === 'publishing' && 'Global Test Publishing Catalog'}
+                {activeTab === 'ux_audit' && 'MCB UI Performance & Human/Turbo Visual Audit'}
               </span>
             </div>
           </div>
@@ -1607,6 +1628,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             { id: 'analytics', label: 'Analytics', icon: BarChart3 },
             { id: 'publishing', label: 'Publish', icon: BookOpen, badge: currentBatchTests.length },
             { id: 'settings', label: 'Security', icon: ShieldCheck },
+            { id: 'ux_audit', label: 'UX Audit', icon: Activity },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -3814,6 +3836,8 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
           </div>
         </div>
       )}
+
+      {activeTab === 'ux_audit' && <McbUxAuditPanel />}
 
       </div>
     </div>

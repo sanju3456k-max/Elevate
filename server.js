@@ -3992,6 +3992,42 @@ async function startServer() {
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", timestamp: (/* @__PURE__ */ new Date()).toISOString(), service: "Theta Notes Backend" });
   });
+  app.get("/api/audit-reports", (_req, res) => {
+    const reportsDir = path3.resolve(process.cwd(), "scripts", "synthetic-tester", "reports");
+    const readReport = (filename) => {
+      try {
+        const full = path3.join(reportsDir, filename);
+        if (!fs2.existsSync(full)) return null;
+        const parsed = JSON.parse(fs2.readFileSync(full, "utf8"));
+        if (Array.isArray(parsed.screenshots)) {
+          parsed.screenshots = parsed.screenshots.map((s) => ({
+            ...s,
+            url: `/api/audit-screenshot?file=${encodeURIComponent(path3.basename(String(s.path || "")))}`
+          }));
+        }
+        return parsed;
+      } catch {
+        return null;
+      }
+    };
+    res.json({
+      human: readReport("latest-human.json"),
+      turbo: readReport("latest-turbo.json"),
+      latest: readReport("latest-audit.json")
+    });
+  });
+  app.get("/api/audit-screenshot", (req, res) => {
+    const rawFile = String(req.query.file || "");
+    const safeName = path3.basename(rawFile);
+    if (!safeName || !safeName.endsWith(".png")) {
+      return res.status(400).send("Invalid screenshot file");
+    }
+    const imgPath = path3.resolve(process.cwd(), "scripts", "synthetic-tester", "reports", "screenshots", safeName);
+    if (!fs2.existsSync(imgPath)) {
+      return res.status(404).send("Screenshot not found");
+    }
+    return res.sendFile(imgPath);
+  });
   app.use("/api", routes_default);
   app.use("/", pwa_default);
   const katexDistPath = path3.join(process.cwd(), "node_modules", "katex", "dist");

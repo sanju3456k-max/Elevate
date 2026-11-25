@@ -32,6 +32,8 @@ interface SharedListenerRecord {
 class EnterpriseListenerManager {
   private registry: Map<string, SharedListenerRecord> = new Map();
   private isVisibilityListenerAttached = false;
+  private hiddenGraceTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly HIDDEN_DETACH_GRACE_MS = 30000; // 30s cooldown to prevent Android app-switch churn
 
   constructor() {
     this.initVisibilityListener();
@@ -50,24 +52,35 @@ class EnterpriseListenerManager {
   }
 
   private handleVisibilityChange(isHidden: boolean): void {
-    this.registry.forEach((record) => {
-      if (!record.pauseWhenHidden) return;
-
-      if (isHidden) {
-        // Tab backgrounded: detach listener to stop billing reads & socket activity
-        if (record.unsubFirestore) {
-          try {
-            record.unsubFirestore();
-          } catch {}
-          record.unsubFirestore = null;
-        }
-      } else {
-        // Tab foregrounded: re-attach listener if subscribers exist
+    if (isHidden) {
+      // Wait 30s before detaching streams so brief app/tab switches don't trigger re-read bursts
+      if (this.hiddenGraceTimer) clearTimeout(this.hiddenGraceTimer);
+      this.hiddenGraceTimer = setTimeout(() => {
+        this.hiddenGraceTimer = null;
+        if (typeof document !== 'undefined' && document.visibilityState !== 'hidden') return;
+        this.registry.forEach((record) => {
+          if (!record.pauseWhenHidden) return;
+          if (record.unsubFirestore) {
+            try {
+              record.unsubFirestore();
+            } catch {}
+            record.unsubFirestore = null;
+          }
+        });
+      }, this.HIDDEN_DETACH_GRACE_MS);
+    } else {
+      // Tab/app foregrounded: cancel pending detach and re-attach only streams that actually detached
+      if (this.hiddenGraceTimer) {
+        clearTimeout(this.hiddenGraceTimer);
+        this.hiddenGraceTimer = null;
+      }
+      this.registry.forEach((record) => {
+        if (!record.pauseWhenHidden) return;
         if (!record.unsubFirestore && record.subscribers.size > 0) {
           this.attachFirestoreStream(record);
         }
-      }
-    });
+      });
+    }
   }
 
   private attachFirestoreStream(record: SharedListenerRecord): void {

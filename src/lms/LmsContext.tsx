@@ -42,6 +42,8 @@ import {
   syncBatchTestToFirestore,
   deleteBatchTestFromFirestore,
   fetchBatchTestsFromFirestore,
+  getCachedBatchCatalogBeacon,
+  setCachedBatchCatalogBeacon,
 } from '../lib/batchCloudSync';
 
 
@@ -113,7 +115,7 @@ interface AppContextType {
   revokeStudentEnrollment: (userId: string, batchId: string) => void;
   getEnrollmentsForBatch: (batchId: string) => BatchEnrollment[];
   loadRosterForBatch: (batchId: string) => Promise<void>;
-  loadCurriculumForBatch: (batchId: string) => Promise<void>;
+  loadCurriculumForBatch: (batchId: string, forceRefresh?: boolean) => Promise<void>;
   searchStudents: (query: string) => { id: string; name: string; email?: string; phone?: string }[];
   addTestToBatchCatalog: (params: {
     testId?: string;
@@ -454,11 +456,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       () => doc(db, 'master_catalog', 'batch_catalog_meta'),
       (snap) => {
         if (snap.exists()) {
-          fetchBatchesFromFirestore({ forceRefresh: true }).then((cloudBatches) => {
-            if (cloudBatches && cloudBatches.length > 0) {
-              setBatches(cloudBatches);
-            }
-          }).catch(() => {});
+          const serverBeacon = String(snap.data()?.lastUpdatedAt || '');
+          const localBeacon = getCachedBatchCatalogBeacon();
+          // Skip full batches collection read if encrypted local cache already matches this revision
+          if (serverBeacon && localBeacon && serverBeacon === localBeacon) {
+            return;
+          }
+          fetchBatchesFromFirestore({ forceRefresh: Boolean(serverBeacon && localBeacon && serverBeacon !== localBeacon) })
+            .then((cloudBatches) => {
+              if (cloudBatches && cloudBatches.length > 0) {
+                setBatches(cloudBatches);
+                if (serverBeacon) {
+                  setCachedBatchCatalogBeacon(serverBeacon);
+                }
+              }
+            })
+            .catch(() => {});
         }
       }
     );
@@ -622,6 +635,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         for (const b of batches) {
           if (!b.id) continue;
+          const isEnrolledOrAccessible =
+            user.role === 'admin' ||
+            user.enrolledBatchIds.includes(b.id) ||
+            Boolean(b.allowGuestAccess);
+          if (!isEnrolledOrAccessible) continue;
           try {
             const cloudTests = await fetchBatchTestsFromFirestore(b.id);
             if (Array.isArray(cloudTests) && cloudTests.length > 0) {
@@ -1192,12 +1210,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const curriculumDebounceTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const activeCurriculumPromises = useRef<Map<string, Promise<void>>>(new Map());
 
-  const loadCurriculumForBatch = useCallback(async (batchId: string) => {
+  const loadCurriculumForBatch = useCallback(async (batchId: string, forceRefresh = false) => {
     if (!batchId) return;
 
     // Reuse in-flight promise if a request is already executing for this batchId
-    const inFlight = activeCurriculumPromises.current.get(batchId);
-    if (inFlight) return inFlight;
+    if (!forceRefresh) {
+      const inFlight = activeCurriculumPromises.current.get(batchId);
+      if (inFlight) return inFlight;
+    }
 
     const executeLoad = async () => {
       try {

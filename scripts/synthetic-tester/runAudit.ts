@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { runAdbDeviceAudit } from './adbDeviceBot';
 import { runCloudSwarmAudit } from './cloudSwarmBot';
+import { runWebUxAudit } from './webUxAuditBot';
 import { purgeSyntheticTestData } from './purge';
 import type {
   AuditReportData,
@@ -15,6 +16,8 @@ function parseArgs() {
   let mode: PacingMode = 'human';
   let device: string | undefined;
   let skipAdb = false;
+  let skipWeb = false;
+  let baseUrl = 'http://localhost:3000';
   let purgeAfter = false;
 
   for (const arg of args) {
@@ -22,10 +25,12 @@ function parseArgs() {
     else if (arg === '--mode=human') mode = 'human';
     else if (arg.startsWith('--device=')) device = arg.split('=')[1];
     else if (arg === '--skip-adb') skipAdb = true;
+    else if (arg === '--skip-web') skipWeb = true;
+    else if (arg.startsWith('--url=')) baseUrl = arg.split('=')[1];
     else if (arg === '--purge-after') purgeAfter = true;
   }
 
-  return { mode, device, skipAdb, purgeAfter };
+  return { mode, device, skipAdb, skipWeb, baseUrl, purgeAfter };
 }
 
 function computeUxScore(
@@ -88,6 +93,16 @@ function buildMarkdownReport(data: AuditReportData): string {
     lines.push('');
   }
 
+  if (data.uiTransitions && data.uiTransitions.length > 0) {
+    lines.push(`## 2b. In-App UI Transition & Long-Task Telemetry`);
+    lines.push(`| Transition | Status | Duration | Long Tasks (>50ms) | Max Freeze |`);
+    lines.push(`| :--- | :---: | :---: | :---: | :---: |`);
+    for (const tr of data.uiTransitions) {
+      lines.push(`| \`${tr.name}\` | ${tr.status} | ${tr.durationMs} ms | ${tr.longTasksCount} | ${tr.maxLongTaskMs} ms |`);
+    }
+    lines.push('');
+  }
+
   if (data.screenshots.length > 0) {
     lines.push(`## 3. Captured Device Screenshots`);
     for (const s of data.screenshots) {
@@ -115,7 +130,7 @@ function buildMarkdownReport(data: AuditReportData): string {
 }
 
 async function main() {
-  const { mode, device, skipAdb, purgeAfter } = parseArgs();
+  const { mode, device, skipAdb, skipWeb, baseUrl, purgeAfter } = parseArgs();
   const runId = `run_${Date.now()}`;
   const reportsDir = path.resolve(process.cwd(), 'scripts/synthetic-tester/reports');
   const screenshotsDir = path.join(reportsDir, 'screenshots');
@@ -135,7 +150,19 @@ async function main() {
   const cloudRes = await runCloudSwarmAudit({ pacingMode: mode, runId });
   fs.writeFileSync(manifestPath, JSON.stringify(cloudRes.manifest, null, 2));
 
-  // 2. Run Real Android Device ADB Bot (if not skipped)
+  // 2. Run Web Visual & Timing UX Audit (if not skipped)
+  let webRes: Awaited<ReturnType<typeof runWebUxAudit>> = {
+    checks: [],
+    uiTransitions: [],
+    consoleErrors: [],
+    screenshots: [],
+  };
+  if (!skipWeb) {
+    console.log(`\n🌐 [Web UX Visual Bot] Inspecting ${baseUrl} in ${mode.toUpperCase()} mode...`);
+    webRes = await runWebUxAudit({ pacingMode: mode, screenshotsDir, baseUrl });
+  }
+
+  // 3. Run Real Android Device ADB Bot (if not skipped)
   let deviceRes: Awaited<ReturnType<typeof runAdbDeviceAudit>> = {
     metrics: null,
     screenshots: [],
@@ -149,16 +176,16 @@ async function main() {
     });
   }
 
-  const allChecks = [...cloudRes.checks, ...deviceRes.checks];
+  const allChecks = [...cloudRes.checks, ...webRes.checks, ...deviceRes.checks];
   const uxScore = computeUxScore(allChecks, deviceRes.metrics);
 
-  // 3. Optional Auto-Purge
+  // 4. Optional Auto-Purge
   if (purgeAfter) {
     console.log('\n🧹 [--purge-after] Cleaning up synthetic test records...');
     await purgeSyntheticTestData(manifestPath);
   }
 
-  // 4. Generate UX Audit Report
+  // 5. Generate UX Audit Report (Markdown + Structured JSON for MCB)
   const reportData: AuditReportData = {
     runId,
     timestamp: new Date().toISOString(),
@@ -166,7 +193,9 @@ async function main() {
     persona: cloudRes.manifest.persona,
     uxSmoothnessScore: uxScore,
     deviceMetrics: deviceRes.metrics,
-    screenshots: deviceRes.screenshots,
+    uiTransitions: webRes.uiTransitions,
+    consoleErrors: webRes.consoleErrors,
+    screenshots: [...webRes.screenshots, ...deviceRes.screenshots],
     checks: allChecks,
     manifestPath,
     purgedAfterRun: purgeAfter,
@@ -177,6 +206,11 @@ async function main() {
   const latestReportPath = path.join(reportsDir, 'latest_ux_audit_report.md');
   fs.writeFileSync(reportPath, md, 'utf8');
   fs.writeFileSync(latestReportPath, md, 'utf8');
+
+  const jsonStr = JSON.stringify(reportData, null, 2);
+  fs.writeFileSync(path.join(reportsDir, `audit_${runId}.json`), jsonStr, 'utf8');
+  fs.writeFileSync(path.join(reportsDir, 'latest-audit.json'), jsonStr, 'utf8');
+  fs.writeFileSync(path.join(reportsDir, `latest-${mode}.json`), jsonStr, 'utf8');
 
   console.log('\n========================================================================');
   console.log(`✅ AUDIT COMPLETE | UX SMOOTHNESS SCORE: ${uxScore} / 10`);

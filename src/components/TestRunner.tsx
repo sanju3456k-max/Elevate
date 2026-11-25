@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { setAppThemeColor } from '../lib/appThemeColor';
+import { endUiTransition } from '../lib/uiPerfTelemetry';
 import { 
   Clock, 
   ChevronLeft, 
@@ -91,6 +92,10 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
     const count = test.questionCount || 10;
     return hydrateQuestionsForTest(test, count);
   });
+
+  useEffect(() => {
+    endUiTransition('open-online-test', { testId: test?.id, questionCount: activeQuestions.length });
+  }, [test?.id]);
 
   useEffect(() => {
     if (test.questions && Array.isArray(test.questions) && test.questions.length > 0) {

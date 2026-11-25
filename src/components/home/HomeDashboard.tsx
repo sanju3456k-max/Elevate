@@ -1526,14 +1526,10 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         userProfile={userProfile}
         currentUser={currentUser}
         allTests={tests}
-        onStartTest={(testToStart) => {
-          setDetailedTest(null);
-          onStartTest(testToStart);
-        }}
+        onStartTest={(testToStart) => onStartTest(testToStart)}
         onStartOmrTest={(testToStart) => {
-          setDetailedTest(null);
           if (onStartOmrTest) {
-            onStartOmrTest(testToStart);
+            return onStartOmrTest(testToStart);
           } else if (onOpenOmr) {
             onOpenOmr();
           }

@@ -24,12 +24,13 @@ import {
   RotateCcw,
   FileCheck2,
   Play,
+  Loader2,
 } from 'lucide-react';
 import type { MathTest, TestAttempt, UserProfile, TestHistoryEntry } from '../types';
 import type { User } from 'firebase/auth';
 import { getTestDurationMinutes } from '../utils/testFormatConverter';
 import { getCachedFullTest, getLocalLeaderboardEntries, getSynchronousCachedLeaderboard } from '../lib/firebase';
-import { isAttemptOmrMode, pruneAttemptsToFirstAndLast } from '../lib/storage';
+import { isAttemptOmrMode, loadFullTestOnDemand, pruneAttemptsToFirstAndLast } from '../lib/storage';
 import { createShareUrlAsync, formatTestShareMessage } from '../utils/shareUtils';
 import { TestLeaderboardModal } from './TestLeaderboardModal';
 import { TestReportAnalysisView } from './TestReportAnalysisView';
@@ -38,6 +39,7 @@ import { useBackHandler } from '../hooks/useBackNavigation';
 import { studioBackdropVariants, studioModalVariants, gpuAcceleratedStyle } from '../lib/animationConfig';
 import { setAppThemeColor } from '../lib/appThemeColor';
 import { useApp } from '../lms/LmsContext';
+import { startUiTransition } from '../lib/uiPerfTelemetry';
 
 export interface TestDetailModalProps {
   test: MathTest | null;
@@ -46,8 +48,8 @@ export interface TestDetailModalProps {
   userProfile?: UserProfile | null;
   currentUser?: User | null;
   allTests?: MathTest[];
-  onStartTest: (test: MathTest, mode: 'timed' | 'practice') => void;
-  onStartOmrTest?: (test: MathTest) => void;
+  onStartTest: (test: MathTest, mode: 'timed' | 'practice') => Promise<void> | void;
+  onStartOmrTest?: (test: MathTest) => Promise<void> | void;
   onViewAttemptResult?: (attempt: TestAttempt) => void;
 }
 
@@ -73,13 +75,37 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
   const [isCopied, setIsCopied] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [selectedReportAttempt, setSelectedReportAttempt] = useState<TestAttempt | null>(null);
+  const [launchingMode, setLaunchingMode] = useState<'online' | 'omr' | null>(null);
+  const [prefetchedTest, setPrefetchedTest] = useState<MathTest | null>(null);
 
   // Synchronously reset child sub-views when test changes or unmounts
   useEffect(() => {
     setSelectedReportAttempt(null);
     setIsLeaderboardOpen(false);
     setIsCopied(false);
+    setLaunchingMode(null);
+    setPrefetchedTest(null);
   }, [test?.id]);
+
+  // Background prefetch full test questions as soon as modal opens so launching OMR/Online is instant
+  useEffect(() => {
+    if (!test || (test.questions && test.questions.length > 0)) return;
+    let cancelled = false;
+    const batchId = (test as any).batchId || null;
+    const chunkId = (test as any).catalogChunkId || (test as any).chunkId || null;
+    loadFullTestOnDemand(test.id, allTests, currentUser?.uid || null, batchId, chunkId)
+      .then((loaded) => {
+        if (!cancelled && loaded && loaded.questions && loaded.questions.length > 0) {
+          setPrefetchedTest(loaded);
+        }
+      })
+      .catch(() => {
+        // Ignore background prefetch errors; launch handler will retry
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [test?.id, test, allTests, currentUser?.uid]);
 
   useEffect(() => {
     if (!test) {
@@ -657,13 +683,26 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
                 <button
                   type="button"
                   id="fullview-footer-omr-test-btn"
-                  onClick={() => {
-                    onClose();
-                    onStartOmrTest(test);
+                  disabled={launchingMode !== null}
+                  onClick={async () => {
+                    if (launchingMode !== null) return;
+                    startUiTransition('open-omr-mode');
+                    setLaunchingMode('omr');
+                    try {
+                      await onStartOmrTest(prefetchedTest || test);
+                    } finally {
+                      setLaunchingMode(null);
+                      onClose();
+                    }
                   }}
-                  className={`${APP_STYLES.button.secondary} flex-1 sm:flex-initial justify-center whitespace-nowrap`}
+                  className={`${APP_STYLES.button.secondary} flex-1 sm:flex-initial justify-center whitespace-nowrap disabled:opacity-70`}
                 >
-                  {isAttempted ? (
+                  {launchingMode === 'omr' ? (
+                    <>
+                      <Loader2 className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0 animate-spin" />
+                      <span className="truncate">Opening OMR...</span>
+                    </>
+                  ) : isAttempted ? (
                     <>
                       <RotateCcw className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
                       <span className="truncate">Retry OMR Mode</span>
@@ -680,14 +719,27 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
               <button
                 type="button"
                 id="fullview-footer-start-test-btn"
-                onClick={() => {
-                  onClose();
-                  onStartTest(test, 'timed');
+                disabled={launchingMode !== null}
+                onClick={async () => {
+                  if (launchingMode !== null) return;
+                  startUiTransition('open-online-test');
+                  setLaunchingMode('online');
+                  try {
+                    await onStartTest(prefetchedTest || test, 'timed');
+                  } finally {
+                    setLaunchingMode(null);
+                    onClose();
+                  }
                 }}
                 style={{ backgroundColor: '#0b57d0' }}
-                className={`${APP_STYLES.button.primary} !bg-[#0b57d0] hover:!bg-[#0842a0] active:!bg-[#063380] dark:!bg-[#0b57d0] dark:hover:!bg-[#0842a0] flex-1 sm:flex-initial justify-center whitespace-nowrap`}
+                className={`${APP_STYLES.button.primary} !bg-[#0b57d0] hover:!bg-[#0842a0] active:!bg-[#063380] dark:!bg-[#0b57d0] dark:hover:!bg-[#0842a0] flex-1 sm:flex-initial justify-center whitespace-nowrap disabled:opacity-75`}
               >
-                {isAttempted ? (
+                {launchingMode === 'online' ? (
+                  <>
+                    <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
+                    <span className="truncate">Starting...</span>
+                  </>
+                ) : isAttempted ? (
                   <>
                     <RotateCcw className="w-4 h-4 fill-none shrink-0" />
                     <span className="truncate">Retry Online Test</span>

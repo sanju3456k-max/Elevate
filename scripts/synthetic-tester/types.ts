@@ -42,10 +42,19 @@ export interface GfxInfoMetrics {
 
 export interface FeatureCheckResult {
   name: string;
-  category: 'cloud' | 'engine' | 'device' | 'sync';
+  category: 'cloud' | 'engine' | 'device' | 'sync' | 'web_ux';
   passed: boolean;
   latencyMs: number;
   details: string;
+}
+
+export interface UiTransitionMetric {
+  name: string;
+  durationMs: number;
+  longTasksCount: number;
+  maxLongTaskMs: number;
+  status: 'PASS' | 'WARN' | 'FAIL';
+  meta?: Record<string, any>;
 }
 
 export interface AuditReportData {
@@ -55,6 +64,8 @@ export interface AuditReportData {
   persona: SyntheticPersona;
   uxSmoothnessScore: number;
   deviceMetrics: GfxInfoMetrics | null;
+  uiTransitions?: UiTransitionMetric[];
+  consoleErrors?: string[];
   screenshots: { label: string; path: string }[];
   checks: FeatureCheckResult[];
   manifestPath: string;

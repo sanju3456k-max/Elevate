@@ -51,6 +51,7 @@ import {
   publishTestToBatchCatalog,
 } from './lib/masterAccount';
 import { syncBatchTestToFirestore, touchBatchCatalogBeacon } from './lib/batchCloudSync';
+import { listenerManager } from './lib/listenerManager';
 import { initNativeHardwareIntegration, syncNativeStatusBarTheme, getIsNativePlaybackPlaying, enterNativePip, exitNativeApp, isNativeAndroid } from './lib/nativeHardwareBridge';
 import { triggerBack } from './hooks/useBackNavigation';
 import { TestDetailModal } from './components/TestDetailModal';
@@ -1141,8 +1142,9 @@ export default function App() {
     }
 
     const currentDevId = getOrCreateDeviceId();
-    const unsub = onSnapshot(
-      doc(db, 'users', currentUser.uid),
+    const unsub = listenerManager.subscribeDocument(
+      `users/${currentUser.uid}`,
+      () => doc(db, 'users', currentUser.uid),
       (snap) => {
         if (!snap.exists()) return;
         const data = snap.data();
@@ -2975,14 +2977,8 @@ export default function App() {
           userProfile={userProfile}
           currentUser={currentUser}
           allTests={tests}
-          onStartTest={(testToStart) => {
-            setGlobalDetailTest(null);
-            handleStartTest(testToStart, 'timed');
-          }}
-          onStartOmrTest={(testToStart) => {
-            setGlobalDetailTest(null);
-            handleStartOmrTest(testToStart);
-          }}
+          onStartTest={(testToStart) => handleStartTest(testToStart, 'timed')}
+          onStartOmrTest={(testToStart) => handleStartOmrTest(testToStart)}
           onViewAttemptResult={handleViewAttemptResult}
         />
       )}

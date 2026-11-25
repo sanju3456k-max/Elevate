@@ -50,6 +50,7 @@ import { auth, db, getCachedFullTest } from '../../../lib/firebase';
 import { loadFullTestOnDemand } from '../../../lib/storage';
 import { collection, onSnapshot, doc } from 'firebase/firestore';
 import { listenerManager } from '../../../lib/listenerManager';
+import { cleanKeyForFirestore, getCachedBatchRevision, setCachedBatchRevision } from '../../../lib/batchCloudSync';
 import { isMasterUser, getGlobalPublishedTests, isDeprecatedTest, DEPRECATED_TEST_IDS } from '../../../lib/masterAccount';
 import { getTestDurationMinutes } from '../../../utils/testFormatConverter';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
@@ -367,10 +368,9 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   useEffect(() => {
     if (!selectedBatchId) return;
 
-    // 1. Initial authoritative load
-    loadCurriculumForBatch(selectedBatchId);
-
-    // 2. Real-time updates
+    // Real-time synchronization:
+    // - Master: 3 live collection streams fire immediately on attach (150ms debounced in LmsContext) — no extra initial call needed.
+    // - Students: 1 initial authoritative load + revision-gated 1-doc beacon (skips initial replay & unrelated batch updates).
     if (isMaster) {
       let unsubLectures: (() => void) | null = null;
       let unsubChapters: (() => void) | null = null;
@@ -420,13 +420,34 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         if (unsubTests) unsubTests();
       };
     } else {
+      loadCurriculumForBatch(selectedBatchId);
+
+      const batchRevKey = cleanKeyForFirestore(selectedBatchId);
+      let lastSeenBatchRev = getCachedBatchRevision(selectedBatchId);
+      let isFirstBeaconEvent = true;
+
       // Enrolled students: listen to the lightweight 1-document beacon with auto background sleep
       const unsubBeacon = listenerManager.subscribeDocument(
         'master_catalog/batch_catalog_meta',
         () => doc(db, 'master_catalog', 'batch_catalog_meta'),
         (snap) => {
-          if (snap.exists()) {
-            loadCurriculumForBatch(selectedBatchId);
+          if (!snap.exists()) return;
+          const data = snap.data() as any;
+          const serverBatchRev = Number(data?.batchRevisions?.[batchRevKey] || 0);
+
+          if (isFirstBeaconEvent) {
+            isFirstBeaconEvent = false;
+            if (serverBatchRev > lastSeenBatchRev) {
+              lastSeenBatchRev = serverBatchRev;
+              setCachedBatchRevision(selectedBatchId, serverBatchRev);
+            }
+            return;
+          }
+
+          if (serverBatchRev > lastSeenBatchRev) {
+            lastSeenBatchRev = serverBatchRev;
+            setCachedBatchRevision(selectedBatchId, serverBatchRev);
+            loadCurriculumForBatch(selectedBatchId, true);
           }
         }
       );
@@ -2372,7 +2393,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               return;
             }
             if (onStartTest) {
-              onStartTest(testToStart, {
+              return onStartTest(testToStart, {
                 batchId: selectedBatchId || currentBatch?.id || '',
                 chapterId: selectedChapterId,
                 folderTab: 'tests',
@@ -2386,7 +2407,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               return;
             }
             if (onStartOmrTest) {
-              onStartOmrTest(testToStart, {
+              return onStartOmrTest(testToStart, {
                 batchId: selectedBatchId || currentBatch?.id || '',
                 chapterId: selectedChapterId,
                 folderTab: 'tests',
@@ -2549,7 +2570,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             return;
           }
           if (onStartTest) {
-            onStartTest(testToStart, {
+            return onStartTest(testToStart, {
               batchId: selectedBatchId || currentBatch?.id || '',
               chapterId: selectedChapterId,
               folderTab: 'tests',
@@ -2563,7 +2584,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             return;
           }
           if (onStartOmrTest) {
-            onStartOmrTest(testToStart, {
+            return onStartOmrTest(testToStart, {
               batchId: selectedBatchId || currentBatch?.id || '',
               chapterId: selectedChapterId,
               folderTab: 'tests',

@@ -23,6 +23,45 @@ async function startServer() {
     res.json({ status: "ok", timestamp: new Date().toISOString(), service: "Theta Notes Backend" });
   });
 
+  // MCB Synthetic UX Audit Reports API (Human & Turbo JSON + Screenshots)
+  app.get("/api/audit-reports", (_req, res) => {
+    const reportsDir = path.resolve(process.cwd(), "scripts", "synthetic-tester", "reports");
+    const readReport = (filename: string) => {
+      try {
+        const full = path.join(reportsDir, filename);
+        if (!fs.existsSync(full)) return null;
+        const parsed = JSON.parse(fs.readFileSync(full, "utf8"));
+        if (Array.isArray(parsed.screenshots)) {
+          parsed.screenshots = parsed.screenshots.map((s: any) => ({
+            ...s,
+            url: `/api/audit-screenshot?file=${encodeURIComponent(path.basename(String(s.path || "")))}`,
+          }));
+        }
+        return parsed;
+      } catch {
+        return null;
+      }
+    };
+    res.json({
+      human: readReport("latest-human.json"),
+      turbo: readReport("latest-turbo.json"),
+      latest: readReport("latest-audit.json"),
+    });
+  });
+
+  app.get("/api/audit-screenshot", (req, res) => {
+    const rawFile = String(req.query.file || "");
+    const safeName = path.basename(rawFile);
+    if (!safeName || !safeName.endsWith(".png")) {
+      return res.status(400).send("Invalid screenshot file");
+    }
+    const imgPath = path.resolve(process.cwd(), "scripts", "synthetic-tester", "reports", "screenshots", safeName);
+    if (!fs.existsSync(imgPath)) {
+      return res.status(404).send("Screenshot not found");
+    }
+    return res.sendFile(imgPath);
+  });
+
   // Mount modular routes
   app.use("/api", routes);
 

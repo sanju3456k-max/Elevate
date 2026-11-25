@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { endUiTransition } from '../lib/uiPerfTelemetry';
 import { 
   Printer, 
   Camera, 
@@ -88,6 +89,10 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
   const [activeTab, setActiveTab] = useState<OmrTab>(initialTab || (initialAttempt ? 'scan' : 'print'));
   const [printSubTab, setPrintSubTab] = useState<'paper' | 'sheet'>('paper');
   const [windowWidth, setWindowWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 1024);
+
+  useEffect(() => {
+    endUiTransition('open-omr-mode', { testId: test?.id, questionCount: test?.questions?.length || 0 });
+  }, [test?.id]);
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);

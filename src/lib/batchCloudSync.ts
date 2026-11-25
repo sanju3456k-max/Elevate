@@ -14,6 +14,7 @@ import {
   increment,
 } from 'firebase/firestore';
 import { db, sanitizeForFirestore } from './firebase';
+import { secureStorage } from './secureStorage';
 import type { Batch, BatchEnrollment, Chapter, Lecture } from '../lms/types';
 import { INITIAL_BATCHES } from '../lms/initialData';
 import { obfuscateVideoKey } from '../lms/security';
@@ -35,27 +36,73 @@ export const ALL_ENROLLMENTS_CACHE_KEY = 'math_mock_all_enrollments_cache';
 export const ALL_ENROLLMENTS_CACHE_TIME_KEY = 'math_mock_all_enrollments_time';
 export const ALL_ENROLLMENTS_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes fresh L1 TTL
 
+export const BATCH_CURRICULUM_REV_PREFIX = 'math_mock_batch_rev_';
+
+export function getCachedBatchCatalogBeacon(): string {
+  try {
+    return secureStorage.getItem(BATCH_CACHE_BEACON_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+export function setCachedBatchCatalogBeacon(beacon: string): void {
+  if (!beacon) return;
+  try {
+    secureStorage.setItem(BATCH_CACHE_BEACON_KEY, beacon);
+  } catch {}
+}
+
+export function getCachedBatchRevision(batchId: string): number {
+  if (!batchId) return 0;
+  try {
+    return Number(secureStorage.getItem(`${BATCH_CURRICULUM_REV_PREFIX}${batchId}`)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function setCachedBatchRevision(batchId: string, rev: number): void {
+  if (!batchId || !rev) return;
+  try {
+    secureStorage.setItem(`${BATCH_CURRICULUM_REV_PREFIX}${batchId}`, String(rev));
+  } catch {}
+}
+
 /**
  * Updates the lightweight 1-document catalog beacon to signal changes to all clients
  * without forcing them to poll or scan the whole collection.
+ * When `batchId` is provided, only bumps that batch's curriculum revision without invalidating
+ * the top-level batch list cache.
  */
-export async function touchBatchCatalogBeacon(): Promise<void> {
-  // Always aggressively invalidate local L1 cache first
-  if (typeof window !== 'undefined' && window.localStorage) {
+export async function touchBatchCatalogBeacon(batchId?: string): Promise<void> {
+  const nowMs = Date.now();
+  const nowIso = new Date().toISOString();
+
+  if (!batchId) {
+    // Batch-level change: invalidate local L1 batch list cache
     try {
-      localStorage.removeItem(BATCH_CACHE_KEY);
-      localStorage.removeItem(BATCH_CACHE_TIME_KEY);
-      localStorage.removeItem(BATCH_CACHE_BEACON_KEY);
+      secureStorage.removeItem(BATCH_CACHE_KEY);
+      secureStorage.removeItem(BATCH_CACHE_TIME_KEY);
+      secureStorage.removeItem(BATCH_CACHE_BEACON_KEY);
     } catch {}
+  } else {
+    setCachedBatchRevision(batchId, nowMs);
   }
 
   try {
     const metaRef = doc(db, 'master_catalog', 'batch_catalog_meta');
-    const nowIso = new Date().toISOString();
-    await setDoc(metaRef, {
-      lastUpdatedAt: nowIso,
-      updatedAt: Date.now(),
-    }, { merge: true });
+    if (batchId) {
+      await setDoc(metaRef, {
+        [`batchRevisions.${cleanKeyForFirestore(batchId)}`]: nowMs,
+        curriculumUpdatedAt: nowMs,
+      }, { merge: true });
+    } else {
+      await setDoc(metaRef, {
+        lastUpdatedAt: nowIso,
+        updatedAt: nowMs,
+      }, { merge: true });
+    }
   } catch (e) {
     console.warn('Silent notice: batch catalog beacon touch:', e);
   }
@@ -185,11 +232,11 @@ export async function deleteBatchFromFirestore(batchId: string): Promise<void> {
 export async function fetchBatchesFromFirestore(options?: { forceRefresh?: boolean }): Promise<Batch[]> {
   const now = Date.now();
 
-  // Tier 1: Fresh in-memory / local storage check (< 5 minutes TTL)
-  if (!options?.forceRefresh && typeof window !== 'undefined' && window.localStorage) {
+  // Tier 1: Fresh in-memory / encrypted secureStorage check (< 5 minutes TTL)
+  if (!options?.forceRefresh && typeof window !== 'undefined') {
     try {
-      const cachedStr = localStorage.getItem(BATCH_CACHE_KEY);
-      const cacheTimeStr = localStorage.getItem(BATCH_CACHE_TIME_KEY);
+      const cachedStr = secureStorage.getItem(BATCH_CACHE_KEY);
+      const cacheTimeStr = secureStorage.getItem(BATCH_CACHE_TIME_KEY);
       if (cachedStr && cacheTimeStr) {
         const age = now - Number(cacheTimeStr);
         if (age < BATCH_CACHE_TTL_MS) {
@@ -203,10 +250,10 @@ export async function fetchBatchesFromFirestore(options?: { forceRefresh?: boole
   }
 
   // Tier 2: Check 1-Document Revision Beacon before reading entire collection
-  if (!options?.forceRefresh && typeof window !== 'undefined' && window.localStorage) {
+  if (!options?.forceRefresh && typeof window !== 'undefined') {
     try {
-      const cachedStr = localStorage.getItem(BATCH_CACHE_KEY);
-      const cachedBeacon = localStorage.getItem(BATCH_CACHE_BEACON_KEY);
+      const cachedStr = secureStorage.getItem(BATCH_CACHE_KEY);
+      const cachedBeacon = secureStorage.getItem(BATCH_CACHE_BEACON_KEY);
       if (cachedStr && cachedBeacon) {
         const metaRef = doc(db, 'master_catalog', 'batch_catalog_meta');
         const metaSnap = await getDoc(metaRef).catch(() => null);
@@ -214,7 +261,7 @@ export async function fetchBatchesFromFirestore(options?: { forceRefresh?: boole
           const serverBeacon = metaSnap.data()?.lastUpdatedAt || '';
           if (serverBeacon && serverBeacon === cachedBeacon) {
             // Server catalog hasn't changed! Re-stamp TTL and return cached (1 read instead of N reads)
-            localStorage.setItem(BATCH_CACHE_TIME_KEY, String(now));
+            secureStorage.setItem(BATCH_CACHE_TIME_KEY, String(now));
             const parsed = JSON.parse(cachedStr);
             if (Array.isArray(parsed) && parsed.length > 0) {
               return parsed;
@@ -258,13 +305,15 @@ export async function fetchBatchesFromFirestore(options?: { forceRefresh?: boole
         });
       });
 
-      // Update multi-tier cache
-      if (typeof window !== 'undefined' && window.localStorage) {
+      // Update multi-tier encrypted cache
+      if (typeof window !== 'undefined') {
         try {
-          localStorage.setItem(BATCH_CACHE_KEY, JSON.stringify(cloudBatches));
-          localStorage.setItem(BATCH_CACHE_TIME_KEY, String(now));
+          secureStorage.setItem(BATCH_CACHE_KEY, JSON.stringify(cloudBatches));
+          secureStorage.setItem(BATCH_CACHE_TIME_KEY, String(now));
           const latestBatchTime = cloudBatches.reduce((acc, b: any) => (b.updatedAt && b.updatedAt > acc ? b.updatedAt : acc), '');
-          localStorage.setItem(BATCH_CACHE_BEACON_KEY, latestBatchTime || new Date().toISOString());
+          if (latestBatchTime && !secureStorage.getItem(BATCH_CACHE_BEACON_KEY)) {
+            secureStorage.setItem(BATCH_CACHE_BEACON_KEY, latestBatchTime);
+          }
         } catch {}
       }
 
@@ -274,10 +323,10 @@ export async function fetchBatchesFromFirestore(options?: { forceRefresh?: boole
     console.warn('Failed to fetch batches from Firestore, using initial fallback:', error);
   }
 
-  // Fallback to cache if available on network error
-  if (typeof window !== 'undefined' && window.localStorage) {
+  // Fallback to encrypted cache if available on network error
+  if (typeof window !== 'undefined') {
     try {
-      const cachedStr = localStorage.getItem(BATCH_CACHE_KEY);
+      const cachedStr = secureStorage.getItem(BATCH_CACHE_KEY);
       if (cachedStr) {
         const parsed = JSON.parse(cachedStr);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -683,10 +732,10 @@ export async function fetchStudentEnrollmentsFromFirestore(
  */
 export async function fetchAllEnrollmentsFromFirestore(options?: { forceRefresh?: boolean }): Promise<BatchEnrollment[]> {
   const now = Date.now();
-  if (!options?.forceRefresh && typeof window !== 'undefined' && window.localStorage) {
+  if (!options?.forceRefresh && typeof window !== 'undefined') {
     try {
-      const cached = localStorage.getItem(ALL_ENROLLMENTS_CACHE_KEY);
-      const cacheTime = localStorage.getItem(ALL_ENROLLMENTS_CACHE_TIME_KEY);
+      const cached = secureStorage.getItem(ALL_ENROLLMENTS_CACHE_KEY);
+      const cacheTime = secureStorage.getItem(ALL_ENROLLMENTS_CACHE_TIME_KEY);
       if (cached && cacheTime && (now - Number(cacheTime) < ALL_ENROLLMENTS_CACHE_TTL_MS)) {
         return JSON.parse(cached);
       }
@@ -713,10 +762,10 @@ export async function fetchAllEnrollmentsFromFirestore(options?: { forceRefresh?
       }
     });
 
-    if (typeof window !== 'undefined' && window.localStorage) {
+    if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem(ALL_ENROLLMENTS_CACHE_KEY, JSON.stringify(result));
-        localStorage.setItem(ALL_ENROLLMENTS_CACHE_TIME_KEY, String(now));
+        secureStorage.setItem(ALL_ENROLLMENTS_CACHE_KEY, JSON.stringify(result));
+        secureStorage.setItem(ALL_ENROLLMENTS_CACHE_TIME_KEY, String(now));
       } catch {}
     }
 
@@ -724,7 +773,7 @@ export async function fetchAllEnrollmentsFromFirestore(options?: { forceRefresh?
   } catch (err) {
     console.warn('Failed to fetch all enrollments from Firestore:', err);
     try {
-      const cached = localStorage.getItem(ALL_ENROLLMENTS_CACHE_KEY);
+      const cached = secureStorage.getItem(ALL_ENROLLMENTS_CACHE_KEY);
       if (cached) return JSON.parse(cached);
     } catch {}
     return [];
@@ -894,6 +943,7 @@ export async function syncChapterToFirestore(batchId: string, chapter: Chapter):
   if (!batchId || !chapter?.id) return;
   try {
     await setDoc(doc(db, 'batches', batchId, 'chapters', chapter.id), sanitizeForFirestore(chapter), { merge: true });
+    touchBatchCatalogBeacon(batchId).catch(() => {});
   } catch (error) {
     console.warn(`Failed to sync chapter ${chapter.id} for batch ${batchId}:`, error);
   }
@@ -905,7 +955,7 @@ export async function deleteChapterFromFirestore(batchId: string, chapterId: str
     await deleteDoc(doc(db, 'batches', batchId, 'chapters', chapterId));
     const nowIso = new Date().toISOString();
     await updateDoc(doc(db, 'batches', batchId), { updatedAt: nowIso }).catch(() => {});
-    touchBatchCatalogBeacon().catch(() => {});
+    touchBatchCatalogBeacon(batchId).catch(() => {});
   } catch (error) {
     console.warn(`Failed to delete chapter ${chapterId} for batch ${batchId}:`, error);
   }
@@ -915,6 +965,7 @@ export async function syncLectureToFirestore(batchId: string, lecture: Lecture):
   if (!batchId || !lecture?.id) return;
   try {
     await setDoc(doc(db, 'batches', batchId, 'lectures', lecture.id), sanitizeForFirestore(lecture), { merge: true });
+    touchBatchCatalogBeacon(batchId).catch(() => {});
   } catch (error) {
     console.warn(`Failed to sync lecture ${lecture.id} for batch ${batchId}:`, error);
   }
@@ -926,7 +977,7 @@ export async function deleteLectureFromFirestore(batchId: string, lectureId: str
     await deleteDoc(doc(db, 'batches', batchId, 'lectures', lectureId));
     const nowIso = new Date().toISOString();
     await updateDoc(doc(db, 'batches', batchId), { updatedAt: nowIso }).catch(() => {});
-    touchBatchCatalogBeacon().catch(() => {});
+    touchBatchCatalogBeacon(batchId).catch(() => {});
   } catch (error) {
     console.warn(`Failed to delete lecture ${lectureId} for batch ${batchId}:`, error);
   }
@@ -1038,7 +1089,7 @@ export async function syncBatchTestToFirestore(batchId: string, testCard: any): 
   try {
     const testRef = doc(db, 'batches', batchId, 'tests', testCard.testId);
     await setDoc(testRef, sanitizeForFirestore(testCard), { merge: true });
-    touchBatchCatalogBeacon().catch(() => {});
+    touchBatchCatalogBeacon(batchId).catch(() => {});
   } catch (err) {
     console.warn('Failed to sync batch test:', err);
   }
@@ -1141,7 +1192,7 @@ export async function deleteBatchTestFromFirestore(
 
     const nowIso = new Date().toISOString();
     await updateDoc(doc(db, 'batches', cleanBatchId), { updatedAt: nowIso }).catch(() => {});
-    touchBatchCatalogBeacon().catch(() => {});
+    touchBatchCatalogBeacon(cleanBatchId).catch(() => {});
   } catch (error) {
     console.warn(`Failed to delete test ${testId} for batch ${batchId}:`, error);
   }
