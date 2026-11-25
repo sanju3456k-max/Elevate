@@ -86,12 +86,12 @@ export interface PaperPageLayout {
 
 /**
  * Standard A4 Constants (at 96 DPI: 1mm = 3.78px, 297mm = 1122.5px)
- * Calibrated Column Height Budgets to guarantee 1:1 A4 Preview vs Print Parity (zero clipping):
- * - Page 1: 1122.5px - 75.6px (padding) - ~135px (header) - ~35px (footer) = ~877px -> 865px safe budget
- * - Subsequent Pages: 1122.5px - 75.6px (padding) - ~45px (compact header) - ~35px (footer) = ~967px -> 955px safe budget
+ * Calibrated Column Height Budgets to maximize page fill while guaranteeing 0px print overflow:
+ * - Page 1: 1122.5px - 75.6px (10mm top/bottom padding) - ~104px (header) - 8px (gap) = ~935px -> 925px budget
+ * - Subsequent Pages: 1122.5px - 75.6px (padding) - ~40px (compact header) - 8px (gap) = ~999px -> 988px budget
  */
-const DEFAULT_PAGE_1_COL_HEIGHT_PX = 865;
-const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 955;
+const DEFAULT_PAGE_1_COL_HEIGHT_PX = 925;
+const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 988;
 /**
  * Extra bottom vertical height buffer (in pixels) added specifically to the in-app
  * preview canvas so that questions are never cut off at the bottom in the preview.
@@ -670,10 +670,10 @@ function paginateLinearStream(
 
   const getColBudget = (pageIdx: number) => {
     if (layoutDensity === 'tight') {
-      return pageIdx === 0 ? 910 : 990;
+      return pageIdx === 0 ? 945 : 1010;
     }
     if (layoutDensity === 'relaxed') {
-      return pageIdx === 0 ? 820 : 900;
+      return pageIdx === 0 ? 875 : 940;
     }
     return pageIdx === 0 ? DEFAULT_PAGE_1_COL_HEIGHT_PX : DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX;
   };
@@ -1307,9 +1307,9 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
     );
     const maxColH = Math.max(leftColH, rightColH);
 
-    const headerOverheadPx = page.isFirstPage ? 150 : 55;
-    const pagePaddingOverheadPx = 60; // 10mm top (38px) + preview bottom clearance (~57px)
-    const footerOverheadPx = 40; // footer border + margins
+    const headerOverheadPx = page.isFirstPage ? 104 : 40;
+    const pagePaddingOverheadPx = 76; // 10mm top + 10mm bottom
+    const footerOverheadPx = 8;
 
     const calculatedContentHeight = Math.ceil(
       headerOverheadPx + maxColH + pagePaddingOverheadPx + footerOverheadPx + PREVIEW_BOTTOM_EXTRA_HEIGHT_PX
@@ -1628,7 +1628,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                     maxWidth: '210mm',
                     height: `${currentPageHPx}px`,
                     minHeight: `${pageHPx + PREVIEW_BOTTOM_EXTRA_HEIGHT_PX}px`,
-                    padding: '10mm 12mm 16mm 12mm',
+                    padding: '10mm 12mm 10mm 12mm',
                     fontFamily: "'Times New Roman', Times, Tinos, 'Liberation Serif', serif",
                     boxSizing: 'border-box',
                     textRendering: 'optimizeLegibility',

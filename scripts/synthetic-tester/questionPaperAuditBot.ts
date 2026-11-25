@@ -261,7 +261,51 @@ function buildSamplePapers() {
     })),
   };
 
-  return [sample1, sample2, sample3, sample4, sample5];
+  // Sample 6: 60-Question Revision Test Mix (3D Geometry + Vectors + Stacked '=' options)
+  const sample6 = {
+    id: 'audit_sample_6_revision_mix',
+    title: 'Sample 6: Revision Test (3D Geometry & Vectors Mix)',
+    topic: '3D Geometry',
+    timeLimitMinutes: 150,
+    passingScorePercentage: 50,
+    questions: Array.from({ length: 60 }, (_, i) => {
+      if (i % 5 === 4) {
+        return {
+          id: `s6_q${i + 1}`,
+          text: `The equation of a line passing through $(-3, 2, 4)$ and equally inclined to the axes, are:`,
+          options: [
+            '$x - 3 = y + 2 = z - 4$',
+            '$x + 3 = y - 2 = z - 4$',
+            '$\\frac{x+3}{1} = \\frac{y-2}{2} = \\frac{z+4}{3}$',
+            '$\\frac{x-1}{-3} = \\frac{y-1}{2} = \\frac{z-1}{-4}$',
+          ],
+          correctOptionIndex: 0,
+          topic: '3D Geometry',
+          type: 'mcq',
+        };
+      }
+      if (i % 5 === 1) {
+        return {
+          id: `s6_q${i + 1}`,
+          text: `Distance of the point $(x, y, z)$ from y-axis is:`,
+          options: ['$y$', '$\\sqrt{x^2 + y^2}$', '$\\sqrt{y^2 + z^2}$', '$\\sqrt{z^2 + x^2}$'],
+          correctOptionIndex: 3,
+          topic: '3D Geometry',
+          type: 'mcq',
+        };
+      }
+      return {
+        id: `s6_q${i + 1}`,
+        text: `Perpendicular distance of point $P(${i + 1}, b, c)$ from YZ Plane is:`,
+        options: ['$a$', '$b$', '$c$', 'None'],
+        correctOptionIndex: 0,
+        topic: '3D Geometry',
+        type: 'mcq',
+      };
+    }),
+  };
+
+  return [sample1, sample2, sample3, sample4, sample5, sample6];
 }
 
 async function runAudit() {
