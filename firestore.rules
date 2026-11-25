@@ -1,21 +1,143 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
+    // =========================================================================
+    // Assumed Data Model (Multi-Institute & LMS Collections)
+    // =========================================================================
+    // Collection: master_workspaces/{workspaceId}
+    //   - id: string (required, immutable for non-super-admin, 1..128 chars)
+    //   - name: string (required, 1..120 chars)
+    //   - ownerEmail: string (required, valid email, immutable for non-super-admin)
+    //   - teamAdminEmails: list<string> (required, max 50 items)
+    //   - createdAt: string (required, immutable for non-super-admin, <= 64 chars)
+    //   - updatedAt: string (required, <= 64 chars)
+    //
+    // Subcollection: master_workspaces/{workspaceId}/tests/{testId}
+    //   - id: string (required, 1..128 chars)
+    //   - workspaceId: string (required, must match parent {workspaceId})
+    //   - title: string (required, 1..300 chars)
+    //   - questions: list (optional, max 500 items)
+    //   - updatedAt: string (optional, <= 64 chars)
+    //
+    // Collection: batches/{batchId}
+    //   - id: string (required, 1..128 chars)
+    //   - title: string (required, 1..200 chars)
+    //   - workspaceId: string (optional for legacy primary batches, required & immutable for institute admins)
+    //   - tagline: string (optional, <= 300 chars)
+    //   - description: string (optional, <= 5000 chars)
+    //   - price, originalPrice, enrolledStudentsCount: number (optional, >= 0)
+    // =========================================================================
+
     // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
-    
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isMasterAdmin() {
+    function hasVerifiedEmail() {
       return isSignedIn() &&
         request.auth.token.email != null &&
-        request.auth.token.email_verified == true &&
-        request.auth.token.email.lower() == 'sanju3456k@gmail.com';
+        request.auth.token.email_verified == true;
+    }
+
+    function userEmailLower() {
+      return request.auth.token.email.lower();
+    }
+
+    // Root Super-Admin (Platform-wide authority)
+    function isMasterAdmin() {
+      return hasVerifiedEmail() &&
+        userEmailLower() == 'sanju3456k@gmail.com';
+    }
+
+    function isValidEmail(email) {
+      return email is string &&
+        email.size() <= 254 &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // Multi-Institute Workspace Helpers
+    function isValidWorkspaceId(wsId) {
+      return wsId is string && wsId.size() > 0 && wsId.size() <= 128;
+    }
+
+    function workspaceExists(wsId) {
+      return isValidWorkspaceId(wsId) &&
+        exists(/databases/$(database)/documents/master_workspaces/$(wsId));
+    }
+
+    function isWorkspaceOwnerData(wsData) {
+      return hasVerifiedEmail() &&
+        wsData.ownerEmail is string &&
+        wsData.ownerEmail.lower() == userEmailLower();
+    }
+
+    function isWorkspaceTeamAdminData(wsData) {
+      return hasVerifiedEmail() &&
+        wsData.teamAdminEmails is list &&
+        userEmailLower() in wsData.teamAdminEmails;
+    }
+
+    function isWorkspaceMemberData(wsData) {
+      return isMasterAdmin() ||
+        isWorkspaceOwnerData(wsData) ||
+        isWorkspaceTeamAdminData(wsData);
+    }
+
+    function isWorkspaceMember(wsId) {
+      return isMasterAdmin() || (
+        workspaceExists(wsId) &&
+        isWorkspaceMemberData(get(/databases/$(database)/documents/master_workspaces/$(wsId)).data)
+      );
+    }
+
+    function isBatchWorkspaceAdmin(batchId) {
+      return isMasterAdmin() || (
+        batchId is string &&
+        batchId.size() > 0 &&
+        exists(/databases/$(database)/documents/batches/$(batchId)) &&
+        get(/databases/$(database)/documents/batches/$(batchId)).data.workspaceId is string &&
+        isWorkspaceMember(get(/databases/$(database)/documents/batches/$(batchId)).data.workspaceId)
+      );
+    }
+
+    // Domain Validators
+    function isValidMasterWorkspace(data) {
+      return data.keys().hasAll(['id', 'name', 'ownerEmail', 'teamAdminEmails', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'name', 'ownerEmail', 'teamAdminEmails', 'createdAt', 'updatedAt']) &&
+        data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 120 &&
+        isValidEmail(data.ownerEmail) &&
+        data.teamAdminEmails is list && data.teamAdminEmails.size() <= 50 &&
+        data.createdAt is string && data.createdAt.size() > 0 && data.createdAt.size() <= 64 &&
+        data.updatedAt is string && data.updatedAt.size() > 0 && data.updatedAt.size() <= 64;
+    }
+
+    function isValidWorkspaceTest(data, workspaceId) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+        data.workspaceId is string && data.workspaceId == workspaceId &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 300 &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64)) &&
+        (!('questions' in data) || (data.questions is list && data.questions.size() <= 500));
+    }
+
+    function isValidBatch(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+        (!('workspaceId' in data) || (data.workspaceId is string && data.workspaceId.size() > 0 && data.workspaceId.size() <= 128)) &&
+        (!('tagline' in data) || (data.tagline is string && data.tagline.size() <= 300)) &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 5000)) &&
+        (!('price' in data) || (data.price is number && data.price >= 0)) &&
+        (!('originalPrice' in data) || (data.originalPrice is number && data.originalPrice >= 0)) &&
+        (!('enrolledStudentsCount' in data) || (data.enrolledStudentsCount is number && data.enrolledStudentsCount >= 0));
     }
 
     // Default deny
@@ -81,53 +203,106 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // Multi-Institute Master Workspaces & Shared Workspace Tests
+    // =========================================================================
+    match /master_workspaces/{workspaceId} {
+      allow read: if isSignedIn();
+      // Only Root Super-Admin can provision or delete workspaces
+      allow create: if isMasterAdmin() && isValidMasterWorkspace(request.resource.data);
+      // Root Super-Admin can update any workspace; Institute Owner can manage teamAdminEmails on their own workspace
+      allow update: if isValidMasterWorkspace(request.resource.data) && (
+        isMasterAdmin() ||
+        (isWorkspaceOwnerData(resource.data) &&
+         areImmutableFieldsUnchanged(['id', 'ownerEmail', 'createdAt']))
+      );
+      allow delete: if isMasterAdmin();
+
+      // Workspace-scoped draft/shared tests: strictly isolated to Root Super-Admin + that workspace's Owner & Team Admins
+      match /tests/{testId} {
+        allow read: if isWorkspaceMember(workspaceId);
+        allow create, update: if isWorkspaceMember(workspaceId) &&
+          isValidWorkspaceTest(request.resource.data, workspaceId);
+        allow delete: if isWorkspaceMember(workspaceId);
+      }
+    }
+
+    // =========================================================================
     // Enterprise Batch-Level Architecture (Catalogs, Bin-Packed Chunks & Buckets)
     // =========================================================================
     // Top-level batch enrollment access
     match /batch_enrollments/{enrollmentId} {
       allow read: if isSignedIn();
-      allow write: if isMasterAdmin();
+      allow create, update: if isMasterAdmin() || (
+        request.resource.data.batchId is string &&
+        isBatchWorkspaceAdmin(request.resource.data.batchId) &&
+        (resource == null || resource.data.batchId == request.resource.data.batchId)
+      );
+      allow delete: if isMasterAdmin() || (
+        resource.data.batchId is string &&
+        isBatchWorkspaceAdmin(resource.data.batchId)
+      );
     }
 
     match /batches/{batchId} {
       // Catalog metadata read permitted for all enrolled/signed in students
       allow read: if true;
-      allow write: if isMasterAdmin();
+      allow create: if isValidBatch(request.resource.data) && (
+        isMasterAdmin() || (
+          request.resource.data.workspaceId is string &&
+          isWorkspaceMember(request.resource.data.workspaceId)
+        )
+      );
+      allow update: if isValidBatch(request.resource.data) && (
+        isMasterAdmin() || (
+          resource.data.workspaceId is string &&
+          request.resource.data.workspaceId == resource.data.workspaceId &&
+          isWorkspaceMember(resource.data.workspaceId)
+        )
+      );
+      allow delete: if isMasterAdmin() || (
+        resource.data.workspaceId is string &&
+        isWorkspaceMember(resource.data.workspaceId)
+      );
 
       // Access control & student roster document (/batches/{batchId}/access/roster)
       match /access/{docId} {
-        allow read: if isMasterAdmin() || (isSignedIn() && request.auth.token.email != null && request.auth.token.email.lower() in resource.data.allowedEmails);
-        allow write: if isMasterAdmin();
+        allow read: if isBatchWorkspaceAdmin(batchId) || (
+          isSignedIn() &&
+          request.auth.token.email != null &&
+          resource.data.allowedEmails is list &&
+          request.auth.token.email.lower() in resource.data.allowedEmails
+        );
+        allow write: if isBatchWorkspaceAdmin(batchId);
       }
 
       // Chapters syllabus hierarchy
       match /chapters/{chapterId} {
         allow read: if true;
-        allow write: if isMasterAdmin();
+        allow write: if isBatchWorkspaceAdmin(batchId);
       }
 
       // Lectures video and resource library
       match /lectures/{lectureId} {
         allow read: if true;
-        allow write: if isMasterAdmin();
+        allow write: if isBatchWorkspaceAdmin(batchId);
       }
 
       // 1. Batch Test Manifest (1 Read for all test cards)
       match /catalog/{docId} {
         allow read: if true;
-        allow write: if isMasterAdmin();
+        allow write: if isBatchWorkspaceAdmin(batchId);
       }
 
       // 2. Bin-Packed Question Catalog Chunks (Lazy loaded on attempt)
       match /question_catalogs/{chunkId} {
         allow read: if true;
-        allow write: if isMasterAdmin();
+        allow write: if isBatchWorkspaceAdmin(batchId);
       }
 
       // 3. Batch Tests, Dynamic Attempts Buckets & Leaderboard
       match /tests/{testId} {
         allow read: if true;
-        allow write: if isMasterAdmin();
+        allow write: if isBatchWorkspaceAdmin(batchId);
 
         match /attempts/{bucketId} {
           allow read: if isSignedIn();
@@ -143,7 +318,7 @@ service cloud.firestore {
       // 4. Batch Enrollments
       match /enrollments/{enrollmentId} {
         allow read: if isSignedIn();
-        allow write: if isMasterAdmin();
+        allow write: if isBatchWorkspaceAdmin(batchId);
       }
     }
 

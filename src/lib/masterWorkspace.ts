@@ -465,4 +465,17 @@ export function getInstituteInviteLink(workspaceId: string): string {
   return `${window.location.origin}/?institute=${encodeURIComponent(workspaceId)}`;
 }
 
+export function getActiveAppInstituteIdOrPrimary(): string {
+  return getSelectedAppInstituteId() || PRIMARY_WORKSPACE_ID;
+}
+
+export function belongsToInstitute(
+  record: { workspaceId?: string | null } | null | undefined,
+  instituteId?: string | null
+): boolean {
+  const target = instituteId || PRIMARY_WORKSPACE_ID;
+  const owner = record?.workspaceId || PRIMARY_WORKSPACE_ID;
+  return owner === target;
+}
+
 

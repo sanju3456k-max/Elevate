@@ -65,6 +65,8 @@ import {
   setAppInstituteGuestMode,
   getWorkspaceById,
   APP_INSTITUTE_CHANGED_EVENT,
+  belongsToInstitute,
+  getActiveAppInstituteIdOrPrimary,
 } from './lib/masterWorkspace';
 import { syncBatchTestToFirestore, touchBatchCatalogBeacon } from './lib/batchCloudSync';
 import { listenerManager } from './lib/listenerManager';
@@ -557,11 +559,6 @@ export default function App() {
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
   // Platform security guard (Android-only enforcement with whitelist & passkey)
-  const [platformAccess, setPlatformAccess] = useState(() => {
-    const activeU = currentUser || cachedUser;
-    return checkPlatformAccess(isMasterUser(activeU) || isMasterWorkspaceMember(activeU?.email));
-  });
-
   const [selectedInstituteId, setSelectedInstituteId] = useState<string | null>(() =>
     getSelectedAppInstituteId()
   );
@@ -569,20 +566,35 @@ export default function App() {
     getAppInstituteGuestMode()
   );
 
+  const [platformAccess, setPlatformAccess] = useState(() => {
+    const activeU = currentUser || cachedUser;
+    return checkPlatformAccess(isMasterUser(activeU, selectedInstituteId));
+  });
+
   useEffect(() => {
     const syncInstituteState = () => {
-      setSelectedInstituteId(getSelectedAppInstituteId());
+      const nextInstId = getSelectedAppInstituteId();
+      setSelectedInstituteId(nextInstId);
       setIsInstituteGuestMode(getAppInstituteGuestMode());
+      const activeU = currentUser || cachedUser;
+      const isInstMaster = isMasterUser(activeU, nextInstId);
+      setPlatformAccess(checkPlatformAccess(isInstMaster));
+      if (!isInstMaster && activeTabRef.current === 'master-console') {
+        setActiveTab('home');
+      }
     };
     window.addEventListener(APP_INSTITUTE_CHANGED_EVENT, syncInstituteState);
     return () => window.removeEventListener(APP_INSTITUTE_CHANGED_EVENT, syncInstituteState);
-  }, []);
+  }, [currentUser, cachedUser]);
 
   useEffect(() => {
     const activeU = currentUser || cachedUser;
-    const hasAdminWebAccess = isMasterUser(activeU) || isMasterWorkspaceMember(activeU?.email);
-    setPlatformAccess(checkPlatformAccess(hasAdminWebAccess));
-  }, [currentUser, cachedUser]);
+    const isInstMaster = isMasterUser(activeU, selectedInstituteId);
+    setPlatformAccess(checkPlatformAccess(isInstMaster));
+    if (!isInstMaster && activeTabRef.current === 'master-console') {
+      setActiveTab('home');
+    }
+  }, [currentUser, cachedUser, selectedInstituteId]);
 
   // Pagination for attempt history (on-demand loading)
   const [attemptsLimit, setAttemptsLimit] = useState<number>(30);
@@ -1061,10 +1073,9 @@ export default function App() {
     });
     const handleMembershipChange = () => {
       const activeU = currentUser || cachedUser;
-      const stillMaster = isMasterUser(activeU);
-      const hasWebAdmin = stillMaster || isMasterWorkspaceMember(activeU?.email);
-      setPlatformAccess(checkPlatformAccess(hasWebAdmin));
-      if (!stillMaster && !hasWebAdmin && activeTabRef.current === 'master-console') {
+      const stillMaster = isMasterUser(activeU, getSelectedAppInstituteId());
+      setPlatformAccess(checkPlatformAccess(stillMaster));
+      if (!stillMaster && activeTabRef.current === 'master-console') {
         setActiveTab('home');
       }
     };
@@ -1843,6 +1854,11 @@ export default function App() {
       userId: activeUid || 'guest-user',
       userEmail: activeEmail,
       userName: attempt.userName || currentUser?.displayName || activeEmail.split('@')[0] || 'Learner',
+      workspaceId:
+        attempt.workspaceId ||
+        currentTest?.workspaceId ||
+        (attempt as any)?.test?.workspaceId ||
+        getActiveAppInstituteIdOrPrimary(),
     };
 
     // Compute pruned attempts (keeping only First Attempt and Latest Attempt per test)
@@ -2017,8 +2033,8 @@ export default function App() {
       updatedAt: new Date().toISOString(),
       questions: normalizeQuestions(Array.isArray(test.questions) ? test.questions : []),
       testCode: (!test.testCode || isJsonFormat(test.testCode)) ? formatTestToText(test) : test.testCode,
+      workspaceId: test.workspaceId || (isMaster ? activeWs?.id : undefined) || getActiveAppInstituteIdOrPrimary(),
       ...(isMaster ? {
-        workspaceId: test.workspaceId || activeWs?.id || PRIMARY_WORKSPACE_ID,
         ownerEmail: test.ownerEmail || activeWs?.ownerEmail || (currentUser?.email || cachedUser?.email || '').toLowerCase(),
       } : {}),
     };
@@ -2418,6 +2434,13 @@ export default function App() {
   const activeAppInstituteId = selectedInstituteId || PRIMARY_WORKSPACE_ID;
   const activeAppWorkspace = getWorkspaceById(activeAppInstituteId);
 
+  // Complete per-institute isolation for student data in App View
+  const scopedAppTests = tests.filter((t) => belongsToInstitute(t, activeAppInstituteId));
+  const scopedAppAttempts = attempts.filter((a) => belongsToInstitute(a, activeAppInstituteId));
+  const scopedAppSessionsMap = Object.fromEntries(
+    Object.entries(activeSessionsMap).filter(([, sess]) => belongsToInstitute(sess, activeAppInstituteId))
+  );
+
   return (
     <MotionConfig reducedMotion="user">
     <LmsProvider>
@@ -2448,7 +2471,7 @@ export default function App() {
             showToast('Original test was deleted or unavailable.', 'error');
           }
         }}
-        availableTests={tests}
+        availableTests={scopedAppTests}
       />
       {/* Toast Notification */}
       {notification && (
@@ -2809,10 +2832,8 @@ export default function App() {
                 tests,
                 isMasterUser(currentUser || cachedUser),
                 isGuestUser(currentUser || cachedUser)
-              ).filter(
-                (t) => (t.workspaceId || PRIMARY_WORKSPACE_ID) === activeAppInstituteId || isUserPersonalTest(t)
-              )}
-              attempts={attempts}
+              ).filter((t) => belongsToInstitute(t, activeAppInstituteId))}
+              attempts={scopedAppAttempts}
               currentUser={currentUser}
               userProfile={userProfile}
               onStartTest={(test) => handleStartTest(test, 'timed')}
@@ -2868,7 +2889,7 @@ export default function App() {
                 onChapterChange={setSelectedChapterId}
                 onLectureChange={setSelectedLectureId}
                 onFolderTabChange={setSelectedFolderTab}
-                availableTests={tests}
+                availableTests={scopedAppTests}
                 attempts={attempts}
                 userProfile={userProfile}
                 currentUser={currentUser}
@@ -2929,14 +2950,12 @@ export default function App() {
                 isMasterUser(currentUser || cachedUser),
                 isGuestUser(currentUser || cachedUser),
                 currentUser || cachedUser
-              ).filter(
-                (t) => (t.workspaceId || PRIMARY_WORKSPACE_ID) === activeAppInstituteId || isUserPersonalTest(t)
-              )}
-              attempts={attempts}
+              ).filter((t) => belongsToInstitute(t, activeAppInstituteId))}
+              attempts={scopedAppAttempts}
               currentUser={currentUser}
               userProfile={userProfile}
-              activeSession={activeTestSession}
-              activeSessionsMap={activeSessionsMap}
+              activeSession={activeTestSession && belongsToInstitute(activeTestSession, activeAppInstituteId) ? activeTestSession : null}
+              activeSessionsMap={scopedAppSessionsMap}
               onResumeSession={handleResumeSession}
               onStartTest={handleStartTest}
               onStartOmrTest={handleStartOmrTest}
@@ -2966,8 +2985,8 @@ export default function App() {
       {/* Performance Analytics */}
       {activeTab === 'analytics' && (
         <PerformanceAnalytics
-          tests={tests}
-          attempts={attempts}
+          tests={scopedAppTests}
+          attempts={scopedAppAttempts}
           currentUser={currentUser}
           userProfile={userProfile}
           onLoadMoreAttempts={handleLoadMoreAttempts}
@@ -2992,8 +3011,8 @@ export default function App() {
             <div className="fixed inset-0 w-full h-full bg-white dark:bg-[#131314] overflow-hidden flex flex-col z-40">
               <GeminiChatbotView 
                 isDarkMode={isDarkMode} 
-                tests={tests}
-                attempts={attempts}
+                tests={scopedAppTests}
+                attempts={scopedAppAttempts}
                 userProfile={userProfile}
                 initialPrompt={chatbotInitialPrompt}
                 onClearInitialPrompt={() => setChatbotInitialPrompt(null)}
@@ -3011,7 +3030,7 @@ export default function App() {
           {activeTab === 'notes-repository' && (
             <div className="fixed inset-0 w-full h-full bg-[#e5e9f0] dark:bg-[#0b0c10] overflow-hidden flex flex-col z-30">
               <NotesStudio
-                tests={tests}
+                tests={scopedAppTests}
                 currentUser={currentUser}
                 initialMode="repository"
                 onBack={() => goBack()}
@@ -3026,7 +3045,7 @@ export default function App() {
           {activeTab === 'html-notes' && (
             <div className="fixed inset-0 w-full h-full bg-[#e5e9f0] dark:bg-[#0b0c10] overflow-hidden flex flex-col z-30">
               <NotesStudio
-                tests={tests}
+                tests={scopedAppTests}
                 currentUser={currentUser}
                 initialMode="html"
                 onBack={() => goBack()}

@@ -46,6 +46,7 @@ import {
   getSelectedAppInstituteId,
   PRIMARY_WORKSPACE_ID,
   APP_INSTITUTE_CHANGED_EVENT,
+  belongsToInstitute,
 } from '../../lib/masterWorkspace';
 import { TestDetailModal } from '../TestDetailModal';
 
@@ -373,15 +374,16 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     if (!announcements || announcements.length === 0) return [];
     return announcements.filter((ann) => {
       if (!ann.isHeroBanner) return false;
+      if (!belongsToInstitute(ann, activeInstituteId)) return false;
       // Auto-expiry check: remove banner if live duration has lapsed
       if (ann.expiresAt && typeof ann.expiresAt === 'number' && currentTime > ann.expiresAt) {
         return false;
       }
-      if (isMaster) return true; // Master sees all unexpired active banners
-      if (!ann.batchId) return true; // Global broadcast
+      if (isMaster) return true; // Master sees all unexpired active banners in active institute
+      if (!ann.batchId) return true; // Institute-scoped global broadcast
       return enrolledBatchIdSet.has(ann.batchId);
     });
-  }, [announcements, isMaster, enrolledBatchIdSet, currentTime]);
+  }, [announcements, isMaster, enrolledBatchIdSet, currentTime, activeInstituteId]);
 
   // Keep index within bounds if heroBanners count changes
   useEffect(() => {

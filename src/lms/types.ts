@@ -37,6 +37,7 @@ export interface PersonalNote {
   text: string;
   createdAt: string;
   updatedAt?: string;
+  workspaceId?: string;
 }
 
 export interface Lecture {
@@ -63,6 +64,7 @@ export interface Lecture {
   };
   createdAt: string;
   updatedAt?: string;
+  workspaceId?: string;
 }
 
 export interface Chapter {
@@ -123,11 +125,13 @@ export interface WatchProgress {
   totalSeconds: number;
   isCompleted: boolean;
   lastWatchedAt: string;
+  workspaceId?: string;
 }
 
 export interface Announcement {
   id: string;
   batchId?: string; // null or undefined means global (all students)
+  workspaceId?: string;
   title?: string;
   message?: string;
   date: string;

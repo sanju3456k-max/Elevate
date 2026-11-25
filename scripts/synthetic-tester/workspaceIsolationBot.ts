@@ -34,7 +34,10 @@ export async function runWorkspaceIsolationAudit(): Promise<{ checks: FeatureChe
     setAppInstituteGuestMode,
     canEmailUnlockInstituteWeb,
     getInstituteInviteLink,
+    belongsToInstitute,
   } = await import('../../src/lib/masterWorkspace');
+  const { deriveRealBatchNotifications } = await import('../../src/lib/notifications');
+  const { isMasterUser } = await import('../../src/lib/masterAccount');
   const { formatTestToText, parseTestFromText } = await import('../../src/utils/testFormatConverter');
   const { encodeTestToShareUrl, decodeTestFromShareUrl } = await import('../../src/utils/shareUtils');
 
@@ -253,6 +256,103 @@ export async function runWorkspaceIsolationAudit(): Promise<{ checks: FeatureChe
       passed: inviteLinkB.includes(`institute=${encodeURIComponent(wsB.id)}`),
       latencyMs: Date.now() - t8,
       details: `inviteLink=${inviteLinkB}`,
+    });
+
+    // WS-10: Same-Student Multi-Institute Data Isolation (Attempts, Sessions, WatchProgress, PersonalNotes, Announcements)
+    const t9 = Date.now();
+    const studentAttempts = [
+      { id: 'att_legacy', testId: 't_a1', userId: 'student_multi_01', score: 40 }, // legacy without workspaceId -> ws_primary
+      { id: 'att_a', testId: 't_a2', userId: 'student_multi_01', score: 50, workspaceId: wsA.id },
+      { id: 'att_b', testId: 't_b1', userId: 'student_multi_01', score: 85, workspaceId: wsB.id },
+    ];
+    const studentNotes = [
+      { id: 'note_a', lectureId: 'lec_a', seconds: 10, text: 'Inst A Note', createdAt: 'now', workspaceId: wsA.id },
+      { id: 'note_b', lectureId: 'lec_b', seconds: 20, text: 'Inst B Note', createdAt: 'now', workspaceId: wsB.id },
+    ];
+    const studentProgress = [
+      { lectureId: 'lec_a', watchedSeconds: 100, totalSeconds: 100, isCompleted: true, lastWatchedAt: 'now', workspaceId: wsA.id },
+      { lectureId: 'lec_b', watchedSeconds: 50, totalSeconds: 100, isCompleted: false, lastWatchedAt: 'now', workspaceId: wsB.id },
+    ];
+    const globalAnnouncements = [
+      { id: 'ann_a_global', title: 'Inst A Global', date: new Date().toISOString(), workspaceId: wsA.id, isHeroBanner: true },
+      { id: 'ann_b_global', title: 'Inst B Global', date: new Date().toISOString(), workspaceId: wsB.id, isHeroBanner: true },
+    ];
+
+    const bAttempts = studentAttempts.filter((a) => belongsToInstitute(a, wsB.id));
+    const aAttempts = studentAttempts.filter((a) => belongsToInstitute(a, wsA.id));
+    const bNotes = studentNotes.filter((n) => belongsToInstitute(n, wsB.id));
+    const bProgress = studentProgress.filter((p) => belongsToInstitute(p, wsB.id));
+    const bAnns = globalAnnouncements.filter((a) => belongsToInstitute(a, wsB.id));
+
+    const multiStudentIsolated =
+      bAttempts.length === 1 &&
+      bAttempts[0].id === 'att_b' &&
+      aAttempts.length === 2 &&
+      bNotes.length === 1 &&
+      bNotes[0].id === 'note_b' &&
+      bProgress.length === 1 &&
+      bProgress[0].lectureId === 'lec_b' &&
+      bAnns.length === 1 &&
+      bAnns[0].id === 'ann_b_global';
+
+    checks.push({
+      name: 'WS-10: Same-Student Multi-Institute Workspace Data Isolation',
+      category: 'security',
+      passed: multiStudentIsolated,
+      latencyMs: Date.now() - t9,
+      details: `InstA attempts=${aAttempts.length}, InstB attempts=${bAttempts.length}, notes=${bNotes.length}, progress=${bProgress.length}, anns=${bAnns.length}`,
+    });
+
+    // WS-11: Cross-Institute Notification Derivation Isolation
+    const t10 = Date.now();
+    const nowIso = new Date().toISOString();
+    const derivedForB = deriveRealBatchNotifications({
+      batches: [
+        { id: 'b_a1', title: 'Batch A', workspaceId: wsA.id } as any,
+        { id: 'b_b1', title: 'Batch B', workspaceId: wsB.id } as any,
+      ],
+      lectures: [
+        { id: 'lec_a1', batchId: 'b_a1', chapterId: 'c1', title: 'Lecture A', createdAt: nowIso } as any,
+        { id: 'lec_b1', batchId: 'b_b1', chapterId: 'c2', title: 'Lecture B', createdAt: nowIso } as any,
+      ],
+      announcements: [
+        { id: 'ann_a1', title: 'Notice A', date: nowIso, createdAt: Date.now(), workspaceId: wsA.id } as any,
+        { id: 'ann_b1', title: 'Notice B', date: nowIso, createdAt: Date.now(), workspaceId: wsB.id } as any,
+      ],
+      enrolledBatchIds: ['b_a1', 'b_b1'],
+      instituteId: wsB.id,
+    });
+    const notifIdsB = derivedForB.map((n) => n.id);
+    const notifIsolated =
+      !notifIdsB.some((id) => id.includes('lec_a1') || id.includes('ann_a1')) &&
+      notifIdsB.some((id) => id.includes('lec_b1') || id.includes('ann_b1'));
+
+    checks.push({
+      name: 'WS-11: Cross-Institute Notification Derivation Isolation',
+      category: 'security',
+      passed: notifIsolated,
+      latencyMs: Date.now() - t10,
+      details: `InstB notifications=[${notifIdsB.join(',')}]`,
+    });
+
+    // WS-12: Institute-Scoped isMasterUser (Owner/Admin in own institute = Master, in different institute = Student)
+    const t11 = Date.now();
+    saveCachedMasterWorkspaces([wsA, wsB]);
+    const ownerBInB = isMasterUser({ email: 'director@instituteb.com' }, wsB.id);
+    const adminBInB = isMasterUser({ email: 'adminb@instituteb.com' }, wsB.id);
+    const ownerBInA = isMasterUser({ email: 'director@instituteb.com' }, wsA.id);
+    const sanjuInA = isMasterUser({ email: 'sanju3456k@gmail.com' }, wsA.id);
+    const sanjuInB = isMasterUser({ email: 'sanju3456k@gmail.com' }, wsB.id);
+    const studentInB = isMasterUser({ email: 'student_random@gmail.com' }, wsB.id);
+    const scopedMasterOk =
+      ownerBInB && adminBInB && !ownerBInA && sanjuInA && sanjuInB && !studentInB;
+
+    checks.push({
+      name: 'WS-12: Institute-Scoped Master Console & Admin Role',
+      category: 'security',
+      passed: scopedMasterOk,
+      latencyMs: Date.now() - t11,
+      details: `ownerBInB=${ownerBInB}, adminBInB=${adminBInB}, ownerBInA=${ownerBInA}, sanjuEverywhere=${sanjuInA && sanjuInB}, student=${studentInB}`,
     });
 
     setSelectedAppInstituteId(null);

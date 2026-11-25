@@ -57,6 +57,7 @@ import type { ActiveTab } from '../types';
 import { type CachedAuthUser, isOfflineLocalOnlyMode } from '../lib/storage';
 import { isMasterUser } from '../lib/masterAccount';
 import { deriveRealBatchNotifications, NOTIFICATIONS_EVENT } from '../lib/notifications';
+import { APP_INSTITUTE_CHANGED_EVENT } from '../lib/masterWorkspace';
 import { useApp } from '../lms/LmsContext';
 
 interface NavbarProps {
@@ -154,9 +155,11 @@ export const Navbar: React.FC<NavbarProps> = ({
       setReadVersion((v) => v + 1);
     };
     window.addEventListener(NOTIFICATIONS_EVENT, handleUpdate);
+    window.addEventListener(APP_INSTITUTE_CHANGED_EVENT, handleUpdate);
     window.addEventListener('storage', handleUpdate);
     return () => {
       window.removeEventListener(NOTIFICATIONS_EVENT, handleUpdate);
+      window.removeEventListener(APP_INSTITUTE_CHANGED_EVENT, handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
   }, []);

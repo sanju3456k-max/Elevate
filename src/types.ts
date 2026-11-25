@@ -310,6 +310,7 @@ export interface TestAttempt {
   omrScannedImageUrl?: string;
   completedAt: string;
   createdAt: string;
+  workspaceId?: string;
   _syncStatus?: 'synced' | 'pending' | 'failed';
   wrongQuestionIndices?: number[];
   unattemptedQuestionIndices?: number[];
@@ -482,6 +483,7 @@ export interface ActiveTestSession {
   elapsedTime: number;
   timeLeft: number;
   updatedAt: string;
+  workspaceId?: string;
 }
 
 export type ActiveTab = 'home' | 'tests' | 'create' | 'custom-builder' | 'take-test' | 'omr-test' | 'results' | 'analytics' | 'chatbot' | 'notes-repository' | 'bulk-print' | 'html-notes' | 'master-console' | 'batches' | 'notifications';
@@ -520,6 +522,7 @@ export interface AssignedRemedialTest {
   isUnassigned?: boolean;
   unassignedAt?: string;
   isDynamic?: boolean;
+  workspaceId?: string;
 }
 
 export interface ParsedAppAction {
@@ -621,6 +624,7 @@ export interface ChatSession {
   _syncStatus?: 'synced' | 'pending' | 'failed';
   stagedQuestions?: SessionStagedQuestion[];
   sessionDocuments?: SessionDocument[];
+  workspaceId?: string;
 }
 
 export interface ChatArchive {

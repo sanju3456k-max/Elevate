@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { User, Batch, Subject, Chapter, Lecture, WatchProgress, Announcement, PersonalNote, BatchEnrollment, BatchTestCard, PdfNote, SecuritySettingsConfig, StudentFeatureAccessConfig } from './types';
 import { DEFAULT_STUDENT_FEATURE_ACCESS } from './types';
 import {
@@ -17,7 +17,13 @@ import { secureStorage } from '../lib/secureStorage';
 import { auth, db, getCachedFullTest, sanitizeForFirestore } from '../lib/firebase';
 import { dismissNotificationId, NOTIFICATIONS_EVENT } from '../lib/notifications';
 import { isMasterUser, publishTestToBatchCatalog, isDeprecatedTest, DEPRECATED_TEST_IDS } from '../lib/masterAccount';
-import { getActiveWorkspaceForUser, PRIMARY_WORKSPACE_ID } from '../lib/masterWorkspace';
+import {
+  getActiveWorkspaceForUser,
+  PRIMARY_WORKSPACE_ID,
+  getActiveAppInstituteIdOrPrimary,
+  belongsToInstitute,
+  APP_INSTITUTE_CHANGED_EVENT,
+} from '../lib/masterWorkspace';
 import { hydrateQuestionsForTest } from '../lib/questionCatalogService';
 import { getTestDurationMinutes } from '../utils/testFormatConverter';
 import { listenerManager } from '../lib/listenerManager';
@@ -187,6 +193,18 @@ export function addLocalDeletedAnnouncementId(id: string): void {
 }
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [activeAppInstituteId, setActiveAppInstituteId] = useState<string>(
+    () => getActiveAppInstituteIdOrPrimary()
+  );
+
+  useEffect(() => {
+    const syncAppInst = () => {
+      setActiveAppInstituteId(getActiveAppInstituteIdOrPrimary());
+    };
+    window.addEventListener(APP_INSTITUTE_CHANGED_EVENT, syncAppInst);
+    return () => window.removeEventListener(APP_INSTITUTE_CHANGED_EVENT, syncAppInst);
+  }, []);
+
   const [theme, setTheme] = useState<ThemeMode>(() => {
     try {
       const saved = secureStorage.getItem(STORAGE_KEYS.THEME);
@@ -1372,6 +1390,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateWatchProgress = (lectureId: string, currentSeconds: number, totalSeconds: number) => {
     const isCompleted = totalSeconds > 0 && currentSeconds >= totalSeconds * 0.9;
+    const lecObj = lectures.find((l) => l.id === lectureId);
+    const batchObj = batches.find((b) => b.id === (lecObj?.batchId || activeBatchId));
+    const resolvedWsId = batchObj?.workspaceId || activeAppInstituteId;
+
     setWatchProgress((prev) => {
       const wasCompleted = prev[lectureId]?.isCompleted || false;
       const nextCompleted = wasCompleted || isCompleted;
@@ -1382,7 +1404,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (studentUid) {
           const payload = {
             lectureId,
-            batchId: activeBatchId || undefined,
+            batchId: lecObj?.batchId || activeBatchId || undefined,
+            workspaceId: resolvedWsId,
             isCompleted: true,
             watchedSeconds: Math.round(currentSeconds),
             totalSeconds: Math.round(totalSeconds),
@@ -1409,6 +1432,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           totalSeconds,
           isCompleted: nextCompleted,
           lastWatchedAt: new Date().toISOString(),
+          workspaceId: prev[lectureId]?.workspaceId || resolvedWsId,
         },
       };
     });
@@ -1430,9 +1454,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addAnnouncement = (annData: Omit<Announcement, 'id'>) => {
+    const batchWs = annData.batchId ? batches.find((b) => b.id === annData.batchId)?.workspaceId : undefined;
+    const activeWs = getActiveWorkspaceForUser(user?.email);
     const rawAnn: Announcement = {
       ...annData,
       id: `ann_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      workspaceId: annData.workspaceId || batchWs || activeWs?.id || activeAppInstituteId,
       createdAt: Date.now(),
       date: annData.date || new Date().toISOString(),
     };
@@ -1525,10 +1552,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const addPersonalNote = (noteData: Omit<PersonalNote, 'id' | 'createdAt'>) => {
+    const lecObj = lectures.find((l) => l.id === noteData.lectureId);
+    const batchObj = batches.find((b) => b.id === (lecObj?.batchId || activeBatchId));
     const newNote: PersonalNote = {
       ...noteData,
       id: `note_${Date.now()}`,
       createdAt: 'Just now',
+      workspaceId: noteData.workspaceId || batchObj?.workspaceId || activeAppInstituteId,
     };
     setPersonalNotes((prev) => [newNote, ...prev]);
   };
@@ -2158,6 +2188,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [activeBatchId, loadCurriculumForBatch]);
 
+  const scopedWatchProgress = useMemo(() => {
+    const result: Record<string, WatchProgress> = {};
+    Object.entries(watchProgress).forEach(([k, wp]) => {
+      if (belongsToInstitute(wp, activeAppInstituteId)) {
+        result[k] = wp;
+      }
+    });
+    return result;
+  }, [watchProgress, activeAppInstituteId]);
+
+  const scopedPersonalNotes = useMemo(
+    () => personalNotes.filter((n) => belongsToInstitute(n, activeAppInstituteId)),
+    [personalNotes, activeAppInstituteId]
+  );
+
+  const scopedAnnouncements = useMemo(
+    () => announcements.filter((a) => belongsToInstitute(a, activeAppInstituteId)),
+    [announcements, activeAppInstituteId]
+  );
+
   return (
     <AppContext.Provider
       value={{
@@ -2186,13 +2236,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addLecture,
         updateLecture,
         deleteLecture,
-        watchProgress,
+        watchProgress: scopedWatchProgress,
         updateWatchProgress,
-        announcements,
+        announcements: scopedAnnouncements,
         addAnnouncement,
         updateAnnouncement,
         deleteAnnouncement,
-        personalNotes,
+        personalNotes: scopedPersonalNotes,
         addPersonalNote,
         deletePersonalNote,
         activeBatchId,

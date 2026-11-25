@@ -1,5 +1,6 @@
 import { type ActiveTab, type MathTest } from '../types';
 import type { Batch, Chapter, Lecture, Announcement, BatchTestCard } from '../lms/types';
+import { belongsToInstitute, getActiveAppInstituteIdOrPrimary } from './masterWorkspace';
 
 export interface AppNotification {
   id: string;
@@ -159,16 +160,27 @@ export function deriveRealBatchNotifications(params: {
   availableTests?: MathTest[];
   enrolledBatchIds?: string[];
   isMaster?: boolean;
+  instituteId?: string | null;
 }): AppNotification[] {
   const {
-    batches = [],
-    lectures = [],
+    batches: rawBatches = [],
+    lectures: rawLectures = [],
     chapters = [],
-    announcements = [],
-    batchTests = [],
+    announcements: rawAnnouncements = [],
+    batchTests: rawBatchTests = [],
     enrolledBatchIds,
     isMaster = false,
+    instituteId,
   } = params;
+
+  const targetInstituteId = instituteId || getActiveAppInstituteIdOrPrimary();
+  const batches = rawBatches.filter((b) => belongsToInstitute(b, targetInstituteId));
+  const instituteBatchIds = new Set(batches.map((b) => b.id));
+  const lectures = rawLectures.filter((l) => instituteBatchIds.has(l.batchId));
+  const announcements = rawAnnouncements.filter(
+    (a) => belongsToInstitute(a, targetInstituteId) && (!a.batchId || instituteBatchIds.has(a.batchId))
+  );
+  const batchTests = rawBatchTests.filter((bt) => instituteBatchIds.has(bt.batchId));
 
   const enrolledSet = enrolledBatchIds ? new Set(enrolledBatchIds) : null;
   const isEnrolledBatch = (bId?: string | null): boolean => {

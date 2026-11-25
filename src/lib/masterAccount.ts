@@ -44,7 +44,11 @@ import {
   type Unsubscribe 
 } from 'firebase/firestore';
 import { listenerManager } from './listenerManager';
-import { isMasterWorkspaceMember } from './masterWorkspace';
+import {
+  isMasterWorkspaceMember,
+  canEmailUnlockInstituteWeb,
+  getActiveAppInstituteIdOrPrimary,
+} from './masterWorkspace';
 
 /**
  * Designated Master Enterprise Account Email
@@ -130,9 +134,19 @@ export function recordDeletedRemedialId(id: string): void {
  * Strictly limited to sanju3456k@gmail.com.
  * Guests, students, and other accounts are strictly prohibited from accessing Master Console.
  */
-export function isMasterUser(user: { email?: string | null } | null | undefined): boolean {
+/**
+ * Institute-Scoped Master / Admin Authorization Check:
+ * - Root Super-Admin (sanju3456k@gmail.com) is Master in ALL institutes.
+ * - Institute Owner / Team Admin is Master ONLY inside their own institute (targetInstituteId).
+ * - Inside any other institute, they are treated as a normal student.
+ */
+export function isMasterUser(
+  user: { email?: string | null } | null | undefined,
+  instituteId?: string | null
+): boolean {
   if (!user || !user.email) return false;
-  return user.email.trim().toLowerCase() === MASTER_ADMIN_EMAIL;
+  const targetInstituteId = instituteId || getActiveAppInstituteIdOrPrimary();
+  return canEmailUnlockInstituteWeb(user.email, targetInstituteId);
 }
 
 /**
