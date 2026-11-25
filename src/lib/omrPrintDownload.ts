@@ -239,8 +239,8 @@ const QUESTION_PAPER_PRINT_CSS = `
     padding: 0 !important;
     width: 210mm !important;
     font-family: 'Times New Roman', Times, Tinos, "Liberation Serif", serif !important;
-    font-size: 10pt !important;
-    line-height: 1.35 !important;
+    font-size: 16px !important;
+    line-height: 1.5 !important;
     -webkit-font-smoothing: antialiased !important;
   }
 
@@ -437,7 +437,7 @@ const QUESTION_PAPER_PRINT_CSS = `
     line-height: 1.25 !important;
   }
   .leading-normal {
-    line-height: 1.4 !important;
+    line-height: 1.5 !important;
   }
   .tracking-wide {
     letter-spacing: 0.025em !important;

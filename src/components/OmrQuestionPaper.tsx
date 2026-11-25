@@ -797,7 +797,7 @@ const RenderStreamItem: React.FC<{
     return (
       <div 
         data-stream-id={item.id} 
-        className="pt-1.5 first:pt-0 text-black text-[10.5pt] leading-[1.32] relative group print:pt-0.5"
+        className="pt-1.5 first:pt-0 text-black text-[10.5pt] leading-[1.32] relative group"
       >
         {isEditableLayout && showBadges && onUpdateQuestionLayout && typeof item.questionIndex === 'number' && (
           <div className="print:hidden pointer-events-auto absolute -top-3.5 right-0 z-30 flex items-center gap-1.5 bg-white/95 backdrop-blur-md px-2 py-1 rounded-full shadow-md border border-slate-200/80 select-none transition-colors max-w-full overflow-x-auto">
@@ -998,8 +998,8 @@ const RenderStreamItem: React.FC<{
     const bottomPaddingClass = item.isLastOptionOfQuestion ? 'pb-1' : 'pb-0.5';
 
     return (
-      <div data-stream-id={item.id} className={`pl-4 ${topPaddingClass} ${bottomPaddingClass}`}>
-        <div className={`grid ${colsClass} gap-x-3 gap-y-1 text-[10pt] tracking-normal`}>
+      <div data-stream-id={item.id} className={`pl-4 ${topPaddingClass} ${bottomPaddingClass} text-[10pt] leading-[1.35]`}>
+        <div className={`grid ${colsClass} gap-x-3 gap-y-1 text-[10pt] leading-[1.35] tracking-normal`}>
           {opts.map((opt) => (
             <div key={opt.originalIndex} className="flex flex-col gap-1 min-w-0 overflow-visible select-none">
               <div className="flex items-start gap-1 min-w-0 overflow-visible select-none">
@@ -1034,12 +1034,12 @@ const RenderStreamItem: React.FC<{
     const bottomPaddingClass = item.isLastOptionOfQuestion ? 'pb-1' : 'pb-0.5';
 
     return (
-      <div data-stream-id={item.id} className={`pl-4 ${topPaddingClass} ${bottomPaddingClass} text-[10pt] tracking-normal`}>
+      <div data-stream-id={item.id} className={`pl-4 ${topPaddingClass} ${bottomPaddingClass} text-[10pt] leading-[1.35] tracking-normal`}>
         <div className="flex items-start gap-1.5 min-w-0">
           <span className="font-semibold text-[10pt] shrink-0 select-none pt-[1px]">({opt.label})</span>
           <div className="flex-1 min-w-0">
-            <span className="text-black inline-block leading-normal">
-              <MathRenderer text={opt.text} className="inline-block text-[10pt] leading-normal" />
+            <span className="text-black inline-block leading-[1.35]">
+              <MathRenderer text={opt.text} className="inline-block text-[10pt] leading-[1.35]" />
             </span>
             {opt.imageUrl && normalizeDiagramUrl(opt.imageUrl) ? (
               <div className="pt-1">
