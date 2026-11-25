@@ -10,6 +10,8 @@ import {
   getActiveWorkspaceForUser,
   setPreferredWorkspaceId,
   fetchMasterWorkspacesFromCloud,
+  migrateLegacyDataToPrimaryWorkspace,
+  isRootSuperAdmin,
 } from '../lib/masterWorkspace';
 import {
   ArrowLeft,
@@ -217,6 +219,23 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     };
     refreshWs();
     fetchMasterWorkspacesFromCloud().then(refreshWs).catch(() => {});
+    if (isRootSuperAdmin(currentUserEmail)) {
+      try {
+        const migratedFlag = localStorage.getItem('elevate_sanju_ws_migrated_v1');
+        if (!migratedFlag) {
+          migrateLegacyDataToPrimaryWorkspace(currentUserEmail)
+            .then((res) => {
+              localStorage.setItem('elevate_sanju_ws_migrated_v1', 'true');
+              if (res.batchesMigrated > 0 || res.testsMigrated > 0 || res.announcementsMigrated > 0) {
+                showSecurityToast(
+                  `Migrated ${res.batchesMigrated} batches & ${res.testsMigrated} tests to Sanju Primary Workspace.`
+                );
+              }
+            })
+            .catch(() => {});
+        }
+      } catch {}
+    }
     window.addEventListener('master-workspaces-updated', refreshWs);
     return () => window.removeEventListener('master-workspaces-updated', refreshWs);
   }, [currentUserEmail, activeWorkspaceId]);

@@ -2,6 +2,7 @@ import { db, sanitizeForFirestore } from './firebase';
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   setDoc,
   deleteDoc,
@@ -476,6 +477,98 @@ export function belongsToInstitute(
   const target = instituteId || PRIMARY_WORKSPACE_ID;
   const owner = record?.workspaceId || PRIMARY_WORKSPACE_ID;
   return owner === target;
+}
+
+/**
+ * Migrates all legacy Sanju batches, published catalog tests, and announcements
+ * (documents missing workspaceId) into Sanju's Primary Workspace (ws_primary).
+ */
+export async function migrateLegacyDataToPrimaryWorkspace(
+  actorEmail?: string | null
+): Promise<{ batchesMigrated: number; testsMigrated: number; announcementsMigrated: number }> {
+  if (actorEmail && !isRootSuperAdmin(actorEmail)) {
+    return { batchesMigrated: 0, testsMigrated: 0, announcementsMigrated: 0 };
+  }
+
+  let batchesMigrated = 0;
+  let testsMigrated = 0;
+  let announcementsMigrated = 0;
+  const primaryOwner = DEFAULT_PRIMARY_WORKSPACE.ownerEmail;
+  const nowIso = new Date().toISOString();
+
+  // 1. Ensure ws_primary workspace doc exists
+  await setDoc(
+    doc(db, 'master_workspaces', PRIMARY_WORKSPACE_ID),
+    sanitizeForFirestore({ ...DEFAULT_PRIMARY_WORKSPACE, updatedAt: nowIso }),
+    { merge: true }
+  );
+
+  // 2. Migrate legacy batches missing workspaceId -> ws_primary
+  const batchesSnap = await getDocs(collection(db, 'batches'));
+  for (const bDoc of batchesSnap.docs) {
+    const data = bDoc.data() || {};
+    if (!data.workspaceId) {
+      await setDoc(
+        doc(db, 'batches', bDoc.id),
+        sanitizeForFirestore({
+          workspaceId: PRIMARY_WORKSPACE_ID,
+          ownerEmail: data.ownerEmail || primaryOwner,
+          updatedAt: nowIso,
+        }),
+        { merge: true }
+      );
+      batchesMigrated++;
+    }
+  }
+
+  // 3. Migrate legacy published catalog tests (Part 1 & Part 2) -> ws_primary
+  for (const partId of ['published_tests', 'published_tests_part_2']) {
+    const catRef = doc(db, 'test_leaderboards', 'MASTER_CATALOG', 'summary', partId);
+    const catSnap = await getDoc(catRef);
+    if (!catSnap.exists()) continue;
+    const catData = catSnap.data() || {};
+    const testsMap = { ...(catData.tests || {}) };
+    let changed = false;
+
+    for (const [tid, tMeta] of Object.entries<any>(testsMap)) {
+      if (tMeta && !tMeta.workspaceId) {
+        const updatedMeta = { ...tMeta, workspaceId: PRIMARY_WORKSPACE_ID, ownerEmail: tMeta.ownerEmail || primaryOwner };
+        testsMap[tid] = updatedMeta;
+        changed = true;
+        testsMigrated++;
+        await setDoc(
+          doc(db, 'master_workspaces', PRIMARY_WORKSPACE_ID, 'tests', tid),
+          sanitizeForFirestore(updatedMeta),
+          { merge: true }
+        ).catch(() => {});
+      }
+    }
+
+    if (changed) {
+      await setDoc(catRef, sanitizeForFirestore({ tests: testsMap, updatedAt: nowIso }), { merge: true });
+    }
+  }
+
+  // 4. Migrate legacy announcements missing workspaceId -> ws_primary
+  const annRef = doc(db, 'master_catalog', 'lms_announcements');
+  const annSnap = await getDoc(annRef);
+  if (annSnap.exists()) {
+    const rawList = Array.isArray(annSnap.data()?.list) ? annSnap.data()!.list : [];
+    let changed = false;
+    const nextList = rawList.map((ann: any) => {
+      if (ann && !ann.workspaceId) {
+        changed = true;
+        announcementsMigrated++;
+        return { ...ann, workspaceId: PRIMARY_WORKSPACE_ID };
+      }
+      return ann;
+    });
+    if (changed) {
+      await setDoc(annRef, sanitizeForFirestore({ list: nextList, updatedAt: nowIso }), { merge: true });
+    }
+  }
+
+  return { batchesMigrated, testsMigrated, announcementsMigrated };
 }
 
 
