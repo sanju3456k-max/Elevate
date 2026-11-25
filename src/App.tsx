@@ -614,6 +614,19 @@ export default function App() {
     if (typeof window === 'undefined') return;
     try {
       const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('auditOmrPaper') === '1') {
+        const rawAudit = localStorage.getItem('elevate_audit_omr_paper_test');
+        if (rawAudit) {
+          const parsedAudit = JSON.parse(rawAudit);
+          if (parsedAudit && Array.isArray(parsedAudit.questions)) {
+            setCurrentTest(parsedAudit);
+            setOmrInitialTab('print');
+            setOmrSessionKey((k) => k + 1);
+            setActiveTab('omr-test');
+            return;
+          }
+        }
+      }
       const shareParam = urlParams.get('shareTest') || urlParams.get('importTest');
       const hashMatch = window.location.hash.match(/shareTest=([^&]+)/);
       const shortHashMatch = window.location.hash.match(/s=([^&]+)/);

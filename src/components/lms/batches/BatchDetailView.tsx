@@ -977,6 +977,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     onLectureChange?.(null);
     setCurrentStage('batch_list');
     onStageChange?.('batch_list');
+    window.scrollTo({ top: 0, behavior: 'auto' });
   }, [onBatchChange, onChapterChange, onLectureChange, onStageChange]);
 
   const handleGoToBatchRoot = useCallback(() => {
@@ -987,6 +988,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     onLectureChange?.(null);
     setCurrentStage('folder_content');
     onStageChange?.('folder_content');
+    window.scrollTo({ top: 0, behavior: 'auto' });
   }, [onChapterChange, onLectureChange, onStageChange]);
 
   const handleGoToChapter = useCallback((chapterId: string) => {
@@ -997,6 +999,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     onLectureChange?.(null);
     setCurrentStage('folder_content');
     onStageChange?.('folder_content');
+    window.scrollTo({ top: 0, behavior: 'auto' });
   }, [onChapterChange, onLectureChange, onStageChange]);
 
   const handleStepBack = useCallback(() => {
@@ -1451,7 +1454,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     return (
       <div className="space-y-4 pb-28 sm:pb-28 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
         {/* Sticky Non-Scrollable Header: Breadcrumbs + Actions + Videos/Notes/Tests Toggle (Zero Partition Line) */}
-        <div className="sticky top-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+3.5rem)] sm:top-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+3.8rem)] z-30 bg-white dark:bg-[#0b0c10] -mx-3 sm:-mx-6 px-3 sm:px-6 pt-1 pb-2.5 space-y-3 border-0 shadow-none">
+        <div className={`sticky ${
+          isNativeAndroidApp
+            ? 'top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))]'
+            : 'top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] md:top-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+3.8rem)]'
+        } z-30 bg-white dark:bg-[#0b0c10] -mx-3 sm:-mx-6 px-3 sm:px-6 pt-1 pb-2.5 space-y-3 border-0 shadow-none`}>
         {/* Top Header: Back Button & Dynamic Google Drive Breadcrumbs */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-1 border-0 border-none">
           <div className="flex items-center space-x-2 flex-wrap gap-y-1.5">
@@ -1668,6 +1675,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               onClick={() => {
                 setFolderActiveTab('videos');
                 onFolderTabChange?.('videos');
+                window.scrollTo({ top: 0, behavior: 'auto' });
               }}
               className={`flex-1 h-9 px-3.5 sm:px-4 rounded-full text-[13px] sm:text-xs font-bold transition flex items-center justify-center space-x-1.5 border-0 outline-none cursor-pointer active:scale-95 ${
                 folderActiveTab === 'videos'
@@ -1684,6 +1692,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               onClick={() => {
                 setFolderActiveTab('notes_content');
                 onFolderTabChange?.('notes_content');
+                window.scrollTo({ top: 0, behavior: 'auto' });
               }}
               className={`flex-1 h-9 px-3.5 sm:px-4 rounded-full text-[13px] sm:text-xs font-bold transition flex items-center justify-center space-x-1.5 border-0 outline-none cursor-pointer active:scale-95 ${
                 folderActiveTab === 'notes_content'
@@ -1700,6 +1709,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               onClick={() => {
                 setFolderActiveTab('tests');
                 onFolderTabChange?.('tests');
+                window.scrollTo({ top: 0, behavior: 'auto' });
               }}
               className={`flex-1 h-9 px-3.5 sm:px-4 rounded-full text-[13px] sm:text-xs font-bold transition flex items-center justify-center space-x-1.5 border-0 outline-none cursor-pointer active:scale-95 ${
                 folderActiveTab === 'tests'

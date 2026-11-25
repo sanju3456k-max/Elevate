@@ -453,32 +453,24 @@ const QUESTION_PAPER_PRINT_CSS = `
   /* Centered Transparent App Logo Watermark on Each Question Paper Page */
   .elevate-question-watermark {
     position: absolute !important;
-    top: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    bottom: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     pointer-events: none !important;
     user-select: none !important;
     z-index: 25 !important;
-    mix-blend-mode: multiply !important;
     overflow: hidden !important;
   }
 
   .elevate-question-watermark img,
   .elevate-question-watermark svg,
   .elevate-watermark-img {
-    width: 126mm !important;
-    height: 126mm !important;
-    max-width: 490px !important;
-    max-height: 490px !important;
+    max-width: 490px;
+    max-height: 490px;
     object-fit: contain !important;
     opacity: 0.17 !important;
-    mix-blend-mode: multiply !important;
     print-color-adjust: exact !important;
     -webkit-print-color-adjust: exact !important;
     color-adjust: exact !important;
@@ -582,10 +574,16 @@ export async function triggerSystemPrint(
     pageClone.removeAttribute('id');
     pageClone.querySelectorAll('[id]').forEach((n) => n.removeAttribute('id'));
 
-    // Ensure all images are eager loaded and visible
+    // Ensure all images are eager loaded, visible, and have absolute URLs for native print spoolers
     pageClone.querySelectorAll('img').forEach((img) => {
       img.loading = 'eager';
       img.style.maxWidth = '100%';
+      const rawSrc = img.getAttribute('src') || '';
+      if (rawSrc.startsWith('./') || rawSrc.startsWith('/')) {
+        try {
+          img.setAttribute('src', new URL(rawSrc, window.location.origin + '/').href);
+        } catch {}
+      }
     });
 
     // Remove any interactive edit handles/controls or hidden elements from the print page
@@ -594,7 +592,7 @@ export async function triggerSystemPrint(
     const isLast = idx === targets.length - 1;
     const isStandaloneOmr = pageEl.classList.contains('omr-standalone-page');
     return `
-      <div class="a4-page-item" style="
+      <div class="a4-page-item${isStandaloneOmr ? ' omr-standalone-page' : ''}" style="
         display: flex !important;
         flex-direction: column !important;
         justify-content: flex-start !important;

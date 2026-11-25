@@ -671,31 +671,24 @@
 
 .elevate-question-watermark {
   position: absolute !important;
-  top: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  bottom: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   pointer-events: none !important;
   user-select: none !important;
   z-index: 25 !important;
-  mix-blend-mode: multiply !important;
   overflow: hidden !important;
 }
 
 .elevate-question-watermark img,
+.elevate-question-watermark svg,
 .elevate-watermark-img {
-  width: 126mm !important;
-  height: 126mm !important;
-  max-width: 490px !important;
-  max-height: 490px !important;
+  max-width: 490px;
+  max-height: 490px;
   object-fit: contain !important;
   opacity: 0.17 !important;
-  mix-blend-mode: multiply !important;
   print-color-adjust: exact !important;
   -webkit-print-color-adjust: exact !important;
   color-adjust: exact !important;
