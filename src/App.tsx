@@ -31,6 +31,7 @@ import {
 } from './lib/deviceAuthService';
 import { DeviceLockedModal } from './components/auth/DeviceLockedModal';
 import { NativeAppOnlyGuard } from './components/auth/NativeAppOnlyGuard';
+import { InstitutePortalGate } from './components/auth/InstitutePortalGate';
 import { checkPlatformAccess } from './lib/platformSecurityGuard';
 import { syncHub } from './lib/syncEngine';
 import { smartCoordinator } from './lib/smartLocalCoordinator';
@@ -57,6 +58,13 @@ import {
   syncWorkspaceTestToCloud,
   fetchWorkspaceTestsForUser,
   PRIMARY_WORKSPACE_ID,
+  isMasterWorkspaceMember,
+  getSelectedAppInstituteId,
+  setSelectedAppInstituteId,
+  getAppInstituteGuestMode,
+  setAppInstituteGuestMode,
+  getWorkspaceById,
+  APP_INSTITUTE_CHANGED_EVENT,
 } from './lib/masterWorkspace';
 import { syncBatchTestToFirestore, touchBatchCatalogBeacon } from './lib/batchCloudSync';
 import { listenerManager } from './lib/listenerManager';
@@ -209,7 +217,7 @@ const NotificationWatcherHost: React.FC<NotificationWatcherHostProps> = ({
   availableTests,
 }) => {
   const { user, batches, lectures, chapters, announcements, batchTests, isEnrolled } = useApp();
-  const isMaster = user?.role === 'admin' || (user?.role as string) === 'superadmin' || isMasterUser(user);
+  const isMaster = isMasterUser(user);
   const enrolledBatches = useMemo(() => batches.filter((b) => isEnrolled(b.id)), [batches, isEnrolled]);
   const enrolledBatchIds = useMemo(() => enrolledBatches.map((b) => b.id), [enrolledBatches]);
 
@@ -549,11 +557,31 @@ export default function App() {
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
   // Platform security guard (Android-only enforcement with whitelist & passkey)
-  const [platformAccess, setPlatformAccess] = useState(() => checkPlatformAccess(isMasterUser(currentUser || cachedUser)));
+  const [platformAccess, setPlatformAccess] = useState(() => {
+    const activeU = currentUser || cachedUser;
+    return checkPlatformAccess(isMasterUser(activeU) || isMasterWorkspaceMember(activeU?.email));
+  });
+
+  const [selectedInstituteId, setSelectedInstituteId] = useState<string | null>(() =>
+    getSelectedAppInstituteId()
+  );
+  const [isInstituteGuestMode, setIsInstituteGuestMode] = useState<boolean>(() =>
+    getAppInstituteGuestMode()
+  );
 
   useEffect(() => {
-    const isMaster = isMasterUser(currentUser || cachedUser);
-    setPlatformAccess(checkPlatformAccess(isMaster));
+    const syncInstituteState = () => {
+      setSelectedInstituteId(getSelectedAppInstituteId());
+      setIsInstituteGuestMode(getAppInstituteGuestMode());
+    };
+    window.addEventListener(APP_INSTITUTE_CHANGED_EVENT, syncInstituteState);
+    return () => window.removeEventListener(APP_INSTITUTE_CHANGED_EVENT, syncInstituteState);
+  }, []);
+
+  useEffect(() => {
+    const activeU = currentUser || cachedUser;
+    const hasAdminWebAccess = isMasterUser(activeU) || isMasterWorkspaceMember(activeU?.email);
+    setPlatformAccess(checkPlatformAccess(hasAdminWebAccess));
   }, [currentUser, cachedUser]);
 
   // Pagination for attempt history (on-demand loading)
@@ -1032,9 +1060,11 @@ export default function App() {
       window.dispatchEvent(new CustomEvent('master-workspace-membership-changed'));
     });
     const handleMembershipChange = () => {
-      const stillMaster = isMasterUser(currentUser || cachedUser);
-      setPlatformAccess(checkPlatformAccess(stillMaster));
-      if (!stillMaster && activeTabRef.current === 'master-console') {
+      const activeU = currentUser || cachedUser;
+      const stillMaster = isMasterUser(activeU);
+      const hasWebAdmin = stillMaster || isMasterWorkspaceMember(activeU?.email);
+      setPlatformAccess(checkPlatformAccess(hasWebAdmin));
+      if (!stillMaster && !hasWebAdmin && activeTabRef.current === 'master-console') {
         setActiveTab('home');
       }
     };
@@ -1946,7 +1976,7 @@ export default function App() {
   };
 
   const handleSaveTest = async (test: MathTest) => {
-    const isMaster = isMasterUser(currentUser || cachedUser) || (userProfile as any)?.role === 'admin';
+    const isMaster = isMasterUser(currentUser || cachedUser);
     const existingTest = tests.find((t) => t.id === test.id);
     // If a student loads an institutional/batch test in Test Creator Studio and saves,
     // fork it into a safe personal copy so they can customize & keep it without modifying the original.
@@ -2077,11 +2107,14 @@ export default function App() {
 
       targetBatchIds.forEach((bId) => {
         const existingMeta = batchTestMetaByBatch.get(bId) || {};
+        const preservedBatchDocId = existingMeta.id || validatedTest.id;
+        const preservedTestId = existingMeta.testId || validatedTest.id;
         const batchPayload = {
           ...existingMeta,
           ...validatedTest,
-          id: validatedTest.id,
-          testId: validatedTest.id,
+          id: preservedBatchDocId,
+          testId: preservedTestId,
+          originalTestId: existingMeta.originalTestId || validatedTest.id,
           batchId: bId,
           timeLimitMinutes: validatedTest.timeLimitMinutes || validatedTest.time || existingMeta.timeLimitMinutes || 25,
           questionCount: validatedTest.questions?.length || existingMeta.questionCount || 0,
@@ -2089,6 +2122,38 @@ export default function App() {
         syncBatchTestToFirestore(bId, batchPayload).catch(console.warn);
         publishTestToBatchCatalog(bId, validatedTest).catch(console.warn);
       });
+
+      // Update local batch_tests cache in-place so local state immediately reflects updated layout/questions
+      if (rawBatchTests && targetBatchIds.size > 0) {
+        try {
+          const batchTestsList = JSON.parse(rawBatchTests);
+          if (Array.isArray(batchTestsList)) {
+            const updatedBatchTests = batchTestsList.map((bt: any) => {
+              const btId = bt?.testId || bt?.id;
+              const origId = bt?.originalTestId;
+              if (
+                bt?.batchId &&
+                targetBatchIds.has(bt.batchId) &&
+                (btId === validatedTest.id ||
+                  origId === validatedTest.id ||
+                  (bt.title && validatedTest.title && bt.title.trim().toLowerCase() === validatedTest.title.trim().toLowerCase()))
+              ) {
+                return {
+                  ...bt,
+                  ...validatedTest,
+                  id: bt.id || validatedTest.id,
+                  testId: bt.testId || validatedTest.id,
+                  originalTestId: bt.originalTestId || validatedTest.id,
+                  batchId: bt.batchId,
+                  updatedAt: validatedTest.updatedAt,
+                };
+              }
+              return bt;
+            });
+            secureStorage.setItem('elevatelabs_batch_tests_v2', JSON.stringify(updatedBatchTests));
+          }
+        } catch {}
+      }
 
       if (targetBatchIds.size > 0) {
         touchBatchCatalogBeacon().catch(() => {});
@@ -2332,6 +2397,27 @@ export default function App() {
     );
   }
 
+  // Multi-Institute First-Screen Gate:
+  // Step 1: Choose Your Institute (when none selected yet)
+  // Step 2: Institute Portal (Sign In or Continue as Guest) when not signed in and not in guest mode
+  const isUserSignedIn = Boolean(
+    (currentUser && !isGuestUser(currentUser)) ||
+    (cachedUser && !isGuestUser(cachedUser))
+  );
+  if (!selectedInstituteId || (!isUserSignedIn && !isInstituteGuestMode)) {
+    return (
+      <InstitutePortalGate
+        selectedInstituteId={selectedInstituteId}
+        onInstituteSelected={(wsId) => setSelectedInstituteId(wsId)}
+        onContinueAsGuest={() => setIsInstituteGuestMode(true)}
+        onSignIn={handleSignIn}
+      />
+    );
+  }
+
+  const activeAppInstituteId = selectedInstituteId || PRIMARY_WORKSPACE_ID;
+  const activeAppWorkspace = getWorkspaceById(activeAppInstituteId);
+
   return (
     <MotionConfig reducedMotion="user">
     <LmsProvider>
@@ -2447,6 +2533,13 @@ export default function App() {
             }}
             isDesktopNotificationsOpen={isDesktopNotificationsOpen}
             onOpenCreatePost={() => setIsCreatePostModalOpen(true)}
+            activeInstituteName={activeAppWorkspace?.name || null}
+            onSwitchInstitute={() => {
+              setAppInstituteGuestMode(false);
+              setSelectedAppInstituteId(null);
+              setSelectedInstituteId(null);
+              setIsInstituteGuestMode(false);
+            }}
           />
         </div>
       )}
@@ -2541,6 +2634,7 @@ export default function App() {
 
       {activeTab === 'create' && (
         <TestEditor
+          key={editingTest?.id || 'new-test'}
           initialTest={editingTest}
           initialOpenAiPrompt={editorAiPromptOpen}
           allTests={(() => {
@@ -2715,6 +2809,8 @@ export default function App() {
                 tests,
                 isMasterUser(currentUser || cachedUser),
                 isGuestUser(currentUser || cachedUser)
+              ).filter(
+                (t) => (t.workspaceId || PRIMARY_WORKSPACE_ID) === activeAppInstituteId || isUserPersonalTest(t)
               )}
               attempts={attempts}
               currentUser={currentUser}
@@ -2764,7 +2860,7 @@ export default function App() {
                 initialChapterId={selectedChapterId}
                 initialFolderTab={selectedFolderTab}
                 initialSeekSeconds={initialSeekSeconds}
-                isMasterEditMode={isMasterUser(currentUser || cachedUser) || (userProfile as any)?.role === 'admin'}
+                isMasterEditMode={isMasterUser(currentUser || cachedUser)}
                 onBatchChange={(batchId) => {
                   setSelectedBatchId(batchId);
                   if (!batchId) setBatchesStage('batch_list');
@@ -2833,6 +2929,8 @@ export default function App() {
                 isMasterUser(currentUser || cachedUser),
                 isGuestUser(currentUser || cachedUser),
                 currentUser || cachedUser
+              ).filter(
+                (t) => (t.workspaceId || PRIMARY_WORKSPACE_ID) === activeAppInstituteId || isUserPersonalTest(t)
               )}
               attempts={attempts}
               currentUser={currentUser}

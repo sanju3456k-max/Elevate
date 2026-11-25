@@ -42,6 +42,11 @@ import { getLectureThumbnailUrl } from '../../lms/security';
 import { isMasterUser, isDeprecatedTest, DEPRECATED_TEST_IDS } from '../../lib/masterAccount';
 import { getTestDurationMinutes } from '../../utils/testFormatConverter';
 import { DEFAULT_HIGH_RES_BANNER } from '../lms/batches/BatchThumbnailPicker';
+import {
+  getSelectedAppInstituteId,
+  PRIMARY_WORKSPACE_ID,
+  APP_INSTITUTE_CHANGED_EVENT,
+} from '../../lib/masterWorkspace';
 import { TestDetailModal } from '../TestDetailModal';
 
 interface BannerThemeStyle {
@@ -277,7 +282,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   // Filter state for the 4 core buttons: 'all-batches' | 'my-batches' | 'test-library' | 'activity'
   const [activeView, setActiveView] = useState<'all-batches' | 'my-batches' | 'test-library' | 'activity'>('all-batches');
 
-  const isMaster = isMasterUser(currentUser) || (userProfile as any)?.role === 'admin';
+  const isMaster = isMasterUser(currentUser);
 
   // Check if test was created within the last 2 days (48 hours) and has not been attempted yet
   const isTestNew = (test: MathTest | null): boolean => {
@@ -299,9 +304,24 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     return true;
   };
 
+  const [activeInstituteId, setActiveInstituteId] = useState<string>(
+    () => getSelectedAppInstituteId() || PRIMARY_WORKSPACE_ID
+  );
+
+  useEffect(() => {
+    const syncInst = () => {
+      setActiveInstituteId(getSelectedAppInstituteId() || PRIMARY_WORKSPACE_ID);
+    };
+    window.addEventListener(APP_INSTITUTE_CHANGED_EVENT, syncInst);
+    return () => window.removeEventListener(APP_INSTITUTE_CHANGED_EVENT, syncInst);
+  }, []);
+
   const visibleBatches = useMemo(() => {
-    if (isMaster) return batches;
-    return batches.filter((b) => {
+    const instituteBatches = batches.filter(
+      (b) => (b.workspaceId || PRIMARY_WORKSPACE_ID) === activeInstituteId
+    );
+    if (isMaster) return instituteBatches;
+    return instituteBatches.filter((b) => {
       // An officially enrolled student can ALWAYS see their enrolled course, even if Draft or Secret Roster-Only!
       if (isEnrolled(b.id)) return true;
       // Non-enrolled visitors and guests can NEVER see Draft or Secret Roster-Only courses:
@@ -309,7 +329,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       if (b.isPrivateRosterOnly === true) return false;
       return true;
     });
-  }, [batches, isMaster, isEnrolled]);
+  }, [batches, isMaster, isEnrolled, activeInstituteId]);
 
   const enrolledBatches = useMemo(
     () => visibleBatches.filter((b) => isEnrolled(b.id)),
@@ -431,16 +451,21 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
   const currentTheme = BANNER_THEMES[activeHeroBanner?.themeColor || 'yellow'] || BANNER_THEMES.yellow || BANNER_THEMES.orange;
 
-  const currentBatch = batches[0]; // Testing Batch
+  const currentBatch = visibleBatches[0]; // Testing Batch
   const freeLectures = lectures.filter((l) => l.isFreePreview);
 
-  // Latest updates for batch video & tests: STRICTLY scoped to student's enrolled batches
+  // Latest updates for batch video & tests: STRICTLY scoped to student's enrolled batches (and active institute)
   const latestAnnouncement = announcements && announcements.length > 0 ? announcements[0] : null;
 
+  const visibleBatchIdSet = useMemo(
+    () => new Set(visibleBatches.map((b) => b.id)),
+    [visibleBatches]
+  );
+
   const eligibleLectures = useMemo(() => {
-    if (isMaster) return lectures;
+    if (isMaster) return lectures.filter((l) => visibleBatchIdSet.has(l.batchId));
     return lectures.filter((l) => enrolledBatchIdSet.has(l.batchId));
-  }, [lectures, enrolledBatchIdSet, isMaster]);
+  }, [lectures, enrolledBatchIdSet, visibleBatchIdSet, isMaster]);
 
   const latestLecture = eligibleLectures.length > 0 ? eligibleLectures[eligibleLectures.length - 1] : null;
 

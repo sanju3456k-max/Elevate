@@ -1115,7 +1115,7 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
                 touchAction: zoom > 1.02 ? 'pan-x pan-y' : 'pan-y',
               }}
             >
-              <div ref={pdfContentRef} className={`flex flex-col ${zoom > 1.02 ? 'items-start my-0' : 'items-center my-auto py-2 gap-2'} min-w-full`}>
+              <div ref={pdfContentRef} className={`flex flex-col gap-0 py-0 ${zoom > 1.02 ? 'items-start my-0' : 'items-center my-auto'} min-w-full`}>
                 {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((pNum) => (
                   <ContinuousPageItem
                     key={`page-${pNum}`}

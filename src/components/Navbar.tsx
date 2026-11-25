@@ -39,6 +39,7 @@ import {
   ShieldCheck,
   Home,
   Megaphone,
+  Building2,
 } from 'lucide-react';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { useScrollLock } from '../hooks/useScrollLock';
@@ -78,6 +79,8 @@ interface NavbarProps {
   onOpenNotifications?: () => void;
   isDesktopNotificationsOpen?: boolean;
   onOpenCreatePost?: () => void;
+  activeInstituteName?: string | null;
+  onSwitchInstitute?: () => void;
 }
 
 // Google multi-colored G logo component
@@ -130,6 +133,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenNotifications,
   isDesktopNotificationsOpen = false,
   onOpenCreatePost,
+  activeInstituteName,
+  onSwitchInstitute,
 }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState<boolean>(false);
@@ -293,6 +298,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span className="font-black text-base sm:text-lg text-[#0b57d0] dark:text-[#a8c7fa] tracking-tight leading-tight">
                     Elevate
                   </span>
+                  {activeInstituteName && (
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 truncate max-w-[130px] sm:max-w-[180px] leading-tight">
+                      {activeInstituteName}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -499,6 +509,23 @@ export const Navbar: React.FC<NavbarProps> = ({
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#0b57d0] text-white font-bold">CONNECTED</span>
                         </div>
 
+                        {onSwitchInstitute && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsProfileMenuOpen(false);
+                              onSwitchInstitute();
+                            }}
+                            className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-[#1f1f1f]/8 dark:hover:bg-[#e3e3e3]/8 rounded-full transition-colors cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Building2 className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                              <span>Switch Institute</span>
+                            </div>
+                            <ChevronRight className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6]" />
+                          </button>
+                        )}
+
                         {onOpenSettings && (
                           <button
                             id="profile-settings-btn"
@@ -534,18 +561,31 @@ export const Navbar: React.FC<NavbarProps> = ({
               </AnimatePresence>
                 </div>
               ) : (
-                /* Unauthenticated: Google Icon + "Sign In" Button matching search button style */
-                <button
-                  id="header-google-login-btn"
-                  type="button"
-                  onClick={onSignIn}
-                  disabled={isAuthLoading}
-                  title="Sign in with Google"
-                  className="h-9 px-3.5 sm:px-4 rounded-full bg-transparent hover:bg-black/8 dark:hover:bg-white/10 border-0 text-[#1f1f1f] dark:text-[#e3e3e3] font-bold text-xs sm:text-sm shadow-none flex items-center gap-2 transition-all active:scale-95 cursor-pointer disabled:opacity-50 shrink-0 outline-none"
-                >
-                  <GoogleLogoIcon />
-                  <span>Sign In</span>
-                </button>
+                /* Unauthenticated: Switch Institute + Google Icon + "Sign In" Button */
+                <div className="flex items-center gap-1 shrink-0">
+                  {onSwitchInstitute && (
+                    <button
+                      type="button"
+                      onClick={onSwitchInstitute}
+                      title="Switch Institute"
+                      className="h-9 px-2.5 rounded-full bg-transparent hover:bg-black/8 dark:hover:bg-white/10 border-0 text-[#5e5e5e] dark:text-[#9aa0a6] hover:text-[#1f1f1f] dark:hover:text-[#e3e3e3] font-semibold text-xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0 outline-none"
+                    >
+                      <Building2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                      <span className="hidden sm:inline">Switch</span>
+                    </button>
+                  )}
+                  <button
+                    id="header-google-login-btn"
+                    type="button"
+                    onClick={onSignIn}
+                    disabled={isAuthLoading}
+                    title="Sign in with Google"
+                    className="h-9 px-3.5 sm:px-4 rounded-full bg-transparent hover:bg-black/8 dark:hover:bg-white/10 border-0 text-[#1f1f1f] dark:text-[#e3e3e3] font-bold text-xs sm:text-sm shadow-none flex items-center gap-2 transition-all active:scale-95 cursor-pointer disabled:opacity-50 shrink-0 outline-none"
+                  >
+                    <GoogleLogoIcon />
+                    <span>Sign In</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>

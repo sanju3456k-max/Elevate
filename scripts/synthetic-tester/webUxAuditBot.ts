@@ -195,9 +195,51 @@ export async function runWebUxAudit(options: {
       return false;
     };
 
-    // Step 1: Load App Home & measure Time-To-Interactive (until bottom nav appears)
+    // Step 1: Load App Home -> Handle First-Screen "Choose Your Institute" & "Continue as Guest"
     const tNavStart = Date.now();
     await cdp.send('Page.navigate', { url: baseUrl });
+
+    // Wait for either Institute Picker or Bottom Nav (in case already entered)
+    const landed = await waitForEval(`(() => {
+      const txt = document.body.innerText || '';
+      return txt.includes('Choose Your Institute') ||
+        txt.includes('Continue as Guest') ||
+        Array.from(document.querySelectorAll('button, a')).some(b => /\\bTests\\b/i.test(b.textContent || ''));
+    })()`, 10000);
+
+    // If "Choose Your Institute" screen is shown, capture it & select first institute
+    const sawInstitutePicker = landed && await cdp.evaluate<boolean>(
+      `document.body.innerText.includes('Choose Your Institute')`
+    );
+    if (sawInstitutePicker) {
+      await sleep(Math.round(250 * delayFactor));
+      const pickerShot = path.join(options.screenshotsDir, 'web_00_choose_institute.png');
+      if (await cdp.captureScreenshot(pickerShot)) {
+        screenshots.push({ label: 'Choose Your Institute Gate', path: pickerShot });
+      }
+      await cdp.evaluate(`(() => {
+        const btn = Array.from(document.querySelectorAll('button')).find(b =>
+          (b.textContent || '').includes('Tap to enter institute portal') ||
+          (b.textContent || '').includes('Elevate Primary Institute')
+        );
+        if (btn) btn.click();
+      })()`);
+      await waitForEval(`document.body.innerText.includes('Continue as Guest')`, 5000);
+    }
+
+    // If "Continue as Guest" portal is shown, click it to enter that institute's App View
+    const sawGuestPortal = await cdp.evaluate<boolean>(
+      `document.body.innerText.includes('Continue as Guest')`
+    );
+    if (sawGuestPortal) {
+      await cdp.evaluate(`(() => {
+        const btn = Array.from(document.querySelectorAll('button')).find(b =>
+          (b.textContent || '').includes('Continue as Guest')
+        );
+        if (btn) btn.click();
+      })()`);
+    }
+
     const interactive = await waitForEval(`(() => {
       return Array.from(document.querySelectorAll('button, a')).some(b => /\\bTests\\b/i.test(b.textContent || ''));
     })()`, 10000);
@@ -208,12 +250,12 @@ export async function runWebUxAudit(options: {
       screenshots.push({ label: 'Web Home (Interactive)', path: homeShot });
     }
     checks.push({
-      name: 'Web App Cold Load & Time-To-Interactive',
+      name: 'Web App Institute Gate -> Guest Mode & Time-To-Interactive',
       category: 'web_ux',
       passed: interactive,
       latencyMs: ttiMs,
       details: interactive
-        ? `Became interactive in ${ttiMs}ms (${options.pacingMode} mode).`
+        ? `Institute gate (${sawInstitutePicker ? 'picker->' : ''}${sawGuestPortal ? 'guest->' : ''}app) became interactive in ${ttiMs}ms (${options.pacingMode} mode).`
         : `Timed out waiting for Home navigation (${ttiMs}ms).`,
     });
 

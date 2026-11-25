@@ -28,6 +28,12 @@ export async function runWorkspaceIsolationAudit(): Promise<{ checks: FeatureChe
     getWorkspacesForUser,
     isMasterWorkspaceMember,
     canManageWorkspaceTeam,
+    getSelectedAppInstituteId,
+    setSelectedAppInstituteId,
+    getAppInstituteGuestMode,
+    setAppInstituteGuestMode,
+    canEmailUnlockInstituteWeb,
+    getInstituteInviteLink,
   } = await import('../../src/lib/masterWorkspace');
   const { formatTestToText, parseTestFromText } = await import('../../src/utils/testFormatConverter');
   const { encodeTestToShareUrl, decodeTestFromShareUrl } = await import('../../src/utils/shareUtils');
@@ -182,6 +188,74 @@ export async function runWorkspaceIsolationAudit(): Promise<{ checks: FeatureChe
       latencyMs: Date.now() - t5,
       details: `adminB access after removal=${!revokedAdminB}`,
     });
+
+    // WS-07: App View Batch & Published Test Isolation (Institute A vs Institute B)
+    const t6 = Date.now();
+    saveCachedMasterWorkspaces([wsA, wsB]);
+    setSelectedAppInstituteId(wsB.id);
+    setAppInstituteGuestMode(true);
+    const activeAppInstB = getSelectedAppInstituteId();
+    const guestActive = getAppInstituteGuestMode();
+
+    const mockBatches = [
+      { id: 'b_a1', title: 'Batch Alpha (Inst A)', workspaceId: wsA.id, isPublished: true },
+      { id: 'b_b1', title: 'Batch Beta (Inst B)', workspaceId: wsB.id, isPublished: true },
+    ];
+    const mockCatalogTests = [
+      { id: 'pub_a1', title: 'Inst A Mock', workspaceId: wsA.id },
+      { id: 'pub_b1', title: 'Inst B Mock', workspaceId: wsB.id },
+      { id: 'personal_1', title: 'My Personal Test', isPersonal: true },
+    ];
+    const appBVisibleBatches = mockBatches.filter(
+      (b) => (b.workspaceId || PRIMARY_WORKSPACE_ID) === activeAppInstB
+    );
+    const appBVisibleTests = mockCatalogTests.filter(
+      (t: any) => (t.workspaceId || PRIMARY_WORKSPACE_ID) === activeAppInstB || Boolean(t.isPersonal)
+    );
+    const appViewIsolated =
+      activeAppInstB === wsB.id &&
+      guestActive &&
+      appBVisibleBatches.length === 1 &&
+      appBVisibleBatches[0].id === 'b_b1' &&
+      appBVisibleTests.length === 2 &&
+      !appBVisibleTests.some((t) => t.id === 'pub_a1');
+
+    checks.push({
+      name: 'WS-07: App View Batch & Test Isolation (Institute A vs B)',
+      category: 'security',
+      passed: appViewIsolated,
+      latencyMs: Date.now() - t6,
+      details: `activeInst=${activeAppInstB}, batches=[${appBVisibleBatches.map((b) => b.id).join(',')}], tests=[${appBVisibleTests.map((t) => t.id).join(',')}]`,
+    });
+
+    // WS-08: Web App Admin Unlock vs Student Block Per Institute
+    const t7 = Date.now();
+    const directorBOnB = canEmailUnlockInstituteWeb('director@instituteb.com', wsB.id);
+    const adminBOnB = canEmailUnlockInstituteWeb('adminb@instituteb.com', wsB.id);
+    const adminBOnA = canEmailUnlockInstituteWeb('adminb@instituteb.com', wsA.id);
+    const sanjuOnB = canEmailUnlockInstituteWeb('sanju3456k@gmail.com', wsB.id);
+    const studentOnA = canEmailUnlockInstituteWeb('student_random@gmail.com', wsA.id);
+    const studentOnB = canEmailUnlockInstituteWeb('student_random@gmail.com', wsB.id);
+    checks.push({
+      name: 'WS-08: Web App Per-Institute Admin Unlock & Student Block',
+      category: 'security',
+      passed: directorBOnB && adminBOnB && !adminBOnA && sanjuOnB && !studentOnA && !studentOnB,
+      latencyMs: Date.now() - t7,
+      details: `directorBOnB=${directorBOnB}, adminBOnB=${adminBOnB}, adminBOnA=${adminBOnA}, studentBlocked=${!studentOnA && !studentOnB}`,
+    });
+
+    // WS-09: Institute Invite Link Generation
+    const t8 = Date.now();
+    const inviteLinkB = getInstituteInviteLink(wsB.id);
+    checks.push({
+      name: 'WS-09: Institute Invite Link (?institute=ws_...)',
+      category: 'ux',
+      passed: inviteLinkB.includes(`institute=${encodeURIComponent(wsB.id)}`),
+      latencyMs: Date.now() - t8,
+      details: `inviteLink=${inviteLinkB}`,
+    });
+
+    setSelectedAppInstituteId(null);
   } finally {
     saveCachedMasterWorkspaces(snapshotBefore);
   }

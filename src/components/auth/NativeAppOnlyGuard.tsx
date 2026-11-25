@@ -1,18 +1,67 @@
-import React, { useState } from 'react';
-import { Mail, ArrowRight, Download, CheckCircle2, ShieldCheck, Sparkles, RefreshCw } from 'lucide-react';
-import { isMasterUser } from '../../lib/masterAccount';
+import React, { useState, useEffect } from 'react';
+import { Mail, ArrowRight, Download, CheckCircle2, ShieldCheck, Sparkles, RefreshCw, Building2, ArrowLeft } from 'lucide-react';
 import { unlockWebAccess } from '../../lib/platformSecurityGuard';
 import { signInWithGoogle } from '../../lib/firebase';
+import {
+  type MasterWorkspace,
+  getSelectedAppInstituteId,
+  setSelectedAppInstituteId,
+  setPreferredWorkspaceId,
+  getWorkspaceById,
+  fetchMasterWorkspacesFromCloud,
+  canEmailUnlockInstituteWeb,
+} from '../../lib/masterWorkspace';
+import { InstitutePickerView } from './InstitutePortalGate';
 
 interface WelcomePortalGuardProps {
   onUnlocked?: () => void;
 }
 
 export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlocked }) => {
+  const [selectedInstituteId, setSelectedInstituteId] = useState<string | null>(() =>
+    getSelectedAppInstituteId()
+  );
+  const [selectedWorkspace, setSelectedWorkspace] = useState<MasterWorkspace | null>(() =>
+    getWorkspaceById(getSelectedAppInstituteId())
+  );
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'checking' | 'student' | 'master_verified' | 'error'>('idle');
   const [isSigningInGoogle, setIsSigningInGoogle] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState('');
+
+  useEffect(() => {
+    fetchMasterWorkspacesFromCloud().then(() => {
+      if (selectedInstituteId) {
+        setSelectedWorkspace(getWorkspaceById(selectedInstituteId));
+      }
+    }).catch(() => {});
+  }, [selectedInstituteId]);
+
+  const completeUnlock = (userEmail: string) => {
+    if (selectedInstituteId) {
+      setSelectedAppInstituteId(selectedInstituteId);
+      setPreferredWorkspaceId(selectedInstituteId);
+    }
+    setStatus('master_verified');
+    unlockWebAccess('elevate_admin_pass');
+    setFeedbackMsg(
+      `Welcome back, ${selectedWorkspace?.name || 'Institute'} Admin (${userEmail})! Unlocking web console...`
+    );
+    setTimeout(() => {
+      try {
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('test_lock')) {
+          url.searchParams.delete('test_lock');
+          window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+        }
+      } catch {}
+      if (onUnlocked) {
+        onUnlocked();
+      } else {
+        window.location.reload();
+      }
+    }, 600);
+  };
 
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,48 +74,37 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
 
     setStatus('checking');
 
-    // Check if this email is a recognized Master Account
-    const isMaster = isMasterUser({ email: cleanEmail });
+    // Check if this email is an authorized Master / Team Admin for the chosen institute
+    const isAuthorizedAdmin = canEmailUnlockInstituteWeb(cleanEmail, selectedInstituteId);
 
-    if (isMaster) {
-      // Require actual cryptographic Google OAuth authentication before unlocking master access
-      setFeedbackMsg(`Master Educator recognized (${cleanEmail}). Please sign in with Google to confirm ownership.`);
+    if (isAuthorizedAdmin) {
+      setFeedbackMsg(
+        `Institute Admin recognized (${cleanEmail}). Please sign in with Google to confirm ownership.`
+      );
       setIsSigningInGoogle(true);
       signInWithGoogle()
         .then((user) => {
-          if (user && isMasterUser({ email: user.email })) {
-            setStatus('master_verified');
-            unlockWebAccess('elevate_admin_pass');
-            setFeedbackMsg(`Welcome back, Master Educator (${user.email})! Unlocking full web access...`);
-            setTimeout(() => {
-              try {
-                const url = new URL(window.location.href);
-                if (url.searchParams.has('test_lock')) {
-                  url.searchParams.delete('test_lock');
-                  window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
-                }
-              } catch {}
-              if (onUnlocked) {
-                onUnlocked();
-              } else {
-                window.location.reload();
-              }
-            }, 700);
+          if (user && canEmailUnlockInstituteWeb(user.email, selectedInstituteId)) {
+            completeUnlock(user.email || cleanEmail);
           } else if (user) {
+            try { localStorage.removeItem('elevate_web_access_authorized_v1'); } catch {}
             setStatus('student');
+            setFeedbackMsg(
+              `Web access for ${selectedWorkspace?.name || 'this institute'} is restricted to its authorized Institute Admins. Students must use the Elevate Android App.`
+            );
           } else {
             setStatus('idle');
           }
         })
         .catch((err: any) => {
           setStatus('error');
-          setFeedbackMsg(err?.message || 'Google Sign-In required to verify master educator credentials.');
+          setFeedbackMsg(err?.message || 'Google Sign-In required to verify institute admin credentials.');
         })
         .finally(() => {
           setIsSigningInGoogle(false);
         });
     } else {
-      // Normal student or standard user
+      // Normal student or unauthorized user -> Keep Web App blocked
       setStatus('student');
     }
   };
@@ -75,12 +113,14 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
     try {
       setIsSigningInGoogle(true);
       const user = await signInWithGoogle();
-      if (user && isMasterUser({ email: user.email })) {
-        setStatus('master_verified');
-        unlockWebAccess('elevate_admin_pass');
-        if (onUnlocked) onUnlocked();
+      if (user && canEmailUnlockInstituteWeb(user.email, selectedInstituteId)) {
+        completeUnlock(user.email || 'Admin');
       } else if (user) {
+        try { localStorage.removeItem('elevate_web_access_authorized_v1'); } catch {}
         setStatus('student');
+        setFeedbackMsg(
+          `Web access for ${selectedWorkspace?.name || 'this institute'} is restricted to its authorized Institute Admins. Students must use the Elevate Android App.`
+        );
       }
     } catch (err: any) {
       setStatus('error');
@@ -115,16 +155,35 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
           </span>
         </div>
 
-        {/* Clean Welcome Title */}
-        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight mb-2">
-          Welcome to Elevate
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-600 max-w-xs leading-relaxed mb-6">
-          Your centralized learning portal for mathematics mock tests, remedial tracking, and mastery assessments.
-        </p>
+        {/* Dynamic Institute Step vs Web Portal */}
+        {!selectedInstituteId ? (
+          <InstitutePickerView
+            subtitle="Choose your institute to verify Web Console access. Students should use the official Elevate Android App."
+            onSelectInstitute={(ws) => {
+              setSelectedAppInstituteId(ws.id);
+              setSelectedInstituteId(ws.id);
+              setSelectedWorkspace(ws);
+              setStatus('idle');
+              setFeedbackMsg('');
+            }}
+          />
+        ) : (
+          <>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200/80 text-[#0b57d0] text-xs font-bold mb-3">
+              <Building2 className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate max-w-[220px]">{selectedWorkspace?.name || 'Selected Institute'}</span>
+            </div>
 
-        {/* Dynamic States */}
-        {status === 'student' ? (
+            {/* Clean Welcome Title */}
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight mb-2">
+              {selectedWorkspace?.name || 'Welcome to Elevate'}
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-600 max-w-xs leading-relaxed mb-5">
+              Web Console is exclusively for authorized Institute Admins. Students must use the Elevate Android App.
+            </p>
+
+            {/* Dynamic States */}
+            {status === 'student' ? (
           // Friendly Student Download State
           <div className="w-full space-y-4 animate-fade-in text-left">
             <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-xs text-blue-900 space-y-2">
@@ -156,6 +215,22 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
             >
               <RefreshCw className="w-3 h-3" />
               Use a different email address
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedAppInstituteId(null);
+                setSelectedInstituteId(null);
+                setSelectedWorkspace(null);
+                setStatus('idle');
+                setEmail('');
+                setFeedbackMsg('');
+              }}
+              className="w-full py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors flex items-center justify-center gap-1.5 bg-transparent border-0 cursor-pointer"
+            >
+              <ArrowLeft className="w-3 h-3" />
+              Change Institute
             </button>
           </div>
         ) : status === 'master_verified' ? (
@@ -224,7 +299,24 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
               </svg>
               <span>{isSigningInGoogle ? 'Signing in...' : 'Sign in with Google'}</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedAppInstituteId(null);
+                setSelectedInstituteId(null);
+                setSelectedWorkspace(null);
+                setStatus('idle');
+                setFeedbackMsg('');
+              }}
+              className="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors flex items-center justify-center gap-1.5 bg-transparent border-0 cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Change Institute</span>
+            </button>
           </div>
+        )}
+          </>
         )}
 
         <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">

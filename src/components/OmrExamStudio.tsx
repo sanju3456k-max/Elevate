@@ -872,7 +872,7 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
                   <span>Print / Save PDF</span>
                 </button>
               </div>
-              <OmrQuestionPaper test={test} hideHeaderContainer={true} embedOmrSheet={true} />
+              <OmrQuestionPaper test={test} hideHeaderContainer={true} embedOmrSheet={true} continuousPages={true} />
             </div>
 
             {/* Bottom Next Action Helper Banner */}

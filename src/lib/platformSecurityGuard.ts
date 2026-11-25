@@ -39,31 +39,15 @@ export function checkPlatformAccess(isMasterAccount: boolean = false): PlatformG
     hostname === ''
   );
 
-  // Check URL parameter for secret bypass key
-  let hasUrlBypass = false;
-  if (typeof window !== 'undefined') {
+  // Production Web Rule: ONLY an authenticated Master Account (sanju3456k@gmail.com) may unlock public web.
+  // Clear any stale localStorage bypass flag if the active session is not the Master Account.
+  if (!isMasterAccount && typeof window !== 'undefined' && !isNativeAndroid && !isLocalDevelopment) {
     try {
-      const params = new URLSearchParams(window.location.search);
-      const accessVal = params.get(WEB_BYPASS_KEY_PARAM) || params.get('access_key');
-      if (accessVal === WEB_BYPASS_SECRET_VALUE || accessVal === 'elevate_web') {
-        hasUrlBypass = true;
-        // Persist authorization in localStorage for seamless subsequent navigation
-        try {
-          localStorage.setItem(STORAGE_WEB_AUTHORIZED_KEY, 'true');
-        } catch {}
-      }
+      localStorage.removeItem(STORAGE_WEB_AUTHORIZED_KEY);
     } catch {}
   }
 
-  // Check stored web authorization
-  let hasStoredBypass = false;
-  if (typeof window !== 'undefined') {
-    try {
-      hasStoredBypass = localStorage.getItem(STORAGE_WEB_AUTHORIZED_KEY) === 'true';
-    } catch {}
-  }
-
-  const hasWebBypass = hasUrlBypass || hasStoredBypass || isMasterAccount;
+  const hasWebBypass = isMasterAccount;
 
   // Master account or verified web bypass ALWAYS unlocks, even if previewing test_lock
   if (hasWebBypass) {

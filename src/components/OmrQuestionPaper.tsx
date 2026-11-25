@@ -44,6 +44,7 @@ interface OmrQuestionPaperProps {
   setShowBadges?: (show: boolean) => void;
   hideInlineDock?: boolean;
   embedOmrSheet?: boolean;
+  continuousPages?: boolean;
 }
 
 export interface OptionData {
@@ -1105,6 +1106,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
   setShowBadges: propSetShowBadges,
   hideInlineDock = false,
   embedOmrSheet = false,
+  continuousPages = false,
 }) => {
   const [isPrinting, setIsPrinting] = useState<boolean>(false);
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
@@ -1478,7 +1480,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
 
       <div 
         ref={containerRef}
-        className="w-full max-w-[1400px] mx-auto relative flex flex-col items-center justify-start pb-12 pt-2"
+        className={`w-full max-w-[1400px] mx-auto relative flex flex-col items-center justify-start ${continuousPages ? 'py-0' : 'pb-12 pt-2'}`}
       >
         {isEditableLayout && !hideInlineDock && (
           <motion.div 
@@ -1598,7 +1600,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
           </motion.div>
         )}
 
-        <div id="question-paper-printable-root" className="w-full flex flex-col gap-8 print:gap-0 items-center mx-auto py-2 px-0 touch-auto [webkit-overflow-scrolling:touch]">
+        <div id="question-paper-printable-root" className={`w-full flex flex-col ${continuousPages ? 'gap-0 py-0' : 'gap-8 py-2'} print:gap-0 items-center mx-auto px-0 touch-auto [webkit-overflow-scrolling:touch]`}>
           {activePageLayouts.map((page) => {
             const isLastPage = page.pageNumber === page.totalPages;
             const currentPageHPx = getPagePreviewHeightPx(page);
@@ -1617,7 +1619,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
               >
                 <div
                   key={`page_${page.pageNumber}`}
-                  className="a4-page-item bg-white text-black shadow-2xl print:shadow-none select-text box-border flex flex-col justify-start rounded-xs ring-1 ring-slate-900/10 print:ring-0 print:border-none print:transform-none print:relative print:left-auto print:top-auto print:w-[210mm] print:h-[297mm] print:min-h-[297mm] print:max-h-[297mm] touch-auto overflow-hidden relative"
+                  className={`a4-page-item bg-white text-black ${continuousPages ? 'shadow-none rounded-none ring-0' : 'shadow-2xl rounded-xs ring-1 ring-slate-900/10'} print:shadow-none select-text box-border flex flex-col justify-start print:ring-0 print:border-none print:transform-none print:relative print:left-auto print:top-auto print:w-[210mm] print:h-[297mm] print:min-h-[297mm] print:max-h-[297mm] touch-auto overflow-hidden relative`}
                   style={{
                     width: '210mm',
                     minWidth: '210mm',
@@ -1787,7 +1789,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
               }}
             >
               <div
-                className="a4-page-item omr-standalone-page bg-white text-black shadow-2xl print:shadow-none select-none box-border rounded-xs ring-1 ring-slate-900/10 print:ring-0 print:border-none print:transform-none print:relative print:left-auto print:top-auto print:w-[210mm] print:h-[297mm] overflow-hidden"
+                className={`a4-page-item omr-standalone-page bg-white text-black ${continuousPages ? 'shadow-none rounded-none ring-0' : 'shadow-2xl rounded-xs ring-1 ring-slate-900/10'} print:shadow-none select-none box-border print:ring-0 print:border-none print:transform-none print:relative print:left-auto print:top-auto print:w-[210mm] print:h-[297mm] overflow-hidden`}
                 style={{
                   width: '210mm',
                   minWidth: '210mm',

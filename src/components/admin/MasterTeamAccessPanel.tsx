@@ -10,6 +10,7 @@ import {
   AlertCircle,
   Plus,
   Users,
+  Link2,
 } from 'lucide-react';
 import {
   type MasterWorkspace,
@@ -19,6 +20,7 @@ import {
   removeTeamAdminFromWorkspace,
   createMasterWorkspace,
   deleteMasterWorkspace,
+  getInstituteInviteLink,
   PRIMARY_WORKSPACE_ID,
 } from '../../lib/masterWorkspace';
 
@@ -319,6 +321,22 @@ export const MasterTeamAccessPanel: React.FC<MasterTeamAccessPanelProps> = ({
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = getInstituteInviteLink(ws.id);
+                        navigator.clipboard?.writeText(url).then(() => {
+                          onNotify(`Copied invite link for ${ws.name}`, 'info');
+                        }).catch(() => {
+                          onNotify(url, 'info');
+                        });
+                      }}
+                      className="h-7 px-2.5 rounded-full bg-white dark:bg-zinc-800 hover:bg-slate-100 text-[11px] font-bold text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 flex items-center gap-1 cursor-pointer"
+                      title="Copy direct invite link for this institute"
+                    >
+                      <Link2 className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                      <span>Copy Link</span>
+                    </button>
                     {ws.id !== activeWorkspace.id && (
                       <button
                         type="button"

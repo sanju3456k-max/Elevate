@@ -2001,7 +2001,7 @@ export function subscribeToTests(
   // Master Enterprise Architecture: Students do NOT author tests in users/{userId}/tests.
   // Their tests are supplied authoritatively via MASTER_CATALOG on-demand 1-read hydration.
   // Disarming this idle listener completely eliminates background read loops for students!
-  const isMaster = !!auth.currentUser?.email && ['student3456k@gmail.com', 'sanju3456k@gmail.com'].includes(auth.currentUser.email.toLowerCase().trim());
+  const isMaster = !!auth.currentUser?.email && auth.currentUser.email.toLowerCase().trim() === 'sanju3456k@gmail.com';
   if (!isMaster) {
     return () => {};
   }
@@ -3873,7 +3873,7 @@ export async function fetchFullTestFromFirestore(testId: string): Promise<MathTe
 
   try {
     const currentUid = auth.currentUser?.uid;
-    const isMaster = !!auth.currentUser?.email && ['student3456k@gmail.com', 'sanju3456k@gmail.com'].includes(auth.currentUser.email.toLowerCase().trim());
+    const isMaster = !!auth.currentUser?.email && auth.currentUser.email.toLowerCase().trim() === 'sanju3456k@gmail.com';
 
     // 1. Primary Authoritative: test_leaderboards/{testId}/summary/published_paper (Strictly 1 Read on 1st attempt!)
     let snap = await getDoc(doc(db, 'test_leaderboards', testId, 'summary', 'published_paper')).catch(() => null);

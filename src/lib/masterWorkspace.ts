@@ -23,7 +23,6 @@ export const MASTER_WORKSPACES_CACHE_KEY = 'elevate_master_workspaces_v1';
 export const ACTIVE_WORKSPACE_PREF_KEY = 'elevate_active_master_workspace_id';
 
 export const ROOT_SUPER_ADMIN_EMAILS = [
-  'student3456k@gmail.com',
   'sanju3456k@gmail.com',
 ];
 
@@ -31,7 +30,7 @@ const DEFAULT_PRIMARY_WORKSPACE: MasterWorkspace = {
   id: PRIMARY_WORKSPACE_ID,
   name: 'Elevate Primary Institute (Sanju)',
   ownerEmail: 'sanju3456k@gmail.com',
-  teamAdminEmails: ['student3456k@gmail.com', 'harry4444u@gmail.com'],
+  teamAdminEmails: [],
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
@@ -378,4 +377,92 @@ export async function fetchWorkspaceTestsForUser(email?: string | null): Promise
 
   return Array.from(allTestsMap.values());
 }
+
+export const APP_INSTITUTE_PREF_KEY = 'elevate_active_app_institute_id';
+export const APP_INSTITUTE_GUEST_PREF_KEY = 'elevate_app_institute_guest_mode';
+export const APP_INSTITUTE_CHANGED_EVENT = 'elevate-app-institute-changed';
+
+export function getUrlInstituteParam(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const val = params.get('institute') || params.get('ws');
+    return val ? val.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+export function getSelectedAppInstituteId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const fromUrl = getUrlInstituteParam();
+    if (fromUrl) {
+      localStorage.setItem(APP_INSTITUTE_PREF_KEY, fromUrl);
+      return fromUrl;
+    }
+    const saved = localStorage.getItem(APP_INSTITUTE_PREF_KEY);
+    return saved && saved.trim() ? saved.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setSelectedAppInstituteId(workspaceId: string | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (workspaceId && workspaceId.trim()) {
+      const clean = workspaceId.trim();
+      localStorage.setItem(APP_INSTITUTE_PREF_KEY, clean);
+      setPreferredWorkspaceId(clean);
+    } else {
+      localStorage.removeItem(APP_INSTITUTE_PREF_KEY);
+      localStorage.removeItem(APP_INSTITUTE_GUEST_PREF_KEY);
+    }
+    window.dispatchEvent(new CustomEvent(APP_INSTITUTE_CHANGED_EVENT, { detail: { workspaceId: workspaceId || null } }));
+  } catch {}
+}
+
+export function getAppInstituteGuestMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem(APP_INSTITUTE_GUEST_PREF_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function setAppInstituteGuestMode(enabled: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (enabled) {
+      localStorage.setItem(APP_INSTITUTE_GUEST_PREF_KEY, 'true');
+    } else {
+      localStorage.removeItem(APP_INSTITUTE_GUEST_PREF_KEY);
+    }
+    window.dispatchEvent(new CustomEvent(APP_INSTITUTE_CHANGED_EVENT, { detail: { guestMode: enabled } }));
+  } catch {}
+}
+
+export function getWorkspaceById(workspaceId?: string | null): MasterWorkspace | null {
+  if (!workspaceId) return null;
+  const all = getCachedMasterWorkspaces();
+  return all.find((w) => w.id === workspaceId) || null;
+}
+
+export function canEmailUnlockInstituteWeb(email?: string | null, workspaceId?: string | null): boolean {
+  const norm = normalizeEmail(email);
+  if (!norm) return false;
+  if (isRootSuperAdmin(norm)) return true;
+  if (!workspaceId) return isMasterWorkspaceMember(norm);
+  const ws = getWorkspaceById(workspaceId);
+  if (!ws) return false;
+  return ws.ownerEmail === norm || ws.teamAdminEmails.includes(norm);
+}
+
+export function getInstituteInviteLink(workspaceId: string): string {
+  if (typeof window === 'undefined') return `/?institute=${encodeURIComponent(workspaceId)}`;
+  return `${window.location.origin}/?institute=${encodeURIComponent(workspaceId)}`;
+}
+
 

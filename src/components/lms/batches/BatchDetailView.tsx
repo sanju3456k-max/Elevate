@@ -1,4 +1,9 @@
 import { DEFAULT_HIGH_RES_BANNER } from './BatchThumbnailPicker';
+import {
+  getSelectedAppInstituteId,
+  PRIMARY_WORKSPACE_ID,
+  APP_INSTITUTE_CHANGED_EVENT,
+} from '../../../lib/masterWorkspace';
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import {
@@ -165,7 +170,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     toggleBatchGuestAccess,
   } = useApp();
 
-  const isMaster = Boolean(isMasterEditMode) || isMasterUser(auth.currentUser) || user?.role === 'admin' || (user as any)?.role === 'teacher';
+  const isMaster = isMasterUser(auth.currentUser) || (Boolean(isMasterEditMode) && isMasterUser(user as any));
 
   // Modal state for Creating New Batch (Master User)
   const [isCreateBatchModalOpen, setIsCreateBatchModalOpen] = useState(false);
@@ -482,9 +487,24 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     }
   }, [initialLectureId, lectures]);
 
+  const [activeInstituteId, setActiveInstituteId] = useState<string>(
+    () => getSelectedAppInstituteId() || PRIMARY_WORKSPACE_ID
+  );
+
+  useEffect(() => {
+    const syncInst = () => {
+      setActiveInstituteId(getSelectedAppInstituteId() || PRIMARY_WORKSPACE_ID);
+    };
+    window.addEventListener(APP_INSTITUTE_CHANGED_EVENT, syncInst);
+    return () => window.removeEventListener(APP_INSTITUTE_CHANGED_EVENT, syncInst);
+  }, []);
+
   const visibleBatches = useMemo(() => {
-    if (isMaster) return batches;
-    return batches.filter((b) => {
+    const instituteBatches = batches.filter(
+      (b) => (b.workspaceId || PRIMARY_WORKSPACE_ID) === activeInstituteId
+    );
+    if (isMaster) return instituteBatches;
+    return instituteBatches.filter((b) => {
       // An officially enrolled student can ALWAYS see their enrolled course, even if Draft or Secret Roster-Only!
       if (isEnrolled(b.id)) return true;
       // Non-enrolled visitors and guests can NEVER see Draft or Secret Roster-Only courses:
@@ -492,7 +512,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
       if (b.isPrivateRosterOnly === true) return false;
       return true;
     });
-  }, [batches, isMaster, isEnrolled]);
+  }, [batches, isMaster, isEnrolled, activeInstituteId]);
 
   const enrolledBatches = useMemo(
     () => visibleBatches.filter((b) => isEnrolled(b.id)),
@@ -500,7 +520,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
   );
 
   const displayedBatches = batchFilter === 'my-batches' ? enrolledBatches : visibleBatches;
-  const currentBatch = batches.find((b) => b.id === selectedBatchId) || batches[0];
+  const currentBatch = batches.find((b) => b.id === selectedBatchId) || visibleBatches[0];
 
   // Auto-protect: If non-admin user is in draft or secret batch and not enrolled, return to catalog with alert
   useEffect(() => {
@@ -1429,9 +1449,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     const hasFullBatchAccess = isMaster || isEnrolled(currentBatch.id) || isGuestAllowedForBatch(currentBatch.id);
 
     return (
-      <div className="space-y-5 pb-28 sm:pb-28 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
+      <div className="space-y-4 pb-28 sm:pb-28 md:pb-16 max-w-7xl mx-auto m3-transition-enter">
+        {/* Sticky Non-Scrollable Header: Breadcrumbs + Actions + Videos/Notes/Tests Toggle (Zero Partition Line) */}
+        <div className="sticky top-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+3.5rem)] sm:top-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+3.8rem)] z-30 bg-white dark:bg-[#0b0c10] -mx-3 sm:-mx-6 px-3 sm:px-6 pt-1 pb-2.5 space-y-3 border-0 shadow-none">
         {/* Top Header: Back Button & Dynamic Google Drive Breadcrumbs */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-2 border-0 border-none">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-1 border-0 border-none">
           <div className="flex items-center space-x-2 flex-wrap gap-y-1.5">
             {/* Direct Step-Back Button */}
             <button
@@ -1690,6 +1712,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
             </button>
           </div>
         )}
+        </div>
 
         {/* SECTION 1: SUBFOLDERS GRID (Spacious 2-Col Wide Folder Cards on Desktop, Full Width on Mobile with Partition Lines) */}
         {currentSubfolders.length > 0 && (

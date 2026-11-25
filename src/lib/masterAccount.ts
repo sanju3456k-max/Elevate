@@ -47,14 +47,12 @@ import { listenerManager } from './listenerManager';
 import { isMasterWorkspaceMember } from './masterWorkspace';
 
 /**
- * Designated Master Enterprise Account Emails
- * Both student3456k@gmail.com and sanju3456k@gmail.com are granted Master Enterprise & Academic Head authority.
+ * Designated Master Enterprise Account Email
+ * Exclusively sanju3456k@gmail.com is granted Master Enterprise & Academic Head authority.
  */
-export const MASTER_ADMIN_EMAIL = 'student3456k@gmail.com';
+export const MASTER_ADMIN_EMAIL = 'sanju3456k@gmail.com';
 export const AUTHORIZED_MASTER_EMAILS = [
-  'student3456k@gmail.com',
   'sanju3456k@gmail.com',
-  'harry4444u@gmail.com',
 ];
 
 /** Storage Keys */
@@ -129,12 +127,12 @@ export function recordDeletedRemedialId(id: string): void {
 
 /**
  * Verify whether an authenticated or cached user is the Master Enterprise Account.
- * Strictly limited to authorized admin accounts (student3456k@gmail.com and sanju3456k@gmail.com).
- * Guests and student accounts are strictly prohibited from accessing Master Console.
+ * Strictly limited to sanju3456k@gmail.com.
+ * Guests, students, and other accounts are strictly prohibited from accessing Master Console.
  */
 export function isMasterUser(user: { email?: string | null } | null | undefined): boolean {
   if (!user || !user.email) return false;
-  return isMasterWorkspaceMember(user.email);
+  return user.email.trim().toLowerCase() === MASTER_ADMIN_EMAIL;
 }
 
 /**
@@ -358,8 +356,9 @@ export async function publishMasterTest(test: MathTest): Promise<{ success: bool
 
       if (catalogSnap && catalogSnap.exists()) {
         const catData = catalogSnap.data() || {};
+        const existsInPart1 = Boolean(catData?.tests && catData.tests[masterTest.id]);
         const currentSize = estimateByteSize(catData);
-        if (currentSize >= CHUNK_SAFE_THRESHOLD_BYTES || catData.hasPart2) {
+        if (!existsInPart1 && (currentSize >= CHUNK_SAFE_THRESHOLD_BYTES || catData.hasPart2)) {
           targetRef = catalogPart2DocRef;
           isPart2 = true;
           // Mark Part 1 with manifest metadata pointing to Part 2
