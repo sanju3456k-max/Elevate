@@ -399,64 +399,64 @@
 /* 2. M3 Button Tokens & Styles (Strict 0 Border & 0 Ring) */
 .btn-primary,
 .md-btn-filled {
-  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-all duration-200 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#0b57d0] dark:hover:bg-[#0842a0] text-white shadow-md shadow-[#0b57d0]/25 hover:shadow-lg px-4 py-2 text-sm;
+  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-[transform,opacity,background-color,color,border-color] duration-150 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#0b57d0] dark:hover:bg-[#0842a0] text-white shadow-md shadow-[#0b57d0]/25 hover:shadow-lg px-4 py-2 text-sm;
 }
 
 .btn-secondary,
 .md-btn-tonal {
-  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-all duration-200 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-slate-100 hover:bg-slate-200 dark:bg-[#1f222e] dark:hover:bg-[#282b3a] text-slate-800 dark:text-zinc-100 px-4 py-2 text-sm;
+  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-[transform,opacity,background-color,color,border-color] duration-150 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-slate-100 hover:bg-slate-200 dark:bg-[#1f222e] dark:hover:bg-[#282b3a] text-slate-800 dark:text-zinc-100 px-4 py-2 text-sm;
 }
 
 .btn-active {
-  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-all duration-200 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-[#0b57d0] text-white shadow-xs px-4 py-2 text-sm;
+  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-[transform,opacity,background-color,color,border-color] duration-150 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-[#0b57d0] text-white shadow-xs px-4 py-2 text-sm;
 }
 
 .btn-inactive {
-  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-all duration-200 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-slate-100/80 hover:bg-slate-200/80 dark:bg-[#191b24] dark:hover:bg-[#222532] text-slate-600 dark:text-zinc-400 px-4 py-2 text-sm;
+  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-[transform,opacity,background-color,color,border-color] duration-150 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-slate-100/80 hover:bg-slate-200/80 dark:bg-[#191b24] dark:hover:bg-[#222532] text-slate-600 dark:text-zinc-400 px-4 py-2 text-sm;
 }
 
 .btn-mute {
-  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-all duration-200 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none p-2.5 bg-slate-100 dark:bg-[#1e212c] text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#282b3a];
+  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-[transform,opacity,background-color,color,border-color] duration-150 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none p-2.5 bg-slate-100 dark:bg-[#1e212c] text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#282b3a];
 }
 
 .btn-mute-active {
-  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-all duration-200 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none p-2.5 bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20;
+  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-[transform,opacity,background-color,color,border-color] duration-150 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none p-2.5 bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20;
 }
 
 .btn-preview {
-  @apply inline-flex items-center justify-center gap-1.5 font-bold leading-snug rounded-full transition-all duration-200 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none px-3 py-1.5 text-xs bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300;
+  @apply inline-flex items-center justify-center gap-1.5 font-bold leading-snug rounded-full transition-[transform,opacity,background-color,color,border-color] duration-150 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none px-3 py-1.5 text-xs bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300;
 }
 
 .btn-danger {
-  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-all duration-200 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20 px-4 py-2 text-sm;
+  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-[transform,opacity,background-color,color,border-color] duration-150 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20 px-4 py-2 text-sm;
 }
 
 .btn-danger-ghost {
-  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-all duration-200 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 px-3 py-1.5 text-xs;
+  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-[transform,opacity,background-color,color,border-color] duration-150 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 px-3 py-1.5 text-xs;
 }
 
 .btn-success {
-  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-all duration-200 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-[#0da574] hover:bg-[#0b8f64] text-white shadow-md shadow-[#0da574]/20 px-4 py-2 text-sm;
+  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-[transform,opacity,background-color,color,border-color] duration-150 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-[#0da574] hover:bg-[#0b8f64] text-white shadow-md shadow-[#0da574]/20 px-4 py-2 text-sm;
 }
 
 .btn-icon {
-  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-all duration-200 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none p-2.5 bg-slate-100 dark:bg-[#1a1c25] hover:bg-slate-200 dark:hover:bg-[#252834] text-slate-700 dark:text-zinc-300;
+  @apply inline-flex items-center justify-center gap-2 font-bold leading-snug rounded-full transition-[transform,opacity,background-color,color,border-color] duration-150 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none p-2.5 bg-slate-100 dark:bg-[#1a1c25] hover:bg-slate-200 dark:hover:bg-[#252834] text-slate-700 dark:text-zinc-300;
 }
 
 .btn-chip {
-  @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full transition-all duration-200 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-slate-100 hover:bg-slate-200 dark:bg-[#1b1e28] dark:hover:bg-[#252835] text-slate-700 dark:text-zinc-300;
+  @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full transition-[transform,opacity,background-color,color,border-color] duration-150 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-slate-100 hover:bg-slate-200 dark:bg-[#1b1e28] dark:hover:bg-[#252835] text-slate-700 dark:text-zinc-300;
 }
 
 .btn-chip-active {
-  @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-extrabold rounded-full transition-all duration-200 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-[#0b57d0] text-white shadow-xs;
+  @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-extrabold rounded-full transition-[transform,opacity,background-color,color,border-color] duration-150 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-[#0b57d0] text-white shadow-xs;
 }
 
 .btn-ai-mode {
-  @apply inline-flex items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full transition-all duration-200 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-slate-100 hover:bg-slate-200 dark:bg-[#1c1e26] dark:hover:bg-[#272935] text-slate-700 dark:text-zinc-300;
+  @apply inline-flex items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full transition-[transform,opacity,background-color,color,border-color] duration-150 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-slate-100 hover:bg-slate-200 dark:bg-[#1c1e26] dark:hover:bg-[#272935] text-slate-700 dark:text-zinc-300;
 }
 
 .btn-ai-mode-active {
-  @apply inline-flex items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-[#0b57d0] text-white shadow-xs;
+  @apply inline-flex items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-full transition-[transform,opacity,background-color,color,border-color] duration-150 cursor-pointer select-none border-0 outline-none ring-0 active:scale-97 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none bg-[#0b57d0] text-white shadow-xs;
 }
 
 /* 3. Badges */

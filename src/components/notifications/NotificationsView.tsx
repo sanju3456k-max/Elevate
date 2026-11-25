@@ -575,7 +575,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
                 <div
                   key={notif.id}
                   onClick={() => handleItemClick(notif)}
-                  className="group relative px-2.5 sm:px-3.5 py-3 rounded-2xl bg-transparent dark:bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 border-0 transition-all duration-150 cursor-pointer flex items-start gap-2.5 sm:gap-3.5 touch-manipulation"
+                  className="cv-auto-row group relative px-2.5 sm:px-3.5 py-3 rounded-2xl bg-transparent dark:bg-transparent hover:bg-slate-50/80 dark:hover:bg-zinc-900/50 border-0 transition-[background-color,opacity,transform] duration-150 cursor-pointer flex items-start gap-2.5 sm:gap-3.5 touch-manipulation"
                 >
                   {/* Category Icon Badge with Round Icon Shape */}
                   <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full ${meta.badgeBg} flex items-center justify-center shrink-0 mt-0.5 border-0 shadow-2xs`}>

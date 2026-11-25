@@ -785,8 +785,26 @@
   -webkit-overflow-scrolling: touch;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
+  text-rendering: optimizeSpeed;
   image-rendering: -webkit-optimize-contrast;
+}
+
+/* Google-grade offscreen layout/paint skipping for long scrollable card grids & rows */
+.cv-auto-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 140px;
+}
+
+.cv-auto-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 84px;
+}
+
+/* Adaptive GPU optimization on Android WebView: disable expensive backdrop-blur on sticky/scrolling layers */
+body.is-native-android .sticky[class*="backdrop-blur"],
+body.is-native-android main [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 .modal-content-smooth {

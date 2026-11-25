@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, MotionConfig } from 'motion/react';
 import { 
   onAuthStateChanged, 
   signInWithGoogle, 
@@ -1024,6 +1024,7 @@ export default function App() {
     if (splashEl && splashEl.parentNode) {
       splashEl.parentNode.removeChild(splashEl);
     }
+    document.body.classList.toggle('is-native-android', isNativeAndroid());
 
     // Sync Master Workspaces & Team Admin permissions in real time
     fetchMasterWorkspacesFromCloud().catch(() => {});
@@ -2332,6 +2333,7 @@ export default function App() {
   }
 
   return (
+    <MotionConfig reducedMotion="user">
     <LmsProvider>
       <div className="min-h-screen w-full bg-[#e5e9f0] dark:bg-[#0b0c10] text-[#1f1f1f] dark:text-[#e3e3e3] flex flex-col font-sans antialiased selection:bg-[#0b57d0]/20 selection:text-[#0b57d0] dark:selection:text-[#a8c7fa] transition-colors duration-200">
       {/* Brand Welcome Screen on App Opening */}
@@ -3289,5 +3291,6 @@ export default function App() {
       )}
     </div>
     </LmsProvider>
+    </MotionConfig>
   );
 }
