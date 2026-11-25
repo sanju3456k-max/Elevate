@@ -459,7 +459,7 @@ function buildLinearStreamItems(questions: MathQuestion[]): StreamFlowItem[] {
       imageUrl: effectiveImageUrl,
       imageWidth: effectiveImageWidth,
       imageWidths: effectiveImageWidths,
-      keepTogether: q.paperLayout?.keepTogether ?? true,
+      keepTogether: q.paperLayout?.keepTogether ?? false,
     };
     const breakBefore = paperLayout.breakBefore || 'none';
     const keepTogether = paperLayout.keepTogether ?? true;
@@ -609,7 +609,7 @@ function findBestTwoColumnSplit(
     const nextItem = items[i + 1];
 
     const isQuestionBoundary = !nextItem || nextItem.questionNumber !== currentItem.questionNumber;
-    const allowsMidQuestionSplit = currentItem.paperLayout?.keepTogether === false;
+    const allowsMidQuestionSplit = currentItem.paperLayout?.keepTogether !== true;
     const forcesColBreak = Boolean(nextItem && isQuestionBoundary && nextItem.breakBefore === 'column');
 
     if (explicitColBreakIndices.length === 1) {
@@ -679,28 +679,39 @@ function paginateLinearStream(
   };
 
   const questionUnits: { questionNumber: number; items: StreamFlowItem[]; breakBefore?: 'none' | 'column' | 'page' }[] = [];
-  let currentGroup: StreamFlowItem[] = [];
-  let currentQNum: number | null = null;
+  let lockedGroup: StreamFlowItem[] = [];
+  let lockedQNum: number | null = null;
+
+  const flushLockedGroup = () => {
+    if (lockedGroup.length > 0 && lockedQNum !== null) {
+      questionUnits.push({
+        questionNumber: lockedQNum,
+        items: lockedGroup,
+        breakBefore: lockedGroup[0]?.breakBefore,
+      });
+      lockedGroup = [];
+      lockedQNum = null;
+    }
+  };
 
   for (const item of streamItems) {
-    if (currentQNum !== null && item.questionNumber !== currentQNum) {
+    const isLockedTogether = item.paperLayout?.keepTogether === true;
+    if (isLockedTogether) {
+      if (lockedQNum !== null && item.questionNumber !== lockedQNum) {
+        flushLockedGroup();
+      }
+      lockedQNum = item.questionNumber;
+      lockedGroup.push(item);
+    } else {
+      flushLockedGroup();
       questionUnits.push({
-        questionNumber: currentQNum,
-        items: currentGroup,
-        breakBefore: currentGroup[0]?.breakBefore,
+        questionNumber: item.questionNumber,
+        items: [item],
+        breakBefore: item.type === 'statement' ? item.breakBefore : 'none',
       });
-      currentGroup = [];
     }
-    currentQNum = item.questionNumber;
-    currentGroup.push(item);
   }
-  if (currentGroup.length > 0 && currentQNum !== null) {
-    questionUnits.push({
-      questionNumber: currentQNum,
-      items: currentGroup,
-      breakBefore: currentGroup[0]?.breakBefore,
-    });
-  }
+  flushLockedGroup();
 
   const pages: PaperPageLayout[] = [];
   let unplacedUnits = [...questionUnits];
