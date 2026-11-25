@@ -234,7 +234,7 @@ export class OmrLiveDetector {
     const dynamicPatchRadius = Math.max(90, Math.min(195, Math.round(((guideBoxScreenPx / 2) / scale) * 1.65)));
 
     // Physical fiducial size is 5.5mm
-    const expectedBoxVideoPx = Math.max(16, Math.round(
+    const expectedBoxVideoPx = Math.max(9, Math.round(
       (OMR_GEOMETRY.fiducialSizeMm / this.layout.fiducialSpanX_mm) * expW
     ));
 
@@ -1131,8 +1131,8 @@ function findHollowSquaresInPatch(
     for (let x = 0; x < w; x++) {
       const mean = getLocalMean(x, y, 7);
       const val = gray[yRow + x];
-      // Border pixels must be dark and significantly lower than local background
-      if (val < mean - 8 && val < patchAvg * 0.92) {
+      // Border pixels must be darker than local neighborhood (immune to bezel/desk lowering patchAvg)
+      if (val < mean - 7) {
         binaryDark[yRow + x] = 1;
       }
     }
@@ -1143,9 +1143,9 @@ function findHollowSquaresInPatch(
   const candidates: PatchCandidate[] = [];
 
   // Scale filter: The corner fiducial is a 5.5mm x 5.5mm square.
-  // Standard OMR bubbles are 3.5mm diameter (~63% of fiducial scale).
-  // A minimum box constraint of 0.72 * expectedBoxPx strictly blocks 3.5mm bubbles from ever being considered!
-  const minBox = Math.max(12, Math.round(expectedBoxPx * 0.72));
+  // Standard OMR bubbles are 3.2mm diameter (~58% of fiducial scale).
+  // Allow down to 7px for wide/720p mobile captures while keeping 0.65 * expectedBoxPx above bubbles.
+  const minBox = Math.max(7, Math.round(expectedBoxPx * 0.65));
   const maxBox = Math.min(65, Math.round(expectedBoxPx * 1.45));
 
   // Connected component labeling on binaryDark

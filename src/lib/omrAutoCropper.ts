@@ -116,9 +116,9 @@ function findFiducialCandidates(
 
   // Expected fiducial box size across common image scales (typically 8px to 55px)
   const baseDim = Math.min(width, height);
-  const minBox = Math.max(7, Math.round(baseDim * 0.012));
+  const minBox = Math.max(6, Math.round(baseDim * 0.009));
   const maxBox = Math.max(16, Math.round(baseDim * 0.065));
-  const stepBox = Math.max(2, Math.round((maxBox - minBox) / 9));
+  const stepBox = Math.max(2, Math.round((maxBox - minBox) / 11));
 
   const testSizes: number[] = [];
   for (let s = minBox; s <= maxBox; s += stepBox) {
@@ -301,9 +301,17 @@ function evaluateQuadRatioAndDimensions(
   if (topDx <= 12 || botDx <= 12) return invalidEvalResult();
   if (leftDy <= 12 || rightDy <= 12) return invalidEvalResult();
 
-  // Top angle check: top edge should be reasonably horizontal (within 35 deg for portrait)
+  // Edge orientation checks: prevent twisted bowtie quads where BL jumps above TR or edges skew wildly
   const topAngleDeg = Math.abs((Math.atan2(topDy, topDx) * 180) / Math.PI);
-  if (topAngleDeg > 35) return invalidEvalResult();
+  const botAngleDeg = Math.abs((Math.atan2(botDy, botDx) * 180) / Math.PI);
+  if (topAngleDeg > 28 || botAngleDeg > 28 || Math.abs(topAngleDeg - botAngleDeg) > 18) {
+    return invalidEvalResult();
+  }
+  const leftTiltDeg = Math.abs((Math.atan2(leftDx, leftDy) * 180) / Math.PI);
+  const rightTiltDeg = Math.abs((Math.atan2(rightDx, rightDy) * 180) / Math.PI);
+  if (leftTiltDeg > 28 || rightTiltDeg > 28 || Math.abs(leftTiltDeg - rightTiltDeg) > 18) {
+    return invalidEvalResult();
+  }
 
   // Edge lengths
   const topLen = Math.hypot(topDx, topDy);
@@ -340,14 +348,17 @@ function evaluateQuadRatioAndDimensions(
   // 2. Expected Box Size Match:
   // For measured fiducial span avgW, the physical box size (5.5mm) corresponds to:
   const expectedBoxSizePx = avgW * expectedBoxToSpanX;
+  if (expectedBoxSizePx < 6.5) {
+    return invalidEvalResult();
+  }
   const measuredBoxSizePx = (tl.size + tr.size + br.size + bl.size) / 4;
 
   const boxSizeDiff = Math.abs(measuredBoxSizePx - expectedBoxSizePx);
-  const boxSizeTolerance = expectedBoxSizePx * 0.42;
-  if (boxSizeDiff > Math.max(4, boxSizeTolerance)) {
+  const boxSizeTolerance = expectedBoxSizePx * 0.38;
+  if (boxSizeDiff > Math.max(2.5, boxSizeTolerance)) {
     return invalidEvalResult();
   }
-  const boxSizeMatch = Math.max(0, 1.0 - boxSizeDiff / Math.max(4, boxSizeTolerance));
+  const boxSizeMatch = Math.max(0, 1.0 - boxSizeDiff / Math.max(2.5, boxSizeTolerance));
 
   // 3. Mutual Box Size Consistency:
   // All 4 corner boxes on the same sheet must have similar pixel dimensions
@@ -365,12 +376,12 @@ function evaluateQuadRatioAndDimensions(
   const hollowBonus = ((tl.isHollow ? 1 : 0) + (tr.isHollow ? 1 : 0) + (br.isHollow ? 1 : 0) + (bl.isHollow ? 1 : 0)) / 4;
 
   const totalScore =
-    ratioMatch * 0.34 +
-    boxSizeMatch * 0.20 +
-    avgBoxScore * 0.18 +
+    ratioMatch * 0.30 +
+    boxSizeMatch * 0.18 +
+    avgBoxScore * 0.14 +
     parallelismScore * 0.10 +
     sizeConsistency * 0.05 +
-    coverageScore * 0.10 +
+    coverageScore * 0.20 +
     hollowBonus * 0.03;
 
   return {
@@ -445,9 +456,74 @@ export function autoDetectOmrFiducials(
   const avgLuma = totalLuma / (workW * workH);
   const paperLumaEstimate = Math.min(252, Math.max(155, avgLuma * 1.15));
 
-  // 3. Integral image & candidate box extraction
+  // 3. Integral image & candidate box extraction (both sliding-window & connected-component hollow squares)
   const integral = new IntegralImage(gray, workW, workH);
   const candidates = findFiducialCandidates(integral, workW, workH, paperLumaEstimate);
+
+  // 3b. Connected-component hollow square extractor (catches exact 1px square contours on tablet screens & wide shots)
+  {
+    const minCC = Math.max(6, Math.round(Math.min(workW, workH) * 0.009));
+    const maxCC = Math.max(20, Math.round(Math.max(workW, workH) * 0.07));
+    const rM = Math.max(4, Math.round(workW * 0.014));
+    const bin = new Uint8Array(workW * workH);
+    for (let y = 0; y < workH; y++) {
+      const yR = y * workW;
+      for (let x = 0; x < workW; x++) {
+        const localM = integral.getRectMean(x - rM, y - rM, x + rM, y + rM);
+        if (gray[yR + x] < localM - 10) bin[yR + x] = 1;
+      }
+    }
+    const vis = new Uint8Array(workW * workH);
+    const ccCands: FiducialBoxCandidate[] = [];
+    for (let y = 2; y < workH - 2; y++) {
+      for (let x = 2; x < workW - 2; x++) {
+        const idx = y * workW + x;
+        if (bin[idx] === 1 && vis[idx] === 0) {
+          let mnX = x, mxX = x, mnY = y, mxY = y;
+          const q = [x, y];
+          vis[idx] = 1;
+          let hd = 0;
+          while (hd < q.length && q.length < 1800) {
+            const qx = q[hd++], qy = q[hd++];
+            if (qx < mnX) mnX = qx; if (qx > mxX) mxX = qx;
+            if (qy < mnY) mnY = qy; if (qy > mxY) mxY = qy;
+            if (mxX - mnX > maxCC * 1.6 || mxY - mnY > maxCC * 1.6) break;
+            const nbs = [[qx + 1, qy], [qx - 1, qy], [qx, qy + 1], [qx, qy - 1]];
+            for (let k = 0; k < 4; k++) {
+              const nx = nbs[k][0], ny = nbs[k][1];
+              if (nx >= 0 && nx < workW && ny >= 0 && ny < workH) {
+                const ni = ny * workW + nx;
+                if (bin[ni] === 1 && vis[ni] === 0) {
+                  vis[ni] = 1;
+                  q.push(nx, ny);
+                }
+              }
+            }
+          }
+          const bw = mxX - mnX + 1, bh = mxY - mnY + 1;
+          const asp = bw / bh;
+          if (bw >= minCC && bw <= maxCC && bh >= minCC && bh <= maxCC && asp >= 0.65 && asp <= 1.55) {
+            const cx = (mnX + mxX) / 2, cy = (mnY + mxY) / 2;
+            const cHalfX = Math.max(1, Math.round(bw * 0.2));
+            const cHalfY = Math.max(1, Math.round(bh * 0.2));
+            const cMean = integral.getRectMean(Math.round(cx) - cHalfX, Math.round(cy) - cHalfY, Math.round(cx) + cHalfX, Math.round(cy) + cHalfY);
+            const bMean = integral.getRectMean(mnX, mnY, mxX, mxY);
+            const rMean = integral.getRectMean(mnX - 4, mnY - 4, mxX + 4, mxY + 4);
+            if (cMean >= bMean + 4 && rMean >= bMean + 3) {
+              ccCands.push({ x: cx, y: cy, size: (bw + bh) / 2, score: 0.92, darkness: bMean, isHollow: true });
+            }
+          }
+        }
+      }
+    }
+    // Prioritize true corner CC candidates (nearest to image corners / outer bounds) and cap total candidates <= 76
+    ccCands.sort((a, b) => b.size - a.size);
+    for (const cc of ccCands) {
+      if (candidates.length >= 76) break;
+      const dup = candidates.some((c) => Math.hypot(c.x - cc.x, c.y - cc.y) < 10 && Math.abs(c.size - cc.size) <= 4);
+      if (!dup) candidates.push(cc);
+    }
+  }
 
   if (candidates.length < 3) {
     return fallbackDefaultResult(expectedRatio);
