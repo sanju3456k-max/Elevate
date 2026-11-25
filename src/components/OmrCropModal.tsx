@@ -22,7 +22,8 @@ import {
   checkFrameAlignmentQuality,
   AlignmentQualityResult
 } from '../lib/omrPerspectiveWarp';
-import { OmrCorners } from '../lib/omrGeometry';
+import { OmrCorners, getOmrLayoutConfig } from '../lib/omrGeometry';
+import { autoDetectOmrFiducials } from '../lib/omrAutoCropper';
 import { 
   studioModalVariants, 
   studioBackdropVariants, 
@@ -108,6 +109,28 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
   });
 
   const activeLayoutRef = useRef<DisplayLayout>({ width: 0, height: 0, left: 0, top: 0 });
+
+  // Layout-aware fiducial detection: prioritizes blueprint-matched hollow square centers
+  // (with 3-candidate recovery) and falls back to generic canvas fiducial detection.
+  const detectBestFiducials = useCallback(
+    (canvas: HTMLCanvasElement): QuadCorners | null => {
+      const baseLayout = getOmrLayoutConfig(totalQuestions || 50, undefined, 'a4');
+      const layout = {
+        ...baseLayout,
+        pageWidthMm: targetWidthMm || baseLayout.pageWidthMm,
+        pageHeightMm: targetHeightMm || baseLayout.pageHeightMm,
+        bottomFiducialY_mm: bottomFiducialY_mm || baseLayout.bottomFiducialY_mm,
+        fiducialSpanX_mm: (targetWidthMm || baseLayout.pageWidthMm) - 20,
+        fiducialSpanY_mm: Math.max(15, (bottomFiducialY_mm || baseLayout.bottomFiducialY_mm) - 10),
+      };
+      const precisionResult = autoDetectOmrFiducials(canvas, layout);
+      if (precisionResult.detected && precisionResult.confidence >= 0.40) {
+        return precisionResult.fiducials;
+      }
+      return autoDetectFiducialsOnCanvas(canvas);
+    },
+    [totalQuestions, targetWidthMm, targetHeightMm, bottomFiducialY_mm]
+  );
   useEffect(() => {
     activeLayoutRef.current = imgDisplayLayout;
   }, [imgDisplayLayout]);
@@ -290,7 +313,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
         rotCanvasRef.current = canvas;
 
         // Auto-detect printed corner registration squares on image load
-        const autoDetected = autoDetectFiducialsOnCanvas(canvas);
+        const autoDetected = detectBestFiducials(canvas);
         if (autoDetected) {
           initialCorners = autoDetected;
         }
@@ -389,7 +412,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
         ctx.rotate((nextRot * Math.PI) / 180);
         ctx.drawImage(img, -snw / 2, -snh / 2, snw, snh);
         rotCanvasRef.current = canvas;
-        const autoDetected = autoDetectFiducialsOnCanvas(canvas);
+        const autoDetected = detectBestFiducials(canvas);
         if (autoDetected) {
           setCorners(autoDetected);
           cornersRef.current = autoDetected;
@@ -405,7 +428,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
   const handleAutoFitSquares = () => {
     cleanupActiveDrag();
     if (rotCanvasRef.current) {
-      const detected = autoDetectFiducialsOnCanvas(rotCanvasRef.current);
+      const detected = detectBestFiducials(rotCanvasRef.current);
       if (detected) {
         setCorners(detected);
         cornersRef.current = detected;
@@ -791,7 +814,7 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
       const botFidY = bottomFiducialY_mm || (totalQuestions && totalQuestions > 100 ? 287 : 282);
 
       const dstWidth = 1200;
-      const dstHeight = Math.max(600, Math.round((targetH / targetW) * dstWidth));
+      const dstHeight = Math.max(120, Math.round((targetH / targetW) * dstWidth));
 
       // Canonical fiducial centers in rectified canvas pixel coordinates
       const fx0 = (10 / targetW) * dstWidth;
@@ -863,8 +886,8 @@ export const OmrCropModal: React.FC<OmrCropModalProps> = ({
 
   // Normalized margin proportions relative to the span between fiducial centers:
   const mX = 10 / Math.max(50, targetW - 20);
-  const mTop = 10 / Math.max(50, botFidY - 10);
-  const mBot = Math.max(0, targetH - botFidY) / Math.max(50, botFidY - 10);
+  const mTop = 10 / Math.max(15, botFidY - 10);
+  const mBot = Math.max(0, targetH - botFidY) / Math.max(15, botFidY - 10);
 
   // Bilinear extrapolation from fiducial corners to full page edges
   const interpolateQuad = (u: number, v: number) => {

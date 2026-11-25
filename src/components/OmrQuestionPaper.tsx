@@ -1725,7 +1725,8 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                     </div>
                   )}
 
-                  {/* Authentic Elevate Central Transparent App Logo Watermark on Each Page (Overlay layer with mix-blend-mode: multiply) */}
+                  {/* Authentic Elevate Central Transparent App Logo Watermark on Question Pages without OMR Sheet */}
+                  {!(omrPlacement.enabled && isLastPage && omrPlacement.fitsOnLastPage) && (
                   <div
                     className="elevate-question-watermark absolute inset-0 flex items-center justify-center pointer-events-none select-none z-25 overflow-hidden"
                     aria-hidden="true"
@@ -1767,6 +1768,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                       }}
                     />
                   </div>
+                  )}
                 </div>
               </div>
             );
@@ -1785,7 +1787,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
               }}
             >
               <div
-                className="bg-white text-black shadow-2xl print:shadow-none select-none box-border rounded-xs ring-1 ring-slate-900/10 print:ring-0 print:border-none print:transform-none print:relative print:left-auto print:top-auto print:w-[210mm] print:h-[297mm] overflow-hidden"
+                className="a4-page-item omr-standalone-page bg-white text-black shadow-2xl print:shadow-none select-none box-border rounded-xs ring-1 ring-slate-900/10 print:ring-0 print:border-none print:transform-none print:relative print:left-auto print:top-auto print:w-[210mm] print:h-[297mm] overflow-hidden"
                 style={{
                   width: '210mm',
                   minWidth: '210mm',

@@ -441,7 +441,7 @@ export const OmrLiveCameraModal: React.FC<OmrLiveCameraModalProps> = ({
           if (isHomographyValid && finalFiducials) {
             // 4. Target canonical rectified dimensions: 1000px width provides ideal bubble size with 50% fewer pixels
             const dstWidth = 1000;
-            const dstHeight = Math.max(500, Math.round((activeLayout.pageHeightMm / activeLayout.pageWidthMm) * dstWidth));
+            const dstHeight = Math.max(120, Math.round((activeLayout.pageHeightMm / activeLayout.pageWidthMm) * dstWidth));
 
             const fx0 = (10 / activeLayout.pageWidthMm) * dstWidth;
             const fx1 = ((activeLayout.pageWidthMm - 10) / activeLayout.pageWidthMm) * dstWidth;

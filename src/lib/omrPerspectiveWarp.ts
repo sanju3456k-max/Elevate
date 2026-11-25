@@ -388,8 +388,8 @@ export function autoDetectFiducialsOnCanvas(canvas: HTMLCanvasElement): QuadCorn
           if (avgH <= 20 || avgW <= 20) continue;
 
           const ratio = avgW / avgH;
-          // Support portrait, landscape, sideways, and perspective tilted sheet orientations
-          if (ratio >= 0.25 && ratio <= 3.4 && Math.abs(topW - botW) / avgW < 0.38 && Math.abs(leftH - rightH) / avgH < 0.38) {
+          // Support portrait, landscape, sideways, compact slip (up to ~4.6:1), and perspective tilted sheet orientations
+          if (ratio >= 0.25 && ratio <= 5.2 && Math.abs(topW - botW) / avgW < 0.38 && Math.abs(leftH - rightH) / avgH < 0.38) {
             const area = avgW * avgH;
             if (area > maxArea) {
               maxArea = area;
@@ -494,7 +494,7 @@ export function checkFrameAlignmentQuality(
   const ratio = avgW / avgH;
   // Standard A4 OMR fiducials aspect ratio is ~190mm / 277mm = 0.686
   // Allow wide range [0.25, 3.4] to accommodate perspective projection, landscape, and sideways sheets
-  const isRatioValid = ratio >= 0.25 && ratio <= 3.4;
+  const isRatioValid = ratio >= 0.25 && ratio <= 5.2;
   const isSymW = Math.abs(topW - botW) / avgW < 0.38;
   const isSymH = Math.abs(leftH - rightH) / avgH < 0.38;
 

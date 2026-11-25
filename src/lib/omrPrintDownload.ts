@@ -592,6 +592,7 @@ export async function triggerSystemPrint(
     pageClone.querySelectorAll('.print\\:hidden, [data-editor-control]').forEach((n) => n.remove());
 
     const isLast = idx === targets.length - 1;
+    const isStandaloneOmr = pageEl.classList.contains('omr-standalone-page');
     return `
       <div class="a4-page-item" style="
         display: flex !important;
@@ -604,7 +605,7 @@ export async function triggerSystemPrint(
         min-height: ${printHeightMm}mm !important;
         max-height: ${printHeightMm}mm !important;
         margin: 0 auto !important;
-        padding: 10mm 12mm 10mm 12mm !important;
+        padding: ${isStandaloneOmr ? '0mm' : '10mm 12mm 10mm 12mm'} !important;
         box-sizing: border-box !important;
         position: relative !important;
         background: #ffffff !important;

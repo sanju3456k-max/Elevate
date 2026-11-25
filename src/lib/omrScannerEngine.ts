@@ -1519,10 +1519,10 @@ export async function evaluateScannedOmrImage(
   const passingScore = test.passingScorePercentage || 60;
   const passed = percentage >= passingScore;
 
-  // Compute aspect ratio match with ISO A4 (297 / 210 ≈ 1.4142)
+  // Compute aspect ratio match against the active OMR blueprint dimensions
   const actualRatio = targetH / targetW;
-  const targetA4Ratio = 297 / 210;
-  const a4RatioMatch = Math.abs(actualRatio - targetA4Ratio) / targetA4Ratio < 0.15;
+  const targetBlueprintRatio = layout.pageHeightMm / layout.pageWidthMm;
+  const a4RatioMatch = Math.abs(actualRatio - targetBlueprintRatio) / targetBlueprintRatio < 0.15;
 
   return {
     totalQuestions: totalQs,
@@ -1539,7 +1539,7 @@ export async function evaluateScannedOmrImage(
     cleanImageDataUrl,
     refinedCenters: bubbleCenters,
     sheetFormat: detectedFormat,
-    detectedDimensions: '210 × 297 mm (ISO A4)',
+    detectedDimensions: `${layout.pageWidthMm} × ${Math.round(layout.pageHeightMm * 10) / 10} mm`,
     a4RatioMatch,
   };
 }

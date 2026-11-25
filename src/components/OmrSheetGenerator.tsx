@@ -254,7 +254,7 @@ export const OmrSheetGenerator: React.FC<OmrSheetGeneratorProps> = ({
             id="omr-printable-sheet"
             data-total-questions={totalQs}
             data-exam-title={sheetTitle || test?.title || ''}
-            className={`a4-page-item bg-white text-black select-none box-border rounded-xs ${embedded ? '' : 'shadow-2xl ring-1 ring-slate-900/10'}`}
+            className={`bg-white text-black select-none box-border rounded-xs ${embedded ? '' : 'a4-page-item shadow-2xl ring-1 ring-slate-900/10'}`}
             style={{
               width: `${layout.pageWidthMm}mm`,
               minWidth: `${layout.pageWidthMm}mm`,

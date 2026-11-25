@@ -116,24 +116,24 @@ function findFiducialCandidates(
 
   // Expected fiducial box size across common image scales (typically 8px to 55px)
   const baseDim = Math.min(width, height);
-  const minBox = Math.max(7, Math.round(baseDim * 0.010));
+  const minBox = Math.max(7, Math.round(baseDim * 0.012));
   const maxBox = Math.max(16, Math.round(baseDim * 0.065));
-  const stepBox = Math.max(2, Math.round((maxBox - minBox) / 6));
+  const stepBox = Math.max(2, Math.round((maxBox - minBox) / 9));
 
   const testSizes: number[] = [];
   for (let s = minBox; s <= maxBox; s += stepBox) {
     testSizes.push(s);
   }
 
-  // Grid step: 2 to 4 pixels for high-speed scanning
-  const gridStep = Math.max(2, Math.round(baseDim / 220));
+  // Grid step: 2 pixels for reliable peak hit on thin-bordered squares
+  const gridStep = Math.max(2, Math.round(baseDim / 320));
 
   for (const boxSize of testSizes) {
     const halfBox = Math.round(boxSize / 2);
     // Outer surrounding margin that should be bright white paper
     const ringMargin = Math.max(3, Math.round(boxSize * 0.55));
-    // Border thickness for hollow fiducials
-    const borderWidth = Math.max(1, Math.round(boxSize * 0.22));
+    // Border thickness for hollow fiducials (~0.45mm stroke on 5.5mm box)
+    const borderWidth = Math.max(1, Math.round(boxSize * 0.15));
 
     const minX = halfBox + ringMargin;
     const maxX = width - 1 - halfBox - ringMargin;
@@ -175,10 +175,18 @@ function findFiducialCandidates(
         const borderArea = innerArea - coreArea;
         const borderMean = borderArea > 0 ? borderSum / borderArea : boxMean;
 
-        // Condition A: Hollow square box (dark border, bright center, bright outer ring)
+        // Condition A: Hollow square box (all 4 edge bands dark, bright center, bright outer ring)
+        const edgeBand = Math.max(2, Math.round(boxSize * 0.22));
+        const topEdgeMean = integral.getRectMean(cx - halfBox, cy - halfBox, cx + halfBox, cy - halfBox + edgeBand - 1);
+        const botEdgeMean = integral.getRectMean(cx - halfBox, cy + halfBox - edgeBand + 1, cx + halfBox, cy + halfBox);
+        const leftEdgeMean = integral.getRectMean(cx - halfBox, cy - halfBox, cx - halfBox + edgeBand - 1, cy + halfBox);
+        const rightEdgeMean = integral.getRectMean(cx + halfBox - edgeBand + 1, cy - halfBox, cx + halfBox, cy + halfBox);
+        const maxEdgeMean = Math.max(topEdgeMean, botEdgeMean, leftEdgeMean, rightEdgeMean);
+
         const isHollowBox =
-          borderMean < ringMean - 22 &&
+          borderMean < ringMean - 20 &&
           borderMean < paperLuminance * 0.82 &&
+          maxEdgeMean < ringMean - 10 &&
           innerCoreMean >= borderMean + 12 &&
           ringMean >= borderMean + 25;
 
@@ -197,9 +205,12 @@ function findFiducialCandidates(
         // Score based on contrast, paper clarity, and box geometry
         let score = Math.min(1.0, (contrast / 115) * (1.0 - effectiveBorderDarkness / 255));
         if (isHollowBox) {
-          // Bonus for hollow fiducials matching standard OMR print
+          // Strong bonus for hollow fiducials matching standard OMR print (avoids filled bubbles dominating top candidates)
           const hollowShapeRatio = (innerCoreMean - borderMean) / Math.max(1, ringMean - borderMean);
-          score = Math.min(1.0, score * 1.15 + Math.min(0.2, hollowShapeRatio * 0.2));
+          score = Math.min(1.0, score * 1.25 + 0.15 + Math.min(0.2, hollowShapeRatio * 0.2));
+        } else {
+          // Penalize solid dark blobs (likely filled bubbles) so hollow corner squares rank first
+          score *= 0.65;
         }
 
         if (score > 0.20) {
@@ -216,24 +227,37 @@ function findFiducialCandidates(
     }
   }
 
-  // Non-maximum suppression: merge overlapping candidates within spatial radius
+  // Non-maximum suppression: bucket by (quadrant, boxSize) so small bubbles (11px)
+  // can NEVER evict larger printed corner fiducials (14-24px), while keeping total candidates <= 72
+  // so the 4-corner quad search executes in < 3ms.
   candidates.sort((a, b) => b.score - a.score);
   const suppressed: FiducialBoxCandidate[] = [];
   const distThresholdSq = Math.pow(Math.max(7, baseDim * 0.022), 2);
+  const midX = width / 2;
+  const midY = height / 2;
+  const bucketCounts: Record<string, number> = {};
+  const quadTotals = [0, 0, 0, 0];
 
   for (const cand of candidates) {
+    const qIdx = (cand.x >= midX ? 1 : 0) + (cand.y >= midY ? 2 : 0);
+    if (quadTotals[qIdx] >= 18) continue;
+    const bKey = `${qIdx}_${cand.size}`;
+    if ((bucketCounts[bKey] || 0) >= 3) continue;
+
     let tooClose = false;
     for (const kept of suppressed) {
       const dx = cand.x - kept.x;
       const dy = cand.y - kept.y;
-      if (dx * dx + dy * dy < distThresholdSq) {
+      if (dx * dx + dy * dy < distThresholdSq && Math.abs(cand.size - kept.size) <= 4) {
         tooClose = true;
         break;
       }
     }
     if (!tooClose) {
       suppressed.push(cand);
-      if (suppressed.length >= 45) break; // Limit candidate pool for combinatorial speed
+      bucketCounts[bKey] = (bucketCounts[bKey] || 0) + 1;
+      quadTotals[qIdx]++;
+      if (suppressed.length >= 72) break;
     }
   }
 
@@ -287,8 +311,8 @@ function evaluateQuadRatioAndDimensions(
   const leftLen = Math.hypot(leftDx, leftDy);
   const rightLen = Math.hypot(rightDx, rightDy);
 
-  // Minimum size: Sheet must occupy at least 15% of frame
-  if (topLen < imgWidth * 0.15 || leftLen < imgHeight * 0.15) {
+  // Minimum size: Sheet width >= 15% of frame, height >= 8% (accommodates ultra-compact 5-10Q slips)
+  if (topLen < imgWidth * 0.15 || leftLen < imgHeight * 0.08) {
     return invalidEvalResult();
   }
 
@@ -319,7 +343,10 @@ function evaluateQuadRatioAndDimensions(
   const measuredBoxSizePx = (tl.size + tr.size + br.size + bl.size) / 4;
 
   const boxSizeDiff = Math.abs(measuredBoxSizePx - expectedBoxSizePx);
-  const boxSizeTolerance = expectedBoxSizePx * 0.55;
+  const boxSizeTolerance = expectedBoxSizePx * 0.42;
+  if (boxSizeDiff > Math.max(4, boxSizeTolerance)) {
+    return invalidEvalResult();
+  }
   const boxSizeMatch = Math.max(0, 1.0 - boxSizeDiff / Math.max(4, boxSizeTolerance));
 
   // 3. Mutual Box Size Consistency:
@@ -331,18 +358,20 @@ function evaluateQuadRatioAndDimensions(
     return invalidEvalResult();
   }
 
-  // 4. Combined Confidence Score
+  // 4. Combined Confidence Score (favor outer sheet-spanning hollow squares over interior bubbles)
   const avgBoxScore = (tl.score + tr.score + br.score + bl.score) / 4;
   const parallelismScore = (widthRatioOpposite + heightRatioOpposite) / 2;
   const coverageScore = Math.min(1.0, (avgW * avgH) / (imgWidth * imgHeight * 0.40));
+  const hollowBonus = ((tl.isHollow ? 1 : 0) + (tr.isHollow ? 1 : 0) + (br.isHollow ? 1 : 0) + (bl.isHollow ? 1 : 0)) / 4;
 
   const totalScore =
-    ratioMatch * 0.38 +
-    boxSizeMatch * 0.22 +
-    avgBoxScore * 0.20 +
-    parallelismScore * 0.12 +
+    ratioMatch * 0.34 +
+    boxSizeMatch * 0.20 +
+    avgBoxScore * 0.18 +
+    parallelismScore * 0.10 +
     sizeConsistency * 0.05 +
-    coverageScore * 0.03;
+    coverageScore * 0.10 +
+    hollowBonus * 0.03;
 
   return {
     valid: true,
@@ -512,11 +541,51 @@ export function autoDetectOmrFiducials(
     return fallbackDefaultResult(expectedRatio);
   }
 
+  // 5.5 Sub-grid 1px hollow-square center refinement (eliminates 2-3px gridStep quantization drift)
+  const refineCornerCenter = (pt: FiducialBoxCandidate) => {
+    const halfSearch = Math.max(8, Math.round(pt.size * 0.72));
+    const x0 = Math.max(0, Math.round(pt.x - halfSearch));
+    const x1 = Math.min(workW - 1, Math.round(pt.x + halfSearch));
+    const y0 = Math.max(0, Math.round(pt.y - halfSearch));
+    const y1 = Math.min(workH - 1, Math.round(pt.y + halfSearch));
+
+    let maxLuma = 0;
+    for (let y = y0; y <= y1; y += 2) {
+      for (let x = x0; x <= x1; x += 2) {
+        const v = gray[y * workW + x];
+        if (v > maxLuma) maxLuma = v;
+      }
+    }
+    const thresh = Math.max(60, maxLuma - 38);
+    let minX = x1, maxX = x0, minY = y1, maxY = y0;
+    let hits = 0;
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        if (gray[y * workW + x] < thresh) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+          hits++;
+        }
+      }
+    }
+    if (hits >= 8 && maxX - minX >= 5 && maxY - minY >= 5 && maxX - minX <= pt.size * 1.45 && maxY - minY <= pt.size * 1.45) {
+      return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+    }
+    return { x: pt.x, y: pt.y };
+  };
+
+  const refTL = refineCornerCenter(bestQuad.tl);
+  const refTR = refineCornerCenter(bestQuad.tr);
+  const refBR = refineCornerCenter(bestQuad.br);
+  const refBL = refineCornerCenter(bestQuad.bl);
+
   // 6. Convert coordinates back to original image percentage space [0..100]
-  const tlPercent = { x: (bestQuad.tl.x / workW) * 100, y: (bestQuad.tl.y / workH) * 100 };
-  const trPercent = { x: (bestQuad.tr.x / workW) * 100, y: (bestQuad.tr.y / workH) * 100 };
-  const brPercent = { x: (bestQuad.br.x / workW) * 100, y: (bestQuad.br.y / workH) * 100 };
-  const blPercent = { x: (bestQuad.bl.x / workW) * 100, y: (bestQuad.bl.y / workH) * 100 };
+  const tlPercent = { x: (refTL.x / workW) * 100, y: (refTL.y / workH) * 100 };
+  const trPercent = { x: (refTR.x / workW) * 100, y: (refTR.y / workH) * 100 };
+  const brPercent = { x: (refBR.x / workW) * 100, y: (refBR.y / workH) * 100 };
+  const blPercent = { x: (refBL.x / workW) * 100, y: (refBL.y / workH) * 100 };
 
   // 7. Extrapolate from the 4 Fiducial centers to the actual outer page edges
   // Margins in Blueprint:
@@ -678,7 +747,7 @@ export function calibrateAndRectifyOmrImage(
   // Destination canonical A4/compact resolution:
   // 1260px width matches standard 6px/mm for 210mm A4 sheet
   const dstWidth = 1260;
-  const dstHeight = Math.max(600, Math.round(dstWidth * (layout.pageHeightMm / layout.pageWidthMm)));
+  const dstHeight = Math.max(120, Math.round(dstWidth * (layout.pageHeightMm / layout.pageWidthMm)));
 
   // Destination fiducial centers in pixels on canonical canvas:
   const dstTL: QuadPoint = {

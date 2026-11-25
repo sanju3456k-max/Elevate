@@ -91,7 +91,8 @@ export const OMR_GEOMETRY = {
   row0CenterMm: 45.5,
 
   // Spacing between bottom of active question bubble rows and top of bottom fiducial markers
-  gapBelowGridToFiducialMm: 4.5,
+  // Placed immediately below the last question row to minimize unused vertical height
+  gapBelowGridToFiducialMm: 1.0,
 
   // Bubble circle metrics (3.2mm exam-grade diameter, centers preserved for zero-regression alignment)
   bubbleDiameterMm: 3.2,
@@ -147,11 +148,9 @@ export function getOmrLayoutConfig(
   const bottomFiducialY_mm = bottomFiducialTopMm + OMR_GEOMETRY.fiducialSizeMm / 2; // Center Y
 
   const calculatedPageHeightMm = bottomFiducialTopMm + OMR_GEOMETRY.fiducialSizeMm + OMR_GEOMETRY.fiducialMarginMm;
-  const pageHeightMm = Math.max(85, Math.min(OMR_GEOMETRY.maxPageHeightMm, calculatedPageHeightMm));
+  const pageHeightMm = Math.min(OMR_GEOMETRY.maxPageHeightMm, calculatedPageHeightMm);
 
-  const adjustedBottomFiducialY_mm = calculatedPageHeightMm < 85
-    ? (pageHeightMm - OMR_GEOMETRY.fiducialMarginMm - OMR_GEOMETRY.fiducialSizeMm / 2)
-    : bottomFiducialY_mm;
+  const adjustedBottomFiducialY_mm = bottomFiducialY_mm;
 
   const fiducialSpanX_mm = OMR_GEOMETRY.fiducialSpanX_mm;
   const fiducialSpanY_mm = adjustedBottomFiducialY_mm - OMR_GEOMETRY.fiducialTopLeft.y;
