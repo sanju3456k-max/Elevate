@@ -3,6 +3,7 @@ import path from 'path';
 import { runAdbDeviceAudit } from './adbDeviceBot';
 import { runCloudSwarmAudit } from './cloudSwarmBot';
 import { runWebUxAudit } from './webUxAuditBot';
+import { runWorkspaceIsolationAudit } from './workspaceIsolationBot';
 import { purgeSyntheticTestData } from './purge';
 import type {
   AuditReportData,
@@ -150,6 +151,10 @@ async function main() {
   const cloudRes = await runCloudSwarmAudit({ pacingMode: mode, runId });
   fs.writeFileSync(manifestPath, JSON.stringify(cloudRes.manifest, null, 2));
 
+  // 1b. Run Multi-Tenant Master Workspace & Test Sharing Isolation Audit
+  console.log('\n🏢 [Workspace Isolation Bot] Verifying Two-Institute Admin & Test Sharing...');
+  const wsRes = await runWorkspaceIsolationAudit();
+
   // 2. Run Web Visual & Timing UX Audit (if not skipped)
   let webRes: Awaited<ReturnType<typeof runWebUxAudit>> = {
     checks: [],
@@ -176,7 +181,7 @@ async function main() {
     });
   }
 
-  const allChecks = [...cloudRes.checks, ...webRes.checks, ...deviceRes.checks];
+  const allChecks = [...cloudRes.checks, ...wsRes.checks, ...webRes.checks, ...deviceRes.checks];
   const uxScore = computeUxScore(allChecks, deviceRes.metrics);
 
   // 4. Optional Auto-Purge

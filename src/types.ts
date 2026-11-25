@@ -90,6 +90,8 @@ export interface MathTest {
   batchTitle?: string;
   isDynamic?: boolean;
   _syncStatus?: 'synced' | 'pending' | 'failed';
+  workspaceId?: string;
+  ownerEmail?: string;
 }
 
 export interface UserCustomNote {

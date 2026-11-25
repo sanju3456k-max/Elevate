@@ -50,6 +50,14 @@ import {
   publishMasterTest,
   publishTestToBatchCatalog,
 } from './lib/masterAccount';
+import {
+  fetchMasterWorkspacesFromCloud,
+  subscribeToMasterWorkspaces,
+  getActiveWorkspaceForUser,
+  syncWorkspaceTestToCloud,
+  fetchWorkspaceTestsForUser,
+  PRIMARY_WORKSPACE_ID,
+} from './lib/masterWorkspace';
 import { syncBatchTestToFirestore, touchBatchCatalogBeacon } from './lib/batchCloudSync';
 import { listenerManager } from './lib/listenerManager';
 import { initNativeHardwareIntegration, syncNativeStatusBarTheme, getIsNativePlaybackPlaying, enterNativePip, exitNativeApp, isNativeAndroid } from './lib/nativeHardwareBridge';
@@ -541,10 +549,10 @@ export default function App() {
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
   // Platform security guard (Android-only enforcement with whitelist & passkey)
-  const [platformAccess, setPlatformAccess] = useState(() => checkPlatformAccess(isMasterUser(currentUser?.email || cachedUser?.email)));
+  const [platformAccess, setPlatformAccess] = useState(() => checkPlatformAccess(isMasterUser(currentUser || cachedUser)));
 
   useEffect(() => {
-    const isMaster = isMasterUser(currentUser?.email || cachedUser?.email);
+    const isMaster = isMasterUser(currentUser || cachedUser);
     setPlatformAccess(checkPlatformAccess(isMaster));
   }, [currentUser, cachedUser]);
 
@@ -1016,6 +1024,24 @@ export default function App() {
     if (splashEl && splashEl.parentNode) {
       splashEl.parentNode.removeChild(splashEl);
     }
+
+    // Sync Master Workspaces & Team Admin permissions in real time
+    fetchMasterWorkspacesFromCloud().catch(() => {});
+    const unsubWorkspaces = subscribeToMasterWorkspaces(() => {
+      window.dispatchEvent(new CustomEvent('master-workspace-membership-changed'));
+    });
+    const handleMembershipChange = () => {
+      const stillMaster = isMasterUser(currentUser || cachedUser);
+      setPlatformAccess(checkPlatformAccess(stillMaster));
+      if (!stillMaster && activeTabRef.current === 'master-console') {
+        setActiveTab('home');
+      }
+    };
+    window.addEventListener('master-workspace-membership-changed', handleMembershipChange);
+    return () => {
+      unsubWorkspaces();
+      window.removeEventListener('master-workspace-membership-changed', handleMembershipChange);
+    };
   }, []);
 
   // Top-Level Native Android Hardware Integration (Active for both Guest & Authenticated users)
@@ -1365,9 +1391,19 @@ export default function App() {
     try {
       const cloudTests = await fetchTestsFromFirestore(limitCount, force);
       setHasMoreTests(cloudTests.length >= limitCount);
-      const reconciled = smartCoordinator.reconcileTests(activeUid, cloudTests, deletedIds);
       const isMaster = isMasterUser(currentUser || cachedUser);
       const isGuest = isGuestUser(currentUser || cachedUser);
+      let combinedTests = cloudTests;
+      if (isMaster) {
+        const wsTests = await fetchWorkspaceTestsForUser(currentUser?.email || cachedUser?.email).catch(() => []);
+        if (wsTests.length > 0) {
+          const map = new Map<string, MathTest>();
+          cloudTests.forEach((t) => t?.id && map.set(t.id, t));
+          wsTests.forEach((wt) => wt?.id && map.set(wt.id, wt));
+          combinedTests = Array.from(map.values());
+        }
+      }
+      const reconciled = smartCoordinator.reconcileTests(activeUid, combinedTests, deletedIds);
       const merged = mergePublishedMasterTests(reconciled, isMaster, isGuest);
       setTests((prev) => (areTestsEqual(prev, merged) ? prev : merged));
     } catch (err) {
@@ -1911,9 +1947,21 @@ export default function App() {
   const handleSaveTest = async (test: MathTest) => {
     const isMaster = isMasterUser(currentUser || cachedUser) || (userProfile as any)?.role === 'admin';
     const existingTest = tests.find((t) => t.id === test.id);
+    // If a student loads an institutional/batch test in Test Creator Studio and saves,
+    // fork it into a safe personal copy so they can customize & keep it without modifying the original.
     if (existingTest && !isMaster && !isUserPersonalTest(existingTest)) {
-      console.warn('Unauthorized: Students cannot modify institutional, batch, or remedial tests:', test.id);
-      return;
+      test = {
+        ...test,
+        id: `test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        title: test.title?.includes('(My Copy)') ? test.title : `${test.title || 'Assessment'} (My Copy)`,
+        batchId: undefined,
+        workspaceId: undefined,
+        ownerEmail: undefined,
+        createdAt: new Date().toISOString(),
+      };
+      delete (test as any).isMasterTest;
+      delete (test as any).isOfficial;
+      delete (test as any).publishedToStudents;
     }
     const targetUid = currentUser?.uid || cachedUser?.uid || auth.currentUser?.uid || null;
     const isAuthenticUser = Boolean(targetUid && targetUid !== 'anonymous' && targetUid !== 'guest-user');
@@ -1926,6 +1974,7 @@ export default function App() {
           ? test.authorId
           : 'anonymous');
 
+    const activeWs = isMaster ? getActiveWorkspaceForUser(currentUser?.email || cachedUser?.email) : null;
     let validatedTest: MathTest = {
       ...test,
       authorId: finalAuthorId,
@@ -1937,6 +1986,10 @@ export default function App() {
       updatedAt: new Date().toISOString(),
       questions: normalizeQuestions(Array.isArray(test.questions) ? test.questions : []),
       testCode: (!test.testCode || isJsonFormat(test.testCode)) ? formatTestToText(test) : test.testCode,
+      ...(isMaster ? {
+        workspaceId: test.workspaceId || activeWs?.id || PRIMARY_WORKSPACE_ID,
+        ownerEmail: test.ownerEmail || activeWs?.ownerEmail || (currentUser?.email || cachedUser?.email || '').toLowerCase(),
+      } : {}),
     };
 
     // Auto-compress heavy diagram payloads if document approaches Firestore 1MB limits
@@ -1972,6 +2025,9 @@ export default function App() {
     // propagate full paper & layout changes to global published tests in Firestore
     if (isMaster || (validatedTest as any).isMasterTest || (validatedTest as any).publishedToStudents) {
       publishMasterTest(validatedTest).catch(console.warn);
+    }
+    if (isMaster) {
+      syncWorkspaceTestToCloud(validatedTest.workspaceId || PRIMARY_WORKSPACE_ID, validatedTest).catch(console.warn);
     }
 
     // Real-Time Batch Propagation:
@@ -2485,7 +2541,14 @@ export default function App() {
         <TestEditor
           initialTest={editingTest}
           initialOpenAiPrompt={editorAiPromptOpen}
-          allTests={tests}
+          allTests={(() => {
+            const isMaster = isMasterUser(currentUser || cachedUser);
+            if (!isMaster) return tests;
+            const activeWsId = getActiveWorkspaceForUser(currentUser?.email || cachedUser?.email)?.id || PRIMARY_WORKSPACE_ID;
+            return tests.filter(
+              (t) => (t.workspaceId || PRIMARY_WORKSPACE_ID) === activeWsId || isUserPersonalTest(t)
+            );
+          })()}
           currentUser={currentUser}
           onSaveTest={handleSaveTest}
           onDeleteTest={(testId) => {

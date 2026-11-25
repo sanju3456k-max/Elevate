@@ -44,6 +44,7 @@ import {
   type Unsubscribe 
 } from 'firebase/firestore';
 import { listenerManager } from './listenerManager';
+import { isMasterWorkspaceMember } from './masterWorkspace';
 
 /**
  * Designated Master Enterprise Account Emails
@@ -133,8 +134,7 @@ export function recordDeletedRemedialId(id: string): void {
  */
 export function isMasterUser(user: { email?: string | null } | null | undefined): boolean {
   if (!user || !user.email) return false;
-  const userEmail = user.email.toLowerCase().trim();
-  return AUTHORIZED_MASTER_EMAILS.some((e) => e.toLowerCase() === userEmail);
+  return isMasterWorkspaceMember(user.email);
 }
 
 /**
@@ -301,8 +301,10 @@ export function filterMasterTests(allTests: MathTest[]): MathTest[] {
 export async function publishMasterTest(test: MathTest): Promise<{ success: boolean; test: MathTest }> {
   const masterTest: MathTest = {
     ...test,
-    authorName: 'Academic Master',
-    authorEmail: MASTER_ADMIN_EMAIL,
+    authorName: test.authorName || 'Academic Master',
+    authorEmail: test.authorEmail || MASTER_ADMIN_EMAIL,
+    ownerEmail: test.ownerEmail || test.authorEmail || MASTER_ADMIN_EMAIL,
+    workspaceId: test.workspaceId || 'ws_primary',
     isPublic: true,
     updatedAt: new Date().toISOString(),
   };

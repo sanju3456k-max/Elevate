@@ -2,6 +2,15 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { setAppThemeColor } from '../lib/appThemeColor';
 import { McbUxAuditPanel } from './McbUxAuditPanel';
+import { MasterTeamAccessPanel } from './admin/MasterTeamAccessPanel';
+import {
+  type MasterWorkspace,
+  PRIMARY_WORKSPACE_ID,
+  getWorkspacesForUser,
+  getActiveWorkspaceForUser,
+  setPreferredWorkspaceId,
+  fetchMasterWorkspacesFromCloud,
+} from '../lib/masterWorkspace';
 import {
   ArrowLeft,
   Crown,
@@ -119,6 +128,7 @@ export type MasterConsoleNavTab =
   | 'remedial'
   | 'analytics'
   | 'publishing'
+  | 'team'
   | 'settings'
   | 'ux_audit';
 
@@ -163,7 +173,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   // Universal Multi-Tenant Batch Context
   // ==========================================
   const {
-    batches,
+    batches: allBatches,
     chapters,
     batchTests,
     students,
@@ -188,7 +198,62 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     loadCurriculumForBatch,
   } = useApp();
 
+  // Workspace-Scoped Isolation (Sanju vs Institute B)
+  const [workspaces, setWorkspaces] = useState<MasterWorkspace[]>(() =>
+    getWorkspacesForUser(currentUserEmail)
+  );
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>(() =>
+    getActiveWorkspaceForUser(currentUserEmail)?.id || PRIMARY_WORKSPACE_ID
+  );
+
+  useEffect(() => {
+    const refreshWs = () => {
+      const list = getWorkspacesForUser(currentUserEmail);
+      setWorkspaces(list);
+      if (list.length > 0 && !list.some((w) => w.id === activeWorkspaceId)) {
+        const resolved = getActiveWorkspaceForUser(currentUserEmail);
+        if (resolved) setActiveWorkspaceId(resolved.id);
+      }
+    };
+    refreshWs();
+    fetchMasterWorkspacesFromCloud().then(refreshWs).catch(() => {});
+    window.addEventListener('master-workspaces-updated', refreshWs);
+    return () => window.removeEventListener('master-workspaces-updated', refreshWs);
+  }, [currentUserEmail, activeWorkspaceId]);
+
+  const activeWorkspace = useMemo<MasterWorkspace>(() => {
+    return (
+      workspaces.find((w) => w.id === activeWorkspaceId) ||
+      workspaces[0] || {
+        id: PRIMARY_WORKSPACE_ID,
+        name: 'Elevate Primary Institute',
+        ownerEmail: (currentUserEmail || MASTER_ADMIN_EMAIL).toLowerCase(),
+        teamAdminEmails: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    );
+  }, [workspaces, activeWorkspaceId, currentUserEmail]);
+
+  const batches = useMemo(() => {
+    return allBatches.filter(
+      (b) => (b.workspaceId || PRIMARY_WORKSPACE_ID) === activeWorkspace.id
+    );
+  }, [allBatches, activeWorkspace.id]);
+
+  const workspaceTests = useMemo(() => {
+    return tests.filter(
+      (t) => (t.workspaceId || PRIMARY_WORKSPACE_ID) === activeWorkspace.id
+    );
+  }, [tests, activeWorkspace.id]);
+
   const [selectedBatchId, setSelectedBatchId] = useState<string>(() => batches[0]?.id || 'batch_testing_01');
+
+  useEffect(() => {
+    if (batches.length > 0 && !batches.some((b) => b.id === selectedBatchId)) {
+      setSelectedBatchId(batches[0].id);
+    }
+  }, [batches, selectedBatchId]);
 
   useEffect(() => {
     if (selectedBatchId) {
@@ -769,21 +834,27 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
 
   const [ledgerFilter, setLedgerFilter] = useState<'all' | 'assigned' | 'unassigned'>('all');
 
+  const workspaceDispatchLedger = useMemo(() => {
+    return dispatchLedger.filter(
+      (d) => ((d as any).workspaceId || PRIMARY_WORKSPACE_ID) === activeWorkspace.id
+    );
+  }, [dispatchLedger, activeWorkspace.id]);
+
   const filteredDispatchLedger = useMemo(() => {
-    return dispatchLedger.filter((d) => {
+    return workspaceDispatchLedger.filter((d) => {
       if (ledgerFilter === 'assigned') return !d.isUnassigned;
       if (ledgerFilter === 'unassigned') return Boolean(d.isUnassigned);
       return true;
     });
-  }, [dispatchLedger, ledgerFilter]);
+  }, [workspaceDispatchLedger, ledgerFilter]);
 
   const assignedCount = useMemo(() => {
-    return dispatchLedger.filter((d) => !d.isUnassigned).length;
-  }, [dispatchLedger]);
+    return workspaceDispatchLedger.filter((d) => !d.isUnassigned).length;
+  }, [workspaceDispatchLedger]);
 
   const unassignedCount = useMemo(() => {
-    return dispatchLedger.filter((d) => d.isUnassigned).length;
-  }, [dispatchLedger]);
+    return workspaceDispatchLedger.filter((d) => d.isUnassigned).length;
+  }, [workspaceDispatchLedger]);
 
   const handleToggleAssignRemedial = async (asg: AssignedRemedialTest) => {
     const res = await toggleRemedialAssignmentStatus(asg.id);
@@ -1473,6 +1544,27 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 <span className={isDesktopSidebarCollapsed ? 'lg:hidden' : ''}>MCB UX Audit</span>
               </div>
             </button>
+
+            <button
+              type="button"
+              onClick={() => { setActiveTab('team'); setIsMobileMenuOpen(false); }}
+              title="Manage Team Admins & Institute Workspaces"
+              className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center transition border-0 cursor-pointer ${
+                isDesktopSidebarCollapsed ? 'lg:justify-center lg:px-2' : 'justify-between'
+              } ${
+                activeTab === 'team'
+                  ? 'bg-[#0b57d0] text-white shadow-xs'
+                  : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <ShieldCheck className="w-4 h-4 text-purple-500 shrink-0" />
+                <span className={isDesktopSidebarCollapsed ? 'lg:hidden' : ''}>Team & Access</span>
+              </div>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-300 ${isDesktopSidebarCollapsed ? 'lg:hidden' : ''}`}>
+                {activeWorkspace.teamAdminEmails.length}
+              </span>
+            </button>
           </div>
         </div>
 
@@ -1627,6 +1719,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             { id: 'remedial', label: 'Remedial', icon: Zap },
             { id: 'analytics', label: 'Analytics', icon: BarChart3 },
             { id: 'publishing', label: 'Publish', icon: BookOpen, badge: currentBatchTests.length },
+            { id: 'team', label: 'Team & Access', icon: ShieldCheck, badge: activeWorkspace.teamAdminEmails.length },
             { id: 'settings', label: 'Security', icon: ShieldCheck },
             { id: 'ux_audit', label: 'UX Audit', icon: Activity },
           ].map((tab) => {
@@ -3724,7 +3817,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
 
             {/* Test Cards List with One-Click Publish Switch: 2 columns on tablet (md:grid-cols-2) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3">
-              {tests
+              {workspaceTests
                 .filter((t) => !isDeprecatedTest(t) && (t.title.toLowerCase().includes(publishingSearch.toLowerCase()) || (t.topic || '').toLowerCase().includes(publishingSearch.toLowerCase())))
                 .map((test) => {
                   const linkedBatchTest = currentBatchTests.find(
@@ -3838,6 +3931,19 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
       )}
 
       {activeTab === 'ux_audit' && <McbUxAuditPanel />}
+
+      {activeTab === 'team' && (
+        <MasterTeamAccessPanel
+          workspaces={workspaces}
+          activeWorkspace={activeWorkspace}
+          currentUserEmail={currentUserEmail || MASTER_ADMIN_EMAIL}
+          onSelectWorkspace={(wsId) => {
+            setActiveWorkspaceId(wsId);
+            setPreferredWorkspaceId(wsId);
+          }}
+          onNotify={(msg, type) => showNotification(msg, type)}
+        />
+      )}
 
       </div>
     </div>

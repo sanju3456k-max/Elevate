@@ -17,6 +17,7 @@ import { secureStorage } from '../lib/secureStorage';
 import { auth, db, getCachedFullTest, sanitizeForFirestore } from '../lib/firebase';
 import { dismissNotificationId, NOTIFICATIONS_EVENT } from '../lib/notifications';
 import { isMasterUser, publishTestToBatchCatalog, isDeprecatedTest, DEPRECATED_TEST_IDS } from '../lib/masterAccount';
+import { getActiveWorkspaceForUser, PRIMARY_WORKSPACE_ID } from '../lib/masterWorkspace';
 import { hydrateQuestionsForTest } from '../lib/questionCatalogService';
 import { getTestDurationMinutes } from '../utils/testFormatConverter';
 import { listenerManager } from '../lib/listenerManager';
@@ -909,6 +910,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // 3. Cloud Firestore Backed Batch CRUD
   const addBatch = async (batchData: Omit<Batch, 'id' | 'enrolledStudentsCount' | 'rating'>) => {
     const resolvedBanner = batchData.bannerUrl?.trim() || batchData.thumbnailUrl?.trim() || DEFAULT_HIGH_RES_BANNER;
+    const activeWs = getActiveWorkspaceForUser(user?.email);
     const newBatch: Batch = {
       ...batchData,
       id: `batch_${Date.now()}`,
@@ -917,6 +919,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isPublished: true,
       bannerUrl: resolvedBanner,
       thumbnailUrl: batchData.thumbnailUrl?.trim() || resolvedBanner,
+      workspaceId: batchData.workspaceId || activeWs?.id || PRIMARY_WORKSPACE_ID,
+      ownerEmail: batchData.ownerEmail || activeWs?.ownerEmail || user?.email?.toLowerCase(),
     };
     setBatches((prev) => [newBatch, ...prev]);
     const res = await syncBatchToFirestore(newBatch);

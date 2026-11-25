@@ -113,6 +113,8 @@ export interface Batch {
   isPublished: boolean;
   allowGuestAccess?: boolean; // When true, guest visitors can access and self-enroll in this batch
   isPrivateRosterOnly?: boolean; // When true, 100% hidden from catalog and guests; ONLY enrolled students and admin can see & access
+  workspaceId?: string; // Owning Master Console workspace ID (e.g., ws_primary or institute workspace)
+  ownerEmail?: string; // Owning Master account email
 }
 
 export interface WatchProgress {
