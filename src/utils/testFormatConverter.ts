@@ -170,6 +170,11 @@ export function formatQuestionToText(q: MathQuestion, index?: number): string {
     }
   }
 
+  // Question Paper Layout overrides (options grid, page/col break, keepTogether/flow, imageWidth)
+  if (q.paperLayout && typeof q.paperLayout === 'object' && Object.keys(q.paperLayout).length > 0) {
+    lines.push(`PaperLayout: ${JSON.stringify(q.paperLayout)}`);
+  }
+
   return lines.join('\n');
 }
 
@@ -267,6 +272,7 @@ export function parseQuestionFromText(rawBlock: string, fallbackTopic?: string, 
   let correctRaw = 'A';
   let explanation = '';
   let hint = '';
+  let qPaperLayout: any = undefined;
 
   let currentField: 'text' | 'explanation' | 'hint' | 'opt' | 'vars' | 'none' = 'none';
   let currentOptKey = '';
@@ -285,7 +291,7 @@ export function parseQuestionFromText(rawBlock: string, fallbackTopic?: string, 
 
     // When inside vars block, parse variable definitions directly until a known section keyword is encountered
     if (currentField === 'vars') {
-      const isNewSection = /^(?:(?:Q|Question)\s*\d+|Topic:|Subtopic:|Question:|Text:|Prompt:|Image:|ExplanationImage:|Correct(?:\s*Answer)?:\s*[A-H]|Explanation:|Solution:|Exp:|Hint:)/i.test(trimmed);
+      const isNewSection = /^(?:(?:Q|Question)\s*\d+|Topic:|Subtopic:|Question:|Text:|Prompt:|Image:|ExplanationImage:|Correct(?:\s*Answer)?:\s*[A-H]|Explanation:|Solution:|Exp:|Hint:|PaperLayout:)/i.test(trimmed);
       if (!isNewSection) {
         parseVarDefinitions(line, fixedVars);
         continue;
@@ -374,6 +380,19 @@ export function parseQuestionFromText(rawBlock: string, fallbackTopic?: string, 
       continue;
     }
 
+    // Question Paper Layout directive
+    const paperLayoutMatch = trimmed.match(/^PaperLayout:\s*(.*)$/i);
+    if (paperLayoutMatch) {
+      try {
+        const parsedLayout = JSON.parse(paperLayoutMatch[1].trim());
+        if (parsedLayout && typeof parsedLayout === 'object') {
+          qPaperLayout = parsedLayout;
+        }
+      } catch {}
+      currentField = 'none';
+      continue;
+    }
+
     // Fixed Variables prefix e.g. "Vars:", "Variables:", "FixedVars:"
     const varsMatch = trimmed.match(/^(?:Vars|Variables|FixedVars):\s*(.*)$/i);
     if (varsMatch) {
@@ -448,6 +467,15 @@ export function parseQuestionFromText(rawBlock: string, fallbackTopic?: string, 
 
   if (qImageUrl) question.imageUrl = qImageUrl;
   if (qExplanationImageUrl) question.explanationImageUrl = qExplanationImageUrl;
+  if (qPaperLayout) {
+    question.paperLayout = qPaperLayout;
+    if (typeof qPaperLayout.imageWidth === 'number' && qPaperLayout.imageWidth > 0) {
+      question.imageWidth = qPaperLayout.imageWidth;
+    }
+    if (Array.isArray(qPaperLayout.imageWidths)) {
+      question.imageWidths = qPaperLayout.imageWidths;
+    }
+  }
 
   // Fixed variables & dynamic template registration
   const hasFixedVars = Object.keys(fixedVars).length > 0;

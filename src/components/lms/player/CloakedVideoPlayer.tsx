@@ -164,6 +164,27 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
     }
   });
   const [availableQualityLevels, setAvailableQualityLevels] = useState<string[]>([]);
+
+  const visibleQualityOptions = React.useMemo(() => {
+    if (!availableQualityLevels || availableQualityLevels.length === 0) {
+      return QUALITY_OPTIONS;
+    }
+    const levelSet = new Set(availableQualityLevels);
+    return QUALITY_OPTIONS.filter((q) => q.value === 'default' || levelSet.has(q.value));
+  }, [availableQualityLevels]);
+
+  // If saved quality exceeds what the current video actually supports, fall back to highest available
+  useEffect(() => {
+    if (!availableQualityLevels || availableQualityLevels.length === 0) return;
+    const levelSet = new Set(availableQualityLevels);
+    const selectedObj = QUALITY_OPTIONS.find((o) => o.label === currentQuality);
+    if (selectedObj && selectedObj.value !== 'default' && !levelSet.has(selectedObj.value)) {
+      const bestAvailable = QUALITY_OPTIONS.find((o) => o.value !== 'default' && levelSet.has(o.value));
+      const fallbackLabel = bestAvailable ? bestAvailable.label : 'Auto (Best Quality)';
+      setCurrentQuality(fallbackLabel);
+      selectedQualityRef.current = fallbackLabel;
+    }
+  }, [availableQualityLevels, currentQuality]);
   const [captionsEnabled, setCaptionsEnabled] = useState(false);
   const captionsEnabledRef = useRef(false);
   captionsEnabledRef.current = captionsEnabled;
@@ -495,11 +516,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           setIsPlaying(true);
           onPlayStateChangeRef.current?.(true);
           setCurrentTime(seekToSeconds);
-          showNoticeWithDecay(`Jumped to ${formatDuration(seekToSeconds)}`, 5000);
         }
       });
     }
-  }, [seekToSeconds, isPlayerReady, safeCallPlayer, showNoticeWithDecay]);
+  }, [seekToSeconds, isPlayerReady, safeCallPlayer]);
 
   // Synchronize external play/pause state (e.g. from YouTube MiniPlayer controls)
   // Clean one-way sink: updates player hardware without triggering an echo feedback loop
@@ -2233,7 +2253,15 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
 
                       {/* Option 1: Quality */}
                       <button
-                        onClick={() => setOptionsView('quality')}
+                        onClick={() => {
+                          try {
+                            const levels = playerRef.current?.getAvailableQualityLevels?.();
+                            if (Array.isArray(levels) && levels.length > 0) {
+                              setAvailableQualityLevels(levels);
+                            }
+                          } catch {}
+                          setOptionsView('quality');
+                        }}
                         className="w-full text-left px-2.5 py-1.5 sm:py-2 rounded-xl text-xs transition flex items-center justify-between hover:bg-white/10 border-none outline-none cursor-pointer text-zinc-200"
                       >
                         <div className="flex items-center space-x-2">
@@ -2314,7 +2342,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                         </div>
                       </div>
                       <div className="overflow-y-auto space-y-0.5 pt-1 pr-0.5 max-h-[82px] sm:max-h-60 scrollbar-thin">
-                        {QUALITY_OPTIONS.map((q) => {
+                        {visibleQualityOptions.map((q) => {
                           const isSelected =
                             currentQuality === q.label ||
                             (q.value === 'default' && currentQuality.startsWith('Auto'));

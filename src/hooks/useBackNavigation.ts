@@ -92,9 +92,9 @@ function initGlobalListeners() {
   isInitialized = true;
 
   // 1. Popstate listener (System back gestures, Android back button, Browser back button)
-  window.addEventListener('popstate', (e: PopStateEvent) => {
+  window.addEventListener('popstate', () => {
     // If this popstate was triggered programmatically by popping a layer history entry, ignore it!
-    if (isPoppingLayerHistory || (e as any)?.state?.mockmc_layer) {
+    if (isPoppingLayerHistory) {
       return;
     }
 
@@ -184,7 +184,8 @@ export function useBackHandler(options: {
   id?: string;
 }): void {
   const { isOpen, onBack, priority = 10, id } = options;
-  const idRef = useRef<string>(id || `handler_${Math.random().toString(36).slice(2, 9)}`);
+  const fallbackIdRef = useRef<string>(`handler_${Math.random().toString(36).slice(2, 9)}`);
+  const resolvedId = id || fallbackIdRef.current;
   const onBackRef = useRef(onBack);
   onBackRef.current = onBack;
 
@@ -196,7 +197,7 @@ export function useBackHandler(options: {
   useEffect(() => {
     if (!isOpen) return;
 
-    const currentId = idRef.current;
+    const currentId = resolvedId;
     const item: StackItem = {
       id: currentId,
       priority,
@@ -237,7 +238,7 @@ export function useBackHandler(options: {
         }
       } catch {}
     };
-  }, [isOpen, priority]);
+  }, [isOpen, priority, resolvedId]);
 }
 
 /**

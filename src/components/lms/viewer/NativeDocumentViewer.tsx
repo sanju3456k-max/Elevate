@@ -23,6 +23,7 @@ import {
   Square,
   Sparkles,
   ExternalLink,
+  MoveHorizontal,
 } from 'lucide-react';
 import { extractGoogleDriveId, extractYouTubeId } from '../../../lms/security';
 import { getDriveEmbedPreviewUrl } from '../../../lib/filePreviewUtils';
@@ -220,10 +221,52 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
 
   const currentItem = items[currentIndex] || null;
 
-  // Reading Theme state (persists across document switches in session)
+  // Reading Theme & Horizontal Stretch state (persists in session)
   const [theme, setTheme] = useState<ReadingTheme>('paper');
+  const [isStretchWidth, setIsStretchWidth] = useState<boolean>(() => {
+    try {
+      return typeof sessionStorage !== 'undefined' && sessionStorage.getItem('elevate_viewer_stretch_width') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const toggleStretchWidth = useCallback(() => {
+    setIsStretchWidth((prev) => {
+      const next = !prev;
+      try {
+        sessionStorage.setItem('elevate_viewer_stretch_width', String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
   const [isThemeDockOpen, setIsThemeDockOpen] = useState<boolean>(false);
+  const [isControlsVisible, setIsControlsVisible] = useState<boolean>(true);
+  const controlsHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const themeDockRef = useRef<HTMLDivElement | null>(null);
+
+  const revealControls = useCallback(() => {
+    setIsControlsVisible(true);
+    if (controlsHideTimerRef.current) {
+      clearTimeout(controlsHideTimerRef.current);
+      controlsHideTimerRef.current = null;
+    }
+    if (!isThemeDockOpen) {
+      controlsHideTimerRef.current = setTimeout(() => {
+        setIsControlsVisible(false);
+      }, 2000);
+    }
+  }, [isThemeDockOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    revealControls();
+    return () => {
+      if (controlsHideTimerRef.current) {
+        clearTimeout(controlsHideTimerRef.current);
+        controlsHideTimerRef.current = null;
+      }
+    };
+  }, [isOpen, isThemeDockOpen, revealControls]);
 
   useEffect(() => {
     if (!isThemeDockOpen) return;
@@ -279,6 +322,10 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
   const [imageRotation, setImageRotation] = useState<number>(0);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [imgNaturalSize, setImgNaturalSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+  const [imgViewportWidth, setImgViewportWidth] = useState<number>(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 1024
+  );
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const imgContentRef = useRef<HTMLDivElement | null>(null);
   const imgPinchStateRef = useRef<{
@@ -304,8 +351,8 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
     nextZoom: number;
     relX: number;
     relY: number;
-    contentX: number;
-    contentY: number;
+    fx: number;
+    fy: number;
   } | null>(null);
 
   const applyAnchoredImageZoom = useCallback(
@@ -318,13 +365,17 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
         const contentRect = contentEl.getBoundingClientRect();
         const relX = clientX !== undefined ? clientX - elRect.left : elRect.width / 2;
         const relY = clientY !== undefined ? clientY - elRect.top : elRect.height / 2;
+        const localX = overrideContentX !== undefined ? overrideContentX : (clientX !== undefined ? clientX : elRect.left + elRect.width / 2) - contentRect.left;
+        const localY = overrideContentY !== undefined ? overrideContentY : (clientY !== undefined ? clientY : elRect.top + elRect.height / 2) - contentRect.top;
+        const fx = contentRect.width > 0 ? Math.max(0, Math.min(1, localX / contentRect.width)) : 0.5;
+        const fy = contentRect.height > 0 ? Math.max(0, Math.min(1, localY / contentRect.height)) : 0.5;
         imgPendingAnchorRef.current = {
           prevZoom,
           nextZoom,
           relX,
           relY,
-          contentX: overrideContentX !== undefined ? overrideContentX : (clientX !== undefined ? clientX : elRect.left + elRect.width / 2) - contentRect.left,
-          contentY: overrideContentY !== undefined ? overrideContentY : (clientY !== undefined ? clientY : elRect.top + elRect.height / 2) - contentRect.top,
+          fx,
+          fy,
         };
       }
       setImageZoom(nextZoom);
@@ -338,10 +389,21 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
     const contentEl = imgContentRef.current;
     if (!anchor || !el || !contentEl) return;
     imgPendingAnchorRef.current = null;
-    const scale = anchor.nextZoom / anchor.prevZoom;
-    el.scrollLeft = Math.max(0, contentEl.offsetLeft + anchor.contentX * scale - anchor.relX);
-    el.scrollTop = Math.max(0, contentEl.offsetTop + anchor.contentY * scale - anchor.relY);
+    el.scrollLeft = Math.max(0, contentEl.offsetLeft + anchor.fx * contentEl.offsetWidth - anchor.relX);
+    el.scrollTop = Math.max(0, contentEl.offsetTop + anchor.fy * contentEl.offsetHeight - anchor.relY);
   }, [imageZoom]);
+
+  useEffect(() => {
+    const el = imgScrollRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const updateW = () => {
+      if (el.clientWidth > 0) setImgViewportWidth(el.clientWidth);
+    };
+    updateW();
+    const ro = new ResizeObserver(updateW);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isOpen, detectedKind]);
 
   // Non-passive touchstart & touchmove listeners so 2-finger pinch cancels native scroll on Android WebView
   useEffect(() => {
@@ -453,8 +515,12 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
       const curRelX = midX - rect.left;
       const curRelY = midY - rect.top;
 
-      const tx = curRelX - ps.startScrollLeft - relScale * ps.startContentX;
+      let tx = curRelX - ps.startScrollLeft - relScale * ps.startContentX;
       const ty = curRelY - ps.startScrollTop - relScale * ps.startContentY;
+      const scaledW = contentEl.offsetWidth * relScale;
+      if (scaledW >= el.clientWidth) {
+        tx = Math.min(0, Math.max(el.clientWidth - scaledW, tx));
+      }
 
       contentEl.style.transformOrigin = '0 0';
       contentEl.style.willChange = 'transform';
@@ -493,7 +559,7 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
         if (now - prev.time < 320 && tapDist < 56) {
           e.preventDefault();
           imgLastTouchDoubleTapAtRef.current = now;
-          const nextZoom = imgZoomRef.current > 1.15 ? 1.0 : 2.2;
+          const nextZoom = imgZoomRef.current > 1.15 ? 1.0 : 2.25;
           applyAnchoredImageZoom(nextZoom, t.clientX, t.clientY);
           imgLastTapRef.current = { time: 0, x: 0, y: 0 };
         } else {
@@ -963,17 +1029,24 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
         exit={{ opacity: 0 }}
         transition={{ duration: 0.18 }}
         className={`fixed inset-0 z-50 flex flex-col select-none overflow-hidden ${themeClasses.wrapper}`}
+        onPointerDown={revealControls}
+        onTouchStart={revealControls}
+        onMouseMove={revealControls}
+        onScrollCapture={revealControls}
+        onWheel={revealControls}
         style={{
           paddingTop: 'var(--android-status-bar-height, 0px)',
           paddingBottom: 'var(--android-cutout-bottom, 0px)',
         }}
       >
         {/* ========================================================= */}
-        {/* 1. FLOATING CORNER THEME DROPDOWN DOCK (FULLSCREEN SPACE) */}
+        {/* 1. FLOATING CORNER THEME DROPDOWN DOCK (AUTO-HIDES IN 2S) */}
         {/* ========================================================= */}
         <div
           ref={themeDockRef}
-          className="fixed right-3 sm:right-5 z-40 flex flex-col items-end gap-2"
+          className={`fixed right-3 sm:right-5 z-40 flex flex-col items-end gap-2 transition-opacity duration-300 ${
+            isControlsVisible || isThemeDockOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}
           style={{
             top: 'calc(0.75rem + var(--android-status-bar-height, 0px))',
           }}
@@ -1012,6 +1085,23 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
                 aria-label="Paper White Mode"
               >
                 <Sun className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  toggleStretchWidth();
+                  setIsThemeDockOpen(false);
+                }}
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition cursor-pointer border-none ${
+                  isStretchWidth
+                    ? 'bg-[#0b57d0] text-white shadow-xs'
+                    : 'bg-transparent text-slate-600 dark:text-zinc-300 hover:bg-black/5 dark:hover:bg-white/10'
+                }`}
+                title={isStretchWidth ? 'Auto-Fit Aspect Ratio' : 'Stretch Width to Screen (Keep Height)'}
+                aria-label="Toggle Horizontal Stretch"
+                aria-pressed={isStretchWidth}
+              >
+                <MoveHorizontal className="w-4 h-4" />
               </button>
               <button
                 type="button"
@@ -1122,6 +1212,7 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
                 fileName={currentItem.title}
                 hideTopToolbar={true}
                 hideBottomDock={true}
+                stretchWidth={isStretchWidth}
                 onClose={onClose}
               />
             </div>
@@ -1153,7 +1244,7 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
               onMouseLeave={handleImageMouseUp}
               onDoubleClick={(e) => {
                 if (Date.now() - imgLastTouchDoubleTapAtRef.current < 500) return;
-                const nextZoom = imgZoomRef.current > 1.15 ? 1.0 : 2.2;
+                const nextZoom = imgZoomRef.current > 1.15 ? 1.0 : 2.25;
                 applyAnchoredImageZoom(nextZoom, e.clientX, e.clientY);
               }}
               onWheel={(e) => {
@@ -1166,34 +1257,49 @@ export const NativeDocumentViewer: React.FC<NativeDocumentViewerProps> = ({
               }}
               className={`w-full h-full overflow-y-auto ${
                 imageZoom > 1.02 ? 'overflow-x-auto items-start cursor-grab active:cursor-grabbing' : 'overflow-x-hidden items-center'
-              } flex flex-col p-0 sm:p-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden select-none relative`}
+              } flex flex-col p-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden select-none relative`}
               style={{
                 touchAction: imageZoom > 1.02 ? 'pan-x pan-y' : 'pan-y',
               }}
             >
-              {docBlobUrl && (
-                <div
-                  ref={imgContentRef}
-                  className="flex justify-center my-auto shrink-0"
-                  style={{
-                    width: imageZoom > 1.02 ? `${imageZoom * 100}%` : '100%',
-                  }}
-                >
-                  <img
-                    src={docBlobUrl}
-                    alt={currentItem.title}
-                    draggable={false}
-                    decoding="async"
+              {docBlobUrl && (() => {
+                const safeVw = Math.max(280, imgViewportWidth);
+                const fitBaseW = safeVw < 768 ? safeVw : Math.min(safeVw, 920);
+                const baseW = isStretchWidth ? safeVw : fitBaseW;
+                const baseH =
+                  imgNaturalSize.w > 0 && imgNaturalSize.h > 0
+                    ? Math.round(fitBaseW * (imgNaturalSize.h / imgNaturalSize.w))
+                    : 0;
+                return (
+                  <div
+                    ref={imgContentRef}
+                    className="my-auto shrink-0"
                     style={{
-                      filter: themeClasses.canvasFilter,
-                      maxWidth: imageZoom > 1.02 ? `${Math.round(920 * imageZoom)}px` : undefined,
+                      width: `${Math.round(baseW * imageZoom)}px`,
+                      height: baseH ? `${Math.round(baseH * imageZoom)}px` : 'auto',
+                      marginLeft: baseW * imageZoom <= safeVw ? 'auto' : 0,
+                      marginRight: baseW * imageZoom <= safeVw ? 'auto' : 0,
                     }}
-                    className={`w-full ${
-                      imageZoom > 1.02 ? '' : 'sm:max-w-[920px]'
-                    } h-auto object-contain pointer-events-none select-none block`}
-                  />
-                </div>
-              )}
+                  >
+                    <img
+                      src={docBlobUrl}
+                      alt={currentItem.title}
+                      draggable={false}
+                      decoding="async"
+                      onLoad={(e) => {
+                        const nw = e.currentTarget.naturalWidth;
+                        const nh = e.currentTarget.naturalHeight;
+                        if (nw > 0 && nh > 0) setImgNaturalSize({ w: nw, h: nh });
+                      }}
+                      style={{
+                        filter: themeClasses.canvasFilter,
+                        objectFit: isStretchWidth ? 'fill' : 'contain',
+                      }}
+                      className="w-full h-full pointer-events-none select-none block"
+                    />
+                  </div>
+                );
+              })()}
             </div>
           )}
 

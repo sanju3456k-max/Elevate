@@ -2516,6 +2516,9 @@ function formatQuestionToText(q, index) {
       lines.push(`${k}: ${v}`);
     }
   }
+  if (q.paperLayout && typeof q.paperLayout === "object" && Object.keys(q.paperLayout).length > 0) {
+    lines.push(`PaperLayout: ${JSON.stringify(q.paperLayout)}`);
+  }
   return lines.join("\n");
 }
 function formatTestToText(test) {

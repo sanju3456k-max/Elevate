@@ -630,7 +630,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let isMounted = true;
     const syncActiveBatchTests = async () => {
       try {
-        let hasNew = false;
+        let hasUpdates = false;
         let currentTests = [...batchTests];
 
         for (const b of batches) {
@@ -646,21 +646,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               cloudTests.forEach((ct) => {
                 const cId = ct.testId || ct.id;
                 if (!cId || isDeprecatedTest(ct)) return;
+                if (Array.isArray(ct.questions) && ct.questions.length > 0) {
+                  try {
+                    localStorage.setItem(`batch_${b.id}_test_${cId}`, JSON.stringify(ct));
+                  } catch {}
+                }
                 const existingIdx = currentTests.findIndex(
                   (t) => (t.testId || t.id) === cId && t.batchId === b.id
                 );
                 if (existingIdx >= 0) {
-                  currentTests[existingIdx] = { ...currentTests[existingIdx], ...ct };
+                  const prevT = currentTests[existingIdx];
+                  if (
+                    ct.updatedAt !== prevT.updatedAt ||
+                    ct.title !== prevT.title ||
+                    ct.questionCount !== prevT.questionCount ||
+                    ct.timeLimitMinutes !== prevT.timeLimitMinutes
+                  ) {
+                    hasUpdates = true;
+                  }
+                  currentTests[existingIdx] = { ...prevT, ...ct };
                 } else {
                   currentTests.push(ct);
-                  hasNew = true;
+                  hasUpdates = true;
                 }
               });
             }
           } catch {}
         }
 
-        if (isMounted && hasNew) {
+        if (isMounted && hasUpdates) {
           const cleanList = currentTests.filter((t) => !isDeprecatedTest(t));
           setBatchTests(cleanList);
           try {
@@ -674,8 +688,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     syncActiveBatchTests();
+    const handleLocalTestEdit = (evt: Event) => {
+      const detail = (evt as CustomEvent)?.detail;
+      const editedTest = detail?.test;
+      if (!editedTest?.id) return;
+      setBatchTests((prev) => {
+        let changed = false;
+        const next = prev.map((bt) => {
+          const btId = bt.testId || bt.id;
+          if (btId === editedTest.id || (bt as any).originalTestId === editedTest.id) {
+            changed = true;
+            try {
+              localStorage.setItem(
+                `batch_${bt.batchId}_test_${btId}`,
+                JSON.stringify({ ...editedTest, batchId: bt.batchId })
+              );
+            } catch {}
+            return {
+              ...bt,
+              title: editedTest.title || bt.title,
+              topic: editedTest.topic || bt.topic,
+              difficulty: (editedTest.difficulty as any) || bt.difficulty,
+              timeLimitMinutes: editedTest.timeLimitMinutes || editedTest.time || bt.timeLimitMinutes,
+              questionCount: Array.isArray(editedTest.questions) ? editedTest.questions.length : bt.questionCount,
+              updatedAt: editedTest.updatedAt || new Date().toISOString(),
+            };
+          }
+          return bt;
+        });
+        if (changed) {
+          try {
+            secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(next));
+          } catch {}
+          return next;
+        }
+        return prev;
+      });
+    };
+    window.addEventListener('batch-tests-updated', handleLocalTestEdit);
     return () => {
       isMounted = false;
+      window.removeEventListener('batch-tests-updated', handleLocalTestEdit);
     };
   }, [batches.length]);
 
@@ -1251,9 +1304,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // 3. Batch Tests Authoritative Reconciliation
         fetchBatchTestsFromFirestore(batchId).then((cloudTests) => {
+          const cleanCloud = (cloudTests || []).filter((t: any) => !isDeprecatedTest(t));
+          cleanCloud.forEach((ct: any) => {
+            const cId = ct?.testId || ct?.id;
+            if (cId && Array.isArray(ct.questions) && ct.questions.length > 0) {
+              try {
+                localStorage.setItem(`batch_${batchId}_test_${cId}`, JSON.stringify(ct));
+              } catch {}
+            }
+          });
           setBatchTests((prev) => {
             const otherBatchTests = prev.filter((t) => t.batchId !== batchId && !isDeprecatedTest(t));
-            const cleanCloud = (cloudTests || []).filter((t: any) => !isDeprecatedTest(t));
             const next = [...otherBatchTests, ...cleanCloud];
             try {
               secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(next));

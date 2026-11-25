@@ -27,6 +27,7 @@ interface PdfCanvasViewerProps {
   onClose?: () => void;
   hideTopToolbar?: boolean;
   hideBottomDock?: boolean;
+  stretchWidth?: boolean;
 }
 
 // Single Page Canvas Renderer Component for Continuous Scroll and High Performance
@@ -35,6 +36,7 @@ interface ContinuousPageItemProps {
   pageNumber: number;
   scale: number;
   rotation: number;
+  stretchTargetWidth?: number;
   onEnterView?: (pageNum: number) => void;
 }
 
@@ -43,6 +45,7 @@ const ContinuousPageItem: React.FC<ContinuousPageItemProps> = ({
   pageNumber,
   scale,
   rotation,
+  stretchTargetWidth,
   onEnterView,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -70,10 +73,18 @@ const ContinuousPageItem: React.FC<ContinuousPageItemProps> = ({
     };
   }, [pdfDoc, pageNumber, rotation]);
 
-  const pageDims = useMemo(() => ({
-    width: baseDims.width ? Math.floor(baseDims.width * scale) : 0,
-    height: baseDims.height ? Math.floor(baseDims.height * scale) : 0,
-  }), [baseDims, scale]);
+  const pageDims = useMemo(() => {
+    const naturalW = baseDims.width ? Math.floor(baseDims.width * scale) : 0;
+    const naturalH = baseDims.height ? Math.floor(baseDims.height * scale) : 0;
+    const width =
+      stretchTargetWidth && naturalW > 0 && stretchTargetWidth > naturalW
+        ? Math.floor(stretchTargetWidth)
+        : naturalW;
+    return {
+      width,
+      height: naturalH,
+    };
+  }, [baseDims, scale, stretchTargetWidth]);
 
   // Render on intersection / visibility (stable callback: never depends on `rendering` or `onEnterView`)
   const renderPage = useCallback(async () => {
@@ -209,6 +220,40 @@ const ContinuousPageItem: React.FC<ContinuousPageItemProps> = ({
   );
 };
 
+/**
+ * Computes auto-fit scale for PDF pages.
+ * Landscape slides and single-slide mode fit both width and height (contain) so the bottom is never clipped.
+ * Portrait documents in continuous mode fit readable width for vertical scrolling.
+ */
+const computeAutoFitScale = (
+  unscaledWidth: number,
+  unscaledHeight: number,
+  containerWidth: number,
+  containerHeight: number,
+  displayMode: 'continuous' | 'single'
+): number => {
+  const safeW = Math.max(containerWidth, 280);
+  const safeH = Math.max(containerHeight, 240);
+  const isLandscapeSlide = unscaledWidth > unscaledHeight * 1.05;
+
+  let autoScale: number;
+  if (displayMode === 'single' || isLandscapeSlide) {
+    const horizPad = safeW < 768 ? 8 : 24;
+    const vertPad = 16;
+    const wScale = Math.max(safeW - horizPad, 240) / unscaledWidth;
+    const hScale = Math.max(safeH - vertPad, 200) / unscaledHeight;
+    autoScale = Math.min(wScale, hScale);
+  } else {
+    const targetWidth =
+      safeW < 768 ? Math.max(safeW - 8, 280) : Math.min(safeW - 32, 920);
+    autoScale = targetWidth / unscaledWidth;
+  }
+
+  return Number.isFinite(autoScale) && autoScale > 0
+    ? Math.max(0.1, Number(autoScale.toFixed(3)))
+    : 1.0;
+};
+
 export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
   url,
   fallbackEmbedUrl,
@@ -216,7 +261,11 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
   onClose,
   hideTopToolbar = false,
   hideBottomDock = false,
+  stretchWidth = false,
 }) => {
+  const [containerWidthPx, setContainerWidthPx] = useState<number>(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 1024
+  );
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -247,7 +296,7 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
     }
     scrollHideTimerRef.current = setTimeout(() => {
       setIsScrolling(false);
-    }, 1500);
+    }, 2000);
   }, []);
 
   useEffect(() => {
@@ -282,25 +331,42 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
     nextZoom: number;
     relX: number;
     relY: number;
-    contentX: number;
+    fx: number;
     contentY: number;
+    pageIndex: number;
   } | null>(null);
 
   const applyAnchoredZoom = useCallback(
     (nextZoom: number, clientX?: number, clientY?: number, overrideContentX?: number, overrideContentY?: number) => {
       const el = scrollContainerRef.current;
+      const contentEl = pdfContentRef.current;
       const prevZoom = zoomRef.current;
-      if (el && Math.abs(nextZoom - prevZoom) > 0.001) {
+      if (el && contentEl && Math.abs(nextZoom - prevZoom) > 0.001) {
         const rect = el.getBoundingClientRect();
         const relX = clientX !== undefined ? clientX - rect.left : rect.width / 2;
         const relY = clientY !== undefined ? clientY - rect.top : rect.height / 2;
+        const probeY = clientY !== undefined ? clientY : rect.top + rect.height / 2;
+        const pageEls = Array.from(contentEl.children) as HTMLElement[];
+        let targetIdx = 0;
+        for (let i = 0; i < pageEls.length; i++) {
+          const r = pageEls[i].getBoundingClientRect();
+          targetIdx = i;
+          if (probeY <= r.bottom) break;
+        }
+        const targetRect = pageEls[targetIdx]?.getBoundingClientRect();
+        const probeX = clientX !== undefined ? clientX : rect.left + rect.width / 2;
+        const fx =
+          targetRect && targetRect.width > 0
+            ? Math.max(0, Math.min(1, (probeX - targetRect.left) / targetRect.width))
+            : 0.5;
         pendingZoomAnchorRef.current = {
           prevZoom,
           nextZoom,
           relX,
           relY,
-          contentX: overrideContentX !== undefined ? overrideContentX : el.scrollLeft + relX,
+          fx,
           contentY: overrideContentY !== undefined ? overrideContentY : el.scrollTop + relY,
+          pageIndex: targetIdx,
         };
       }
       setZoom(nextZoom);
@@ -311,10 +377,18 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
   useLayoutEffect(() => {
     const anchor = pendingZoomAnchorRef.current;
     const el = scrollContainerRef.current;
-    if (!anchor || !el) return;
+    const contentEl = pdfContentRef.current;
+    if (!anchor || !el || !contentEl) return;
     pendingZoomAnchorRef.current = null;
     const scale = anchor.nextZoom / anchor.prevZoom;
-    el.scrollLeft = Math.max(0, anchor.contentX * scale - anchor.relX);
+    const pageEls = Array.from(contentEl.children) as HTMLElement[];
+    const pageEl = pageEls[anchor.pageIndex] || pageEls[0];
+    if (pageEl) {
+      const elRect = el.getBoundingClientRect();
+      const pageRect = pageEl.getBoundingClientRect();
+      const pageLeftInScroll = el.scrollLeft + (pageRect.left - elRect.left);
+      el.scrollLeft = Math.max(0, pageLeftInScroll + anchor.fx * pageRect.width - anchor.relX);
+    }
     el.scrollTop = Math.max(0, anchor.contentY * scale - anchor.relY);
   }, [zoom]);
 
@@ -397,8 +471,13 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
       const curRelX = midX - rect.left;
       const curRelY = midY - rect.top;
 
-      const tx = ps.startScrollLeft + curRelX - relScale * ps.startContentX;
+      let tx = ps.startScrollLeft + curRelX - relScale * ps.startContentX;
       const ty = ps.startScrollTop + curRelY - relScale * ps.startContentY;
+      const scaledContentW = contentEl.offsetWidth * relScale;
+      if (scaledContentW >= el.clientWidth) {
+        const minTx = el.clientWidth - scaledContentW;
+        tx = Math.min(0, Math.max(minTx, tx));
+      }
 
       contentEl.style.transformOrigin = '0 0';
       contentEl.style.willChange = 'transform';
@@ -437,7 +516,7 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
         if (now - prev.time < 320 && tapDist < 56) {
           e.preventDefault();
           lastTouchDoubleTapAtRef.current = now;
-          const nextZoom = zoomRef.current > 1.15 ? 1.0 : 2.0;
+          const nextZoom = zoomRef.current > 1.15 ? 1.0 : 2.25;
           applyAnchoredZoom(nextZoom, t.clientX, t.clientY);
           lastTapRef.current = { time: 0, x: 0, y: 0 };
         } else {
@@ -452,7 +531,7 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
     (e: React.MouseEvent<HTMLDivElement>) => {
       // Ignore synthetic dblclick fired by mobile browsers right after touch double-tap
       if (Date.now() - lastTouchDoubleTapAtRef.current < 500) return;
-      const nextZoom = zoomRef.current > 1.15 ? 1.0 : 2.0;
+      const nextZoom = zoomRef.current > 1.15 ? 1.0 : 2.25;
       applyAnchoredZoom(nextZoom, e.clientX, e.clientY);
     },
     [applyAnchoredZoom]
@@ -549,20 +628,21 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
           setTotalPages(pdf.numPages);
           setPageNum(1);
 
-          // Device-Resolution Fit-to-Width (full desktop width for landscape/PPT slides, readable max-width for portrait docs)
+          // Fit-to-viewport: landscape slides & single-slide mode fit both width and height cleanly
           try {
             const firstPage = await pdf.getPage(1);
             const unscaledViewport = firstPage.getViewport({ scale: 1 });
             const containerWidth = containerRef.current?.clientWidth || window.innerWidth || 800;
-            const isLandscapeSlide = unscaledViewport.width > unscaledViewport.height * 1.05;
-            const targetWidth =
-              containerWidth < 768
-                ? Math.max(containerWidth - 8, 280)
-                : isLandscapeSlide
-                ? Math.max(containerWidth - 24, 280)
-                : Math.min(containerWidth - 32, 920);
-            const autoScale = targetWidth / unscaledViewport.width;
-            setFitScale(Math.max(0.4, Number(autoScale.toFixed(3))));
+            const containerHeight = containerRef.current?.clientHeight || window.innerHeight || 700;
+            setFitScale(
+              computeAutoFitScale(
+                unscaledViewport.width,
+                unscaledViewport.height,
+                containerWidth,
+                containerHeight,
+                displayMode
+              )
+            );
           } catch {
             setFitScale(1.0);
           }
@@ -595,26 +675,18 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
         const firstPage = await pdfDoc.getPage(1);
         const unscaledViewport = firstPage.getViewport({ scale: 1, rotation });
         const containerWidth = containerRef.current.clientWidth || window.innerWidth || 800;
-        const containerHeight =
-          (containerRef.current.clientHeight || window.innerHeight || 900) - (hideTopToolbar ? 0 : 56);
+        setContainerWidthPx(containerWidth);
+        const containerHeight = containerRef.current.clientHeight || window.innerHeight || 700;
 
-        let autoScale: number;
-        if (displayMode === 'single') {
-          const wScale = (containerWidth - 16) / unscaledViewport.width;
-          const hScale = containerHeight / unscaledViewport.height;
-          autoScale = Math.min(wScale, hScale);
-        } else {
-          const isLandscapeSlide = unscaledViewport.width > unscaledViewport.height * 1.05;
-          const targetWidth =
-            containerWidth < 768
-              ? Math.max(containerWidth - 8, 280)
-              : isLandscapeSlide
-              ? Math.max(containerWidth - 24, 280)
-              : Math.min(containerWidth - 32, 920);
-          autoScale = targetWidth / unscaledViewport.width;
-        }
-        if (!cancelled && Number.isFinite(autoScale) && autoScale > 0) {
-          setFitScale(Math.max(0.4, Number(autoScale.toFixed(3))));
+        const nextScale = computeAutoFitScale(
+          unscaledViewport.width,
+          unscaledViewport.height,
+          containerWidth,
+          containerHeight,
+          displayMode
+        );
+        if (!cancelled) {
+          setFitScale(nextScale);
         }
       } catch {}
     };
@@ -1016,10 +1088,21 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
             <div
               ref={scrollContainerRef}
               onScroll={handleContainerScroll}
-              onTouchStart={handleTouchStart}
+              onTouchStart={(e) => {
+                handleContainerScroll();
+                handleTouchStart(e);
+              }}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
               onDoubleClick={handleDoubleClickZoom}
+              onWheel={(e) => {
+                if (e.ctrlKey || e.metaKey) {
+                  e.preventDefault();
+                  const delta = e.deltaY < 0 ? 0.2 : -0.2;
+                  const nextZoom = Math.max(1.0, Math.min(3.0, Number((zoomRef.current + delta).toFixed(2))));
+                  applyAnchoredZoom(nextZoom, e.clientX, e.clientY);
+                }
+              }}
               onMouseDown={handleScrollMouseDown}
               onMouseMove={handleScrollMouseMove}
               onMouseUp={handleScrollMouseUp}
@@ -1032,7 +1115,7 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
                 touchAction: zoom > 1.02 ? 'pan-x pan-y' : 'pan-y',
               }}
             >
-              <div ref={pdfContentRef} className={`flex flex-col ${zoom > 1.02 ? 'items-start' : 'items-center'} min-w-full my-0`}>
+              <div ref={pdfContentRef} className={`flex flex-col ${zoom > 1.02 ? 'items-start my-0' : 'items-center my-auto py-2 gap-2'} min-w-full`}>
                 {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((pNum) => (
                   <ContinuousPageItem
                     key={`page-${pNum}`}
@@ -1040,6 +1123,7 @@ export const PdfCanvasViewer: React.FC<PdfCanvasViewerProps> = ({
                     pageNumber={pNum}
                     scale={fitScale * zoom}
                     rotation={rotation}
+                    stretchTargetWidth={stretchWidth ? containerWidthPx * zoom : undefined}
                     onEnterView={(currentVisible) => setPageNum(currentVisible)}
                   />
                 ))}

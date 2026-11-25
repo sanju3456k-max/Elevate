@@ -1977,26 +1977,65 @@ export default function App() {
     // Real-Time Batch Propagation:
     // Sync updated questions and question paper layouts across all batches that include this test
     try {
-      const rawBatchTests = localStorage.getItem('math_mock_lms_batch_tests');
+      const targetBatchIds = new Set<string>();
+      const batchTestMetaByBatch = new Map<string, any>();
+
+      const rawBatchTests =
+        secureStorage.getItem('elevatelabs_batch_tests_v2') ||
+        localStorage.getItem('math_mock_lms_batch_tests');
       if (rawBatchTests) {
         const batchTestsList = JSON.parse(rawBatchTests);
         if (Array.isArray(batchTestsList)) {
-          const matchingBatches = batchTestsList.filter(
-            (bt: any) => (bt.testId || bt.id) === validatedTest.id
-          );
-          matchingBatches.forEach((mb: any) => {
-            if (mb.batchId) {
-              syncBatchTestToFirestore(mb.batchId, validatedTest).catch(console.warn);
-              publishTestToBatchCatalog(mb.batchId, validatedTest).catch(console.warn);
+          batchTestsList.forEach((bt: any) => {
+            const btId = bt?.testId || bt?.id;
+            const origId = bt?.originalTestId;
+            if (
+              bt?.batchId &&
+              (btId === validatedTest.id ||
+                origId === validatedTest.id ||
+                (bt.title && validatedTest.title && bt.title.trim().toLowerCase() === validatedTest.title.trim().toLowerCase()))
+            ) {
+              targetBatchIds.add(bt.batchId);
+              batchTestMetaByBatch.set(bt.batchId, bt);
             }
           });
         }
       }
-      if (validatedTest.batchId) {
-        syncBatchTestToFirestore(validatedTest.batchId, validatedTest).catch(console.warn);
-        publishTestToBatchCatalog(validatedTest.batchId, validatedTest).catch(console.warn);
+
+      const rawChapters = secureStorage.getItem('elevatelabs_chapters_v2');
+      if (rawChapters) {
+        const chaptersList = JSON.parse(rawChapters);
+        if (Array.isArray(chaptersList)) {
+          chaptersList.forEach((ch: any) => {
+            if (ch?.batchId && Array.isArray(ch.testIds) && ch.testIds.includes(validatedTest.id)) {
+              targetBatchIds.add(ch.batchId);
+            }
+          });
+        }
       }
-      touchBatchCatalogBeacon().catch(() => {});
+
+      if (validatedTest.batchId) {
+        targetBatchIds.add(validatedTest.batchId);
+      }
+
+      targetBatchIds.forEach((bId) => {
+        const existingMeta = batchTestMetaByBatch.get(bId) || {};
+        const batchPayload = {
+          ...existingMeta,
+          ...validatedTest,
+          id: validatedTest.id,
+          testId: validatedTest.id,
+          batchId: bId,
+          timeLimitMinutes: validatedTest.timeLimitMinutes || validatedTest.time || existingMeta.timeLimitMinutes || 25,
+          questionCount: validatedTest.questions?.length || existingMeta.questionCount || 0,
+        };
+        syncBatchTestToFirestore(bId, batchPayload).catch(console.warn);
+        publishTestToBatchCatalog(bId, validatedTest).catch(console.warn);
+      });
+
+      if (targetBatchIds.size > 0) {
+        touchBatchCatalogBeacon().catch(() => {});
+      }
     } catch (e) {
       console.warn('Batch propagation skipped:', e);
     }
@@ -2004,7 +2043,7 @@ export default function App() {
     // Broadcast real-time update event so any active views/subscribers reload immediately
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('tests-published-updated', { detail: { testId: validatedTest.id, isPublished: true } }));
-      window.dispatchEvent(new CustomEvent('batch-tests-updated', { detail: { testId: validatedTest.id } }));
+      window.dispatchEvent(new CustomEvent('batch-tests-updated', { detail: { testId: validatedTest.id, test: validatedTest } }));
     }
 
     // Stay in test creation studio stage

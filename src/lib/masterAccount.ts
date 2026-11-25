@@ -3256,24 +3256,33 @@ export async function publishTestToBatchCatalog(
       if (typeof data.catalogRevision === 'number') currentRevision = data.catalogRevision;
     }
 
+    // Check existing card & chunk so edits update in-place without losing chapterId/order
+    const existingCard = currentCards.find((c) => c.id === test.id || (c as any).testId === test.id);
+    const preferredChunkId = (existingCard as any)?.chunkId || (existingCard as any)?.catalogChunkId || activeChunkId;
+    const preferredChunkIndex =
+      typeof preferredChunkId === 'string' && preferredChunkId.startsWith('chunk_')
+        ? parseInt(preferredChunkId.replace('chunk_', ''), 10) || activeChunkIndex
+        : activeChunkIndex;
+
     // Measure new test byte size
     const sanitizedTest = sanitizeForFirestore(test);
     const testByteSize = estimateByteSize(sanitizedTest);
 
     // Check existing chunk size
-    const activeChunkRef = doc(db, 'batches', cleanBatchId, 'question_catalogs', activeChunkId);
+    const activeChunkRef = doc(db, 'batches', cleanBatchId, 'question_catalogs', preferredChunkId);
     const chunkSnap = await getDoc(activeChunkRef).catch(() => null);
 
     let targetChunkRef = activeChunkRef;
-    let targetChunkId = activeChunkId;
-    let targetIndex = activeChunkIndex;
+    let targetChunkId = preferredChunkId;
+    let targetIndex = preferredChunkIndex;
 
     if (chunkSnap && chunkSnap.exists()) {
       const chunkData = chunkSnap.data();
       const existingBytes = estimateByteSize(chunkData);
+      const alreadyInThisChunk = Boolean(chunkData?.tests && chunkData.tests[test.id]);
 
-      // If test does not fit within 750 KB, spill to next chunk
-      if (existingBytes + testByteSize >= BATCH_CHUNK_CEILING_BYTES) {
+      // If test does not fit within 750 KB (and is not already in this chunk), spill to next chunk
+      if (!alreadyInThisChunk && existingBytes + testByteSize >= BATCH_CHUNK_CEILING_BYTES) {
         targetIndex = activeChunkIndex + 1;
         targetChunkId = `chunk_${targetIndex}`;
         targetChunkRef = doc(db, 'batches', cleanBatchId, 'question_catalogs', targetChunkId);
@@ -3297,9 +3306,11 @@ export async function publishTestToBatchCatalog(
       { merge: true }
     );
 
-    // 2. Add / update card in manifest
+    // 2. Add / update card in manifest (preserving chapterId, folderId, order, createdAt)
     const exactDur = getTestDurationMinutes(test);
+    const nowIso = new Date().toISOString();
     const newCard: BatchTestCard = {
+      ...(existingCard || {}),
       testId: test.id,
       id: test.id,
       batchId: cleanBatchId,
@@ -3312,9 +3323,10 @@ export async function publishTestToBatchCatalog(
       chunkId: targetChunkId,
       catalogChunkId: targetChunkId,
       chunkEstimatedBytes: testByteSize || 85 * 1024,
-      order: currentCards.length + 1,
-      createdAt: new Date().toISOString(),
-      publishedAt: new Date().toISOString(),
+      order: existingCard?.order ?? currentCards.length + 1,
+      createdAt: existingCard?.createdAt || nowIso,
+      updatedAt: test.updatedAt || nowIso,
+      publishedAt: existingCard?.publishedAt || nowIso,
     };
 
     // Filter out existing card with same ID if re-publishing
@@ -3325,20 +3337,21 @@ export async function publishTestToBatchCatalog(
       {
         batchId: cleanBatchId,
         catalogRevision: currentRevision + 1,
-        activeChunkId: targetChunkId,
-        activeChunkIndex: targetIndex,
+        activeChunkId: targetIndex > activeChunkIndex ? targetChunkId : activeChunkId,
+        activeChunkIndex: Math.max(activeChunkIndex, targetIndex),
         totalTests: updatedCards.length,
         tests: updatedCards,
-        updatedAt: new Date().toISOString(),
+        updatedAt: nowIso,
       },
       { merge: true }
     );
 
-    // Sync individual batch test document with complete questions for direct access
+    // Sync individual batch test document with complete questions & paperLayout for direct access
     const fullTestDoc = {
       ...newCard,
       questions: sanitizedTest.questions || [],
       questionCount: sanitizedTest.questions?.length || newCard.questionCount,
+      updatedAt: test.updatedAt || nowIso,
     };
     syncBatchTestToFirestore(cleanBatchId, fullTestDoc).catch(() => {});
 
@@ -3406,17 +3419,21 @@ export async function fetchBatchTestCatalogManifest(
 export async function fetchBatchTestFromCatalogChunk(
   batchId: string,
   testId: string,
-  chunkId: string
+  chunkId: string,
+  expectedUpdatedAt?: string
 ): Promise<MathTest | null> {
   const cleanBatchId = batchId.trim() || 'batch_testing_01';
   const localTestKey = `batch_${cleanBatchId}_test_${testId}`;
 
-  // 1. Check local level first (0 Reads)
+  // 1. Check local level first (0 Reads) unless cloud manifest has a newer updatedAt
   try {
     const cached = localStorage.getItem(localTestKey);
     if (cached) {
       const parsed = JSON.parse(cached);
-      if (parsed && parsed.id === testId) {
+      const isStale =
+        Boolean(expectedUpdatedAt) &&
+        (!parsed.updatedAt || String(parsed.updatedAt) < String(expectedUpdatedAt));
+      if (parsed && parsed.id === testId && !isStale) {
         return parsed as MathTest;
       }
     }

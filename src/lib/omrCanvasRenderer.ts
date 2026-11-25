@@ -215,7 +215,7 @@ export function renderOmrSheetToCanvas(
 
   // 10. Blank Bubble Circles
   const bubbleRadiusPx = OMR_GEOMETRY.bubbleRadiusMm * pxPerMm;
-  ctx.lineWidth = Math.max(1.2, 0.38 * pxPerMm);
+  ctx.lineWidth = Math.max(1.1, 0.33 * pxPerMm);
   ctx.strokeStyle = '#000000';
 
   for (const bubble of bubbleRecords) {

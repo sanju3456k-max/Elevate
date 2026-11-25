@@ -27,6 +27,8 @@ import { triggerSystemPrint } from '../lib/omrPrintDownload';
 import { MathRenderer } from './MathRenderer';
 import { normalizeDiagramUrl } from '../lib/diagramPresets';
 import { QuestionDiagramViewer } from './QuestionDiagramViewer';
+import { generateOmrSheetBlueprint } from '../lib/omrGeometry';
+import { OmrSheetGenerator } from './OmrSheetGenerator';
 
 interface OmrQuestionPaperProps {
   test: MathTest;
@@ -41,6 +43,7 @@ interface OmrQuestionPaperProps {
   showBadges?: boolean;
   setShowBadges?: (show: boolean) => void;
   hideInlineDock?: boolean;
+  embedOmrSheet?: boolean;
 }
 
 export interface OptionData {
@@ -579,6 +582,20 @@ function findBestTwoColumnSplit(
 
   const targetH = totalH / 2;
 
+  // Check if any question after the first explicitly requests a column break ('column')
+  const explicitColBreakIndices: number[] = [];
+  for (let i = 0; i < items.length - 1; i++) {
+    const currentItem = items[i];
+    const nextItem = items[i + 1];
+    if (nextItem.questionNumber !== currentItem.questionNumber && nextItem.breakBefore === 'column') {
+      explicitColBreakIndices.push(i + 1);
+    }
+  }
+  // A 2-column page can only honor at most 1 explicit mid-page column break
+  if (explicitColBreakIndices.length > 1) {
+    return null;
+  }
+
   let bestSplit: TwoColumnSplit | null = null;
   let minDiff = Infinity;
   let accumH = 0;
@@ -590,7 +607,24 @@ function findBestTwoColumnSplit(
 
     const isQuestionBoundary = !nextItem || nextItem.questionNumber !== currentItem.questionNumber;
     const allowsMidQuestionSplit = currentItem.paperLayout?.keepTogether === false;
-    const forcesColBreak = nextItem?.breakBefore === 'column';
+    const forcesColBreak = Boolean(nextItem && isQuestionBoundary && nextItem.breakBefore === 'column');
+
+    if (explicitColBreakIndices.length === 1) {
+      if (i + 1 === explicitColBreakIndices[0]) {
+        const leftH = accumH;
+        const rightH = totalH - leftH;
+        if (leftH <= colBudget && rightH <= colBudget) {
+          return {
+            splitIndex: i + 1,
+            leftHeight: leftH,
+            rightHeight: rightH,
+            diff: Math.abs(leftH - targetH),
+          };
+        }
+        return null;
+      }
+      continue;
+    }
 
     if (isQuestionBoundary || allowsMidQuestionSplit || forcesColBreak) {
       const leftH = accumH;
@@ -1070,6 +1104,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
   showBadges: propShowBadges,
   setShowBadges: propSetShowBadges,
   hideInlineDock = false,
+  embedOmrSheet = false,
 }) => {
   const [isPrinting, setIsPrinting] = useState<boolean>(false);
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
@@ -1279,6 +1314,33 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
     const baseMinHeight = Math.ceil(pageHPx + PREVIEW_BOTTOM_EXTRA_HEIGHT_PX);
     return Math.max(baseMinHeight, calculatedContentHeight);
   };
+
+  const omrPlacement = useMemo(() => {
+    if (!embedOmrSheet || activePageLayouts.length === 0) {
+      return { enabled: false, fitsOnLastPage: false };
+    }
+    const totalQs = Math.max(1, test.questions?.length || test.questionCount || 50);
+    const compactBp = generateOmrSheetBlueprint(totalQs, undefined, 'compact');
+    const lastPage = activePageLayouts[activePageLayouts.length - 1];
+    const leftColH = lastPage.leftColumn.reduce(
+      (sum, item) => sum + (measuredHeights[item.id] ?? item.estimatedHeight) + ITEM_GAP_PX,
+      0
+    );
+    const rightColH = lastPage.rightColumn.reduce(
+      (sum, item) => sum + (measuredHeights[item.id] ?? item.estimatedHeight) + ITEM_GAP_PX,
+      0
+    );
+    const maxColH = Math.max(leftColH, rightColH);
+    const headerOverheadPx = lastPage.isFirstPage ? 150 : 55;
+    const pagePaddingOverheadPx = 60;
+    const footerOverheadPx = 40;
+    const usedHeightPx = headerOverheadPx + maxColH + pagePaddingOverheadPx + footerOverheadPx;
+    const remainingHeightMm = (pageHPx - usedHeightPx) / (96 / 25.4);
+    return {
+      enabled: true,
+      fitsOnLastPage: remainingHeightMm >= compactBp.layout.pageHeightMm + 4,
+    };
+  }, [embedOmrSheet, activePageLayouts, measuredHeights, test.questions?.length, test.questionCount, pageHPx]);
 
   const handlePrint = async () => {
     try {
@@ -1652,6 +1714,17 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                     <div className="shrink-0 border-t-[1.5pt] border-black mt-auto relative z-1" />
                   )}
 
+                  {omrPlacement.enabled && isLastPage && omrPlacement.fitsOnLastPage && (
+                    <div className="shrink-0 -mx-[12mm] mt-1 relative z-30">
+                      <OmrSheetGenerator
+                        test={test}
+                        hideHeaderContainer={true}
+                        embedded={true}
+                        embeddedFormat="compact"
+                      />
+                    </div>
+                  )}
+
                   {/* Authentic Elevate Central Transparent App Logo Watermark on Each Page (Overlay layer with mix-blend-mode: multiply) */}
                   <div
                     className="elevate-question-watermark absolute inset-0 flex items-center justify-center pointer-events-none select-none z-25 overflow-hidden"
@@ -1698,6 +1771,42 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
               </div>
             );
           })}
+
+          {omrPlacement.enabled && !omrPlacement.fitsOnLastPage && (
+            <div
+              key="page_wrap_embedded_omr"
+              data-page-wrapper="true"
+              className="relative mx-auto shrink-0 print:p-0 print:m-0 print:w-[210mm] print:h-[297mm] print:pb-0 a4-page-wrapper-virtualized"
+              style={{
+                width: `${pageWPx * effectiveScale}px`,
+                maxWidth: '100%',
+                height: `${pageHPx * effectiveScale}px`,
+                minHeight: `${pageHPx * effectiveScale}px`,
+              }}
+            >
+              <div
+                className="bg-white text-black shadow-2xl print:shadow-none select-none box-border rounded-xs ring-1 ring-slate-900/10 print:ring-0 print:border-none print:transform-none print:relative print:left-auto print:top-auto print:w-[210mm] print:h-[297mm] overflow-hidden"
+                style={{
+                  width: '210mm',
+                  minWidth: '210mm',
+                  maxWidth: '210mm',
+                  height: '297mm',
+                  position: 'absolute',
+                  left: '50%',
+                  top: 0,
+                  transform: `translateX(-50%) scale(${effectiveScale})`,
+                  transformOrigin: 'top center',
+                }}
+              >
+                <OmrSheetGenerator
+                  test={test}
+                  hideHeaderContainer={true}
+                  embedded={true}
+                  embeddedFormat="a4"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

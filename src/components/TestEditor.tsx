@@ -2441,7 +2441,14 @@ export const TestEditor: React.FC<TestEditorProps> = ({
       const finalTopic = (parsed.topic || topic || 'General Mathematics').trim();
       const mins = typeof parsed.time === 'number' ? parsed.time : (typeof parsed.timeLimitMinutes === 'number' ? parsed.timeLimitMinutes : timeLimitMinutes);
       const normalizedQs = Array.isArray(parsed.questions)
-        ? parsed.questions.map((q: any, idx: number) => normalizeQuestion(q, idx))
+        ? parsed.questions.map((q: any, idx: number) => {
+            const existingStateQ = questions[idx];
+            const mergedQ =
+              existingStateQ?.paperLayout && !q.paperLayout
+                ? { ...q, paperLayout: existingStateQ.paperLayout }
+                : q;
+            return normalizeQuestion(mergedQ, idx);
+          })
         : questions.map((q, idx) => normalizeQuestion(q, idx));
 
       const testPayload: MathTest = {

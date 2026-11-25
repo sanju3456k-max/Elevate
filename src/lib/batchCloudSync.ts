@@ -1085,10 +1085,17 @@ export async function fetchBatchCurriculumFromFirestore(
  * /batches/{batchId}/tests/{testId}
  */
 export async function syncBatchTestToFirestore(batchId: string, testCard: any): Promise<void> {
-  if (!batchId || !testCard?.testId) return;
+  const resolvedTestId = testCard?.testId || testCard?.id;
+  if (!batchId || !resolvedTestId) return;
   try {
-    const testRef = doc(db, 'batches', batchId, 'tests', testCard.testId);
-    await setDoc(testRef, sanitizeForFirestore(testCard), { merge: true });
+    const testRef = doc(db, 'batches', batchId, 'tests', resolvedTestId);
+    const payload = {
+      ...testCard,
+      testId: resolvedTestId,
+      id: testCard?.id || resolvedTestId,
+      updatedAt: testCard?.updatedAt || new Date().toISOString(),
+    };
+    await setDoc(testRef, sanitizeForFirestore(payload), { merge: true });
     touchBatchCatalogBeacon(batchId).catch(() => {});
   } catch (err) {
     console.warn('Failed to sync batch test:', err);

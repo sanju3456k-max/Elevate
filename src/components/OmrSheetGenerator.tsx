@@ -25,6 +25,8 @@ interface OmrSheetGeneratorProps {
   topic?: string;
   className?: string;
   hideHeaderContainer?: boolean;
+  embedded?: boolean;
+  embeddedFormat?: 'a4' | 'compact';
 }
 
 export const OmrSheetGenerator: React.FC<OmrSheetGeneratorProps> = ({
@@ -34,6 +36,8 @@ export const OmrSheetGenerator: React.FC<OmrSheetGeneratorProps> = ({
   topic,
   className = '',
   hideHeaderContainer = false,
+  embedded = false,
+  embeddedFormat,
 }) => {
   const [isPrinting, setIsPrinting] = useState<boolean>(false);
   const [isGeneratingPng, setIsGeneratingPng] = useState<boolean>(false);
@@ -41,6 +45,7 @@ export const OmrSheetGenerator: React.FC<OmrSheetGeneratorProps> = ({
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [sheetFormat, setSheetFormat] = useState<'a4' | 'compact'>('a4');
 
+  const effectiveFormat = embedded ? (embeddedFormat || 'compact') : sheetFormat;
   const totalQs = Math.max(1, questionCount || test?.questions?.length || 50);
   const sheetTitle = title !== undefined ? title : (test?.title || 'OMR RESPONSE ANSWER SHEET');
   const sheetTopic = topic !== undefined ? topic : (test?.topic || 'Standard Assessment');
@@ -48,7 +53,7 @@ export const OmrSheetGenerator: React.FC<OmrSheetGeneratorProps> = ({
   const maxMarks = test?.questions?.length ? (test.questions || []).reduce((sum, q) => sum + (q.points || 1), 0) : (test?.totalMarks || totalQs);
   const cleanTitle = (sheetTitle || 'OMR_Sheet').replace(/[^a-zA-Z0-9_-]/g, '_');
 
-  const blueprint = generateOmrSheetBlueprint(totalQs, undefined, sheetFormat);
+  const blueprint = generateOmrSheetBlueprint(totalQs, undefined, effectiveFormat);
   const layout = blueprint.layout;
   const columnCount = layout.columnCount;
   const questionsPerCol = layout.questionsPerColumn;
@@ -229,23 +234,27 @@ export const OmrSheetGenerator: React.FC<OmrSheetGeneratorProps> = ({
 
       {/* Static Full-View Viewport for OMR Sheet fitted to dimension */}
       <div 
-        ref={containerRef}
-        className="w-full max-w-[1400px] mx-auto relative flex flex-col items-center justify-start pb-12 pt-4"
+        ref={embedded ? undefined : containerRef}
+        className={embedded ? 'relative mx-auto' : 'w-full max-w-[1400px] mx-auto relative flex flex-col items-center justify-start pb-12 pt-4'}
       >
         <div 
           className="relative mx-auto shrink-0"
-          style={{
-            width: `${pageWPx * scale}px`,
-            height: `${pageHPx * scale}px`,
-            maxWidth: '100%',
-            transition: 'none',
-          }}
+          style={
+            embedded
+              ? { width: `${layout.pageWidthMm}mm`, height: `${layout.pageHeightMm}mm` }
+              : {
+                  width: `${pageWPx * scale}px`,
+                  height: `${pageHPx * scale}px`,
+                  maxWidth: '100%',
+                  transition: 'none',
+                }
+          }
         >
           <div
             id="omr-printable-sheet"
             data-total-questions={totalQs}
-            data-exam-title={sheetTitle || test.title || ''}
-            className="a4-page-item bg-white text-black shadow-2xl ring-1 ring-slate-900/10 select-none box-border rounded-xs"
+            data-exam-title={sheetTitle || test?.title || ''}
+            className={`a4-page-item bg-white text-black select-none box-border rounded-xs ${embedded ? '' : 'shadow-2xl ring-1 ring-slate-900/10'}`}
             style={{
               width: `${layout.pageWidthMm}mm`,
               minWidth: `${layout.pageWidthMm}mm`,
@@ -260,10 +269,10 @@ export const OmrSheetGenerator: React.FC<OmrSheetGeneratorProps> = ({
               backgroundColor: '#ffffff',
               color: '#000000',
               overflow: 'hidden',
-              position: 'absolute',
+              position: embedded ? 'relative' : 'absolute',
               left: 0,
               top: 0,
-              transform: `scale(${scale})`,
+              transform: embedded ? 'none' : `scale(${scale})`,
               transformOrigin: 'top left',
               transition: 'none',
             }}
@@ -422,7 +431,7 @@ export const OmrSheetGenerator: React.FC<OmrSheetGeneratorProps> = ({
             {blueprint.bubbleRecords.map((record) => (
               <div
                 key={`bubble_${record.questionIndex}_${record.optionIndex}`}
-                className="absolute rounded-full border-[1.4px] border-black bg-white select-none shrink-0"
+                className="absolute rounded-full border-[1.25px] border-black bg-white select-none shrink-0"
                 style={{
                   top: `${record.physYMm - OMR_GEOMETRY.bubbleRadiusMm}mm`,
                   left: `${record.physXMm - OMR_GEOMETRY.bubbleRadiusMm}mm`,

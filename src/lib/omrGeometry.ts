@@ -86,49 +86,41 @@ export const OMR_GEOMETRY = {
   // Total height from top of page to Row 0 top:
   // 6.0 (pad) + 11.0 + 2.0 + 7.5 + 2.0 + 6.0 + 2.0 + 5.0 + 1.5 = 43.0mm
   row0TopMm: 43.0,
-  rowHeightMm: 5.8,
-  // Row 0 Center Y = 43.0 + 5.8 / 2 = 45.9mm (exact vertical center of Row 0)
-  row0CenterMm: 45.9,
+  rowHeightMm: 5.0,
+  // Row 0 Center Y = 43.0 + 5.0 / 2 = 45.5mm (exact vertical center of Row 0)
+  row0CenterMm: 45.5,
 
   // Spacing between bottom of active question bubble rows and top of bottom fiducial markers
   gapBelowGridToFiducialMm: 4.5,
 
-  // Bubble circle metrics
-  bubbleDiameterMm: 4.0,
-  bubbleRadiusMm: 2.0,
+  // Bubble circle metrics (3.2mm exam-grade diameter, centers preserved for zero-regression alignment)
+  bubbleDiameterMm: 3.2,
+  bubbleRadiusMm: 1.6,
 
-  // 5-Column Grid Configuration (Fits up to 50 questions with high density):
+  // 5-Column Grid Configuration (Equal 5.0mm H/V bubble pitch, columns centered symmetrically inward):
   fiveColumns: {
     columnCount: 5,
-    gridMarginXMm: 1.0,
-    columnGapMm: 3.5,
-    columnWidthMm: 34.0, // (186 - 2.0 - 4 * 3.5) / 5 = 34.0mm
+    gridMarginXMm: 15.0, // (186 - (5 * 25.2 + 4 * 7.5)) / 2 = 15.0mm equal L/R inset
+    columnGapMm: 7.5,
+    columnWidthMm: 25.2,
     qNumWidthMm: 5.0,
-    gapToFirstBubbleMm: 1.0,
-    bubblePitchMm: 5.6,
-    // Exact mathematical centers of A, B, C, D from column left edge in mm:
-    // A: 5.0 + 1.0 + 2.0 = 8.0mm
-    // B: 8.0 + 5.6 = 13.6mm
-    // C: 13.6 + 5.6 = 19.2mm
-    // D: 19.2 + 5.6 = 24.8mm
-    optionOffsetsMm: [8.0, 13.6, 19.2, 24.8],
+    gapToFirstBubbleMm: 1.4,
+    bubblePitchMm: 5.0, // Matches rowHeightMm (5.0mm) -> equal 1.8mm H & V bubble gap
+    // Exact mathematical centers of A, B, C, D from column left edge in mm (D ends at 24.6mm of 25.2mm):
+    optionOffsetsMm: [8.0, 13.0, 18.0, 23.0],
   },
 
-  // 4-Column Grid Configuration:
+  // 4-Column Grid Configuration (Equal 5.0mm H/V bubble pitch, columns centered symmetrically inward):
   fourColumns: {
     columnCount: 4,
-    gridMarginXMm: 1.0,
-    columnGapMm: 4.5,
-    columnWidthMm: 42.625, // (186 - 2.0 - 3 * 4.5) / 4 = 42.625mm
+    gridMarginXMm: 24.1, // (186 - (4 * 26.2 + 3 * 11.0)) / 2 = 24.1mm equal L/R inset
+    columnGapMm: 11.0,
+    columnWidthMm: 26.2,
     qNumWidthMm: 6.0,
-    gapToFirstBubbleMm: 1.5,
-    bubblePitchMm: 6.6,
-    // Exact mathematical centers of A, B, C, D from column left edge in mm:
-    // A: 6.0 + 1.5 + 2.0 = 9.5mm
-    // B: 9.5 + 6.6 = 16.1mm
-    // C: 16.1 + 6.6 = 22.7mm
-    // D: 22.7 + 6.6 = 29.3mm
-    optionOffsetsMm: [9.5, 16.1, 22.7, 29.3],
+    gapToFirstBubbleMm: 1.4,
+    bubblePitchMm: 5.0, // Matches rowHeightMm (5.0mm) -> equal 1.8mm H & V bubble gap
+    // Exact mathematical centers of A, B, C, D from column left edge in mm (D ends at 25.6mm of 26.2mm):
+    optionOffsetsMm: [9.0, 14.0, 19.0, 24.0],
   },
 };
 

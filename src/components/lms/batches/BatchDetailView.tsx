@@ -866,36 +866,57 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     onStageChange?.('folder_content');
   }, [activeLecture, currentBatch, selectedChapterId, currentPlaybackSec, isCurrentLecturePlaying, onSetMiniPlayer, onLectureChange, onStageChange]);
 
-  // Centralized Back Navigation Stack Integration
+  // Centralized Hierarchical Back Navigation Stack:
+  // 1. Batch Root -> Batch List (priority 23)
   useBackHandler({
-    isOpen: currentStage !== 'batch_list' || isViewerOpen,
-    priority: 25,
-    id: 'batch_detail_stage_back',
+    isOpen: currentStage !== 'batch_list',
+    priority: 23,
+    id: 'batch_detail_root_back',
     onBack: () => {
       if (isBrowserFullscreen()) {
         exitBrowserFullscreen();
         return;
       }
-      if (isViewerOpen) {
-        setIsViewerOpen(false);
-        return;
-      }
-      if (currentStage === 'lecture_view') {
-        handleExitLectureView();
-        return;
-      }
-      if (selectedChapterId) {
-        // Step up to parent folder in Google Drive hierarchy
-        const cur = chapters.find((c) => c.id === selectedChapterId);
-        const parentId = cur?.parentId || null;
-        setSelectedChapterId(parentId);
-        onChapterChange?.(parentId);
-        return;
-      }
-      // If at batch root, step back to batch list
       setSelectedBatchId('');
       onBatchChange?.(null);
       setCurrentStage('batch_list');
+    },
+  });
+
+  // 2. Folder / Subfolder -> Parent Folder or Batch Root (priority 25)
+  useBackHandler({
+    isOpen: currentStage !== 'batch_list' && Boolean(selectedChapterId),
+    priority: 25,
+    id: `batch_folder_back_${selectedChapterId || 'root'}`,
+    onBack: () => {
+      if (isBrowserFullscreen()) {
+        exitBrowserFullscreen();
+        return;
+      }
+      const cur = chapters.find((c) => c.id === selectedChapterId);
+      const parentId = cur?.parentId || null;
+      setSelectedChapterId(parentId);
+      onChapterChange?.(parentId);
+    },
+  });
+
+  // 3. Inline Lecture View -> Folder Content (priority 27)
+  useBackHandler({
+    isOpen: currentStage === 'lecture_view',
+    priority: 27,
+    id: 'batch_lecture_view_back',
+    onBack: () => {
+      handleExitLectureView();
+    },
+  });
+
+  // 4. Document / Media Viewer Modal -> Folder Content (priority 30)
+  useBackHandler({
+    isOpen: isViewerOpen,
+    priority: 30,
+    id: 'batch_viewer_modal_back',
+    onBack: () => {
+      setIsViewerOpen(false);
     },
   });
 
@@ -987,7 +1008,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     }
 
     if (targetLecture && currentBatch && onPlayLecture) {
-      onPlayLecture(targetLecture, currentBatch);
+      onPlayLecture(targetLecture, currentBatch, selectedChapterId);
       setSelectedLectureId(lectureId);
       consumedLectureIdRef.current = lectureId;
       onLectureChange?.(lectureId);

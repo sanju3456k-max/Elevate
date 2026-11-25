@@ -60,7 +60,7 @@ import { MathRenderer } from './MathRenderer';
 import { QuestionDiagramViewer } from './QuestionDiagramViewer';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { useWakeLock } from '../hooks/useWakeLock';
-import { triggerSystemPrint, triggerOmrSheetPrint, exportOmrSheetToPng } from '../lib/omrPrintDownload';
+import { triggerSystemPrint } from '../lib/omrPrintDownload';
 import { studioTabVariants, gpuAcceleratedStyle } from '../lib/animationConfig';
 import { compressOmrSheetImage } from '../lib/imageOptimization';
 import { APP_STYLES } from './ui/AppStyles';
@@ -87,7 +87,6 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
   onExit,
 }) => {
   const [activeTab, setActiveTab] = useState<OmrTab>(initialTab || (initialAttempt ? 'scan' : 'print'));
-  const [printSubTab, setPrintSubTab] = useState<'paper' | 'sheet'>('paper');
   const [windowWidth, setWindowWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 1024);
 
   useEffect(() => {
@@ -857,93 +856,23 @@ export const OmrExamStudio: React.FC<OmrExamStudioProps> = ({
               </div>
             </div>
 
-            {/* View Mode Selector (Single static view with subtabs for Question Paper and OMR Bubble Sheet) */}
-            <div className="overflow-hidden print:hidden">
-              <div className="flex items-center justify-center max-w-md mx-auto mb-4">
-                <div className="flex items-center justify-center gap-1.5 sm:gap-2 bg-white dark:bg-[#1e2024] p-1.5 rounded-[28px] border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] w-full">
-                  <button
-                    type="button"
-                    onClick={() => setPrintSubTab('paper')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2 rounded-[28px] text-xs font-extrabold transition-all duration-150 cursor-pointer active:scale-[0.97] border-0 outline-none shrink-0 ${
-                      printSubTab === 'paper'
-                        ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49] shadow-none'
-                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-[#f0f4f9] dark:hover:bg-[#282a30]'
-                    }`}
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    <span>Question Paper</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setPrintSubTab('sheet')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2 rounded-[28px] text-xs font-extrabold transition-all duration-150 cursor-pointer active:scale-[0.97] border-0 outline-none shrink-0 ${
-                      printSubTab === 'sheet'
-                        ? 'bg-emerald-600 text-white shadow-none'
-                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-[#f0f4f9] dark:hover:bg-[#282a30]'
-                    }`}
-                  >
-                    <FileCheck2 className="w-3.5 h-3.5" />
-                    <span>OMR Bubble Sheet</span>
-                  </button>
-                </div>
+            {/* Unified Single Document View (Question Paper + Space-Aware OMR Bubble Sheet) */}
+            <div className="space-y-3">
+              <div className="flex justify-end gap-2 print:hidden">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const cleanTitle = (test.title || 'Question_Paper_OMR').replace(/[^a-zA-Z0-9_-]/g, '_');
+                    await triggerSystemPrint('question-paper-printable-root', `${cleanTitle}_Question_Paper_OMR_A4`, 210, 297);
+                  }}
+                  className="flex items-center gap-1.5 px-4 py-1.5 bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] rounded-full text-xs font-bold transition-all duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-xs hover:shadow-sm border-0 ring-0 cursor-pointer active:scale-[0.97]"
+                  title="Print Unified Question Paper & OMR Sheet"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print / Save PDF</span>
+                </button>
               </div>
-            </div>
-
-            {/* Single Static Document View */}
-            <div className="space-y-4">
-              {printSubTab === 'paper' && (
-                <div className="space-y-3">
-                  <div className="flex justify-end gap-2 print:hidden">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const cleanTitle = (test.title || 'Question_Paper').replace(/[^a-zA-Z0-9_-]/g, '_');
-                        await triggerSystemPrint('question-paper-printable-root', `${cleanTitle}_Question_Paper_A4`, 210, 297);
-                      }}
-                      className="flex items-center gap-1.5 px-4 py-1.5 bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] rounded-full text-xs font-bold transition-all duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-xs hover:shadow-sm border-0 ring-0 cursor-pointer active:scale-[0.97]"
-                      title="Print Question Paper"
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                      <span>Print</span>
-                    </button>
-                  </div>
-                  <OmrQuestionPaper test={test} hideHeaderContainer={true} />
-                </div>
-              )}
-
-              {printSubTab === 'sheet' && (
-                <div className="space-y-3">
-                  <div className="flex justify-end gap-2 print:hidden">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const totalQs = test.questions?.length || test.questionCount || 50;
-                        await triggerOmrSheetPrint(totalQs, test.title || '');
-                      }}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] rounded-full text-xs font-bold transition-all duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-xs hover:shadow-sm border-0 ring-0 cursor-pointer active:scale-[0.97]"
-                      title="Open default printer interface to print or save as PDF"
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                      <span>Print</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const totalQs = test.questions?.length || test.questionCount || 50;
-                        const cleanTitle = (test.title || 'OMR_Sheet').replace(/[^a-zA-Z0-9_-]/g, '_');
-                        await exportOmrSheetToPng(totalQs, test.title || '', `${cleanTitle}_OMR_Sheet_A4.png`);
-                      }}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full text-xs font-bold transition-all duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-xs hover:shadow-sm border-0 ring-0 cursor-pointer active:scale-[0.97]"
-                      title="Export high-resolution OMR PNG image"
-                    >
-                      <ImageIcon className="w-3.5 h-3.5" />
-                      <span>Download PNG</span>
-                    </button>
-                  </div>
-                  <OmrSheetGenerator test={test} hideHeaderContainer={true} />
-                </div>
-              )}
+              <OmrQuestionPaper test={test} hideHeaderContainer={true} embedOmrSheet={true} />
             </div>
 
             {/* Bottom Next Action Helper Banner */}
