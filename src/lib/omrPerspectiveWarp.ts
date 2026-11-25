@@ -388,8 +388,16 @@ export function autoDetectFiducialsOnCanvas(canvas: HTMLCanvasElement): QuadCorn
           if (avgH <= 20 || avgW <= 20) continue;
 
           const ratio = avgW / avgH;
-          // Support portrait, landscape, sideways, compact slip (up to ~4.6:1), and perspective tilted sheet orientations
-          if (ratio >= 0.25 && ratio <= 5.2 && Math.abs(topW - botW) / avgW < 0.38 && Math.abs(leftH - rightH) / avgH < 0.38) {
+          const topSigned = (Math.atan2(tr.cy - tl.cy, topW) * 180) / Math.PI;
+          const botSigned = (Math.atan2(br.cy - bl.cy, botW) * 180) / Math.PI;
+          // Support portrait, landscape, compact slip (up to ~4.6:1), and gentle perspective while rejecting irregular trapezoids
+          if (
+            ratio >= 0.25 &&
+            ratio <= 5.2 &&
+            Math.abs(topW - botW) / avgW < 0.22 &&
+            Math.abs(leftH - rightH) / avgH < 0.22 &&
+            Math.abs(topSigned - botSigned) <= 14
+          ) {
             const area = avgW * avgH;
             if (area > maxArea) {
               maxArea = area;
@@ -495,8 +503,8 @@ export function checkFrameAlignmentQuality(
   // Standard A4 OMR fiducials aspect ratio is ~190mm / 277mm = 0.686
   // Allow wide range [0.25, 3.4] to accommodate perspective projection, landscape, and sideways sheets
   const isRatioValid = ratio >= 0.25 && ratio <= 5.2;
-  const isSymW = Math.abs(topW - botW) / avgW < 0.38;
-  const isSymH = Math.abs(leftH - rightH) / avgH < 0.38;
+  const isSymW = Math.abs(topW - botW) / avgW < 0.22;
+  const isSymH = Math.abs(leftH - rightH) / avgH < 0.22;
 
   if (!isRatioValid || !isSymW || !isSymH) {
     return { isGood: false, score: 30, label: 'Keep frame rectangular' };

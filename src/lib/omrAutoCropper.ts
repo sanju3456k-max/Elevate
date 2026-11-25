@@ -301,15 +301,15 @@ function evaluateQuadRatioAndDimensions(
   if (topDx <= 12 || botDx <= 12) return invalidEvalResult();
   if (leftDy <= 12 || rightDy <= 12) return invalidEvalResult();
 
-  // Edge orientation checks: prevent twisted bowtie quads where BL jumps above TR or edges skew wildly
-  const topAngleDeg = Math.abs((Math.atan2(topDy, topDx) * 180) / Math.PI);
-  const botAngleDeg = Math.abs((Math.atan2(botDy, botDx) * 180) / Math.PI);
-  if (topAngleDeg > 28 || botAngleDeg > 28 || Math.abs(topAngleDeg - botAngleDeg) > 18) {
+  // Signed edge orientation checks: prevent twisted/pinched trapezoids (e.g. +14° top vs -14° bottom)
+  const topSignedDeg = (Math.atan2(topDy, topDx) * 180) / Math.PI;
+  const botSignedDeg = (Math.atan2(botDy, botDx) * 180) / Math.PI;
+  if (Math.abs(topSignedDeg) > 25 || Math.abs(botSignedDeg) > 25 || Math.abs(topSignedDeg - botSignedDeg) > 14) {
     return invalidEvalResult();
   }
-  const leftTiltDeg = Math.abs((Math.atan2(leftDx, leftDy) * 180) / Math.PI);
-  const rightTiltDeg = Math.abs((Math.atan2(rightDx, rightDy) * 180) / Math.PI);
-  if (leftTiltDeg > 28 || rightTiltDeg > 28 || Math.abs(leftTiltDeg - rightTiltDeg) > 18) {
+  const leftSignedDeg = (Math.atan2(leftDx, leftDy) * 180) / Math.PI;
+  const rightSignedDeg = (Math.atan2(rightDx, rightDy) * 180) / Math.PI;
+  if (Math.abs(leftSignedDeg) > 25 || Math.abs(rightSignedDeg) > 25 || Math.abs(leftSignedDeg - rightSignedDeg) > 14) {
     return invalidEvalResult();
   }
 
@@ -319,15 +319,24 @@ function evaluateQuadRatioAndDimensions(
   const leftLen = Math.hypot(leftDx, leftDy);
   const rightLen = Math.hypot(rightDx, rightDy);
 
+  // Corner orthogonality: every corner angle must be within [66°, 114°] (|cos| <= 0.40)
+  const cosTL = Math.abs((topDx * leftDx + topDy * leftDy) / Math.max(1, topLen * leftLen));
+  const cosTR = Math.abs(((-topDx) * rightDx + (-topDy) * rightDy) / Math.max(1, topLen * rightLen));
+  const cosBL = Math.abs((botDx * (-leftDx) + botDy * (-leftDy)) / Math.max(1, botLen * leftLen));
+  const cosBR = Math.abs(((-botDx) * (-rightDx) + (-botDy) * (-rightDy)) / Math.max(1, botLen * rightLen));
+  if (Math.max(cosTL, cosTR, cosBL, cosBR) > 0.40) {
+    return invalidEvalResult();
+  }
+
   // Minimum size: Sheet width >= 15% of frame, height >= 8% (accommodates ultra-compact 5-10Q slips)
   if (topLen < imgWidth * 0.15 || leftLen < imgHeight * 0.08) {
     return invalidEvalResult();
   }
 
-  // Parallelism check: opposite sides shouldn't diverge drastically (allow realistic camera perspective)
+  // Parallelism check: opposite sides shouldn't diverge > 22% (eliminates irregular trapezoids)
   const widthRatioOpposite = Math.min(topLen, botLen) / Math.max(topLen, botLen);
   const heightRatioOpposite = Math.min(leftLen, rightLen) / Math.max(leftLen, rightLen);
-  if (widthRatioOpposite < 0.62 || heightRatioOpposite < 0.62) {
+  if (widthRatioOpposite < 0.78 || heightRatioOpposite < 0.78) {
     return invalidEvalResult();
   }
 
