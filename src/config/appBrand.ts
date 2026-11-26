@@ -69,6 +69,7 @@ export function clearWebInstituteSession(): void {
 
 const FALLBACK_TENANT_LOGOS: Record<string, string> = {
   inst_apex_01: './assets/tenants/apexAcademy.png',
+  inst_radix_01: './assets/tenants/radix.png',
 };
 
 const envInstituteId = (import.meta.env?.VITE_INSTITUTE_ID || '').trim();

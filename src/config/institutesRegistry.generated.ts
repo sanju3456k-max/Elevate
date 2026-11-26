@@ -37,5 +37,42 @@ export const GENERATED_INSTITUTES_REGISTRY: StaticInstituteEntry[] = [
     },
     "createdAt": "2026-11-26T00:00:00.000Z",
     "updatedAt": "2026-11-26T00:00:00.000Z"
+  },
+  {
+    "id": "inst_radix_01",
+    "name": "Radix",
+    "slug": "radix",
+    "logoUrl": "./assets/tenants/radix.png",
+    "ownerEmail": "harry333u@gmail.com",
+    "teamAdminEmails": [],
+    "packageName": "com.elevate.radix",
+    "apkVersion": "1.0",
+    "apkDownloadUrl": "https://github.com/sanju3456k/elevate-android/releases/latest/download/radix-release.apk",
+    "firebaseWebConfig": {
+      "apiKey": "AIzaSyAvmBqgiS1p06qyyIaLI0ikSZaH_1cELUg",
+      "authDomain": "radix-f8d22.firebaseapp.com",
+      "projectId": "radix-f8d22",
+      "firestoreDatabaseId": "default",
+      "storageBucket": "radix-f8d22.firebasestorage.app",
+      "messagingSenderId": "272997173671",
+      "appId": "1:272997173671:web:8230626ced988c597d0e82",
+      "measurementId": "G-NMJ6JTNL45",
+      "oAuthClientId": "272997173671-tjp6isli57vfe3pqcgmpjsrih93lecfb.apps.googleusercontent.com"
+    },
+    "storePage": {
+      "tagline": "Dedicated Batch Lectures, Mock Tests & Study Material for Radix",
+      "description": "Official Android learning app for Radix students. Access enrolled batch video classes, chapter-wise mock tests, OMR practice papers, and downloadable PDF notes on an isolated, distraction-free platform.",
+      "highlights": [
+        "Radix Faculty Video Lectures",
+        "Chapter-wise & Full-Length Mock Tests",
+        "Instant Performance & Rank Analytics",
+        "Offline PDF Notes & Announcements"
+      ],
+      "apkSizeLabel": "19 MB",
+      "contactEmail": "harry333u@gmail.com",
+      "accentColor": "#0b57d0"
+    },
+    "createdAt": "2026-11-26T00:00:00.000Z",
+    "updatedAt": "2026-11-26T00:00:00.000Z"
   }
 ];

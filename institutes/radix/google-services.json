@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "272997173671",
+    "project_id": "radix-f8d22",
+    "storage_bucket": "radix-f8d22.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:272997173671:android:22e2c8971dce3c3f7d0e82",
+        "android_client_info": {
+          "package_name": "com.elevate.radix"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "272997173671-r7cfbkmjtjt5cisbs7ac1vjkrpe5hi6l.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.elevate.radix",
+            "certificate_hash": "52986a3dc3dd19ebe15e9b2fb43fdabbcd83ed12"
+          }
+        },
+        {
+          "client_id": "272997173671-tjp6isli57vfe3pqcgmpjsrih93lecfb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCRChthWf62jQ5cOFKPo5gnN0PP3JTcfIQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "272997173671-tjp6isli57vfe3pqcgmpjsrih93lecfb.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
