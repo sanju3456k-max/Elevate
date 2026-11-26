@@ -1152,7 +1152,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   <img
                     src={b.bannerUrl || b.thumbnailUrl}
                     alt={b.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                    className="w-full h-full object-cover"
                     onError={(e) => {
                       (e.currentTarget as HTMLImageElement).src = '/assets/default-course-banner.png';
                     }}
@@ -1924,7 +1924,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                           <img
                             src={getLectureThumbnailUrl(lec)}
                             alt={lec.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                            className="w-full h-full object-cover"
                             onError={(e) => {
                               const target = e.currentTarget as HTMLImageElement;
                               if (target.src.includes('maxresdefault.jpg')) {

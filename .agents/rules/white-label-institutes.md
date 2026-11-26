@@ -19,3 +19,7 @@
   3. Run `node scripts/build-tenant-apk.mjs <flavor> release`.
 - **Push Updates to an Institute (e.g. "push these updates to Apex"):**
   - Run `node scripts/build-tenant-apk.mjs apexAcademy release` (or `node scripts/build-all-tenants.mjs release` for all institutes).
+
+
+## Privacy Policy Maintenance
+- Whenever new user data fields, OAuth scopes, Android permissions, AI integrations, or payment gateways are added, update `public/privacy.html` (and `public/terms.html` if applicable) and bump its `Last Updated` date so Google OAuth Verification & Play Store disclosures stay 100% accurate.

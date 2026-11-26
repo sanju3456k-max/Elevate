@@ -1198,7 +1198,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                   <img
                     src={getLectureThumbnailUrl(latestLecture)}
                     alt={latestLecture.title || 'Video Class'}
-                    className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                    className="w-full h-full object-cover"
                     onError={(e) => {
                       const target = e.currentTarget as HTMLImageElement;
                       if (target.src.includes('i.ytimg.com')) {
@@ -1586,7 +1586,7 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
         <img
           src={batch.bannerUrl || batch.thumbnailUrl || DEFAULT_HIGH_RES_BANNER}
           alt={batch.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+          className="w-full h-full object-cover"
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).src = DEFAULT_HIGH_RES_BANNER;
           }}
