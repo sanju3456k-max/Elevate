@@ -6,6 +6,10 @@
       "destination": "/api"
     },
     {
+      "source": "/about",
+      "destination": "/about.html"
+    },
+    {
       "source": "/privacy",
       "destination": "/privacy.html"
     },

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>About Elevate Labs</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      color: #0f172a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap {
+      width: 100%;
+      max-width: 880px;
+      margin: 0 auto;
+      padding: clamp(20px, 4vw, 48px) clamp(16px, 4vw, 32px) 64px;
+    }
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid #e2e8f0;
+      margin-bottom: 28px;
+    }
+    .brand {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #0f172a;
+      text-decoration: none;
+    }
+    .brand span { color: #0b57d0; }
+    .nav-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 14px;
+      border-radius: 9999px;
+      border: 1px solid #e2e8f0;
+      background: transparent;
+      color: #334155;
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .pill:hover {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+      color: #0b57d0;
+    }
+    .pill.active {
+      border-color: #0b57d0;
+      color: #0b57d0;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.5rem, 3.2vw, 2.1rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .subtitle {
+      color: #475569;
+      font-size: clamp(0.95rem, 1.8vw, 1.05rem);
+      margin: 0 0 28px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin: 24px 0 32px;
+    }
+    .card {
+      padding: 18px;
+      border-radius: 16px;
+      border: 1px solid #e2e8f0;
+      background: transparent;
+    }
+    .card h3 {
+      margin: 0 0 6px;
+      font-size: 0.98rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .card p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #475569;
+    }
+    h2 {
+      margin: 28px 0 10px;
+      font-size: 1.12rem;
+      font-weight: 700;
+      color: #0b57d0;
+    }
+    p, li {
+      font-size: 0.96rem;
+      color: #334155;
+    }
+    ul { padding-left: 20px; }
+    li { margin-bottom: 6px; }
+    a { color: #0b57d0; }
+    .footer {
+      margin-top: 40px;
+      padding-top: 18px;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.85rem;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="topbar">
+      <a href="/" class="brand">Elevate <span>Labs</span></a>
+      <nav class="nav-pills">
+        <a href="/about" class="pill active">About Elevate Labs</a>
+        <a href="/privacy" class="pill">Privacy Policy</a>
+        <a href="/terms" class="pill">Terms of Service</a>
+        <a href="/" class="pill">Back to App</a>
+      </nav>
+    </header>
+
+    <h1>About Elevate Labs</h1>
+    <p class="subtitle">
+      An educational mock-test practice, OMR evaluation, batch learning, and study analytics platform for students and coaching institutes.
+    </p>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Timed Mock Tests</h3>
+        <p>Chapter-wise and full-length practice exams with instant scoring, detailed solutions, and performance analytics.</p>
+      </div>
+      <div class="card">
+        <h3>Batch Lectures &amp; PDFs</h3>
+        <p>Structured coaching courses, video classes, study notes, and printable OMR sheets in one workspace.</p>
+      </div>
+      <div class="card">
+        <h3>Multi-Institute Isolation</h3>
+        <p>Each partner coaching institute runs on its own isolated cloud project with strict access control.</p>
+      </div>
+    </div>
+
+    <h2>How Google Sign-In Is Used</h2>
+    <p>
+      Elevate Labs uses Google Sign-In (<code>openid</code>, <code>userinfo.email</code>, <code>userinfo.profile</code>)
+      strictly to authenticate students and institute administrators, sync test progress and study notes across devices,
+      and unlock enrolled institute batches. We do not collect or process any online payments inside the app.
+    </p>
+
+    <h2>Platforms Supported</h2>
+    <ul>
+      <li><strong>Web &amp; PWA:</strong> Accessible on desktop, tablet, and mobile browsers at <code>labselevate.vercel.app</code>.</li>
+      <li><strong>Android Apps:</strong> Dedicated signed Android applications for Elevate and white-label partner institutes.</li>
+    </ul>
+
+    <footer class="footer">
+      <span>Support: <a href="mailto:sanju3456k@gmail.com">sanju3456k@gmail.com</a></span>
+      <span><a href="/privacy">Privacy Policy</a> &middot; <a href="/terms">Terms of Service</a></span>
+    </footer>
+  </main>
+</body>
+</html>
