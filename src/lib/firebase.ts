@@ -248,8 +248,14 @@ if (typeof window !== 'undefined') {
   cleanupOrphanedFirestoreWebStorage();
 }
 
-// 1. Initialize Firebase App
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+// 1. Initialize Firebase App (match tenant appName `inst_<id>` when switching web institute so IndexedDB auth persists across reload)
+const firebaseAppName =
+  APP_BRAND.isWebInstituteActive && APP_BRAND.instituteId
+    ? `inst_${APP_BRAND.instituteId}`
+    : undefined;
+const app = firebaseAppName
+  ? (getApps().find((a) => a.name === firebaseAppName) || initializeApp(firebaseConfig, firebaseAppName))
+  : (!getApps().length ? initializeApp(firebaseConfig) : getApp());
 
 // 2. Initialize Firestore targeting default or named database with safe in-memory cache
 const rawDbId = (firebaseConfig as any).firestoreDatabaseId || (firebaseConfig as any).databaseId;
