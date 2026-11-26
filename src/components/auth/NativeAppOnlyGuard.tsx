@@ -198,15 +198,11 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
     );
 
   return (
-    <div className="fixed inset-0 z-[999999] min-h-screen w-full flex flex-col items-center justify-start sm:justify-center p-4 py-8 bg-white text-slate-800 select-none overflow-y-auto gap-5">
-      {/* Soft light ambient background accents */}
-      <div className="absolute top-1/4 -left-20 w-80 h-80 bg-blue-100/50 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-indigo-100/50 rounded-full blur-[100px] pointer-events-none" />
-
-      <div className="w-full max-w-md bg-white border border-slate-200/90 rounded-3xl p-7 sm:p-8 shadow-xl shadow-slate-200/60 relative overflow-hidden animate-fade-in flex flex-col items-center text-center shrink-0">
+    <div className="fixed inset-0 z-[999999] min-h-screen w-full flex flex-col items-center justify-start sm:justify-center p-4 py-10 bg-white text-slate-800 select-none overflow-y-auto gap-6 antialiased">
+      <div className="w-full max-w-[420px] bg-white border border-slate-200/80 rounded-3xl p-7 sm:p-9 shadow-[0_8px_30px_rgba(15,23,42,0.04)] relative overflow-hidden animate-fade-in flex flex-col items-center text-center shrink-0">
         {/* Brand Logo */}
-        <div className="flex items-center gap-2.5 mb-4">
-          <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0">
+        <div className="flex items-center gap-2.5 mb-5">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0">
             <img
               src={APP_BRAND.logoUrl}
               alt={APP_BRAND.name}
@@ -216,12 +212,12 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
               }}
             />
           </div>
-          <span className="text-xl font-black text-slate-900 tracking-tight">
+          <span className="text-lg font-semibold text-slate-900 tracking-tight">
             {APP_BRAND.isWhiteLabel ? (
               APP_BRAND.name
             ) : (
               <>
-                Elevate <span className="text-[#0b57d0] font-bold">Labs</span>
+                Elevate <span className="text-[#0b57d0] font-medium">Labs</span>
               </>
             )}
           </span>
@@ -238,7 +234,7 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
         ) : activeWebOrg ? (
           /* Post-reload step when switching to a dedicated organization Firebase */
           <div className="w-full space-y-4">
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-[22px] font-semibold text-slate-900 tracking-tight">
               {activeWebOrg.name}
             </h1>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
@@ -285,11 +281,11 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
         ) : (
           /* Primary Email-First Entry Flow */
           <div className="w-full space-y-4">
-            <div className="space-y-1">
-              <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+            <div className="space-y-1.5">
+              <h1 className="text-[22px] font-semibold text-slate-900 tracking-tight">
                 Welcome to Elevate Labs
               </h1>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              <p className="text-[13px] text-slate-500 leading-relaxed">
                 Enter your email to open your Organization Web Console or download your Android App.
               </p>
             </div>
@@ -309,7 +305,7 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
               <button
                 type="submit"
                 disabled={status === 'checking'}
-                className="w-full py-3 px-5 rounded-2xl bg-[#0b57d0] hover:bg-[#0947a8] text-white font-bold text-sm shadow-lg shadow-[#0b57d0]/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer border-0"
+                className="w-full py-3 px-5 rounded-2xl bg-[#0b57d0] hover:bg-[#0947a8] text-white font-semibold text-sm shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer border-0"
               >
                 <span>{status === 'checking' ? 'Checking...' : 'Continue'}</span>
                 <ArrowRight className="w-4 h-4" />
