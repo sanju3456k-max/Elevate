@@ -180,8 +180,8 @@ export const InstitutePortalGate: React.FC<InstitutePortalGateProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[999990] min-h-screen w-full flex items-center justify-center p-4 bg-[#f5f7fb] dark:bg-[#0b0c10] text-slate-800 dark:text-slate-100 select-none overflow-y-auto">
-      <div className="w-full max-w-md bg-white dark:bg-[#13141a] border border-slate-200/90 dark:border-zinc-800 rounded-3xl p-7 sm:p-8 shadow-xl shadow-slate-200/50 dark:shadow-none relative overflow-hidden flex flex-col items-center text-center">
+    <div className="fixed inset-0 z-[999990] min-h-screen w-full flex flex-col items-center justify-center p-4 py-8 bg-[#f5f7fb] dark:bg-[#0b0c10] text-slate-800 dark:text-slate-100 select-none overflow-y-auto gap-5">
+      <div className="w-full max-w-md bg-white dark:bg-[#13141a] border border-slate-200/90 dark:border-zinc-800 rounded-3xl p-7 sm:p-8 shadow-xl shadow-slate-200/50 dark:shadow-none relative overflow-hidden flex flex-col items-center text-center shrink-0">
         {/* Brand Header */}
         <div className="flex items-center gap-2.5 mb-5">
           <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0">
@@ -291,6 +291,55 @@ export const InstitutePortalGate: React.FC<InstitutePortalGateProps> = ({
           <span>Multi-Institute Learning Platform</span>
         </div>
       </div>
+
+      {!APP_BRAND.isLockedApk && !isNativeAndroid() && (
+        <section className="w-full max-w-2xl bg-white/90 dark:bg-[#13141a]/90 border border-slate-200/90 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 text-left space-y-3 shrink-0">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white">
+              About Elevate Labs
+            </h2>
+            <span className="text-[11px] font-semibold text-[#0b57d0] dark:text-[#a8c7fa]">
+              Mock Tests &bull; Batch Learning &bull; Analytics
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-zinc-400 leading-relaxed">
+            <strong>Elevate Labs</strong> is an educational mock-test practice, OMR evaluation, batch lecture, and
+            study-notes platform for students and coaching institutes. Google Sign-In (<code>email</code> &amp;{' '}
+            <code>profile</code>) is used only to authenticate your account, sync your test progress across devices,
+            and unlock your enrolled institute batches.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs text-slate-700 dark:text-zinc-300">
+            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-zinc-900/70 border border-slate-200/70 dark:border-zinc-800">
+              <div className="font-bold text-slate-900 dark:text-white mb-0.5">Timed Mock Tests</div>
+              Practice chapter-wise &amp; full-length exams with instant scoring.
+            </div>
+            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-zinc-900/70 border border-slate-200/70 dark:border-zinc-800">
+              <div className="font-bold text-slate-900 dark:text-white mb-0.5">Batch Lectures &amp; PDFs</div>
+              Access structured institute courses, video lessons, and study material.
+            </div>
+            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-zinc-900/70 border border-slate-200/70 dark:border-zinc-800">
+              <div className="font-bold text-slate-900 dark:text-white mb-0.5">Private &amp; Isolated</div>
+              No in-app payment collection; each institute runs on isolated storage.
+            </div>
+          </div>
+          <div className="pt-2 border-t border-slate-200/70 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-zinc-400">
+            <div className="flex items-center gap-3">
+              <a href="/privacy" className="font-semibold text-[#0b57d0] dark:text-[#a8c7fa] hover:underline">
+                Privacy Policy
+              </a>
+              <a href="/terms" className="font-semibold text-[#0b57d0] dark:text-[#a8c7fa] hover:underline">
+                Terms of Service
+              </a>
+            </div>
+            <span>
+              Support:{' '}
+              <a href="mailto:sanju3456k@gmail.com" className="underline">
+                sanju3456k@gmail.com
+              </a>
+            </span>
+          </div>
+        </section>
+      )}
     </div>
   );
 };
