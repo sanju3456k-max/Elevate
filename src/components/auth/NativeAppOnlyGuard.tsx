@@ -131,12 +131,12 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
   };
 
   return (
-    <div className="fixed inset-0 z-[999999] min-h-screen w-full flex items-center justify-center p-4 bg-white text-slate-800 select-none overflow-y-auto">
+    <div className="fixed inset-0 z-[999999] min-h-screen w-full flex flex-col items-center justify-start sm:justify-center p-4 py-8 bg-white text-slate-800 select-none overflow-y-auto gap-5">
       {/* Soft light ambient background accents */}
       <div className="absolute top-1/4 -left-20 w-80 h-80 bg-blue-100/50 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-indigo-100/50 rounded-full blur-[100px] pointer-events-none" />
 
-      <div className="w-full max-w-md bg-white border border-slate-200/90 rounded-3xl p-7 sm:p-8 shadow-xl shadow-slate-200/60 relative overflow-hidden animate-fade-in flex flex-col items-center text-center">
+      <div className="w-full max-w-md bg-white border border-slate-200/90 rounded-3xl p-7 sm:p-8 shadow-xl shadow-slate-200/60 relative overflow-hidden animate-fade-in flex flex-col items-center text-center shrink-0">
         
         {/* Brand Logo & Pill */}
         <div className="flex items-center gap-2.5 mb-4">
@@ -319,11 +319,69 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
           </>
         )}
 
-        <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
-          <Sparkles className="w-3 h-3 text-[#0b57d0]" />
-          <span>Elevate Labs Platform</span>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
+          <span className="inline-flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-[#0b57d0]" />
+            <span>Elevate Labs Platform</span>
+          </span>
+          <span>&bull;</span>
+          <a href="/privacy" className="font-semibold text-[#0b57d0] hover:underline">
+            Privacy Policy
+          </a>
+          <span>&bull;</span>
+          <a href="/terms" className="font-semibold text-[#0b57d0] hover:underline">
+            Terms of Service
+          </a>
         </div>
       </div>
+
+      {/* Public App Overview & Compliance Footer (visible without login) */}
+      <section className="w-full max-w-2xl bg-slate-50/90 border border-slate-200/90 rounded-3xl p-5 sm:p-6 text-left space-y-3 relative shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm sm:text-base font-extrabold text-slate-900">
+            About Elevate Labs
+          </h2>
+          <span className="text-[11px] font-semibold text-[#0b57d0]">
+            Mock Tests &bull; Batch Learning &bull; Analytics
+          </span>
+        </div>
+        <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+          <strong>Elevate Labs</strong> is an educational mock-test practice, OMR evaluation, batch lecture, and
+          study-notes platform for students and coaching institutes. Google Sign-In (<code>email</code> &amp;{' '}
+          <code>profile</code>) is used only to authenticate your account, sync your test progress across devices,
+          and unlock your enrolled institute batches.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs text-slate-700">
+          <div className="p-3 rounded-2xl bg-white border border-slate-200/80">
+            <div className="font-bold text-slate-900 mb-0.5">Timed Mock Tests</div>
+            Practice chapter-wise &amp; full-length exams with instant scoring.
+          </div>
+          <div className="p-3 rounded-2xl bg-white border border-slate-200/80">
+            <div className="font-bold text-slate-900 mb-0.5">Batch Lectures &amp; PDFs</div>
+            Access structured institute courses, video lessons, and study material.
+          </div>
+          <div className="p-3 rounded-2xl bg-white border border-slate-200/80">
+            <div className="font-bold text-slate-900 mb-0.5">Private &amp; Isolated</div>
+            No in-app payment collection; each institute runs on isolated storage.
+          </div>
+        </div>
+        <div className="pt-2 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+          <div className="flex items-center gap-3">
+            <a href="/privacy" className="font-semibold text-[#0b57d0] hover:underline">
+              Privacy Policy
+            </a>
+            <a href="/terms" className="font-semibold text-[#0b57d0] hover:underline">
+              Terms of Service
+            </a>
+          </div>
+          <span>
+            Support:{' '}
+            <a href="mailto:sanju3456k@gmail.com" className="underline text-slate-700">
+              sanju3456k@gmail.com
+            </a>
+          </span>
+        </div>
+      </section>
     </div>
   );
 };
