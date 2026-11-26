@@ -256,7 +256,7 @@ const QUESTION_PAPER_PRINT_CSS = `
     min-height: 297mm !important;
     max-height: 297mm !important;
     margin: 0 auto !important;
-    padding: 8mm 12mm 7mm 12mm !important;
+    padding: 8mm 12mm 8mm 12mm !important;
     box-shadow: none !important;
     border: none !important;
     border-radius: 0 !important;
@@ -603,7 +603,7 @@ export async function triggerSystemPrint(
         min-height: ${printHeightMm}mm !important;
         max-height: ${printHeightMm}mm !important;
         margin: 0 auto !important;
-        padding: ${isStandaloneOmr ? '0mm' : '8mm 12mm 7mm 12mm'} !important;
+        padding: ${isStandaloneOmr ? '0mm' : '8mm 12mm 8mm 12mm'} !important;
         box-sizing: border-box !important;
         position: relative !important;
         background: #ffffff !important;

@@ -261,14 +261,14 @@ function buildSamplePapers() {
     })),
   };
 
-  // Sample 6: 60-Question Revision Test Mix (3D Geometry + Vectors + Stacked '=' options)
+  // Sample 6: 150-Question Revision Test Mix (3D Geometry + Vectors + Stacked '=' options)
   const sample6 = {
     id: 'audit_sample_6_revision_mix',
-    title: 'Sample 6: Revision Test (3D Geometry & Vectors Mix)',
+    title: 'Sample 6: Revision Test (150-Q 3D Geometry & Vectors Mix)',
     topic: '3D Geometry',
     timeLimitMinutes: 150,
     passingScorePercentage: 50,
-    questions: Array.from({ length: 60 }, (_, i) => {
+    questions: Array.from({ length: 150 }, (_, i) => {
       if (i % 5 === 4) {
         return {
           id: `s6_q${i + 1}`,
