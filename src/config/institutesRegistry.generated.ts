@@ -16,10 +16,24 @@ export const GENERATED_INSTITUTES_REGISTRY: StaticInstituteEntry[] = [
       "apiKey": "AIzaSyAE9V41Mhd6COtvYa8io0-v6MYFiefZ9oQ",
       "authDomain": "apex-academy-6941e.firebaseapp.com",
       "projectId": "apex-academy-6941e",
+      "firestoreDatabaseId": "default",
       "storageBucket": "apex-academy-6941e.firebasestorage.app",
       "messagingSenderId": "413522060969",
       "appId": "1:413522060969:web:4ca8e03dbdc6b6e5e6ebb8",
       "oAuthClientId": "413522060969-dkcm9kl9h45h06oj9citd65clo2au93s.apps.googleusercontent.com"
+    },
+    "storePage": {
+      "tagline": "Dedicated Batch Lectures, Mock Tests & Study Material for Apex Academy",
+      "description": "Official Android learning app for Apex Academy students. Access enrolled batch video classes, chapter-wise mock tests, OMR practice papers, and downloadable PDF notes on an isolated, distraction-free platform.",
+      "highlights": [
+        "Apex Academy Faculty Video Lectures",
+        "Chapter-wise & Full-Length Mock Tests",
+        "Instant Performance & Rank Analytics",
+        "Offline PDF Notes & Announcements"
+      ],
+      "apkSizeLabel": "19 MB",
+      "contactEmail": "harry4444u@gmail.com",
+      "accentColor": "#0b57d0"
     },
     "createdAt": "2026-11-26T00:00:00.000Z",
     "updatedAt": "2026-11-26T00:00:00.000Z"

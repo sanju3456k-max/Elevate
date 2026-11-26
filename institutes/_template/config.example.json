@@ -8,6 +8,19 @@
   "teamAdminEmails": [],
   "apkVersion": "1.0",
   "apkDownloadUrl": "https://github.com/sanju3456k/elevate-android/releases/latest/download/exampleInstitute-release.apk",
+  "storePage": {
+    "tagline": "Short 1-line tagline for your institute app",
+    "description": "Detailed description shown on /apps/<slug>.",
+    "highlights": [
+      "Feature 1",
+      "Feature 2"
+    ],
+    "apkSizeLabel": "19 MB",
+    "contactEmail": "owner@example.com",
+    "contactPhone": "+91-9000000000",
+    "websiteUrl": "https://example.com",
+    "accentColor": "#0b57d0"
+  },
   "firebaseWebConfig": {
     "apiKey": "PASTE_WEB_API_KEY",
     "authDomain": "your-project.firebaseapp.com",

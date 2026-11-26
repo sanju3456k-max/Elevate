@@ -37,9 +37,14 @@ import {
 
 interface WelcomePortalGuardProps {
   onUnlocked?: () => void;
+  onOpenAppStore?: (slug?: string | null) => void;
 }
 
-export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlocked }) => {
+export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({
+  onUnlocked,
+  onOpenAppStore,
+}) => {
+  const [showAdminSignIn, setShowAdminSignIn] = useState(false);
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'checking' | 'master_verified' | 'error'>('idle');
   const [searched, setSearched] = useState(false);
@@ -69,6 +74,7 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
       .catch(() => {});
   }, []);
 
+  // Always keep Elevate Labs Official App at the top of the directory
   const allOrganizations = useMemo(() => {
     const byId = new Map<string, MasterWorkspace>();
     for (const reg of STATIC_INSTITUTES_REGISTRY) {
@@ -76,9 +82,21 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
     }
     for (const ws of cloudWorkspaces) {
       const prev = byId.get(ws.id);
-      byId.set(ws.id, prev ? { ...prev, ...ws, apkDownloadUrl: ws.apkDownloadUrl || prev.apkDownloadUrl, logoUrl: ws.logoUrl || prev.logoUrl } : ws);
+      byId.set(
+        ws.id,
+        prev
+          ? {
+              ...prev,
+              ...ws,
+              apkDownloadUrl: ws.apkDownloadUrl || prev.apkDownloadUrl,
+              logoUrl: ws.logoUrl || prev.logoUrl,
+            }
+          : ws
+      );
     }
-    return Array.from(byId.values());
+    const list = Array.from(byId.values());
+    list.sort((a, b) => (a.id === 'ws_primary' ? -1 : b.id === 'ws_primary' ? 1 : 0));
+    return list;
   }, [cloudWorkspaces]);
 
   const completeUnlock = (workspace: MasterWorkspace, userEmail: string) => {
@@ -88,7 +106,7 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
     setStatus('master_verified');
     unlockWebAccess('elevate_admin_pass');
     setFeedbackMsg(
-      `Welcome back, ${workspace.name} Admin (${userEmail})! Unlocking web console...`
+      `Welcome back, ${workspace.name} Official Admin (${userEmail})! Unlocking web console...`
     );
     setTimeout(() => {
       try {
@@ -122,13 +140,9 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
       setMatches(results);
       setSearched(true);
       setStatus('idle');
-      if (results.length === 0) {
-        setShowDirectory(true);
-      }
     } catch {
       setStatus('error');
-      setFeedbackMsg('Unable to check email right now. Please try again or choose an organization below.');
-      setShowDirectory(true);
+      setFeedbackMsg('Unable to check email right now. Please try again.');
     }
   };
 
@@ -278,15 +292,62 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
               <span>Back to Email Lookup</span>
             </button>
           </div>
-        ) : (
-          /* Primary Email-First Entry Flow */
-          <div className="w-full space-y-4">
+        ) : !showAdminSignIn ? (
+          /* Minimal 3-Action Welcome Card */
+          <div className="w-full space-y-5">
             <div className="space-y-1.5">
               <h1 className="text-[22px] font-semibold text-slate-900 tracking-tight">
                 Welcome to Elevate Labs
               </h1>
               <p className="text-[13px] text-slate-500 leading-relaxed">
-                Enter your email to open your Organization Web Console or download your Android App.
+                Sign in as an Institute Admin or download the official Android App for your studies.
+              </p>
+            </div>
+
+            <div className="w-full space-y-2.5">
+              <button
+                type="button"
+                onClick={() => setShowAdminSignIn(true)}
+                className="w-full py-3.5 px-5 rounded-2xl bg-[#0b57d0] hover:bg-[#0947a8] text-white font-semibold text-sm shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.99] cursor-pointer border-0"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Sign in as an Admin</span>
+              </button>
+
+              <a
+                href="./elevate.apk"
+                download="elevate.apk"
+                className="w-full py-3 px-4 rounded-2xl bg-slate-100/90 hover:bg-slate-200/80 text-slate-800 text-xs sm:text-[13px] font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.99] border-0 no-underline"
+              >
+                <Download className="w-4 h-4 text-[#0b57d0]" />
+                <span>Download Elevate Labs Official App</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (onOpenAppStore) {
+                    onOpenAppStore(null);
+                  } else {
+                    window.location.href = '/apps';
+                  }
+                }}
+                className="w-full py-3 px-4 rounded-2xl bg-slate-100/90 hover:bg-slate-200/80 text-slate-800 text-xs sm:text-[13px] font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.99] cursor-pointer border-0"
+              >
+                <Building2 className="w-4 h-4 text-[#0b57d0]" />
+                <span>Choose your own Institute&apos;s App</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Inline Admin Email Lookup & Google Sign-In Flow */
+          <div className="w-full space-y-4">
+            <div className="space-y-1.5">
+              <h1 className="text-[22px] font-semibold text-slate-900 tracking-tight">
+                Admin Console Sign-In
+              </h1>
+              <p className="text-[13px] text-slate-500 leading-relaxed">
+                Enter your registered admin email to open your Institute Web Console.
               </p>
             </div>
 
@@ -342,7 +403,7 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
                         </div>
                         <p className="text-[11px] text-slate-500">
                           {role === 'admin'
-                            ? 'Organization Admin • Web Console Access'
+                            ? `${workspace.name} Official Admin • Web Console Access`
                             : 'Enrolled Student • Official Android App'}
                         </p>
                       </div>
@@ -353,25 +414,30 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
                         type="button"
                         onClick={() => handleAdminGoogleSignIn(workspace)}
                         disabled={isSigningInGoogle}
-                        className="w-full py-2.5 px-4 rounded-xl bg-[#0b57d0] hover:bg-[#0947a8] text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer border-0 disabled:opacity-50"
+                        className="w-full py-3 px-4 rounded-2xl bg-[#0b57d0] hover:bg-[#0947a8] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.99] cursor-pointer border-0 disabled:opacity-50"
                       >
                         <LogIn className="w-4 h-4" />
                         <span>
-                          {isSigningInGoogle ? 'Signing in...' : `Sign in as Admin (${workspace.name})`}
+                          {isSigningInGoogle ? 'Signing in...' : `Sign in as ${workspace.name} Official Admin`}
                         </span>
                       </button>
                     ) : (
-                      workspace.apkDownloadUrl && (
-                        <a
-                          href={workspace.apkDownloadUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-2 no-underline"
-                        >
-                          <Download className="w-4 h-4" />
-                          <span>Download {workspace.name} APK</span>
-                        </a>
-                      )
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onOpenAppStore) {
+                            onOpenAppStore(workspace.slug || null);
+                          } else {
+                            window.location.href = workspace.slug
+                              ? `/apps/${encodeURIComponent(workspace.slug)}`
+                              : '/apps';
+                          }
+                        }}
+                        className="w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.99] border-0 cursor-pointer"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span>Download Android App</span>
+                      </button>
                     )}
                   </div>
                 ))}
@@ -380,51 +446,24 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({ onUnlock
 
             {/* Unregistered Email Notice */}
             {searched && matches.length === 0 && (
-              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600 text-left">
-                No registered admin or enrolled account found for <strong>{email}</strong>. Choose any organization
-                below to download its Android App:
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600 text-left leading-relaxed">
+                No enrolled institute found for <strong>{email}</strong>. You can download the official{' '}
+                <strong>Elevate Labs</strong> app below, or ask your coaching institute for their dedicated app link.
               </div>
             )}
 
-            {/* Manual Organization Directory Toggle */}
             <button
               type="button"
-              onClick={() => setShowDirectory((v) => !v)}
-              className="w-full py-1.5 text-xs font-semibold text-slate-500 hover:text-[#0b57d0] transition-colors flex items-center justify-center gap-1 bg-transparent border-0 cursor-pointer"
+              onClick={() => {
+                setShowAdminSignIn(false);
+                setFeedbackMsg('');
+                setSearched(false);
+              }}
+              className="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors flex items-center justify-center gap-1.5 bg-transparent border-0 cursor-pointer"
             >
-              <span>{showDirectory ? 'Hide all organizations' : 'Or browse all organizations & download app'}</span>
-              {showDirectory ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back</span>
             </button>
-
-            {showDirectory && (
-              <div className="w-full space-y-2 text-left max-h-64 overflow-y-auto pr-0.5">
-                {allOrganizations.map((org) => (
-                  <div
-                    key={org.id}
-                    className="p-3 rounded-2xl border border-slate-200 bg-white flex items-center justify-between gap-3"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {renderOrgLogo(org)}
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-slate-900 truncate">{org.name}</div>
-                        <div className="text-[11px] text-slate-500 truncate">Official Android App</div>
-                      </div>
-                    </div>
-                    {org.apkDownloadUrl && (
-                      <a
-                        href={org.apkDownloadUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center gap-1.5 shrink-0 no-underline"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>APK</span>
-                      </a>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 

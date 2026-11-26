@@ -27,6 +27,14 @@ service cloud.firestore {
     //   - tagline: string (optional, <= 300 chars)
     //   - description: string (optional, <= 5000 chars)
     //   - price, originalPrice, enrolledStudentsCount: number (optional, >= 0)
+    //
+    // Collection: app_storefront/{workspaceId}
+    //   - id: string (required, must match {workspaceId}, 1..128 chars)
+    //   - appName: string (optional, <= 120 chars)
+    //   - apkVersion: string (optional, <= 64 chars)
+    //   - storePage: map (required; if screenshots present, list <= 8 items)
+    //   - updatedAt: string (optional, <= 64 chars)
+    //   - updatedBy: string (optional, <= 254 chars)
     // =========================================================================
 
     // Helper functions
@@ -92,6 +100,11 @@ service cloud.firestore {
         isWorkspaceTeamAdminData(wsData);
     }
 
+    function isWorkspaceOwner(wsId) {
+      return workspaceExists(wsId) &&
+        isWorkspaceOwnerData(get(/databases/$(database)/documents/master_workspaces/$(wsId)).data);
+    }
+
     function isWorkspaceMember(wsId) {
       return isMasterAdmin() || (
         workspaceExists(wsId) &&
@@ -138,6 +151,20 @@ service cloud.firestore {
         (!('price' in data) || (data.price is number && data.price >= 0)) &&
         (!('originalPrice' in data) || (data.originalPrice is number && data.originalPrice >= 0)) &&
         (!('enrolledStudentsCount' in data) || (data.enrolledStudentsCount is number && data.enrolledStudentsCount >= 0));
+    }
+
+    function isValidAppStorefront(data, workspaceId) {
+      return data.keys().hasOnly(['id', 'appName', 'apkVersion', 'storePage', 'updatedAt', 'updatedBy']) &&
+        data.id is string &&
+        data.id.size() > 0 &&
+        data.id.size() <= 128 &&
+        data.id == workspaceId &&
+        data.storePage is map &&
+        (!('screenshots' in data.storePage) || (data.storePage.screenshots is list && data.storePage.screenshots.size() <= 8)) &&
+        (!('appName' in data) || (data.appName is string && data.appName.size() <= 120)) &&
+        (!('apkVersion' in data) || (data.apkVersion is string && data.apkVersion.size() <= 64)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64)) &&
+        (!('updatedBy' in data) || (data.updatedBy is string && data.updatedBy.size() <= 254));
     }
 
     // Default deny
@@ -224,6 +251,16 @@ service cloud.firestore {
           isValidWorkspaceTest(request.resource.data, workspaceId);
         allow delete: if isWorkspaceMember(workspaceId);
       }
+    }
+
+    // Public App Storefront Overrides (/apps/<slug>)
+    // Public read for unauthenticated storefront visitors; writes restricted to Master Admin or Workspace Owner
+    match /app_storefront/{workspaceId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() &&
+        (isMasterAdmin() || isWorkspaceOwner(workspaceId)) &&
+        isValidAppStorefront(request.resource.data, workspaceId);
+      allow delete: if isMasterAdmin();
     }
 
     // =========================================================================

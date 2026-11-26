@@ -302,6 +302,10 @@ export async function fetchBatchesFromFirestore(options?: { forceRefresh?: boole
           isPublished: data.isPublished !== false,
           allowGuestAccess: !!data.allowGuestAccess,
           isPrivateRosterOnly: !!data.isPrivateRosterOnly,
+          workspaceId: data.workspaceId || undefined,
+          ownerEmail: data.ownerEmail || undefined,
+          createdAt: data.createdAt || undefined,
+          updatedAt: data.updatedAt || undefined,
         });
       });
 

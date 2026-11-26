@@ -2,6 +2,7 @@
   "apiKey": "AIzaSyAE9V41Mhd6COtvYa8io0-v6MYFiefZ9oQ",
   "authDomain": "apex-academy-6941e.firebaseapp.com",
   "projectId": "apex-academy-6941e",
+  "firestoreDatabaseId": "default",
   "storageBucket": "apex-academy-6941e.firebasestorage.app",
   "messagingSenderId": "413522060969",
   "appId": "1:413522060969:web:4ca8e03dbdc6b6e5e6ebb8",

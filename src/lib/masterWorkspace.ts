@@ -14,6 +14,7 @@ export interface InstituteFirebaseWebConfig {
   apiKey: string;
   authDomain: string;
   projectId: string;
+  firestoreDatabaseId?: string;
   storageBucket: string;
   messagingSenderId: string;
   appId: string;
@@ -47,7 +48,7 @@ export const ROOT_SUPER_ADMIN_EMAILS = [
 
 const DEFAULT_PRIMARY_WORKSPACE: MasterWorkspace = {
   id: PRIMARY_WORKSPACE_ID,
-  name: APP_BRAND.activeInstituteLabel || (APP_BRAND.isWhiteLabel ? APP_BRAND.name : 'Elevate Primary Institute (Sanju)'),
+  name: APP_BRAND.activeInstituteLabel || (APP_BRAND.isWhiteLabel ? APP_BRAND.name : 'Elevate'),
   ownerEmail: APP_BRAND.ownerEmail,
   teamAdminEmails: [],
   createdAt: '2026-01-01T00:00:00.000Z',

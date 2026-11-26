@@ -276,7 +276,13 @@ if (typeof window !== 'undefined') {
       sessionStorage.setItem('firebase_conn_tested', 'true');
       if (typeof navigator === 'undefined' || navigator.onLine) {
         getDoc(doc(db, 'test', 'connection')).catch((error) => {
-          if (error instanceof Error && (error.message.includes('the client is offline') || error.message.includes('code=unavailable'))) {
+          const code = String((error as any)?.code || '');
+          const msg = error instanceof Error ? error.message : String(error);
+          if (code === 'not-found' || msg.includes('5 NOT_FOUND')) {
+            console.error(
+              `[Firebase] Cloud Firestore "(default)" database not found for project "${firebaseConfig.projectId}". Create the (default) Firestore database in Firebase Console.`
+            );
+          } else if (msg.includes('the client is offline') || msg.includes('code=unavailable')) {
             console.warn('Firestore connection notice: Client is offline or unreachable.');
           }
         });

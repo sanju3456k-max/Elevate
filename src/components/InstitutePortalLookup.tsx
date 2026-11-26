@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Download, LogIn, Search, Building2, CheckCircle2, ShieldCheck } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Download, LogIn, Search, Building2, CheckCircle2, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   lookupInstitutesByEmail,
   setSelectedInstituteId,
@@ -8,28 +8,56 @@ import {
 import {
   setSelectedAppInstituteId,
   setAppInstituteGuestMode,
+  getCachedMasterWorkspaces,
   type MasterWorkspace,
 } from '../lib/masterWorkspace';
+import { STATIC_INSTITUTES_REGISTRY } from '../config/institutesRegistry';
 import { APP_BRAND, saveWebInstituteSession, clearWebInstituteSession } from '../config/appBrand';
 
 interface InstitutePortalLookupProps {
   onOpenWorkspace: (workspace: MasterWorkspace) => void;
+  onOpenAppStore?: (slug?: string | null) => void;
 }
 
 /**
  * Welcome-page email lookup component:
- * - Admins see "Login as {Institute} Admin" -> opens their isolated web workspace & Master Console.
- * - Students see their enrolled institute(s) and "Download {Institute} APK"
- *   (or choose between multiple institute APKs if enrolled in 2+).
+ * - Admins see "Login as {Institute} Official Admin" -> opens their isolated web workspace & Master Console.
+ * - Students see their enrolled institute(s) and "Download Android App".
  */
 export const InstitutePortalLookup: React.FC<InstitutePortalLookupProps> = ({
   onOpenWorkspace,
+  onOpenAppStore,
 }) => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [matches, setMatches] = useState<InstituteLookupMatch[]>([]);
+  const [showDirectory, setShowDirectory] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const allOrganizations = useMemo(() => {
+    const byId = new Map<string, MasterWorkspace>();
+    for (const reg of STATIC_INSTITUTES_REGISTRY) {
+      byId.set(reg.id, reg);
+    }
+    for (const ws of getCachedMasterWorkspaces()) {
+      const prev = byId.get(ws.id);
+      byId.set(
+        ws.id,
+        prev
+          ? {
+              ...prev,
+              ...ws,
+              apkDownloadUrl: ws.apkDownloadUrl || prev.apkDownloadUrl,
+              logoUrl: ws.logoUrl || prev.logoUrl,
+            }
+          : ws
+      );
+    }
+    const list = Array.from(byId.values());
+    list.sort((a, b) => (a.id === 'ws_primary' ? -1 : b.id === 'ws_primary' ? 1 : 0));
+    return list;
+  }, []);
 
   const handleLookup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,7 +86,7 @@ export const InstitutePortalLookup: React.FC<InstitutePortalLookupProps> = ({
           Welcome to Elevate Labs
         </h2>
         <p className="text-xs sm:text-sm text-slate-600 dark:text-zinc-400">
-          Enter your email to login as an Institute Admin or download your batch&apos;s Android APK.
+          Enter your email to login as an institute admin or download your assigned Android App.
         </p>
       </div>
 
@@ -85,8 +113,9 @@ export const InstitutePortalLookup: React.FC<InstitutePortalLookupProps> = ({
       {error && <p className="text-xs text-rose-600">{error}</p>}
 
       {searched && matches.length === 0 && (
-        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-900/70 border border-slate-200 dark:border-zinc-800 text-xs text-slate-600 dark:text-zinc-300">
-          No institute found for <strong>{email}</strong>. Contact your institute admin to enroll your email.
+        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-900/70 border border-slate-200 dark:border-zinc-800 text-xs text-slate-600 dark:text-zinc-300 leading-relaxed">
+          No enrolled institute found for <strong>{email}</strong>. You can download the official{' '}
+          <strong>Elevate Labs</strong> app below, or ask your coaching institute for their dedicated app link.
         </div>
       )}
 
@@ -126,8 +155,8 @@ export const InstitutePortalLookup: React.FC<InstitutePortalLookupProps> = ({
                   </div>
                   <p className="text-[11px] text-slate-500 dark:text-zinc-400">
                     {role === 'admin'
-                      ? 'Institute Admin • Web Workspace & Master Console'
-                      : `Student • Download ${workspace.name} Android App`}
+                      ? `${workspace.name} Official Admin • Web Workspace & Master Console`
+                      : 'Enrolled Student • Official Android App'}
                   </p>
                 </div>
               </div>
@@ -159,28 +188,60 @@ export const InstitutePortalLookup: React.FC<InstitutePortalLookupProps> = ({
                     }
                     onOpenWorkspace(workspace);
                   }}
-                  className="w-full py-2.5 px-4 rounded-xl bg-[#0b57d0] hover:bg-[#0947a8] text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer border-0"
+                  className="w-full py-3 px-4 rounded-2xl bg-[#0b57d0] hover:bg-[#0947a8] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.99] cursor-pointer border-0"
                 >
                   <LogIn className="w-4 h-4" />
-                  <span>Login as Admin in {workspace.name}</span>
+                  <span>Login as {workspace.name} Official Admin</span>
                 </button>
               ) : (
-                workspace.apkDownloadUrl && (
-                  <a
-                    href={workspace.apkDownloadUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-2 no-underline"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download {workspace.name} APK</span>
-                  </a>
-                )
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onOpenAppStore) {
+                      onOpenAppStore(workspace.slug || null);
+                    } else {
+                      window.location.href = workspace.slug
+                        ? `/apps/${encodeURIComponent(workspace.slug)}`
+                        : '/apps';
+                    }
+                  }}
+                  className="w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.99] border-0 cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download Android App</span>
+                </button>
               )}
             </div>
           ))}
         </div>
       )}
+
+      {/* Always-available Elevate Labs Official App download + Full-page Institute App Storefront */}
+      <div className="space-y-2">
+        <a
+          href="./elevate.apk"
+          download="elevate.apk"
+          className="w-full py-3 px-4 rounded-2xl bg-slate-100/90 dark:bg-zinc-800/90 hover:bg-slate-200/80 dark:hover:bg-zinc-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.99] border-0 no-underline"
+        >
+          <Download className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
+          <span>Download Elevate Labs Official App</span>
+        </a>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (onOpenAppStore) {
+              onOpenAppStore(null);
+            } else {
+              window.location.href = '/apps';
+            }
+          }}
+          className="w-full py-3 px-4 rounded-2xl bg-slate-100/90 dark:bg-zinc-800/90 hover:bg-slate-200/80 dark:hover:bg-zinc-700 text-slate-800 dark:text-slate-100 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.99] border-0 cursor-pointer"
+        >
+          <Building2 className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
+          <span>Choose your own Institute&apos;s App</span>
+        </button>
+      </div>
     </div>
   );
 };

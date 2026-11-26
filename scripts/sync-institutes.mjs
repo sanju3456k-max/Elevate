@@ -133,6 +133,29 @@ with Image.open(src) as img:
       hasLogo = true;
     }
 
+    // Sync optional screenshots from institutes/<slug>/screenshots/ -> public/assets/tenants/<flavor>/screenshots/
+    const screenshotsSrcDir = path.join(srcDir, 'screenshots');
+    const screenshotsOutDir = path.join(publicTenantsDir, flavor, 'screenshots');
+    const syncedScreenshots = [];
+    if (fs.existsSync(screenshotsSrcDir)) {
+      const files = fs
+        .readdirSync(screenshotsSrcDir)
+        .filter((f) => /\.(png|jpe?g|webp)$/i.test(f))
+        .sort();
+      if (files.length > 0) {
+        fs.mkdirSync(screenshotsOutDir, { recursive: true });
+        for (const f of files) {
+          fs.copyFileSync(path.join(screenshotsSrcDir, f), path.join(screenshotsOutDir, f));
+          syncedScreenshots.push(`./assets/tenants/${flavor}/screenshots/${f}`);
+        }
+      }
+    }
+
+    const storePage = {
+      ...(cfg.storePage && typeof cfg.storePage === 'object' ? cfg.storePage : {}),
+      ...(syncedScreenshots.length > 0 ? { screenshots: syncedScreenshots } : {}),
+    };
+
     generatedEntries.push({
       id: cfg.instituteId,
       name: cfg.appName,
@@ -146,6 +169,7 @@ with Image.open(src) as img:
         cfg.apkDownloadUrl ||
         `https://github.com/sanju3456k/elevate-android/releases/latest/download/${flavor}-release.apk`,
       firebaseWebConfig: cfg.firebaseWebConfig,
+      ...(Object.keys(storePage).length > 0 ? { storePage } : {}),
       createdAt: cfg.createdAt || '2026-11-26T00:00:00.000Z',
       updatedAt: cfg.updatedAt || '2026-11-26T00:00:00.000Z',
     });

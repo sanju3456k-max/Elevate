@@ -4,6 +4,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { setAppThemeColor } from '../lib/appThemeColor';
 import { McbUxAuditPanel } from './McbUxAuditPanel';
 import { MasterTeamAccessPanel } from './admin/MasterTeamAccessPanel';
+import { InstituteAppStorePage } from './storefront/InstituteAppStorePage';
+import {
+  STATIC_INSTITUTES_REGISTRY,
+  type StaticInstituteEntry,
+} from '../config/institutesRegistry';
 import {
   type MasterWorkspace,
   PRIMARY_WORKSPACE_ID,
@@ -58,6 +63,7 @@ import {
   Package,
   Menu,
   Folder,
+  Smartphone,
   Settings,
   Smartphone,
   UserPlus,
@@ -133,6 +139,7 @@ export type MasterConsoleNavTab =
   | 'publishing'
   | 'team'
   | 'settings'
+  | 'storefront'
   | 'ux_audit';
 
 export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
@@ -246,7 +253,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
       workspaces.find((w) => w.id === activeWorkspaceId) ||
       workspaces[0] || {
         id: PRIMARY_WORKSPACE_ID,
-        name: APP_BRAND.isWhiteLabel ? APP_BRAND.name : 'Elevate Primary Institute',
+        name: APP_BRAND.isWhiteLabel ? APP_BRAND.name : 'Elevate',
         ownerEmail: (currentUserEmail || MASTER_ADMIN_EMAIL).toLowerCase(),
         teamAdminEmails: [],
         createdAt: new Date().toISOString(),
@@ -1585,6 +1592,24 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 {activeWorkspace.teamAdminEmails.length}
               </span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => { setActiveTab('storefront'); setIsMobileMenuOpen(false); }}
+              title="Preview & Edit Public App Store Page"
+              className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center transition border-0 cursor-pointer ${
+                isDesktopSidebarCollapsed ? 'lg:justify-center lg:px-2' : 'justify-between'
+              } ${
+                activeTab === 'storefront'
+                  ? 'bg-[#0b57d0] text-white shadow-xs'
+                  : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Smartphone className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className={isDesktopSidebarCollapsed ? 'lg:hidden' : ''}>App Store Page</span>
+              </div>
+            </button>
           </div>
         </div>
 
@@ -1661,6 +1686,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 {activeTab === 'remedial' && 'Adaptive Remedial Engine'}
                 {activeTab === 'analytics' && 'Per-Test Performance Analytics'}
                 {activeTab === 'publishing' && 'Global Test Publishing Catalog'}
+                {activeTab === 'storefront' && 'Public App Info, Screenshots & Download Page'}
                 {activeTab === 'ux_audit' && 'MCB UI Performance & Human/Turbo Visual Audit'}
               </span>
             </div>
@@ -1740,6 +1766,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             { id: 'analytics', label: 'Analytics', icon: BarChart3 },
             { id: 'publishing', label: 'Publish', icon: BookOpen, badge: currentBatchTests.length },
             { id: 'team', label: 'Team & Access', icon: ShieldCheck, badge: activeWorkspace.teamAdminEmails.length },
+            { id: 'storefront', label: 'App Store Page', icon: Smartphone },
             { id: 'settings', label: 'Security', icon: ShieldCheck },
             { id: 'ux_audit', label: 'UX Audit', icon: Activity },
           ].map((tab) => {
@@ -3951,6 +3978,26 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
       )}
 
       {activeTab === 'ux_audit' && <McbUxAuditPanel />}
+
+      {activeTab === 'storefront' && (() => {
+        const regMatch = STATIC_INSTITUTES_REGISTRY.find((r) => r.id === activeWorkspace.id);
+        const storefrontInst: StaticInstituteEntry = regMatch || {
+          ...activeWorkspace,
+          slug: activeWorkspace.slug || activeWorkspace.id,
+          logoUrl: activeWorkspace.logoUrl || APP_BRAND.logoUrl,
+          apkDownloadUrl: activeWorkspace.apkDownloadUrl || './elevate.apk',
+        };
+        return (
+          <InstituteAppStorePage
+            selectedSlug={storefrontInst.slug}
+            editorMode={{
+              enabled: true,
+              institute: storefrontInst,
+              userEmail: currentUserEmail || MASTER_ADMIN_EMAIL,
+            }}
+          />
+        );
+      })()}
 
       {activeTab === 'team' && (
         <MasterTeamAccessPanel

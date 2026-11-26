@@ -461,7 +461,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     fetchBatchesFromFirestore().then((cloudBatches) => {
       if (cloudBatches && cloudBatches.length > 0) {
-        setBatches(cloudBatches);
+        setBatches((prev) => {
+          const isFallbackOnly = cloudBatches.length === 1 && cloudBatches[0].id === 'batch_testing_01';
+          const hasCustomLocal = prev.some((b) => b.id !== 'batch_testing_01');
+          if (isFallbackOnly && hasCustomLocal) return prev;
+          return cloudBatches;
+        });
       }
     });
 
@@ -484,7 +489,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           fetchBatchesFromFirestore({ forceRefresh: Boolean(serverBeacon && localBeacon && serverBeacon !== localBeacon) })
             .then((cloudBatches) => {
               if (cloudBatches && cloudBatches.length > 0) {
-                setBatches(cloudBatches);
+                setBatches((prev) => {
+                  const isFallbackOnly = cloudBatches.length === 1 && cloudBatches[0].id === 'batch_testing_01';
+                  const hasCustomLocal = prev.some((b) => b.id !== 'batch_testing_01');
+                  if (isFallbackOnly && hasCustomLocal) return prev;
+                  return cloudBatches;
+                });
                 if (serverBeacon) {
                   setCachedBatchCatalogBeacon(serverBeacon);
                 }
@@ -940,11 +950,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       workspaceId: batchData.workspaceId || activeWs?.id || PRIMARY_WORKSPACE_ID,
       ownerEmail: batchData.ownerEmail || activeWs?.ownerEmail || user?.email?.toLowerCase(),
     };
-    setBatches((prev) => [newBatch, ...prev]);
+    setBatches((prev) => {
+      const next = [newBatch, ...prev];
+      try {
+        secureStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
     const res = await syncBatchToFirestore(newBatch);
     if (!res.success) {
       console.error('Batch sync failure:', res.error);
-      showSecurityToast(`Warning: Cloud sync failed (${res.error}). Verify master account connection.`);
+      const isPermError = String(res.error || '').toLowerCase().includes('permission');
+      showSecurityToast(
+        isPermError
+          ? 'Firestore Permission Denied: Publish tenant firestore.rules in Firebase Console.'
+          : `Warning: Cloud sync failed (${res.error}). Verify master account connection.`
+      );
     } else {
       showSecurityToast(`Batch "${newBatch.title}" successfully synced to Cloud Firestore.`);
     }
@@ -2178,7 +2199,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const cloudBatches = await fetchBatchesFromFirestore({ forceRefresh: true });
       if (cloudBatches && cloudBatches.length > 0) {
-        setBatches(cloudBatches);
+        setBatches((prev) => {
+          const isFallbackOnly = cloudBatches.length === 1 && cloudBatches[0].id === 'batch_testing_01';
+          const hasCustomLocal = prev.some((b) => b.id !== 'batch_testing_01');
+          if (isFallbackOnly && hasCustomLocal) return prev;
+          return cloudBatches;
+        });
       }
       if (activeBatchId) {
         await loadCurriculumForBatch(activeBatchId, true).catch(() => {});

@@ -319,7 +319,7 @@ export async function publishMasterTest(test: MathTest): Promise<{ success: bool
     authorName: test.authorName || 'Academic Master',
     authorEmail: test.authorEmail || MASTER_ADMIN_EMAIL,
     ownerEmail: test.ownerEmail || test.authorEmail || MASTER_ADMIN_EMAIL,
-    workspaceId: test.workspaceId || 'ws_primary',
+    workspaceId: test.workspaceId || getActiveAppInstituteIdOrPrimary(),
     isPublic: true,
     updatedAt: new Date().toISOString(),
   };

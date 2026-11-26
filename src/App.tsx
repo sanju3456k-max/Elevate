@@ -32,6 +32,7 @@ import {
 import { DeviceLockedModal } from './components/auth/DeviceLockedModal';
 import { NativeAppOnlyGuard } from './components/auth/NativeAppOnlyGuard';
 import { InstitutePortalGate } from './components/auth/InstitutePortalGate';
+import { InstituteAppStorePage } from './components/storefront/InstituteAppStorePage';
 import { checkPlatformAccess } from './lib/platformSecurityGuard';
 import { syncHub } from './lib/syncEngine';
 import { smartCoordinator } from './lib/smartLocalCoordinator';
@@ -2431,30 +2432,96 @@ export default function App() {
     }
   };
 
+  const [appStoreRoute, setAppStoreRoute] = useState<{ active: boolean; slug: string | null }>(() => {
+    if (typeof window === 'undefined' || APP_BRAND.isLockedApk || isNativeAndroid()) {
+      return { active: false, slug: null };
+    }
+    const p = window.location.pathname;
+    if (p === '/apps' || p === '/apps/') return { active: true, slug: null };
+    if (p.startsWith('/apps/')) return { active: true, slug: decodeURIComponent(p.slice('/apps/'.length)).replace(/\/+$/, '') || null };
+    return { active: false, slug: null };
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || APP_BRAND.isLockedApk || isNativeAndroid()) return;
+    const onPop = () => {
+      const p = window.location.pathname;
+      if (p === '/apps' || p === '/apps/') setAppStoreRoute({ active: true, slug: null });
+      else if (p.startsWith('/apps/')) {
+        setAppStoreRoute({ active: true, slug: decodeURIComponent(p.slice('/apps/'.length)).replace(/\/+$/, '') || null });
+      } else {
+        setAppStoreRoute({ active: false, slug: null });
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  const navigateToAppStore = useCallback((slug: string | null) => {
+    const targetPath = slug ? `/apps/${encodeURIComponent(slug)}` : '/apps';
+    try {
+      window.history.pushState({}, '', targetPath);
+    } catch {}
+    setAppStoreRoute({ active: true, slug });
+  }, []);
+
+  const navigateBackFromAppStore = useCallback(() => {
+    try {
+      window.history.pushState({}, '', '/');
+    } catch {}
+    setAppStoreRoute({ active: false, slug: null });
+  }, []);
+
+  if (appStoreRoute.active) {
+    return (
+      <InstituteAppStorePage
+        selectedSlug={appStoreRoute.slug}
+        onNavigateHome={navigateBackFromAppStore}
+        onSelectInstituteSlug={(slug) => navigateToAppStore(slug)}
+      />
+    );
+  }
+
   // If the web environment is blocked (public web browser without verification),
   // halt rendering the main app completely. Do NOT mount LmsProvider, Navbar, Batches, Tests, or Players in the background.
   if (platformAccess.isBlocked) {
     return (
       <NativeAppOnlyGuard
         onUnlocked={() => setPlatformAccess(checkPlatformAccess(true))}
+        onOpenAppStore={(slug) => navigateToAppStore(slug ?? null)}
       />
     );
   }
 
   // Multi-Institute First-Screen Gate:
-  // Step 1: Choose Your Institute (when none selected yet)
-  // Step 2: Institute Portal (Sign In or Continue as Guest) when not signed in and not in guest mode
-  const isUserSignedIn = Boolean(
-    (currentUser && !isGuestUser(currentUser)) ||
-    (cachedUser && !isGuestUser(cachedUser))
-  );
-  if (!selectedInstituteId || (!isUserSignedIn && !isInstituteGuestMode)) {
+  // - Native Android APK: Choose Your Institute -> Sign In or Continue as Guest
+  // - Web Browser: Strictly Master Console / Institute Admin only. Guest Mode is NEVER allowed on Web,
+  //   and non-admin signed-in users are blocked here with direct link to their institute's /apps/<slug> page.
+  const activeWebUser =
+    currentUser && !isGuestUser(currentUser)
+      ? currentUser
+      : cachedUser && !isGuestUser(cachedUser)
+        ? cachedUser
+        : null;
+  const isUserSignedIn = Boolean(activeWebUser);
+  const isNativeAppEnv = isNativeAndroid() || APP_BRAND.isLockedApk;
+  const isAuthorizedWebAdmin = isUserSignedIn && isMasterUser(activeWebUser, selectedInstituteId);
+
+  const isGateBlocked = isNativeAppEnv
+    ? !selectedInstituteId || (!isUserSignedIn && !isInstituteGuestMode)
+    : !selectedInstituteId || !isAuthorizedWebAdmin;
+
+  if (isGateBlocked) {
     return (
       <InstitutePortalGate
         selectedInstituteId={selectedInstituteId}
         onInstituteSelected={(wsId) => setSelectedInstituteId(wsId)}
         onContinueAsGuest={() => setIsInstituteGuestMode(true)}
         onSignIn={handleSignIn}
+        onSignOut={handleSignOut}
+        signedInEmail={activeWebUser?.email || null}
+        isAdminAuthorized={isAuthorizedWebAdmin}
+        onOpenAppStore={(slug) => navigateToAppStore(slug ?? null)}
       />
     );
   }
