@@ -1591,11 +1591,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                   setIsFolderModalOpen(true);
                 }}
                 className="w-9 h-9 md:w-auto md:h-auto p-0 md:px-3 md:py-1.5 aspect-square md:aspect-auto rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#041e49] font-bold text-xs flex items-center justify-center md:space-x-1.5 shadow-xs hover:opacity-90 active:scale-95 transition border-none cursor-pointer shrink-0"
-                title={selectedChapterId ? "Add Subfolder" : "Add Chapter Folder"}
-                aria-label={selectedChapterId ? "Add Subfolder" : "Add Folder"}
+                title="Add Folder"
+                aria-label="Add Folder"
               >
                 <FolderPlus className="w-4 h-4 shrink-0" />
-                <span className="hidden md:inline">{selectedChapterId ? "+ Subfolder" : "+ Folder"}</span>
+                <span className="hidden md:inline">+ Folder</span>
               </button>
 
               <button

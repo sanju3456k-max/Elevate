@@ -23,6 +23,7 @@ import { APP_BRAND, clearWebInstituteSession } from '../../config/appBrand';
 import { isNativeAndroid } from '../../lib/nativeHardwareBridge';
 import { PRIMARY_WORKSPACE_ID } from '../../lib/masterWorkspace';
 import { getInstituteFirebaseServices } from '../../lib/tenantFirebase';
+import { signInWithGoogleRedirect } from '../../lib/firebase';
 import { InstitutePortalLookup } from '../InstitutePortalLookup';
 
 interface InstitutePickerViewProps {
@@ -163,6 +164,14 @@ export const InstitutePortalGate: React.FC<InstitutePortalGateProps> = ({
   const [selectedWorkspace, setSelectedWorkspace] = useState<MasterWorkspace | null>(() =>
     getWorkspaceById(selectedInstituteId)
   );
+  const [isAutoRedirecting, setIsAutoRedirecting] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !selectedInstituteId || signedInEmail) return false;
+    try {
+      return sessionStorage.getItem('elevate_auto_google_signin_v1') === selectedInstituteId;
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
     setSelectedWorkspace(getWorkspaceById(selectedInstituteId));
@@ -170,6 +179,19 @@ export const InstitutePortalGate: React.FC<InstitutePortalGateProps> = ({
       fetchMasterWorkspacesFromCloud().then(() => {
         setSelectedWorkspace(getWorkspaceById(selectedInstituteId));
       }).catch(() => {});
+
+      try {
+        const autoId = sessionStorage.getItem('elevate_auto_google_signin_v1');
+        if (autoId && autoId === selectedInstituteId && !signedInEmail) {
+          sessionStorage.removeItem('elevate_auto_google_signin_v1');
+          setIsAutoRedirecting(true);
+          if (isNativeEnv) {
+            Promise.resolve(onSignIn()).catch(() => setIsAutoRedirecting(false));
+          } else {
+            signInWithGoogleRedirect().catch(() => setIsAutoRedirecting(false));
+          }
+        }
+      } catch {}
     }
   }, [selectedInstituteId]);
 
@@ -216,10 +238,23 @@ export const InstitutePortalGate: React.FC<InstitutePortalGateProps> = ({
           </span>
         </div>
 
-        {!(APP_BRAND.isLockedApk ? APP_BRAND.instituteId : (isNativeAndroid() ? (selectedInstituteId || PRIMARY_WORKSPACE_ID) : selectedInstituteId)) ? (
+        {isAutoRedirecting ? (
+          <div className="w-full py-10 flex flex-col items-center justify-center gap-3 text-center">
+            <Loader2 className="w-7 h-7 animate-spin text-[#0b57d0]" />
+            <div className="text-sm font-bold text-slate-900 dark:text-white">
+              Opening Google Sign-In...
+            </div>
+            <p className="text-xs text-slate-500 dark:text-zinc-400">
+              Signing in to {selectedWorkspace?.name || APP_BRAND.name}
+            </p>
+          </div>
+        ) : !(APP_BRAND.isLockedApk ? APP_BRAND.instituteId : (isNativeAndroid() ? (selectedInstituteId || PRIMARY_WORKSPACE_ID) : selectedInstituteId)) ? (
           <InstitutePortalLookup
             onOpenWorkspace={(ws) => {
               getInstituteFirebaseServices(ws);
+              try {
+                sessionStorage.setItem('elevate_auto_google_signin_v1', ws.id);
+              } catch {}
               handlePickInstitute(ws);
             }}
             onOpenAppStore={onOpenAppStore}
@@ -305,11 +340,12 @@ export const InstitutePortalGate: React.FC<InstitutePortalGateProps> = ({
                 <button
                   type="button"
                   onClick={() => {
+                    const targetSlug = selectedWorkspace?.slug || selectedInstituteId || null;
                     if (onOpenAppStore) {
-                      onOpenAppStore(selectedWorkspace?.slug || null);
+                      onOpenAppStore(targetSlug);
                     } else {
-                      window.location.href = selectedWorkspace?.slug
-                        ? `/apps/${encodeURIComponent(selectedWorkspace.slug)}`
+                      window.location.href = targetSlug
+                        ? `/apps/${encodeURIComponent(targetSlug)}`
                         : '/apps';
                     }
                   }}

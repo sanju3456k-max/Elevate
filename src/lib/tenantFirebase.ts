@@ -65,6 +65,8 @@ function mergeWithStaticRegistry(cloudList: MasterWorkspace[]): MasterWorkspace[
       byId.set(reg.id, {
         ...reg,
         ...existing,
+        slug: existing.slug || reg.slug,
+        logoUrl: existing.logoUrl || reg.logoUrl,
         apkDownloadUrl: existing.apkDownloadUrl || reg.apkDownloadUrl,
         firebaseWebConfig: existing.firebaseWebConfig || reg.firebaseWebConfig,
         packageName: existing.packageName || reg.packageName,

@@ -11,9 +11,10 @@ import {
   LogIn,
   ChevronDown,
   ChevronUp,
+  ExternalLink,
 } from 'lucide-react';
 import { unlockWebAccess } from '../../lib/platformSecurityGuard';
-import { signInWithGoogle } from '../../lib/firebase';
+import { signInWithGoogle, signInWithGoogleRedirect } from '../../lib/firebase';
 import {
   type MasterWorkspace,
   getCachedMasterWorkspaces,
@@ -66,12 +67,32 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({
     );
   }, []);
 
+  const [isAutoRedirecting, setIsAutoRedirecting] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !activeWebOrg) return false;
+    try {
+      return sessionStorage.getItem('elevate_auto_google_signin_v1') === activeWebOrg.id;
+    } catch {
+      return false;
+    }
+  });
+
   useEffect(() => {
     fetchMasterWorkspacesFromCloud()
       .then((list) => {
         if (Array.isArray(list) && list.length > 0) setCloudWorkspaces(list);
       })
       .catch(() => {});
+
+    if (activeWebOrg) {
+      try {
+        const autoId = sessionStorage.getItem('elevate_auto_google_signin_v1');
+        if (autoId && autoId === activeWebOrg.id) {
+          sessionStorage.removeItem('elevate_auto_google_signin_v1');
+          setIsAutoRedirecting(true);
+          signInWithGoogleRedirect().catch(() => setIsAutoRedirecting(false));
+        }
+      } catch {}
+    }
   }, []);
 
   // Always keep Elevate Labs Official App at the top of the directory
@@ -152,6 +173,9 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({
 
     // Switch Firebase project first if this organization uses a dedicated Firebase project
     if (targetProjectId && targetProjectId !== currentProjectId) {
+      try {
+        sessionStorage.setItem('elevate_auto_google_signin_v1', workspace.id);
+      } catch {}
       saveWebInstituteSession({
         instituteId: workspace.id,
         name: workspace.name,
@@ -163,6 +187,9 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({
       return;
     }
     if (!targetProjectId && APP_BRAND.isWebInstituteActive) {
+      try {
+        sessionStorage.setItem('elevate_auto_google_signin_v1', workspace.id);
+      } catch {}
       clearWebInstituteSession();
       window.location.reload();
       return;
@@ -244,6 +271,16 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({
             </div>
             <span className="font-bold text-sm text-emerald-950">Admin Verified!</span>
             <p>{feedbackMsg}</p>
+          </div>
+        ) : isAutoRedirecting && activeWebOrg ? (
+          <div className="w-full py-10 flex flex-col items-center justify-center gap-3 text-center">
+            <div className="w-7 h-7 rounded-full border-2 border-[#0b57d0] border-t-transparent animate-spin" />
+            <div className="text-sm font-bold text-slate-900">
+              Opening Google Sign-In...
+            </div>
+            <p className="text-xs text-slate-500">
+              Signing in to {activeWebOrg.name}
+            </p>
           </div>
         ) : activeWebOrg ? (
           /* Post-reload step when switching to a dedicated organization Firebase */
@@ -410,27 +447,43 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({
                     </div>
 
                     {role === 'admin' ? (
-                      <button
-                        type="button"
-                        onClick={() => handleAdminGoogleSignIn(workspace)}
-                        disabled={isSigningInGoogle}
-                        className="w-full py-3 px-4 rounded-2xl bg-[#0b57d0] hover:bg-[#0947a8] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.99] cursor-pointer border-0 disabled:opacity-50"
-                      >
-                        <LogIn className="w-4 h-4" />
-                        <span>
-                          {isSigningInGoogle ? 'Signing in...' : `Sign in as ${workspace.name} Official Admin`}
-                        </span>
-                      </button>
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => handleAdminGoogleSignIn(workspace)}
+                          disabled={isSigningInGoogle}
+                          className="w-full py-3 px-4 rounded-2xl bg-[#0b57d0] hover:bg-[#0947a8] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.99] cursor-pointer border-0 focus:outline-none disabled:opacity-50"
+                        >
+                          <LogIn className="w-4 h-4" />
+                          <span>
+                            {isSigningInGoogle ? 'Signing in...' : `Sign in as ${workspace.name} Official Admin`}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const targetSlug = workspace.slug || workspace.id;
+                            if (onOpenAppStore) {
+                              onOpenAppStore(targetSlug);
+                            } else {
+                              window.location.href = `/apps/${encodeURIComponent(targetSlug)}`;
+                            }
+                          }}
+                          className="w-full py-3 px-4 rounded-2xl bg-slate-100/90 hover:bg-slate-200/80 text-slate-800 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.99] border-0 focus:outline-none cursor-pointer"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5 text-[#0b57d0]" />
+                          <span>View App Page</span>
+                        </button>
+                      </div>
                     ) : (
                       <button
                         type="button"
                         onClick={() => {
+                          const targetSlug = workspace.slug || workspace.id;
                           if (onOpenAppStore) {
-                            onOpenAppStore(workspace.slug || null);
+                            onOpenAppStore(targetSlug);
                           } else {
-                            window.location.href = workspace.slug
-                              ? `/apps/${encodeURIComponent(workspace.slug)}`
-                              : '/apps';
+                            window.location.href = `/apps/${encodeURIComponent(targetSlug)}`;
                           }
                         }}
                         className="w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.99] border-0 cursor-pointer"

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Download, LogIn, Search, Building2, CheckCircle2, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
+import { Download, LogIn, Search, Building2, CheckCircle2, ShieldCheck, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import {
   lookupInstitutesByEmail,
   setSelectedInstituteId,
@@ -162,47 +162,69 @@ export const InstitutePortalLookup: React.FC<InstitutePortalLookupProps> = ({
               </div>
 
               {role === 'admin' ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedInstituteId(workspace.id);
-                    setSelectedAppInstituteId(workspace.id);
-                    setAppInstituteGuestMode(false);
-                    const targetProjectId = workspace.firebaseWebConfig?.projectId || '';
-                    const currentProjectId = APP_BRAND.firebaseConfig?.projectId || '';
-                    if (targetProjectId && targetProjectId !== currentProjectId) {
-                      saveWebInstituteSession({
-                        instituteId: workspace.id,
-                        name: workspace.name,
-                        logoUrl: workspace.logoUrl,
-                        ownerEmail: workspace.ownerEmail,
-                        firebaseConfig: workspace.firebaseWebConfig,
-                      });
-                      window.location.reload();
-                      return;
-                    }
-                    if (!targetProjectId && APP_BRAND.isWebInstituteActive) {
-                      clearWebInstituteSession();
-                      window.location.reload();
-                      return;
-                    }
-                    onOpenWorkspace(workspace);
-                  }}
-                  className="w-full py-3 px-4 rounded-2xl bg-[#0b57d0] hover:bg-[#0947a8] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.99] cursor-pointer border-0"
-                >
-                  <LogIn className="w-4 h-4" />
-                  <span>Login as {workspace.name} Official Admin</span>
-                </button>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedInstituteId(workspace.id);
+                      setSelectedAppInstituteId(workspace.id);
+                      setAppInstituteGuestMode(false);
+                      const targetProjectId = workspace.firebaseWebConfig?.projectId || '';
+                      const currentProjectId = APP_BRAND.firebaseConfig?.projectId || '';
+                      if (targetProjectId && targetProjectId !== currentProjectId) {
+                        try {
+                          sessionStorage.setItem('elevate_auto_google_signin_v1', workspace.id);
+                        } catch {}
+                        saveWebInstituteSession({
+                          instituteId: workspace.id,
+                          name: workspace.name,
+                          logoUrl: workspace.logoUrl,
+                          ownerEmail: workspace.ownerEmail,
+                          firebaseConfig: workspace.firebaseWebConfig,
+                        });
+                        window.location.reload();
+                        return;
+                      }
+                      if (!targetProjectId && APP_BRAND.isWebInstituteActive) {
+                        try {
+                          sessionStorage.setItem('elevate_auto_google_signin_v1', workspace.id);
+                        } catch {}
+                        clearWebInstituteSession();
+                        window.location.reload();
+                        return;
+                      }
+                      onOpenWorkspace(workspace);
+                    }}
+                    className="w-full py-3 px-4 rounded-2xl bg-[#0b57d0] hover:bg-[#0947a8] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.99] cursor-pointer border-0 focus:outline-none"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    <span>Login as {workspace.name} Official Admin</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const targetSlug = workspace.slug || workspace.id;
+                      if (onOpenAppStore) {
+                        onOpenAppStore(targetSlug);
+                      } else {
+                        window.location.href = `/apps/${encodeURIComponent(targetSlug)}`;
+                      }
+                    }}
+                    className="w-full py-3 px-4 rounded-2xl bg-slate-100/90 dark:bg-zinc-800/90 hover:bg-slate-200/80 dark:hover:bg-zinc-700 text-slate-800 dark:text-slate-100 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.99] border-0 focus:outline-none cursor-pointer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                    <span>View App Page</span>
+                  </button>
+                </div>
               ) : (
                 <button
                   type="button"
                   onClick={() => {
+                    const targetSlug = workspace.slug || workspace.id;
                     if (onOpenAppStore) {
-                      onOpenAppStore(workspace.slug || null);
+                      onOpenAppStore(targetSlug);
                     } else {
-                      window.location.href = workspace.slug
-                        ? `/apps/${encodeURIComponent(workspace.slug)}`
-                        : '/apps';
+                      window.location.href = `/apps/${encodeURIComponent(targetSlug)}`;
                     }
                   }}
                   className="w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.99] border-0 cursor-pointer"

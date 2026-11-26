@@ -281,6 +281,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isSlidePaused, setIsSlidePaused] = useState(false);
 
+  // Horizontal slideshow state for Home screen batches (longer 8s interval than 4.5s hero banners)
+  const [currentBatchSlideIndex, setCurrentBatchSlideIndex] = useState(0);
+  const [isBatchSlidePaused, setIsBatchSlidePaused] = useState(false);
+  const batchTrackRef = useRef<HTMLDivElement | null>(null);
+  const batchTouchStartXRef = useRef<number | null>(null);
+
   // Filter state for the 4 core buttons: 'all-batches' | 'my-batches' | 'test-library' | 'activity'
   const [activeView, setActiveView] = useState<'all-batches' | 'my-batches' | 'test-library' | 'activity'>('all-batches');
 
@@ -401,6 +407,42 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     }, 4500);
     return () => clearInterval(timer);
   }, [heroBanners.length, isSlidePaused]);
+
+  // Keep batch slide index within bounds if displayedBatches count changes
+  useEffect(() => {
+    if (currentBatchSlideIndex >= displayedBatches.length && displayedBatches.length > 0) {
+      setCurrentBatchSlideIndex(0);
+    }
+  }, [displayedBatches.length, currentBatchSlideIndex]);
+
+  // Batches horizontal slideshow auto-advance every 8 seconds (longer wait than 4.5s banners)
+  useEffect(() => {
+    if (displayedBatches.length <= 1 || isBatchSlidePaused) return;
+    const timer = setInterval(() => {
+      setCurrentBatchSlideIndex((prev) => (prev + 1) % displayedBatches.length);
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [displayedBatches.length, isBatchSlidePaused]);
+
+  // Smoothly scroll the horizontal batch track whenever currentBatchSlideIndex updates
+  useEffect(() => {
+    const track = batchTrackRef.current;
+    if (!track || displayedBatches.length <= 1) return;
+    const child = track.children[currentBatchSlideIndex] as HTMLElement | undefined;
+    if (child) {
+      track.scrollTo({ left: child.offsetLeft, behavior: 'smooth' });
+    }
+  }, [currentBatchSlideIndex, displayedBatches.length]);
+
+  const handlePrevBatchSlide = () => {
+    if (displayedBatches.length <= 1) return;
+    setCurrentBatchSlideIndex((prev) => (prev - 1 + displayedBatches.length) % displayedBatches.length);
+  };
+
+  const handleNextBatchSlide = () => {
+    if (displayedBatches.length <= 1) return;
+    setCurrentBatchSlideIndex((prev) => (prev + 1) % displayedBatches.length);
+  };
 
   const handlePrevSlide = () => {
     if (heroBanners.length <= 1) return;
@@ -1321,15 +1363,80 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             </div>
 
             {displayedBatches.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {displayedBatches.map((b) => (
-                  <M3BatchCard
-                    key={b.id}
-                    batch={b}
-                    onSelect={() => handleSelectBatchItem(b.id)}
-                    isEnrolled={isEnrolled(b.id)}
-                  />
-                ))}
+              <div
+                className="relative group"
+                onMouseEnter={() => setIsBatchSlidePaused(true)}
+                onMouseLeave={() => setIsBatchSlidePaused(false)}
+                onTouchStart={(e) => {
+                  batchTouchStartXRef.current = e.touches[0].clientX;
+                  setIsBatchSlidePaused(true);
+                }}
+                onTouchEnd={(e) => {
+                  if (batchTouchStartXRef.current !== null && displayedBatches.length > 1) {
+                    const deltaX = e.changedTouches[0].clientX - batchTouchStartXRef.current;
+                    if (Math.abs(deltaX) > 35) {
+                      if (deltaX < 0) handleNextBatchSlide();
+                      else handlePrevBatchSlide();
+                    }
+                    batchTouchStartXRef.current = null;
+                  }
+                  setIsBatchSlidePaused(false);
+                }}
+              >
+                <div
+                  ref={batchTrackRef}
+                  className="flex gap-5 overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar pb-1"
+                >
+                  {displayedBatches.map((b) => (
+                    <div
+                      key={b.id}
+                      className="w-full sm:w-[calc(50%-10px)] lg:w-[calc(33.333%-13.33px)] shrink-0 snap-start"
+                    >
+                      <M3BatchCard
+                        batch={b}
+                        onSelect={() => handleSelectBatchItem(b.id)}
+                        isEnrolled={isEnrolled(b.id)}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {displayedBatches.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handlePrevBatchSlide}
+                      aria-label="Previous Batch"
+                      className="hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white/90 dark:bg-zinc-900/90 text-slate-800 dark:text-white shadow-md items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border-0 cursor-pointer"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNextBatchSlide}
+                      aria-label="Next Batch"
+                      className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white/90 dark:bg-zinc-900/90 text-slate-800 dark:text-white shadow-md items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border-0 cursor-pointer"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+
+                    <div className="flex items-center justify-center gap-1.5 pt-3">
+                      {displayedBatches.map((b, idx) => (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => setCurrentBatchSlideIndex(idx)}
+                          aria-label={`Go to batch ${idx + 1}`}
+                          className={`h-1.5 rounded-full transition-all border-0 cursor-pointer ${
+                            idx === currentBatchSlideIndex
+                              ? 'w-5 bg-[#0b57d0] dark:bg-[#a8c7fa]'
+                              : 'w-1.5 bg-slate-300 dark:bg-zinc-700 hover:bg-slate-400'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <div className="p-8 text-center bg-white dark:bg-[#1e2024] rounded-3xl border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] space-y-3">

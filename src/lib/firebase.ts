@@ -986,6 +986,10 @@ export async function testFirestoreConnection(): Promise<boolean> {
 // ==========================================
 let activeSignInPromise: Promise<User | null> | null = null;
 
+export async function signInWithGoogleRedirect(): Promise<void> {
+  await signInWithRedirect(auth, googleProvider);
+}
+
 export async function signInWithGoogle(): Promise<User | null> {
   if (activeSignInPromise) {
     return activeSignInPromise;
