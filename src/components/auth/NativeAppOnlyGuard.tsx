@@ -13,8 +13,10 @@ import {
   ChevronUp,
   ExternalLink,
 } from 'lucide-react';
+import { signInWithPopup } from 'firebase/auth';
 import { unlockWebAccess } from '../../lib/platformSecurityGuard';
-import { signInWithGoogle } from '../../lib/firebase';
+import { signInWithGoogle, googleProvider } from '../../lib/firebase';
+import { setCachedAuthUser } from '../../lib/storage';
 import {
   type MasterWorkspace,
   getCachedMasterWorkspaces,
@@ -27,6 +29,7 @@ import {
 import {
   lookupInstitutesByEmail,
   setSelectedInstituteId,
+  getInstituteFirebaseServices,
   type InstituteLookupMatch,
 } from '../../lib/tenantFirebase';
 import { STATIC_INSTITUTES_REGISTRY } from '../../config/institutesRegistry';
@@ -156,35 +159,45 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({
     const targetProjectId = workspace.firebaseWebConfig?.projectId || '';
     const currentProjectId = APP_BRAND.firebaseConfig?.projectId || '';
 
-    // Switch Firebase project first if this organization uses a dedicated Firebase project
-    if (targetProjectId && targetProjectId !== currentProjectId) {
-      try {
-        sessionStorage.setItem('elevate_auto_google_signin_v1', workspace.id);
-      } catch {}
-      saveWebInstituteSession({
-        instituteId: workspace.id,
-        name: workspace.name,
-        logoUrl: workspace.logoUrl,
-        ownerEmail: workspace.ownerEmail,
-        firebaseConfig: workspace.firebaseWebConfig,
-      });
-      window.location.reload();
-      return;
-    }
-    if (!targetProjectId && APP_BRAND.isWebInstituteActive && workspace.id !== APP_BRAND.instituteId) {
-      try {
-        sessionStorage.setItem('elevate_auto_google_signin_v1', workspace.id);
-      } catch {}
-      clearWebInstituteSession();
-      window.location.reload();
-      return;
-    }
-
     try {
       setIsSigningInGoogle(true);
       setFeedbackMsg('');
-      const user = await signInWithGoogle();
+
+      // Authenticate directly against the institute's own Firebase Auth instance inside this click gesture
+      // so we never need an intermediate "Sign in with Google" page or cross-domain redirect.
+      const { auth: tenantAuth, isIsolatedProject } = getInstituteFirebaseServices(workspace);
+      const user = isIsolatedProject
+        ? (await signInWithPopup(tenantAuth, googleProvider)).user
+        : await signInWithGoogle();
+
       if (user && canEmailUnlockInstituteWeb(user.email, workspace.id)) {
+        setSelectedInstituteId(workspace.id);
+        setSelectedAppInstituteId(workspace.id);
+        setPreferredWorkspaceId(workspace.id);
+        setCachedAuthUser({
+          uid: user.uid,
+          displayName: user.displayName,
+          email: user.email,
+          photoURL: user.photoURL,
+        });
+
+        if (targetProjectId && targetProjectId !== currentProjectId) {
+          saveWebInstituteSession({
+            instituteId: workspace.id,
+            name: workspace.name,
+            logoUrl: workspace.logoUrl,
+            ownerEmail: workspace.ownerEmail,
+            firebaseConfig: workspace.firebaseWebConfig,
+          });
+          window.location.reload();
+          return;
+        }
+        if (!targetProjectId && APP_BRAND.isWebInstituteActive && workspace.id !== APP_BRAND.instituteId) {
+          clearWebInstituteSession();
+          window.location.reload();
+          return;
+        }
+
         completeUnlock(workspace, user.email || workspace.ownerEmail);
       } else if (user) {
         try {
@@ -256,53 +269,6 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({
             </div>
             <span className="font-bold text-sm text-emerald-950">Admin Verified!</span>
             <p>{feedbackMsg}</p>
-          </div>
-        ) : activeWebOrg ? (
-          /* Post-reload step when switching to a dedicated organization Firebase */
-          <div className="w-full space-y-4">
-            <h1 className="text-[22px] font-semibold text-slate-900 tracking-tight">
-              {activeWebOrg.name}
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              Sign in with Google using your authorized Admin email to open the {activeWebOrg.name} Web Console.
-            </p>
-
-            {feedbackMsg && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs text-left">
-                {feedbackMsg}
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() => handleAdminGoogleSignIn(activeWebOrg)}
-              disabled={isSigningInGoogle}
-              className="w-full py-3.5 px-5 rounded-2xl bg-[#0b57d0] hover:bg-[#0947a8] text-white font-bold text-sm shadow-lg shadow-[#0b57d0]/20 flex items-center justify-center gap-2.5 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer border-0"
-            >
-              <LogIn className="w-4 h-4" />
-              <span>{isSigningInGoogle ? 'Signing in...' : `Sign in with Google`}</span>
-            </button>
-
-            {activeWebOrg.apkDownloadUrl && (
-              <a
-                href={activeWebOrg.apkDownloadUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-3 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 no-underline"
-              >
-                <Download className="w-4 h-4" />
-                <span>Download {activeWebOrg.name} Android APK</span>
-              </a>
-            )}
-
-            <button
-              type="button"
-              onClick={handleSwitchOrganization}
-              className="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors flex items-center justify-center gap-1.5 bg-transparent border-0 cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Email Lookup</span>
-            </button>
           </div>
         ) : !showAdminSignIn ? (
           /* Minimal 3-Action Welcome Card */

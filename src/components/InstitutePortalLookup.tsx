@@ -1,10 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { Download, LogIn, Search, Building2, CheckCircle2, ShieldCheck, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { signInWithPopup } from 'firebase/auth';
 import {
   lookupInstitutesByEmail,
   setSelectedInstituteId,
+  getInstituteFirebaseServices,
   type InstituteLookupMatch,
 } from '../lib/tenantFirebase';
+import { signInWithGoogle, googleProvider } from '../lib/firebase';
+import { setCachedAuthUser } from '../lib/storage';
 import {
   setSelectedAppInstituteId,
   setAppInstituteGuestMode,
@@ -165,35 +169,42 @@ export const InstitutePortalLookup: React.FC<InstitutePortalLookupProps> = ({
                 <div className="space-y-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedInstituteId(workspace.id);
-                      setSelectedAppInstituteId(workspace.id);
-                      setAppInstituteGuestMode(false);
+                    onClick={async () => {
                       const targetProjectId = workspace.firebaseWebConfig?.projectId || '';
                       const currentProjectId = APP_BRAND.firebaseConfig?.projectId || '';
-                      if (targetProjectId && targetProjectId !== currentProjectId) {
-                        try {
-                          sessionStorage.setItem('elevate_auto_google_signin_v1', workspace.id);
-                        } catch {}
-                        saveWebInstituteSession({
-                          instituteId: workspace.id,
-                          name: workspace.name,
-                          logoUrl: workspace.logoUrl,
-                          ownerEmail: workspace.ownerEmail,
-                          firebaseConfig: workspace.firebaseWebConfig,
+                      try {
+                        const { auth: tenantAuth, isIsolatedProject } = getInstituteFirebaseServices(workspace);
+                        const user = isIsolatedProject
+                          ? (await signInWithPopup(tenantAuth, googleProvider)).user
+                          : await signInWithGoogle();
+                        if (!user) return;
+                        setSelectedInstituteId(workspace.id);
+                        setSelectedAppInstituteId(workspace.id);
+                        setAppInstituteGuestMode(false);
+                        setCachedAuthUser({
+                          uid: user.uid,
+                          displayName: user.displayName,
+                          email: user.email,
+                          photoURL: user.photoURL,
                         });
-                        window.location.reload();
-                        return;
-                      }
-                      if (!targetProjectId && APP_BRAND.isWebInstituteActive) {
-                        try {
-                          sessionStorage.setItem('elevate_auto_google_signin_v1', workspace.id);
-                        } catch {}
-                        clearWebInstituteSession();
-                        window.location.reload();
-                        return;
-                      }
-                      onOpenWorkspace(workspace);
+                        if (targetProjectId && targetProjectId !== currentProjectId) {
+                          saveWebInstituteSession({
+                            instituteId: workspace.id,
+                            name: workspace.name,
+                            logoUrl: workspace.logoUrl,
+                            ownerEmail: workspace.ownerEmail,
+                            firebaseConfig: workspace.firebaseWebConfig,
+                          });
+                          window.location.reload();
+                          return;
+                        }
+                        if (!targetProjectId && APP_BRAND.isWebInstituteActive) {
+                          clearWebInstituteSession();
+                          window.location.reload();
+                          return;
+                        }
+                        onOpenWorkspace(workspace);
+                      } catch {}
                     }}
                     className="w-full py-3 px-4 rounded-2xl bg-[#0b57d0] hover:bg-[#0947a8] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.99] cursor-pointer border-0 focus:outline-none"
                   >

@@ -160,9 +160,11 @@ export function getInstituteFirebaseServices(workspace: MasterWorkspace): {
   const appName = `inst_${workspace.id}`;
   const existing = getApps().find((a) => a.name === appName);
   const app = existing ?? initializeApp(workspace.firebaseWebConfig, appName);
+  const rawDbId = workspace.firebaseWebConfig.firestoreDatabaseId;
+  const db = rawDbId && rawDbId !== '(default)' ? getFirestore(app, rawDbId) : getFirestore(app);
   return {
     app,
-    db: getFirestore(app),
+    db,
     auth: getAuth(app),
     isIsolatedProject: true,
   };
