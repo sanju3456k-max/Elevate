@@ -302,7 +302,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span className="font-black text-base sm:text-lg text-[#0b57d0] dark:text-[#a8c7fa] tracking-tight leading-tight">
                     {APP_BRAND.name}
                   </span>
-                  {activeInstituteName && !APP_BRAND.isWhiteLabel && (
+                  {activeInstituteName && !APP_BRAND.isWhiteLabel && activeInstituteName !== 'Elevate Primary Institute (Sanju)' && (
                     <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 truncate max-w-[130px] sm:max-w-[180px] leading-tight">
                       {activeInstituteName}
                     </span>

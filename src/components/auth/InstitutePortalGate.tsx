@@ -214,16 +214,18 @@ export const InstitutePortalGate: React.FC<InstitutePortalGateProps> = ({
           />
         ) : (
           <div className="w-full space-y-5 animate-fade-in">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60 text-[#0b57d0] dark:text-[#a8c7fa] text-xs font-bold">
-              <Building2 className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate max-w-[220px]">
-                {selectedWorkspace?.name || 'Selected Institute'}
-              </span>
-            </div>
+            {APP_BRAND.isWhiteLabel && (
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60 text-[#0b57d0] dark:text-[#a8c7fa] text-xs font-bold">
+                <Building2 className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate max-w-[220px]">
+                  {selectedWorkspace?.name || APP_BRAND.name}
+                </span>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                Welcome to {selectedWorkspace?.name || 'Institute'}
+                Welcome to {APP_BRAND.isWhiteLabel ? (selectedWorkspace?.name || APP_BRAND.name) : 'Elevate Labs'}
               </h1>
               <p className="text-xs sm:text-sm text-slate-600 dark:text-zinc-400 max-w-xs mx-auto leading-relaxed">
                 Sign in to access your enrolled batches & tests, or explore public courses in Guest Mode.
