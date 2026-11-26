@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import { APP_BRAND } from '../config/appBrand';
 import { safeHtml2Canvas } from './safeHtml2Canvas';
 import { renderOmrSheetToCanvas } from './omrCanvasRenderer';
 import { generateOmrSheetBlueprint } from './omrGeometry';
@@ -657,7 +658,7 @@ export async function triggerSystemPrint(
     if (bridge && typeof bridge.print === 'function') {
       try {
         await bridge.print({
-          title: documentTitle || 'Elevate Question Paper',
+          title: documentTitle || `${APP_BRAND.name} Question Paper`,
           html: fullHtml,
         });
         return;

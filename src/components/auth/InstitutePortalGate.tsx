@@ -7,6 +7,7 @@ import {
   UserCheck,
   ArrowLeft,
   Loader2,
+  Download,
 } from 'lucide-react';
 import {
   type MasterWorkspace,
@@ -16,6 +17,11 @@ import {
   setSelectedAppInstituteId,
   setAppInstituteGuestMode,
 } from '../../lib/masterWorkspace';
+import { APP_BRAND, clearWebInstituteSession } from '../../config/appBrand';
+import { isNativeAndroid } from '../../lib/nativeHardwareBridge';
+import { PRIMARY_WORKSPACE_ID } from '../../lib/masterWorkspace';
+import { getInstituteFirebaseServices } from '../../lib/tenantFirebase';
+import { InstitutePortalLookup } from '../InstitutePortalLookup';
 
 interface InstitutePickerViewProps {
   onSelectInstitute: (ws: MasterWorkspace) => void;
@@ -167,6 +173,10 @@ export const InstitutePortalGate: React.FC<InstitutePortalGateProps> = ({
     setSelectedAppInstituteId(null);
     setSelectedWorkspace(null);
     onInstituteSelected(null);
+    if (APP_BRAND.isWebInstituteActive) {
+      clearWebInstituteSession();
+      window.location.reload();
+    }
   };
 
   return (
@@ -176,21 +186,32 @@ export const InstitutePortalGate: React.FC<InstitutePortalGateProps> = ({
         <div className="flex items-center gap-2.5 mb-5">
           <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0">
             <img
-              src="./assets/preplens-icon.svg?v=25"
-              alt="Elevate Labs"
-              className="w-full h-full object-contain"
+              src={APP_BRAND.logoUrl}
+              alt={APP_BRAND.name}
+              className="w-full h-full object-contain rounded-xl"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
               }}
             />
           </div>
           <span className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
-            Elevate <span className="text-[#0b57d0] dark:text-[#a8c7fa] font-bold">Labs</span>
+            {APP_BRAND.isWhiteLabel ? (
+              APP_BRAND.name
+            ) : (
+              <>
+                Elevate <span className="text-[#0b57d0] dark:text-[#a8c7fa] font-bold">Labs</span>
+              </>
+            )}
           </span>
         </div>
 
-        {!selectedInstituteId ? (
-          <InstitutePickerView onSelectInstitute={handlePickInstitute} />
+        {!(APP_BRAND.isLockedApk ? APP_BRAND.instituteId : (isNativeAndroid() ? (selectedInstituteId || PRIMARY_WORKSPACE_ID) : selectedInstituteId)) ? (
+          <InstitutePortalLookup
+            onOpenWorkspace={(ws) => {
+              getInstituteFirebaseServices(ws);
+              handlePickInstitute(ws);
+            }}
+          />
         ) : (
           <div className="w-full space-y-5 animate-fade-in">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60 text-[#0b57d0] dark:text-[#a8c7fa] text-xs font-bold">
@@ -236,16 +257,30 @@ export const InstitutePortalGate: React.FC<InstitutePortalGateProps> = ({
                 <UserCheck className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
                 <span>Continue as Guest</span>
               </button>
+
+              {selectedWorkspace?.apkDownloadUrl && (
+                <a
+                  href={selectedWorkspace.apkDownloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] no-underline"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download {selectedWorkspace.name} APK</span>
+                </a>
+              )}
             </div>
 
-            <button
-              type="button"
-              onClick={handleChangeInstitute}
-              className="w-full py-2 text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white transition-colors flex items-center justify-center gap-1.5 bg-transparent border-0 cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Change Institute</span>
-            </button>
+            {!APP_BRAND.isLockedApk && !isNativeAndroid() && (
+              <button
+                type="button"
+                onClick={handleChangeInstitute}
+                className="w-full py-2 text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white transition-colors flex items-center justify-center gap-1.5 bg-transparent border-0 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Change Institute</span>
+              </button>
+            )}
           </div>
         )}
 

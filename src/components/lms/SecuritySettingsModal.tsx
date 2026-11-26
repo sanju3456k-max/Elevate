@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { APP_BRAND } from '../../config/appBrand';
 import {
   X,
   ShieldCheck,
@@ -50,7 +51,7 @@ export const SecuritySettingsModal: React.FC<SecuritySettingsModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-[var(--md-sys-color-on-surface)]">
-                Elevate Labs Security Engine
+                {APP_BRAND.name} Security Engine
               </h2>
               <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
                 Dynamic floating watermarks & guest testing controls
@@ -156,7 +157,7 @@ export const SecuritySettingsModal: React.FC<SecuritySettingsModalProps> = ({
         {/* Anti-Piracy Checklist / Status */}
         <div className="bg-[var(--md-sys-color-surface-container)] rounded-2xl p-4 border-none space-y-2 text-xs">
           <span className="font-bold block text-[11px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-            Active Protection Modules (Elevate Labs Grade)
+            Active Protection Modules ({APP_BRAND.name} Grade)
           </span>
 
           <div className="flex items-center space-x-2 text-[var(--md-sys-color-on-surface-variant)]">

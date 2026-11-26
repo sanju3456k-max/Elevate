@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { APP_BRAND } from '../../config/appBrand';
 import {
   Play,
   CheckCircle,
@@ -1639,7 +1640,11 @@ const M3BatchCard: React.FC<{ batch: Batch; onSelect: () => void; isEnrolled: bo
             }}
           />
           <div className="text-[11px] sm:text-xs min-w-0">
-            <p className="font-bold text-[#1f1f1f] dark:text-[#e3e3e3] truncate leading-tight">{batch.instructor?.name || 'Elevate Faculty'}</p>
+            <p className="font-bold text-[#1f1f1f] dark:text-[#e3e3e3] truncate leading-tight">
+              {!batch.instructor?.name || (APP_BRAND.isWhiteLabel && /^elevate(\s+labs)?\s+faculty$/i.test(batch.instructor.name.trim()))
+                ? `${APP_BRAND.name} Faculty`
+                : batch.instructor.name}
+            </p>
             <p className="text-[9.5px] sm:text-[10px] text-slate-500 dark:text-zinc-400 truncate leading-tight">
               {batch.instructor?.designation || 'Master Educator'}
             </p>

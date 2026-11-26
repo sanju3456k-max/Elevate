@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { APP_BRAND } from '../../config/appBrand';
 import { ShieldAlert, Smartphone, Laptop, RefreshCw, CheckCircle2, LogOut, MessageCircle } from 'lucide-react';
 import { submitDeviceResetRequest, type DeviceLockStatus } from '../../lib/deviceAuthService';
 import type { User } from 'firebase/auth';
@@ -159,7 +160,7 @@ export const DeviceLockedModal: React.FC<DeviceLockedModalProps> = ({
         {/* Footer Actions */}
         <div className="p-4 bg-slate-50 dark:bg-[#1a1c22] border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-2">
           <a
-            href="https://wa.me/?text=Hi%20Admin,%20I%20need%20a%20device%20lock%20reset%20for%20my%20Elevate%20account."
+            href={`https://wa.me/?text=Hi%20Admin,%20I%20need%20a%20device%20lock%20reset%20for%20my%20${encodeURIComponent(APP_BRAND.name)}%20account.`}
             target="_blank"
             rel="noopener noreferrer"
             className="px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 flex items-center space-x-1.5 transition no-underline"

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { APP_BRAND } from '../config/appBrand';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -292,16 +293,16 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <div className="w-9.5 h-9.5 sm:w-10 sm:h-10 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                   <img 
-                    src="./assets/preplens-icon.svg?v=25" 
-                    alt="Elevate" 
-                    className="w-full h-full object-contain dark:brightness-125"
+                    src={APP_BRAND.logoUrl} 
+                    alt={APP_BRAND.name} 
+                    className="w-full h-full object-contain dark:brightness-125 rounded-lg"
                   />
                 </div>
                 <div className="flex flex-col justify-center">
                   <span className="font-black text-base sm:text-lg text-[#0b57d0] dark:text-[#a8c7fa] tracking-tight leading-tight">
-                    Elevate
+                    {APP_BRAND.name}
                   </span>
-                  {activeInstituteName && (
+                  {activeInstituteName && !APP_BRAND.isWhiteLabel && (
                     <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 truncate max-w-[130px] sm:max-w-[180px] leading-tight">
                       {activeInstituteName}
                     </span>
@@ -377,7 +378,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   id="header-master-console-btn"
                   type="button"
                   onClick={() => handleNavClick('master-console')}
-                  title="Open Academic Master Console (sanju3456k@gmail.com)"
+                  title={`Open Academic Master Console (${APP_BRAND.ownerEmail})`}
                   className="h-9 px-3 rounded-full bg-orange-500 hover:bg-orange-600 dark:bg-orange-500 dark:hover:bg-orange-600 text-white border-0 shadow-[0_2px_6px_rgba(249,115,22,0.35)] flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0 font-bold text-[13px] outline-none select-none"
                 >
                   <Crown className="w-4 h-4 text-white fill-white shrink-0" />
@@ -625,15 +626,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <div className="flex items-center gap-2.5">
                     <div className="w-11 h-11 flex items-center justify-center shrink-0">
                       <img 
-                        src="./assets/preplens-icon.svg?v=25" 
-                        alt="Elevate" 
-                        className="w-full h-full object-contain dark:brightness-125"
+                        src={APP_BRAND.logoUrl} 
+                        alt={APP_BRAND.name} 
+                        className="w-full h-full object-contain dark:brightness-125 rounded-xl"
                       />
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5">
                         <span className="font-black text-base text-[#0b57d0] dark:text-[#a8c7fa] tracking-tight">
-                          Elevate
+                          {APP_BRAND.name}
                         </span>
                       </div>
                     </div>

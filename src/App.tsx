@@ -135,6 +135,7 @@ import { BatchDetailView } from './components/lms/batches/BatchDetailView';
 import { CloakedVideoPlayer } from './components/lms/player/CloakedVideoPlayer';
 import { GlobalPersistentPlayer, type PersistentPlaybackData } from './components/lms/player/GlobalPersistentPlayer';
 import { BatchAdminStudio } from './components/lms/BatchAdminStudio';
+import { APP_BRAND } from './config/appBrand';
 import { HomeDashboard } from './components/home/HomeDashboard';
 import { NotificationsView } from './components/notifications/NotificationsView';
 import { CreatePostModal } from './components/admin/CreatePostModal';
@@ -558,10 +559,22 @@ export default function App() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
+  useEffect(() => {
+    if (APP_BRAND.isWhiteLabel && APP_BRAND.name) {
+      document.title = `${APP_BRAND.name} — Mock Tests, OMR Studio & Notes`;
+      const iconLink = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+      if (iconLink && APP_BRAND.logoUrl) {
+        iconLink.href = APP_BRAND.logoUrl;
+      }
+    }
+  }, []);
+
   // Platform security guard (Android-only enforcement with whitelist & passkey)
-  const [selectedInstituteId, setSelectedInstituteId] = useState<string | null>(() =>
-    getSelectedAppInstituteId()
-  );
+  const [selectedInstituteId, setSelectedInstituteId] = useState<string | null>(() => {
+    if (APP_BRAND.isLockedApk) return APP_BRAND.instituteId;
+    if (isNativeAndroid()) return getSelectedAppInstituteId() || PRIMARY_WORKSPACE_ID;
+    return getSelectedAppInstituteId();
+  });
   const [isInstituteGuestMode, setIsInstituteGuestMode] = useState<boolean>(() =>
     getAppInstituteGuestMode()
   );
@@ -573,7 +586,9 @@ export default function App() {
 
   useEffect(() => {
     const syncInstituteState = () => {
-      const nextInstId = getSelectedAppInstituteId();
+      const nextInstId = APP_BRAND.isLockedApk
+        ? APP_BRAND.instituteId
+        : (isNativeAndroid() ? (getSelectedAppInstituteId() || PRIMARY_WORKSPACE_ID) : getSelectedAppInstituteId());
       setSelectedInstituteId(nextInstId);
       setIsInstituteGuestMode(getAppInstituteGuestMode());
       const activeU = currentUser || cachedUser;

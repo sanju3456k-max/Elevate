@@ -42,7 +42,10 @@ import {
   deleteField,
   type Unsubscribe
 } from 'firebase/firestore';
-import firebaseConfig from '../../firebase-applet-config.json';
+import defaultFirebaseConfig from '../../firebase-applet-config.json';
+import { APP_BRAND } from '../config/appBrand';
+
+const firebaseConfig = APP_BRAND.firebaseConfig ?? defaultFirebaseConfig;
 import { 
   normalizeQuestions, 
   type MathTest, 
@@ -1655,8 +1658,8 @@ export async function saveTestToFirestore(test: MathTest, overrideAuthorId?: str
       if (
         (processedTest as any).isMasterTest ||
         (processedTest as any).publishedToStudents ||
-        finalAuthorEmail === 'sanju3456k@gmail.com' ||
-        finalAuthorId === 'sanju3456k@gmail.com'
+        finalAuthorEmail === APP_BRAND.ownerEmail ||
+        finalAuthorId === APP_BRAND.ownerEmail
       ) {
         try {
           const pubDocRef = doc(db, 'test_leaderboards', validId, 'summary', 'published_paper');
@@ -2001,7 +2004,7 @@ export function subscribeToTests(
   // Master Enterprise Architecture: Students do NOT author tests in users/{userId}/tests.
   // Their tests are supplied authoritatively via MASTER_CATALOG on-demand 1-read hydration.
   // Disarming this idle listener completely eliminates background read loops for students!
-  const isMaster = !!auth.currentUser?.email && auth.currentUser.email.toLowerCase().trim() === 'sanju3456k@gmail.com';
+  const isMaster = !!auth.currentUser?.email && auth.currentUser.email.toLowerCase().trim() === APP_BRAND.ownerEmail;
   if (!isMaster) {
     return () => {};
   }
@@ -3873,7 +3876,7 @@ export async function fetchFullTestFromFirestore(testId: string): Promise<MathTe
 
   try {
     const currentUid = auth.currentUser?.uid;
-    const isMaster = !!auth.currentUser?.email && auth.currentUser.email.toLowerCase().trim() === 'sanju3456k@gmail.com';
+    const isMaster = !!auth.currentUser?.email && auth.currentUser.email.toLowerCase().trim() === APP_BRAND.ownerEmail;
 
     // 1. Primary Authoritative: test_leaderboards/{testId}/summary/published_paper (Strictly 1 Read on 1st attempt!)
     let snap = await getDoc(doc(db, 'test_leaderboards', testId, 'summary', 'published_paper')).catch(() => null);

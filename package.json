@@ -13,7 +13,10 @@
     "test:load": "tsx scripts/load-tester.ts",
     "test:bot": "tsx scripts/synthetic-tester/runAudit.ts",
     "test:bot:turbo": "tsx scripts/synthetic-tester/runAudit.ts --mode=turbo",
-    "test:bot:purge": "tsx scripts/synthetic-tester/purge.ts"
+    "test:bot:purge": "tsx scripts/synthetic-tester/purge.ts",
+    "institutes:sync": "node scripts/sync-institutes.mjs",
+    "institutes:apk": "node scripts/build-tenant-apk.mjs",
+    "institutes:rules": "node scripts/generate-tenant-rules.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.6.2",

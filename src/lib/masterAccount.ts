@@ -50,13 +50,16 @@ import {
   getActiveAppInstituteIdOrPrimary,
 } from './masterWorkspace';
 
+import { APP_BRAND } from '../config/appBrand';
+
 /**
  * Designated Master Enterprise Account Email
- * Exclusively sanju3456k@gmail.com is granted Master Enterprise & Academic Head authority.
+ * Uses APP_BRAND.ownerEmail so white-label institute builds grant Master authority
+ * exclusively to that institute's owner (independent of Sanju's account).
  */
-export const MASTER_ADMIN_EMAIL = 'sanju3456k@gmail.com';
+export const MASTER_ADMIN_EMAIL = APP_BRAND.ownerEmail;
 export const AUTHORIZED_MASTER_EMAILS = [
-  'sanju3456k@gmail.com',
+  APP_BRAND.ownerEmail,
 ];
 
 /** Storage Keys */

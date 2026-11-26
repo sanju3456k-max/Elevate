@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { APP_BRAND } from '../../../config/appBrand';
 import {
   Play,
   Pause,
@@ -1674,7 +1675,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           }}
         >
           <span className="text-[8.5px] sm:text-[11px] font-bold tracking-wider text-white/35">
-            {user?.name || 'Elevate Student'}
+            {user?.name || `${APP_BRAND.name} Student`}
           </span>
           <span className="text-[7.5px] sm:text-[9.5px] font-medium tracking-wide text-white/30">
             {user?.email || user?.phone || `UID: ${user?.id ? user.id.slice(0, 8).toUpperCase() : 'STUDENT'}`}

@@ -1,4 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { APP_BRAND } from '../config/appBrand';
 import { AlertTriangle, RefreshCw, Home, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface Props {
@@ -60,7 +61,7 @@ export class RootErrorBoundary extends Component<Props, State> {
                 Something went wrong
               </h1>
               <p className="text-xs sm:text-sm text-slate-600 dark:text-zinc-400 leading-relaxed">
-                Elevate encountered an unexpected display error. Your offline tests, practice notes, and stored questions remain safely intact.
+                {APP_BRAND.name} encountered an unexpected display error. Your offline tests, practice notes, and stored questions remain safely intact.
               </p>
             </div>
 

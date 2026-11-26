@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { APP_BRAND } from '../../config/appBrand';
 import {
   Bell,
   ChevronLeft,
@@ -197,7 +198,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
       if (granted) {
         setNotifPermission('granted');
         await sendDeviceNotification({
-          title: 'Elevate Updates Enabled',
+          title: `${APP_BRAND.name} Updates Enabled`,
           body: 'You will receive instant alerts for new curriculum lectures, mock tests, and announcements.',
           id: 101,
         });

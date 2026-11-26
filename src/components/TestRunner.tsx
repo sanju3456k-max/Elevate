@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { APP_BRAND } from '../config/appBrand';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { setAppThemeColor } from '../lib/appThemeColor';
@@ -913,8 +914,8 @@ export const TestRunner: React.FC<TestRunnerProps> = ({
         </main>
 
         <footer className="py-4 text-center text-xs text-[#5e5e5e] dark:text-[#9aa0a6] flex items-center justify-center gap-1.5 flex-wrap">
-          <img src="./assets/preplens-icon.svg?v=17" alt="" className="w-4.5 h-4.5 object-contain inline-block" />
-          <span className="font-semibold text-[#0b57d0] dark:text-[#a8c7fa]">Elevate</span>
+          <img src={APP_BRAND.logoUrl} alt="" className="w-4.5 h-4.5 object-contain inline-block rounded-sm" />
+          <span className="font-semibold text-[#0b57d0] dark:text-[#a8c7fa]">{APP_BRAND.name}</span>
         </footer>
       </div>
     );

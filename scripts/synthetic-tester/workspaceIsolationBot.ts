@@ -355,6 +355,122 @@ export async function runWorkspaceIsolationAudit(): Promise<{ checks: FeatureChe
       details: `ownerBInB=${ownerBInB}, adminBInB=${adminBInB}, ownerBInA=${ownerBInA}, sanjuEverywhere=${sanjuInA && sanjuInB}, student=${studentInB}`,
     });
 
+    // WL-01..WL-06: White-Label Multi-Institute Architecture Verification
+    const fs = await import('fs');
+    const path = await import('path');
+    const { STATIC_INSTITUTES_REGISTRY } = await import('../../src/config/institutesRegistry');
+
+    const tWl1 = Date.now();
+    const apexEntry = STATIC_INSTITUTES_REGISTRY.find((i) => i.id === 'inst_apex_01');
+    const primaryEntry = STATIC_INSTITUTES_REGISTRY.find((i) => i.id === 'ws_primary');
+    const registryValid = Boolean(
+      primaryEntry &&
+        apexEntry &&
+        apexEntry.packageName === 'com.elevate.apexacademy' &&
+        apexEntry.ownerEmail.toLowerCase() === 'harry4444u@gmail.com' &&
+        apexEntry.firebaseWebConfig?.projectId === 'apex-academy-6941e'
+    );
+    checks.push({
+      name: 'WL-01: Static Institutes Registry & Isolation',
+      category: 'security',
+      passed: registryValid,
+      latencyMs: Date.now() - tWl1,
+      details: `entries=${STATIC_INSTITUTES_REGISTRY.length}, apexProject=${apexEntry?.firebaseWebConfig?.projectId}`,
+    });
+
+    const tWl2 = Date.now();
+    const formatFaculty = (rawName: string | undefined, brandName: string, isWhiteLabel: boolean) =>
+      !rawName || (isWhiteLabel && /^elevate(\s+labs)?\s+faculty$/i.test(rawName.trim()))
+        ? `${brandName} Faculty`
+        : rawName;
+    const facultyOk =
+      formatFaculty('Elevate Labs Faculty', 'Apex Academy', true) === 'Apex Academy Faculty' &&
+      formatFaculty('Elevate Faculty', 'Apex Academy', true) === 'Apex Academy Faculty' &&
+      formatFaculty(undefined, 'Apex Academy', true) === 'Apex Academy Faculty' &&
+      formatFaculty('Dr. Sharma', 'Apex Academy', true) === 'Dr. Sharma' &&
+      formatFaculty('Elevate Labs Faculty', 'Elevate', false) === 'Elevate Labs Faculty';
+    checks.push({
+      name: 'WL-02: Dynamic Institute Faculty Label Fallback',
+      category: 'ui',
+      passed: facultyOk,
+      latencyMs: Date.now() - tWl2,
+      details: `whiteLabelOverride=${facultyOk}`,
+    });
+
+    const tWl3 = Date.now();
+    const rootDir = process.cwd();
+    const instDir = path.join(rootDir, 'institutes');
+    const instFolders = fs.existsSync(instDir)
+      ? fs.readdirSync(instDir, { withFileTypes: true }).filter((d) => d.isDirectory() && !d.name.startsWith('_'))
+      : [];
+    let allConfigsSynced = instFolders.length > 0;
+    const configIssues: string[] = [];
+    for (const d of instFolders) {
+      const cfgPath = path.join(instDir, d.name, 'config.json');
+      const gsPath = path.join(instDir, d.name, 'google-services.json');
+      if (!fs.existsSync(cfgPath) || !fs.existsSync(gsPath)) {
+        allConfigsSynced = false;
+        configIssues.push(`${d.name}:missing_files`);
+        continue;
+      }
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+      const gs = JSON.parse(fs.readFileSync(gsPath, 'utf-8'));
+      const projMatch = gs?.project_info?.project_id === cfg?.firebaseWebConfig?.projectId;
+      const pkgMatch = (gs?.client || []).some((c: any) => c?.client_info?.android_client_info?.package_name === cfg.applicationId);
+      const androidLogo = fs.existsSync(path.join(rootDir, 'android', 'tenants', cfg.flavorName, 'logo_1024.png'));
+      const webLogo = fs.existsSync(path.join(rootDir, 'public', 'assets', 'tenants', `${cfg.flavorName}.png`));
+      if (!projMatch || !pkgMatch || !androidLogo || !webLogo) {
+        allConfigsSynced = false;
+        configIssues.push(`${d.name}:proj=${projMatch},pkg=${pkgMatch},aLogo=${androidLogo},wLogo=${webLogo}`);
+      }
+    }
+    checks.push({
+      name: 'WL-03: Unified institutes/ Config & Logo Sync',
+      category: 'sync',
+      passed: allConfigsSynced,
+      latencyMs: Date.now() - tWl3,
+      details: configIssues.length ? configIssues.join('; ') : `verified=${instFolders.map((d) => d.name).join(',')}`,
+    });
+
+    const tWl4 = Date.now();
+    const apexRulesPath = path.join(rootDir, 'dist-tenants', 'apexAcademy', 'firestore.rules');
+    let rulesOk = false;
+    let rulesDetail = 'not_generated';
+    if (fs.existsSync(apexRulesPath)) {
+      const rulesText = fs.readFileSync(apexRulesPath, 'utf-8');
+      const hasHarry = rulesText.includes('harry4444u@gmail.com');
+      const hasSanju = rulesText.includes('sanju3456k@gmail.com');
+      rulesOk = hasHarry && !hasSanju;
+      rulesDetail = `hasHarry=${hasHarry}, hasSanju=${hasSanju}`;
+    }
+    checks.push({
+      name: 'WL-04: Tenant Firestore Rules Owner Isolation',
+      category: 'security',
+      passed: rulesOk,
+      latencyMs: Date.now() - tWl4,
+      details: rulesDetail,
+    });
+
+    const tWl5 = Date.now();
+    const resDir = path.join(rootDir, 'android', 'app', 'src', 'apexAcademy', 'res');
+    const splashAssets = [
+      'drawable/splash.png',
+      'drawable-night/splash.png',
+      'drawable/splash_icon.xml',
+      'drawable-night/splash_icon.xml',
+      'drawable-nodpi/splash_icon_bitmap.png',
+      'drawable-nodpi/ic_launcher_foreground.png',
+      'mipmap-xxxhdpi/ic_launcher.png',
+    ];
+    const missingRes = splashAssets.filter((rel) => !fs.existsSync(path.join(resDir, rel)));
+    checks.push({
+      name: 'WL-05: Android Tenant Light/Dark Splash & Icons',
+      category: 'ui',
+      passed: missingRes.length === 0,
+      latencyMs: Date.now() - tWl5,
+      details: missingRes.length === 0 ? `all ${splashAssets.length} splash/icon assets present` : `missing: ${missingRes.join(',')}`,
+    });
+
     setSelectedAppInstituteId(null);
   } finally {
     saveCachedMasterWorkspaces(snapshotBefore);

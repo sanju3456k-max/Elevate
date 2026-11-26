@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "413522060969",
+    "project_id": "apex-academy-6941e",
+    "storage_bucket": "apex-academy-6941e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:413522060969:android:ab6ce7caa99ebc40e6ebb8",
+        "android_client_info": {
+          "package_name": "com.elevate.apexacademy"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "413522060969-n7onigv4udkca659oq9irv8vlirbjo9m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.elevate.apexacademy",
+            "certificate_hash": "5936814b08cdabd568137f002e0654f8b2b9265a"
+          }
+        },
+        {
+          "client_id": "413522060969-dkcm9kl9h45h06oj9citd65clo2au93s.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD3JyGPzBFJvHh1iR8i2Zu0rCmJT_4KiLE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "413522060969-dkcm9kl9h45h06oj9citd65clo2au93s.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

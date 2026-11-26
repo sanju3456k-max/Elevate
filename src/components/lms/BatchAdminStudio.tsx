@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { APP_BRAND } from '../../config/appBrand';
 import {
   PlusCircle,
   Video,
@@ -118,7 +119,7 @@ export const BatchAdminStudio: React.FC = () => {
   const [newBatchCategory, setNewBatchCategory] = useState('Testing Environment');
   const [newBatchPrice, setNewBatchPrice] = useState(999);
   const [newBatchOrigPrice, setNewBatchOrigPrice] = useState(2999);
-  const [newBatchInstructor, setNewBatchInstructor] = useState('Elevate Labs Faculty');
+  const [newBatchInstructor, setNewBatchInstructor] = useState(`${APP_BRAND.name} Faculty`);
   const [newBatchBanner, setNewBatchBanner] = useState(DEFAULT_HIGH_RES_BANNER);
 
   // Form states for Add Subject / Chapter
@@ -291,7 +292,7 @@ export const BatchAdminStudio: React.FC = () => {
     setNewBatchCategory(b.category);
     setNewBatchPrice(b.price);
     setNewBatchOrigPrice(b.originalPrice);
-    setNewBatchInstructor(b.instructor?.name || 'Elevate Labs Faculty');
+    setNewBatchInstructor(b.instructor?.name || `${APP_BRAND.name} Faculty`);
     setNewBatchBanner(b.bannerUrl);
     setActiveTab('manage_batches');
     showSecurityToast(`Editing batch: ${b.title}`);
@@ -305,7 +306,7 @@ export const BatchAdminStudio: React.FC = () => {
     setNewBatchCategory('Testing Environment');
     setNewBatchPrice(999);
     setNewBatchOrigPrice(2999);
-    setNewBatchInstructor('Elevate Labs Faculty');
+    setNewBatchInstructor(`${APP_BRAND.name} Faculty`);
   };
 
   const handleSaveBatch = (e: React.FormEvent) => {
@@ -337,7 +338,7 @@ export const BatchAdminStudio: React.FC = () => {
     } else {
       addBatch({
         title: newBatchTitle.trim(),
-        tagline: newBatchTagline.trim() || 'Official testing batch for Elevate Labs',
+        tagline: newBatchTagline.trim() || `Official testing batch for ${APP_BRAND.name}`,
         description: newBatchDesc.trim() || 'Testing batch for video cloaking verification.',
         category: newBatchCategory,
         price: Number(newBatchPrice),
@@ -423,7 +424,7 @@ export const BatchAdminStudio: React.FC = () => {
         <div className="space-y-1">
           <div className="flex items-center space-x-2">
             <span className="px-3 py-1 rounded-full bg-[var(--md-sys-color-primary-container)] text-[var(--md-sys-color-on-primary-container)] text-xs font-bold uppercase tracking-wider border-none">
-              Elevate Labs Studio
+              {APP_BRAND.name} Studio
             </span>
             <span className="flex items-center space-x-1 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
               <ShieldCheck className="w-4 h-4" />
@@ -811,7 +812,7 @@ export const BatchAdminStudio: React.FC = () => {
             {/* Quick Tips */}
             <div className="bg-[var(--md-sys-color-surface-container)] rounded-3xl p-5 text-xs space-y-2 text-[var(--md-sys-color-on-surface-variant)] border-none shadow-xs">
               <span className="font-bold text-[var(--md-sys-color-on-surface)] block">
-                💡 Elevate Labs Zero-Bandwidth:
+                💡 {APP_BRAND.name} Zero-Bandwidth:
               </span>
               <p>
                 Because videos are streamed from unlisted YouTube links, your database stores lightweight strings.

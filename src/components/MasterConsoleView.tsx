@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { APP_BRAND } from '../config/appBrand';
 import { motion, AnimatePresence } from 'motion/react';
 import { setAppThemeColor } from '../lib/appThemeColor';
 import { McbUxAuditPanel } from './McbUxAuditPanel';
@@ -245,7 +246,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
       workspaces.find((w) => w.id === activeWorkspaceId) ||
       workspaces[0] || {
         id: PRIMARY_WORKSPACE_ID,
-        name: 'Elevate Primary Institute',
+        name: APP_BRAND.isWhiteLabel ? APP_BRAND.name : 'Elevate Primary Institute',
         ownerEmail: (currentUserEmail || MASTER_ADMIN_EMAIL).toLowerCase(),
         teamAdminEmails: [],
         createdAt: new Date().toISOString(),
@@ -1304,7 +1305,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <h1 className="text-base font-extrabold text-[#1f1f1f] dark:text-[#f0f3f8] tracking-tight truncate">
-                  Elevate Master
+                  {APP_BRAND.name} Master
                 </h1>
                 <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]" title="System Live" />
               </div>
@@ -1317,7 +1318,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
           {/* Collapsed Brand Icon on Desktop */}
           {isDesktopSidebarCollapsed && (
             <div className="hidden lg:flex flex-col items-center gap-2">
-              <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center shrink-0 shadow-xs" title="Elevate Master Superadmin">
+              <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center shrink-0 shadow-xs" title="{APP_BRAND.name} Master Superadmin">
                 <Crown className="w-5 h-5" />
               </div>
             </div>
@@ -2210,7 +2211,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                   </div>
 
                   <p className="text-xs text-slate-700 dark:text-zinc-300">
-                    Elevate activates these security barriers strictly when a student is watching a video lecture or attempting a live test.
+                    {APP_BRAND.name} activates these security barriers strictly when a student is watching a video lecture or attempting a live test.
                   </p>
 
                   <div className="divide-y divide-slate-100 dark:divide-zinc-800/80 bg-transparent rounded-2xl pt-1">

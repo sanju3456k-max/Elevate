@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { setAppThemeColor } from '../lib/appThemeColor';
+import { APP_BRAND } from '../config/appBrand';
 
 interface WelcomeSplashProps {
   durationMs?: number;
@@ -53,9 +54,9 @@ export const WelcomeSplash: React.FC<WelcomeSplashProps> = ({
             {/* Authentic Elevate Aperture Emblem with Brand Wordmark */}
             <div className="relative w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center drop-shadow-sm">
               <img
-                src="./assets/preplens-icon.svg?v=25"
-                alt="Elevate"
-                className="w-full h-full object-contain dark:brightness-125"
+                src={APP_BRAND.logoUrl}
+                alt={APP_BRAND.name}
+                className="w-full h-full object-contain dark:brightness-125 rounded-2xl"
               />
             </div>
 

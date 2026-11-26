@@ -24,10 +24,54 @@ android {
             }
         }
     }
+    signingConfigs {
+        release {
+            def ksPropsFile = rootProject.file("keystore.properties")
+            if (ksPropsFile.exists()) {
+                def props = new Properties()
+                props.load(new FileInputStream(ksPropsFile))
+                storeFile rootProject.file(props.getProperty("storeFile"))
+                storePassword props.getProperty("storePassword")
+                keyAlias props.getProperty("keyAlias")
+                keyPassword props.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    flavorDimensions += "tenant"
+    productFlavors {
+        elevatePrimary {
+            dimension "tenant"
+            applicationId "com.elevate.app"
+            resValue "string", "app_name", "Elevate"
+            resValue "string", "title_activity_main", "Elevate"
+        }
+
+        def tenantsDir = rootProject.file("tenants")
+        if (tenantsDir.exists()) {
+            tenantsDir.listFiles()?.each { dir ->
+                def cfgFile = new File(dir, "tenant.json")
+                if (dir.isDirectory() && !dir.name.startsWith("_") && cfgFile.exists()) {
+                    def cfg = new groovy.json.JsonSlurper().parse(cfgFile)
+                    def fName = cfg.flavorName.toString()
+                    if (fName != "elevatePrimary") {
+                        create(fName) {
+                            dimension "tenant"
+                            applicationId cfg.applicationId.toString()
+                            resValue "string", "app_name", cfg.appName.toString()
+                            resValue "string", "title_activity_main", cfg.appName.toString()
+                        }
+                    }
+                }
+            }
         }
     }
 }

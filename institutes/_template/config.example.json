@@ -1,0 +1,20 @@
+{
+  "flavorName": "exampleInstitute",
+  "instituteId": "inst_example_01",
+  "slug": "example-institute",
+  "appName": "Example Institute",
+  "applicationId": "com.elevate.exampleinstitute",
+  "ownerEmail": "owner@example.com",
+  "teamAdminEmails": [],
+  "apkVersion": "1.0",
+  "apkDownloadUrl": "https://github.com/sanju3456k/elevate-android/releases/latest/download/exampleInstitute-release.apk",
+  "firebaseWebConfig": {
+    "apiKey": "PASTE_WEB_API_KEY",
+    "authDomain": "your-project.firebaseapp.com",
+    "projectId": "your-project",
+    "storageBucket": "your-project.firebasestorage.app",
+    "messagingSenderId": "000000000000",
+    "appId": "1:000000000000:web:xxxxxxxxxxxx",
+    "oAuthClientId": "000000000000-xxxxxxxx.apps.googleusercontent.com"
+  }
+}

@@ -20,3 +20,8 @@ test_canvas.mjs
 loadtest-*-results.json
 scripts/synthetic-tester/reports/
 scripts/synthetic-tester/last-run-manifest.json
+
+android/release.keystore
+android/keystore.properties
+dist-tenants/
+android/app/src/*/assets/public/

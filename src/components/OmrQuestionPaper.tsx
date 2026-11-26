@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { motion } from 'motion/react';
+import { APP_BRAND } from '../config/appBrand';
 import {
   Printer,
   CheckCircle2,
@@ -1765,6 +1766,25 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                       zIndex: 25,
                     }}
                   >
+                    {APP_BRAND.isWhiteLabel ? (
+                      <img
+                        src={APP_BRAND.logoUrl}
+                        alt={APP_BRAND.name}
+                        className="elevate-watermark-img pointer-events-none select-none"
+                        style={{
+                          width: hasInlineOmr ? '82mm' : '126mm',
+                          height: hasInlineOmr ? '82mm' : '126mm',
+                          maxWidth: hasInlineOmr ? '310px' : '490px',
+                          maxHeight: hasInlineOmr ? '310px' : '490px',
+                          objectFit: 'contain',
+                          opacity: 0.12,
+                          pointerEvents: 'none',
+                          userSelect: 'none',
+                          printColorAdjust: 'exact',
+                          WebkitPrintColorAdjust: 'exact',
+                        }}
+                      />
+                    ) : (
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 1024 1024"
@@ -1798,6 +1818,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                         fillRule="evenodd"
                       />
                     </svg>
+                    )}
                   </div>
                     );
                   })()}

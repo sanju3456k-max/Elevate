@@ -10,27 +10,45 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 
+export interface InstituteFirebaseWebConfig {
+  apiKey: string;
+  authDomain: string;
+  projectId: string;
+  storageBucket: string;
+  messagingSenderId: string;
+  appId: string;
+}
+
 export interface MasterWorkspace {
   id: string;
   name: string;
+  slug?: string;
   ownerEmail: string;
   teamAdminEmails: string[];
+  logoUrl?: string;
+  primaryColor?: string;
+  packageName?: string;
+  apkDownloadUrl?: string;
+  apkVersion?: string;
+  firebaseWebConfig?: InstituteFirebaseWebConfig;
   createdAt: string;
   updatedAt: string;
 }
 
-export const PRIMARY_WORKSPACE_ID = 'ws_primary';
+import { APP_BRAND } from '../config/appBrand';
+
+export const PRIMARY_WORKSPACE_ID = APP_BRAND.instituteId || 'ws_primary';
 export const MASTER_WORKSPACES_CACHE_KEY = 'elevate_master_workspaces_v1';
 export const ACTIVE_WORKSPACE_PREF_KEY = 'elevate_active_master_workspace_id';
 
 export const ROOT_SUPER_ADMIN_EMAILS = [
-  'sanju3456k@gmail.com',
+  APP_BRAND.ownerEmail,
 ];
 
 const DEFAULT_PRIMARY_WORKSPACE: MasterWorkspace = {
   id: PRIMARY_WORKSPACE_ID,
-  name: 'Elevate Primary Institute (Sanju)',
-  ownerEmail: 'sanju3456k@gmail.com',
+  name: APP_BRAND.activeInstituteLabel || (APP_BRAND.isWhiteLabel ? APP_BRAND.name : 'Elevate Primary Institute (Sanju)'),
+  ownerEmail: APP_BRAND.ownerEmail,
   teamAdminEmails: [],
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
@@ -59,8 +77,15 @@ function normalizeWorkspace(raw: any): MasterWorkspace {
   return {
     id: String(raw?.id || PRIMARY_WORKSPACE_ID),
     name: String(raw?.name || 'Master Institute'),
+    slug: raw?.slug ? String(raw.slug) : undefined,
     ownerEmail: ownerEmail || DEFAULT_PRIMARY_WORKSPACE.ownerEmail,
     teamAdminEmails: Array.from(teamSet),
+    logoUrl: raw?.logoUrl ? String(raw.logoUrl) : undefined,
+    primaryColor: raw?.primaryColor ? String(raw.primaryColor) : undefined,
+    packageName: raw?.packageName ? String(raw.packageName) : undefined,
+    apkDownloadUrl: raw?.apkDownloadUrl ? String(raw.apkDownloadUrl) : undefined,
+    apkVersion: raw?.apkVersion ? String(raw.apkVersion) : undefined,
+    firebaseWebConfig: raw?.firebaseWebConfig || undefined,
     createdAt: raw?.createdAt || new Date().toISOString(),
     updatedAt: raw?.updatedAt || new Date().toISOString(),
   };

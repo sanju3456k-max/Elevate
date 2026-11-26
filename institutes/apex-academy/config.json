@@ -1,0 +1,20 @@
+{
+  "flavorName": "apexAcademy",
+  "instituteId": "inst_apex_01",
+  "slug": "apex-academy",
+  "appName": "Apex Academy",
+  "applicationId": "com.elevate.apexacademy",
+  "ownerEmail": "harry4444u@gmail.com",
+  "teamAdminEmails": [],
+  "apkVersion": "1.0",
+  "apkDownloadUrl": "https://github.com/sanju3456k/elevate-android/releases/latest/download/apexAcademy-release.apk",
+  "firebaseWebConfig": {
+    "apiKey": "AIzaSyAE9V41Mhd6COtvYa8io0-v6MYFiefZ9oQ",
+    "authDomain": "apex-academy-6941e.firebaseapp.com",
+    "projectId": "apex-academy-6941e",
+    "storageBucket": "apex-academy-6941e.firebasestorage.app",
+    "messagingSenderId": "413522060969",
+    "appId": "1:413522060969:web:4ca8e03dbdc6b6e5e6ebb8",
+    "oAuthClientId": "413522060969-dkcm9kl9h45h06oj9citd65clo2au93s.apps.googleusercontent.com"
+  }
+}

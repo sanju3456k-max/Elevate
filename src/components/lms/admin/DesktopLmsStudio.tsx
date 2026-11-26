@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { APP_BRAND } from '../../../config/appBrand';
 import {
   Layers,
   Folder,
@@ -1938,7 +1939,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                   </div>
 
                   <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] leading-relaxed">
-                    Elevate activates these security barriers strictly when a student is watching a video lecture or attempting a live test. Standard navigation (home, catalog, analytics) operates with zero friction.
+                    {APP_BRAND.name} activates these security barriers strictly when a student is watching a video lecture or attempting a live test. Standard navigation (home, catalog, analytics) operates with zero friction.
                   </p>
 
                   <div className="space-y-3 pt-1">
@@ -2737,7 +2738,7 @@ const InspectorContent: React.FC<InspectorContentProps> = ({
               </div>
               <span className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 flex items-center space-x-1">
                 <ShieldCheck className="w-3 h-3" />
-                <span>Zero-bandwidth streaming: Protected by Elevate DRM Curtain</span>
+                <span>Zero-bandwidth streaming: Protected by {APP_BRAND.name} DRM Curtain</span>
               </span>
 
               {/* YouTube Synced Details & Thumbnail Preview */}

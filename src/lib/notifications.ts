@@ -1,5 +1,6 @@
 import { type ActiveTab, type MathTest } from '../types';
 import type { Batch, Chapter, Lecture, Announcement, BatchTestCard } from '../lms/types';
+import { APP_BRAND } from '../config/appBrand';
 import { belongsToInstitute, getActiveAppInstituteIdOrPrimary } from './masterWorkspace';
 
 export interface AppNotification {
@@ -270,12 +271,12 @@ export function deriveRealBatchNotifications(params: {
 
     const parentBatch = batches.find((b) => b.id === ann.batchId);
 
-    // Transform legacy testing environment post to Welcome to Act Elevate
+    // Transform legacy testing environment post to Welcome to <Brand>
     let cleanTitle = (ann.title || '').trim();
     let cleanMessage = ann.message || '';
     if (ann.id === 'ann_test_1' || cleanTitle.includes('Testing Environment Active')) {
       cleanTitle = '🎉 Welcome to Act Elevate';
-      cleanMessage = 'Welcome to Elevate! Explore your course batches, practice interactive mock tests, and track your progress seamlessly.';
+      cleanMessage = `Welcome to ${APP_BRAND.name}! Explore your course batches, practice interactive mock tests, and track your progress seamlessly.`;
     }
 
     const bracketMatch = cleanTitle.match(/^\[(.*?)\]\s*(.*)$/);

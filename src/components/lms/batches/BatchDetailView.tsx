@@ -1,4 +1,5 @@
 import { DEFAULT_HIGH_RES_BANNER } from './BatchThumbnailPicker';
+import { APP_BRAND } from '../../../config/appBrand';
 import {
   getSelectedAppInstituteId,
   PRIMARY_WORKSPACE_ID,
@@ -545,6 +546,15 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     if (!currentBatch) return [];
     return getBreadcrumbs(selectedChapterId, currentBatch.id);
   }, [getBreadcrumbs, selectedChapterId, currentBatch]);
+
+  const breadcrumbScrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = breadcrumbScrollRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollTo({ left: el.scrollWidth, behavior: 'smooth' });
+    });
+  }, [selectedChapterId, breadcrumbPath.length]);
 
   // Current Folder Node (if inside a subfolder)
   const currentFolder = useMemo(() => {
@@ -1305,7 +1315,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                           (e.currentTarget as HTMLImageElement).src = '/assets/default-profile.png';
                         }}
                       />
-                      <span className="truncate max-w-[120px] font-medium">{b.instructor?.name || 'Elevate Faculty'}</span>
+                      <span className="truncate max-w-[120px] font-medium">
+                        {!b.instructor?.name || (APP_BRAND.isWhiteLabel && /^elevate(\s+labs)?\s+faculty$/i.test(b.instructor.name.trim()))
+                          ? `${APP_BRAND.name} Faculty`
+                          : b.instructor.name}
+                      </span>
                     </div>
 
                     {isMaster && b.isPublished === false ? (
@@ -1461,7 +1475,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         } z-30 bg-white dark:bg-[#0b0c10] -mx-3 sm:-mx-6 px-3 sm:px-6 pt-1 pb-2.5 space-y-3 border-0 shadow-none`}>
         {/* Top Header: Back Button & Dynamic Google Drive Breadcrumbs */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-1 border-0 border-none">
-          <div className="flex items-center space-x-2 flex-wrap gap-y-1.5">
+          <div className="flex items-center space-x-2 flex-nowrap min-w-0 flex-1 overflow-hidden">
             {/* Direct Step-Back Button */}
             <button
               onClick={handleStepBack}
@@ -1471,8 +1485,11 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
               <ChevronLeft className="w-5 h-5" />
             </button>
 
-            {/* Google Drive Breadcrumbs Trail */}
-            <div className="flex items-center space-x-1.5 text-[13px] sm:text-xs font-semibold overflow-x-auto py-1 scrollbar-none">
+            {/* Google Drive Breadcrumbs Trail (Single-row horizontal scroll, auto-scrolls to newest item) */}
+            <div
+              ref={breadcrumbScrollRef}
+              className="flex items-center space-x-1.5 text-[13px] sm:text-xs font-semibold overflow-x-auto flex-nowrap whitespace-nowrap min-w-0 flex-1 py-1 scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
               <button
                 onClick={handleGoToAllCourses}
                 className="px-2 py-1 rounded-lg hover:bg-[var(--md-sys-color-surface-container)] text-slate-700 dark:text-zinc-300 font-semibold border-none bg-transparent cursor-pointer shrink-0"
