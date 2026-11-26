@@ -14,7 +14,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { unlockWebAccess } from '../../lib/platformSecurityGuard';
-import { signInWithGoogle, signInWithGoogleRedirect } from '../../lib/firebase';
+import { signInWithGoogle } from '../../lib/firebase';
 import {
   type MasterWorkspace,
   getCachedMasterWorkspaces,
@@ -57,24 +57,20 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({
     getCachedMasterWorkspaces()
   );
 
-  // If the page just reloaded into a selected white-label organization (e.g. Apex Academy)
+  // If the page just reloaded into a selected white-label organization (e.g. Apex Academy or Radix)
   const activeWebOrg = useMemo(() => {
     if (!APP_BRAND.isWebInstituteActive || !APP_BRAND.instituteId) return null;
-    return (
-      getWorkspaceById(APP_BRAND.instituteId) ||
-      STATIC_INSTITUTES_REGISTRY.find((r) => r.id === APP_BRAND.instituteId) ||
-      null
-    );
+    const regMatch = STATIC_INSTITUTES_REGISTRY.find((r) => r.id === APP_BRAND.instituteId) || null;
+    const wsMatch = getWorkspaceById(APP_BRAND.instituteId);
+    if (!wsMatch) return regMatch;
+    return {
+      ...regMatch,
+      ...wsMatch,
+      firebaseWebConfig: wsMatch.firebaseWebConfig || regMatch?.firebaseWebConfig || (APP_BRAND.firebaseConfig as any) || undefined,
+      apkDownloadUrl: wsMatch.apkDownloadUrl || regMatch?.apkDownloadUrl,
+      logoUrl: wsMatch.logoUrl || regMatch?.logoUrl,
+    };
   }, []);
-
-  const [isAutoRedirecting, setIsAutoRedirecting] = useState<boolean>(() => {
-    if (typeof window === 'undefined' || !activeWebOrg) return false;
-    try {
-      return sessionStorage.getItem('elevate_auto_google_signin_v1') === activeWebOrg.id;
-    } catch {
-      return false;
-    }
-  });
 
   useEffect(() => {
     fetchMasterWorkspacesFromCloud()
@@ -82,17 +78,6 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({
         if (Array.isArray(list) && list.length > 0) setCloudWorkspaces(list);
       })
       .catch(() => {});
-
-    if (activeWebOrg) {
-      try {
-        const autoId = sessionStorage.getItem('elevate_auto_google_signin_v1');
-        if (autoId && autoId === activeWebOrg.id) {
-          sessionStorage.removeItem('elevate_auto_google_signin_v1');
-          setIsAutoRedirecting(true);
-          signInWithGoogleRedirect().catch(() => setIsAutoRedirecting(false));
-        }
-      } catch {}
-    }
   }, []);
 
   // Always keep Elevate Labs Official App at the top of the directory
@@ -186,7 +171,7 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({
       window.location.reload();
       return;
     }
-    if (!targetProjectId && APP_BRAND.isWebInstituteActive) {
+    if (!targetProjectId && APP_BRAND.isWebInstituteActive && workspace.id !== APP_BRAND.instituteId) {
       try {
         sessionStorage.setItem('elevate_auto_google_signin_v1', workspace.id);
       } catch {}
@@ -271,16 +256,6 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({
             </div>
             <span className="font-bold text-sm text-emerald-950">Admin Verified!</span>
             <p>{feedbackMsg}</p>
-          </div>
-        ) : isAutoRedirecting && activeWebOrg ? (
-          <div className="w-full py-10 flex flex-col items-center justify-center gap-3 text-center">
-            <div className="w-7 h-7 rounded-full border-2 border-[#0b57d0] border-t-transparent animate-spin" />
-            <div className="text-sm font-bold text-slate-900">
-              Opening Google Sign-In...
-            </div>
-            <p className="text-xs text-slate-500">
-              Signing in to {activeWebOrg.name}
-            </p>
           </div>
         ) : activeWebOrg ? (
           /* Post-reload step when switching to a dedicated organization Firebase */

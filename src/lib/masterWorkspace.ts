@@ -51,6 +51,7 @@ const DEFAULT_PRIMARY_WORKSPACE: MasterWorkspace = {
   name: APP_BRAND.activeInstituteLabel || (APP_BRAND.isWhiteLabel ? APP_BRAND.name : 'Elevate'),
   ownerEmail: APP_BRAND.ownerEmail,
   teamAdminEmails: [],
+  firebaseWebConfig: (APP_BRAND.firebaseConfig as any) || undefined,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
