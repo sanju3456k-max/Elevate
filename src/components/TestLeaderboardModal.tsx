@@ -91,21 +91,23 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(!initialCache);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [isPurgingGuests, setIsPurgingGuests] = useState<boolean>(false);
+  const [showPurgeConfirm, setShowPurgeConfirm] = useState<boolean>(false);
   const [justRefreshed, setJustRefreshed] = useState<boolean>(false);
   const isAdmin = isMasterUser(currentUser);
-  const hasGuestEntries = useMemo(
-    () => Boolean(summary?.entries?.some((e: any) => e?.isGuest || String(e?.userId || '').startsWith('guest') || String(e?.userName || '').includes('(Guest)'))),
+  const guestEntriesCount = useMemo(
+    () => (summary?.entries || []).filter((e: any) => e?.isGuest || String(e?.userId || '').startsWith('guest') || String(e?.userName || '').includes('(Guest)')).length,
     [summary?.entries]
   );
+  const hasGuestEntries = guestEntriesCount > 0;
 
-  const handlePurgeGuestEntries = async () => {
+  const handleConfirmPurgeGuestEntries = async () => {
     if (!test?.id && !test?.title) return;
-    if (!window.confirm('Purge all Guest user entries from this test leaderboard?')) return;
     setIsPurgingGuests(true);
     try {
       await purgeGuestLeaderboardEntries(test.id || '', test.title);
       const data = await fetchTestLeaderboard(test.id || '', test.title, true);
       setSummary(data);
+      setShowPurgeConfirm(false);
     } catch (err) {
       console.warn('Failed to purge guest entries:', err);
     } finally {
@@ -316,7 +318,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
               {isAdmin && hasGuestEntries && (
                 <button
                   type="button"
-                  onClick={handlePurgeGuestEntries}
+                  onClick={() => setShowPurgeConfirm(true)}
                   disabled={isPurgingGuests || isLoading}
                   title="Purge all Guest entries from this test leaderboard"
                   className="h-8 sm:h-10 px-3 rounded-full bg-rose-500/12 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-[11px] font-bold flex items-center gap-1.5 border-0 cursor-pointer transition-all active:scale-95 disabled:opacity-50"
@@ -797,6 +799,56 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
             </div>
           </div>
         </main>
+
+        {/* Confirm Purge Guest Entries Modal */}
+        {showPurgeConfirm && (
+          <div
+            className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+            onClick={() => !isPurgingGuests && setShowPurgeConfirm(false)}
+          >
+            <div
+              className="w-full max-w-sm rounded-3xl bg-white dark:bg-[#1a1c23] p-5 sm:p-6 shadow-2xl border-0 space-y-4 text-left"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-zinc-100">
+                    Purge Guest Entries?
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    {guestEntriesCount} guest {guestEntriesCount === 1 ? 'entry' : 'entries'} found on this leaderboard
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-700 dark:text-zinc-300 leading-relaxed">
+                This will permanently remove all guest student rankings from <strong>{test.title}</strong>. Enrolled student rankings will not be affected.
+              </p>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  disabled={isPurgingGuests}
+                  onClick={() => setShowPurgeConfirm(false)}
+                  className="px-4 py-2 rounded-full text-xs font-bold bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border-0 cursor-pointer transition disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isPurgingGuests}
+                  onClick={handleConfirmPurgeGuestEntries}
+                  className="px-4 py-2 rounded-full text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white border-0 cursor-pointer shadow-xs transition active:scale-95 disabled:opacity-50"
+                >
+                  {isPurgingGuests ? 'Purging...' : 'Yes, Purge Guests'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </motion.div>
     )}
   </AnimatePresence>,
