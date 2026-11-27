@@ -14,6 +14,8 @@ import {
   increment,
 } from 'firebase/firestore';
 import { db, sanitizeForFirestore } from './firebase';
+import { registerStudentEmailInDirectory } from './tenantFirebase';
+import { getActiveAppInstituteIdOrPrimary } from './masterWorkspace';
 import { secureStorage } from './secureStorage';
 import type { Batch, BatchEnrollment, Chapter, Lecture } from '../lms/types';
 import { INITIAL_BATCHES } from '../lms/initialData';
@@ -467,8 +469,9 @@ export async function enrollStudentInFirestore(params: {
       console.warn('Batch student count update notice:', countErr);
     }
 
-    // 4. Update student's user profile if registered
+    // 4. Update student's user profile if registered & record in central email_directory
     if (isEmail) {
+      registerStudentEmailInDirectory(cleanedContact, getActiveAppInstituteIdOrPrimary()).catch(() => {});
       try {
         const userQ = query(collection(db, 'users'), where('email', '==', cleanedContact));
         const userSnap = await getDocs(userQ);

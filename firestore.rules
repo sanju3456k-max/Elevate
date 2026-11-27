@@ -35,6 +35,10 @@ service cloud.firestore {
     //   - storePage: map (required; if screenshots present, list <= 8 items)
     //   - updatedAt: string (optional, <= 64 chars)
     //   - updatedBy: string (optional, <= 254 chars)
+    //
+    // Collection: email_directory/{emailHash}
+    //   - instituteIds: list<string> (required, max 50 items)
+    //   - updatedAt: string (required, <= 64 chars)
     // =========================================================================
 
     // Helper functions
@@ -167,6 +171,13 @@ service cloud.firestore {
         (!('updatedBy' in data) || (data.updatedBy is string && data.updatedBy.size() <= 254));
     }
 
+    function isValidEmailDirectory(data) {
+      return data.keys().hasAll(['instituteIds', 'updatedAt']) &&
+        data.keys().hasOnly(['instituteIds', 'updatedAt']) &&
+        data.instituteIds is list && data.instituteIds.size() <= 50 &&
+        data.updatedAt is string && data.updatedAt.size() <= 64;
+    }
+
     // Default deny
     match /{document=**} {
       allow read, write: if false;
@@ -260,6 +271,13 @@ service cloud.firestore {
       allow create, update: if isSignedIn() &&
         (isMasterAdmin() || isWorkspaceOwner(workspaceId)) &&
         isValidAppStorefront(request.resource.data, workspaceId);
+      allow delete: if isMasterAdmin();
+    }
+
+    // Multi-Institute Email Directory (SHA-256 hashed email -> instituteIds, no PII)
+    match /email_directory/{emailHash} {
+      allow read: if true;
+      allow create, update: if isSignedIn() && isValidEmailDirectory(request.resource.data);
       allow delete: if isMasterAdmin();
     }
 

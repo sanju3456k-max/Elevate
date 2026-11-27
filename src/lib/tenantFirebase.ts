@@ -9,6 +9,7 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { db as defaultDb, auth as defaultAuth, sanitizeForFirestore } from './firebase';
+import defaultFirebaseConfig from '../../firebase-applet-config.json';
 import {
   getCachedMasterWorkspaces,
   fetchMasterWorkspacesFromCloud,
@@ -33,9 +34,26 @@ export async function sha256EmailHash(email: string): Promise<string> {
     .join('');
 }
 
+function getCentralDirectoryDb(): Firestore {
+  try {
+    const centralProjectId = (defaultFirebaseConfig as any)?.projectId;
+    if (!centralProjectId || (defaultDb.app?.options as any)?.projectId === centralProjectId) {
+      return defaultDb;
+    }
+    const appName = 'elevate_central_directory';
+    const existing = getApps().find((a) => a.name === appName);
+    const app = existing ?? initializeApp(defaultFirebaseConfig, appName);
+    const rawDbId = (defaultFirebaseConfig as any)?.firestoreDatabaseId || (defaultFirebaseConfig as any)?.databaseId;
+    return rawDbId && rawDbId !== '(default)' ? getFirestore(app, rawDbId) : getFirestore(app);
+  } catch {
+    return defaultDb;
+  }
+}
+
 /**
- * Registers a student email in the central directory (`email_directory/{sha256}`)
- * so the single Elevate Labs web portal can match them to their institute APK(s).
+ * Registers a student/user email in the central directory (`email_directory/{sha256}`)
+ * so the single Elevate Labs web portal can match them to all their institute(s),
+ * even when they signed in or were enrolled inside an isolated tenant APK/project.
  */
 export async function registerStudentEmailInDirectory(
   email: string,
@@ -44,14 +62,15 @@ export async function registerStudentEmailInDirectory(
   const clean = normalizeEmail(email);
   if (!clean || !workspaceId) return;
   const emailHash = await sha256EmailHash(clean);
-  await setDoc(
-    doc(defaultDb, 'email_directory', emailHash),
-    sanitizeForFirestore({
-      instituteIds: arrayUnion(workspaceId),
-      updatedAt: new Date().toISOString(),
-    }),
-    { merge: true }
-  );
+  const payload = sanitizeForFirestore({
+    instituteIds: arrayUnion(workspaceId),
+    updatedAt: new Date().toISOString(),
+  });
+  const centralDb = getCentralDirectoryDb();
+  await setDoc(doc(centralDb, 'email_directory', emailHash), payload, { merge: true }).catch(() => {});
+  if (centralDb !== defaultDb) {
+    await setDoc(doc(defaultDb, 'email_directory', emailHash), payload, { merge: true }).catch(() => {});
+  }
 }
 
 function mergeWithStaticRegistry(cloudList: MasterWorkspace[]): MasterWorkspace[] {
@@ -114,21 +133,25 @@ export async function lookupInstitutesByEmail(email: string): Promise<InstituteL
     }
   }
 
-  // 3. Check central Firestore `email_directory/{sha256}` for enrolled students
+  // 3. Check central Firestore `email_directory/{sha256}` (and active tenant db if different) for enrolled/logged-in students
   try {
     const emailHash = await sha256EmailHash(clean);
-    const snap = await getDoc(doc(defaultDb, 'email_directory', emailHash));
-    if (snap.exists()) {
-      const ids = snap.data()?.instituteIds;
-      if (Array.isArray(ids)) {
-        ids.forEach((id) => {
-          if (typeof id === 'string' && id.trim() && !matches.has(id.trim())) {
-            const ws = allWorkspaces.find((w) => w.id === id.trim());
-            if (ws) {
-              matches.set(ws.id, { workspace: ws, role: 'student' });
+    const centralDb = getCentralDirectoryDb();
+    const dbsToCheck = centralDb !== defaultDb ? [centralDb, defaultDb] : [centralDb];
+    for (const targetDb of dbsToCheck) {
+      const snap = await getDoc(doc(targetDb, 'email_directory', emailHash)).catch(() => null);
+      if (snap && snap.exists()) {
+        const ids = snap.data()?.instituteIds;
+        if (Array.isArray(ids)) {
+          ids.forEach((id) => {
+            if (typeof id === 'string' && id.trim() && !matches.has(id.trim())) {
+              const ws = allWorkspaces.find((w) => w.id === id.trim());
+              if (ws) {
+                matches.set(ws.id, { workspace: ws, role: 'student' });
+              }
             }
-          }
-        });
+          });
+        }
       }
     }
   } catch {

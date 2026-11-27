@@ -1356,6 +1356,13 @@ export async function syncUserProfile(user: User, force = false): Promise<void> 
     }
 
     await setDoc(userDocRef, profileData, { merge: true });
+    if (user.email) {
+      Promise.all([import('./tenantFirebase'), import('./masterWorkspace')])
+        .then(([{ registerStudentEmailInDirectory }, { getActiveAppInstituteIdOrPrimary }]) =>
+          registerStudentEmailInDirectory(user.email!, getActiveAppInstituteIdOrPrimary())
+        )
+        .catch(() => {});
+    }
     firestoreTelemetry.record({
       type: 'WRITE',
       collection: 'users',

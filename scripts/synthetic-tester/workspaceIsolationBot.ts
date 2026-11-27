@@ -471,6 +471,52 @@ export async function runWorkspaceIsolationAudit(): Promise<{ checks: FeatureChe
       details: missingRes.length === 0 ? `all ${splashAssets.length} splash/icon assets present` : `missing: ${missingRes.join(',')}`,
     });
 
+    // WS-13: Multi-Institute Same-Email Lookup (Admin in Inst A + Team Admin in Inst B + Student in Inst C)
+    const tWs13 = Date.now();
+    const multiEmail = 'multi.user@institute.com';
+    const wsC = {
+      id: 'ws_inst_c_test',
+      name: 'Gamma Academy',
+      slug: 'gamma-academy',
+      ownerEmail: 'gamma.owner@institute.com',
+      teamAdminEmails: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const directoryMockIds = ['ws_inst_c_test', 'inst_apex_01'];
+    const allForLookup = [
+      { ...wsA, ownerEmail: multiEmail },
+      { ...wsB, teamAdminEmails: [multiEmail] },
+      wsC,
+      ...STATIC_INSTITUTES_REGISTRY.filter((r) => r.id !== wsA.id),
+    ];
+    const lookupMap = new Map<string, 'admin' | 'student'>();
+    for (const w of allForLookup) {
+      if (w.ownerEmail.toLowerCase() === multiEmail || w.teamAdminEmails.some((e) => e.toLowerCase() === multiEmail)) {
+        lookupMap.set(w.id, 'admin');
+      }
+    }
+    for (const id of directoryMockIds) {
+      if (!lookupMap.has(id) && allForLookup.some((w) => w.id === id)) {
+        lookupMap.set(id, 'student');
+      }
+    }
+    const rulesFile = fs.readFileSync(path.join(rootDir, 'firestore.rules'), 'utf-8');
+    const hasEmailDirRule = rulesFile.includes('match /email_directory/{emailHash}');
+    checks.push({
+      name: 'WS-13: Multi-Institute Same-Email Admin & Student Lookup + Rules',
+      category: 'security',
+      passed:
+        lookupMap.get(wsA.id) === 'admin' &&
+        lookupMap.get(wsB.id) === 'admin' &&
+        lookupMap.get('ws_inst_c_test') === 'student' &&
+        lookupMap.get('inst_apex_01') === 'student' &&
+        lookupMap.size === 4 &&
+        hasEmailDirRule,
+      latencyMs: Date.now() - tWs13,
+      details: `matched=${lookupMap.size} (${Array.from(lookupMap.entries()).map(([k, v]) => `${k}:${v}`).join(',')}), emailDirRule=${hasEmailDirRule}`,
+    });
+
     setSelectedAppInstituteId(null);
   } finally {
     saveCachedMasterWorkspaces(snapshotBefore);

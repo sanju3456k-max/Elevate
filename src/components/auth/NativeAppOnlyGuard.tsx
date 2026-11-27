@@ -322,10 +322,10 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({
           <div className="w-full space-y-4">
             <div className="space-y-1.5">
               <h1 className="text-[22px] font-semibold text-slate-900 tracking-tight">
-                Admin Console Sign-In
+                Admin & Student Portal
               </h1>
               <p className="text-[13px] text-slate-500 leading-relaxed">
-                Enter your registered admin email to open your Institute Web Console.
+                Enter your email to sign in as an Institute Admin or access your enrolled Android Apps.
               </p>
             </div>
 
