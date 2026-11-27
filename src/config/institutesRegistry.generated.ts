@@ -31,7 +31,7 @@ export const GENERATED_INSTITUTES_REGISTRY: StaticInstituteEntry[] = [
         "Instant Performance & Rank Analytics",
         "Offline PDF Notes & Announcements"
       ],
-      "apkSizeLabel": "19 MB",
+      "apkSizeLabel": "10 MB",
       "contactEmail": "harry4444u@gmail.com",
       "accentColor": "#0b57d0"
     },
@@ -68,7 +68,7 @@ export const GENERATED_INSTITUTES_REGISTRY: StaticInstituteEntry[] = [
         "Instant Performance & Rank Analytics",
         "Offline PDF Notes & Announcements"
       ],
-      "apkSizeLabel": "19 MB",
+      "apkSizeLabel": "10.5 MB",
       "contactEmail": "harry333u@gmail.com",
       "accentColor": "#0b57d0"
     },

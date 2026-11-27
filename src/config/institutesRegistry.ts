@@ -57,7 +57,7 @@ export const STATIC_INSTITUTES_REGISTRY: StaticInstituteEntry[] = [
     ownerEmail: 'sanju3456k@gmail.com',
     teamAdminEmails: [],
     packageName: 'com.elevate.app',
-    apkVersion: '2.0',
+    apkVersion: '1.0',
     apkDownloadUrl: './elevate.apk',
     storePage: {
       tagline: 'Timed Mock Tests, OMR Evaluation & Smart Study Notes',
@@ -69,7 +69,7 @@ export const STATIC_INSTITUTES_REGISTRY: StaticInstituteEntry[] = [
         'KaTeX Math Formulas & Offline Study Notes',
         'Secure Single-Device & Cloud Sync Support',
       ],
-      apkSizeLabel: '18 MB',
+      apkSizeLabel: '9.2 MB',
       contactEmail: 'sanju3456k@gmail.com',
       websiteUrl: 'https://labselevate.vercel.app',
       accentColor: '#0b57d0',

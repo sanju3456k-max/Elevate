@@ -533,7 +533,7 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
                     </div>
                     <div className="border-l border-slate-200/70 pl-5 sm:pl-8">
                       <div className="text-sm sm:text-base font-semibold text-slate-900">
-                        {sp.apkSizeLabel || '19 MB'}
+                        {sp.apkSizeLabel || '9.2 MB'}
                       </div>
                       <div className="text-[11px] text-slate-400">Download size</div>
                     </div>
@@ -950,7 +950,7 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
                       {isPrimary ? 'Official Flagship App' : inst.name}
                     </div>
                     <div className="text-[11px] font-medium text-slate-400">
-                      v{inst.apkVersion || '1.0'} &bull; {inst.storePage?.apkSizeLabel || '19 MB'}
+                      v{inst.apkVersion || '1.0'} &bull; {inst.storePage?.apkSizeLabel || '9.2 MB'}
                     </div>
                   </div>
                 </div>

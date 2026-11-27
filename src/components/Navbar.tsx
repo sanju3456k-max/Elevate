@@ -1122,7 +1122,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <div className="p-4 bg-white dark:bg-[#1e2024] flex items-center justify-between text-xs font-bold text-[#1f1f1f] dark:text-[#e3e3e3] shrink-0 border-t border-slate-100 dark:border-zinc-800/80 rounded-br-[24px]">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[#0b57d0] dark:text-[#a8c7fa] font-black">Elevate</span>
-                    <span className="text-[10px] text-[#5e5e5e] dark:text-[#9aa0a6]">v2.0</span>
+                    <span className="text-[10px] text-[#5e5e5e] dark:text-[#9aa0a6]">v1.0</span>
                   </div>
                   <button
                     id="drawer-theme-toggle-btn"
