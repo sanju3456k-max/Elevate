@@ -37,7 +37,6 @@
     "express": "^4.21.2",
     "firebase": "^11.4.0",
     "framer-motion": "^14.4.0",
-    "hls.js": "^1.7.4",
     "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",
     "html2canvas-pro": "^2.4.3",
