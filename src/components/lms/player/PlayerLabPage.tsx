@@ -9,8 +9,8 @@ interface PlayerLabPageProps {
 const SAMPLE_SOURCES = [
   {
     label: 'MP4 Direct',
-    title: 'Big Buck Bunny (MP4)',
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    title: 'MDN Flower Sample (MP4)',
+    url: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
   },
   {
     label: 'HLS (.m3u8)',

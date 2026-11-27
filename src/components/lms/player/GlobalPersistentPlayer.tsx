@@ -277,12 +277,19 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
     [onUpdatePlayback]
   );
 
+  const lastProgressSyncRef = useRef<number>(0);
+
   const handleProgress = useCallback(
     (sec: number, total: number) => {
       setCurrentPlaybackSec(sec);
       if (total > 0) setTotalDuration(total);
       if (playback?.lectureId) {
-        updateWatchProgress(playback.lectureId, sec, total);
+        const now = Date.now();
+        const isCompletion = total > 0 && sec >= total * 0.9;
+        if (isCompletion || now - lastProgressSyncRef.current >= 5000) {
+          lastProgressSyncRef.current = now;
+          updateWatchProgress(playback.lectureId, sec, total);
+        }
       }
     },
     [playback?.lectureId, updateWatchProgress]
