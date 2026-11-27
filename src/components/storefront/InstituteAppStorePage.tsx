@@ -198,13 +198,34 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
   };
 
   const handleCopyShareLink = async (slug: string) => {
-    const shareUrl = `${window.location.origin}/apps/${slug}`;
+    const shareUrl = `${window.location.origin}/apps/${encodeURIComponent(slug)}`;
+    let copied = false;
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(shareUrl);
+        copied = true;
+      }
+    } catch {
+      copied = false;
+    }
+    if (!copied) {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = shareUrl;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        copied = document.execCommand('copy');
+        document.body.removeChild(textarea);
+      } catch {
+        copied = false;
+      }
+    }
+    if (copied) {
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
-    } catch {
-      // Fallback
     }
   };
 
