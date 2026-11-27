@@ -820,6 +820,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     if (batchEnrolledUids.size > 0 || batchEnrolledEmails.size > 0) {
       return combined.filter((a) => {
         return (
+          Boolean((a as any).isGuest) ||
           (a.userId && batchEnrolledUids.has(a.userId)) ||
           (a.userEmail && batchEnrolledEmails.has(a.userEmail.toLowerCase())) ||
           (a as any).batchId === selectedBatchId ||
@@ -1037,6 +1038,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   });
   const [analyticsSearchQuery, setAnalyticsSearchQuery] = useState<string>('');
   const [analyticsModeFilter, setAnalyticsModeFilter] = useState<'all' | 'online' | 'omr'>('all');
+  const [analyticsAudienceFilter, setAnalyticsAudienceFilter] = useState<'all' | 'enrolled' | 'guests'>('all');
   const [analyticsTestSearchFilter, setAnalyticsTestSearchFilter] = useState<string>('');
   const [showAllTestsList, setShowAllTestsList] = useState<boolean>(false);
   const [heatmapDisplayMode, setHeatmapDisplayMode] = useState<'firstRow' | 'full'>('firstRow');
@@ -1095,14 +1097,15 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     if (!selectedAnalyticsTest || !selectedAnalyticsTest.id) return;
     if (activeTab !== 'analytics') return;
     const testId = selectedAnalyticsTest.id;
-    if (cloudCohortAttemptsMap[testId]) return;
+    const analyticsKey = `${testId}__guests`;
+    if (cloudCohortAttemptsMap[analyticsKey]) return;
 
     setIsLoadingCohort(true);
-    fetchCohortAttemptsForTest(selectedAnalyticsTest)
+    fetchCohortAttemptsForTest(selectedAnalyticsTest, false, { includeGuests: true })
       .then((cloudList) => {
         setCloudCohortAttemptsMap((prev) => ({
           ...prev,
-          [testId]: cloudList,
+          [analyticsKey]: cloudList,
         }));
       })
       .catch(() => {})
@@ -1116,12 +1119,13 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   const handleRefreshAnalyticsCohort = async () => {
     if (!selectedAnalyticsTest || !selectedAnalyticsTest.id) return;
     const testId = selectedAnalyticsTest.id;
+    const analyticsKey = `${testId}__guests`;
     setIsRefreshingCohort(true);
     try {
-      const cloudList = await fetchCohortAttemptsForTest(selectedAnalyticsTest, true);
+      const cloudList = await fetchCohortAttemptsForTest(selectedAnalyticsTest, true, { includeGuests: true });
       setCloudCohortAttemptsMap((prev) => ({
         ...prev,
-        [testId]: cloudList,
+        [analyticsKey]: cloudList,
       }));
       showNotification(`Refreshed student attempts for "${selectedAnalyticsTest.title}".`, 'info');
     } catch {
@@ -1133,7 +1137,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
 
   const combinedAnalyticsAttempts = useMemo(() => {
     if (!selectedAnalyticsTest) return attempts;
-    const cloudList = cloudCohortAttemptsMap[selectedAnalyticsTest.id] || [];
+    const cloudList = cloudCohortAttemptsMap[`${selectedAnalyticsTest.id}__guests`] || [];
     const seenIds = new Set<string>();
     const combined: TestAttempt[] = [];
 
@@ -1155,6 +1159,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     if (batchEnrolledUids.size > 0 || batchEnrolledEmails.size > 0) {
       return combined.filter((a) => {
         return (
+          Boolean((a as any).isGuest) ||
           (a.userId && batchEnrolledUids.has(a.userId)) ||
           (a.userEmail && batchEnrolledEmails.has(a.userEmail.toLowerCase())) ||
           (a as any).batchId === selectedBatchId ||
@@ -1178,6 +1183,9 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
       const matchesSearch = row.studentName.toLowerCase().includes(analyticsSearchQuery.toLowerCase()) ||
         (row.studentEmail && row.studentEmail.toLowerCase().includes(analyticsSearchQuery.toLowerCase()));
       const matchesMode = analyticsModeFilter === 'all' || row.attemptMode === analyticsModeFilter;
+      const matchesAudience =
+        analyticsAudienceFilter === 'all' ||
+        (analyticsAudienceFilter === 'guests' ? Boolean(row.isGuest) : !row.isGuest);
 
       // Score Tier filter from interactive histogram bars
       let matchesTier = true;
@@ -1202,9 +1210,9 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
         else if (selectedQuadrantFilter === 'q4') matchesQuadrant = !isFast && !isAccurate;
       }
 
-      return matchesSearch && matchesMode && matchesTier && matchesQuadrant;
+      return matchesSearch && matchesMode && matchesAudience && matchesTier && matchesQuadrant;
     });
-  }, [testCohortAnalytics, analyticsSearchQuery, analyticsModeFilter, selectedTierFilter, selectedQuadrantFilter]);
+  }, [testCohortAnalytics, analyticsSearchQuery, analyticsModeFilter, analyticsAudienceFilter, selectedTierFilter, selectedQuadrantFilter]);
 
   const handleExportCsv = () => {
     if (!testCohortAnalytics || testCohortAnalytics.studentRows.length === 0) {
@@ -3666,6 +3674,16 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                     <option value="online">Online Only</option>
                     <option value="omr">OMR Only</option>
                   </select>
+                  <select
+                    value={analyticsAudienceFilter}
+                    onChange={(e) => setAnalyticsAudienceFilter(e.target.value as 'all' | 'enrolled' | 'guests')}
+                    aria-label="Filter by student audience"
+                    className="px-3 py-1.5 text-xs rounded-full bg-[#f0f4f9] dark:bg-[#141619] border-0 text-[#1f1f1f] dark:text-[#e3e3e3] font-semibold cursor-pointer"
+                  >
+                    <option value="all">All Students</option>
+                    <option value="enrolled">Enrolled Only</option>
+                    <option value="guests">Guests Only</option>
+                  </select>
                 </div>
               </div>
 
@@ -3746,6 +3764,11 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                               title="Click to view full 360° student profile & history"
                             >
                               <span>{r.studentName}</span>
+                              {r.isGuest && (
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                                  Guest
+                                </span>
+                              )}
                               <BarChart2 className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] opacity-60 group-hover:opacity-100 transition-opacity" />
                             </button>
                             {r.studentEmail && (

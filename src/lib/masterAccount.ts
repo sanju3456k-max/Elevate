@@ -2269,6 +2269,7 @@ export interface StudentAttemptRow {
   studentId: string;
   studentName: string;
   studentEmail?: string;
+  isGuest?: boolean;
   attemptMode: 'online' | 'omr';
   score: number;
   totalPoints: number;
@@ -2392,6 +2393,7 @@ export function getPerTestCohortAnalytics(
       studentId: sId,
       studentName: att.userName || 'Student',
       studentEmail: (att as any).userEmail || undefined,
+      isGuest: Boolean((att as any).isGuest || isGuestUser({ uid: sId, email: (att as any).userEmail })),
       attemptMode: isOmr ? 'omr' : 'online',
       score,
       totalPoints,
@@ -2927,10 +2929,15 @@ export function convertCompactRecordToAttempt(rec: any, activeTest: MathTest): T
  *
  * Drastically minimizes Firestore reads down to 1 doc per test with 5-minute memory caching.
  */
-export async function fetchCohortAttemptsForTest(test: MathTest, forceRefresh: boolean = false): Promise<TestAttempt[]> {
+export async function fetchCohortAttemptsForTest(
+  test: MathTest,
+  forceRefresh: boolean = false,
+  options?: { includeGuests?: boolean }
+): Promise<TestAttempt[]> {
   if (!test || !test.id) return [];
 
-  const cacheKey = test.id;
+  const includeGuests = Boolean(options?.includeGuests);
+  const cacheKey = includeGuests ? `${test.id}_with_guests` : test.id;
   const now = Date.now();
   if (!forceRefresh) {
     const cached = cohortAttemptsMemoryCache.get(cacheKey);
@@ -3198,6 +3205,48 @@ export async function fetchCohortAttemptsForTest(test: MathTest, forceRefresh: b
         }
       } catch (err) {
         console.warn('Could not fetch cohort attempts from cloud:', err);
+      }
+    }
+
+    // 4. Optional Guest Entries merge (for Master Console Per-Test Analytics, never Remedial Engine)
+    if (includeGuests) {
+      try {
+        const guestSnaps = await Promise.all(
+          targetIds.map((tId) =>
+            getDocs(query(collection(db, 'test_leaderboards', tId, 'guest_entries'), limit(500))).catch(() => null)
+          )
+        );
+        guestSnaps.forEach((guestSnap) => {
+          if (guestSnap && !guestSnap.empty) {
+            guestSnap.forEach((gd) => {
+              const g = gd.data() || {};
+              if (!g.userId || !g.displayName) return;
+              const uid = String(g.userId);
+              if (seenUserIds.has(uid)) return;
+              seenUserIds.add(uid);
+              const att = convertLeaderboardEntryToAttempt(
+                {
+                  userId: uid,
+                  userName: String(g.displayName),
+                  userEmail: '',
+                  score: typeof g.score === 'number' ? g.score : 0,
+                  totalPoints: typeof g.maxScore === 'number' ? g.maxScore : 200,
+                  percentage: typeof g.accuracy === 'number' ? g.accuracy : 0,
+                  timeSpentSeconds: typeof g.timeTakenSeconds === 'number' ? g.timeTakenSeconds : 0,
+                  attemptMode: 'online',
+                  completedAt: g.submittedAt || new Date().toISOString(),
+                  testTitle: g.testTitle || activeTest.title || '',
+                  attemptNumber: 1,
+                } as LeaderboardEntry,
+                activeTest
+              );
+              (att as any).isGuest = true;
+              results.push(att);
+            });
+          }
+        });
+      } catch (err) {
+        console.warn('Could not fetch guest entries for cohort analytics:', err);
       }
     }
 

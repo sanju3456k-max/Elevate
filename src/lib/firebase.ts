@@ -2411,7 +2411,9 @@ export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?
       const rawBatches =
         secureStorage.getItem('elevatelabs_batches_v2') ||
         (typeof localStorage !== 'undefined'
-          ? localStorage.getItem('elevatelabs_batches_v2') || localStorage.getItem('elevatelabs_cloud_batches_cache')
+          ? localStorage.getItem('elevatelabs_batches_v2') ||
+            localStorage.getItem('elevatelabs_cloud_batches_cache') ||
+            localStorage.getItem('math_mock_batches_cache')
           : null);
       const parsedBatches: any[] = rawBatches ? JSON.parse(rawBatches) : [];
 
@@ -2432,6 +2434,29 @@ export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?
           : parsedBatches.find((b) => b && b.allowGuestAccess && b.enableGuestTestRankings);
         if (batchObj && batchObj.allowGuestAccess && batchObj.enableGuestTestRankings) {
           guestRankingsEnabled = true;
+        }
+      }
+
+      // Cloud fallback: if local batch cache is missing or stale on a guest device, check Firestore batch config directly
+      if (!guestRankingsEnabled) {
+        if (resolvedBatchId) {
+          const bSnap = await getDoc(doc(db, 'batches', resolvedBatchId)).catch(() => null);
+          if (bSnap && bSnap.exists()) {
+            const bData = bSnap.data() || {};
+            if (bData.allowGuestAccess && bData.enableGuestTestRankings) {
+              guestRankingsEnabled = true;
+            }
+          }
+        } else {
+          const bListSnap = await getDocs(query(collection(db, 'batches'), limit(50))).catch(() => null);
+          if (bListSnap && !bListSnap.empty) {
+            bListSnap.forEach((bd) => {
+              const bData = bd.data() || {};
+              if (bData.allowGuestAccess && bData.enableGuestTestRankings) {
+                guestRankingsEnabled = true;
+              }
+            });
+          }
         }
       }
 
@@ -3323,30 +3348,35 @@ export async function fetchTestLeaderboard(
     }
     // Merge guest_entries from Guest-Pass batches (when enabled by batch admin)
     try {
-      const guestSnap = await getDocs(
-        query(collection(db, 'test_leaderboards', canonicalId, 'guest_entries'), limit(500))
-      ).catch(() => null);
-      if (guestSnap && !guestSnap.empty) {
-        guestSnap.forEach((gd) => {
-          const g = gd.data() || {};
-          if (g.userId && g.displayName) {
-            cloudEntries.push({
-              userId: String(g.userId),
-              userName: `${String(g.displayName)} (Guest)`,
-              userEmail: '',
-              score: typeof g.score === 'number' ? g.score : 0,
-              totalPoints: typeof g.maxScore === 'number' ? g.maxScore : 200,
-              percentage: typeof g.accuracy === 'number' ? g.accuracy : 0,
-              timeSpentSeconds: typeof g.timeTakenSeconds === 'number' ? g.timeTakenSeconds : 0,
-              attemptMode: 'online',
-              completedAt: g.submittedAt || new Date().toISOString(),
-              testTitle: g.testTitle || testTitle || '',
-              attemptNumber: 1,
-              isGuest: true,
-            } as any);
-          }
-        });
-      }
+      const guestTargetIds = Array.from(new Set([canonicalId, rawSafeId].filter(Boolean)));
+      const guestSnaps = await Promise.all(
+        guestTargetIds.map((tId) =>
+          getDocs(query(collection(db, 'test_leaderboards', tId, 'guest_entries'), limit(500))).catch(() => null)
+        )
+      );
+      guestSnaps.forEach((guestSnap) => {
+        if (guestSnap && !guestSnap.empty) {
+          guestSnap.forEach((gd) => {
+            const g = gd.data() || {};
+            if (g.userId && g.displayName) {
+              cloudEntries.push({
+                userId: String(g.userId),
+                userName: `${String(g.displayName)} (Guest)`,
+                userEmail: '',
+                score: typeof g.score === 'number' ? g.score : 0,
+                totalPoints: typeof g.maxScore === 'number' ? g.maxScore : 200,
+                percentage: typeof g.accuracy === 'number' ? g.accuracy : 0,
+                timeSpentSeconds: typeof g.timeTakenSeconds === 'number' ? g.timeTakenSeconds : 0,
+                attemptMode: 'online',
+                completedAt: g.submittedAt || new Date().toISOString(),
+                testTitle: g.testTitle || testTitle || '',
+                attemptNumber: 1,
+                isGuest: true,
+              } as any);
+            }
+          });
+        }
+      });
     } catch {}
   } catch (err) {
     console.warn('Cloud leaderboard retrieval warning:', err);
