@@ -86,13 +86,14 @@ export function encryptPayload(plainText: string): string {
     // 5. Compute integrity checksum on cipherBytes
     const checksum = computeChecksum(cipherBytes);
 
-    // 6. Base64 encode the binary cipher
-    let binary = '';
+    // 6. Base64 encode the binary cipher using chunked String.fromCharCode to avoid main-thread stalls
+    const chunks: string[] = [];
     const len = cipherBytes.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(cipherBytes[i]);
+    const CHUNK_SIZE = 0x8000;
+    for (let i = 0; i < len; i += CHUNK_SIZE) {
+      chunks.push(String.fromCharCode.apply(null, cipherBytes.subarray(i, i + CHUNK_SIZE) as unknown as number[]));
     }
-    const b64 = btoa(binary);
+    const b64 = btoa(chunks.join(''));
 
     return `${CIPHER_PREFIX}${nonce}_${checksum}_${b64}`;
   } catch (err) {

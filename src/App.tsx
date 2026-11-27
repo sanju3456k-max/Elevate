@@ -891,7 +891,7 @@ export default function App() {
       const guest = isGuestUser(currentUser || cachedUser);
       const scoped = loadScopedTests(targetUid);
       const merged = mergePublishedMasterTests(scoped, master, guest, currentUser || cachedUser);
-      setTests(merged);
+      setTests((prev) => (areTestsEqual(prev, merged) ? prev : merged));
     };
     window.addEventListener('tests-published-updated', handlePublishedUpdated);
     window.addEventListener('batch-tests-updated', handlePublishedUpdated);
@@ -1102,18 +1102,23 @@ export default function App() {
       splashEl.parentNode.removeChild(splashEl);
     }
     document.body.classList.toggle('is-native-android', isNativeAndroid());
+  }, []);
 
-    // Sync Master Workspaces & Team Admin permissions in real time
+  // Sync Master Workspaces & Team Admin permissions in real time (properly cleaned up on user change/unmount)
+  useEffect(() => {
+    const activeUser = currentUser || cachedUser;
+    if (!activeUser || isGuestUser(activeUser)) return;
+
     fetchMasterWorkspacesFromCloud().catch(() => {});
     const unsubWorkspaces = subscribeToMasterWorkspaces(() => {
       window.dispatchEvent(new CustomEvent('master-workspace-membership-changed'));
     });
     const handleMembershipChange = () => {
-      const activeU = currentUser || cachedUser || auth.currentUser;
+      const latestUser = auth.currentUser || getCachedAuthUser() || activeUser;
       const targetInstId = (APP_BRAND.isLockedApk || APP_BRAND.isLockedPwa)
         ? APP_BRAND.instituteId
         : (getSelectedAppInstituteId() || (isNativeAndroid() ? PRIMARY_WORKSPACE_ID : null));
-      const stillMaster = isMasterUser(activeU, targetInstId);
+      const stillMaster = isMasterUser(latestUser, targetInstId);
       setPlatformAccess(checkPlatformAccess(stillMaster));
       if (!stillMaster && activeTabRef.current === 'master-console') {
         setActiveTab('home');
@@ -1124,7 +1129,7 @@ export default function App() {
       unsubWorkspaces();
       window.removeEventListener('master-workspace-membership-changed', handleMembershipChange);
     };
-  }, [currentUser, cachedUser]);
+  }, [currentUser?.uid, cachedUser?.uid]);
 
   // Top-Level Native Android Hardware Integration (Active for both Guest & Authenticated users)
   useEffect(() => {
