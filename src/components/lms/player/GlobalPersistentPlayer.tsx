@@ -23,6 +23,7 @@ import { useApp } from '../../../lms/LmsContext';
 import { formatDuration, getLectureThumbnailUrl } from '../../../lms/security';
 import { useBackHandler, isBrowserFullscreen, exitBrowserFullscreen } from '../../../hooks/useBackNavigation';
 import { enterNativePip, isNativeAndroid, setNativePlaybackPlaying, unlockOrientationPortrait, showNativeStatusBar } from '../../../lib/nativeHardwareBridge';
+import { isMasterUser } from '../../../lib/masterAccount';
 import type { TimelineMilestone, Lecture } from '../../../lms/types';
 
 export interface PersistentPlaybackData {
@@ -76,11 +77,12 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
   const [seekSeconds, setSeekSeconds] = useState<number | null>(null);
   const [noteInputText, setNoteInputText] = useState<string>('');
 
-  // Determine authorization: student enrolled or guest mode enabled
+  // Determine authorization: master/admin, enrolled student, or guest-enabled batch
   const isUserAllowed = useMemo(() => {
+    if (isMasterUser(user) || lmsUser?.role === 'admin') return true;
     if (!playback?.batchId) return true;
     return isEnrolled(playback.batchId) || isGuestAllowedForBatch(playback.batchId);
-  }, [playback?.batchId, isEnrolled, isGuestAllowedForBatch]);
+  }, [user, lmsUser?.role, playback?.batchId, isEnrolled, isGuestAllowedForBatch]);
 
   // Construct effective LMS user profile with enrolled batch ids
   const effectiveUser = useMemo(() => {
@@ -455,7 +457,7 @@ export const GlobalPersistentPlayer: React.FC<GlobalPersistentPlayerProps> = ({
               } w-[280px] xs:w-[300px] sm:w-[340px] md:w-[380px] z-50 bg-[#16181d] text-white rounded-2xl md:rounded-3xl shadow-2xl ring-1 ring-black/10 dark:ring-white/10 border-0 border-none p-0 transition-all duration-300 select-none overflow-hidden ${
                 !isTestMode ? 'flex flex-col' : 'hidden'
               }`
-            : `is-expanded fixed inset-x-0 bottom-0 w-full top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] md:top-[62px] md:h-[calc(100vh-62px)] z-[48] bg-[#e5e9f0] dark:bg-[#0b0c10] flex flex-col lg:grid lg:grid-cols-12 lg:grid-rows-[max-content_minmax(0,1fr)] lg:gap-6 xl:gap-8 items-start overflow-hidden lg:overflow-y-auto px-0 lg:px-8 xl:px-10 pt-0 lg:pt-4 pb-0 overscroll-contain select-text`
+            : `is-expanded fixed inset-x-0 bottom-0 w-full top-[var(--android-status-bar-height,env(safe-area-inset-top,0px))] md:top-[62px] md:h-[calc(100vh-62px)] z-[60] md:z-[48] bg-[#e5e9f0] dark:bg-[#0b0c10] flex flex-col lg:grid lg:grid-cols-12 lg:grid-rows-[max-content_minmax(0,1fr)] lg:gap-6 xl:gap-8 items-start overflow-hidden lg:overflow-y-auto px-0 lg:px-8 xl:px-10 pt-0 lg:pt-4 pb-0 overscroll-contain select-text`
         }
       style={
         !isMinimized && !isInNativePip
