@@ -30,6 +30,7 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
   const [thumbnailUrl, setThumbnailUrl] = useState('');
   const [isPublished, setIsPublished] = useState(true);
   const [allowGuestAccess, setAllowGuestAccess] = useState(false);
+  const [enableGuestTestRankings, setEnableGuestTestRankings] = useState(false);
   const [isPrivateRosterOnly, setIsPrivateRosterOnly] = useState(false);
 
   // Protection against live Firestore background sync & parent re-renders clearing user edits
@@ -58,6 +59,7 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
           setThumbnailUrl(batchToEdit.thumbnailUrl || '');
           setIsPublished(batchToEdit.isPublished ?? true);
           setAllowGuestAccess(batchToEdit.allowGuestAccess ?? false);
+          setEnableGuestTestRankings(batchToEdit.enableGuestTestRankings ?? false);
           setIsPrivateRosterOnly(batchToEdit.isPrivateRosterOnly ?? false);
         } else {
           setTitle('');
@@ -73,6 +75,7 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
           setThumbnailUrl(DEFAULT_HIGH_RES_BANNER);
           setIsPublished(true);
           setAllowGuestAccess(false);
+          setEnableGuestTestRankings(false);
           setIsPrivateRosterOnly(false);
         }
       }
@@ -106,6 +109,7 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
       },
       isPublished,
       allowGuestAccess,
+      enableGuestTestRankings: allowGuestAccess ? enableGuestTestRankings : false,
       isPrivateRosterOnly,
     };
 
@@ -369,6 +373,42 @@ export const BatchEditorModal: React.FC<BatchEditorModalProps> = ({
               </div>
             );
           })()}
+
+          {/* Guest Student Test Rankings Toggle (Shown when Guest Access is active) */}
+          {isPublished && !isPrivateRosterOnly && allowGuestAccess && (
+            <div
+              onClick={() => setEnableGuestTestRankings(!enableGuestTestRankings)}
+              className="flex items-center justify-between p-3.5 rounded-2xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/25 backdrop-blur-xs transition select-none cursor-pointer hover:bg-emerald-500/10"
+            >
+              <div className="flex items-center space-x-2.5">
+                <Sparkles className={`w-4 h-4 ${enableGuestTestRankings ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-zinc-400'}`} />
+                <div>
+                  <p className="text-xs font-bold text-slate-900 dark:text-zinc-100">
+                    Guest Student Test Rankings ({enableGuestTestRankings ? 'Enabled' : 'Disabled'})
+                  </p>
+                  <p className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium">
+                    {enableGuestTestRankings
+                      ? 'Guest students appear in test leaderboards & rankings using their entered Guest Name.'
+                      : 'Guest test scores stay private on their device and are excluded from public leaderboards.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEnableGuestTestRankings(!enableGuestTestRankings);
+                }}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition border-none outline-none shadow-xs active:scale-95 cursor-pointer shrink-0 ${
+                  enableGuestTestRankings
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    : 'bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300'
+                }`}
+              >
+                {enableGuestTestRankings ? '📊 Rankings On' : 'Rankings Off'}
+              </button>
+            </div>
+          )}
 
           {/* Secret / Roster-Exclusive Toggle */}
           <div 

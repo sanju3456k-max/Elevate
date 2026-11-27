@@ -1453,6 +1453,39 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                     }}
                   />
                 </div>
+                {currentBatch?.allowGuestAccess && (
+                  <div className="w-full pt-3 mt-1 border-t border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">
+                        Guest Student Test Rankings
+                      </span>
+                      <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                        {currentBatch?.enableGuestTestRankings
+                          ? 'Guest students (with their entered Guest Name) appear in test leaderboards & rankings.'
+                          : 'Guest test scores stay private on their device and are excluded from leaderboards.'}
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2.5">
+                      <span className="text-xs font-bold text-[var(--md-sys-color-on-surface-variant)]">
+                        {currentBatch?.enableGuestTestRankings ? '📊 Rankings On' : 'Rankings Off'}
+                      </span>
+                      <M3Switch
+                        checked={Boolean(currentBatch?.enableGuestTestRankings)}
+                        onChange={() => {
+                          if (currentBatch) {
+                            const nextVal = !currentBatch.enableGuestTestRankings;
+                            updateBatch(currentBatch.id, { enableGuestTestRankings: nextVal });
+                            showSecurityToast(
+                              nextVal
+                                ? `Guest Student Test Rankings enabled for "${currentBatch.title}".`
+                                : `Guest Student Test Rankings disabled for "${currentBatch.title}".`
+                            );
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Roster Container */}

@@ -18,6 +18,7 @@ export const BatchQuickEnrollModal: React.FC<BatchQuickEnrollModalProps> = ({
     students,
     batches,
     toggleBatchGuestAccess,
+    updateBatch,
     getEnrollmentsForBatch,
     loadRosterForBatch,
     enrollStudentByContact,
@@ -203,6 +204,40 @@ export const BatchQuickEnrollModal: React.FC<BatchQuickEnrollModalProps> = ({
                 </>
               )}
             </button>
+
+            {currentBatch?.allowGuestAccess && (
+              <div className="w-full pt-3 mt-1 border-t border-[var(--md-sys-color-outline-variant)]/30 flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <p className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">
+                    Guest Student Test Rankings
+                  </p>
+                  <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)]">
+                    {currentBatch?.enableGuestTestRankings
+                      ? 'Guest students appear on test leaderboards with their entered Guest Name.'
+                      : 'Guest attempts stay local only and are hidden from test leaderboards.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextVal = !currentBatch?.enableGuestTestRankings;
+                    updateBatch(batch.id, { enableGuestTestRankings: nextVal });
+                    showSecurityToast(
+                      nextVal
+                        ? `Guest Student Test Rankings enabled for "${currentBatch.title}".`
+                        : `Guest Student Test Rankings disabled for "${currentBatch.title}".`
+                    );
+                  }}
+                  className={`px-4 py-2 rounded-full text-xs font-bold transition cursor-pointer border-none outline-none shadow-xs active:scale-95 ${
+                    currentBatch?.enableGuestTestRankings
+                      ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                      : 'bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-300 dark:hover:bg-zinc-600'
+                  }`}
+                >
+                  {currentBatch?.enableGuestTestRankings ? '📊 Rankings On' : 'Rankings Off'}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Section 1: Enroll by Phone / Email */}
