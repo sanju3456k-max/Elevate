@@ -41,7 +41,11 @@ import {
   Home,
   Megaphone,
   Building2,
+  UserCheck,
+  Pencil,
 } from 'lucide-react';
+import { getGuestDisplayName, setGuestDisplayName } from '../lib/guestIdentity';
+import { getAppInstituteGuestMode, APP_INSTITUTE_CHANGED_EVENT } from '../lib/masterWorkspace';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { 
@@ -141,6 +145,23 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState<boolean>(false);
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
+  const [guestName, setGuestName] = useState<string>(() => getGuestDisplayName());
+  const [isGuestModeFlag, setIsGuestModeFlag] = useState<boolean>(() => getAppInstituteGuestMode());
+  const [isEditingGuestName, setIsEditingGuestName] = useState<boolean>(false);
+  const [guestNameDraft, setGuestNameDraft] = useState<string>('');
+
+  useEffect(() => {
+    const syncGuest = () => {
+      setGuestName(getGuestDisplayName());
+      setIsGuestModeFlag(getAppInstituteGuestMode());
+    };
+    window.addEventListener(APP_INSTITUTE_CHANGED_EVENT, syncGuest);
+    window.addEventListener('storage', syncGuest);
+    return () => {
+      window.removeEventListener(APP_INSTITUTE_CHANGED_EVENT, syncGuest);
+      window.removeEventListener('storage', syncGuest);
+    };
+  }, []);
   const { batches, lectures, chapters, announcements, batchTests, isEnrolled, studentFeatureAccess } = useApp();
   const [readVersion, setReadVersion] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -564,8 +585,174 @@ export const Navbar: React.FC<NavbarProps> = ({
                 )}
               </AnimatePresence>
                 </div>
+              ) : (isGuestModeFlag || Boolean(guestName)) ? (
+                /* Guest Mode: Guest Profile Avatar + Pop-up with Name & Sign in with Google */
+                <div className="relative flex items-center gap-1 shrink-0">
+                  <button
+                    id="guest-profile-dropdown-trigger"
+                    type="button"
+                    onClick={() => {
+                      setGuestName(getGuestDisplayName());
+                      setIsEditingGuestName(false);
+                      setIsProfileMenuOpen(!isProfileMenuOpen);
+                    }}
+                    title={`Guest: ${guestName || 'Guest Learner'}`}
+                    aria-label="Guest Profile"
+                    className="w-9 h-9 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] hover:brightness-95 dark:hover:brightness-110 text-[#0b57d0] dark:text-[#c2e7ff] font-black text-xs flex items-center justify-center border border-[#0b57d0]/20 dark:border-[#a8c7fa]/25 shadow-xs outline-none transition-all active:scale-95 cursor-pointer shrink-0 relative"
+                  >
+                    {guestName ? (
+                      <span className="uppercase text-xs font-black">{guestName.charAt(0)}</span>
+                    ) : (
+                      <UserIcon className="w-4 h-4" />
+                    )}
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-[#0b0c10]" />
+                  </button>
+
+                  <AnimatePresence>
+                    {isProfileMenuOpen && (
+                      <>
+                        <motion.div
+                          variants={androidBackdropVariants}
+                          initial="initial"
+                          animate="animate"
+                          exit="exit"
+                          transition={androidFastTransition}
+                          style={gpuAcceleratedStyle}
+                          className="fixed inset-0 z-40 bg-transparent"
+                          onClick={() => setIsProfileMenuOpen(false)}
+                        />
+                        <motion.div
+                          id="guest-profile-popover"
+                          variants={androidDropdownVariants}
+                          initial="initial"
+                          animate="animate"
+                          exit="exit"
+                          transition={androidFastTransition}
+                          style={gpuAcceleratedStyle}
+                          className={`absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-1.5rem)] ${APP_STYLES.card.base} overflow-hidden pt-0 pb-2.5 z-50`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="px-4 py-3.5 bg-slate-100/90 dark:bg-[#16181d] flex items-center gap-3 border-b border-slate-200/80 dark:border-zinc-800">
+                            <div className="w-10 h-10 rounded-full bg-[#0b57d0] dark:bg-[#004a77] text-white dark:text-[#c2e7ff] font-black text-sm flex items-center justify-center shrink-0 shadow-xs ring-2 ring-white/60 dark:ring-zinc-700">
+                              {guestName ? (
+                                <span className="uppercase">{guestName.charAt(0)}</span>
+                              ) : (
+                                <UserCheck className="w-5 h-5" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              {isEditingGuestName ? (
+                                <form
+                                  onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const cleaned = guestNameDraft.trim();
+                                    if (cleaned.length >= 2) {
+                                      const saved = setGuestDisplayName(cleaned);
+                                      setGuestName(saved);
+                                      setIsEditingGuestName(false);
+                                    }
+                                  }}
+                                  className="flex items-center gap-1.5"
+                                >
+                                  <input
+                                    type="text"
+                                    value={guestNameDraft}
+                                    onChange={(e) => setGuestNameDraft(e.target.value)}
+                                    minLength={2}
+                                    maxLength={80}
+                                    autoFocus
+                                    className="w-full px-2 py-1 text-xs rounded-lg bg-white dark:bg-zinc-800 border border-slate-300 dark:border-zinc-600 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-[#0b57d0]"
+                                  />
+                                  <button
+                                    type="submit"
+                                    className="px-2 py-1 rounded-lg bg-[#0b57d0] text-white text-[10px] font-bold border-0 cursor-pointer shrink-0"
+                                  >
+                                    Save
+                                  </button>
+                                </form>
+                              ) : (
+                                <div className="flex items-center justify-between gap-1.5">
+                                  <p className="text-xs font-extrabold text-slate-900 dark:text-zinc-100 truncate">
+                                    {guestName || 'Guest Learner'}
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setGuestNameDraft(guestName || '');
+                                      setIsEditingGuestName(true);
+                                    }}
+                                    title="Edit Guest Name"
+                                    className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-slate-500 dark:text-zinc-400 border-0 bg-transparent cursor-pointer shrink-0"
+                                  >
+                                    <Pencil className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
+                                  Guest Mode
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="p-2 space-y-1.5">
+                            <button
+                              id="guest-popover-google-signin-btn"
+                              type="button"
+                              onClick={() => {
+                                setIsProfileMenuOpen(false);
+                                onSignIn();
+                              }}
+                              disabled={isAuthLoading}
+                              className="w-full py-2.5 px-3.5 rounded-full bg-white dark:bg-[#282a30] hover:bg-slate-50 dark:hover:bg-[#32353c] text-[#1f1f1f] dark:text-[#e3e3e3] border border-slate-200/90 dark:border-zinc-700/80 shadow-xs flex items-center justify-center gap-2 text-xs font-bold cursor-pointer transition-all active:scale-95 disabled:opacity-50 outline-none"
+                            >
+                              <GoogleLogoIcon />
+                              <span>Sign in with Google</span>
+                            </button>
+
+                            {onSwitchInstitute && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsProfileMenuOpen(false);
+                                  onSwitchInstitute();
+                                }}
+                                className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-[#1f1f1f]/8 dark:hover:bg-[#e3e3e3]/8 rounded-full transition-colors cursor-pointer bg-transparent border-0"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Building2 className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
+                                  <span>Switch Institute</span>
+                                </div>
+                                <ChevronRight className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6]" />
+                              </button>
+                            )}
+
+                            {onOpenSettings && (
+                              <button
+                                id="guest-profile-settings-btn"
+                                type="button"
+                                onClick={() => {
+                                  setIsProfileMenuOpen(false);
+                                  onOpenSettings();
+                                }}
+                                className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-[#1f1f1f]/8 dark:hover:bg-[#e3e3e3]/8 rounded-full transition-colors cursor-pointer bg-transparent border-0"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Sliders className="w-4 h-4 text-[#5e5e5e] dark:text-[#9aa0a6]" />
+                                  <span>Settings & Storage</span>
+                                </div>
+                                <ChevronRight className="w-3.5 h-3.5 text-[#5e5e5e] dark:text-[#9aa0a6]" />
+                              </button>
+                            )}
+                          </div>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
               ) : (
-                /* Unauthenticated: Switch Institute + Google Icon + "Sign In" Button */
+                /* Unauthenticated (non-guest): Switch Institute + Google Icon + "Sign In" Button */
                 <div className="flex items-center gap-1 shrink-0">
                   {onSwitchInstitute && (
                     <button
