@@ -127,8 +127,9 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
     if (!test?.id && !test?.title) return;
     setIsRefreshing(true);
     try {
-      if (currentUser?.uid) {
-        await syncAllUserAttemptsToLeaderboard(currentUser.uid, test.id).catch(() => {});
+      const syncUid = currentUser?.uid || effectiveUid;
+      if (syncUid) {
+        await syncAllUserAttemptsToLeaderboard(syncUid, test.id).catch(() => {});
       }
       const data = await fetchTestLeaderboard(test.id || '', test.title, true);
       setSummary(data);
@@ -159,9 +160,9 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
       setIsLoading(true);
     }
 
-    // 2. Fetch complete cohort leaderboard via direct 1-Read Part-Bucket reader (0 socket hangs, resilient to long-polling aborts)
+    // 2. Always force-refresh from cloud on modal open so newly submitted guest & student entries appear immediately
     let isCancelled = false;
-    fetchTestLeaderboard(test.id || '', test.title, false)
+    fetchTestLeaderboard(test.id || '', test.title, true)
       .then((liveSummary) => {
         if (!isCancelled && liveSummary && Array.isArray(liveSummary.entries)) {
           setSummary(liveSummary);

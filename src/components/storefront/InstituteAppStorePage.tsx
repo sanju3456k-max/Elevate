@@ -1,6 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Download,
   ShieldCheck,
   Search,
@@ -99,6 +101,10 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
   const [saveToast, setSaveToast] = useState<string | null>(null);
   const [newScreenshotUrl, setNewScreenshotUrl] = useState('');
   const [newHighlight, setNewHighlight] = useState('');
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [activeScreenshotIdx, setActiveScreenshotIdx] = useState(0);
+  const [isCarouselPaused, setIsCarouselPaused] = useState(false);
+  const screenshotCarouselRef = useRef<HTMLDivElement | null>(null);
 
   const [draftAppName, setDraftAppName] = useState('');
   const [draftVersion, setDraftVersion] = useState('');
@@ -142,6 +148,60 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
       null
     );
   }, [institutes, selectedSlug, isEditorCapable, editorMode, overridesMap, draftAppName, draftVersion, draftStorePage]);
+
+  const activeScreenshotsCount = useMemo(() => {
+    if (!activeApp) return 0;
+    const sp = isEditing ? draftStorePage : activeApp.storePage || {};
+    return (sp.screenshots || []).length;
+  }, [activeApp, isEditing, draftStorePage]);
+
+  const scrollToScreenshot = useCallback(
+    (targetIdx: number) => {
+      if (activeScreenshotsCount <= 0) return;
+      const wrapped = ((targetIdx % activeScreenshotsCount) + activeScreenshotsCount) % activeScreenshotsCount;
+      setActiveScreenshotIdx(wrapped);
+      const container = screenshotCarouselRef.current;
+      if (!container) return;
+      const card = container.children[wrapped] as HTMLElement | undefined;
+      if (card) {
+        container.scrollTo({
+          left: Math.max(0, card.offsetLeft - container.offsetLeft),
+          behavior: 'smooth',
+        });
+      }
+    },
+    [activeScreenshotsCount]
+  );
+
+  useEffect(() => {
+    setActiveScreenshotIdx(0);
+    if (screenshotCarouselRef.current) {
+      screenshotCarouselRef.current.scrollTo({ left: 0, behavior: 'auto' });
+    }
+  }, [activeApp?.id]);
+
+  useEffect(() => {
+    if (activeScreenshotsCount <= 1 || isEditing || lightboxIndex !== null || isCarouselPaused) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      setActiveScreenshotIdx((prev) => {
+        const next = (prev + 1) % activeScreenshotsCount;
+        const container = screenshotCarouselRef.current;
+        if (container) {
+          const card = container.children[next] as HTMLElement | undefined;
+          if (card) {
+            container.scrollTo({
+              left: Math.max(0, card.offsetLeft - container.offsetLeft),
+              behavior: 'smooth',
+            });
+          }
+        }
+        return next;
+      });
+    }, 3500);
+    return () => window.clearInterval(timer);
+  }, [activeScreenshotsCount, isEditing, lightboxIndex, isCarouselPaused]);
 
   // Reset scroll to top whenever opening or switching between app pages
   useEffect(() => {
@@ -342,7 +402,7 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
       <div className={`${isEditorCapable ? 'rounded-3xl border border-slate-200/80 dark:border-zinc-800 overflow-hidden bg-white text-slate-800' : 'min-h-screen w-full bg-white text-slate-800'} antialiased`}>
         {/* Sticky Minimal Top Navigation (or Master Console Editor Toolbar) */}
         <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/60">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+          <div className="max-w-[1400px] mx-auto px-4 sm:px-8 lg:px-10 h-14 flex items-center justify-between gap-3">
             {isEditorCapable ? (
               <div className="flex items-center gap-2">
                 <button
@@ -434,7 +494,7 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
         </header>
 
         {saveToast && (
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4">
+          <div className="max-w-[1400px] mx-auto px-4 sm:px-8 lg:px-10 pt-4">
             <div className="px-4 py-2.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center justify-between">
               <span>{saveToast}</span>
               <button
@@ -448,11 +508,11 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
           </div>
         )}
 
-        {/* Main Responsive Container: Transparent on Pure White Body */}
-        <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+        {/* Main Responsive Container: Wide Desktop View with App Info pinned right */}
+        <main className="max-w-[1400px] mx-auto px-4 sm:px-8 lg:px-10 py-8 sm:py-10">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_340px] gap-8 lg:gap-10 items-start">
             {/* Left Primary Column */}
-            <div className="lg:col-span-8 space-y-9">
+            <div className="min-w-0 space-y-9">
               {/* Hero App Header */}
               <section className="flex items-start sm:items-center gap-4 pb-7 border-b border-slate-200/60">
                 {renderAppIcon(activeApp, 'w-18 h-18 sm:w-20 sm:h-20')}
@@ -488,9 +548,11 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
                           Verified Official Build
                         </span>
                       </div>
-                      <p className="text-xs sm:text-sm text-slate-500">
-                        {sp.tagline || `Official Android learning app for ${activeApp.name}`}
-                      </p>
+                      {sp.tagline?.trim() && (
+                        <p className="text-xs sm:text-sm text-slate-500">
+                          {sp.tagline}
+                        </p>
+                      )}
                     </>
                   )}
                 </div>
@@ -568,19 +630,41 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
               <section className="space-y-3.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h2 className="text-base font-semibold text-slate-900">App Preview</h2>
-                  {isEditing && (
-                    <label className="px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer">
-                      <Upload className="w-3.5 h-3.5 text-[#0b57d0]" />
-                      <span>Upload Screenshots</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleScreenshotUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {screenshots.length > 1 && !isEditing && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => scrollToScreenshot(activeScreenshotIdx - 1)}
+                          aria-label="Previous screenshot"
+                          className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center border-0 cursor-pointer transition active:scale-95"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => scrollToScreenshot(activeScreenshotIdx + 1)}
+                          aria-label="Next screenshot"
+                          className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center border-0 cursor-pointer transition active:scale-95"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                    {isEditing && (
+                      <label className="px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer">
+                        <Upload className="w-3.5 h-3.5 text-[#0b57d0]" />
+                        <span>Upload Screenshots</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleScreenshotUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
                 </div>
 
                 {isEditing && (
@@ -603,7 +687,14 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
                   </div>
                 )}
 
-                <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
+                <div
+                  ref={screenshotCarouselRef}
+                  onMouseEnter={() => setIsCarouselPaused(true)}
+                  onMouseLeave={() => setIsCarouselPaused(false)}
+                  onTouchStart={() => setIsCarouselPaused(true)}
+                  onTouchEnd={() => setIsCarouselPaused(false)}
+                  className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                >
                   {screenshots.length > 0 ? (
                     screenshots.map((src, idx) => (
                       <div
@@ -613,7 +704,8 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
                         <img
                           src={toRootAssetUrl(src)}
                           alt={`${displayName} screenshot ${idx + 1}`}
-                          className="w-full h-full object-cover"
+                          onClick={() => !isEditing && setLightboxIndex(idx)}
+                          className={`w-full h-full object-cover ${!isEditing ? 'cursor-zoom-in' : ''}`}
                         />
                         {isEditing && (
                           <button
@@ -665,7 +757,77 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
                     </>
                   )}
                 </div>
+                {screenshots.length > 1 && !isEditing && (
+                  <div className="flex items-center justify-center gap-1.5 pt-1">
+                    {screenshots.map((_, dotIdx) => (
+                      <button
+                        key={dotIdx}
+                        type="button"
+                        onClick={() => scrollToScreenshot(dotIdx)}
+                        aria-label={`View screenshot ${dotIdx + 1}`}
+                        className={`h-1.5 rounded-full border-0 cursor-pointer transition-all ${
+                          activeScreenshotIdx === dotIdx
+                            ? 'w-5 bg-[#0b57d0]'
+                            : 'w-1.5 bg-slate-300 hover:bg-slate-400'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
               </section>
+
+              {/* Fullscreen Screenshot Lightbox */}
+              {lightboxIndex !== null && screenshots[lightboxIndex] && (
+                <div
+                  className="fixed inset-0 z-[999999] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
+                  onClick={() => setLightboxIndex(null)}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setLightboxIndex(null)}
+                    className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center border-0 cursor-pointer"
+                    aria-label="Close preview"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                  {screenshots.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLightboxIndex((lightboxIndex - 1 + screenshots.length) % screenshots.length);
+                        }}
+                        className="absolute left-3 sm:left-6 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center border-0 cursor-pointer"
+                        aria-label="Previous screenshot"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLightboxIndex((lightboxIndex + 1) % screenshots.length);
+                        }}
+                        className="absolute right-3 sm:right-6 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center border-0 cursor-pointer"
+                        aria-label="Next screenshot"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </>
+                  )}
+                  <div
+                    className="relative max-h-[90vh] max-w-[92vw] aspect-[9/16] rounded-3xl overflow-hidden shadow-2xl"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <img
+                      src={toRootAssetUrl(screenshots[lightboxIndex])}
+                      alt={`${displayName} screenshot ${lightboxIndex + 1}`}
+                      className="w-full h-full object-contain bg-slate-950"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* About This App & Minimal Key Features */}
               <section className="space-y-4 pt-6 border-t border-slate-200/60">
@@ -754,7 +916,7 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
             </div>
 
             {/* Right Sticky Sidebar: Transparent Minimal Contact & App Info */}
-            <aside className="lg:col-span-4 lg:sticky lg:top-20">
+            <aside className="w-full lg:sticky lg:top-20">
               <div className="p-5 sm:p-6 rounded-3xl bg-transparent border border-slate-200/70 space-y-4">
                 <h3 className="text-sm font-semibold text-slate-900">App Info &amp; Support</h3>
                 {isEditing ? (
@@ -890,7 +1052,7 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
   return (
     <div className="min-h-screen w-full bg-white text-slate-800 antialiased">
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/60">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-8 lg:px-10 h-14 flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={onNavigateHome}
@@ -905,7 +1067,7 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8">
+      <main className="max-w-[1400px] mx-auto px-4 sm:px-8 lg:px-10 py-8 sm:py-12 space-y-8">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-5">
           <div className="space-y-1.5">
             <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight">
