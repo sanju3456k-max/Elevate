@@ -39,20 +39,6 @@ service cloud.firestore {
     // Collection: email_directory/{emailHash}
     //   - instituteIds: list<string> (required, max 50 items)
     //   - updatedAt: string (required, <= 64 chars)
-    //
-    // Subcollection: test_leaderboards/{testId}/guest_entries/{guestEntryId}
-    //   - id: string (required, 1..160 chars)
-    //   - userId: string (required, 1..128 chars)
-    //   - displayName: string (required, 1..100 chars)
-    //   - score: number (required)
-    //   - maxScore: number (required, >= 0)
-    //   - accuracy: number (required, 0..100)
-    //   - isGuest: bool (required, must be true)
-    //   - submittedAt: string (required, <= 64 chars)
-    //   - timeTakenSeconds: number (optional, >= 0)
-    //   - batchId, testId: string (optional, <= 128 chars)
-    //   - testTitle: string (optional, <= 300 chars)
-    //   - attemptedAt, attemptDate: string (optional, <= 64 chars)
     // =========================================================================
 
     // Helper functions
@@ -192,24 +178,6 @@ service cloud.firestore {
         data.updatedAt is string && data.updatedAt.size() <= 64;
     }
 
-    function isValidGuestLeaderboardEntry(data) {
-      return data.keys().hasAll(['id', 'userId', 'displayName', 'score', 'maxScore', 'accuracy', 'isGuest', 'submittedAt']) &&
-        data.keys().hasOnly(['id', 'userId', 'displayName', 'score', 'maxScore', 'accuracy', 'timeTakenSeconds', 'batchId', 'testId', 'testTitle', 'isGuest', 'submittedAt', 'attemptedAt', 'attemptDate']) &&
-        data.isGuest == true &&
-        data.id is string && data.id.size() > 0 && data.id.size() <= 160 &&
-        data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
-        data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 100 &&
-        data.score is number && data.maxScore is number && data.maxScore >= 0 &&
-        data.accuracy is number && data.accuracy >= 0 && data.accuracy <= 100 &&
-        data.submittedAt is string && data.submittedAt.size() <= 64 &&
-        (!('timeTakenSeconds' in data) || (data.timeTakenSeconds is number && data.timeTakenSeconds >= 0)) &&
-        (!('batchId' in data) || (data.batchId is string && data.batchId.size() <= 128)) &&
-        (!('testId' in data) || (data.testId is string && data.testId.size() <= 128)) &&
-        (!('testTitle' in data) || (data.testTitle is string && data.testTitle.size() <= 300)) &&
-        (!('attemptedAt' in data) || (data.attemptedAt is string && data.attemptedAt.size() <= 64)) &&
-        (!('attemptDate' in data) || (data.attemptDate is string && data.attemptDate.size() <= 64));
-    }
-
     // Default deny
     match /{document=**} {
       allow read, write: if false;
@@ -270,13 +238,6 @@ service cloud.firestore {
     match /test_leaderboards/{testId}/entries/{userId} {
       allow read: if true;
       allow write: if isOwner(userId) || isMasterAdmin();
-    }
-
-    // 3. Unauthenticated Guest-Pass entries (schema-validated create, admin-only update/delete)
-    match /test_leaderboards/{testId}/guest_entries/{guestEntryId} {
-      allow read: if true;
-      allow create: if isValidGuestLeaderboardEntry(request.resource.data);
-      allow update, delete: if isMasterAdmin();
     }
 
     // =========================================================================

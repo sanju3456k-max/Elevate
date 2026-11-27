@@ -1233,58 +1233,27 @@ export const BatchAdminStudio: React.FC = () => {
                             </div>
 
                             {/* Guest Access Mode Quick Switch Row */}
-                            <div className="pt-2.5 border-t border-[var(--md-sys-color-outline-variant)]/20 space-y-2 text-xs">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[11px] font-semibold text-[var(--md-sys-color-on-surface-variant)] flex items-center space-x-1">
-                                  <Users className="w-3.5 h-3.5 text-indigo-500" />
-                                  <span>Guest Policy:</span>
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    toggleBatchGuestAccess(b.id);
-                                  }}
-                                  title="Click to toggle between Guest Open and Roster Only"
-                                  className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold transition cursor-pointer border-none outline-none flex items-center space-x-1 shadow-xs active:scale-95 ${
-                                    b.allowGuestAccess
-                                      ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                                      : 'bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
-                                  }`}
-                                >
-                                  <span>{b.allowGuestAccess ? '👥 Guests Open' : '🔒 Roster Only'}</span>
-                                </button>
-                              </div>
-
-                              {b.allowGuestAccess && (
-                                <div className="flex items-center justify-between">
-                                  <span className="text-[11px] font-semibold text-[var(--md-sys-color-on-surface-variant)]">
-                                    Guest Student Test Rankings:
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      e.preventDefault();
-                                      updateBatch(b.id, { enableGuestTestRankings: !b.enableGuestTestRankings });
-                                      showSecurityToast(
-                                        !b.enableGuestTestRankings
-                                          ? `Guest Student Test Rankings enabled for "${b.title}".`
-                                          : `Guest Student Test Rankings disabled for "${b.title}".`
-                                      );
-                                    }}
-                                    title="Include Guest Students (with their entered Guest Name) in Test Rankings & Cohort Reports"
-                                    className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold transition cursor-pointer border-none outline-none flex items-center space-x-1 shadow-xs active:scale-95 ${
-                                      b.enableGuestTestRankings
-                                        ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                        : 'bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
-                                    }`}
-                                  >
-                                    <span>{b.enableGuestTestRankings ? '📊 Rankings On' : 'Rankings Off'}</span>
-                                  </button>
-                                </div>
-                              )}
+                            <div className="pt-2.5 border-t border-[var(--md-sys-color-outline-variant)]/20 flex items-center justify-between text-xs">
+                              <span className="text-[11px] font-semibold text-[var(--md-sys-color-on-surface-variant)] flex items-center space-x-1">
+                                <Users className="w-3.5 h-3.5 text-indigo-500" />
+                                <span>Guest Policy:</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  toggleBatchGuestAccess(b.id);
+                                }}
+                                title="Click to toggle between Guest Open and Roster Only"
+                                className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold transition cursor-pointer border-none outline-none flex items-center space-x-1 shadow-xs active:scale-95 ${
+                                  b.allowGuestAccess
+                                    ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                    : 'bg-[var(--md-sys-color-surface-container-highest)] text-[var(--md-sys-color-on-surface-variant)] hover:text-[var(--md-sys-color-on-surface)]'
+                                }`}
+                              >
+                                <span>{b.allowGuestAccess ? '👥 Guests Open' : '🔒 Roster Only'}</span>
+                              </button>
                             </div>
                           </div>
                         </div>

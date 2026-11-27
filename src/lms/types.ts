@@ -114,7 +114,6 @@ export interface Batch {
   enrolledStudentsCount: number;
   isPublished: boolean;
   allowGuestAccess?: boolean; // When true, guest visitors can access and self-enroll in this batch
-  enableGuestTestRankings?: boolean; // When true, guest students enter their name and appear in test rankings & reports
   isPrivateRosterOnly?: boolean; // When true, 100% hidden from catalog and guests; ONLY enrolled students and admin can see & access
   workspaceId?: string; // Owning Master Console workspace ID (e.g., ws_primary or institute workspace)
   ownerEmail?: string; // Owning Master account email

@@ -303,7 +303,6 @@ export async function fetchBatchesFromFirestore(options?: { forceRefresh?: boole
           enrolledStudentsCount: Number(data.enrolledStudentsCount) || 0,
           isPublished: data.isPublished !== false,
           allowGuestAccess: !!data.allowGuestAccess,
-          enableGuestTestRankings: !!data.enableGuestTestRankings,
           isPrivateRosterOnly: !!data.isPrivateRosterOnly,
           workspaceId: data.workspaceId || undefined,
           ownerEmail: data.ownerEmail || undefined,
