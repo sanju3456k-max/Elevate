@@ -74,13 +74,15 @@ const FALLBACK_TENANT_LOGOS: Record<string, string> = {
 
 const envInstituteId = (import.meta.env?.VITE_INSTITUTE_ID || '').trim();
 const isBuildTimeWhiteLabel = Boolean(envInstituteId);
+const isPwaBuild = import.meta.env?.VITE_IS_PWA_BUILD === 'true';
 const webOverride = isBuildTimeWhiteLabel ? null : readWebInstituteOverride();
 const isWebInstituteActive = Boolean(webOverride?.firebaseConfig?.projectId);
 const resolvedInstituteId = envInstituteId || webOverride?.instituteId || '';
 
 export const APP_BRAND = {
   instituteId: resolvedInstituteId,
-  isLockedApk: isBuildTimeWhiteLabel,
+  isLockedApk: isBuildTimeWhiteLabel && !isPwaBuild,
+  isLockedPwa: isBuildTimeWhiteLabel && isPwaBuild,
   isWhiteLabel: isBuildTimeWhiteLabel || isWebInstituteActive,
   isWebInstituteActive,
   name: (

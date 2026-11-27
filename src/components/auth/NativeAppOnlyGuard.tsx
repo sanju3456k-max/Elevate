@@ -40,11 +40,13 @@ import {
 } from '../../config/appBrand';
 
 interface WelcomePortalGuardProps {
+  iosNeedsInstall?: boolean;
   onUnlocked?: () => void;
   onOpenAppStore?: (slug?: string | null) => void;
 }
 
 export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({
+  iosNeedsInstall = false,
   onUnlocked,
   onOpenAppStore,
 }) => {
@@ -269,6 +271,42 @@ export const NativeAppOnlyGuard: React.FC<WelcomePortalGuardProps> = ({
             </div>
             <span className="font-bold text-sm text-emerald-950">Admin Verified!</span>
             <p>{feedbackMsg}</p>
+          </div>
+        ) : !showAdminSignIn && iosNeedsInstall ? (
+          /* Dedicated iOS Safari "Add to Home Screen" PWA Install Screen */
+          <div className="w-full space-y-5">
+            <div className="space-y-1.5">
+              <h1 className="text-[22px] font-semibold text-slate-900 tracking-tight">
+                Install {APP_BRAND.isWhiteLabel ? APP_BRAND.name : 'Elevate Labs'} on iOS
+              </h1>
+              <p className="text-[13px] text-slate-500 leading-relaxed">
+                Add this app to your iPhone or iPad Home Screen from Safari to open it in full-screen app mode.
+              </p>
+            </div>
+
+            <div className="w-full p-4 rounded-2xl bg-slate-50 border border-slate-200/90 text-left space-y-2.5 text-xs text-slate-700">
+              <div className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-[#0b57d0] text-white font-bold flex items-center justify-center shrink-0 text-[11px]">1</span>
+                <span>Open this page in <strong>Safari</strong> on your iPhone or iPad.</span>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-[#0b57d0] text-white font-bold flex items-center justify-center shrink-0 text-[11px]">2</span>
+                <span>Tap the <strong>Share</strong> button at the bottom of Safari.</span>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-[#0b57d0] text-white font-bold flex items-center justify-center shrink-0 text-[11px]">3</span>
+                <span>Scroll down, tap <strong>Add to Home Screen</strong>, then tap <strong>Add</strong> and launch from your Home Screen.</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowAdminSignIn(true)}
+              className="w-full py-3 px-4 rounded-2xl bg-slate-100/90 hover:bg-slate-200/80 text-slate-800 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.99] cursor-pointer border-0"
+            >
+              <ShieldCheck className="w-4 h-4 text-[#0b57d0]" />
+              <span>Sign in as an Admin</span>
+            </button>
           </div>
         ) : !showAdminSignIn ? (
           /* Minimal 3-Action Welcome Card */

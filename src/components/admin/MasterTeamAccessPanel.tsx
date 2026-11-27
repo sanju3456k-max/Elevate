@@ -8,12 +8,16 @@ import {
   CheckCircle2,
   AlertCircle,
   Users,
+  Smartphone,
 } from 'lucide-react';
 import {
   type MasterWorkspace,
   canManageWorkspaceTeam,
   addTeamAdminToWorkspace,
   removeTeamAdminFromWorkspace,
+  updateWorkspaceIosPwaSettings,
+  addIosStudentToWorkspace,
+  removeIosStudentFromWorkspace,
 } from '../../lib/masterWorkspace';
 
 interface MasterTeamAccessPanelProps {
@@ -36,8 +40,84 @@ export const MasterTeamAccessPanel: React.FC<MasterTeamAccessPanelProps> = ({
 }) => {
   const [newTeamEmail, setNewTeamEmail] = useState('');
   const [isAddingMember, setIsAddingMember] = useState(false);
+  const [newIosEmail, setNewIosEmail] = useState('');
+  const [isUpdatingIos, setIsUpdatingIos] = useState(false);
 
   const canManageTeam = canManageWorkspaceTeam(activeWorkspace, currentUserEmail);
+  const iosEnabled = Boolean(activeWorkspace.allowIosPwa);
+  const iosWhitelist = activeWorkspace.iosAllowedStudentEmails || [];
+
+  const handleToggleIosPwa = async () => {
+    if (!canManageTeam || isUpdatingIos) return;
+    setIsUpdatingIos(true);
+    try {
+      const nextVal = !iosEnabled;
+      const res = await updateWorkspaceIosPwaSettings({
+        workspaceId: activeWorkspace.id,
+        allowIosPwa: nextVal,
+        actorEmail: currentUserEmail,
+      });
+      if (res.success) {
+        onNotify(
+          nextVal
+            ? `iOS PWA access enabled for ${activeWorkspace.name}.`
+            : `iOS PWA access disabled for ${activeWorkspace.name}.`,
+          'info'
+        );
+      } else {
+        onNotify(res.error || 'Failed to update iOS PWA setting.', 'warn');
+      }
+    } catch (err: any) {
+      onNotify(err?.message || 'Failed to update iOS PWA setting.', 'warn');
+    } finally {
+      setIsUpdatingIos(false);
+    }
+  };
+
+  const handleAddIosStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newIosEmail.trim() || isUpdatingIos) return;
+    setIsUpdatingIos(true);
+    try {
+      const res = await addIosStudentToWorkspace({
+        workspaceId: activeWorkspace.id,
+        emailToAdd: newIosEmail,
+        actorEmail: currentUserEmail,
+      });
+      if (res.success) {
+        const added = newIosEmail.trim().toLowerCase();
+        setNewIosEmail('');
+        onNotify(`Added ${added} to iOS PWA allowlist.`, 'info');
+      } else {
+        onNotify(res.error || 'Failed to add iOS student.', 'warn');
+      }
+    } catch (err: any) {
+      onNotify(err?.message || 'Failed to add iOS student.', 'warn');
+    } finally {
+      setIsUpdatingIos(false);
+    }
+  };
+
+  const handleRemoveIosStudent = async (email: string) => {
+    if (isUpdatingIos) return;
+    setIsUpdatingIos(true);
+    try {
+      const res = await removeIosStudentFromWorkspace({
+        workspaceId: activeWorkspace.id,
+        emailToRemove: email,
+        actorEmail: currentUserEmail,
+      });
+      if (res.success) {
+        onNotify(`Removed ${email} from iOS PWA allowlist.`, 'info');
+      } else {
+        onNotify(res.error || 'Failed to remove iOS student.', 'warn');
+      }
+    } catch (err: any) {
+      onNotify(err?.message || 'Failed to remove iOS student.', 'warn');
+    } finally {
+      setIsUpdatingIos(false);
+    }
+  };
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,6 +255,99 @@ export const MasterTeamAccessPanel: React.FC<MasterTeamAccessPanelProps> = ({
             ))
           )}
         </div>
+      </div>
+
+      {/* iOS PWA Student Access Control */}
+      <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-[#16181f] border border-slate-200/80 dark:border-zinc-800 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <Smartphone className="w-5 h-5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+              <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white m-0">
+                iOS PWA Student Access
+              </h2>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-zinc-400 mt-1">
+              Allow iPhone &amp; iPad students to access <strong>{activeWorkspace.name}</strong> only after installing via Safari &quot;Add to Home Screen&quot;. Android &amp; Desktop browsers stay blocked for students.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleToggleIosPwa}
+            disabled={!canManageTeam || isUpdatingIos}
+            className={`h-9 px-4 rounded-full text-xs font-bold border-0 cursor-pointer transition active:scale-95 disabled:opacity-50 shrink-0 ${
+              iosEnabled
+                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                : 'bg-slate-200 hover:bg-slate-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200'
+            }`}
+          >
+            {iosEnabled ? 'iOS PWA: Enabled' : 'iOS PWA: Disabled'}
+          </button>
+        </div>
+
+        {canManageTeam && (
+          <form onSubmit={handleAddIosStudent} className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="email"
+                required
+                value={newIosEmail}
+                onChange={(e) => setNewIosEmail(e.target.value)}
+                placeholder="Optional: restrict to specific iOS student email..."
+                className="w-full h-10 pl-10 pr-4 rounded-full bg-[#f0f4f9] dark:bg-zinc-900 text-xs font-medium text-slate-900 dark:text-white border border-slate-200/70 dark:border-zinc-800 outline-none focus:ring-2 focus:ring-[#0b57d0]"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={isUpdatingIos || !newIosEmail.trim()}
+              className="h-10 px-5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] text-white text-xs font-bold flex items-center justify-center gap-1.5 border-0 cursor-pointer transition active:scale-95 disabled:opacity-50 shrink-0"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Allow iOS Student</span>
+            </button>
+          </form>
+        )}
+
+        {iosWhitelist.length === 0 ? (
+          <div className="py-4 px-4 text-center text-xs text-slate-500 dark:text-zinc-400 bg-slate-50/70 dark:bg-zinc-900/40 rounded-2xl">
+            {iosEnabled
+              ? 'All signed-in iOS PWA students are currently allowed for this institute. Add emails above to restrict to a specific allowlist.'
+              : 'iOS PWA access is currently turned off. Enable the toggle above or add an iOS student email to allow access.'}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {iosWhitelist.map((email) => (
+              <div
+                key={email}
+                className="p-3 rounded-2xl bg-slate-50/80 dark:bg-zinc-900/60 border border-slate-200/60 dark:border-zinc-800 flex items-center justify-between gap-2"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200 truncate">
+                    {email}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                    iOS Student
+                  </span>
+                  {canManageTeam && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveIosStudent(email)}
+                      disabled={isUpdatingIos}
+                      className="w-7 h-7 rounded-full hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 flex items-center justify-center border-0 bg-transparent cursor-pointer transition"
+                      title={`Revoke iOS access for ${email}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

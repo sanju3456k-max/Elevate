@@ -65,6 +65,7 @@ import {
   getAppInstituteGuestMode,
   setAppInstituteGuestMode,
   getWorkspaceById,
+  isEmailAllowedForIosPwa,
   APP_INSTITUTE_CHANGED_EVENT,
   belongsToInstitute,
   getActiveAppInstituteIdOrPrimary,
@@ -570,12 +571,13 @@ export default function App() {
     }
   }, []);
 
-  // Platform security guard (Android-only enforcement with whitelist & passkey)
+  // Platform security guard (Android-only + iOS Standalone PWA enforcement)
   const [selectedInstituteId, setSelectedInstituteId] = useState<string | null>(() => {
-    if (APP_BRAND.isLockedApk) return APP_BRAND.instituteId;
+    if (APP_BRAND.isLockedApk || APP_BRAND.isLockedPwa) return APP_BRAND.instituteId;
     if (isNativeAndroid()) return getSelectedAppInstituteId() || PRIMARY_WORKSPACE_ID;
     return getSelectedAppInstituteId();
   });
+  const [workspaceCatalogRevision, setWorkspaceCatalogRevision] = useState<number>(0);
   const [isInstituteGuestMode, setIsInstituteGuestMode] = useState<boolean>(() =>
     getAppInstituteGuestMode()
   );
@@ -586,8 +588,14 @@ export default function App() {
   });
 
   useEffect(() => {
+    const bumpCatalog = () => setWorkspaceCatalogRevision((prev) => prev + 1);
+    window.addEventListener('master-workspaces-updated', bumpCatalog);
+    return () => window.removeEventListener('master-workspaces-updated', bumpCatalog);
+  }, []);
+
+  useEffect(() => {
     const syncInstituteState = () => {
-      const nextInstId = APP_BRAND.isLockedApk
+      const nextInstId = (APP_BRAND.isLockedApk || APP_BRAND.isLockedPwa)
         ? APP_BRAND.instituteId
         : (isNativeAndroid() ? (getSelectedAppInstituteId() || PRIMARY_WORKSPACE_ID) : getSelectedAppInstituteId());
       setSelectedInstituteId(nextInstId);
@@ -1602,6 +1610,16 @@ export default function App() {
       const user = await signInWithGoogle();
       if (user) {
         setCurrentUser(user);
+        setAppInstituteGuestMode(false);
+        setIsInstituteGuestMode(false);
+        if (APP_BRAND.isLockedApk || APP_BRAND.isLockedPwa) {
+          setSelectedAppInstituteId(APP_BRAND.instituteId);
+          setSelectedInstituteId(APP_BRAND.instituteId);
+        } else if (isNativeAndroid() && !selectedInstituteId) {
+          const fallbackInst = getSelectedAppInstituteId() || PRIMARY_WORKSPACE_ID;
+          setSelectedAppInstituteId(fallbackInst);
+          setSelectedInstituteId(fallbackInst);
+        }
         const cachePayload: CachedAuthUser = {
           uid: user.uid,
           displayName: user.displayName,
@@ -2501,6 +2519,7 @@ export default function App() {
   if (platformAccess.isBlocked) {
     return (
       <NativeAppOnlyGuard
+        iosNeedsInstall={platformAccess.iosNeedsInstall}
         onUnlocked={() => setPlatformAccess(checkPlatformAccess(true))}
         onOpenAppStore={(slug) => navigateToAppStore(slug ?? null)}
       />
@@ -2509,8 +2528,8 @@ export default function App() {
 
   // Multi-Institute First-Screen Gate:
   // - Native Android APK: Choose Your Institute -> Sign In or Continue as Guest
-  // - Web Browser: Strictly Master Console / Institute Admin only. Guest Mode is NEVER allowed on Web,
-  //   and non-admin signed-in users are blocked here with direct link to their institute's /apps/<slug> page.
+  // - iOS Standalone PWA: Master Console Admins OR Admin-approved iOS Students (signed in via Google)
+  // - Web Browser: Strictly Master Console / Institute Admin only. Guest Mode is NEVER allowed on Web.
   const activeWebUser =
     currentUser && !isGuestUser(currentUser)
       ? currentUser
@@ -2520,10 +2539,19 @@ export default function App() {
   const isUserSignedIn = Boolean(activeWebUser);
   const isNativeAppEnv = isNativeAndroid() || APP_BRAND.isLockedApk;
   const isAuthorizedWebAdmin = isUserSignedIn && isMasterUser(activeWebUser, selectedInstituteId);
+  void workspaceCatalogRevision;
+  const isAuthorizedIosPwaStudent =
+    platformAccess.isIosStandalone &&
+    isUserSignedIn &&
+    isEmailAllowedForIosPwa(getWorkspaceById(selectedInstituteId), activeWebUser?.email);
+
+  const effectiveNativeInstituteId = (APP_BRAND.isLockedApk || APP_BRAND.isLockedPwa)
+    ? APP_BRAND.instituteId
+    : (selectedInstituteId || (isNativeAndroid() ? PRIMARY_WORKSPACE_ID : null));
 
   const isGateBlocked = isNativeAppEnv
-    ? !selectedInstituteId || (!isUserSignedIn && !isInstituteGuestMode)
-    : !selectedInstituteId || !isAuthorizedWebAdmin;
+    ? !effectiveNativeInstituteId || (!isUserSignedIn && !isInstituteGuestMode)
+    : !selectedInstituteId || (!isAuthorizedWebAdmin && !isAuthorizedIosPwaStudent);
 
   if (isGateBlocked) {
     return (
@@ -2534,7 +2562,8 @@ export default function App() {
         onSignIn={handleSignIn}
         onSignOut={handleSignOut}
         signedInEmail={activeWebUser?.email || null}
-        isAdminAuthorized={isAuthorizedWebAdmin}
+        isAdminAuthorized={isAuthorizedWebAdmin || isAuthorizedIosPwaStudent}
+        isIosStandalone={platformAccess.isIosStandalone}
         onOpenAppStore={(slug) => navigateToAppStore(slug ?? null)}
       />
     );
@@ -2668,9 +2697,17 @@ export default function App() {
             activeInstituteName={activeAppWorkspace?.name || null}
             onSwitchInstitute={() => {
               setAppInstituteGuestMode(false);
-              setSelectedAppInstituteId(null);
-              setSelectedInstituteId(null);
               setIsInstituteGuestMode(false);
+              if (APP_BRAND.isLockedApk || APP_BRAND.isLockedPwa) {
+                setSelectedAppInstituteId(APP_BRAND.instituteId);
+                setSelectedInstituteId(APP_BRAND.instituteId);
+              } else if (isNativeAndroid()) {
+                setSelectedAppInstituteId(PRIMARY_WORKSPACE_ID);
+                setSelectedInstituteId(PRIMARY_WORKSPACE_ID);
+              } else {
+                setSelectedAppInstituteId(null);
+                setSelectedInstituteId(null);
+              }
             }}
           />
         </div>

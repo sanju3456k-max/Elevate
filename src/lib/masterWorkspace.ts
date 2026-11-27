@@ -31,6 +31,8 @@ export interface MasterWorkspace {
   packageName?: string;
   apkDownloadUrl?: string;
   apkVersion?: string;
+  allowIosPwa?: boolean;
+  iosAllowedStudentEmails?: string[];
   firebaseWebConfig?: InstituteFirebaseWebConfig;
   createdAt: string;
   updatedAt: string;
@@ -76,6 +78,12 @@ function normalizeWorkspace(raw: any): MasterWorkspace {
       teamSet.add(clean);
     }
   });
+  const rawIosStudents = Array.isArray(raw?.iosAllowedStudentEmails) ? raw.iosAllowedStudentEmails : [];
+  const iosStudentSet = new Set<string>();
+  rawIosStudents.forEach((em: any) => {
+    const clean = normalizeEmail(typeof em === 'string' ? em : '');
+    if (clean) iosStudentSet.add(clean);
+  });
   return {
     id: String(raw?.id || PRIMARY_WORKSPACE_ID),
     name: String(raw?.name || 'Master Institute'),
@@ -87,6 +95,8 @@ function normalizeWorkspace(raw: any): MasterWorkspace {
     packageName: raw?.packageName ? String(raw.packageName) : undefined,
     apkDownloadUrl: raw?.apkDownloadUrl ? String(raw.apkDownloadUrl) : undefined,
     apkVersion: raw?.apkVersion ? String(raw.apkVersion) : undefined,
+    allowIosPwa: Boolean(raw?.allowIosPwa),
+    iosAllowedStudentEmails: Array.from(iosStudentSet),
     firebaseWebConfig: raw?.firebaseWebConfig || undefined,
     createdAt: raw?.createdAt || new Date().toISOString(),
     updatedAt: raw?.updatedAt || new Date().toISOString(),
@@ -295,6 +305,82 @@ export async function removeTeamAdminFromWorkspace(params: {
   const updated = await persistWorkspace({
     ...ws,
     teamAdminEmails: ws.teamAdminEmails.filter((e) => e !== targetEmail),
+  });
+  return { success: true, workspace: updated };
+}
+
+export function isEmailAllowedForIosPwa(
+  workspace: MasterWorkspace | null | undefined,
+  email?: string | null
+): boolean {
+  if (!workspace || !workspace.allowIosPwa) return false;
+  const norm = normalizeEmail(email);
+  if (!norm) return false;
+  const whitelist = workspace.iosAllowedStudentEmails || [];
+  if (whitelist.length === 0) return true;
+  return whitelist.includes(norm);
+}
+
+export async function updateWorkspaceIosPwaSettings(params: {
+  workspaceId: string;
+  allowIosPwa: boolean;
+  actorEmail: string;
+}): Promise<{ success: boolean; error?: string; workspace?: MasterWorkspace }> {
+  const all = getCachedMasterWorkspaces();
+  const ws = all.find((w) => w.id === params.workspaceId);
+  if (!ws) return { success: false, error: 'Workspace not found.' };
+  if (!canManageWorkspaceTeam(ws, params.actorEmail)) {
+    return { success: false, error: 'Only the Master Owner can update iOS PWA access settings.' };
+  }
+  const updated = await persistWorkspace({
+    ...ws,
+    allowIosPwa: Boolean(params.allowIosPwa),
+  });
+  return { success: true, workspace: updated };
+}
+
+export async function addIosStudentToWorkspace(params: {
+  workspaceId: string;
+  emailToAdd: string;
+  actorEmail: string;
+}): Promise<{ success: boolean; error?: string; workspace?: MasterWorkspace }> {
+  const targetEmail = normalizeEmail(params.emailToAdd);
+  if (!targetEmail || !targetEmail.includes('@')) {
+    return { success: false, error: 'Please enter a valid student email address.' };
+  }
+  const all = getCachedMasterWorkspaces();
+  const ws = all.find((w) => w.id === params.workspaceId);
+  if (!ws) return { success: false, error: 'Workspace not found.' };
+  if (!canManageWorkspaceTeam(ws, params.actorEmail)) {
+    return { success: false, error: 'Only the Master Owner can manage iOS student access.' };
+  }
+  const current = ws.iosAllowedStudentEmails || [];
+  if (current.includes(targetEmail)) {
+    return { success: false, error: 'This student email is already in the iOS PWA allowlist.' };
+  }
+  const updated = await persistWorkspace({
+    ...ws,
+    allowIosPwa: true,
+    iosAllowedStudentEmails: [...current, targetEmail],
+  });
+  return { success: true, workspace: updated };
+}
+
+export async function removeIosStudentFromWorkspace(params: {
+  workspaceId: string;
+  emailToRemove: string;
+  actorEmail: string;
+}): Promise<{ success: boolean; error?: string; workspace?: MasterWorkspace }> {
+  const targetEmail = normalizeEmail(params.emailToRemove);
+  const all = getCachedMasterWorkspaces();
+  const ws = all.find((w) => w.id === params.workspaceId);
+  if (!ws) return { success: false, error: 'Workspace not found.' };
+  if (!canManageWorkspaceTeam(ws, params.actorEmail)) {
+    return { success: false, error: 'Only the Master Owner can manage iOS student access.' };
+  }
+  const updated = await persistWorkspace({
+    ...ws,
+    iosAllowedStudentEmails: (ws.iosAllowedStudentEmails || []).filter((e) => e !== targetEmail),
   });
   return { success: true, workspace: updated };
 }

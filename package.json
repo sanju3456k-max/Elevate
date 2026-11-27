@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "node scripts/build.js",
+    "build:pwa": "node scripts/build-tenant-pwa.mjs",
     "start": "node server.js",
     "preview": "vite preview",
     "clean": "rm -rf dist build",
