@@ -18,10 +18,16 @@ import {
   Check,
   X,
   Smartphone,
-  BookOpen
+  BookOpen,
+  Eye,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import type { MathTest, TestAttempt } from '../types';
+import { getQuestionExplanation } from '../types';
 import type { PerTestCohortAnalytics, StudentAttemptRow } from '../lib/masterAccount';
+import { MathRenderer } from './MathRenderer';
+import { QuestionDiagramViewer } from './QuestionDiagramViewer';
 
 export interface CohortAnalyticsVisualDashboardProps {
   analytics: PerTestCohortAnalytics;
@@ -43,7 +49,34 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
   onOpenStudent360
 }) => {
   const [questionViewMode, setQuestionViewMode] = useState<'bars' | 'grid'>('bars');
-  const [hoveredQuestion, setHoveredQuestion] = useState<number | null>(null);
+  const [hoveredQuestionData, setHoveredQuestionData] = useState<{
+    questionNumber: number;
+    correctCount: number;
+    wrongCount: number;
+    unattemptedCount: number;
+    correctPct: number;
+    wrongPct: number;
+    unattemptedPct: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [hoveredScoreBin, setHoveredScoreBin] = useState<{
+    label: string;
+    sublabel: string;
+    count: number;
+    sharePct: number;
+    isSelected: boolean;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [inspectedQuestionNumber, setInspectedQuestionNumber] = useState<number | null>(null);
+
+  const inspectedQuestionData = useMemo(() => {
+    if (inspectedQuestionNumber === null) return null;
+    const stat = analytics.questionErrorStats.find((s) => s.questionNumber === inspectedQuestionNumber) || null;
+    const qObj = Array.isArray(test.questions) ? test.questions[inspectedQuestionNumber - 1] || null : null;
+    return { stat, question: qObj };
+  }, [inspectedQuestionNumber, analytics.questionErrorStats, test.questions]);
 
   const studentRows = analytics.studentRows || [];
   const rawTotalAttempts = analytics.totalAttempts || 0;
@@ -193,7 +226,7 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
             Score Benchmarks
           </span>
         </div>
-        <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap text-xs font-mono font-bold">
+        <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap text-xs tabular-nums font-bold">
           <span className="px-3 py-1 rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 border-0">
             P90 · {percentiles.p90}%
           </span>
@@ -238,50 +271,77 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
             </p>
           </div>
 
-          {/* Histogram Bars Container */}
-          <div className="pt-4 pb-2 px-2">
-            <div className="h-44 sm:h-52 flex items-end justify-between gap-2 sm:gap-4 border-b border-slate-200/80 dark:border-zinc-800/80 pb-2">
+          {/* Histogram Bars Container (Minimal M3 Style) */}
+          <div className="pt-3 pb-1 px-1 sm:px-2">
+            <div className="relative h-44 sm:h-52 flex items-end justify-between gap-3 sm:gap-5 border-b border-slate-200/70 dark:border-zinc-800/80 pb-2.5">
+              {/* Subtle horizontal reference gridlines */}
+              <div className="pointer-events-none absolute inset-x-0 top-6 bottom-8 flex flex-col justify-between">
+                <div className="border-t border-dashed border-slate-200/70 dark:border-zinc-800/70 w-full" />
+                <div className="border-t border-dashed border-slate-200/70 dark:border-zinc-800/70 w-full" />
+                <div className="border-t border-dashed border-slate-200/70 dark:border-zinc-800/70 w-full" />
+              </div>
+
               {scoreBins.map((bin) => {
-                const heightPct = maxBinCount > 0 ? Math.max(12, Math.round((bin.count / maxBinCount) * 100)) : 12;
+                const rawPct = maxBinCount > 0 ? Math.round((bin.count / maxBinCount) * 100) : 0;
+                const heightPct = bin.count > 0 ? Math.max(10, rawPct) : 4;
                 const isSelected = selectedTierFilter === bin.id;
+                const isDimmed = Boolean(selectedTierFilter && !isSelected);
                 const sharePct = totalAttempts > 0 ? Math.round((bin.count / totalAttempts) * 100) : 0;
 
                 return (
-                  <div
+                  <button
                     key={bin.id}
+                    type="button"
                     onClick={() => onSelectTierFilter(isSelected ? null : bin.id)}
-                    className="flex-1 flex flex-col items-center h-full justify-end cursor-pointer group relative select-none"
+                    onMouseEnter={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setHoveredScoreBin({
+                        label: bin.label,
+                        sublabel: bin.sublabel,
+                        count: bin.count,
+                        sharePct,
+                        isSelected,
+                        x: rect.left + rect.width / 2,
+                        y: rect.top - 8
+                      });
+                    }}
+                    onMouseLeave={() => setHoveredScoreBin(null)}
+                    className={`relative z-10 flex-1 flex flex-col items-center h-full justify-end cursor-pointer group select-none border-0 bg-transparent p-0 transition-opacity duration-200 ${
+                      isDimmed ? 'opacity-40 hover:opacity-80' : 'opacity-100'
+                    }`}
                   >
-                    {/* Hover Value Pill */}
-                    <div className="mb-2 text-center transition-transform group-hover:-translate-y-1">
-                      <span className="font-mono text-xs font-black text-slate-800 dark:text-zinc-200 block">
+                    {/* Minimal Value Label */}
+                    <div className="mb-1.5 text-center">
+                      <span className="tabular-nums text-xs font-bold text-slate-800 dark:text-zinc-100 leading-none">
                         {bin.count}
                       </span>
-                      <span className="text-[10px] font-mono text-slate-400 dark:text-zinc-500">
+                      <span className="block text-[10px] tabular-nums text-slate-400 dark:text-zinc-500 mt-0.5">
                         {sharePct}%
                       </span>
                     </div>
 
-                    {/* Animated Bar Column */}
-                    <div className="w-full max-w-[54px] h-28 sm:h-36 bg-slate-100 dark:bg-zinc-800/80 rounded-2xl p-1 flex items-end justify-center transition-all group-hover:bg-slate-200 dark:group-hover:bg-zinc-700">
+                    {/* Clean Minimal Bar */}
+                    <div className="w-full max-w-[42px] h-28 sm:h-34 flex items-end justify-center">
                       <div
-                        className={`w-full rounded-xl transition-all duration-300 bg-gradient-to-t ${bin.color} ${
-                          isSelected ? 'ring-2 ring-[#0b57d0] dark:ring-[#a8c7fa] shadow-md scale-[1.02]' : 'group-hover:opacity-90'
+                        className={`w-full rounded-t-xl rounded-b-sm transition-all duration-200 ${bin.barBg} ${
+                          bin.count === 0 ? 'opacity-25 group-hover:opacity-45' : isSelected ? 'shadow-md brightness-105' : 'opacity-85 group-hover:opacity-100 group-hover:brightness-105'
                         }`}
-                        style={{ height: `${bin.count > 0 ? heightPct : 8}%` }}
+                        style={{ height: `${heightPct}%` }}
                       />
                     </div>
 
                     {/* Bottom Category Label */}
                     <div className="mt-2 text-center">
-                      <p className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 whitespace-nowrap">
+                      <p className={`text-[11px] font-bold whitespace-nowrap transition-colors ${
+                        isSelected ? 'text-[#0b57d0] dark:text-[#a8c7fa]' : 'text-slate-700 dark:text-zinc-200'
+                      }`}>
                         {bin.label}
                       </p>
-                      <p className="text-[9.5px] text-slate-500 dark:text-zinc-400 hidden sm:block truncate max-w-[80px]">
+                      <p className="text-[9.5px] text-slate-400 dark:text-zinc-500 hidden sm:block truncate max-w-[76px]">
                         {bin.sublabel}
                       </p>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -289,7 +349,7 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
 
           <div className="flex items-center justify-between text-[10.5px] text-slate-500 dark:text-zinc-400 pt-1">
             <span>Critical Intervention (&lt;40%)</span>
-            <span className="font-mono">Mean: {analytics.averagePercentage}%</span>
+            <span className="tabular-nums">Mean: {analytics.averagePercentage}%</span>
             <span>Mastery Tier (90%+)</span>
           </div>
         </div>
@@ -335,7 +395,7 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
                 <span className="text-[10px] font-bold uppercase tracking-wider">Fast &amp; Accurate</span>
                 <Zap className="w-3.5 h-3.5" />
               </div>
-              <p className="text-xl font-black text-slate-900 dark:text-zinc-100 font-mono">
+              <p className="text-xl font-black text-slate-900 dark:text-zinc-100 tabular-nums">
                 {speedAccuracyMatrix.q1.count} <span className="text-xs font-normal text-slate-500">({speedAccuracyMatrix.q1.pct}%)</span>
               </p>
               <p className="text-[10px] text-emerald-800 dark:text-emerald-300 font-semibold mt-0.5">
@@ -356,7 +416,7 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
                 <span className="text-[10px] font-bold uppercase tracking-wider">Paced &amp; Accurate</span>
                 <Clock className="w-3.5 h-3.5" />
               </div>
-              <p className="text-xl font-black text-slate-900 dark:text-zinc-100 font-mono">
+              <p className="text-xl font-black text-slate-900 dark:text-zinc-100 tabular-nums">
                 {speedAccuracyMatrix.q2.count} <span className="text-xs font-normal text-slate-500">({speedAccuracyMatrix.q2.pct}%)</span>
               </p>
               <p className="text-[10px] text-blue-800 dark:text-blue-300 font-semibold mt-0.5">
@@ -377,7 +437,7 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
                 <span className="text-[10px] font-bold uppercase tracking-wider">Fast &amp; Low Acc</span>
                 <AlertTriangle className="w-3.5 h-3.5" />
               </div>
-              <p className="text-xl font-black text-slate-900 dark:text-zinc-100 font-mono">
+              <p className="text-xl font-black text-slate-900 dark:text-zinc-100 tabular-nums">
                 {speedAccuracyMatrix.q3.count} <span className="text-xs font-normal text-slate-500">({speedAccuracyMatrix.q3.pct}%)</span>
               </p>
               <p className="text-[10px] text-amber-800 dark:text-amber-300 font-semibold mt-0.5">
@@ -398,7 +458,7 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
                 <span className="text-[10px] font-bold uppercase tracking-wider">Slow &amp; Low Acc</span>
                 <AlertTriangle className="w-3.5 h-3.5" />
               </div>
-              <p className="text-xl font-black text-slate-900 dark:text-zinc-100 font-mono">
+              <p className="text-xl font-black text-slate-900 dark:text-zinc-100 tabular-nums">
                 {speedAccuracyMatrix.q4.count} <span className="text-xs font-normal text-slate-500">({speedAccuracyMatrix.q4.pct}%)</span>
               </p>
               <p className="text-[10px] text-rose-800 dark:text-rose-300 font-semibold mt-0.5">
@@ -429,12 +489,12 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
                 </h3>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
-                Vertical stacked bar for all {analytics.questionErrorStats.length} questions.
+                Click any bar or grid tile to preview the question &amp; cohort breakdown.
               </p>
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 text-[10px] font-bold font-mono">
+              <div className="flex items-center gap-2 text-[10px] font-bold tabular-nums">
                 <span className="flex items-center gap-1 text-emerald-600">
                   <span className="w-2 h-2 rounded-full bg-emerald-500" /> Correct
                 </span>
@@ -484,12 +544,15 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
                 </span>
                 <div className="flex items-center gap-1 flex-wrap">
                   {criticalQuestions.slice(0, 6).map((q) => (
-                    <span
+                    <button
                       key={q.questionNumber}
-                      className="px-2 py-0.5 rounded-md font-mono font-bold bg-rose-500/20 text-rose-800 dark:text-rose-200 text-[10px]"
+                      type="button"
+                      onClick={() => setInspectedQuestionNumber(q.questionNumber)}
+                      className="px-2 py-0.5 rounded-md tabular-nums font-bold bg-rose-500/20 hover:bg-rose-500/30 text-rose-800 dark:text-rose-200 text-[10px] border-0 cursor-pointer transition"
+                      title={`Preview Question #${q.questionNumber}`}
                     >
                       Q{q.questionNumber} ({q.errorRatePercentage}%)
-                    </span>
+                    </button>
                   ))}
                   {criticalQuestions.length > 6 && (
                     <span className="text-[10px] text-rose-600 font-bold">
@@ -507,7 +570,14 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
           {/* Diagnostic Visual Bars Display */}
           {questionViewMode === 'bars' ? (
             <div className="overflow-x-auto pb-2 [scrollbar-width:thin]">
-              <div className="min-w-[620px] h-48 flex items-end gap-1.5 pt-4">
+              <div className="relative min-w-[640px] h-48 flex items-end gap-2 pt-5 pb-1 border-b border-slate-200/70 dark:border-zinc-800/80">
+                {/* Subtle horizontal percentage gridlines */}
+                <div className="pointer-events-none absolute inset-x-0 top-5 bottom-6 flex flex-col justify-between">
+                  <div className="border-t border-dashed border-slate-200/70 dark:border-zinc-800/70 w-full" />
+                  <div className="border-t border-dashed border-slate-200/70 dark:border-zinc-800/70 w-full" />
+                  <div className="border-t border-dashed border-slate-200/70 dark:border-zinc-800/70 w-full" />
+                </div>
+
                 {analytics.questionErrorStats.map((q) => {
                   const total = q.totalAttempts || 1;
                   const correctPct = Math.round((q.correctCount / total) * 100);
@@ -516,73 +586,90 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
                   const isHighError = q.errorRatePercentage >= 50;
 
                   return (
-                    <div
+                    <button
                       key={q.questionNumber}
-                      onMouseEnter={() => setHoveredQuestion(q.questionNumber)}
-                      onMouseLeave={() => setHoveredQuestion(null)}
-                      className="flex-1 flex flex-col items-center h-full justify-end group relative cursor-pointer min-w-[14px]"
+                      type="button"
+                      onClick={() => {
+                        setHoveredQuestionData(null);
+                        setInspectedQuestionNumber(q.questionNumber);
+                      }}
+                      onMouseEnter={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setHoveredQuestionData({
+                          questionNumber: q.questionNumber,
+                          correctCount: q.correctCount,
+                          wrongCount: q.wrongCount,
+                          unattemptedCount: q.unattemptedCount,
+                          correctPct,
+                          wrongPct,
+                          unattemptedPct,
+                          x: rect.left + rect.width / 2,
+                          y: rect.top - 8
+                        });
+                      }}
+                      onMouseLeave={() => setHoveredQuestionData(null)}
+                      className="relative z-10 flex-1 flex flex-col items-center h-full justify-end group cursor-pointer min-w-[18px] border-0 bg-transparent p-0"
                     >
-                      {/* Tooltip on Hover */}
-                      {hoveredQuestion === q.questionNumber && (
-                        <div className="absolute bottom-full mb-2 z-20 p-2 rounded-xl bg-slate-900 text-white text-[10px] font-mono shadow-lg whitespace-nowrap pointer-events-none">
-                          <p className="font-bold border-b border-zinc-700 pb-1 mb-1">
-                            Question #{q.questionNumber}
-                          </p>
-                          <p className="text-emerald-400">Correct: {q.correctCount} ({correctPct}%)</p>
-                          <p className="text-rose-400">Wrong: {q.wrongCount} ({wrongPct}%)</p>
-                          <p className="text-amber-400">Skipped: {q.unattemptedCount} ({unattemptedPct}%)</p>
-                        </div>
-                      )}
-
                       {/* Stacked Vertical Bar */}
-                      <div className="w-full bg-slate-100 dark:bg-zinc-800 rounded-t-lg overflow-hidden flex flex-col-reverse h-full max-h-36">
+                      <div className="w-full max-w-[26px] bg-slate-100/80 dark:bg-zinc-800/70 rounded-lg overflow-hidden flex flex-col-reverse h-full max-h-36 transition-transform duration-150 group-hover:scale-x-110 group-hover:shadow-sm">
                         {/* Green: Correct */}
                         <div
                           style={{ height: `${correctPct}%` }}
-                          className="w-full bg-emerald-500 transition-all"
+                          className="w-full bg-emerald-500/90 group-hover:bg-emerald-500 transition-all"
                         />
                         {/* Amber: Skipped */}
                         <div
                           style={{ height: `${unattemptedPct}%` }}
-                          className="w-full bg-amber-400 transition-all"
+                          className="w-full bg-amber-400/90 group-hover:bg-amber-400 transition-all"
                         />
                         {/* Red: Wrong */}
                         <div
                           style={{ height: `${wrongPct}%` }}
-                          className={`w-full transition-all ${isHighError ? 'bg-rose-600' : 'bg-rose-400'}`}
+                          className={`w-full transition-all ${isHighError ? 'bg-rose-500' : 'bg-rose-400/90'}`}
                         />
                       </div>
 
                       {/* Question Number Label */}
-                      <span className={`text-[9px] font-mono font-bold mt-1.5 ${
-                        isHighError ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-zinc-400'
+                      <span className={`text-[9.5px] tabular-nums font-bold mt-1.5 transition-colors ${
+                        isHighError
+                          ? 'text-rose-600 dark:text-rose-400'
+                          : 'text-slate-500 dark:text-zinc-400 group-hover:text-[#0b57d0] dark:group-hover:text-[#a8c7fa]'
                       }`}>
                         {q.questionNumber}
                       </span>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
             </div>
           ) : (
-            /* Compact Heatmap Grid */
-            <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2 max-h-56 overflow-y-auto pr-1">
+            /* Interactive Accuracy Heatmap Grid (Click to Preview Question) */
+            <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2 max-h-60 overflow-y-auto pr-1 [scrollbar-width:thin]">
               {analytics.questionErrorStats.map((q) => {
+                const total = q.totalAttempts || 1;
+                const accuracyPct = Math.round((q.correctCount / total) * 100);
                 const isHighError = q.errorRatePercentage >= 50;
                 return (
-                  <div
+                  <button
                     key={q.questionNumber}
-                    className={`p-2 rounded-xl text-center border transition ${
+                    type="button"
+                    onClick={() => setInspectedQuestionNumber(q.questionNumber)}
+                    title={`Click to view Question #${q.questionNumber} (${accuracyPct}% accuracy)`}
+                    className={`group p-2 rounded-2xl text-center border-0 transition-all cursor-pointer hover:scale-[1.03] active:scale-95 ${
                       isHighError
-                        ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 border-rose-500/30'
+                        ? 'bg-rose-500/12 hover:bg-rose-500/20 text-rose-800 dark:text-rose-200'
                         : q.errorRatePercentage > 0
-                        ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 border-amber-500/20'
-                        : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200 border-emerald-500/20'
+                        ? 'bg-amber-500/12 hover:bg-amber-500/20 text-amber-800 dark:text-amber-200'
+                        : 'bg-emerald-500/12 hover:bg-emerald-500/20 text-emerald-800 dark:text-emerald-200'
                     }`}
                   >
-                    <p className="text-[10px] font-bold">Q{q.questionNumber}</p>
-                    <p className="text-xs font-mono font-bold mt-0.5">{q.errorRatePercentage}%</p>
-                  </div>
+                    <div className="flex items-center justify-center gap-1">
+                      <span className="text-[10px] font-bold">Q{q.questionNumber}</span>
+                      <Eye className="w-2.5 h-2.5 opacity-40 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                    <p className="text-xs tabular-nums font-bold mt-0.5">{accuracyPct}%</p>
+                    <p className="text-[8.5px] opacity-65 font-medium">acc</p>
+                  </button>
                 );
               })}
             </div>
@@ -631,10 +718,10 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
               <p className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">
                 Online Exam
               </p>
-              <p className="text-lg font-black text-slate-900 dark:text-zinc-100 font-mono mt-0.5">
+              <p className="text-lg font-black text-slate-900 dark:text-zinc-100 tabular-nums mt-0.5">
                 {deliveryModeComparison.online.avgScore}%
               </p>
-              <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+              <p className="text-[10px] text-slate-500 tabular-nums mt-0.5">
                 Avg: {deliveryModeComparison.online.avgMins}m duration
               </p>
             </div>
@@ -643,10 +730,10 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
               <p className="text-[10px] font-bold text-orange-700 dark:text-orange-300 uppercase tracking-wider">
                 OMR Scanned
               </p>
-              <p className="text-lg font-black text-slate-900 dark:text-zinc-100 font-mono mt-0.5">
+              <p className="text-lg font-black text-slate-900 dark:text-zinc-100 tabular-nums mt-0.5">
                 {deliveryModeComparison.omr.avgScore}%
               </p>
-              <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+              <p className="text-[10px] text-slate-500 tabular-nums mt-0.5">
                 Avg: {deliveryModeComparison.omr.avgMins}m duration
               </p>
             </div>
@@ -686,7 +773,7 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
                     <span className="font-bold text-slate-800 dark:text-zinc-200 truncate pr-2">
                       {top.topic}
                     </span>
-                    <span className={`px-2 py-0.5 rounded-full font-mono font-bold text-[10px] ${
+                    <span className={`px-2 py-0.5 rounded-full tabular-nums font-bold text-[10px] ${
                       isHighMistake
                         ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
                         : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
@@ -704,13 +791,200 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
                     />
                   </div>
 
-                  <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-zinc-400 font-mono">
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-zinc-400 tabular-nums">
                     <span>{top.totalQuestions} Questions in test</span>
                     <span>{top.errorCount} wrong answers</span>
                   </div>
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Floating Score Distribution Tooltip (Unclipped, White M3 Card) */}
+      {hoveredScoreBin && (
+        <div
+          className="fixed z-[60] px-3 py-2.5 rounded-2xl bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] text-[11px] tabular-nums shadow-[0_6px_24px_rgba(0,0,0,0.12)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.45)] border border-slate-200/80 dark:border-zinc-700/80 whitespace-nowrap pointer-events-none text-left"
+          style={{
+            left: `${hoveredScoreBin.x}px`,
+            top: `${hoveredScoreBin.y}px`,
+            transform: 'translate(-50%, -100%)'
+          }}
+        >
+          <p className="font-bold text-slate-900 dark:text-zinc-100 border-b border-slate-100 dark:border-zinc-800 pb-1 mb-1">
+            {hoveredScoreBin.sublabel} ({hoveredScoreBin.label})
+          </p>
+          <p className="font-semibold text-[#0b57d0] dark:text-[#a8c7fa]">
+            Students: {hoveredScoreBin.count} ({hoveredScoreBin.sharePct}%)
+          </p>
+          <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">
+            {hoveredScoreBin.isSelected ? 'Click to clear filter' : 'Click to filter list'}
+          </p>
+        </div>
+      )}
+
+      {/* Floating Question Diagnostic Tooltip (Unclipped, White M3 Card) */}
+      {hoveredQuestionData && (
+        <div
+          className="fixed z-[60] px-3 py-2.5 rounded-2xl bg-white dark:bg-[#1e2024] text-[#1f1f1f] dark:text-[#e3e3e3] text-[11px] tabular-nums shadow-[0_6px_24px_rgba(0,0,0,0.12)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.45)] border border-slate-200/80 dark:border-zinc-700/80 whitespace-nowrap pointer-events-none text-left"
+          style={{
+            left: `${hoveredQuestionData.x}px`,
+            top: `${hoveredQuestionData.y}px`,
+            transform: 'translate(-50%, -100%)'
+          }}
+        >
+          <p className="font-bold text-slate-900 dark:text-zinc-100 border-b border-slate-100 dark:border-zinc-800 pb-1 mb-1">
+            Question #{hoveredQuestionData.questionNumber}
+          </p>
+          <p className="font-semibold text-emerald-600 dark:text-emerald-400">
+            Correct: {hoveredQuestionData.correctCount} ({hoveredQuestionData.correctPct}%)
+          </p>
+          <p className="font-semibold text-rose-600 dark:text-rose-400">
+            Wrong: {hoveredQuestionData.wrongCount} ({hoveredQuestionData.wrongPct}%)
+          </p>
+          <p className="font-semibold text-amber-600 dark:text-amber-400">
+            Skipped: {hoveredQuestionData.unattemptedCount} ({hoveredQuestionData.unattemptedPct}%)
+          </p>
+          <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-1">
+            Click bar to preview question
+          </p>
+        </div>
+      )}
+
+      {/* Question Preview Modal */}
+      {inspectedQuestionNumber !== null && inspectedQuestionData && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-3 sm:p-5"
+          onClick={() => setInspectedQuestionNumber(null)}
+        >
+          <div
+            className="w-full max-w-2xl max-h-[88vh] overflow-y-auto rounded-3xl bg-white dark:bg-[#1e2024] p-5 sm:p-6 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-zinc-800">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#d3e3fd] text-[#041e49] dark:bg-[#004a77] dark:text-[#c2e7ff]">
+                  Question #{inspectedQuestionNumber}
+                </span>
+                {inspectedQuestionData.question?.topic && (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
+                    {inspectedQuestionData.question.topic}
+                  </span>
+                )}
+                {inspectedQuestionData.stat && (
+                  <div className="flex items-center gap-1.5 text-[11px] tabular-nums font-bold">
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-300">
+                      {Math.round((inspectedQuestionData.stat.correctCount / (inspectedQuestionData.stat.totalAttempts || 1)) * 100)}% Correct
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-rose-500/12 text-rose-700 dark:text-rose-300">
+                      {inspectedQuestionData.stat.wrongCount} Wrong
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-700 dark:text-amber-300">
+                      {inspectedQuestionData.stat.unattemptedCount} Skipped
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={inspectedQuestionNumber <= 1}
+                  onClick={() => setInspectedQuestionNumber((n) => (n && n > 1 ? n - 1 : n))}
+                  className="p-1.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 border-0 cursor-pointer disabled:opacity-35"
+                  title="Previous Question"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  disabled={inspectedQuestionNumber >= analytics.questionErrorStats.length}
+                  onClick={() => setInspectedQuestionNumber((n) => (n && n < analytics.questionErrorStats.length ? n + 1 : n))}
+                  className="p-1.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 border-0 cursor-pointer disabled:opacity-35"
+                  title="Next Question"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInspectedQuestionNumber(null)}
+                  className="p-1.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 border-0 cursor-pointer ml-1"
+                  title="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Question Content */}
+            {inspectedQuestionData.question ? (
+              <div className="space-y-4">
+                <div className="text-sm sm:text-base text-slate-900 dark:text-zinc-100 leading-relaxed">
+                  <MathRenderer content={inspectedQuestionData.question.text} />
+                </div>
+
+                {(inspectedQuestionData.question.imageUrl || (inspectedQuestionData.question.imageUrls && inspectedQuestionData.question.imageUrls.length > 0)) && (
+                  <QuestionDiagramViewer
+                    imageUrl={inspectedQuestionData.question.imageUrl}
+                    imageUrls={inspectedQuestionData.question.imageUrls}
+                    imageWidths={inspectedQuestionData.question.imageWidths}
+                  />
+                )}
+
+                {Array.isArray(inspectedQuestionData.question.options) && inspectedQuestionData.question.options.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {inspectedQuestionData.question.options.map((opt, idx) => {
+                      const qObj = inspectedQuestionData.question!;
+                      const isCorrect =
+                        typeof qObj.correctOptionIndex === 'number'
+                          ? qObj.correctOptionIndex === idx
+                          : String(qObj.correctAnswer) === String(idx) || String(qObj.correctAnswer) === String(opt);
+                      const letter = String.fromCharCode(65 + idx);
+                      return (
+                        <div
+                          key={idx}
+                          className={`p-3 rounded-2xl text-xs sm:text-sm flex items-start gap-2.5 ${
+                            isCorrect
+                              ? 'bg-emerald-500/12 text-emerald-950 dark:text-emerald-100 ring-1 ring-emerald-500/40 font-semibold'
+                              : 'bg-slate-50 dark:bg-zinc-800/70 text-slate-800 dark:text-zinc-200'
+                          }`}
+                        >
+                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
+                            isCorrect ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-200'
+                          }`}>
+                            {letter}
+                          </span>
+                          <div className="flex-1 min-w-0 pt-0.5">
+                            <MathRenderer content={opt} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-2xl bg-emerald-500/12 text-emerald-900 dark:text-emerald-100 text-xs font-semibold">
+                    Correct Answer: <span className="tabular-nums font-bold">{String(inspectedQuestionData.question.correctAnswer)}</span>
+                  </div>
+                )}
+
+                {getQuestionExplanation(inspectedQuestionData.question) && (
+                  <div className="p-3.5 rounded-2xl bg-[#f0f4f9] dark:bg-[#141619] space-y-1.5">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-[#0b57d0] dark:text-[#a8c7fa]">
+                      Solution / Explanation
+                    </p>
+                    <div className="text-xs sm:text-sm text-slate-700 dark:text-zinc-300 leading-relaxed">
+                      <MathRenderer content={getQuestionExplanation(inspectedQuestionData.question)} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-6 text-center text-xs text-slate-500 dark:text-zinc-400">
+                Question text is not hydrated yet for this test. Open or refresh the test to view full question details.
+              </div>
+            )}
           </div>
         </div>
       )}

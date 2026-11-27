@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
+  ChevronLeft,
   Settings,
   Users,
   UserPlus,
@@ -27,6 +29,9 @@ import { useApp } from '../../../lms/LmsContext';
 import { adminResetDeviceLock } from '../../../lib/deviceAuthService';
 import { M3Switch } from '../../ui/Material3';
 import { BatchThumbnailPicker } from './BatchThumbnailPicker';
+import { useScrollLock } from '../../../hooks/useScrollLock';
+import { useBackHandler } from '../../../hooks/useBackNavigation';
+import { setAppThemeColor } from '../../../lib/appThemeColor';
 
 /* =========================================================================
    1. EDIT BATCH MODAL (Settings, Details, Pricing, Status & Delete)
@@ -57,7 +62,19 @@ export const EditBatchModal: React.FC<EditBatchModalProps> = ({
   const [allowGuestAccess, setAllowGuestAccess] = useState(false);
   const [enableGuestTestRankings, setEnableGuestTestRankings] = useState(false);
   const [isPrivateRosterOnly, setIsPrivateRosterOnly] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0);
+
+  useScrollLock(isOpen);
+  useBackHandler({ isOpen, onBack: onClose, priority: 85, id: 'edit_batch_settings_page' });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const isDark = document.documentElement.classList.contains('dark');
+    setAppThemeColor(isDark ? '#0c0e12' : '#ffffff');
+    return () => {
+      setAppThemeColor(isDark ? '#0b0c10' : '#e5e9f0');
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (batch && isOpen) {
@@ -72,7 +89,7 @@ export const EditBatchModal: React.FC<EditBatchModalProps> = ({
       setAllowGuestAccess(Boolean(batch.allowGuestAccess));
       setEnableGuestTestRankings(Boolean(batch.enableGuestTestRankings));
       setIsPrivateRosterOnly(Boolean(batch.isPrivateRosterOnly));
-      setConfirmDelete(false);
+      setDeleteStep(0);
     }
   }, [batch, isOpen]);
 
@@ -106,287 +123,364 @@ export const EditBatchModal: React.FC<EditBatchModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/20 dark:bg-black/60 backdrop-blur-md animate-fade-in">
-      <div
-        className="w-full max-w-lg bg-white/95 dark:bg-[#121316]/95 backdrop-blur-2xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.08),0_6px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.65)] border border-slate-100 dark:border-white/10 overflow-hidden flex flex-col max-h-[90vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Modal Header */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 dark:border-zinc-800 bg-white/80 dark:bg-[#121316]/80 backdrop-blur-md shrink-0">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-950/70 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shadow-2xs shrink-0">
-              <Settings className="w-5 h-5 stroke-[2.2]" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100">
-                Batch Settings & Details
-              </h3>
-              <p className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium truncate max-w-[260px] sm:max-w-sm">
-                Manage metadata, pricing, and access for {batch.title}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition active:scale-95 border-none bg-transparent cursor-pointer"
-          >
-            <X className="w-4.5 h-4.5" />
-          </button>
-        </div>
-
-        {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 overflow-y-auto text-xs flex-1">
-          {/* Title */}
-          <div>
-            <label className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 block mb-1">
-              Batch Title *
-            </label>
-            <input
-              type="text"
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 dark:focus:bg-zinc-900/80 border border-slate-200/80 focus:border-[#0b57d0] dark:border-zinc-700/60 dark:focus:border-[#a8c7fa] text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 backdrop-blur-xs transition"
-            />
-          </div>
-
-          {/* Category & Validity */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 block mb-1">
-                Category / Stream
-              </label>
-              <input
-                type="text"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder="e.g. Mathematics, NDA, JEE"
-                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 dark:focus:bg-zinc-900/80 border border-slate-200/80 focus:border-[#0b57d0] dark:border-zinc-700/60 dark:focus:border-[#a8c7fa] text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 backdrop-blur-xs transition font-medium"
-              />
-            </div>
-            <div>
-              <label className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 block mb-1">
-                Validity (Days)
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="3650"
-                value={validityDays}
-                onChange={(e) => setValidityDays(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 dark:focus:bg-zinc-900/80 border border-slate-200/80 focus:border-[#0b57d0] dark:border-zinc-700/60 dark:focus:border-[#a8c7fa] text-xs text-slate-900 dark:text-zinc-100 focus:outline-hidden backdrop-blur-xs transition tabular-nums font-bold"
-              />
-            </div>
-          </div>
-
-          {/* Pricing: Selling Price & Original Price */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 block mb-1">
-                Selling Price (₹)
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 dark:focus:bg-zinc-900/80 border border-slate-200/80 focus:border-[#0b57d0] dark:border-zinc-700/60 dark:focus:border-[#a8c7fa] text-xs text-slate-900 dark:text-zinc-100 focus:outline-hidden backdrop-blur-xs transition tabular-nums font-bold"
-              />
-            </div>
-            <div>
-              <label className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 block mb-1">
-                Original Strikethrough Price (₹)
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={originalPrice}
-                onChange={(e) => setOriginalPrice(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 dark:focus:bg-zinc-900/80 border border-slate-200/80 focus:border-[#0b57d0] dark:border-zinc-700/60 dark:focus:border-[#a8c7fa] text-xs text-slate-900 dark:text-zinc-100 focus:outline-hidden backdrop-blur-xs transition tabular-nums font-bold"
-              />
-            </div>
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 block mb-1">
-              Description & Objectives
-            </label>
-            <textarea
-              rows={2}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Overview of this course batch..."
-              className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50/70 hover:bg-slate-50 focus:bg-white dark:bg-zinc-900/40 dark:focus:bg-zinc-900/80 border border-slate-200/80 focus:border-[#0b57d0] dark:border-zinc-700/60 dark:focus:border-[#a8c7fa] text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 backdrop-blur-xs transition resize-none font-medium"
-            />
-          </div>
-
-          {/* High-Resolution Thumbnail & Course Banner with Live 16:9 Preview & Repair */}
-          <div className="p-3.5 rounded-2xl bg-white/70 dark:bg-zinc-900/40 border border-slate-100 dark:border-zinc-800 backdrop-blur-xs">
-            <BatchThumbnailPicker
-              value={bannerUrl}
-              onChange={setBannerUrl}
-              previewTitle={title}
-              previewCategory={category}
-            />
-          </div>
-
-          {/* Toggles: Status & Guest Pass */}
-          <div className="space-y-2.5 pt-1">
-            <div className="flex items-center justify-between p-3 rounded-2xl bg-white/70 dark:bg-zinc-900/40 border border-slate-100 dark:border-zinc-800 backdrop-blur-xs">
-              <div>
-                <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 block flex items-center space-x-1.5">
-                  <Globe className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
-                  <span>Course Publication Status</span>
-                </span>
-                <span className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium">
-                  {isPublished ? 'Live: Visible to students in course catalog' : 'Draft: Hidden from students, accessible to faculty only'}
-                </span>
-              </div>
-              <M3Switch
-                checked={isPublished}
-                onChange={() => setIsPublished(!isPublished)}
-              />
-            </div>
-
-            {(() => {
-              const isGuestPassDisabled = !isPublished || isPrivateRosterOnly;
-              return (
-                <div className={`flex items-center justify-between p-3 rounded-2xl bg-white/70 dark:bg-zinc-900/40 border border-slate-100 dark:border-zinc-800 backdrop-blur-xs transition ${
-                  isGuestPassDisabled ? 'opacity-60' : ''
-                }`}>
-                  <div>
-                    <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 block flex items-center space-x-1.5">
-                      <Sparkles className={`w-3.5 h-3.5 ${!isGuestPassDisabled && allowGuestAccess ? 'text-amber-500' : 'text-slate-400'}`} />
-                      <span>Free Guest Mode Pass</span>
-                      {isGuestPassDisabled && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-500/20 text-slate-600 dark:text-zinc-400 font-semibold">
-                          Disabled
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium">
-                      {!isPublished
-                        ? 'Inactive in Draft mode (Publish course to enable)'
-                        : isPrivateRosterOnly
-                        ? 'Inactive in Secret Roster mode (Course hidden from guests)'
-                        : allowGuestAccess
-                        ? 'Allowed: Visitors can explore curriculum for free'
-                        : 'Strict: Official roster enrollment required'}
-                    </span>
-                  </div>
-                  <M3Switch
-                    checked={!isGuestPassDisabled && allowGuestAccess}
-                    disabled={isGuestPassDisabled}
-                    onChange={() => {
-                      if (!isGuestPassDisabled) setAllowGuestAccess(!allowGuestAccess);
-                    }}
-                  />
-                </div>
-              );
-            })()}
-
-            {isPublished && !isPrivateRosterOnly && allowGuestAccess && (
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-emerald-500/[0.06] dark:bg-emerald-500/[0.08] border border-emerald-500/25 backdrop-blur-xs transition">
-                <div>
-                  <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 block flex items-center space-x-1.5">
-                    <Sparkles className={`w-3.5 h-3.5 ${enableGuestTestRankings ? 'text-emerald-500' : 'text-slate-400'}`} />
-                    <span>Guest Student Test Rankings</span>
-                  </span>
-                  <span className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium">
-                    {enableGuestTestRankings
-                      ? 'Enabled: Guest students appear in test leaderboards with their Guest Name'
-                      : 'Disabled: Guest test scores stay private on their device'}
-                  </span>
-                </div>
-                <M3Switch
-                  checked={enableGuestTestRankings}
-                  onChange={() => setEnableGuestTestRankings(!enableGuestTestRankings)}
-                />
-              </div>
-            )}
-
-            <div className="flex items-center justify-between p-3 rounded-2xl bg-white/70 dark:bg-zinc-900/40 border border-slate-100 dark:border-zinc-800 backdrop-blur-xs">
-              <div>
-                <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 block flex items-center space-x-1.5">
-                  <EyeOff className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Secret Roster-Exclusive (Hidden from Catalog & Guests)</span>
-                </span>
-                <span className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium">
-                  {isPrivateRosterOnly ? 'Secret: 100% hidden from catalog and guests. Only enrolled students see & access it.' : 'Catalog: Listed in catalog per publish setting'}
-                </span>
-              </div>
-              <M3Switch
-                checked={isPrivateRosterOnly}
-                onChange={() => setIsPrivateRosterOnly(!isPrivateRosterOnly)}
-              />
-            </div>
-          </div>
-
-          {/* Danger Zone: Delete Course */}
-          {onDelete && (
-            <div className="p-3.5 rounded-2xl border border-rose-500/25 bg-rose-500/[0.06] dark:bg-rose-500/[0.08] backdrop-blur-xs space-y-2 mt-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold text-rose-600 dark:text-rose-400 block">
-                    Delete Course Batch
-                  </span>
-                  <span className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium">
-                    Permanently deletes this batch container and syncs to cloud.
-                  </span>
-                </div>
-                {!confirmDelete ? (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDelete(true)}
-                    className="h-8 px-3 rounded-full text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 text-xs font-bold border-none bg-transparent cursor-pointer transition"
-                  >
-                    Delete Batch
-                  </button>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDelete(false)}
-                      className="h-8 px-3 rounded-full text-xs font-bold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 border-none bg-transparent cursor-pointer transition"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDelete}
-                      className="h-8 px-3.5 rounded-full bg-rose-600 text-white text-xs font-bold border-none cursor-pointer shadow-xs hover:bg-rose-700 transition active:scale-95"
-                    >
-                      Confirm Delete
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
+  const pageContent = (
+    <div
+      className="fixed inset-0 z-[65] bg-[#f4f6fa] dark:bg-[#0c0e12] overflow-y-auto flex flex-col font-sans select-text [scrollbar-width:thin]"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Sticky Top App Bar - Borderless & Seamless with Status Bar Safe Area */}
+      <header className="sticky top-0 z-20 bg-white/95 dark:bg-[#0c0e12]/95 backdrop-blur-md border-0 shadow-none shrink-0 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.55rem)] md:pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.6rem)]">
+        <div className="max-w-5xl xl:max-w-6xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 pb-2.5 sm:pb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             <button
               type="button"
               onClick={onClose}
-              className="h-9 px-4 rounded-full text-xs font-bold bg-slate-100/80 hover:bg-slate-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border-none cursor-pointer transition active:scale-95"
+              className="p-1.5 -ml-1.5 rounded-full text-[#1f1f1f] dark:text-[#e3e3e3] hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0 border-0 ring-0 bg-transparent outline-none"
+              title="Back"
+              aria-label="Back"
+            >
+              <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
+            </button>
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#e8f0fe] dark:bg-[#0b57d0]/20 text-[#0b57d0] dark:text-[#a8c7fa] flex items-center justify-center shrink-0">
+              <Settings className="w-4.5 h-4.5 sm:w-5 sm:h-5 stroke-[2.2]" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-sm sm:text-lg font-bold text-[#1f1f1f] dark:text-[#e3e3e3] truncate leading-snug">
+                Batch Settings & Details
+              </h1>
+              <p className="text-[11px] sm:text-xs text-slate-600 dark:text-zinc-400 font-medium truncate">
+                {batch.title}
+              </p>
+            </div>
+          </div>
+
+          {/* Desktop / Tablet Top Actions */}
+          <div className="hidden sm:flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-9 px-4 rounded-full text-xs font-bold bg-[#f1f4f9] hover:bg-[#e4e9f2] dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border-0 ring-0 cursor-pointer transition active:scale-95 whitespace-nowrap"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="h-9 px-5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] text-xs font-bold border-none cursor-pointer shadow-xs transition active:scale-95"
+              form="edit-batch-settings-form"
+              className="h-9 px-5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] text-xs font-bold border-0 ring-0 cursor-pointer transition active:scale-95 whitespace-nowrap"
             >
               Save Changes
             </button>
           </div>
-        </form>
+        </div>
+      </header>
+
+      {/* Main Responsive Page Body */}
+      <form
+        id="edit-batch-settings-form"
+        onSubmit={handleSubmit}
+        className="max-w-5xl xl:max-w-6xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 sm:pb-10 text-xs flex-1"
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
+          {/* LEFT COLUMN: Metadata, Pricing & Banner */}
+          <div className="lg:col-span-7 space-y-4">
+            <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-[#14161a] border-0 ring-0 shadow-[0_1px_3px_rgba(0,0,0,0.04)] space-y-4">
+              {/* Title */}
+              <div>
+                <label className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 block mb-1.5">
+                  Batch Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-2xl bg-[#f1f4f9] hover:bg-[#eaeff7] focus:bg-white dark:bg-zinc-900/70 dark:focus:bg-zinc-900 border-0 ring-0 outline-none focus:ring-2 focus:ring-[#0b57d0]/30 dark:focus:ring-[#a8c7fa]/30 text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 transition"
+                />
+              </div>
+
+              {/* Category & Validity */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 block mb-1.5">
+                    Category / Stream
+                  </label>
+                  <input
+                    type="text"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    placeholder="e.g. Mathematics, NDA, JEE"
+                    className="w-full px-3.5 py-2.5 rounded-2xl bg-[#f1f4f9] hover:bg-[#eaeff7] focus:bg-white dark:bg-zinc-900/70 dark:focus:bg-zinc-900 border-0 ring-0 outline-none focus:ring-2 focus:ring-[#0b57d0]/30 dark:focus:ring-[#a8c7fa]/30 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 transition font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 block mb-1.5">
+                    Validity (Days)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="3650"
+                    value={validityDays}
+                    onChange={(e) => setValidityDays(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-2xl bg-[#f1f4f9] hover:bg-[#eaeff7] focus:bg-white dark:bg-zinc-900/70 dark:focus:bg-zinc-900 border-0 ring-0 outline-none focus:ring-2 focus:ring-[#0b57d0]/30 dark:focus:ring-[#a8c7fa]/30 text-xs text-slate-900 dark:text-zinc-100 transition tabular-nums font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Pricing: Selling Price & Original Price */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 block mb-1.5">
+                    Selling Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-2xl bg-[#f1f4f9] hover:bg-[#eaeff7] focus:bg-white dark:bg-zinc-900/70 dark:focus:bg-zinc-900 border-0 ring-0 outline-none focus:ring-2 focus:ring-[#0b57d0]/30 dark:focus:ring-[#a8c7fa]/30 text-xs text-slate-900 dark:text-zinc-100 transition tabular-nums font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 block mb-1.5">
+                    Original Strikethrough Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={originalPrice}
+                    onChange={(e) => setOriginalPrice(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-2xl bg-[#f1f4f9] hover:bg-[#eaeff7] focus:bg-white dark:bg-zinc-900/70 dark:focus:bg-zinc-900 border-0 ring-0 outline-none focus:ring-2 focus:ring-[#0b57d0]/30 dark:focus:ring-[#a8c7fa]/30 text-xs text-slate-900 dark:text-zinc-100 transition tabular-nums font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 block mb-1.5">
+                  Description & Objectives
+                </label>
+                <textarea
+                  rows={3}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Overview of this course batch..."
+                  className="w-full px-3.5 py-2.5 rounded-2xl bg-[#f1f4f9] hover:bg-[#eaeff7] focus:bg-white dark:bg-zinc-900/70 dark:focus:bg-zinc-900 border-0 ring-0 outline-none focus:ring-2 focus:ring-[#0b57d0]/30 dark:focus:ring-[#a8c7fa]/30 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-500 transition resize-none font-medium"
+                />
+              </div>
+            </div>
+
+            {/* High-Resolution Thumbnail & Course Banner */}
+            <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-[#14161a] border-0 ring-0 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+              <BatchThumbnailPicker
+                value={bannerUrl}
+                onChange={setBannerUrl}
+                previewTitle={title}
+                previewCategory={category}
+              />
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: Visibility Toggles & Danger Zone */}
+          <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-24">
+            <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-[#14161a] border-0 ring-0 shadow-[0_1px_3px_rgba(0,0,0,0.04)] space-y-2.5">
+              <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#f6f8fc] dark:bg-zinc-900/60 border-0 ring-0">
+                <div className="min-w-0 flex-1">
+                  <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center space-x-1.5">
+                    <Globe className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] shrink-0" />
+                    <span>Course Publication Status</span>
+                  </span>
+                  <span className="text-[11px] text-slate-600 dark:text-zinc-400 font-medium block mt-0.5 leading-snug">
+                    {isPublished ? 'Live: Visible to students in course catalog' : 'Draft: Hidden from students, accessible to faculty only'}
+                  </span>
+                </div>
+                <M3Switch
+                  checked={isPublished}
+                  onChange={() => setIsPublished(!isPublished)}
+                />
+              </div>
+
+              {(() => {
+                const isGuestPassDisabled = !isPublished || isPrivateRosterOnly;
+                return (
+                  <div className={`flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#f6f8fc] dark:bg-zinc-900/60 border-0 ring-0 transition ${
+                    isGuestPassDisabled ? 'opacity-60' : ''
+                  }`}>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center flex-wrap gap-1.5">
+                        <Sparkles className={`w-3.5 h-3.5 shrink-0 ${!isGuestPassDisabled && allowGuestAccess ? 'text-[#0b57d0] dark:text-[#a8c7fa]' : 'text-slate-400'}`} />
+                        <span>Free Guest Mode Pass</span>
+                        {isGuestPassDisabled && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-500/15 text-slate-600 dark:text-zinc-400 font-semibold">
+                            Disabled
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-[11px] text-slate-600 dark:text-zinc-400 font-medium block mt-0.5 leading-snug">
+                        {!isPublished
+                          ? 'Inactive in Draft mode (Publish course to enable)'
+                          : isPrivateRosterOnly
+                          ? 'Inactive in Secret Roster mode (Course hidden from guests)'
+                          : allowGuestAccess
+                          ? 'Allowed: Visitors can explore curriculum for free'
+                          : 'Strict: Official roster enrollment required'}
+                      </span>
+                    </div>
+                    <M3Switch
+                      checked={!isGuestPassDisabled && allowGuestAccess}
+                      disabled={isGuestPassDisabled}
+                      onChange={() => {
+                        if (!isGuestPassDisabled) setAllowGuestAccess(!allowGuestAccess);
+                      }}
+                    />
+                  </div>
+                );
+              })()}
+
+              {isPublished && !isPrivateRosterOnly && allowGuestAccess && (
+                <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#e8f0fe]/70 dark:bg-[#0b57d0]/12 border-0 ring-0 transition">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center space-x-1.5">
+                      <Sparkles className={`w-3.5 h-3.5 shrink-0 ${enableGuestTestRankings ? 'text-[#0b57d0] dark:text-[#a8c7fa]' : 'text-slate-400'}`} />
+                      <span>Guest Student Test Rankings</span>
+                    </span>
+                    <span className="text-[11px] text-slate-600 dark:text-zinc-400 font-medium block mt-0.5 leading-snug">
+                      {enableGuestTestRankings
+                        ? 'Enabled: Guest students appear in test leaderboards with their Guest Name'
+                        : 'Disabled: Guest test scores stay private on their device'}
+                    </span>
+                  </div>
+                  <M3Switch
+                    checked={enableGuestTestRankings}
+                    onChange={() => setEnableGuestTestRankings(!enableGuestTestRankings)}
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#f6f8fc] dark:bg-zinc-900/60 border-0 ring-0">
+                <div className="min-w-0 flex-1">
+                  <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 flex items-center space-x-1.5">
+                    <EyeOff className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span>Secret Roster-Exclusive</span>
+                  </span>
+                  <span className="text-[11px] text-slate-600 dark:text-zinc-400 font-medium block mt-0.5 leading-snug">
+                    {isPrivateRosterOnly ? 'Hidden from catalog and guests. Only enrolled students see it.' : 'Listed in catalog per publish setting'}
+                  </span>
+                </div>
+                <M3Switch
+                  checked={isPrivateRosterOnly}
+                  onChange={() => setIsPrivateRosterOnly(!isPrivateRosterOnly)}
+                />
+              </div>
+            </div>
+
+            {/* Danger Zone: Delete Course (Opens 2-Step Confirmation Popup) */}
+            {onDelete && (
+              <div className="p-4 sm:p-5 rounded-3xl border-0 ring-0 bg-rose-500/[0.07] dark:bg-rose-500/[0.1]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs font-bold text-rose-600 dark:text-rose-400 block">
+                      Delete Course Batch
+                    </span>
+                    <span className="text-[11px] text-slate-600 dark:text-zinc-400 font-medium block mt-0.5 leading-snug">
+                      Permanently deletes this batch container and syncs to cloud.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteStep(1)}
+                    className="h-9 px-4 rounded-full text-rose-600 dark:text-rose-400 bg-rose-500/12 hover:bg-rose-500/20 text-xs font-bold border-0 ring-0 cursor-pointer transition whitespace-nowrap self-end sm:self-center shrink-0 flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Batch</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </form>
+
+      {/* Mobile Sticky Bottom Action Bar (Borderless, with safe-area bottom inset) */}
+      <div className="sm:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 dark:bg-[#0c0e12]/95 backdrop-blur-md border-0 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] px-4 pt-2.5 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] flex items-center justify-end gap-2.5">
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex-1 h-10 px-4 rounded-full text-xs font-bold bg-[#f1f4f9] hover:bg-[#e4e9f2] dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border-0 ring-0 cursor-pointer transition active:scale-95 whitespace-nowrap"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          form="edit-batch-settings-form"
+          className="flex-[1.5] h-10 px-5 rounded-full bg-[#0b57d0] hover:bg-[#0842a0] dark:bg-[#a8c7fa] dark:hover:bg-[#d3e3fd] text-white dark:text-[#041e49] text-xs font-bold border-0 ring-0 cursor-pointer transition active:scale-95 whitespace-nowrap"
+        >
+          Save Changes
+        </button>
       </div>
+
+      {/* Two-Step Delete Batch Confirmation Popup */}
+      {deleteStep > 0 && (
+        <div
+          className="fixed inset-0 z-[80] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setDeleteStep(0)}
+        >
+          <div
+            className="w-full max-w-sm rounded-3xl bg-white dark:bg-[#181a20] p-5 sm:p-6 shadow-2xl border-0 ring-0 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-rose-500/12 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 block">
+                  Step {deleteStep} of 2
+                </span>
+                <h3 className="text-sm sm:text-base font-bold text-[#1f1f1f] dark:text-[#e3e3e3] mt-0.5">
+                  {deleteStep === 1 ? 'Delete Course Batch?' : 'Final Confirmation'}
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-zinc-400 mt-1 leading-relaxed">
+                  {deleteStep === 1
+                    ? `You are about to delete "${batch.title}". This removes the batch from your workspace and cloud catalog.`
+                    : `Are you completely sure you want to permanently delete "${batch.title}"? This action cannot be undone.`}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setDeleteStep(deleteStep === 2 ? 1 : 0)}
+                className="h-9 px-4 rounded-full text-xs font-bold bg-[#f1f4f9] hover:bg-[#e4e9f2] dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 border-0 ring-0 cursor-pointer transition whitespace-nowrap"
+              >
+                {deleteStep === 2 ? 'Back' : 'Cancel'}
+              </button>
+              {deleteStep === 1 ? (
+                <button
+                  type="button"
+                  onClick={() => setDeleteStep(2)}
+                  className="h-9 px-4 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold border-0 ring-0 cursor-pointer transition active:scale-95 whitespace-nowrap"
+                >
+                  Continue
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="h-9 px-4 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold border-0 ring-0 cursor-pointer transition active:scale-95 whitespace-nowrap"
+                >
+                  Confirm Delete
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(pageContent, document.body) : pageContent;
 };
 
 

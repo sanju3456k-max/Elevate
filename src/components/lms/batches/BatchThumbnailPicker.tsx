@@ -67,8 +67,8 @@ interface BatchThumbnailPickerProps {
 export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
   value,
   onChange,
-  label = 'Batch Preview Thumbnail & Course Banner (1200 × 500 px)',
-  helperText = 'Select from curated Ultra-HD presets or paste custom URL. Unified 1200 × 500 px (12:5 ratio) renders identically in batch cards and Home Hero banner.',
+  label = 'Course Banner & Thumbnail',
+  helperText = '',
   previewTitle,
   previewCategory,
 }) => {
@@ -177,7 +177,7 @@ export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/12 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 transition flex items-center space-x-1 cursor-pointer"
+            className="px-3 py-1.5 rounded-full text-[11px] font-bold bg-[#e8f0fe] hover:bg-[#d3e3fd] text-[#0b57d0] dark:bg-[#0b57d0]/20 dark:hover:bg-[#0b57d0]/30 dark:text-[#a8c7fa] border-0 ring-0 transition flex items-center space-x-1.5 cursor-pointer"
             title="Choose custom thumbnail image from your device"
           >
             <Upload className="w-3 h-3" />
@@ -187,17 +187,21 @@ export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
           <button
             type="button"
             onClick={handleRepairToDefault}
-            className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#0b57d0]/10 hover:bg-[#0b57d0]/20 text-[#0b57d0] dark:text-[#a8c7fa] border border-[#0b57d0]/30 transition flex items-center space-x-1 cursor-pointer"
-            title="Repair thumbnail: instantly resets to Ultra-HD Default pic"
+            className="px-3 py-1.5 rounded-full text-[11px] font-bold bg-[#f1f4f9] hover:bg-[#e4e9f2] text-slate-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200 border-0 ring-0 transition flex items-center space-x-1.5 cursor-pointer"
+            title="Reset thumbnail to default HD banner"
           >
-            <Wrench className="w-3 h-3" />
-            <span>Repair to HD Default</span>
+            <Wrench className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa]" />
+            <span>Repair to HD</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsUrlInputOpen(!isUrlInputOpen)}
-            className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-highest)] border border-[var(--md-sys-color-outline-variant)]/30 transition flex items-center space-x-1 cursor-pointer"
+            className={`px-3 py-1.5 rounded-full text-[11px] font-bold border-0 ring-0 transition flex items-center space-x-1.5 cursor-pointer ${
+              isUrlInputOpen
+                ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49]'
+                : 'bg-[#f1f4f9] hover:bg-[#e4e9f2] text-slate-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-200'
+            }`}
           >
             <Link className="w-3 h-3" />
             <span>{isUrlInputOpen ? 'Close URL' : 'Custom URL'}</span>
@@ -206,15 +210,15 @@ export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
       </div>
 
       {hasRepairNotice && (
-        <div className="p-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold flex items-center space-x-1.5 animate-fade-in">
+        <div className="p-2.5 rounded-2xl bg-[#e8f0fe] dark:bg-[#0b57d0]/20 border-0 ring-0 text-[#0b57d0] dark:text-[#a8c7fa] text-[11px] font-bold flex items-center space-x-1.5 animate-fade-in">
           <Check className="w-3.5 h-3.5" />
-          <span>✅ Thumbnail successfully repaired to Ultra-HD Default!</span>
+          <span>Banner reset to default HD</span>
         </div>
       )}
 
-      {/* Live 1200x500 Thumbnail Preview Card */}
+      {/* Live 12:5 Thumbnail Preview Card */}
       <div
-        className="relative rounded-2xl overflow-hidden aspect-[1200/500] w-full bg-slate-900 border border-[var(--md-sys-color-outline-variant)]/30 shadow-md group"
+        className="relative rounded-2xl overflow-hidden aspect-[1200/500] w-full bg-slate-900 border-0 ring-0 shadow-sm group"
         style={{ aspectRatio: '1200 / 500' }}
       >
         <img
@@ -226,45 +230,41 @@ export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
           }}
         />
 
-        {/* Gradient Overlay & Badges */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-black/30 flex flex-col justify-between p-3.5 pointer-events-none">
-          <div className="flex items-center justify-between">
-            <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-black/60 backdrop-blur-md text-emerald-400 border border-emerald-400/30 flex items-center space-x-1">
-              <Sparkles className="w-2.5 h-2.5" />
-              <span>1200 × 500 px Ultra-HD Preview</span>
+        {/* Minimal Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent flex flex-col justify-between p-3 pointer-events-none">
+          <div className="flex items-center justify-between gap-2">
+            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-black/50 backdrop-blur-md text-white/90 border-0">
+              12:5 Preview
             </span>
 
             {previewCategory && (
-              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-white/20 backdrop-blur-md text-white border border-white/20">
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-white/20 backdrop-blur-md text-white border-0">
                 {previewCategory}
               </span>
             )}
           </div>
 
           <div>
-            <p className="text-white text-xs font-black drop-shadow-md truncate max-w-full">
-              {previewTitle || 'Batch Card Live Preview'}
-            </p>
-            <p className="text-[10px] text-white/80 font-medium">
-              1200 × 500 px (12:5 Ratio) • Exact 1:1 Match with Home Banner & Batch Cards
+            <p className="text-white text-xs font-bold drop-shadow-sm truncate max-w-full">
+              {previewTitle || 'Batch Banner Preview'}
             </p>
           </div>
         </div>
 
-        {/* Quick Quick-Switch button on hover */}
-        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Quick Reset button on hover */}
+        <div className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             type="button"
             onClick={handleRepairToDefault}
-            className="p-1.5 rounded-xl bg-black/70 hover:bg-black text-white text-[10px] font-bold backdrop-blur-md border border-white/20 flex items-center space-x-1 cursor-pointer shadow-lg"
+            className="p-1.5 rounded-full bg-black/65 hover:bg-black text-white text-[10px] font-bold backdrop-blur-md border-0 ring-0 flex items-center space-x-1 cursor-pointer"
           >
             <RefreshCw className="w-3 h-3" />
-            <span>Reset HD</span>
+            <span>Reset</span>
           </button>
         </div>
       </div>
 
-      {/* Custom URL Input Section (div instead of nested form so outer modal form doesn't break it) */}
+      {/* Custom URL Input Section */}
       {isUrlInputOpen && (
         <div className="flex items-center space-x-2 animate-fade-in">
           <input
@@ -278,13 +278,13 @@ export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
                 handleApplyCustomUrl();
               }
             }}
-            placeholder="Paste image URL or Google Drive link (https://...)"
-            className="flex-1 px-3 py-2 rounded-xl bg-[var(--md-sys-color-surface-container-high)] text-xs text-[var(--md-sys-color-on-surface)] border border-[var(--md-sys-color-outline-variant)]/40 outline-none font-mono text-[11px]"
+            placeholder="Paste image URL or Google Drive link"
+            className="flex-1 px-3.5 py-2 rounded-2xl bg-[#f1f4f9] dark:bg-zinc-900 text-xs text-slate-900 dark:text-zinc-100 border-0 ring-0 outline-none focus:ring-2 focus:ring-[#0b57d0]/30 font-mono text-[11px]"
           />
           <button
             type="button"
             onClick={handleApplyCustomUrl}
-            className="px-3 py-2 rounded-xl bg-[#0b57d0] text-white text-xs font-bold border-none cursor-pointer hover:bg-[#0842a0] transition"
+            className="px-3.5 py-2 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa] text-white dark:text-[#041e49] text-xs font-bold border-0 ring-0 cursor-pointer hover:bg-[#0842a0] transition"
           >
             Apply
           </button>
@@ -292,14 +292,11 @@ export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
       )}
 
       {/* Preset Category Filter Chips */}
-      <div className="space-y-2 pt-1">
+      <div className="space-y-2 pt-0.5">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-bold text-[var(--md-sys-color-on-surface-variant)] flex items-center space-x-1">
-            <Layers className="w-3 h-3 text-[#0b57d0]" />
-            <span>Default High Quality Presets ({PRESET_BATCH_BANNERS.length} Curated)</span>
-          </span>
-          <span className="text-[9px] text-[var(--md-sys-color-on-surface-variant)]">
-            Click any pic to apply instantly
+          <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 flex items-center space-x-1.5">
+            <Layers className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa]" />
+            <span>Presets</span>
           </span>
         </div>
 
@@ -309,10 +306,10 @@ export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
               type="button"
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap transition border-none cursor-pointer ${
+              className={`px-3 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition border-0 ring-0 cursor-pointer ${
                 selectedCategory === cat
-                  ? 'bg-[#0b57d0] text-white shadow-xs'
-                  : 'bg-[var(--md-sys-color-surface-container-high)] text-[var(--md-sys-color-on-surface-variant)] hover:bg-[var(--md-sys-color-surface-container-highest)]'
+                  ? 'bg-[#0b57d0] text-white dark:bg-[#a8c7fa] dark:text-[#041e49]'
+                  : 'bg-[#f1f4f9] text-slate-700 hover:bg-[#e4e9f2] dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
               }`}
             >
               {cat}
@@ -320,18 +317,18 @@ export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
           ))}
         </div>
 
-        {/* Presets Horizontal / Grid Gallery */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 max-h-56 overflow-y-auto pr-1">
+        {/* Presets Grid Gallery (Borderless & Ringless) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5 max-h-56 overflow-y-auto">
           {filteredPresets.map((preset) => {
             const isSelected = activeUrl === preset.url;
             return (
               <div
                 key={preset.id}
                 onClick={() => handleSelectPreset(preset)}
-                className={`relative rounded-xl overflow-hidden aspect-[1200/500] cursor-pointer border-2 transition-all transform hover:scale-[1.02] ${
+                className={`relative rounded-xl overflow-hidden aspect-[1200/500] cursor-pointer border-0 ring-0 transition-all ${
                   isSelected
-                    ? 'border-[#0b57d0] ring-2 ring-[#0b57d0]/40 shadow-sm'
-                    : 'border-transparent opacity-75 hover:opacity-100'
+                    ? 'opacity-100 shadow-md scale-[1.01]'
+                    : 'opacity-75 hover:opacity-100'
                 }`}
                 style={{ aspectRatio: '1200 / 500' }}
                 title={`${preset.title} (${preset.category})`}
@@ -343,14 +340,14 @@ export const BatchThumbnailPicker: React.FC<BatchThumbnailPickerProps> = ({
                   loading="lazy"
                 />
 
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-1.5">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent flex flex-col justify-end p-1.5">
                   <span className="text-[9px] font-bold text-white leading-tight truncate drop-shadow-sm">
                     {preset.title}
                   </span>
                 </div>
 
                 {isSelected && (
-                  <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-[#0b57d0] text-white flex items-center justify-center shadow-md">
+                  <div className="absolute top-1.5 right-1.5 w-4.5 h-4.5 rounded-full bg-[#0b57d0] text-white flex items-center justify-center shadow-sm">
                     <Check className="w-2.5 h-2.5 stroke-[3]" />
                   </div>
                 )}

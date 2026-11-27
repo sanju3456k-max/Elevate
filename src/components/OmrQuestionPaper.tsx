@@ -1191,8 +1191,8 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
   const testIdKey = useMemo(() => {
     const qCount = test.questions?.length || 0;
     const tId = test.id || test.title || 'test';
-    return `${tId}_${qCount}_${layoutDensity}`;
-  }, [test.id, test.title, test.questions?.length, layoutDensity]);
+    return `${tId}_${qCount}_${layoutDensity}_${showBadges ? 'bdg' : 'nobdg'}`;
+  }, [test.id, test.title, test.questions?.length, layoutDensity, showBadges]);
 
   const [measuredHeights, setMeasuredHeights] = useState<Record<string, number>>(() => {
     if (testIdKey) {
@@ -1212,8 +1212,8 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
     let passesCompleted = 0;
     const maxPasses = 2;
 
-    const measureDomHeights = () => {
-      if (isCancelled || passesCompleted >= maxPasses) return false;
+    const measureDomHeights = (force = false) => {
+      if (isCancelled || (!force && passesCompleted >= maxPasses)) return false;
       const root = document.getElementById('question-paper-printable-root');
       if (!root) return false;
 
@@ -1287,12 +1287,12 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
       );
     }
 
-    // Font ready hook (KaTeX & fonts finished)
+    // Font ready hook (Tinos & KaTeX finished) - force re-measure so device fallback fonts never lock layout
     if (typeof document !== 'undefined' && 'fonts' in document) {
       document.fonts.ready
         .then(() => {
           if (!isCancelled) {
-            measureDomHeights();
+            measureDomHeights(true);
           }
         })
         .catch(() => {});
@@ -1642,7 +1642,9 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                     height: `${currentPageHPx}px`,
                     minHeight: `${pageHPx + PREVIEW_BOTTOM_EXTRA_HEIGHT_PX}px`,
                     padding: '8mm 12mm 8mm 12mm',
-                    fontFamily: "'Times New Roman', Times, Tinos, 'Liberation Serif', serif",
+                    fontFamily: "'Tinos', 'Times New Roman', Times, 'Liberation Serif', serif",
+                    WebkitTextSizeAdjust: '100%',
+                    textSizeAdjust: '100%',
                     boxSizing: 'border-box',
                     textRendering: 'optimizeLegibility',
                     WebkitFontSmoothing: 'antialiased',

@@ -160,19 +160,24 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
       setIsLoading(true);
     }
 
-    // 2. Always force-refresh from cloud on modal open so newly submitted guest & student entries appear immediately
+    // 2. Sync any pending local/guest attempts first, then force-refresh from cloud
     let isCancelled = false;
-    fetchTestLeaderboard(test.id || '', test.title, true)
-      .then((liveSummary) => {
+    (async () => {
+      try {
+        const syncUid = currentUser?.uid || effectiveUid;
+        if (syncUid) {
+          await syncAllUserAttemptsToLeaderboard(syncUid, test.id).catch(() => {});
+        }
+        const liveSummary = await fetchTestLeaderboard(test.id || '', test.title, true);
         if (!isCancelled && liveSummary && Array.isArray(liveSummary.entries)) {
           setSummary(liveSummary);
           setIsLoading(false);
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         console.warn('Leaderboard fetch fallback notice:', err);
         if (!isCancelled) setIsLoading(false);
-      });
+      }
+    })();
 
     return () => {
       isCancelled = true;

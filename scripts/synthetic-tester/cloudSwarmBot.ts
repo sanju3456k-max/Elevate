@@ -326,6 +326,66 @@ export async function runCloudSwarmAudit(options: {
           ? `Attempt (${score}/${totalPoints}, ${percentage}%) synced & verified across user_profiles + test_leaderboards`
           : 'Read-back verification failed after Firestore write.',
       });
+
+      // 5. Guest Mode Leaderboard Sync Check (unauthenticated guest_entries for guest-enabled batches)
+      const tGuestStart = Date.now();
+      try {
+        const guestBatchesSnap = await getDocs(query(collection(db, 'batches'), limit(50)));
+        const guestEnabledBatch = guestBatchesSnap.docs
+          .map((d) => ({ id: d.id, ...(d.data() as any) }))
+          .find((b) => Boolean(b.allowGuestAccess && b.enableGuestTestRankings));
+
+        if (!guestEnabledBatch) {
+          checks.push({
+            name: 'Guest Mode Leaderboard Cloud Sync',
+            category: 'sync',
+            passed: true,
+            latencyMs: Date.now() - tGuestStart,
+            details: 'No batch currently has both allowGuestAccess and enableGuestTestRankings enabled (skipped).',
+          });
+        } else {
+          const guestCanonicalId = `test_title_bot_guest_sync_${options.runId}`;
+          const guestUid = `guest_bot_${options.runId}`;
+          const guestEntryId = `${guestUid}_${guestCanonicalId}`.slice(0, 150);
+          const guestRef = doc(db, 'test_leaderboards', guestCanonicalId, 'guest_entries', guestEntryId);
+          await setDoc(guestRef, {
+            id: guestEntryId,
+            userId: guestUid,
+            displayName: 'Bot Guest Runner',
+            score: 42,
+            maxScore: 150,
+            accuracy: 28,
+            timeTakenSeconds: 95,
+            batchId: guestEnabledBatch.id,
+            testId: guestCanonicalId,
+            testTitle: `Bot Guest Sync ${options.runId}`,
+            isGuest: true,
+            submittedAt: new Date().toISOString(),
+          });
+          const guestReadBack = await getDoc(guestRef);
+          const guestOk =
+            guestReadBack.exists() &&
+            guestReadBack.data()?.isGuest === true &&
+            guestReadBack.data()?.batchId === guestEnabledBatch.id;
+          checks.push({
+            name: 'Guest Mode Leaderboard Cloud Sync',
+            category: 'sync',
+            passed: guestOk,
+            latencyMs: Date.now() - tGuestStart,
+            details: guestOk
+              ? `Guest entry synced & read back for batch "${guestEnabledBatch.title || guestEnabledBatch.id}"`
+              : 'Guest entry read-back verification failed.',
+          });
+        }
+      } catch (guestErr) {
+        checks.push({
+          name: 'Guest Mode Leaderboard Cloud Sync',
+          category: 'sync',
+          passed: false,
+          latencyMs: Date.now() - tGuestStart,
+          details: `Guest leaderboard sync failed: ${(guestErr as Error).message}`,
+        });
+      }
     } catch (err) {
       checks.push({
         name: 'Cloud Sync Write & Read-Back Integrity',

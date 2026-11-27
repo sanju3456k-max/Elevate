@@ -1662,12 +1662,12 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
 
         {/* Draft Mode Notice Banner (Faculty only) */}
         {isMaster && currentBatch && currentBatch.isPublished === false && (
-          <div className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200">
-            <div className="flex items-center space-x-2.5 min-w-0">
-              <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-              <div className="text-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 p-3.5 sm:p-4 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200">
+            <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
+              <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
+              <div className="text-xs min-w-0 flex-1">
                 <p className="font-bold">Draft Mode Active</p>
-                <p className="text-[11px] opacity-90 truncate max-w-xs sm:max-w-md">This course is hidden from students. Only instructors can access and edit curriculum.</p>
+                <p className="text-[11px] opacity-90 leading-snug sm:truncate">This course is hidden from students. Only instructors can access and edit curriculum.</p>
               </div>
             </div>
             <button
@@ -1676,7 +1676,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
                 updateBatch(currentBatch.id, { isPublished: true });
                 showSecurityToast(`Batch "${currentBatch.title}" is now Published (Live)!`);
               }}
-              className="px-3.5 py-1.5 rounded-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center space-x-1.5 shadow-xs transition border-none cursor-pointer shrink-0 ml-2"
+              className="px-3.5 py-1.5 rounded-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs transition border-none cursor-pointer shrink-0 self-start sm:self-center ml-6 sm:ml-2"
             >
               <Globe className="w-3.5 h-3.5" />
               <span>Publish (Go Live)</span>

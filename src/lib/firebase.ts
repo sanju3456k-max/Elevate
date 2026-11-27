@@ -76,6 +76,7 @@ import { listenerManager } from './listenerManager';
 import { toCompactChatSession, smartCoordinator } from './smartLocalCoordinator';
 import { optimizeTestForFirestore } from './imageOptimization';
 import { isNativeAndroid } from './nativeHardwareBridge';
+import { secureStorage } from './secureStorage';
 
 // Suppress transient offline logs in dev iframe
 try {
@@ -2422,6 +2423,7 @@ export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?
       let guestRankingsEnabled = false;
       const rawBatches =
         secureStorage.getItem('elevatelabs_batches_v2') ||
+        secureStorage.getItem('elevatelabs_cloud_batches_cache') ||
         (typeof localStorage !== 'undefined'
           ? localStorage.getItem('elevatelabs_cloud_batches_cache') ||
             localStorage.getItem('math_mock_batches_cache')
@@ -2475,61 +2477,32 @@ export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?
         const guestName = (resolvedGuestName || attempt.userName || 'Guest Learner').trim() || 'Guest Learner';
         const guestEntryId = `${guestDeviceUid}_${canonicalId}`.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 150);
 
-        // Deduplicate: only create 1 Firestore guest_entries doc per device + test
-        let alreadySynced = false;
-        const SYNCED_KEY = 'elevate_synced_guest_entries_v1';
-        try {
-          const rawSynced = localStorage.getItem(SYNCED_KEY);
-          const syncedList: string[] = rawSynced ? JSON.parse(rawSynced) : [];
-          if (Array.isArray(syncedList) && syncedList.includes(guestEntryId)) {
-            alreadySynced = true;
-          }
-        } catch {}
-
-        if (!alreadySynced) {
-          const guestDocRef = doc(db, 'test_leaderboards', canonicalId, 'guest_entries', guestEntryId);
-          const existingCloudGuest = await getDoc(guestDocRef).catch(() => null);
-          if (existingCloudGuest && existingCloudGuest.exists()) {
-            try {
-              const rawSynced = localStorage.getItem(SYNCED_KEY);
-              const syncedList: string[] = rawSynced ? JSON.parse(rawSynced) : [];
-              if (!syncedList.includes(guestEntryId)) {
-                syncedList.push(guestEntryId);
-                localStorage.setItem(SYNCED_KEY, JSON.stringify(syncedList.slice(-200)));
-              }
-            } catch {}
-          } else {
-            const guestPayload = sanitizeForFirestore({
-              id: guestEntryId,
-              userId: guestDeviceUid.slice(0, 128),
-              displayName: guestName.slice(0, 100),
-              score: Number(attempt.score) || 0,
-              maxScore: Math.max(0, Number(attempt.totalPoints) || 0),
-              accuracy: Math.min(100, Math.max(0, Number(attempt.percentage) || 0)),
-              timeTakenSeconds: Math.max(0, Number(attempt.timeSpentSeconds) || 0),
-              batchId: (resolvedBatchId || '').slice(0, 128),
-              testId: String(attempt.testId || canonicalId).slice(0, 128),
-              testTitle: String(attempt.testTitle || '').slice(0, 300),
-              isGuest: true,
-              submittedAt: attempt.completedAt || new Date().toISOString(),
+        // Always verify directly against Firestore guest_entries (1 read) so admin purges or stale localStorage never block syncing
+        const guestDocRef = doc(db, 'test_leaderboards', canonicalId, 'guest_entries', guestEntryId);
+        const existingCloudGuest = await getDoc(guestDocRef).catch(() => null);
+        if (!existingCloudGuest || !existingCloudGuest.exists()) {
+          const guestPayload = sanitizeForFirestore({
+            id: guestEntryId,
+            userId: guestDeviceUid.slice(0, 128),
+            displayName: guestName.slice(0, 100),
+            score: Number(attempt.score) || 0,
+            maxScore: Math.max(0, Number(attempt.totalPoints) || 0),
+            accuracy: Math.min(100, Math.max(0, Number(attempt.percentage) || 0)),
+            timeTakenSeconds: Math.max(0, Number(attempt.timeSpentSeconds) || 0),
+            batchId: (resolvedBatchId || '').slice(0, 128),
+            testId: String(attempt.testId || canonicalId).slice(0, 128),
+            testTitle: String(attempt.testTitle || '').slice(0, 300),
+            isGuest: true,
+            submittedAt: attempt.completedAt || new Date().toISOString(),
+          });
+          await setDoc(guestDocRef, guestPayload)
+            .then(() => {
+              inMemoryLeaderboardCache.delete(canonicalId);
+              inMemoryLeaderboardCache.delete(rawSafeId);
+            })
+            .catch((e) => {
+              console.warn('Guest leaderboard entry write notice:', e);
             });
-            await setDoc(guestDocRef, guestPayload)
-              .then(() => {
-                inMemoryLeaderboardCache.delete(canonicalId);
-                inMemoryLeaderboardCache.delete(rawSafeId);
-                try {
-                  const rawSynced = localStorage.getItem(SYNCED_KEY);
-                  const syncedList: string[] = rawSynced ? JSON.parse(rawSynced) : [];
-                  if (!syncedList.includes(guestEntryId)) {
-                    syncedList.push(guestEntryId);
-                    localStorage.setItem(SYNCED_KEY, JSON.stringify(syncedList.slice(-200)));
-                  }
-                } catch {}
-              })
-              .catch((e) => {
-                console.warn('Guest leaderboard entry write notice:', e);
-              });
-          }
         }
       }
     } catch (guestErr) {
@@ -2768,7 +2741,13 @@ export async function syncAllUserAttemptsToLeaderboard(userId?: string, targetTe
   if (!currentUid) return;
 
   try {
-    const attempts = loadScopedAttempts(currentUid);
+    const uidLower = currentUid.toLowerCase();
+    const isGuestUid =
+      uidLower === 'guest-user' ||
+      uidLower === 'guest_user' ||
+      uidLower === 'anonymous' ||
+      uidLower.startsWith('guest_');
+    const attempts = loadScopedAttempts(isGuestUid ? null : currentUid);
     if (!Array.isArray(attempts) || attempts.length === 0) return;
 
     // Group attempts by test title or testId, sort by completedAt ascending, and pick ONLY the first attempt!

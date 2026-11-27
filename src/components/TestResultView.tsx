@@ -981,49 +981,6 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
   const isCurrentAttempted = !!currentUserAns?.selectedOption;
   const isCurrentMarked = !!(flaggedMap[qId] ?? currentUserAns?.flagged);
 
-  // Solution Card Time Tag & Question Status Tag matching App UI Font & Styling
-  const renderSolutionCardTags = (isCompact = false) => (
-    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap shrink-0">
-      {/* Time Tag */}
-      <div 
-        title="Time spent on this question"
-        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f0f4f9] dark:bg-[#141619] text-[#1f1f1f] dark:text-[#e3e3e3] ${isCompact ? 'text-[11px]' : 'text-xs'} font-bold tabular-nums shadow-xs`}
-      >
-        <Clock className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-[#0b57d0] dark:text-[#a8c7fa] shrink-0`} />
-        <span>Time: {formatDuration(currentUserAns?.timeSpentSeconds || 0)}</span>
-      </div>
-
-      {/* Question Status Tag */}
-      {isCurrentAttempted ? (
-        isCurrentCorrect ? (
-          <span 
-            title="Question Status: Correct"
-            className={`inline-flex items-center gap-1 ${isCompact ? 'text-[10.5px] px-2 py-0.5' : 'text-[11.5px] px-2.5 py-1'} font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 rounded-full border border-emerald-200/80 dark:border-emerald-800/60 shadow-xs tabular-nums`}
-          >
-            <CheckCircle2 className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} shrink-0 text-emerald-600 dark:text-emerald-400`} />
-            <span>Correct (+{currentQ?.points || 1} pt)</span>
-          </span>
-        ) : (
-          <span 
-            title="Question Status: Incorrect"
-            className={`inline-flex items-center gap-1 ${isCompact ? 'text-[10.5px] px-2 py-0.5' : 'text-[11.5px] px-2.5 py-1'} font-bold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 rounded-full border border-rose-200/80 dark:border-rose-800/60 shadow-xs tabular-nums`}
-          >
-            <XCircle className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} shrink-0 text-rose-600 dark:text-rose-400`} />
-            <span>Incorrect (0 pt)</span>
-          </span>
-        )
-      ) : (
-        <span 
-          title="Question Status: Unattempted"
-          className={`inline-flex items-center gap-1 ${isCompact ? 'text-[10.5px] px-2 py-0.5' : 'text-[11.5px] px-2.5 py-1'} font-bold text-slate-700 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800/80 rounded-full border border-slate-200/80 dark:border-zinc-700/60 shadow-xs tabular-nums`}
-        >
-          <CircleDot className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} shrink-0 text-slate-500 dark:text-zinc-400`} />
-          <span>Unattempted (0 pt)</span>
-        </span>
-      )}
-    </div>
-  );
-
   // Next incorrect question shortcut
   const handleJumpNextIncorrect = () => {
     const nextIncorrectIdx = testQuestions.findIndex((q, i) => {
@@ -1344,9 +1301,9 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                 id="review-leaderboard-btn"
                 onClick={() => setIsLeaderboardOpen(true)}
                 title="View Leaderboard"
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-orange-500 hover:bg-orange-600 dark:bg-orange-500 dark:hover:bg-orange-600 text-white flex items-center justify-center transition-all active:scale-95 shrink-0 cursor-pointer border-0 shadow-[0_2px_6px_rgba(249,115,22,0.35)]"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] flex items-center justify-center transition-all active:scale-95 shrink-0 cursor-pointer border-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
               >
-                <Trophy className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-white fill-white shrink-0" />
+                <Trophy className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-orange-500 dark:text-orange-400 shrink-0" />
               </button>
 
               {canAccessNotes && (
@@ -1523,7 +1480,6 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                         Step-by-Step Derivation & Solution
                       </h3>
                     </div>
-                    {renderSolutionCardTags(true)}
                   </div>
 
                   {(currentQ.explanation || currentQ.solution) ? (
@@ -1702,7 +1658,6 @@ export const TestResultView: React.FC<TestResultViewProps> = ({
                         </div>
                         <span>Step-by-Step Derivation & Solution:</span>
                       </div>
-                      {renderSolutionCardTags(true)}
                     </div>
                     {(currentQ.explanation || currentQ.solution) && (
                       <div className="pt-0.5 text-[18px] sm:text-[19px] font-medium leading-relaxed max-w-full overflow-x-auto overflow-y-hidden text-[#1f1f1f] dark:text-[#e3e3e3]">

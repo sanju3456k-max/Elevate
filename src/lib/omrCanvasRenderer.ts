@@ -5,7 +5,7 @@ const MM_TO_PX_BASE = 3.779527559; // 96 DPI CSS pixels per millimeter
 /**
  * Standard examination print font stack matching the Question Paper typography.
  */
-const SERIF_FONT_STACK = "'Times New Roman', Times, Tinos, 'Liberation Serif', serif";
+const SERIF_FONT_STACK = "'Tinos', 'Times New Roman', Times, 'Liberation Serif', serif";
 
 /**
  * Directly renders an OMR Sheet Blueprint to a high-resolution HTML5 Canvas

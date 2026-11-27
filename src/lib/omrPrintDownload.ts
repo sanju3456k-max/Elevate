@@ -239,9 +239,11 @@ const QUESTION_PAPER_PRINT_CSS = `
     margin: 0 !important;
     padding: 0 !important;
     width: 210mm !important;
-    font-family: 'Times New Roman', Times, Tinos, "Liberation Serif", serif !important;
+    font-family: 'Tinos', 'Times New Roman', Times, "Liberation Serif", serif !important;
     font-size: 16px !important;
     line-height: 1.5 !important;
+    -webkit-text-size-adjust: 100% !important;
+    text-size-adjust: 100% !important;
     -webkit-font-smoothing: antialiased !important;
   }
 
@@ -263,7 +265,7 @@ const QUESTION_PAPER_PRINT_CSS = `
     border-radius: 0 !important;
     background-color: #ffffff !important;
     color: #000000 !important;
-    font-family: 'Times New Roman', Times, Tinos, "Liberation Serif", serif !important;
+    font-family: 'Tinos', 'Times New Roman', Times, "Liberation Serif", serif !important;
     overflow: hidden !important;
     box-sizing: border-box !important;
     position: relative !important;
@@ -285,7 +287,7 @@ const QUESTION_PAPER_PRINT_CSS = `
   .a4-page-item div:not(.katex *),
   .a4-page-item strong,
   .a4-page-item em {
-    font-family: 'Times New Roman', Times, Tinos, "Liberation Serif", serif !important;
+    font-family: 'Tinos', 'Times New Roman', Times, "Liberation Serif", serif !important;
   }
 
   .a4-page-item:last-child {
@@ -609,7 +611,7 @@ export async function triggerSystemPrint(
         position: relative !important;
         background: #ffffff !important;
         color: #000000 !important;
-        font-family: 'Times New Roman', Times, Tinos, "Liberation Serif", serif !important;
+        font-family: 'Tinos', 'Times New Roman', Times, "Liberation Serif", serif !important;
         overflow: hidden !important;
         ${!isLast ? 'page-break-after: always !important; break-after: page !important;' : 'page-break-after: auto !important; break-after: auto !important;'}
       ">
@@ -638,10 +640,23 @@ export async function triggerSystemPrint(
   </div>
   <script>
     function triggerPrint() {
-      setTimeout(function() {
+      var printed = false;
+      function doPrint() {
+        if (printed) return;
+        printed = true;
         window.focus();
         window.print();
-      }, 300);
+      }
+      if (document.fonts && document.fonts.ready) {
+        Promise.race([
+          document.fonts.ready,
+          new Promise(function(r) { setTimeout(r, 1200); })
+        ]).then(function() {
+          setTimeout(doPrint, 120);
+        });
+      } else {
+        setTimeout(doPrint, 350);
+      }
     }
     if (document.readyState === 'complete') {
       triggerPrint();
