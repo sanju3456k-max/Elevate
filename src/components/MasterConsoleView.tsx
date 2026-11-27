@@ -76,7 +76,8 @@ import {
   Bot,
   SlidersHorizontal,
   FileEdit,
-  Share2
+  Share2,
+  Loader2
 } from 'lucide-react';
 import type { MathTest, TestAttempt, RemedialFilterType, AssignedRemedialTest } from '../types';
 import { getTestDurationMinutes } from '../utils/testFormatConverter';
@@ -389,6 +390,7 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   const [studentEnrollBatchId, setStudentEnrollBatchId] = useState<string>(() => batches[0]?.id || 'batch_testing_01');
   const [isEnrollingStudent, setIsEnrollingStudent] = useState(false);
   const [pendingResetRequests, setPendingResetRequests] = useState<any[]>([]);
+  const [processingResetId, setProcessingResetId] = useState<string | null>(null);
 
   // Real-time listener for student hardware reset requests
   useEffect(() => {
@@ -407,16 +409,22 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     }
   }, []);
 
-  const handleApproveDeviceReset = async (uid: string, studentName: string) => {
+  const handleApproveDeviceReset = async (uid: string, studentName: string, requestId?: string) => {
+    const targetKey = requestId || uid;
+    if (processingResetId) return;
+    setProcessingResetId(targetKey);
     try {
-      const ok = await adminResetDeviceLock(uid);
+      const ok = await adminResetDeviceLock(uid, requestId);
       if (ok) {
+        setPendingResetRequests((prev) => prev.filter((r) => r.id !== requestId && r.uid !== uid));
         showSecurityToast(`Device lock reset approved for ${studentName || uid}.`);
       } else {
         alert('Failed to approve device reset. Please check permissions.');
       }
     } catch (e: any) {
       alert('Error approving device reset: ' + (e?.message || e));
+    } finally {
+      setProcessingResetId(null);
     }
   };
 
@@ -544,12 +552,19 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
   };
 
   const handleResetDeviceLock = async (userId: string, studentName: string) => {
+    if (processingResetId) return;
     if (window.confirm(`Reset device lock for ${studentName}? This will allow them to bind a new phone or laptop upon their next login.`)) {
-      const ok = await adminResetDeviceLock(userId);
-      if (ok) {
-        showNotification(`Device lock reset for ${studentName}. New device registration permitted.`);
-      } else {
-        alert('Failed to reset device lock. Please check permissions.');
+      setProcessingResetId(userId);
+      try {
+        const ok = await adminResetDeviceLock(userId);
+        if (ok) {
+          setPendingResetRequests((prev) => prev.filter((r) => r.id !== userId && r.uid !== userId));
+          showNotification(`Device lock reset for ${studentName}. New device registration permitted.`);
+        } else {
+          alert('Failed to reset device lock. Please check permissions.');
+        }
+      } finally {
+        setProcessingResetId(null);
       }
     }
   };
@@ -1906,10 +1921,18 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                           </div>
                           <button
                             type="button"
-                            onClick={() => handleApproveDeviceReset(req.uid || req.id, req.studentName || 'Student')}
-                            className="px-3.5 py-1.5 rounded-full bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold border-0 cursor-pointer transition shrink-0 active:scale-95"
+                            disabled={processingResetId === (req.id || req.uid)}
+                            onClick={() => handleApproveDeviceReset(req.uid || req.id, req.studentName || 'Student', req.id)}
+                            className="px-3.5 py-1.5 rounded-full bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-[11px] font-bold border-0 cursor-pointer transition shrink-0 active:scale-95 inline-flex items-center gap-1.5"
                           >
-                            Approve
+                            {processingResetId === (req.id || req.uid) ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                                <span>Approving...</span>
+                              </>
+                            ) : (
+                              <span>Approve</span>
+                            )}
                           </button>
                         </div>
                       ))}
@@ -2094,12 +2117,22 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                                   </button>
                                   <button
                                     type="button"
+                                    disabled={processingResetId === st.id}
                                     title="Reset Device Lock (Allows student to register a new phone or laptop upon login)"
                                     onClick={() => handleResetDeviceLock(st.id, st.name || 'Student')}
-                                    className="h-8 px-2.5 lg:px-3 rounded-full text-xs font-bold text-[#1f1f1f] dark:text-[#e3e3e3] bg-[#f0f4f9] hover:bg-[#e1e7f0] dark:bg-[#1e1f20] dark:hover:bg-[#2a2b2c] border-0 cursor-pointer inline-flex items-center gap-1 transition active:scale-95 shrink-0"
+                                    className="h-8 px-2.5 lg:px-3 rounded-full text-xs font-bold text-[#1f1f1f] dark:text-[#e3e3e3] bg-[#f0f4f9] hover:bg-[#e1e7f0] dark:bg-[#1e1f20] dark:hover:bg-[#2a2b2c] disabled:opacity-60 border-0 cursor-pointer inline-flex items-center gap-1 transition active:scale-95 shrink-0"
                                   >
-                                    <Smartphone className="w-3.5 h-3.5 shrink-0" />
-                                    <span>Reset</span>
+                                    {processingResetId === st.id ? (
+                                      <>
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                                        <span>Resetting...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Smartphone className="w-3.5 h-3.5 shrink-0" />
+                                        <span>Reset</span>
+                                      </>
+                                    )}
                                   </button>
                                 </div>
                               </td>

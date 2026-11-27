@@ -171,25 +171,37 @@ export async function submitDeviceResetRequest(
 /**
  * Admin action: Resets device lock for a student so they can register their new device.
  */
-export async function adminResetDeviceLock(studentUid: string): Promise<boolean> {
-  if (!studentUid) return false;
+export async function adminResetDeviceLock(studentUid: string, requestId?: string): Promise<boolean> {
+  if (!studentUid && !requestId) return false;
   try {
-    const userRef = doc(db, 'users', studentUid);
-    await updateDoc(userRef, {
-      registeredDeviceId: null,
-      registeredDeviceLabel: null,
-      registeredDeviceAt: null,
-      resetAt: new Date().toISOString(),
-    });
+    if (studentUid) {
+      const userRef = doc(db, 'users', studentUid);
+      await setDoc(
+        userRef,
+        {
+          registeredDeviceId: null,
+          registeredDeviceLabel: null,
+          registeredDeviceAt: null,
+          resetAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+    }
 
-    // Also update any pending reset request
-    try {
-      const reqRef = doc(db, 'device_reset_requests', studentUid);
-      await updateDoc(reqRef, {
-        status: 'approved',
-        approvedAt: new Date().toISOString(),
-      });
-    } catch {}
+    // Update the matching pending reset request document (whether keyed by requestId or studentUid)
+    const targetRequestIds = Array.from(new Set([requestId, studentUid].filter(Boolean) as string[]));
+    await Promise.all(
+      targetRequestIds.map((reqId) =>
+        setDoc(
+          doc(db, 'device_reset_requests', reqId),
+          {
+            status: 'approved',
+            approvedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        ).catch(() => {})
+      )
+    );
 
     return true;
   } catch (err) {

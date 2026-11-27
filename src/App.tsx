@@ -1109,8 +1109,11 @@ export default function App() {
       window.dispatchEvent(new CustomEvent('master-workspace-membership-changed'));
     });
     const handleMembershipChange = () => {
-      const activeU = currentUser || cachedUser;
-      const stillMaster = isMasterUser(activeU, getSelectedAppInstituteId());
+      const activeU = currentUser || cachedUser || auth.currentUser;
+      const targetInstId = (APP_BRAND.isLockedApk || APP_BRAND.isLockedPwa)
+        ? APP_BRAND.instituteId
+        : (getSelectedAppInstituteId() || (isNativeAndroid() ? PRIMARY_WORKSPACE_ID : null));
+      const stillMaster = isMasterUser(activeU, targetInstId);
       setPlatformAccess(checkPlatformAccess(stillMaster));
       if (!stillMaster && activeTabRef.current === 'master-console') {
         setActiveTab('home');
@@ -1121,7 +1124,7 @@ export default function App() {
       unsubWorkspaces();
       window.removeEventListener('master-workspace-membership-changed', handleMembershipChange);
     };
-  }, []);
+  }, [currentUser, cachedUser]);
 
   // Top-Level Native Android Hardware Integration (Active for both Guest & Authenticated users)
   useEffect(() => {
