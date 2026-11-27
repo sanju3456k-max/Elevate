@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import 'katex/dist/katex.min.css';
 import katex from 'katex';
 import renderMathInElement from 'katex/contrib/auto-render';
-import 'material-symbols';
+import 'material-symbols/outlined.css';
 
 import { normalizeLatexMath, PIPELINE_KATEX_MACROS } from './lib/mathPipeline/katexCore';
 

@@ -29,11 +29,12 @@ try {
 
   console.log('3. Copying dist to build and android assets directory...');
   if (fs.existsSync('dist')) {
+    fs.rmSync('build', { recursive: true, force: true });
     fs.cpSync('dist', 'build', { recursive: true });
     const androidPublic = 'android/app/src/main/assets/public';
-    if (fs.existsSync(androidPublic)) {
-      fs.cpSync('dist', androidPublic, { recursive: true });
-    }
+    fs.rmSync(androidPublic, { recursive: true, force: true });
+    fs.mkdirSync(androidPublic, { recursive: true });
+    fs.cpSync('dist', androidPublic, { recursive: true });
   }
 
   // Copy bundled server.js to root server.js for node server.js fallback compatibility
