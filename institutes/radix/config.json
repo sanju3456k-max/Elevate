@@ -7,7 +7,7 @@
   "ownerEmail": "harry333u@gmail.com",
   "teamAdminEmails": [],
   "apkVersion": "1.0",
-  "apkDownloadUrl": "https://github.com/sanju3456k/elevate-android/releases/latest/download/radix-release.apk",
+  "apkDownloadUrl": "./radix.apk",
   "storePage": {
     "tagline": "Dedicated Batch Lectures, Mock Tests & Study Material for Radix",
     "description": "Official Android learning app for Radix students. Access enrolled batch video classes, chapter-wise mock tests, OMR practice papers, and downloadable PDF notes on an isolated, distraction-free platform.",

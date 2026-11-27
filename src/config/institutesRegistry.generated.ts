@@ -11,7 +11,7 @@ export const GENERATED_INSTITUTES_REGISTRY: StaticInstituteEntry[] = [
     "teamAdminEmails": [],
     "packageName": "com.elevate.apexacademy",
     "apkVersion": "1.0",
-    "apkDownloadUrl": "https://github.com/sanju3456k/elevate-android/releases/latest/download/apexAcademy-release.apk",
+    "apkDownloadUrl": "./apex-academy.apk",
     "firebaseWebConfig": {
       "apiKey": "AIzaSyAE9V41Mhd6COtvYa8io0-v6MYFiefZ9oQ",
       "authDomain": "apex-academy-6941e.firebaseapp.com",
@@ -47,7 +47,7 @@ export const GENERATED_INSTITUTES_REGISTRY: StaticInstituteEntry[] = [
     "teamAdminEmails": [],
     "packageName": "com.elevate.radix",
     "apkVersion": "1.0",
-    "apkDownloadUrl": "https://github.com/sanju3456k/elevate-android/releases/latest/download/radix-release.apk",
+    "apkDownloadUrl": "./radix.apk",
     "firebaseWebConfig": {
       "apiKey": "AIzaSyAvmBqgiS1p06qyyIaLI0ikSZaH_1cELUg",
       "authDomain": "radix-f8d22.firebaseapp.com",

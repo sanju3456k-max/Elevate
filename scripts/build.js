@@ -44,10 +44,9 @@ try {
   // Clean heavy redundant binary assets from android assets directory
   const androidPublic = 'android/app/src/main/assets/public';
   if (fs.existsSync(androidPublic)) {
-    ['elevate.apk', 'elevate.apk.idsig', 'server.js'].forEach((f) => {
-      const p = `${androidPublic}/${f}`;
-      if (fs.existsSync(p)) {
-        try { fs.unlinkSync(p); } catch {}
+    fs.readdirSync(androidPublic).forEach((f) => {
+      if (f.endsWith('.apk') || f.endsWith('.apk.idsig') || f === 'server.js') {
+        try { fs.unlinkSync(`${androidPublic}/${f}`); } catch {}
       }
     });
   }

@@ -7,7 +7,7 @@
   "ownerEmail": "harry4444u@gmail.com",
   "teamAdminEmails": [],
   "apkVersion": "1.0",
-  "apkDownloadUrl": "https://github.com/sanju3456k/elevate-android/releases/latest/download/apexAcademy-release.apk",
+  "apkDownloadUrl": "./apex-academy.apk",
   "storePage": {
     "tagline": "Dedicated Batch Lectures, Mock Tests & Study Material for Apex Academy",
     "description": "Official Android learning app for Apex Academy students. Access enrolled batch video classes, chapter-wise mock tests, OMR practice papers, and downloadable PDF notes on an isolated, distraction-free platform.",
