@@ -4,6 +4,11 @@ import {
   getFirestore,
   doc,
   getDoc,
+  getDocs,
+  collection,
+  query,
+  where,
+  limit,
   setDoc,
   arrayUnion,
   type Firestore,
@@ -13,6 +18,7 @@ import defaultFirebaseConfig from '../../firebase-applet-config.json';
 import {
   getCachedMasterWorkspaces,
   fetchMasterWorkspacesFromCloud,
+  getActiveAppInstituteIdOrPrimary,
   normalizeEmail,
   type MasterWorkspace,
 } from './masterWorkspace';
@@ -60,17 +66,93 @@ export async function registerStudentEmailInDirectory(
   workspaceId: string
 ): Promise<void> {
   const clean = normalizeEmail(email);
-  if (!clean || !workspaceId) return;
+  if (!clean || !clean.includes('@') || !workspaceId) return;
   const emailHash = await sha256EmailHash(clean);
   const payload = sanitizeForFirestore({
     instituteIds: arrayUnion(workspaceId),
     updatedAt: new Date().toISOString(),
   });
+  // Always write to the authenticated defaultDb first so isolated tenants succeed with isSignedIn()
+  await setDoc(doc(defaultDb, 'email_directory', emailHash), payload, { merge: true }).catch(() => {});
   const centralDb = getCentralDirectoryDb();
-  await setDoc(doc(centralDb, 'email_directory', emailHash), payload, { merge: true }).catch(() => {});
   if (centralDb !== defaultDb) {
-    await setDoc(doc(defaultDb, 'email_directory', emailHash), payload, { merge: true }).catch(() => {});
+    await setDoc(doc(centralDb, 'email_directory', emailHash), payload, { merge: true }).catch(() => {});
   }
+}
+
+const EMAIL_DIR_BACKFILL_PREFIX = 'elevate_email_dir_backfill_v1_';
+const EMAIL_DIR_BACKFILL_TTL_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Backfills existing active `batch_enrollments` and `users` emails in the currently
+ * authenticated institute's Firestore into `email_directory/{sha256}` so pre-existing
+ * students are immediately discoverable from the unified web portal.
+ */
+export async function backfillEmailDirectoryForCurrentInstitute(
+  workspaceId?: string,
+  force = false
+): Promise<number> {
+  const targetWorkspaceId = workspaceId || getActiveAppInstituteIdOrPrimary();
+  if (!targetWorkspaceId) return 0;
+
+  const storageKey = `${EMAIL_DIR_BACKFILL_PREFIX}${targetWorkspaceId}`;
+  if (!force && typeof localStorage !== 'undefined') {
+    try {
+      const lastRun = Number(localStorage.getItem(storageKey) || '0');
+      if (lastRun > 0 && Date.now() - lastRun < EMAIL_DIR_BACKFILL_TTL_MS) {
+        return 0;
+      }
+    } catch {
+      // Ignore storage read errors
+    }
+  }
+
+  const emails = new Set<string>();
+  const [enrollSnap, usersSnap] = await Promise.all([
+    getDocs(
+      query(collection(defaultDb, 'batch_enrollments'), where('status', '==', 'active'), limit(2000))
+    ).catch(() => null),
+    getDocs(query(collection(defaultDb, 'users'), limit(2000))).catch(() => null),
+  ]);
+
+  if (enrollSnap) {
+    enrollSnap.forEach((d) => {
+      const data = d.data();
+      const candidate = normalizeEmail(data?.studentEmail || '');
+      if (candidate && candidate.includes('@')) {
+        emails.add(candidate);
+      }
+    });
+  }
+
+  if (usersSnap) {
+    usersSnap.forEach((d) => {
+      const data = d.data();
+      const candidate = normalizeEmail(data?.email || '');
+      if (candidate && candidate.includes('@')) {
+        emails.add(candidate);
+      }
+    });
+  }
+
+  const list = Array.from(emails);
+  const CHUNK_SIZE = 20;
+  for (let i = 0; i < list.length; i += CHUNK_SIZE) {
+    const chunk = list.slice(i, i + CHUNK_SIZE);
+    await Promise.all(
+      chunk.map((em) => registerStudentEmailInDirectory(em, targetWorkspaceId).catch(() => {}))
+    );
+  }
+
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(storageKey, String(Date.now()));
+    } catch {
+      // Ignore storage write errors
+    }
+  }
+
+  return list.length;
 }
 
 function mergeWithStaticRegistry(cloudList: MasterWorkspace[]): MasterWorkspace[] {
@@ -133,13 +215,37 @@ export async function lookupInstitutesByEmail(email: string): Promise<InstituteL
     }
   }
 
-  // 3. Check central Firestore `email_directory/{sha256}` (and active tenant db if different) for enrolled/logged-in students
+  // 3. Check `email_directory/{sha256}` in parallel across central DB, active DB, and all isolated institute DBs
   try {
     const emailHash = await sha256EmailHash(clean);
-    const centralDb = getCentralDirectoryDb();
-    const dbsToCheck = centralDb !== defaultDb ? [centralDb, defaultDb] : [centralDb];
-    for (const targetDb of dbsToCheck) {
-      const snap = await getDoc(doc(targetDb, 'email_directory', emailHash)).catch(() => null);
+    const dbMap = new Map<string, Firestore>();
+    const addDb = (candidate: Firestore | null | undefined) => {
+      if (!candidate) return;
+      const proj = String((candidate.app?.options as any)?.projectId || 'default');
+      const dbId = String((candidate as any)?._databaseId?.database || '(default)');
+      const key = `${proj}:${dbId}`;
+      if (!dbMap.has(key)) dbMap.set(key, candidate);
+    };
+
+    addDb(getCentralDirectoryDb());
+    addDb(defaultDb);
+    for (const ws of allWorkspaces) {
+      if (ws.firebaseWebConfig?.projectId && ws.firebaseWebConfig?.apiKey) {
+        try {
+          addDb(getInstituteFirebaseServices(ws).db);
+        } catch {
+          // Ignore invalid tenant config
+        }
+      }
+    }
+
+    const snaps = await Promise.all(
+      Array.from(dbMap.values()).map((targetDb) =>
+        getDoc(doc(targetDb, 'email_directory', emailHash)).catch(() => null)
+      )
+    );
+
+    for (const snap of snaps) {
       if (snap && snap.exists()) {
         const ids = snap.data()?.instituteIds;
         if (Array.isArray(ids)) {
@@ -158,7 +264,12 @@ export async function lookupInstitutesByEmail(email: string): Promise<InstituteL
     // Ignore directory read error
   }
 
-  return Array.from(matches.values());
+  return Array.from(matches.values()).sort((a, b) => {
+    if (a.role !== b.role) return a.role === 'admin' ? -1 : 1;
+    if (a.workspace.id === 'ws_primary') return -1;
+    if (b.workspace.id === 'ws_primary') return 1;
+    return 0;
+  });
 }
 
 /**

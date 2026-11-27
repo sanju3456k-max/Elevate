@@ -2472,6 +2472,18 @@ export default function App() {
     setAppStoreRoute({ active: false, slug: null });
   }, []);
 
+  // Silently backfill existing enrolled/user emails into email_directory when an Admin opens the Web Console
+  useEffect(() => {
+    if (!currentUser || isGuestUser(currentUser)) return;
+    const activeInstId = selectedInstituteId || PRIMARY_WORKSPACE_ID;
+    if (!isMasterUser(currentUser, activeInstId)) return;
+    import('./lib/tenantFirebase')
+      .then(({ backfillEmailDirectoryForCurrentInstitute }) =>
+        backfillEmailDirectoryForCurrentInstitute(activeInstId)
+      )
+      .catch(() => {});
+  }, [currentUser, selectedInstituteId]);
+
   if (appStoreRoute.active) {
     return (
       <InstituteAppStorePage
