@@ -598,7 +598,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }}
                     title={`Guest: ${guestName || 'Guest Learner'}`}
                     aria-label="Guest Profile"
-                    className="w-9 h-9 rounded-full bg-[#d3e3fd] dark:bg-[#004a77] hover:brightness-95 dark:hover:brightness-110 text-[#0b57d0] dark:text-[#c2e7ff] font-black text-xs flex items-center justify-center border border-[#0b57d0]/20 dark:border-[#a8c7fa]/25 shadow-xs outline-none transition-all active:scale-95 cursor-pointer shrink-0 relative"
+                    className="w-9 h-9 rounded-full bg-white hover:bg-slate-50 dark:bg-[#1e2024] dark:hover:bg-[#282a30] text-[#0b57d0] dark:text-[#a8c7fa] font-black text-xs flex items-center justify-center border-0 ring-0 shadow-xs outline-none transition-all active:scale-95 cursor-pointer shrink-0 relative"
                   >
                     {guestName ? (
                       <span className="uppercase text-xs font-black">{guestName.charAt(0)}</span>

@@ -1878,6 +1878,40 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
                     );
                   })()}
 
+                  {currentBatch.isPublished !== false && !currentBatch.isPrivateRosterOnly && currentBatch.allowGuestAccess && (
+                    <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+                      <div className="space-y-0.5 flex-1 pr-2">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-bold text-[var(--md-sys-color-on-surface)]">
+                            Guest Student Test Rankings
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            currentBatch.enableGuestTestRankings ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-500/15 text-slate-600'
+                          }`}>
+                            {currentBatch.enableGuestTestRankings ? 'Rankings On' : 'Rankings Off'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[var(--md-sys-color-on-surface-variant)] leading-normal">
+                          {currentBatch.enableGuestTestRankings
+                            ? 'Guest students appear in test leaderboards using their entered Guest Name.'
+                            : 'Guest test scores remain private on their device and are excluded from leaderboards.'}
+                        </p>
+                      </div>
+                      <M3Switch
+                        checked={Boolean(currentBatch.enableGuestTestRankings)}
+                        onChange={() => {
+                          const nextVal = !currentBatch.enableGuestTestRankings;
+                          updateBatch(currentBatch.id, { enableGuestTestRankings: nextVal });
+                          showSecurityToast(
+                            nextVal
+                              ? `Guest Student Test Rankings enabled for "${currentBatch.title}".`
+                              : `Guest Student Test Rankings disabled for "${currentBatch.title}".`
+                          );
+                        }}
+                      />
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl bg-[var(--md-sys-color-surface-container-high)]/60 border border-[var(--md-sys-color-outline-variant)]/10">
                     <div className="space-y-0.5 flex-1 pr-2">
                       <div className="flex items-center space-x-2">

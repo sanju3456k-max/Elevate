@@ -55,6 +55,7 @@ export const EditBatchModal: React.FC<EditBatchModalProps> = ({
   const [bannerUrl, setBannerUrl] = useState('');
   const [isPublished, setIsPublished] = useState(true);
   const [allowGuestAccess, setAllowGuestAccess] = useState(false);
+  const [enableGuestTestRankings, setEnableGuestTestRankings] = useState(false);
   const [isPrivateRosterOnly, setIsPrivateRosterOnly] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -69,6 +70,7 @@ export const EditBatchModal: React.FC<EditBatchModalProps> = ({
       setBannerUrl(batch.bannerUrl || batch.thumbnailUrl || '');
       setIsPublished(batch.isPublished !== false);
       setAllowGuestAccess(Boolean(batch.allowGuestAccess));
+      setEnableGuestTestRankings(Boolean(batch.enableGuestTestRankings));
       setIsPrivateRosterOnly(Boolean(batch.isPrivateRosterOnly));
       setConfirmDelete(false);
     }
@@ -91,6 +93,7 @@ export const EditBatchModal: React.FC<EditBatchModalProps> = ({
       thumbnailUrl: bannerUrl.trim() || undefined,
       isPublished,
       allowGuestAccess,
+      enableGuestTestRankings: allowGuestAccess ? enableGuestTestRankings : false,
       isPrivateRosterOnly,
     });
     onClose();
@@ -284,6 +287,26 @@ export const EditBatchModal: React.FC<EditBatchModalProps> = ({
                 </div>
               );
             })()}
+
+            {isPublished && !isPrivateRosterOnly && allowGuestAccess && (
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-emerald-500/[0.06] dark:bg-emerald-500/[0.08] border border-emerald-500/25 backdrop-blur-xs transition">
+                <div>
+                  <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 block flex items-center space-x-1.5">
+                    <Sparkles className={`w-3.5 h-3.5 ${enableGuestTestRankings ? 'text-emerald-500' : 'text-slate-400'}`} />
+                    <span>Guest Student Test Rankings</span>
+                  </span>
+                  <span className="text-[11px] text-slate-700 dark:text-zinc-300 font-medium">
+                    {enableGuestTestRankings
+                      ? 'Enabled: Guest students appear in test leaderboards with their Guest Name'
+                      : 'Disabled: Guest test scores stay private on their device'}
+                  </span>
+                </div>
+                <M3Switch
+                  checked={enableGuestTestRankings}
+                  onChange={() => setEnableGuestTestRankings(!enableGuestTestRankings)}
+                />
+              </div>
+            )}
 
             <div className="flex items-center justify-between p-3 rounded-2xl bg-white/70 dark:bg-zinc-900/40 border border-slate-100 dark:border-zinc-800 backdrop-blur-xs">
               <div>
