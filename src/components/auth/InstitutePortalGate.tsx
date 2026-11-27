@@ -23,6 +23,7 @@ import { APP_BRAND, clearWebInstituteSession } from '../../config/appBrand';
 import { isNativeAndroid } from '../../lib/nativeHardwareBridge';
 import { PRIMARY_WORKSPACE_ID } from '../../lib/masterWorkspace';
 import { getInstituteFirebaseServices } from '../../lib/tenantFirebase';
+import { getGuestDisplayName, setGuestDisplayName } from '../../lib/guestIdentity';
 import { InstitutePortalLookup } from '../InstitutePortalLookup';
 
 interface InstitutePickerViewProps {
@@ -162,6 +163,8 @@ export const InstitutePortalGate: React.FC<InstitutePortalGateProps> = ({
   onOpenAppStore,
 }) => {
   const isNativeEnv = isNativeAndroid() || APP_BRAND.isLockedApk;
+  const [showGuestNamePrompt, setShowGuestNamePrompt] = useState(false);
+  const [guestNameInput, setGuestNameInput] = useState(() => getGuestDisplayName());
   const [selectedWorkspace, setSelectedWorkspace] = useState<MasterWorkspace | null>(() =>
     getWorkspaceById(selectedInstituteId)
   );
@@ -303,18 +306,67 @@ export const InstitutePortalGate: React.FC<InstitutePortalGateProps> = ({
                 </button>
               )}
 
-              {isNativeEnv && (
+              {isNativeEnv && !showGuestNamePrompt && (
                 <button
                   type="button"
                   onClick={() => {
-                    setAppInstituteGuestMode(true);
-                    onContinueAsGuest();
+                    const existingName = getGuestDisplayName();
+                    if (existingName) {
+                      setAppInstituteGuestMode(true);
+                      onContinueAsGuest();
+                    } else {
+                      setShowGuestNamePrompt(true);
+                    }
                   }}
                   className="w-full py-3 px-5 rounded-2xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200/80 dark:hover:bg-zinc-700 text-slate-800 dark:text-slate-100 font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer border border-slate-200/80 dark:border-zinc-700"
                 >
                   <UserCheck className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
                   <span>Continue as Guest</span>
                 </button>
+              )}
+
+              {isNativeEnv && showGuestNamePrompt && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const saved = setGuestDisplayName(guestNameInput);
+                    if (!saved) return;
+                    setShowGuestNamePrompt(false);
+                    setAppInstituteGuestMode(true);
+                    onContinueAsGuest();
+                  }}
+                  className="w-full p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 space-y-2.5 text-left"
+                >
+                  <label className="block text-xs font-bold text-slate-700 dark:text-zinc-200">
+                    Enter Your Name (for Guest Test Rankings & Reports)
+                  </label>
+                  <input
+                    type="text"
+                    value={guestNameInput}
+                    onChange={(e) => setGuestNameInput(e.target.value)}
+                    placeholder="Your full name..."
+                    autoFocus
+                    required
+                    minLength={2}
+                    maxLength={80}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0b57d0]"
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="submit"
+                      className="flex-1 py-2.5 px-4 rounded-xl bg-[#0b57d0] hover:bg-[#0947a8] text-white font-bold text-xs border-0 cursor-pointer transition-all active:scale-[0.98]"
+                    >
+                      Continue as Guest
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowGuestNamePrompt(false)}
+                      className="py-2.5 px-3 rounded-xl bg-slate-200/80 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-semibold text-xs border-0 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
               )}
 
               {!isNativeEnv && !isIosStandalone && (
