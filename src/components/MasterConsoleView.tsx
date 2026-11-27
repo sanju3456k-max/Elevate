@@ -213,7 +213,9 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
     getWorkspacesForUser(currentUserEmail)
   );
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>(() =>
-    getActiveWorkspaceForUser(currentUserEmail)?.id || PRIMARY_WORKSPACE_ID
+    (APP_BRAND.isLockedApk || APP_BRAND.isLockedPwa) && APP_BRAND.instituteId
+      ? APP_BRAND.instituteId
+      : getActiveWorkspaceForUser(currentUserEmail)?.id || PRIMARY_WORKSPACE_ID
   );
 
   useEffect(() => {

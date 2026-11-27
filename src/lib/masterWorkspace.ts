@@ -1,4 +1,6 @@
 import { db, sanitizeForFirestore } from './firebase';
+import { APP_BRAND } from '../config/appBrand';
+import { STATIC_INSTITUTES_REGISTRY } from '../config/institutesRegistry';
 import {
   collection,
   doc,
@@ -103,21 +105,66 @@ function normalizeWorkspace(raw: any): MasterWorkspace {
   };
 }
 
+function mergeWithStaticWorkspaces(list: MasterWorkspace[]): MasterWorkspace[] {
+  const byId = new Map<string, MasterWorkspace>();
+  for (const reg of STATIC_INSTITUTES_REGISTRY) {
+    byId.set(reg.id, normalizeWorkspace(reg));
+  }
+  for (const ws of list) {
+    const norm = normalizeWorkspace(ws);
+    const existing = byId.get(norm.id);
+    byId.set(
+      norm.id,
+      existing
+        ? {
+            ...existing,
+            ...norm,
+            ownerEmail: norm.ownerEmail || existing.ownerEmail,
+            teamAdminEmails: norm.teamAdminEmails.length > 0 ? norm.teamAdminEmails : existing.teamAdminEmails,
+            slug: norm.slug || existing.slug,
+            logoUrl: norm.logoUrl || existing.logoUrl,
+            apkDownloadUrl: norm.apkDownloadUrl || existing.apkDownloadUrl,
+            firebaseWebConfig: norm.firebaseWebConfig || existing.firebaseWebConfig,
+            packageName: norm.packageName || existing.packageName,
+          }
+        : norm
+    );
+  }
+  if (
+    (APP_BRAND.isLockedApk || APP_BRAND.isLockedPwa || APP_BRAND.isWebInstituteActive) &&
+    APP_BRAND.instituteId &&
+    !byId.has(APP_BRAND.instituteId)
+  ) {
+    byId.set(
+      APP_BRAND.instituteId,
+      normalizeWorkspace({
+        id: APP_BRAND.instituteId,
+        name: APP_BRAND.name,
+        ownerEmail: APP_BRAND.ownerEmail,
+        logoUrl: APP_BRAND.logoUrl,
+        teamAdminEmails: [],
+      })
+    );
+  }
+  if (!byId.has(PRIMARY_WORKSPACE_ID)) {
+    byId.set(PRIMARY_WORKSPACE_ID, DEFAULT_PRIMARY_WORKSPACE);
+  }
+  const merged = Array.from(byId.values());
+  merged.sort((a, b) => (a.id === PRIMARY_WORKSPACE_ID ? -1 : b.id === PRIMARY_WORKSPACE_ID ? 1 : 0));
+  return merged;
+}
+
 export function getCachedMasterWorkspaces(): MasterWorkspace[] {
   try {
     const raw = localStorage.getItem(MASTER_WORKSPACES_CACHE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        const list = parsed.map(normalizeWorkspace);
-        if (!list.some((w) => w.id === PRIMARY_WORKSPACE_ID)) {
-          list.unshift(DEFAULT_PRIMARY_WORKSPACE);
-        }
-        return list;
+        return mergeWithStaticWorkspaces(parsed.map(normalizeWorkspace));
       }
     }
   } catch {}
-  return [DEFAULT_PRIMARY_WORKSPACE];
+  return mergeWithStaticWorkspaces([DEFAULT_PRIMARY_WORKSPACE]);
 }
 
 export function saveCachedMasterWorkspaces(workspaces: MasterWorkspace[]): void {
@@ -580,6 +627,9 @@ export function getInstituteInviteLink(workspaceId: string): string {
 }
 
 export function getActiveAppInstituteIdOrPrimary(): string {
+  if ((APP_BRAND.isLockedApk || APP_BRAND.isLockedPwa) && APP_BRAND.instituteId) {
+    return APP_BRAND.instituteId;
+  }
   return getSelectedAppInstituteId() || PRIMARY_WORKSPACE_ID;
 }
 
