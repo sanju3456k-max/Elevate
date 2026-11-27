@@ -46,16 +46,17 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
   const [hoveredQuestion, setHoveredQuestion] = useState<number | null>(null);
 
   const studentRows = analytics.studentRows || [];
-  const totalAttempts = analytics.totalAttempts || 1;
+  const rawTotalAttempts = analytics.totalAttempts || 0;
+  const totalAttempts = Math.max(rawTotalAttempts, 1);
 
   // 1. Calculate Score Distribution Bins
   const scoreBins = useMemo(() => {
     const bins = [
-      { id: 'top', label: '90% - 100%', sublabel: 'Top Tier Mastery', color: 'from-emerald-500 to-teal-500', barBg: 'bg-emerald-500', text: 'text-emerald-700 dark:text-emerald-300', bg: 'bg-emerald-50 dark:bg-emerald-950/40', border: 'border-emerald-500/20', min: 90, max: 100, count: 0 },
-      { id: 'good', label: '75% - 89%', sublabel: 'Proficient', color: 'from-blue-500 to-indigo-500', barBg: 'bg-blue-500', text: 'text-blue-700 dark:text-blue-300', bg: 'bg-blue-50 dark:bg-blue-950/40', border: 'border-blue-500/20', min: 75, max: 89.99, count: 0 },
-      { id: 'avg', label: '60% - 74%', sublabel: 'Competent', color: 'from-sky-500 to-blue-400', barBg: 'bg-sky-500', text: 'text-sky-700 dark:text-sky-300', bg: 'bg-sky-50 dark:bg-sky-950/40', border: 'border-sky-500/20', min: 60, max: 74.99, count: 0 },
-      { id: 'dev', label: '40% - 59%', sublabel: 'Developing', color: 'from-amber-500 to-yellow-500', barBg: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-300', bg: 'bg-amber-50 dark:bg-amber-950/40', border: 'border-amber-500/20', min: 40, max: 59.99, count: 0 },
-      { id: 'critical', label: '< 40%', sublabel: 'Needs Attention', color: 'from-rose-500 to-red-500', barBg: 'bg-rose-500', text: 'text-rose-700 dark:text-rose-300', bg: 'bg-rose-50 dark:bg-rose-950/40', border: 'border-rose-500/20', min: 0, max: 39.99, count: 0 },
+      { id: 'top', label: '90%+', sublabel: 'Mastery', color: 'from-emerald-500 to-teal-500', barBg: 'bg-emerald-500', text: 'text-emerald-700 dark:text-emerald-300', bg: 'bg-emerald-50 dark:bg-emerald-950/40', min: 90, max: 100, count: 0 },
+      { id: 'good', label: '75–89%', sublabel: 'Proficient', color: 'from-blue-500 to-indigo-500', barBg: 'bg-blue-500', text: 'text-blue-700 dark:text-blue-300', bg: 'bg-blue-50 dark:bg-blue-950/40', min: 75, max: 89.99, count: 0 },
+      { id: 'avg', label: '60–74%', sublabel: 'Competent', color: 'from-sky-500 to-blue-400', barBg: 'bg-sky-500', text: 'text-sky-700 dark:text-sky-300', bg: 'bg-sky-50 dark:bg-sky-950/40', min: 60, max: 74.99, count: 0 },
+      { id: 'dev', label: '40–59%', sublabel: 'Developing', color: 'from-amber-500 to-yellow-500', barBg: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-300', bg: 'bg-amber-50 dark:bg-amber-950/40', min: 40, max: 59.99, count: 0 },
+      { id: 'critical', label: '<40%', sublabel: 'Critical', color: 'from-rose-500 to-red-500', barBg: 'bg-rose-500', text: 'text-rose-700 dark:text-rose-300', bg: 'bg-rose-50 dark:bg-rose-950/40', min: 0, max: 39.99, count: 0 },
     ];
 
     studentRows.forEach((r) => {
@@ -75,12 +76,12 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
     return Math.max(...scoreBins.map(b => b.count), 1);
   }, [scoreBins]);
 
-  // 2. Percentile Quartile Calculations
+  // 2. Percentile Quartile Calculations (interpolated index for small & large cohorts)
   const percentiles = useMemo(() => {
     if (studentRows.length === 0) return { p90: 0, p75: 0, p50: 0, p25: 0 };
     const sorted = [...studentRows].map(r => r.percentage).sort((a, b) => a - b);
     const getP = (p: number) => {
-      const index = Math.min(sorted.length - 1, Math.max(0, Math.floor((p / 100) * sorted.length)));
+      const index = Math.min(sorted.length - 1, Math.max(0, Math.round((p / 100) * (sorted.length - 1))));
       return Math.round(sorted[index]);
     };
     return {
@@ -184,26 +185,26 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
   return (
     <div className="space-y-4 sm:space-y-6">
 
-      {/* Row 1: Percentile & Benchmark Bar */}
+      {/* Row 1: Percentile & Benchmark Bar (Clean Borderless Tonal Chips) */}
       <div className="p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-[#1e2024] border-0 shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <Activity className="w-4 h-4 text-[#0b57d0] dark:text-[#a8c7fa]" />
           <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">
-            Cohort Percentile Distribution:
+            Score Benchmarks
           </span>
         </div>
-        <div className="flex items-center gap-2 sm:gap-4 flex-wrap text-xs font-mono font-bold">
-          <span className="px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
-            P90: {percentiles.p90}%
+        <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap text-xs font-mono font-bold">
+          <span className="px-3 py-1 rounded-full bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 border-0">
+            P90 · {percentiles.p90}%
           </span>
-          <span className="px-2.5 py-1 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-500/20">
-            P75 (Q3): {percentiles.p75}%
+          <span className="px-3 py-1 rounded-full bg-blue-500/12 text-blue-700 dark:text-blue-300 border-0">
+            P75 · {percentiles.p75}%
           </span>
-          <span className="px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20">
-            Median (P50): {percentiles.p50}%
+          <span className="px-3 py-1 rounded-full bg-indigo-500/12 text-indigo-700 dark:text-indigo-300 border-0">
+            Median · {percentiles.p50}%
           </span>
-          <span className="px-2.5 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-500/20">
-            P25 (Q1): {percentiles.p25}%
+          <span className="px-3 py-1 rounded-full bg-amber-500/12 text-amber-700 dark:text-amber-300 border-0">
+            P25 · {percentiles.p25}%
           </span>
         </div>
       </div>
@@ -262,12 +263,12 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
                     </div>
 
                     {/* Animated Bar Column */}
-                    <div className="w-full max-w-[54px] bg-slate-100 dark:bg-zinc-800/80 rounded-2xl p-1 flex items-end justify-center transition-all group-hover:bg-slate-200 dark:group-hover:bg-zinc-700">
+                    <div className="w-full max-w-[54px] h-28 sm:h-36 bg-slate-100 dark:bg-zinc-800/80 rounded-2xl p-1 flex items-end justify-center transition-all group-hover:bg-slate-200 dark:group-hover:bg-zinc-700">
                       <div
                         className={`w-full rounded-xl transition-all duration-300 bg-gradient-to-t ${bin.color} ${
-                          isSelected ? 'ring-3 ring-[#0b57d0] dark:ring-[#a8c7fa] shadow-md scale-[1.02]' : 'group-hover:opacity-90'
+                          isSelected ? 'ring-2 ring-[#0b57d0] dark:ring-[#a8c7fa] shadow-md scale-[1.02]' : 'group-hover:opacity-90'
                         }`}
-                        style={{ height: `${heightPct}%` }}
+                        style={{ height: `${bin.count > 0 ? heightPct : 8}%` }}
                       />
                     </div>
 
@@ -318,41 +319,41 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
             </p>
           </div>
 
-          {/* 4 Quadrants Grid */}
+          {/* 4 Quadrants Grid (Borderless Tonal Cards) */}
           <div className="grid grid-cols-2 gap-2.5 pt-1">
             
             {/* Q1: Speed Scholars */}
             <div
               onClick={() => onSelectQuadrantFilter(selectedQuadrantFilter === 'q1' ? null : 'q1')}
-              className={`p-3 rounded-2xl border transition cursor-pointer select-none ${
+              className={`p-3 rounded-2xl border-0 transition cursor-pointer select-none ${
                 selectedQuadrantFilter === 'q1'
-                  ? 'bg-emerald-500/15 border-emerald-500 ring-2 ring-emerald-500/50'
-                  : 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-500/20 hover:border-emerald-500/40'
+                  ? 'bg-emerald-500/20 ring-2 ring-emerald-500/60'
+                  : 'bg-emerald-500/10 hover:bg-emerald-500/15'
               }`}
             >
               <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-300 mb-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider">Fast & High Acc</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider">Fast &amp; Accurate</span>
                 <Zap className="w-3.5 h-3.5" />
               </div>
               <p className="text-xl font-black text-slate-900 dark:text-zinc-100 font-mono">
                 {speedAccuracyMatrix.q1.count} <span className="text-xs font-normal text-slate-500">({speedAccuracyMatrix.q1.pct}%)</span>
               </p>
               <p className="text-[10px] text-emerald-800 dark:text-emerald-300 font-semibold mt-0.5">
-                Speed Scholars (Mastery)
+                Speed Scholars
               </p>
             </div>
 
             {/* Q2: Deliberate Scholars */}
             <div
               onClick={() => onSelectQuadrantFilter(selectedQuadrantFilter === 'q2' ? null : 'q2')}
-              className={`p-3 rounded-2xl border transition cursor-pointer select-none ${
+              className={`p-3 rounded-2xl border-0 transition cursor-pointer select-none ${
                 selectedQuadrantFilter === 'q2'
-                  ? 'bg-blue-500/15 border-blue-500 ring-2 ring-blue-500/50'
-                  : 'bg-blue-50/40 dark:bg-blue-950/20 border-blue-500/20 hover:border-blue-500/40'
+                  ? 'bg-blue-500/20 ring-2 ring-blue-500/60'
+                  : 'bg-blue-500/10 hover:bg-blue-500/15'
               }`}
             >
               <div className="flex items-center justify-between text-blue-700 dark:text-blue-300 mb-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider">Paced & High Acc</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider">Paced &amp; Accurate</span>
                 <Clock className="w-3.5 h-3.5" />
               </div>
               <p className="text-xl font-black text-slate-900 dark:text-zinc-100 font-mono">
@@ -366,50 +367,50 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
             {/* Q3: Rushed Guesses */}
             <div
               onClick={() => onSelectQuadrantFilter(selectedQuadrantFilter === 'q3' ? null : 'q3')}
-              className={`p-3 rounded-2xl border transition cursor-pointer select-none ${
+              className={`p-3 rounded-2xl border-0 transition cursor-pointer select-none ${
                 selectedQuadrantFilter === 'q3'
-                  ? 'bg-amber-500/15 border-amber-500 ring-2 ring-amber-500/50'
-                  : 'bg-amber-50/40 dark:bg-amber-950/20 border-amber-500/20 hover:border-amber-500/40'
+                  ? 'bg-amber-500/20 ring-2 ring-amber-500/60'
+                  : 'bg-amber-500/10 hover:bg-amber-500/15'
               }`}
             >
               <div className="flex items-center justify-between text-amber-700 dark:text-amber-300 mb-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider">Fast & Low Acc</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider">Fast &amp; Low Acc</span>
                 <AlertTriangle className="w-3.5 h-3.5" />
               </div>
               <p className="text-xl font-black text-slate-900 dark:text-zinc-100 font-mono">
                 {speedAccuracyMatrix.q3.count} <span className="text-xs font-normal text-slate-500">({speedAccuracyMatrix.q3.pct}%)</span>
               </p>
               <p className="text-[10px] text-amber-800 dark:text-amber-300 font-semibold mt-0.5">
-                Rushed Guesses
+                Rushed Attempts
               </p>
             </div>
 
             {/* Q4: Critical Support */}
             <div
               onClick={() => onSelectQuadrantFilter(selectedQuadrantFilter === 'q4' ? null : 'q4')}
-              className={`p-3 rounded-2xl border transition cursor-pointer select-none ${
+              className={`p-3 rounded-2xl border-0 transition cursor-pointer select-none ${
                 selectedQuadrantFilter === 'q4'
-                  ? 'bg-rose-500/15 border-rose-500 ring-2 ring-rose-500/50'
-                  : 'bg-rose-50/40 dark:bg-rose-950/20 border-rose-500/20 hover:border-rose-500/40'
+                  ? 'bg-rose-500/20 ring-2 ring-rose-500/60'
+                  : 'bg-rose-500/10 hover:bg-rose-500/15'
               }`}
             >
               <div className="flex items-center justify-between text-rose-700 dark:text-rose-300 mb-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider">Slow & Low Acc</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider">Slow &amp; Low Acc</span>
                 <AlertTriangle className="w-3.5 h-3.5" />
               </div>
               <p className="text-xl font-black text-slate-900 dark:text-zinc-100 font-mono">
                 {speedAccuracyMatrix.q4.count} <span className="text-xs font-normal text-slate-500">({speedAccuracyMatrix.q4.pct}%)</span>
               </p>
               <p className="text-[10px] text-rose-800 dark:text-rose-300 font-semibold mt-0.5">
-                Critical Support (Struggling)
+                Needs Support
               </p>
             </div>
           </div>
 
           {/* Quick Guidance Tag */}
-          <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-900/60 border border-slate-100 dark:border-zinc-800 text-[10px] text-slate-600 dark:text-zinc-400 flex items-center justify-between">
+          <div className="p-2.5 rounded-xl bg-slate-100/80 dark:bg-zinc-800/60 border-0 text-[10px] text-slate-600 dark:text-zinc-400 flex items-center justify-between">
             <span>Remedial Candidates: <strong>{speedAccuracyMatrix.q3.count + speedAccuracyMatrix.q4.count} students</strong></span>
-            <span className="text-[#0b57d0] dark:text-[#a8c7fa] font-bold">Target for Remedial</span>
+            <span className="text-[#0b57d0] dark:text-[#a8c7fa] font-bold">Tap quadrant to filter</span>
           </div>
         </div>
       </div>
@@ -626,7 +627,7 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
 
           {/* Side by side stats */}
           <div className="grid grid-cols-2 gap-3 pt-1">
-            <div className="p-3 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-500/15">
+            <div className="p-3 rounded-2xl bg-blue-500/10 border-0">
               <p className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">
                 Online Exam
               </p>
@@ -638,7 +639,7 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
               </p>
             </div>
 
-            <div className="p-3 rounded-2xl bg-orange-50/50 dark:bg-orange-950/20 border border-orange-500/15">
+            <div className="p-3 rounded-2xl bg-orange-500/10 border-0">
               <p className="text-[10px] font-bold text-orange-700 dark:text-orange-300 uppercase tracking-wider">
                 OMR Scanned
               </p>
@@ -651,8 +652,8 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
             </div>
           </div>
 
-          <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-900/40 text-[10.5px] text-slate-500 dark:text-zinc-400 flex items-center justify-between">
-            <span>Total Attempts: <strong>{totalAttempts}</strong></span>
+          <div className="p-2.5 rounded-xl bg-slate-100/80 dark:bg-zinc-800/60 border-0 text-[10.5px] text-slate-500 dark:text-zinc-400 flex items-center justify-between">
+            <span>Total Attempts: <strong>{rawTotalAttempts}</strong></span>
             <span>Online: {deliveryModeComparison.online.count} | OMR: {deliveryModeComparison.omr.count}</span>
           </div>
         </div>
@@ -679,7 +680,7 @@ export const CohortAnalyticsVisualDashboard: React.FC<CohortAnalyticsVisualDashb
               return (
                 <div
                   key={top.topic}
-                  className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-zinc-900/40 border border-slate-100 dark:border-zinc-800/80 space-y-2"
+                  className="p-3.5 rounded-2xl bg-slate-100/70 dark:bg-zinc-800/50 border-0 space-y-2"
                 >
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-bold text-slate-800 dark:text-zinc-200 truncate pr-2">

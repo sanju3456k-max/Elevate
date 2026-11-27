@@ -48,6 +48,11 @@ import { TestReportAnalysisView } from './TestReportAnalysisView';
 import { APP_STYLES } from './ui/AppStyles';
 import { useApp } from '../lms/LmsContext';
 import { useBackHandler } from '../hooks/useBackNavigation';
+import {
+  computeDayWiseActivity,
+  computeActiveStreakDays,
+  getCompletedVideosCount,
+} from '../utils/activityStats';
 
 export interface PerformanceAnalyticsProps {
   attempts: TestAttempt[];
@@ -93,47 +98,21 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
 
   const { watchProgress } = useApp();
 
-  const completedVideosCount = useMemo(() => {
-    return Object.values(watchProgress || {}).filter((p) => p.isCompleted).length || 2;
-  }, [watchProgress]);
+  const completedVideosCount = useMemo(
+    () => getCompletedVideosCount(watchProgress),
+    [watchProgress]
+  );
 
-  // Compute 7-day Day-wise Activity Graph
-  const dayWiseActivity = useMemo(() => {
-    const days = [];
-    const today = new Date();
-    const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const activeStreakDays = useMemo(
+    () => computeActiveStreakDays(attempts, watchProgress),
+    [attempts, watchProgress]
+  );
 
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const dayName = i === 0 ? 'Today' : dayLabels[d.getDay()];
-      const dateStr = d.toISOString().split('T')[0];
-
-      // Match attempts on this day
-      const dayAttempts = attempts.filter((a) => {
-        const attemptDate = (a.completedAt || a.createdAt || '').split('T')[0];
-        return attemptDate === dateStr;
-      });
-
-      const testsAttempted = dayAttempts.length;
-      const avgScore = testsAttempted > 0
-        ? Math.round(dayAttempts.reduce((sum, a) => sum + (a.percentage || 0), 0) / testsAttempted)
-        : (i === 0 ? 88 : (i === 1 ? 82 : (i === 3 ? 91 : 0)));
-
-      // Videos completed on or by this day
-      const videosDone = i === 0 ? 2 : (i === 1 ? 1 : (i === 2 ? 3 : (i === 4 ? 2 : (i === 6 ? 1 : 0))));
-
-      days.push({
-        dayName,
-        dateStr,
-        videosCompleted: videosDone,
-        testsAttempted: testsAttempted > 0 ? testsAttempted : (i === 0 ? 1 : (i === 2 ? 1 : 0)),
-        avgScore,
-        isToday: i === 0,
-      });
-    }
-    return days;
-  }, [attempts]);
+  // Compute 7-day Day-wise Activity Graph from real attempts & watchProgress (zero dummy data)
+  const dayWiseActivity = useMemo(
+    () => computeDayWiseActivity('7days', attempts, watchProgress),
+    [attempts, watchProgress]
+  );
 
   const maxDayTasks = Math.max(
     ...dayWiseActivity.map((d) => d.videosCompleted + d.testsAttempted),
@@ -666,7 +645,7 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
               <span>Streak</span>
             </div>
             <div className="text-lg sm:text-2xl font-black text-orange-500 font-mono">
-              5 Days
+              {activeStreakDays} {activeStreakDays === 1 ? 'Day' : 'Days'}
             </div>
             <div className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium">
               Daily Practice Habit

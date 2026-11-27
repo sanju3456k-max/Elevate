@@ -34,6 +34,12 @@ import {
   Crown,
   RefreshCw
 } from 'lucide-react';
+import {
+  computeDayWiseActivity,
+  computeActiveStreakDays,
+  getCompletedVideosCount,
+  type ActivityPeriod,
+} from '../../utils/activityStats';
 import { triggerLightHaptic, triggerSuccessHaptic } from '../../lib/nativeHardwareBridge';
 import type { MathTest, TestAttempt, UserProfile } from '../../types';
 import type { User } from 'firebase/auth';
@@ -592,157 +598,27 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   );
   const continueWatchingLectures = lectures.filter((l) => inProgressLectureIds.includes(l.id));
 
-  type ActivityPeriod = '7days' | '1month' | '2months' | '3months' | '4months' | '6months';
   const [activityPeriod, setActivityPeriod] = useState<ActivityPeriod>('7days');
 
-  // Compute 7-entry Activity Graph based on selected period
-  const dayWiseActivity: DayActivity[] = useMemo(() => {
-    const days: DayActivity[] = [];
-    const today = new Date();
+  // Compute real 7-entry Activity Graph from actual attempts & watchProgress (zero dummy data)
+  const dayWiseActivity = useMemo(
+    () => computeDayWiseActivity(activityPeriod, attempts, watchProgress),
+    [activityPeriod, attempts, watchProgress]
+  );
 
-    if (activityPeriod === '7days') {
-      const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(today);
-        d.setDate(today.getDate() - i);
-        const dayName = i === 0 ? 'Today' : dayLabels[d.getDay()];
-        const dateStr = d.toISOString().split('T')[0];
-
-        const dayAttempts = attempts.filter((a) => {
-          const attemptDate = (a.completedAt || a.createdAt || '').split('T')[0];
-          return attemptDate === dateStr;
-        });
-
-        const testsAttempted = dayAttempts.length;
-        const avgScore = testsAttempted > 0
-          ? Math.round(dayAttempts.reduce((sum, a) => sum + (a.percentage || 0), 0) / testsAttempted)
-          : 0;
-
-        let videosCompleted = 0;
-        let totalTimeMinutes = testsAttempted * 15;
-
-        if (i === 0) {
-          const completedCount = Object.values(watchProgress).filter((w) => w.isCompleted || w.watchedSeconds > 30).length;
-          videosCompleted = Math.max(completedCount, 1);
-          totalTimeMinutes += videosCompleted * 15;
-        } else if (i === 1) {
-          videosCompleted = 1;
-          totalTimeMinutes += 20;
-        } else if (i === 2) {
-          videosCompleted = 2;
-          totalTimeMinutes += 30;
-        } else if (i === 4) {
-          videosCompleted = 1;
-          totalTimeMinutes += 15;
-        }
-
-        days.push({
-          dayName,
-          dateStr,
-          isToday: i === 0,
-          videosCompleted,
-          testsAttempted: Math.max(testsAttempted, i === 0 ? Math.max(attempts.length, 1) : (i % 2 === 0 ? 1 : 0)),
-          avgScore: avgScore > 0 ? avgScore : (85 + (i * 3) % 15),
-          totalTimeMinutes: Math.max(totalTimeMinutes, 25),
-        });
-      }
-    } else if (activityPeriod === '1month') {
-      const bucketLabels = ['Day 1-4', 'Day 5-8', 'Day 9-12', 'Day 13-16', 'Day 17-21', 'Day 22-26', 'Recent'];
-      const videoMocks = [3, 2, 4, 3, 5, 2, Math.max(Object.values(watchProgress).length, 3)];
-      const testMocks = [1, 2, 1, 3, 2, 1, Math.max(attempts.length, 2)];
-      const scores = [82, 85, 90, 88, 92, 86, 94];
-
-      bucketLabels.forEach((label, idx) => {
-        days.push({
-          dayName: label,
-          dateStr: `Bucket ${idx + 1}`,
-          isToday: idx === 6,
-          videosCompleted: videoMocks[idx],
-          testsAttempted: testMocks[idx],
-          avgScore: scores[idx],
-          totalTimeMinutes: (videoMocks[idx] + testMocks[idx]) * 20,
-        });
-      });
-    } else if (activityPeriod === '2months') {
-      const bucketLabels = ['W1-2', 'W3-4', 'W5-6', 'W7-8', 'W9-10', 'W11-12', 'Latest'];
-      const videoMocks = [5, 4, 6, 5, 7, 4, Math.max(Object.values(watchProgress).length, 4)];
-      const testMocks = [2, 3, 2, 4, 3, 2, Math.max(attempts.length, 3)];
-      const scores = [80, 84, 86, 89, 91, 87, 95];
-
-      bucketLabels.forEach((label, idx) => {
-        days.push({
-          dayName: label,
-          dateStr: `Bucket ${idx + 1}`,
-          isToday: idx === 6,
-          videosCompleted: videoMocks[idx],
-          testsAttempted: testMocks[idx],
-          avgScore: scores[idx],
-          totalTimeMinutes: (videoMocks[idx] + testMocks[idx]) * 25,
-        });
-      });
-    } else if (activityPeriod === '3months') {
-      const bucketLabels = ['BiW 1', 'BiW 2', 'BiW 3', 'BiW 4', 'BiW 5', 'BiW 6', 'Current'];
-      const videoMocks = [6, 5, 7, 6, 8, 5, Math.max(Object.values(watchProgress).length, 5)];
-      const testMocks = [3, 4, 3, 5, 4, 3, Math.max(attempts.length, 3)];
-      const scores = [78, 83, 85, 88, 90, 88, 93];
-
-      bucketLabels.forEach((label, idx) => {
-        days.push({
-          dayName: label,
-          dateStr: `Bucket ${idx + 1}`,
-          isToday: idx === 6,
-          videosCompleted: videoMocks[idx],
-          testsAttempted: testMocks[idx],
-          avgScore: scores[idx],
-          totalTimeMinutes: (videoMocks[idx] + testMocks[idx]) * 25,
-        });
-      });
-    } else if (activityPeriod === '4months') {
-      const bucketLabels = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'Recent'];
-      const videoMocks = [8, 7, 9, 8, 10, 7, Math.max(Object.values(watchProgress).length, 6)];
-      const testMocks = [4, 5, 4, 6, 5, 4, Math.max(attempts.length, 4)];
-      const scores = [76, 81, 84, 87, 91, 89, 94];
-
-      bucketLabels.forEach((label, idx) => {
-        days.push({
-          dayName: label,
-          dateStr: `Bucket ${idx + 1}`,
-          isToday: idx === 6,
-          videosCompleted: videoMocks[idx],
-          testsAttempted: testMocks[idx],
-          avgScore: scores[idx],
-          totalTimeMinutes: (videoMocks[idx] + testMocks[idx]) * 30,
-        });
-      });
-    } else {
-      const monthNames = ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'];
-      const videoMocks = [10, 9, 12, 11, 14, 10, Math.max(Object.values(watchProgress).length, 8)];
-      const testMocks = [5, 6, 6, 8, 7, 5, Math.max(attempts.length, 5)];
-      const scores = [75, 80, 83, 86, 89, 92, 95];
-
-      monthNames.forEach((month, idx) => {
-        days.push({
-          dayName: month,
-          dateStr: `Month ${idx + 1}`,
-          isToday: idx === 6,
-          videosCompleted: videoMocks[idx],
-          testsAttempted: testMocks[idx],
-          avgScore: scores[idx],
-          totalTimeMinutes: (videoMocks[idx] + testMocks[idx]) * 35,
-        });
-      });
-    }
-
-    return days;
-  }, [activityPeriod, attempts, watchProgress]);
-
-  // Aggregate Study Stats
+  // Aggregate Real Study Stats (zero dummy fallbacks)
   const totalAttempts = attempts.length;
-  const completedVideosCount = Object.values(watchProgress).filter((w) => w.isCompleted || w.watchedSeconds > 30).length || 2;
+  const completedVideosCount = useMemo(
+    () => getCompletedVideosCount(watchProgress),
+    [watchProgress]
+  );
+  const activeStreakDays = useMemo(
+    () => computeActiveStreakDays(attempts, watchProgress),
+    [attempts, watchProgress]
+  );
   const averagePercentage = totalAttempts > 0
     ? Math.round(attempts.reduce((sum, a) => sum + (a.percentage || 0), 0) / totalAttempts)
-    : 88;
+    : 0;
 
   const handleSelectBatchItem = (batchId: string) => {
     const target = batches.find((b) => b.id === batchId);
@@ -1533,7 +1409,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
               </div>
               <div className="text-xl sm:text-2xl font-black text-[var(--md-sys-color-on-surface)]">
-                {totalAttempts > 0 ? totalAttempts : 2}
+                {totalAttempts}
               </div>
               <div className="text-[9.5px] sm:text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
                 Full Mock Assessments
@@ -1559,7 +1435,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 <Flame className="w-4 h-4 text-orange-500 fill-orange-500" />
               </div>
               <div className="text-xl sm:text-2xl font-black text-orange-500">
-                5 Days
+                {activeStreakDays} {activeStreakDays === 1 ? 'Day' : 'Days'}
               </div>
               <div className="text-[9.5px] sm:text-[10px] text-[var(--md-sys-color-on-surface-variant)]">
                 Daily Practice Habit
