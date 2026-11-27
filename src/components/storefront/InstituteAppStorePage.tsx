@@ -549,8 +549,12 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
                 {downloadHref && (
                   <a
                     href={downloadHref}
-                    {...(isPrimary
-                      ? { download: 'elevate.apk' }
+                    {...(downloadHref.startsWith('/')
+                      ? {
+                          download: isPrimary
+                            ? 'elevate.apk'
+                            : `${(activeApp.slug || activeApp.id || 'institute').replace(/[^a-zA-Z0-9._-]/g, '-')}.apk`,
+                        }
                       : { target: '_blank', rel: 'noopener noreferrer' })}
                     className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-[#0b57d0] hover:bg-[#0947a8] text-white text-sm font-semibold flex items-center justify-center gap-2.5 transition-all active:scale-[0.99] border-0 no-underline shrink-0"
                   >

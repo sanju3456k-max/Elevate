@@ -1,5 +1,5 @@
 // Service Worker for Elevate Math Practice PWA (WebAPK Compliant)
-const CACHE_NAME = 'elevate-pwa-v17';
+const CACHE_NAME = 'elevate-pwa-v18';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -62,11 +62,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Bypass backend API calls, Firebase API, or telemetry calls
+  // Bypass backend API calls, Firebase API, telemetry, or binary APK downloads
   if (
     request.url.includes('/api/') ||
     request.url.includes('firestore.googleapis.com') || 
-    request.url.includes('identitytoolkit.googleapis.com')
+    request.url.includes('identitytoolkit.googleapis.com') ||
+    request.url.endsWith('.apk') ||
+    request.url.includes('.apk?')
   ) {
     return;
   }
