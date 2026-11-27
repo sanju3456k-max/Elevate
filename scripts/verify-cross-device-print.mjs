@@ -209,12 +209,15 @@ async function run() {
             pageCount: a4Pages.length,
             pages: a4Pages.map((p, idx) => {
               const cols = p.querySelectorAll('.grid-cols-2 > div');
+              const inner = p.querySelector('.grid-cols-2');
+              const overflowPx = inner ? Math.round(inner.getBoundingClientRect().bottom - p.getBoundingClientRect().bottom) : 0;
               const leftIds = cols[0] ? Array.from(cols[0].querySelectorAll('[data-stream-id]')).map(e => e.getAttribute('data-stream-id')) : [];
               const rightIds = cols[1] ? Array.from(cols[1].querySelectorAll('[data-stream-id]')).map(e => e.getAttribute('data-stream-id')) : [];
               return {
                 page: idx + 1,
                 offsetWidth: p.offsetWidth,
                 offsetHeight: p.offsetHeight,
+                overflowPx,
                 leftIds,
                 rightIds,
               };
@@ -259,16 +262,20 @@ async function run() {
     let allIdentical = true;
     const summary = results.map((r) => {
       const domMatch = JSON.stringify(r.dom.pages) === JSON.stringify(baseline.dom.pages);
+      const maxOverflowPx = Math.max(...r.dom.pages.map((p) => p.overflowPx || 0), 0);
+      const noOverflow = maxOverflowPx <= 2;
       const pdfCountMatch = r.pdfPageCount === baseline.pdfPageCount;
       const pdfTextMatches = r.pdfPages.map((p, idx) => p.text === baseline.pdfPages[idx]?.text);
       const pdfMatch = pdfCountMatch && pdfTextMatches.every(Boolean);
-      if (!domMatch || !pdfMatch) allIdentical = false;
+      if (!domMatch || !pdfMatch || !noOverflow) allIdentical = false;
       return {
         device: r.label,
         tinosLoaded: r.dom.tinosLoaded,
         portalActive: r.dom.portalActive,
         domPageCount: r.dom.pageCount,
         pdfPageCount: r.pdfPageCount,
+        maxOverflowPx,
+        noOverflow,
         domDimensionsPx: r.dom.pages.map((p) => `${p.offsetWidth}x${p.offsetHeight}`),
         domStructureIdenticalToDesktop: domMatch,
         printedPdfIdenticalToDesktop: pdfMatch,

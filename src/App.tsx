@@ -2523,7 +2523,7 @@ export default function App() {
   const omrBenchmarkTest = React.useMemo<MathTest | null>(() => {
     if (!isLocalBenchmark) return null;
     const topics = ['Algebra', 'Calculus', 'Trigonometry', 'Geometry', 'Matrices and Determinants'];
-    const questions = Array.from({ length: 35 }, (_, i) => {
+    const questions = Array.from({ length: 160 }, (_, i) => {
       const n = i + 1;
       const variant = i % 4;
       if (variant === 0) {
@@ -2571,13 +2571,13 @@ export default function App() {
       };
     });
     return {
-      id: 'omr_cross_device_benchmark_35q',
-      title: 'Cross-Device A4 Print Parity Benchmark (35 Questions)',
+      id: 'omr_cross_device_benchmark_160q',
+      title: 'Cross-Device A4 Print Parity Benchmark (160 Questions)',
       topic: 'Mixed Mathematics (Algebra, Calculus, Matrices)',
       difficulty: 'Medium',
-      timeLimitMinutes: 60,
-      time: 60,
-      totalMarks: 140,
+      timeLimitMinutes: 160,
+      time: 160,
+      totalMarks: 640,
       questions,
       createdAt: '2026-11-28T00:00:00.000Z',
     } as MathTest;

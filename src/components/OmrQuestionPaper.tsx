@@ -92,8 +92,8 @@ export interface PaperPageLayout {
  * - Page 1: 915px budget
  * - Subsequent Pages: 980px budget
  */
-const DEFAULT_PAGE_1_COL_HEIGHT_PX = 885;
-const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 950;
+const DEFAULT_PAGE_1_COL_HEIGHT_PX = 865;
+const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 935;
 /**
  * Extra bottom vertical height buffer (in pixels) added specifically to the in-app
  * preview canvas so that questions are never cut off at the bottom in the preview.
@@ -101,7 +101,7 @@ const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 950;
  */
 export const PREVIEW_BOTTOM_EXTRA_HEIGHT_PX = 0;
 const ITEM_GAP_PX = 0;
-const CHARS_PER_COL_LINE = 43;
+const CHARS_PER_COL_LINE = 39;
 
 export interface OptionDimensionAnalysis {
   effectiveWidthPx: number;
@@ -385,13 +385,15 @@ function estimateStatementHeight(text: string): number {
     }
   });
 
-  const baseHeight = lineCount * 18.5 + matrixExtra + displayMathExtra + fracExtra + 4;
-  return Math.max(22, Math.min(500, Math.round(baseHeight)));
+  const baseHeight = lineCount * 19.5 + matrixExtra + displayMathExtra + fracExtra + 6;
+  return Math.max(26, Math.min(520, Math.round(baseHeight)));
 }
 
 function estimateOptionRowHeight(opts: OptionData[]): number {
   let maxHeight = 20;
+  let hasOptionImage = false;
   opts.forEach((opt) => {
+    if (opt.imageUrl) hasOptionImage = true;
     const text = opt.text || '';
     const is3x3 = /\\begin\{(?:bmatrix|pmatrix|vmatrix|matrix)\}(?:[^\\]*\\\\){2,}/.test(text);
     const is2x2 = /\\begin\{(?:bmatrix|pmatrix|vmatrix|matrix)\}/.test(text);
@@ -408,25 +410,26 @@ function estimateOptionRowHeight(opts: OptionData[]): number {
       maxHeight = Math.max(maxHeight, 20);
     }
   });
-  return maxHeight;
+  return maxHeight + 6 + (hasOptionImage ? 64 : 0);
 }
 
 function estimateSingleOptionHeight(opt: OptionData): number {
   const text = opt.text || '';
+  const imgExtra = opt.imageUrl ? 64 : 0;
   const is3x3 = /\\begin\{(?:bmatrix|pmatrix|vmatrix|matrix)\}(?:[^\\]*\\\\){2,}/.test(text);
   const is2x2 = /\\begin\{(?:bmatrix|pmatrix|vmatrix|matrix)\}/.test(text);
   const isFrac = /\\(?:frac|dfrac)\b/.test(text);
   const isInt = /\\(?:int|iint|iiint)\b/.test(text);
 
-  if (is3x3) return 68;
-  if (is2x2) return 46;
-  if (isFrac || isInt) return 34;
+  if (is3x3) return 74 + imgExtra;
+  if (is2x2) return 52 + imgExtra;
+  if (isFrac || isInt) return 40 + imgExtra;
 
   const analysis = analyzeOptionDimensions(text);
-  const lines = Math.max(1, Math.ceil(analysis.effectiveWidthPx / 290));
+  const lines = Math.max(1, Math.ceil(analysis.effectiveWidthPx / 280));
 
-  let baseH = lines * 19;
-  return Math.max(20, baseH);
+  let baseH = lines * 19.5 + 6 + imgExtra;
+  return Math.max(26, Math.round(baseH));
 }
 
 export function cleanBlankLines(text: string): string {
@@ -672,10 +675,10 @@ function paginateLinearStream(
 
   const getColBudget = (pageIdx: number) => {
     if (layoutDensity === 'tight') {
-      return pageIdx === 0 ? 935 : 1000;
+      return pageIdx === 0 ? 900 : 970;
     }
     if (layoutDensity === 'relaxed') {
-      return pageIdx === 0 ? 875 : 940;
+      return pageIdx === 0 ? 835 : 905;
     }
     return pageIdx === 0 ? DEFAULT_PAGE_1_COL_HEIGHT_PX : DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX;
   };

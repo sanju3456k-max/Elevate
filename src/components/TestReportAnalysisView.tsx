@@ -1343,10 +1343,10 @@ export const TestReportAnalysisView: React.FC<TestReportAnalysisViewProps> = ({
                   id="report-top-leaderboard-btn"
                   type="button"
                   onClick={() => setIsLeaderboardOpen(true)}
-                  className="w-9 h-9 sm:w-auto sm:h-9 sm:px-3.5 rounded-full bg-orange-500 hover:bg-orange-600 dark:bg-orange-500 dark:hover:bg-orange-600 text-white font-bold text-xs border-0 ring-0 shadow-[0_2px_6px_rgba(249,115,22,0.35)] flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all outline-none"
+                  className="w-9 h-9 sm:w-auto sm:h-9 sm:px-3.5 rounded-full bg-white dark:bg-[#1e2024] hover:bg-[#f0f4f9] dark:hover:bg-[#282a30] text-[#1f1f1f] dark:text-[#e3e3e3] font-bold text-xs border-0 ring-0 shadow-[0_2px_6px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.35)] flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all outline-none"
                   title="View Test Leaderboard & Rankings"
                 >
-                  <Trophy className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-white fill-white stroke-[2.2]" />
+                  <Trophy className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-orange-500 dark:text-orange-400 stroke-[2.2]" />
                   <span className="hidden sm:inline">Leaderboard</span>
                 </button>
               )}
