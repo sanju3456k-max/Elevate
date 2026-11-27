@@ -92,8 +92,8 @@ export interface PaperPageLayout {
  * - Page 1: 915px budget
  * - Subsequent Pages: 980px budget
  */
-const DEFAULT_PAGE_1_COL_HEIGHT_PX = 915;
-const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 980;
+const DEFAULT_PAGE_1_COL_HEIGHT_PX = 885;
+const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 950;
 /**
  * Extra bottom vertical height buffer (in pixels) added specifically to the in-app
  * preview canvas so that questions are never cut off at the bottom in the preview.
@@ -1471,7 +1471,8 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
         <div id="question-paper-printable-root" className={`w-full flex flex-col ${continuousPages ? 'gap-0 py-0' : 'gap-8 py-2'} print:gap-0 items-center mx-auto px-0 touch-auto [webkit-overflow-scrolling:touch]`}>
           {activePageLayouts.map((page) => {
             const isLastPage = page.pageNumber === page.totalPages;
-            const currentPageHPx = getPagePreviewHeightPx(page);
+            // Strict 210mm x 297mm A4 dimensions in both preview and print across all devices
+            const currentPageHPx = pageHPx;
 
             return (
               <div
@@ -1482,7 +1483,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                   width: `${pageWPx * effectiveScale}px`,
                   maxWidth: '100%',
                   height: `${currentPageHPx * effectiveScale}px`,
-                  minHeight: `${(pageHPx + PREVIEW_BOTTOM_EXTRA_HEIGHT_PX) * effectiveScale}px`,
+                  minHeight: `${pageHPx * effectiveScale}px`,
                 }}
               >
                 <div
@@ -1492,10 +1493,15 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                     width: '210mm',
                     minWidth: '210mm',
                     maxWidth: '210mm',
-                    height: `${currentPageHPx}px`,
-                    minHeight: `${pageHPx + PREVIEW_BOTTOM_EXTRA_HEIGHT_PX}px`,
+                    height: '297mm',
+                    minHeight: '297mm',
+                    maxHeight: '297mm',
                     padding: '8mm 12mm 8mm 12mm',
                     fontFamily: "'Tinos', 'Times New Roman', Times, 'Liberation Serif', serif",
+                    fontSize: '16px',
+                    lineHeight: 1.5,
+                    letterSpacing: '0',
+                    wordSpacing: '0',
                     WebkitTextSizeAdjust: '100%',
                     textSizeAdjust: '100%',
                     boxSizing: 'border-box',

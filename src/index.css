@@ -5,6 +5,54 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Self-hosted Tinos (metric-compatible Times New Roman) for identical A4 layout across all devices */
+@font-face {
+  font-family: 'Tinos';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/tinos-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Tinos';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/tinos-400-italic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Tinos';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/tinos-700-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Tinos';
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/tinos-700-italic.woff2') format('woff2');
+}
+
+/* Isolate A4 Question Paper from global app body/heading styles on all screen sizes */
+.a4-page-item {
+  font-family: 'Tinos', 'Times New Roman', Times, 'Liberation Serif', serif !important;
+  letter-spacing: 0 !important;
+  word-spacing: 0 !important;
+  -webkit-text-size-adjust: 100% !important;
+  text-size-adjust: 100% !important;
+}
+.a4-page-item h1,
+.a4-page-item h2,
+.a4-page-item h3,
+.a4-page-item h4,
+.a4-page-item h5,
+.a4-page-item h6 {
+  font-family: 'Tinos', 'Times New Roman', Times, 'Liberation Serif', serif !important;
+  letter-spacing: 0 !important;
+}
+
 :root {
   --android-status-bar-height: env(safe-area-inset-top, 0px);
   --android-cutout-left: env(safe-area-inset-left, 0px);
@@ -961,7 +1009,7 @@ body.is-native-android main [class*="backdrop-blur"] {
     height: 297mm !important;
     min-height: 297mm !important;
     max-height: 297mm !important;
-    padding: 10mm 12mm 10mm 12mm !important;
+    padding: 8mm 12mm 8mm 12mm !important;
     margin: 0 auto !important;
     transform: none !important;
     position: relative !important;
@@ -973,7 +1021,11 @@ body.is-native-android main [class*="backdrop-blur"] {
     border-radius: 0 !important;
     background-color: #ffffff !important;
     color: #000000 !important;
-    font-family: 'Times New Roman', Times, Tinos, "Liberation Serif", serif !important;
+    font-family: 'Tinos', 'Times New Roman', Times, "Liberation Serif", serif !important;
+    letter-spacing: 0 !important;
+    word-spacing: 0 !important;
+    -webkit-text-size-adjust: 100% !important;
+    text-size-adjust: 100% !important;
     overflow: hidden !important;
   }
 }

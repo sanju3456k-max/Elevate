@@ -288,6 +288,7 @@ const QUESTION_PAPER_PRINT_CSS = `
   .a4-page-item strong,
   .a4-page-item em {
     font-family: 'Tinos', 'Times New Roman', Times, "Liberation Serif", serif !important;
+    letter-spacing: 0 !important;
   }
 
   .a4-page-item:last-child {
@@ -627,7 +628,12 @@ export async function triggerSystemPrint(
   <base href="${window.location.origin}/">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(documentTitle)}</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tinos:ital,wght@0,400;0,700;1,400;1,700&display=swap">
+  <style>
+    @font-face { font-family: 'Tinos'; font-style: normal; font-weight: 400; src: url('${window.location.origin}/fonts/tinos-400-normal.woff2') format('woff2'); }
+    @font-face { font-family: 'Tinos'; font-style: italic; font-weight: 400; src: url('${window.location.origin}/fonts/tinos-400-italic.woff2') format('woff2'); }
+    @font-face { font-family: 'Tinos'; font-style: normal; font-weight: 700; src: url('${window.location.origin}/fonts/tinos-700-normal.woff2') format('woff2'); }
+    @font-face { font-family: 'Tinos'; font-style: italic; font-weight: 700; src: url('${window.location.origin}/fonts/tinos-700-italic.woff2') format('woff2'); }
+  </style>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
   <style>
     ${extractedCss}
@@ -727,6 +733,12 @@ export async function triggerSystemPrint(
         min-width: ${printWidthMm}mm !important;
         height: auto !important;
         overflow: visible !important;
+        font-size: 16px !important;
+        line-height: 1.5 !important;
+        letter-spacing: 0 !important;
+        zoom: 1 !important;
+        -webkit-text-size-adjust: 100% !important;
+        text-size-adjust: 100% !important;
       }
       body > *:not(#${portalId}) {
         display: none !important;

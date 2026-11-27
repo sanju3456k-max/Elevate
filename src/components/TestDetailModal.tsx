@@ -443,10 +443,8 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
             </div>
           </div>
 
-          <div className="w-full h-px bg-slate-100 dark:bg-zinc-800/80 !mt-1.5 !mb-1.5" />
-
           {/* Row 4: Score, Time, Rank & Action Buttons */}
-          <div className="flex items-center justify-between gap-1.5 sm:gap-2 !mt-0 flex-wrap">
+          <div className="flex items-center justify-between gap-1.5 sm:gap-2 pt-1 flex-wrap">
             <div className="inline-flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#edf2f9] dark:bg-[#26282e] border-0 shrink-0 text-[10px] sm:text-xs">
               {testRank && (
                 <>

@@ -2512,6 +2512,92 @@ export default function App() {
       .catch(() => {});
   }, [currentUser, selectedInstituteId]);
 
+  // Local-only OMR cross-device print benchmark route (?omr_benchmark=1)
+  const isLocalBenchmark =
+    typeof window !== 'undefined' &&
+    window.location.search.includes('omr_benchmark=1') &&
+    (window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname.startsWith('192.168.'));
+
+  const omrBenchmarkTest = React.useMemo<MathTest | null>(() => {
+    if (!isLocalBenchmark) return null;
+    const topics = ['Algebra', 'Calculus', 'Trigonometry', 'Geometry', 'Matrices and Determinants'];
+    const questions = Array.from({ length: 35 }, (_, i) => {
+      const n = i + 1;
+      const variant = i % 4;
+      if (variant === 0) {
+        return {
+          id: `bench_q_${n}`,
+          text: `Evaluate the definite integral $I_${n} = \\int_0^{\\pi/2} \\frac{\\sin^{${(n % 3) + 1}}(x)}{\\sin^{${(n % 3) + 1}}(x) + \\cos^{${(n % 3) + 1}}(x)}\\,dx$ and choose the exact value.`,
+          topic: topics[i % topics.length],
+          options: ['$\\frac{\\pi}{4}$', '$\\frac{\\pi}{2}$', '$\\frac{\\pi}{6}$', '$1$'],
+          correctAnswer: 0,
+          points: 4,
+        };
+      }
+      if (variant === 1) {
+        return {
+          id: `bench_q_${n}`,
+          text: `If the quadratic equation $x^2 - ${(n % 7) + 3}x + ${(n % 5) + 2} = 0$ has roots $\\alpha$ and $\\beta$, find the value of $\\alpha^2 + \\beta^2 - \\alpha\\beta$.`,
+          topic: topics[i % topics.length],
+          options: [`$${((n % 7) + 3) ** 2 - 3 * ((n % 5) + 2)}$`, `$${((n % 7) + 3) ** 2 - 2 * ((n % 5) + 2)}$`, `$${((n % 7) + 3) ** 2}$`, '$0$'],
+          correctAnswer: 0,
+          points: 4,
+        };
+      }
+      if (variant === 2) {
+        return {
+          id: `bench_q_${n}`,
+          text: `Find the domain of the real-valued function $f(x) = \\sqrt{x^2 - ${(n % 4) + 5}x + 6} + \\frac{1}{\\ln(x - 1)}$ satisfying all boundary constraints.`,
+          topic: topics[i % topics.length],
+          options: [
+            '$(1, 2] \\cup [3, \\infty) \\setminus \\{2\\}$',
+            '$[2, 3] \\cup (4, \\infty)$',
+            '$(-\\infty, 1) \\cup (3, \\infty)$',
+            '$(1, \\infty) \\setminus \\{2\\}$',
+          ],
+          correctAnswer: 0,
+          points: 4,
+        };
+      }
+      return {
+        id: `bench_q_${n}`,
+        text: `Let $A = \\begin{pmatrix} 1 & ${n % 3} \\\\ 0 & 2 \\end{pmatrix}$ be a $2 \\times 2$ matrix. Which statement holds true for $\\det(A^2 - 3A + 2I)$?`,
+        topic: topics[i % topics.length],
+        options: ['Equals $0$', 'Equals $4$', 'Equals $-2$', 'Undefined'],
+        correctAnswer: 0,
+        points: 4,
+      };
+    });
+    return {
+      id: 'omr_cross_device_benchmark_35q',
+      title: 'Cross-Device A4 Print Parity Benchmark (35 Questions)',
+      topic: 'Mixed Mathematics (Algebra, Calculus, Matrices)',
+      difficulty: 'Medium',
+      timeLimitMinutes: 60,
+      time: 60,
+      totalMarks: 140,
+      questions,
+      createdAt: '2026-11-28T00:00:00.000Z',
+    } as MathTest;
+  }, [isLocalBenchmark]);
+
+  if (isLocalBenchmark && omrBenchmarkTest) {
+    return (
+      <OmrExamStudio
+        test={omrBenchmarkTest}
+        currentUser={null}
+        isDarkMode={false}
+        initialTab="print"
+        onFinishTest={() => {}}
+        onExit={() => {
+          window.location.href = '/';
+        }}
+      />
+    );
+  }
+
   if (appStoreRoute.active) {
     return (
       <InstituteAppStorePage
