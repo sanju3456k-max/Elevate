@@ -33,6 +33,7 @@ import { DeviceLockedModal } from './components/auth/DeviceLockedModal';
 import { NativeAppOnlyGuard } from './components/auth/NativeAppOnlyGuard';
 import { InstitutePortalGate } from './components/auth/InstitutePortalGate';
 import { InstituteAppStorePage } from './components/storefront/InstituteAppStorePage';
+import { PlayerLabPage } from './components/lms/player/PlayerLabPage';
 import { checkPlatformAccess } from './lib/platformSecurityGuard';
 import { syncHub } from './lib/syncEngine';
 import { smartCoordinator } from './lib/smartLocalCoordinator';
@@ -2506,6 +2507,34 @@ export default function App() {
       )
       .catch(() => {});
   }, [currentUser, selectedInstituteId]);
+
+  const [playerLabRoute, setPlayerLabRoute] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || APP_BRAND.isLockedApk || isNativeAndroid()) return false;
+    return window.location.pathname === '/player-lab' || window.location.pathname === '/player-lab/';
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || APP_BRAND.isLockedApk || isNativeAndroid()) return;
+    const onPopLab = () => {
+      const p = window.location.pathname;
+      setPlayerLabRoute(p === '/player-lab' || p === '/player-lab/');
+    };
+    window.addEventListener('popstate', onPopLab);
+    return () => window.removeEventListener('popstate', onPopLab);
+  }, []);
+
+  if (playerLabRoute) {
+    return (
+      <PlayerLabPage
+        onBack={() => {
+          try {
+            window.history.pushState({}, '', '/');
+          } catch {}
+          setPlayerLabRoute(false);
+        }}
+      />
+    );
+  }
 
   if (appStoreRoute.active) {
     return (
