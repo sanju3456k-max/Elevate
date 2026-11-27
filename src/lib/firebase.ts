@@ -2937,6 +2937,86 @@ export function subscribeToTestLeaderboard(
  * Enterprise-grade optimized leaderboard fetcher.
  * Merges entries by test title and testId, immune to missing composite index errors.
  */
+export async function purgeGuestLeaderboardEntries(
+  testId: string,
+  testTitle?: string
+): Promise<{ deletedCount: number }> {
+  const canonicalId = getCanonicalLeaderboardId(testId, testTitle);
+  const rawSafeId = sanitizeLeaderboardId(testId);
+  const targetIds = Array.from(new Set([canonicalId, rawSafeId].filter(Boolean)));
+  let deletedCount = 0;
+
+  const isGuestRecord = (uid: string, data?: any) =>
+    Boolean(
+      data?.isGuest ||
+      String(uid || '').startsWith('guest') ||
+      String(data?.userName || '').includes('(Guest)') ||
+      String(data?.displayName || '').includes('(Guest)')
+    );
+
+  for (const id of targetIds) {
+    // 1. Delete all docs in guest_entries subcollection
+    try {
+      const guestSnap = await getDocs(collection(db, 'test_leaderboards', id, 'guest_entries'));
+      if (!guestSnap.empty) {
+        const batch = writeBatch(db);
+        guestSnap.docs.forEach((d) => {
+          batch.delete(d.ref);
+          deletedCount++;
+        });
+        await batch.commit();
+      }
+    } catch {}
+
+    // 2. Delete any guest docs in entries subcollection
+    try {
+      const entriesSnap = await getDocs(collection(db, 'test_leaderboards', id, 'entries'));
+      const guestDocs = entriesSnap.docs.filter((d) => isGuestRecord(d.id, d.data()));
+      if (guestDocs.length > 0) {
+        const batch = writeBatch(db);
+        guestDocs.forEach((d) => {
+          batch.delete(d.ref);
+          deletedCount++;
+        });
+        await batch.commit();
+      }
+    } catch {}
+
+    // 3. Clean guest entries from summary/top_bucket if present
+    try {
+      const bucketRef = doc(db, 'test_leaderboards', id, 'summary', 'top_bucket');
+      const bucketSnap = await getDoc(bucketRef);
+      if (bucketSnap.exists()) {
+        const bData = bucketSnap.data() || {};
+        const oldEntries: any[] = Array.isArray(bData.entries) ? bData.entries : [];
+        const cleanEntries = oldEntries.filter((e) => !isGuestRecord(e?.userId, e));
+        const oldPacked: string[] = Array.isArray(bData.packedTop) ? bData.packedTop : [];
+        const cleanPacked = oldPacked.filter((row) => !String(row).startsWith('guest') && !String(row).includes('(Guest)'));
+        if (cleanEntries.length !== oldEntries.length || cleanPacked.length !== oldPacked.length) {
+          deletedCount += Math.max(0, oldEntries.length - cleanEntries.length);
+          await setDoc(
+            bucketRef,
+            {
+              entries: cleanEntries,
+              packedTop: cleanPacked,
+              totalParticipants: cleanEntries.length,
+              updatedAt: new Date().toISOString(),
+            },
+            { merge: true }
+          );
+        }
+      }
+    } catch {}
+
+    inMemoryLeaderboardCache.delete(id);
+    try {
+      localStorage.removeItem(`elevatelabs_lb_cache_${id}`);
+    } catch {}
+  }
+
+  return { deletedCount };
+}
+
 export async function fetchTestLeaderboard(
   testId: string, 
   testTitle?: string,

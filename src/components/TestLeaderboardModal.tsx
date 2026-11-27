@@ -13,7 +13,8 @@ import {
   Check,
   Medal,
   Award,
-  Sparkles
+  Sparkles,
+  Trash2
 } from 'lucide-react';
 import type { MathTest, LeaderboardEntry, TestLeaderboardSummary } from '../types';
 import type { User } from 'firebase/auth';
@@ -21,8 +22,10 @@ import {
   fetchTestLeaderboard, 
   subscribeToTestLeaderboard,
   syncAllUserAttemptsToLeaderboard,
-  getSynchronousCachedLeaderboard
+  getSynchronousCachedLeaderboard,
+  purgeGuestLeaderboardEntries
 } from '../lib/firebase';
+import { isMasterUser } from '../lib/masterAccount';
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { studioFadeVariants } from '../lib/animationConfig';
@@ -87,7 +90,28 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
   const [summary, setSummary] = useState<TestLeaderboardSummary | null>(initialCache);
   const [isLoading, setIsLoading] = useState<boolean>(!initialCache);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [isPurgingGuests, setIsPurgingGuests] = useState<boolean>(false);
   const [justRefreshed, setJustRefreshed] = useState<boolean>(false);
+  const isAdmin = isMasterUser(currentUser);
+  const hasGuestEntries = useMemo(
+    () => Boolean(summary?.entries?.some((e: any) => e?.isGuest || String(e?.userId || '').startsWith('guest') || String(e?.userName || '').includes('(Guest)'))),
+    [summary?.entries]
+  );
+
+  const handlePurgeGuestEntries = async () => {
+    if (!test?.id && !test?.title) return;
+    if (!window.confirm('Purge all Guest user entries from this test leaderboard?')) return;
+    setIsPurgingGuests(true);
+    try {
+      await purgeGuestLeaderboardEntries(test.id || '', test.title);
+      const data = await fetchTestLeaderboard(test.id || '', test.title, true);
+      setSummary(data);
+    } catch (err) {
+      console.warn('Failed to purge guest entries:', err);
+    } finally {
+      setIsPurgingGuests(false);
+    }
+  };
   const [modeFilter, setModeFilter] = useState<'all' | 'online' | 'omr'>('all');
 
   const handleManualRefresh = useCallback(async () => {
@@ -289,6 +313,18 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+              {isAdmin && hasGuestEntries && (
+                <button
+                  type="button"
+                  onClick={handlePurgeGuestEntries}
+                  disabled={isPurgingGuests || isLoading}
+                  title="Purge all Guest entries from this test leaderboard"
+                  className="h-8 sm:h-10 px-3 rounded-full bg-rose-500/12 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 text-[11px] font-bold flex items-center gap-1.5 border-0 cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{isPurgingGuests ? 'Purging...' : 'Purge Guests'}</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => handleManualRefresh()}
