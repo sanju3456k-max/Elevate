@@ -2461,6 +2461,7 @@ export default function App() {
     const targetPath = slug ? `/apps/${encodeURIComponent(slug)}` : '/apps';
     try {
       window.history.pushState({}, '', targetPath);
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     } catch {}
     setAppStoreRoute({ active: true, slug });
   }, []);
@@ -2468,6 +2469,7 @@ export default function App() {
   const navigateBackFromAppStore = useCallback(() => {
     try {
       window.history.pushState({}, '', '/');
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     } catch {}
     setAppStoreRoute({ active: false, slug: null });
   }, []);

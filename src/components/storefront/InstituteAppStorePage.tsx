@@ -143,6 +143,16 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
     );
   }, [institutes, selectedSlug, isEditorCapable, editorMode, overridesMap, draftAppName, draftVersion, draftStorePage]);
 
+  // Reset scroll to top whenever opening or switching between app pages
+  useEffect(() => {
+    if (isEditorCapable) return;
+    try {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    } catch {}
+  }, [selectedSlug, isEditorCapable]);
+
   // Fetch live storefront override when viewing an institute or opening Master Console editor
   useEffect(() => {
     let mounted = true;
