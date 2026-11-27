@@ -851,16 +851,15 @@ export function loadScopedTests(userId?: string | null): MathTest[] {
       return false;
     };
 
-    // GUEST MODE: Guests strictly only receive the 3 authoritative sample tests
+    // GUEST MODE: Guests only see tests from public/enrolled batches (no hardcoded sample tests)
     if (isGuest) {
-      const activeSampleTests = SAMPLE_MATH_TESTS.filter((s) => !deletedIds.has(s.id));
-      setInMemoryTests(userId, activeSampleTests);
+      setInMemoryTests(userId, []);
       try {
         const { testsKey } = getScopedStorageKeys(userId);
-        localStorage.setItem(testsKey, JSON.stringify(activeSampleTests));
+        localStorage.setItem(testsKey, JSON.stringify([]));
         localStorage.removeItem(LEGACY_STORAGE_TESTS_KEY);
       } catch {}
-      return activeSampleTests;
+      return [];
     }
 
     const DEPRECATED_TEST_IDS = new Set([
@@ -930,15 +929,12 @@ export function loadScopedTests(userId?: string | null): MathTest[] {
       }
     }
 
-    // Default: return sample tests ONLY for guest mode
-    if (isGuest) {
-      return SAMPLE_MATH_TESTS.filter((s) => !deletedIds.has(s.id));
-    }
+    // Default: empty list when no scoped tests exist yet (only enrolled batch tests will be merged)
     return [];
   } catch (err) {
     console.warn('Failed to load scoped tests:', err);
   }
-  return (!userId || userId === 'guest-user' || userId === 'anonymous') ? SAMPLE_MATH_TESTS : [];
+  return [];
 }
 
 /**

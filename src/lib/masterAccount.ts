@@ -870,64 +870,58 @@ export function mergePublishedMasterTests(
     }
   };
 
-  // GUEST PRIVILEGE: In guest mode, visitors see sample tests PLUS tests from batches in which they are enrolled
+  // GUEST PRIVILEGE: In guest mode, visitors strictly see ONLY tests from public/guest-accessible batches
   if (isGuest) {
-    const validSampleIds = new Set(SAMPLE_MATH_TESTS.map((s) => s.id));
-    userTests.forEach((t) => {
-      if (t && t.id && validSampleIds.has(t.id)) {
-        testMap.set(t.id, t);
-      }
-    });
-    // Add default sample tests if not yet in testMap
-    SAMPLE_MATH_TESTS.forEach((s) => {
-      if (!testMap.has(s.id)) {
-        testMap.set(s.id, s);
-      }
-    });
-
-    // Add tests for enrolled batches
     if (Array.isArray(rawBatchTests) && rawBatchTests.length > 0) {
       rawBatchTests.forEach(addBatchTestToMap);
     }
-
     return Array.from(testMap.values());
   }
 
-  // 1. Add published master tests first so all students and batch users can access them
-  published.forEach((t) => {
-    if (t && t.id && !isDeprecatedTest(t)) {
-      const qLen = Array.isArray(t.questions) && t.questions.length > 0 ? t.questions.length : 0;
-      const count = qLen || t.questionCount || (t as any).questionsCount || 25;
-      const dur = getTestDurationMinutes(t);
-      testMap.set(t.id, {
-        ...t,
-        timeLimitMinutes: dur,
-        time: dur,
-        durationMinutes: dur,
-        questionCount: count,
-      });
-    }
-  });
+  // 1. Master-only global published tests (Students NEVER see Master Console tests unless published to their enrolled batch)
+  if (isUserMaster) {
+    published.forEach((t) => {
+      if (t && t.id && !isDeprecatedTest(t)) {
+        const qLen = Array.isArray(t.questions) && t.questions.length > 0 ? t.questions.length : 0;
+        const count = qLen || t.questionCount || (t as any).questionsCount || 25;
+        const dur = getTestDurationMinutes(t);
+        testMap.set(t.id, {
+          ...t,
+          timeLimitMinutes: dur,
+          time: dur,
+          durationMinutes: dur,
+          questionCount: count,
+        });
+      }
+    });
+  }
 
-  // 2. Add student / user tests
+  // 2. Add user's own authored tests (e.g. created via enabled Test Creator / Custom Builder)
+  const sampleIds = new Set(SAMPLE_MATH_TESTS.map((s) => s.id));
+  const currentUid = currentUser?.uid || null;
   userTests.forEach((t) => {
-    if (t && t.id && !isDeprecatedTest(t)) {
-      const existing = testMap.get(t.id);
-      const qLen = Array.isArray(t.questions) && t.questions.length > 0
-        ? t.questions.length
-        : (existing && Array.isArray(existing.questions) && existing.questions.length > 0 ? existing.questions.length : 0);
-      const count = qLen || t.questionCount || existing?.questionCount || (t as any).questionsCount || 25;
-      const dur = getTestDurationMinutes(t) || (existing ? getTestDurationMinutes(existing) : 25);
-      testMap.set(t.id, {
-        ...existing,
-        ...t,
-        timeLimitMinutes: dur,
-        time: dur,
-        durationMinutes: dur,
-        questions: (Array.isArray(t.questions) && t.questions.length > 0) ? t.questions : (existing?.questions || []),
-        questionCount: count,
-      });
+    if (!t || !t.id || isDeprecatedTest(t)) return;
+    if (!isUserMaster) {
+      // Never leak hardcoded sample tests or other users' / global master tests to students
+      if (sampleIds.has(t.id) || t.id.startsWith('sample-') || t.id.startsWith('math-')) return;
+      if (t.batchId && !enrolledBatchIds.has(t.batchId)) return;
+      if (!t.batchId && currentUid && t.authorId && t.authorId !== currentUid) return;
     }
+    const existing = testMap.get(t.id);
+    const qLen = Array.isArray(t.questions) && t.questions.length > 0
+      ? t.questions.length
+      : (existing && Array.isArray(existing.questions) && existing.questions.length > 0 ? existing.questions.length : 0);
+    const count = qLen || t.questionCount || existing?.questionCount || (t as any).questionsCount || 25;
+    const dur = getTestDurationMinutes(t) || (existing ? getTestDurationMinutes(existing) : 25);
+    testMap.set(t.id, {
+      ...existing,
+      ...t,
+      timeLimitMinutes: dur,
+      time: dur,
+      durationMinutes: dur,
+      questions: (Array.isArray(t.questions) && t.questions.length > 0) ? t.questions : (existing?.questions || []),
+      questionCount: count,
+    });
   });
 
   // 3. Add Batch Tests (filtered by user's enrolled batches, or all batches for Master)
