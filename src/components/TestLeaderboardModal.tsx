@@ -26,6 +26,7 @@ import {
 import { useScrollLock } from '../hooks/useScrollLock';
 import { useBackHandler } from '../hooks/useBackNavigation';
 import { studioFadeVariants } from '../lib/animationConfig';
+import { getOrCreateGuestDeviceUid } from '../lib/guestIdentity';
 
 interface TestLeaderboardModalProps {
   isOpen: boolean;
@@ -72,11 +73,16 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
   useScrollLock(isOpen && !isRemedial);
   useBackHandler({ isOpen: isOpen && !isRemedial, onBack: onClose, priority: 80, id: 'test_leaderboard_modal' });
 
+  const effectiveUid = useMemo(
+    () => currentUser?.uid || getOrCreateGuestDeviceUid(),
+    [currentUser?.uid]
+  );
+
   // 1. Immediately hydrate initial summary synchronously to prevent layout shifts & loading flashes on open
   const initialCache = useMemo(() => {
     if (!isOpen || isRemedial || (!test?.id && !test?.title)) return null;
-    return getSynchronousCachedLeaderboard(test.id || '', test.title, currentUser?.uid);
-  }, [isOpen, isRemedial, test?.id, test?.title, currentUser?.uid]);
+    return getSynchronousCachedLeaderboard(test.id || '', test.title, effectiveUid);
+  }, [isOpen, isRemedial, test?.id, test?.title, effectiveUid]);
 
   const [summary, setSummary] = useState<TestLeaderboardSummary | null>(initialCache);
   const [isLoading, setIsLoading] = useState<boolean>(!initialCache);
@@ -112,7 +118,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
     }
 
     // 1. Instant 0ms cached display
-    const syncData = getSynchronousCachedLeaderboard(test.id || '', test.title, currentUser?.uid);
+    const syncData = getSynchronousCachedLeaderboard(test.id || '', test.title, effectiveUid);
     if (syncData) {
       setSummary(syncData);
       setIsLoading(false);
@@ -137,7 +143,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [isOpen, test?.id, test?.title, currentUser?.uid]);
+  }, [isOpen, test?.id, test?.title, effectiveUid]);
 
   // Synchronize status bar theme-color to match leaderboard page body (#ffffff light / #0c0e12 dark)
   useEffect(() => {
@@ -173,10 +179,10 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
   }, [filteredEntries, displayLimit]);
 
   const isCurrentUserOutsideTop100 = useMemo(() => {
-    if (!summary?.currentUserEntry || !currentUser?.uid) return false;
+    if (!summary?.currentUserEntry || !effectiveUid) return false;
     const userRank = summary.currentUserRank || summary.currentUserEntry.rank;
     return !!(userRank && userRank > displayLimit);
-  }, [summary?.currentUserEntry, summary?.currentUserRank, currentUser?.uid, displayLimit]);
+  }, [summary?.currentUserEntry, summary?.currentUserRank, effectiveUid, displayLimit]);
 
   const top1 = summary?.entries?.[0] || null;
   const top2 = summary?.entries?.[1] || null;
@@ -618,7 +624,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
               ) : (
                 <div className="lg:border-t border-slate-200/80 dark:border-zinc-800/80">
                 {displayedEntries.map((entry) => {
-                  const isCurrentUser = currentUser?.uid && entry.userId === currentUser.uid;
+                  const isCurrentUser = Boolean(effectiveUid && entry.userId === effectiveUid);
                   return (
                     <div
                       key={entry.userId}

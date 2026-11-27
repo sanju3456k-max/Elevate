@@ -2341,9 +2341,22 @@ export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?
     });
   }
 
+  const isGuestContext = !currentUid || currentUid === 'anonymous' || currentUid === 'guest-user';
+  let resolvedGuestUid = '';
+  let resolvedGuestName = '';
+  if (isGuestContext) {
+    try {
+      const { getGuestDisplayName, getOrCreateGuestDeviceUid } = await import('./guestIdentity');
+      resolvedGuestUid = getOrCreateGuestDeviceUid();
+      resolvedGuestName = getGuestDisplayName();
+    } catch {}
+  }
+
   const newEntry: LeaderboardEntry = {
-    userId: currentUid || 'guest_user',
-    userName: attempt.userName || auth.currentUser?.displayName || (attempt.userEmail || '').split('@')[0] || 'Learner',
+    userId: isGuestContext ? (resolvedGuestUid || 'guest_user') : currentUid,
+    userName: isGuestContext
+      ? (resolvedGuestName || attempt.userName || 'Guest Learner')
+      : (attempt.userName || auth.currentUser?.displayName || (attempt.userEmail || '').split('@')[0] || 'Learner'),
     userEmail: attempt.userEmail || auth.currentUser?.email || '',
     score: attempt.score,
     totalPoints: attempt.totalPoints,
@@ -2387,8 +2400,88 @@ export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?
     }
   } catch {}
 
-  // If anonymous guest without an account, local sync is enough
-  if (!currentUid || currentUid === 'anonymous' || currentUid === 'guest-user') {
+  // If anonymous guest without an account, sync to guest_entries when the batch enables Guest Student Test Rankings
+  if (isGuestContext) {
+    try {
+      const targetBatchId = String((attempt as any).batchId || '').trim();
+      let guestRankingsEnabled = false;
+      const rawBatches =
+        secureStorage.getItem('elevatelabs_batches_v2') ||
+        (typeof localStorage !== 'undefined'
+          ? localStorage.getItem('elevatelabs_batches_v2') || localStorage.getItem('elevatelabs_cloud_batches_cache')
+          : null);
+      const parsedBatches: any[] = rawBatches ? JSON.parse(rawBatches) : [];
+
+      let resolvedBatchId = targetBatchId;
+      if (!resolvedBatchId && typeof localStorage !== 'undefined') {
+        const rawBatchTests =
+          secureStorage.getItem('elevatelabs_batch_tests_v2') || localStorage.getItem('elevatelabs_batch_tests_v2');
+        const parsedBT: any[] = rawBatchTests ? JSON.parse(rawBatchTests) : [];
+        const btMatch = Array.isArray(parsedBT)
+          ? parsedBT.find((bt) => bt && (bt.testId === attempt.testId || bt.id === attempt.testId))
+          : null;
+        if (btMatch?.batchId) resolvedBatchId = String(btMatch.batchId);
+      }
+
+      if (Array.isArray(parsedBatches)) {
+        const batchObj = resolvedBatchId
+          ? parsedBatches.find((b) => b && b.id === resolvedBatchId)
+          : parsedBatches.find((b) => b && b.allowGuestAccess && b.enableGuestTestRankings);
+        if (batchObj && batchObj.allowGuestAccess && batchObj.enableGuestTestRankings) {
+          guestRankingsEnabled = true;
+        }
+      }
+
+      if (guestRankingsEnabled) {
+        const guestDeviceUid = resolvedGuestUid || 'guest_device';
+        const guestName = resolvedGuestName || attempt.userName || 'Guest Learner';
+        const guestEntryId = `${guestDeviceUid}_${canonicalId}`.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 150);
+
+        // Deduplicate: only create 1 Firestore guest_entries doc per device + test
+        let alreadySynced = false;
+        const SYNCED_KEY = 'elevate_synced_guest_entries_v1';
+        try {
+          const rawSynced = localStorage.getItem(SYNCED_KEY);
+          const syncedList: string[] = rawSynced ? JSON.parse(rawSynced) : [];
+          if (Array.isArray(syncedList) && syncedList.includes(guestEntryId)) {
+            alreadySynced = true;
+          }
+        } catch {}
+
+        if (!alreadySynced) {
+          const guestPayload = sanitizeForFirestore({
+            id: guestEntryId,
+            userId: guestDeviceUid,
+            displayName: guestName.slice(0, 100),
+            score: Number(attempt.score) || 0,
+            maxScore: Math.max(0, Number(attempt.totalPoints) || 0),
+            accuracy: Math.min(100, Math.max(0, Number(attempt.percentage) || 0)),
+            timeTakenSeconds: Math.max(0, Number(attempt.timeSpentSeconds) || 0),
+            batchId: (resolvedBatchId || '').slice(0, 128),
+            testId: String(attempt.testId || canonicalId).slice(0, 128),
+            testTitle: String(attempt.testTitle || '').slice(0, 300),
+            isGuest: true,
+            submittedAt: attempt.completedAt || new Date().toISOString(),
+          });
+          await setDoc(doc(db, 'test_leaderboards', canonicalId, 'guest_entries', guestEntryId), guestPayload)
+            .then(() => {
+              try {
+                const rawSynced = localStorage.getItem(SYNCED_KEY);
+                const syncedList: string[] = rawSynced ? JSON.parse(rawSynced) : [];
+                if (!syncedList.includes(guestEntryId)) {
+                  syncedList.push(guestEntryId);
+                  localStorage.setItem(SYNCED_KEY, JSON.stringify(syncedList.slice(-200)));
+                }
+              } catch {}
+            })
+            .catch((e) => {
+              console.warn('Guest leaderboard entry write notice:', e);
+            });
+        }
+      }
+    } catch (guestErr) {
+      console.warn('Guest leaderboard sync notice:', guestErr);
+    }
     return;
   }
 
@@ -3063,6 +3156,33 @@ export async function fetchTestLeaderboard(
         }
       }
     }
+    // Merge guest_entries from Guest-Pass batches (when enabled by batch admin)
+    try {
+      const guestSnap = await getDocs(
+        query(collection(db, 'test_leaderboards', canonicalId, 'guest_entries'), limit(500))
+      ).catch(() => null);
+      if (guestSnap && !guestSnap.empty) {
+        guestSnap.forEach((gd) => {
+          const g = gd.data() || {};
+          if (g.userId && g.displayName) {
+            cloudEntries.push({
+              userId: String(g.userId),
+              userName: `${String(g.displayName)} (Guest)`,
+              userEmail: '',
+              score: typeof g.score === 'number' ? g.score : 0,
+              totalPoints: typeof g.maxScore === 'number' ? g.maxScore : 200,
+              percentage: typeof g.accuracy === 'number' ? g.accuracy : 0,
+              timeSpentSeconds: typeof g.timeTakenSeconds === 'number' ? g.timeTakenSeconds : 0,
+              attemptMode: 'online',
+              completedAt: g.submittedAt || new Date().toISOString(),
+              testTitle: g.testTitle || testTitle || '',
+              attemptNumber: 1,
+              isGuest: true,
+            } as any);
+          }
+        });
+      }
+    } catch {}
   } catch (err) {
     console.warn('Cloud leaderboard retrieval warning:', err);
   }
