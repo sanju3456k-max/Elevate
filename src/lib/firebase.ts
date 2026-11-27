@@ -2295,18 +2295,31 @@ export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?
   }
   const currentUid = (overrideUserId || auth.currentUser?.uid || attempt.userId || '').trim();
   const uidLower = currentUid.toLowerCase();
+  const isGuestContext =
+    !currentUid ||
+    uidLower === 'guest-user' ||
+    uidLower === 'guest_user' ||
+    uidLower === 'anonymous' ||
+    uidLower === 'local-user' ||
+    uidLower.startsWith('guest_');
 
-  // Strictly disallow guest users from ranking facilities
-  if (!currentUid || uidLower === 'guest-user' || uidLower === 'guest_user' || uidLower === 'anonymous' || uidLower === 'local-user') {
-    return;
+  let resolvedGuestUid = '';
+  let resolvedGuestName = '';
+  if (isGuestContext) {
+    try {
+      const { getGuestDisplayName, getOrCreateGuestDeviceUid } = await import('./guestIdentity');
+      resolvedGuestUid = getOrCreateGuestDeviceUid();
+      resolvedGuestName = getGuestDisplayName();
+    } catch {}
   }
 
+  const effectiveUid = isGuestContext ? (resolvedGuestUid || 'guest_device') : currentUid;
   const canonicalId = getCanonicalLeaderboardId(attempt.testId, attempt.testTitle);
   const rawSafeId = (attempt.testId || '').replace(/[./[\]*~#$]/g, '_');
 
   // Fast client-side check: does user already have an initial attempt cached locally?
   const existingLocal = getLocalLeaderboardEntries(attempt.testId, attempt.testTitle);
-  const alreadyHasInitialAttemptLocally = existingLocal.some((e) => e.userId === currentUid);
+  const alreadyHasInitialAttemptLocally = existingLocal.some((e) => e.userId === effectiveUid);
 
   // Extract wrong, unattempted, and flagged question indices for Master Console cohort analytics
   const wrongQuestionIndices: number[] = Array.isArray((attempt as any).wrongQuestionIndices)
@@ -2341,23 +2354,12 @@ export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?
     });
   }
 
-  const isGuestContext = !currentUid || currentUid === 'anonymous' || currentUid === 'guest-user';
-  let resolvedGuestUid = '';
-  let resolvedGuestName = '';
-  if (isGuestContext) {
-    try {
-      const { getGuestDisplayName, getOrCreateGuestDeviceUid } = await import('./guestIdentity');
-      resolvedGuestUid = getOrCreateGuestDeviceUid();
-      resolvedGuestName = getGuestDisplayName();
-    } catch {}
-  }
-
   const newEntry: LeaderboardEntry = {
-    userId: isGuestContext ? (resolvedGuestUid || 'guest_user') : currentUid,
+    userId: effectiveUid,
     userName: isGuestContext
       ? (resolvedGuestName || attempt.userName || 'Guest Learner')
       : (attempt.userName || auth.currentUser?.displayName || (attempt.userEmail || '').split('@')[0] || 'Learner'),
-    userEmail: attempt.userEmail || auth.currentUser?.email || '',
+    userEmail: isGuestContext ? '' : (attempt.userEmail || auth.currentUser?.email || ''),
     score: attempt.score,
     totalPoints: attempt.totalPoints,
     percentage: attempt.percentage,
@@ -2379,8 +2381,9 @@ export async function syncLeaderboardEntry(attempt: TestAttempt, overrideUserId?
   inMemoryLeaderboardCache.delete(canonicalId);
   inMemoryLeaderboardCache.delete(rawSafeId);
 
-  // If local already had an attempt and this is not a first attempt, skip all network writes!
-  if (alreadyHasInitialAttemptLocally && !isFirstLocal) {
+  // If local already had an attempt and this is not a first attempt, skip non-guest network writes!
+  // For guest users, still allow the guest_entries check below (which deduplicates via elevate_synced_guest_entries_v1).
+  if (!isGuestContext && alreadyHasInitialAttemptLocally && !isFirstLocal) {
     return;
   }
 
@@ -2940,53 +2943,70 @@ export function subscribeToTestLeaderboard(
 export async function purgeGuestLeaderboardEntries(
   testId: string,
   testTitle?: string
-): Promise<{ deletedCount: number }> {
+): Promise<{ deletedCount: number; errors: string[] }> {
   const canonicalId = getCanonicalLeaderboardId(testId, testTitle);
-  const rawSafeId = sanitizeLeaderboardId(testId);
+  const rawSafeId = (testId || '').replace(/[./[\]*~#$]/g, '_');
   const targetIds = Array.from(new Set([canonicalId, rawSafeId].filter(Boolean)));
   let deletedCount = 0;
+  const errors: string[] = [];
 
   const isGuestRecord = (uid: string, data?: any) =>
     Boolean(
       data?.isGuest ||
       String(uid || '').startsWith('guest') ||
       String(data?.userName || '').includes('(Guest)') ||
-      String(data?.displayName || '').includes('(Guest)')
+      String(data?.displayName || '').includes('(Guest)') ||
+      String(data?.name || '').includes('(Guest)')
     );
+
+  const deleteRefsInChunks = async (refs: any[]) => {
+    for (let i = 0; i < refs.length; i += 400) {
+      const chunk = refs.slice(i, i + 400);
+      try {
+        const batch = writeBatch(db);
+        chunk.forEach((r) => batch.delete(r));
+        await batch.commit();
+        deletedCount += chunk.length;
+      } catch (err: any) {
+        for (const r of chunk) {
+          try {
+            await deleteDoc(r);
+            deletedCount++;
+          } catch (e2: any) {
+            errors.push(e2?.message || err?.message || 'Delete permission denied');
+          }
+        }
+      }
+    }
+  };
 
   for (const id of targetIds) {
     // 1. Delete all docs in guest_entries subcollection
     try {
       const guestSnap = await getDocs(collection(db, 'test_leaderboards', id, 'guest_entries'));
       if (!guestSnap.empty) {
-        const batch = writeBatch(db);
-        guestSnap.docs.forEach((d) => {
-          batch.delete(d.ref);
-          deletedCount++;
-        });
-        await batch.commit();
+        await deleteRefsInChunks(guestSnap.docs.map((d) => d.ref));
       }
-    } catch {}
+    } catch (e: any) {
+      errors.push(`guest_entries(${id}): ${e?.message || e}`);
+    }
 
     // 2. Delete any guest docs in entries subcollection
     try {
       const entriesSnap = await getDocs(collection(db, 'test_leaderboards', id, 'entries'));
       const guestDocs = entriesSnap.docs.filter((d) => isGuestRecord(d.id, d.data()));
       if (guestDocs.length > 0) {
-        const batch = writeBatch(db);
-        guestDocs.forEach((d) => {
-          batch.delete(d.ref);
-          deletedCount++;
-        });
-        await batch.commit();
+        await deleteRefsInChunks(guestDocs.map((d) => d.ref));
       }
-    } catch {}
+    } catch (e: any) {
+      errors.push(`entries(${id}): ${e?.message || e}`);
+    }
 
-    // 3. Clean guest entries from summary/top_bucket if present
+    // 3. Clean guest entries from summary/top_bucket and summary/cohort_bucket_1..N
     try {
       const bucketRef = doc(db, 'test_leaderboards', id, 'summary', 'top_bucket');
-      const bucketSnap = await getDoc(bucketRef);
-      if (bucketSnap.exists()) {
+      const bucketSnap = await getDoc(bucketRef).catch(() => null);
+      if (bucketSnap && bucketSnap.exists()) {
         const bData = bucketSnap.data() || {};
         const oldEntries: any[] = Array.isArray(bData.entries) ? bData.entries : [];
         const cleanEntries = oldEntries.filter((e) => !isGuestRecord(e?.userId, e));
@@ -3006,15 +3026,80 @@ export async function purgeGuestLeaderboardEntries(
           );
         }
       }
-    } catch {}
+    } catch (e: any) {
+      errors.push(`top_bucket(${id}): ${e?.message || e}`);
+    }
 
+    try {
+      const cb1Ref = doc(db, 'test_leaderboards', id, 'summary', 'cohort_bucket_1');
+      const cb1Snap = await getDoc(cb1Ref).catch(() => null);
+      if (cb1Snap && cb1Snap.exists()) {
+        const c1 = cb1Snap.data() || {};
+        const totalParts = typeof c1.totalParts === 'number' ? c1.totalParts : (c1.hasPart2 ? 2 : 1);
+        for (let p = 1; p <= totalParts; p++) {
+          const ref = doc(db, 'test_leaderboards', id, 'summary', `cohort_bucket_${p}`);
+          const snap = p === 1 ? cb1Snap : await getDoc(ref).catch(() => null);
+          if (!snap || !snap.exists()) continue;
+          const data = snap.data() || {};
+          const oldEntries: any[] = Array.isArray(data.entries) ? data.entries : [];
+          const cleanEntries = oldEntries.filter((e) => !isGuestRecord(e?.userId || e?.uid, e));
+          const oldAttempts: any[] = Array.isArray(data.attempts) ? data.attempts : [];
+          const cleanAttempts = oldAttempts.filter((a) => !isGuestRecord(a?.uid || a?.userId, a));
+          if (cleanEntries.length !== oldEntries.length || cleanAttempts.length !== oldAttempts.length) {
+            deletedCount += Math.max(0, (oldEntries.length - cleanEntries.length) + (oldAttempts.length - cleanAttempts.length));
+            await setDoc(
+              ref,
+              {
+                ...(Array.isArray(data.entries) ? { entries: cleanEntries } : {}),
+                ...(Array.isArray(data.attempts) ? { attempts: cleanAttempts } : {}),
+                totalParticipants: Math.max(cleanEntries.length, cleanAttempts.length),
+                updatedAt: new Date().toISOString(),
+              },
+              { merge: true }
+            );
+          }
+        }
+      }
+    } catch (e: any) {
+      errors.push(`cohort_bucket(${id}): ${e?.message || e}`);
+    }
+
+    // 4. Clear in-memory and localStorage caches + local leaderboard guest entries
     inMemoryLeaderboardCache.delete(id);
     try {
       localStorage.removeItem(`elevatelabs_lb_cache_${id}`);
+      const localKey = `${LOCAL_LEADERBOARD_KEY_PREFIX}${id}`;
+      const rawLocal = localStorage.getItem(localKey);
+      if (rawLocal) {
+        const parsed = JSON.parse(rawLocal);
+        if (Array.isArray(parsed)) {
+          const cleanLocal = parsed.filter((e: any) => !isGuestRecord(e?.userId, e));
+          if (cleanLocal.length !== parsed.length) {
+            deletedCount += parsed.length - cleanLocal.length;
+            localStorage.setItem(localKey, JSON.stringify(cleanLocal));
+          }
+        }
+      }
     } catch {}
   }
 
-  return { deletedCount };
+  try {
+    const canonicalLocalKey = getLocalLeaderboardKey(testId, testTitle);
+    const rawLocal = localStorage.getItem(canonicalLocalKey);
+    if (rawLocal) {
+      const parsed = JSON.parse(rawLocal);
+      if (Array.isArray(parsed)) {
+        const cleanLocal = parsed.filter((e: any) => !isGuestRecord(e?.userId, e));
+        if (cleanLocal.length !== parsed.length) {
+          deletedCount += parsed.length - cleanLocal.length;
+          localStorage.setItem(canonicalLocalKey, JSON.stringify(cleanLocal));
+        }
+      }
+    }
+    localStorage.removeItem('elevate_synced_guest_entries_v1');
+  } catch {}
+
+  return { deletedCount, errors };
 }
 
 export async function fetchTestLeaderboard(

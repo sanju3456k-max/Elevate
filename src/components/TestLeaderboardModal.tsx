@@ -92,6 +92,7 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [isPurgingGuests, setIsPurgingGuests] = useState<boolean>(false);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState<boolean>(false);
+  const [purgeError, setPurgeError] = useState<string>('');
   const [justRefreshed, setJustRefreshed] = useState<boolean>(false);
   const isAdmin = isMasterUser(currentUser);
   const guestEntriesCount = useMemo(
@@ -103,12 +104,18 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
   const handleConfirmPurgeGuestEntries = async () => {
     if (!test?.id && !test?.title) return;
     setIsPurgingGuests(true);
+    setPurgeError('');
     try {
-      await purgeGuestLeaderboardEntries(test.id || '', test.title);
+      const res = await purgeGuestLeaderboardEntries(test.id || '', test.title);
       const data = await fetchTestLeaderboard(test.id || '', test.title, true);
       setSummary(data);
-      setShowPurgeConfirm(false);
-    } catch (err) {
+      if (res.errors.length > 0 && res.deletedCount === 0) {
+        setPurgeError(res.errors[0]);
+      } else {
+        setShowPurgeConfirm(false);
+      }
+    } catch (err: any) {
+      setPurgeError(err?.message || 'Failed to purge guest entries.');
       console.warn('Failed to purge guest entries:', err);
     } finally {
       setIsPurgingGuests(false);
@@ -827,6 +834,12 @@ export const TestLeaderboardModal: React.FC<TestLeaderboardModalProps> = ({
               <p className="text-xs text-slate-700 dark:text-zinc-300 leading-relaxed">
                 This will permanently remove all guest student rankings from <strong>{test.title}</strong>. Enrolled student rankings will not be affected.
               </p>
+
+              {purgeError && (
+                <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-3 py-2 rounded-xl">
+                  {purgeError}
+                </p>
+              )}
 
               <div className="flex items-center justify-end gap-2 pt-1">
                 <button
