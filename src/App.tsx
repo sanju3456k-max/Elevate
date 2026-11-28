@@ -139,6 +139,7 @@ import { GlobalPersistentPlayer, type PersistentPlaybackData } from './component
 import { BatchAdminStudio } from './components/lms/BatchAdminStudio';
 import { LiveClassRoom } from './components/lms/live/LiveClassRoom';
 import { LiveClassManagerPanel } from './components/lms/live/LiveClassManagerPanel';
+import { PullToRefreshWrapper } from './components/ui/PullToRefreshWrapper';
 
 const HomeLiveBannerSection: React.FC<{
   children: React.ReactNode;
@@ -3197,6 +3198,21 @@ export default function App() {
             </nav>
           )}
 
+          {/* Primary Home Tabs (Home, Courses/Batches, Tests, Analytics) with Shared Pull-to-Refresh */}
+          <PullToRefreshWrapper
+            enabled={
+              ['home', 'batches', 'tests', 'analytics'].includes(activeTab) &&
+              !isInsideBatch &&
+              !isLiveRoomActive &&
+              !isFullVideoPlayerActive
+            }
+            onRefresh={async () => {
+              await Promise.allSettled([
+                refreshCloudTests(testsLimit, true),
+                refreshAttemptsHistory(attemptsLimit, true),
+              ]);
+            }}
+          >
           {/* Home Dashboard (Elevate Unified Coaching & Assessment Feed) */}
           {activeTab === 'home' && (
             <HomeLiveBannerSection onLiveRoomActiveChange={setIsLiveRoomActive}>
@@ -3389,6 +3405,7 @@ export default function App() {
           onNavigateTab={(tab) => setActiveTab(tab as ActiveTab)}
         />
       )}
+          </PullToRefreshWrapper>
 
           {/* Dedicated Gemini Multi-Turn Chatbot (Full-Screen Immersive Canvas without top header offset) */}
           {activeTab === 'chatbot' && (

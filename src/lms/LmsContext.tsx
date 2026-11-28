@@ -2352,25 +2352,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const fetched: LiveClassSession[] = Array.isArray(data.liveClasses) ? data.liveClasses : [];
       setLiveClasses(fetched);
 
-      for (const lc of fetched) {
-        if (!notifiedLiveIdsRef.current.has(lc.id)) {
-          notifiedLiveIdsRef.current.add(lc.id);
-          setAnnouncements((prev) => {
-            if (prev.some((a) => a.id === `live_ann_${lc.id}`)) return prev;
-            return [
-              {
-                id: `live_ann_${lc.id}`,
-                title: `🔴 LIVE NOW: ${lc.title}`,
-                message: `${lc.instructorName} is live right now. Click the Live Banner to join!`,
-                date: 'Live Now',
-                isImportant: true,
-                themeColor: 'rose',
-              },
-              ...prev,
-            ];
-          });
+      const activeLiveAnnIds = new Set(fetched.map((lc) => `live_ann_${lc.id}`));
+      setAnnouncements((prev) => {
+        // Remove ended live class notifications and ensure active ones exist for enrolled/guest batches
+        const cleaned = prev.filter((a) => !a.id.startsWith('live_ann_') || activeLiveAnnIds.has(a.id));
+        const toAdd: Announcement[] = [];
+        for (const lc of fetched) {
+          const annId = `live_ann_${lc.id}`;
+          if (!notifiedLiveIdsRef.current.has(lc.id)) {
+            notifiedLiveIdsRef.current.add(lc.id);
+          }
+          if (!cleaned.some((a) => a.id === annId)) {
+            const matchedBatchId = lc.batchIds.find((bid) => isEnrolled(bid)) || lc.batchIds[0];
+            const matchedBatch = batches.find((b) => b.id === matchedBatchId);
+            toAdd.push({
+              id: annId,
+              title: `🔴 LIVE NOW: ${lc.title}`,
+              message: `${lc.instructorName} is live right now in ${matchedBatch?.title || 'your batch'}. Tap the Live Banner to join!`,
+              date: lc.startedAt || new Date().toISOString(),
+              createdAt: lc.startedAt ? Date.parse(lc.startedAt) || Date.now() : Date.now(),
+              batchId: matchedBatchId,
+              instituteId: matchedBatch?.instituteId,
+              isImportant: true,
+              themeColor: 'rose',
+            });
+          }
         }
-      }
+        return toAdd.length > 0 ? [...toAdd, ...cleaned] : cleaned.length !== prev.length ? cleaned : prev;
+      });
     } catch {
       // Server may be offline in static mode
     }
@@ -2391,7 +2400,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const lc = payload.liveClass as LiveClassSession | undefined;
             if (
               lc &&
-              (user.role === 'admin' || lc.batchIds.some((b) => (user.enrolledBatchIds || []).includes(b)))
+              (user.role === 'admin' || lc.batchIds.some((b) => isEnrolled(b)))
             ) {
               showSecurityToast(`🔴 LIVE CLASS STARTED: ${lc.title}`);
             }
