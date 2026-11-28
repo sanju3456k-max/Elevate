@@ -198,4 +198,14 @@ execSync(`${gradlew} ${taskName}`, {
   stdio: 'inherit',
 });
 
+if (buildType === 'Release') {
+  const builtApk = path.join(rootDir, 'android', 'app', 'build', 'outputs', 'apk', flavor, 'release', `app-${flavor}-release.apk`);
+  const publicName = matched?.slug ? `${matched.slug}.apk` : `${flavor}.apk`;
+  if (fs.existsSync(builtApk)) {
+    fs.copyFileSync(builtApk, path.join(rootDir, 'public', publicName));
+    console.log(`[${flavor}] Updated public/${publicName}`);
+    syncInstitutes();
+  }
+}
+
 console.log(`[${flavor}] Done! APK is in android/app/build/outputs/apk/${flavor}/${buildType.toLowerCase()}/`);

@@ -11,6 +11,9 @@ try {
     // Graceful fallback if python/pymupdf is not available in environment
   }
 
+  console.log('0b. Syncing institute APK sizes & versions...');
+  execSync('node scripts/sync-institutes.mjs', { stdio: 'inherit' });
+
   console.log('1. Building Vite frontend assets...');
   execSync('npx vite build', { stdio: 'inherit' });
 

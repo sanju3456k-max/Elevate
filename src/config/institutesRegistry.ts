@@ -1,5 +1,5 @@
 import type { MasterWorkspace } from '../lib/masterWorkspace';
-import { GENERATED_INSTITUTES_REGISTRY } from './institutesRegistry.generated';
+import { GENERATED_INSTITUTES_REGISTRY, GENERATED_ELEVATE_APK_META } from './institutesRegistry.generated';
 
 export interface StoreReviewItem {
   id: string;
@@ -57,7 +57,7 @@ export const STATIC_INSTITUTES_REGISTRY: StaticInstituteEntry[] = [
     ownerEmail: 'sanju3456k@gmail.com',
     teamAdminEmails: [],
     packageName: 'com.elevate.app',
-    apkVersion: '1.0',
+    apkVersion: GENERATED_ELEVATE_APK_META.apkVersion || '1.0',
     apkDownloadUrl: './elevate.apk',
     storePage: {
       tagline: '',
@@ -82,7 +82,7 @@ export const STATIC_INSTITUTES_REGISTRY: StaticInstituteEntry[] = [
         './assets/store-elevate/08-realtime-leaderboard.png',
         './assets/store-elevate/09-realtime-analytics.png',
       ],
-      apkSizeLabel: '9.2 MB',
+      apkSizeLabel: GENERATED_ELEVATE_APK_META.apkSizeLabel || '9.2 MB',
       contactEmail: 'sanju3456k@gmail.com',
       websiteUrl: 'https://labselevate.vercel.app',
       accentColor: '#0b57d0',
