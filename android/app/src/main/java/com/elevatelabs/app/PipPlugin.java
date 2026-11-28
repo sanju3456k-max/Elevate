@@ -685,6 +685,7 @@ public class PipPlugin extends Plugin {
                 settings.setDomStorageEnabled(true);
                 settings.setAllowFileAccess(true);
                 settings.setAllowContentAccess(true);
+                settings.setTextZoom(100);
 
                 printWebView.setWebViewClient(new WebViewClient() {
                     private boolean hasPrinted = false;
