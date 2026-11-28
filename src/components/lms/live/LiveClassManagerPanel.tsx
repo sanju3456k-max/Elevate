@@ -6,13 +6,20 @@ import {
   Square,
   ShieldCheck,
   Play,
+  ArrowLeft,
+  Maximize2,
+  Power,
 } from 'lucide-react';
 import { useApp } from '../../../lms/LmsContext';
-import { extractYouTubeId, obfuscateVideoKey } from '../../../lms/security';
+import { extractYouTubeId, obfuscateVideoKey, deobfuscateVideoKey } from '../../../lms/security';
 import { CloakedVideoPlayer } from '../player/CloakedVideoPlayer';
 
-export const LiveClassManagerPanel: React.FC<{ onOpenLiveRoom?: (id: string) => void }> = ({
+export const LiveClassManagerPanel: React.FC<{
+  onOpenLiveRoom?: (id: string) => void;
+  onBack?: () => void;
+}> = ({
   onOpenLiveRoom,
+  onBack,
 }) => {
   const {
     batches,
@@ -89,18 +96,61 @@ export const LiveClassManagerPanel: React.FC<{ onOpenLiveRoom?: (id: string) => 
     }
   };
 
+  const primaryLive = liveClasses[0] || null;
+  const primaryLiveYtId = primaryLive ? deobfuscateVideoKey(primaryLive.encryptedVideoId) : '';
+
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+    <div className={`space-y-4 ${liveClasses.length > 0 ? 'pb-28 lg:pb-0' : 'pb-6 lg:pb-0'}`}>
+      {/* Full-Page Top Header (Borderless, exact same color as status bar in both light & dark themes) */}
+      {onBack && (
+        <div className="sticky top-0 z-30 md:static bg-[#e5e9f0] dark:bg-[#0b0c10] md:bg-transparent border-0 border-none shadow-none outline-none px-3.5 py-3 md:px-0 md:py-0 flex items-center justify-between gap-3 pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.65rem)] md:pt-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="Back"
+              className="w-9 h-9 rounded-full bg-white dark:bg-[#1e2028] text-slate-700 dark:text-slate-200 flex items-center justify-center border-none outline-none cursor-pointer shadow-xs hover:bg-slate-100 dark:hover:bg-white/10 active:scale-95 transition shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-xl font-extrabold text-slate-900 dark:text-white truncate">
+                Live Classes
+              </h1>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate hidden sm:block">
+                YouTube Unlisted Live Streams &amp; Synced Chat
+              </p>
+            </div>
+          </div>
+
+          {liveClasses.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                if (primaryLive) {
+                  setActiveLiveClassId(primaryLive.id);
+                  onOpenLiveRoom?.(primaryLive.id);
+                }
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-600 text-white text-xs font-extrabold border-none outline-none cursor-pointer shadow-xs active:scale-95 transition shrink-0"
+            >
+              <Radio className="w-3.5 h-3.5 animate-pulse" />
+              <span>{liveClasses.length} LIVE</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="px-3.5 md:px-0 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left: Start New Live Class Form (6 cols) */}
-        <div className="lg:col-span-6 bg-white dark:bg-[#1e2028] rounded-3xl p-5 shadow-xs border border-slate-200/70 dark:border-white/10 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-white/10 pb-3">
+        <div className="lg:col-span-6 bg-white dark:bg-[#1e2028] rounded-3xl p-4 sm:p-5 shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-1">
             <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
               <Radio className="w-5 h-5 text-red-500 animate-pulse" />
-              <span>Go Live (YouTube Unlisted Stream)</span>
+              <span>Go Live (YouTube Unlisted)</span>
             </h2>
             <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-              Cloaked + YouTube Chat Sync
+              Cloaked + Chat Sync
             </span>
           </div>
 
@@ -119,7 +169,7 @@ export const LiveClassManagerPanel: React.FC<{ onOpenLiveRoom?: (id: string) => 
                     setDetectedLiveYtId(extractYouTubeId(val));
                   }}
                   placeholder="https://www.youtube.com/live/... or watch?v=..."
-                  className="w-full pl-3.5 pr-10 py-2.5 bg-slate-100 dark:bg-[#16181f] rounded-2xl text-xs text-slate-900 dark:text-white placeholder-slate-400 border border-slate-200 dark:border-white/10 outline-none font-mono"
+                  className="w-full pl-3.5 pr-10 py-2.5 bg-slate-100 dark:bg-[#16181f] rounded-2xl text-xs text-slate-900 dark:text-white placeholder-slate-400 border-none outline-none font-mono"
                 />
                 {detectedLiveYtId && (
                   <div className="absolute inset-y-0 right-0 pr-3 flex items-center text-emerald-500">
@@ -139,7 +189,7 @@ export const LiveClassManagerPanel: React.FC<{ onOpenLiveRoom?: (id: string) => 
                   value={liveTitleInput}
                   onChange={(e) => setLiveTitleInput(e.target.value)}
                   placeholder="e.g. Physics Live Doubt & Revision"
-                  className="w-full p-2.5 bg-slate-100 dark:bg-[#16181f] rounded-2xl text-xs text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 outline-none"
+                  className="w-full p-2.5 bg-slate-100 dark:bg-[#16181f] rounded-2xl text-xs text-slate-900 dark:text-white border-none outline-none"
                 />
               </div>
               <div>
@@ -150,7 +200,7 @@ export const LiveClassManagerPanel: React.FC<{ onOpenLiveRoom?: (id: string) => 
                   type="text"
                   value={liveInstructorInput}
                   onChange={(e) => setLiveInstructorInput(e.target.value)}
-                  className="w-full p-2.5 bg-slate-100 dark:bg-[#16181f] rounded-2xl text-xs text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 outline-none"
+                  className="w-full p-2.5 bg-slate-100 dark:bg-[#16181f] rounded-2xl text-xs text-slate-900 dark:text-white border-none outline-none"
                 />
               </div>
             </div>
@@ -164,7 +214,7 @@ export const LiveClassManagerPanel: React.FC<{ onOpenLiveRoom?: (id: string) => 
                 value={liveDescInput}
                 onChange={(e) => setLiveDescInput(e.target.value)}
                 placeholder="Topics covered in this live class..."
-                className="w-full p-2.5 bg-slate-100 dark:bg-[#16181f] rounded-2xl text-xs text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 outline-none"
+                className="w-full p-2.5 bg-slate-100 dark:bg-[#16181f] rounded-2xl text-xs text-slate-900 dark:text-white border-none outline-none"
               />
             </div>
 
@@ -223,8 +273,8 @@ export const LiveClassManagerPanel: React.FC<{ onOpenLiveRoom?: (id: string) => 
 
         {/* Right: Cloaked Live Preview & Active Streams (6 cols) */}
         <div className="lg:col-span-6 space-y-4">
-          <div className="bg-white dark:bg-[#1e2028] rounded-3xl p-5 shadow-xs border border-slate-200/70 dark:border-white/10 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-white/10 pb-2">
+          <div className={`${detectedLiveYtId ? 'block' : 'hidden lg:block'} bg-white dark:bg-[#1e2028] rounded-3xl p-4 sm:p-5 shadow-xs space-y-3`}>
+            <div className="flex items-center justify-between pb-1">
               <h3 className="text-xs font-bold uppercase tracking-wider text-red-500 flex items-center space-x-1.5">
                 <ShieldCheck className="w-4 h-4" />
                 <span>Cloaked Live Preview</span>
@@ -251,7 +301,7 @@ export const LiveClassManagerPanel: React.FC<{ onOpenLiveRoom?: (id: string) => 
             )}
           </div>
 
-          <div className="bg-white dark:bg-[#1e2028] rounded-3xl p-5 shadow-xs border border-slate-200/70 dark:border-white/10 space-y-3">
+          <div className="hidden lg:block bg-white dark:bg-[#1e2028] rounded-3xl p-5 shadow-xs space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Currently Live ({liveClasses.length})
             </h3>
@@ -259,45 +309,138 @@ export const LiveClassManagerPanel: React.FC<{ onOpenLiveRoom?: (id: string) => 
               <p className="text-xs text-slate-400">No active live classes right now.</p>
             ) : (
               <div className="space-y-2.5">
-                {liveClasses.map((lc) => (
-                  <div
-                    key={lc.id}
-                    className="p-3.5 rounded-2xl bg-slate-100 dark:bg-[#16181f] space-y-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                        🔴 {lc.title}
-                      </span>
-                      <span className="text-[10px] font-mono text-slate-500">
-                        {lc.ytChatSyncStatus === 'synced' ? 'YT Chat Synced' : 'Local Chat'}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
+                {liveClasses.map((lc) => {
+                  const ytId = deobfuscateVideoKey(lc.encryptedVideoId);
+                  return (
+                    <div
+                      key={lc.id}
+                      className="p-3 rounded-2xl bg-slate-100 dark:bg-[#16181f] flex items-center gap-3"
+                    >
                       <button
                         type="button"
                         onClick={() => {
                           setActiveLiveClassId(lc.id);
                           onOpenLiveRoom?.(lc.id);
                         }}
-                        className="flex-1 py-1.5 rounded-full bg-[#0b57d0] text-white text-[11px] font-bold border-none outline-none cursor-pointer"
+                        className="w-24 aspect-video rounded-xl overflow-hidden bg-black relative shrink-0 border-none outline-none cursor-pointer p-0"
+                        title="Open Live Classroom"
                       >
-                        Open Live Room
+                        {ytId && (
+                          <img
+                            src={`https://i.ytimg.com/vi/${ytId}/mqdefault.jpg`}
+                            alt={lc.title}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                        <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded-full bg-red-600 text-white text-[8px] font-extrabold uppercase">
+                          ● LIVE
+                        </span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => stopLiveClass(lc.id)}
-                        className="px-3 py-1.5 rounded-full bg-red-500/15 text-red-500 hover:bg-red-500/25 text-[11px] font-bold border-none outline-none cursor-pointer"
-                      >
-                        End Stream
-                      </button>
+
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                            {lc.title}
+                          </span>
+                          <span className="text-[10px] font-mono text-slate-500 shrink-0">
+                            {lc.ytChatSyncStatus === 'synced' ? 'YT Synced' : 'Local Chat'}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveLiveClassId(lc.id);
+                              onOpenLiveRoom?.(lc.id);
+                            }}
+                            className="flex-1 py-1.5 px-3 rounded-full bg-[#0b57d0] text-white text-[11px] font-bold border-none outline-none cursor-pointer inline-flex items-center justify-center gap-1.5"
+                          >
+                            <Maximize2 className="w-3 h-3" />
+                            <span>Open Live Room</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => stopLiveClass(lc.id)}
+                            className="px-3 py-1.5 rounded-full bg-red-500/15 text-red-500 hover:bg-red-500/25 text-[11px] font-bold border-none outline-none cursor-pointer"
+                          >
+                            End Stream
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Mobile Floating Running Video Mini-Player Strip (Bottom) */}
+      {primaryLive && (
+        <div className="lg:hidden fixed bottom-3 inset-x-3 z-40 pb-[env(safe-area-inset-bottom,0px)]">
+          <div className="bg-white/95 dark:bg-[#1e2028]/95 backdrop-blur-md rounded-2xl p-2.5 shadow-xl flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveLiveClassId(primaryLive.id);
+                onOpenLiveRoom?.(primaryLive.id);
+              }}
+              className="w-20 aspect-video rounded-xl overflow-hidden bg-black relative shrink-0 border-none outline-none cursor-pointer p-0"
+              title="Open Live Classroom"
+            >
+              {primaryLiveYtId && (
+                <img
+                  src={`https://i.ytimg.com/vi/${primaryLiveYtId}/mqdefault.jpg`}
+                  alt={primaryLive.title}
+                  className="w-full h-full object-cover"
+                />
+              )}
+              <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded-full bg-red-600 text-white text-[8px] font-extrabold uppercase flex items-center gap-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                LIVE
+              </span>
+            </button>
+
+            <div
+              onClick={() => {
+                setActiveLiveClassId(primaryLive.id);
+                onOpenLiveRoom?.(primaryLive.id);
+              }}
+              className="flex-1 min-w-0 cursor-pointer"
+            >
+              <div className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
+                {primaryLive.title}
+              </div>
+              <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400 truncate">
+                {primaryLive.ytChatSyncStatus === 'synced' ? 'YT Chat Synced' : 'Local Chat'} • Tap to open
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveLiveClassId(primaryLive.id);
+                  onOpenLiveRoom?.(primaryLive.id);
+                }}
+                className="px-3 py-1.5 rounded-full bg-[#0b57d0] text-white text-[11px] font-bold border-none outline-none cursor-pointer active:scale-95 transition"
+              >
+                Open Room
+              </button>
+              <button
+                type="button"
+                onClick={() => stopLiveClass(primaryLive.id)}
+                title="End Stream"
+                aria-label="End Stream"
+                className="w-8 h-8 rounded-full bg-red-500/15 text-red-600 dark:text-red-400 flex items-center justify-center border-none outline-none cursor-pointer active:scale-95 transition"
+              >
+                <Power className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

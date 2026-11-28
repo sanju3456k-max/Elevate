@@ -80,7 +80,6 @@ import {
   Loader2,
   Radio,
 } from 'lucide-react';
-import { LiveClassManagerPanel } from './lms/live/LiveClassManagerPanel';
 import type { MathTest, TestAttempt, RemedialFilterType, AssignedRemedialTest } from '../types';
 import { getTestDurationMinutes } from '../utils/testFormatConverter';
 import { 
@@ -140,7 +139,6 @@ export type MasterConsoleNavTab =
   | 'remedial'
   | 'analytics'
   | 'publishing'
-  | 'live_classes'
   | 'team'
   | 'settings'
   | 'storefront'
@@ -1584,24 +1582,6 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
 
             <button
               type="button"
-              onClick={() => { setActiveTab('live_classes'); setIsMobileMenuOpen(false); }}
-              title="Start & Manage YouTube Unlisted Live Classes"
-              className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center transition border-0 cursor-pointer ${
-                isDesktopSidebarCollapsed ? 'lg:justify-center lg:px-2' : 'justify-between'
-              } ${
-                activeTab === 'live_classes'
-                  ? 'bg-red-600 text-white shadow-xs'
-                  : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800/60'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Radio className={`w-4 h-4 shrink-0 ${activeTab === 'live_classes' ? 'text-white' : 'text-red-500 animate-pulse'}`} />
-                <span className={isDesktopSidebarCollapsed ? 'lg:hidden' : ''}>Live Classes</span>
-              </div>
-            </button>
-
-            <button
-              type="button"
               onClick={() => { setActiveTab('ux_audit'); setIsMobileMenuOpen(false); }}
               title="MCB UI Performance & Visual Audit"
               className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center transition border-0 cursor-pointer ${
@@ -1812,7 +1792,6 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
             { id: 'remedial', label: 'Remedial', icon: Zap },
             { id: 'analytics', label: 'Analytics', icon: BarChart3 },
             { id: 'publishing', label: 'Publish', icon: BookOpen, badge: currentBatchTests.length },
-            { id: 'live_classes', label: 'Live Classes', icon: Radio },
             { id: 'team', label: 'Team & Access', icon: ShieldCheck, badge: activeWorkspace.teamAdminEmails.length },
             { id: 'storefront', label: 'App Store Page', icon: Smartphone },
             { id: 'settings', label: 'Security', icon: ShieldCheck },
@@ -4055,12 +4034,6 @@ export const MasterConsoleView: React.FC<MasterConsoleViewProps> = ({
                 })}
             </div>
           </div>
-        </div>
-      )}
-
-      {activeTab === 'live_classes' && (
-        <div className="p-4 sm:p-6 max-w-7xl mx-auto">
-          <LiveClassManagerPanel onOpenLiveRoom={() => onBack()} />
         </div>
       )}
 

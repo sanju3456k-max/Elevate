@@ -1051,6 +1051,35 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </button>
 
                         <button
+                          id="drawer-item-live-classes"
+                          onClick={() => handleNavClick('live-classes')}
+                          className={`${activeTab === 'live-classes' ? APP_STYLES.nav.itemActive : APP_STYLES.nav.item} relative overflow-hidden`}
+                        >
+                          <md-ripple />
+                          <div className="flex items-center gap-3">
+                            <div className="w-7 h-7 flex items-center justify-center shrink-0 bg-transparent text-red-500">
+                              <Radio className="w-5 h-5 animate-pulse stroke-[2.2]" />
+                            </div>
+                            <div className="flex flex-col items-start text-left leading-tight">
+                              <span className="text-[17px] font-semibold text-[#1f1f1f] dark:text-[#e3e3e3]">
+                                Live Classes
+                              </span>
+                              <span className="text-[11px] font-medium text-red-600 dark:text-red-400">
+                                {liveClasses.length > 0 ? `${liveClasses.length} Live Now • Manage Streams` : 'Go Live & Manage Streams'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {liveClasses.length > 0 && (
+                              <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-extrabold uppercase tracking-wide">
+                                LIVE
+                              </span>
+                            )}
+                            <ChevronRight className="w-4 h-4 opacity-70" />
+                          </div>
+                        </button>
+
+                        <button
                           id="drawer-item-create-post"
                           onClick={() => {
                             setIsDrawerOpen(false);

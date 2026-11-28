@@ -138,6 +138,7 @@ import { CloakedVideoPlayer } from './components/lms/player/CloakedVideoPlayer';
 import { GlobalPersistentPlayer, type PersistentPlaybackData } from './components/lms/player/GlobalPersistentPlayer';
 import { BatchAdminStudio } from './components/lms/BatchAdminStudio';
 import { LiveClassRoom } from './components/lms/live/LiveClassRoom';
+import { LiveClassManagerPanel } from './components/lms/live/LiveClassManagerPanel';
 
 const HomeLiveBannerSection: React.FC<{
   children: React.ReactNode;
@@ -812,6 +813,9 @@ export default function App() {
       let statusBarColor = isDarkMode ? '#0b0c10' : '#e5e9f0';
       if (!isAppLoaded) {
         statusBarColor = isDarkMode ? '#0b0c10' : '#e5e9f0';
+      } else if (isLiveRoomActive) {
+        // Mobile LiveClassRoom starts edge-to-edge with black video player; Desktop keeps Navbar surface
+        statusBarColor = isDesktop ? (isDarkMode ? '#0b0c10' : '#e5e9f0') : '#000000';
       } else if (isSettingsModalOpen) {
         statusBarColor = isDarkMode ? '#0b0c10' : '#ffffff';
       } else if (activeTab === 'master-console') {
@@ -822,7 +826,7 @@ export default function App() {
         statusBarColor = isDarkMode ? '#0b0c10' : '#ffffff';
       } else if (activeTab === 'chatbot') {
         statusBarColor = isDarkMode ? '#131314' : '#ffffff';
-      } else if (activeTab === 'html-notes' || activeTab === 'notes-repository') {
+      } else if (activeTab === 'html-notes' || activeTab === 'notes-repository' || activeTab === 'live-classes') {
         statusBarColor = isDarkMode ? '#0b0c10' : '#e5e9f0';
       } else {
         statusBarColor = isDarkMode ? '#0b0c10' : '#e5e9f0';
@@ -833,15 +837,15 @@ export default function App() {
       // Update iOS status bar appearance
       const appleStatusBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
       if (appleStatusBar) {
-        appleStatusBar.setAttribute('content', isDarkMode ? 'black-translucent' : 'default');
+        appleStatusBar.setAttribute('content', (isDarkMode || (isLiveRoomActive && !isDesktop)) ? 'black-translucent' : 'default');
       }
 
-      // Synchronize Android Edge-to-Edge Status Bar with current theme
-      syncNativeStatusBarTheme(isDarkMode);
+      // Synchronize Android Edge-to-Edge Status Bar with current theme (light icons on black mobile player)
+      syncNativeStatusBarTheme(isLiveRoomActive && !isDesktop ? true : isDarkMode);
     } catch (e) {
       console.warn('Theme storage and status bar sync error:', e);
     }
-  }, [isDarkMode, activeTab, isInsideBatch, isSettingsModalOpen, isAppLoaded, isFullVideoPlayerActive]);
+  }, [isDarkMode, activeTab, isInsideBatch, isSettingsModalOpen, isAppLoaded, isFullVideoPlayerActive, isLiveRoomActive, isDesktop]);
 
   const toggleTheme = useCallback(() => {
     setIsDarkMode((prev) => !prev);
@@ -3351,6 +3355,16 @@ export default function App() {
               }}
             />
           )}
+
+      {/* Dedicated Full-Page Live Classes Management View (Moved to Navigation Drawer) */}
+      {activeTab === 'live-classes' && isMasterUser(currentUser || cachedUser) && (
+        <div className="w-full min-h-[100dvh] md:min-h-0 max-w-7xl mx-auto md:px-6 md:py-5">
+          <LiveClassManagerPanel
+            onBack={() => goBack()}
+            onOpenLiveRoom={() => setActiveTab('home')}
+          />
+        </div>
+      )}
 
       {/* Performance Analytics */}
       {activeTab === 'analytics' && (
