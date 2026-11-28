@@ -45,6 +45,9 @@ import {
   syncLectureToFirestore,
   deleteLectureFromFirestore,
   fetchBatchCurriculumFromFirestore,
+  mapChaptersSnapshot,
+  mapLecturesSnapshot,
+  mapBatchTestsSnapshot,
   cleanKeyForFirestore,
   syncBatchTestToFirestore,
   deleteBatchTestFromFirestore,
@@ -123,6 +126,7 @@ interface AppContextType {
   getEnrollmentsForBatch: (batchId: string) => BatchEnrollment[];
   loadRosterForBatch: (batchId: string) => Promise<void>;
   loadCurriculumForBatch: (batchId: string, forceRefresh?: boolean) => Promise<void>;
+  applyBatchCurriculumSnapshot: (batchId: string, kind: 'chapters' | 'lectures' | 'tests', snap: any) => void;
   searchStudents: (query: string) => { id: string; name: string; email?: string; phone?: string }[];
   addTestToBatchCatalog: (params: {
     testId?: string;
@@ -1409,6 +1413,82 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, []);
 
+  /**
+   * Hydrate curriculum state directly from an active Firestore onSnapshot payload,
+   * eliminating redundant getDocs re-fetches on mount and live edits.
+   */
+  const applyBatchCurriculumSnapshot = useCallback(
+    (batchId: string, kind: 'chapters' | 'lectures' | 'tests', snap: any) => {
+      if (!batchId || !snap) return;
+      if (kind === 'chapters') {
+        const cloudChaps = mapChaptersSnapshot(batchId, snap);
+        if (cloudChaps.length > 0) {
+          setChapters((prev) => {
+            const otherBatchChaps = prev.filter((c) => c.batchId !== batchId);
+            const next = [...otherBatchChaps, ...cloudChaps];
+            try {
+              secureStorage.setItem(STORAGE_KEYS.CHAPTERS, JSON.stringify(next));
+            } catch {}
+            return next;
+          });
+        }
+        return;
+      }
+
+      if (kind === 'lectures') {
+        const cloudLecs = mapLecturesSnapshot(batchId, snap);
+        setLectures((prev) => {
+          const otherBatchLecs = prev.filter((l) => l.batchId !== batchId);
+          const next = [...otherBatchLecs, ...cloudLecs];
+          try {
+            secureStorage.setItem(STORAGE_KEYS.LECTURES, JSON.stringify(next));
+          } catch {}
+          return next;
+        });
+        return;
+      }
+
+      if (kind === 'tests') {
+        const rawTests = mapBatchTestsSnapshot(batchId, snap);
+        if (rawTests.length === 0) {
+          // Legacy catalog/manifest fallback only when subcollection is empty
+          fetchBatchTestsFromFirestore(batchId)
+            .then((cloudTests) => {
+              const cleanCloud = (cloudTests || []).filter((t: any) => !isDeprecatedTest(t));
+              setBatchTests((prev) => {
+                const otherBatchTests = prev.filter((t) => t.batchId !== batchId && !isDeprecatedTest(t));
+                const next = [...otherBatchTests, ...cleanCloud];
+                try {
+                  secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(next));
+                } catch {}
+                return next;
+              });
+            })
+            .catch(() => {});
+          return;
+        }
+        const cleanCloud = rawTests.filter((t: any) => !isDeprecatedTest(t));
+        cleanCloud.forEach((ct: any) => {
+          const cId = ct?.testId || ct?.id;
+          if (cId && Array.isArray(ct.questions) && ct.questions.length > 0) {
+            try {
+              localStorage.setItem(`batch_${batchId}_test_${cId}`, JSON.stringify(ct));
+            } catch {}
+          }
+        });
+        setBatchTests((prev) => {
+          const otherBatchTests = prev.filter((t) => t.batchId !== batchId && !isDeprecatedTest(t));
+          const next = [...otherBatchTests, ...cleanCloud];
+          try {
+            secureStorage.setItem(STORAGE_KEYS.BATCH_TESTS, JSON.stringify(next));
+          } catch {}
+          return next;
+        });
+      }
+    },
+    []
+  );
+
   const updateWatchProgress = (lectureId: string, currentSeconds: number, totalSeconds: number) => {
     const isCompleted = totalSeconds > 0 && currentSeconds >= totalSeconds * 0.9;
     const lecObj = lectures.find((l) => l.id === lectureId);
@@ -2294,6 +2374,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         getEnrollmentsForBatch,
         loadRosterForBatch,
         loadCurriculumForBatch,
+        applyBatchCurriculumSnapshot,
         searchStudents,
         addTestToBatchCatalog,
         deleteBatchTest,

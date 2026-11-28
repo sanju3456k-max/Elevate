@@ -392,25 +392,25 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
           </div>
 
           {/* Row 2: Date, Accuracy, Precision */}
-          <div className="flex items-center gap-2 sm:gap-2.5 text-[#444746] dark:text-[#c4c7c5] text-[11px] font-bold flex-wrap">
-            <div className="flex items-center gap-1.5" title="Attempt Date & Time">
-              <Calendar className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+          <div className="flex items-center gap-1 sm:gap-2.5 text-[#444746] dark:text-[#c4c7c5] text-[10px] sm:text-[11px] font-bold flex-nowrap whitespace-nowrap overflow-x-auto">
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0" title="Attempt Date & Time">
+              <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
               <span className="font-semibold text-[#1f1f1f] dark:text-[#e3e3e3]">
                 {formatDateTime(attemptItem.completedAt || attemptItem.createdAt)}
               </span>
             </div>
-            <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
-            <div className="flex items-center gap-1 text-[#1f1f1f] dark:text-[#e3e3e3]" title="Accuracy">
-              <Target className="w-3.5 h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
+            <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium shrink-0">•</span>
+            <div className="flex items-center gap-0.5 sm:gap-1 text-[#1f1f1f] dark:text-[#e3e3e3] shrink-0" title="Accuracy">
+              <Target className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
               <span>Acc</span>
               <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{accuracy}%</strong>
             </div>
-            <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium">•</span>
+            <span className="text-[#5e5e5e] dark:text-[#9aa0a6] font-medium shrink-0">•</span>
             <div
-              className="flex items-center gap-1 text-[#1f1f1f] dark:text-[#e3e3e3]"
+              className="flex items-center gap-0.5 sm:gap-1 text-[#1f1f1f] dark:text-[#e3e3e3] shrink-0"
               title="Precision / Overall Percentage"
             >
-              <Percent className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 stroke-[2.2] shrink-0" />
+              <Percent className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-500 dark:text-indigo-400 stroke-[2.2] shrink-0" />
               <span>Precision</span>
               <strong className="font-extrabold text-[#1f1f1f] dark:text-[#e3e3e3]">{precision}%</strong>
             </div>
@@ -444,8 +444,8 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
           </div>
 
           {/* Row 4: Score, Time, Rank & Action Buttons */}
-          <div className="flex items-center justify-between gap-1.5 sm:gap-2 pt-1 flex-wrap">
-            <div className="inline-flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#edf2f9] dark:bg-[#26282e] border-0 shrink-0 text-[10px] sm:text-xs">
+          <div className="flex items-center justify-between gap-1.5 sm:gap-2 pt-1 flex-nowrap">
+            <div className="inline-flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-3 py-1 rounded-full bg-[#edf2f9] dark:bg-[#26282e] border-0 min-w-0 shrink text-[10px] sm:text-xs">
               {testRank && (
                 <>
                   <div
@@ -462,10 +462,10 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
               {timeTakenStr && (
                 <>
                   <div
-                    className="inline-flex items-center gap-1 text-purple-700 dark:text-purple-300 font-bold font-mono shrink-0"
+                    className="inline-flex items-center gap-1 text-[#0b57d0] dark:text-[#a8c7fa] font-bold font-mono shrink-0"
                     title="Time Taken"
                   >
-                    <Clock className="w-3 h-3 text-purple-600 dark:text-purple-400 stroke-[2.2] shrink-0" />
+                    <Clock className="w-3 h-3 text-[#0b57d0] dark:text-[#a8c7fa] stroke-[2.2] shrink-0" />
                     <span>{timeTakenStr}</span>
                   </div>
                   <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-zinc-600 shrink-0" />
@@ -483,7 +483,7 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
               </div>
             </div>
 
-            {/* Action Buttons: Analysis & Solutions */}
+            {/* Action Buttons: Analysis & Solutions (icon-only on mobile to fit on same row, full label on sm+) */}
             <div className="flex items-center gap-1.5 shrink-0 ml-auto">
               <button
                 type="button"
@@ -491,12 +491,12 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
                   e.stopPropagation();
                   setSelectedReportAttempt(attemptItem);
                 }}
-                className="inline-flex items-center justify-center gap-1 px-2.5 sm:px-3 py-1 min-h-[30px] bg-[#d3e3fd] hover:bg-[#c2e7ff] dark:bg-[#004a77] dark:hover:bg-[#005a92] active:scale-95 text-[#041e49] dark:text-[#c2e7ff] text-[10.5px] sm:text-xs font-bold rounded-full border-0 transition-all cursor-pointer whitespace-nowrap shrink-0 touch-manipulation"
+                className="inline-flex items-center justify-center gap-1 px-2 sm:px-3 py-1 min-h-[28px] sm:min-h-[30px] bg-[#d3e3fd] hover:bg-[#c2e7ff] dark:bg-[#004a77] dark:hover:bg-[#005a92] active:scale-95 text-[#041e49] dark:text-[#c2e7ff] text-[10.5px] sm:text-xs font-bold rounded-full border-0 transition-all cursor-pointer whitespace-nowrap shrink-0 touch-manipulation"
                 title="View detailed test report & analysis"
                 aria-label="Analysis"
               >
                 <BarChart2 className="w-3.5 h-3.5 stroke-[2.2] shrink-0 pointer-events-none" />
-                <span className="pointer-events-none">Analysis</span>
+                <span className="hidden sm:inline pointer-events-none">Analysis</span>
               </button>
 
               {onViewAttemptResult && (
@@ -507,12 +507,12 @@ export const TestDetailModal: React.FC<TestDetailModalProps> = ({
                     handleModalClose();
                     onViewAttemptResult(attemptItem);
                   }}
-                  className="inline-flex items-center justify-center gap-1 px-3 py-1 min-h-[30px] bg-[#0b57d0] hover:bg-[#0842a0] text-white active:scale-95 text-[10.5px] sm:text-xs font-bold rounded-full border-0 shadow-[0_2px_6px_rgba(11,87,208,0.25)] transition-all cursor-pointer whitespace-nowrap shrink-0 touch-manipulation"
+                  className="inline-flex items-center justify-center gap-1 px-2 sm:px-3 py-1 min-h-[28px] sm:min-h-[30px] bg-[#0b57d0] hover:bg-[#0842a0] text-white active:scale-95 text-[10.5px] sm:text-xs font-bold rounded-full border-0 shadow-[0_2px_6px_rgba(11,87,208,0.25)] transition-all cursor-pointer whitespace-nowrap shrink-0 touch-manipulation"
                   title="View detailed test solutions"
                   aria-label="Solutions"
                 >
                   <Eye className="w-3.5 h-3.5 stroke-[2.2] shrink-0 pointer-events-none" />
-                  <span className="pointer-events-none">Solutions</span>
+                  <span className="hidden sm:inline pointer-events-none">Solutions</span>
                 </button>
               )}
             </div>

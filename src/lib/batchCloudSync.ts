@@ -274,9 +274,9 @@ export async function fetchBatchesFromFirestore(options?: { forceRefresh?: boole
     } catch {}
   }
 
-  // Tier 3: Fetch full collection when cache is missing, expired, or forced
+  // Tier 3: Fetch bounded collection when cache is missing, expired, or forced
   try {
-    const batchesCol = collection(db, 'batches');
+    const batchesCol = query(collection(db, 'batches'), limit(200));
     const snap = await getDocs(batchesCol);
     if (!snap.empty) {
       const cloudBatches: Batch[] = [];
@@ -751,7 +751,7 @@ export async function fetchAllEnrollmentsFromFirestore(options?: { forceRefresh?
   }
 
   try {
-    const snap = await getDocs(query(collection(db, 'batch_enrollments'), limit(2000)));
+    const snap = await getDocs(query(collection(db, 'batch_enrollments'), where('status', '==', 'active'), limit(2000)));
     const result: BatchEnrollment[] = [];
     snap.forEach((d) => {
       const data = d.data();
@@ -991,6 +991,57 @@ export async function deleteLectureFromFirestore(batchId: string, lectureId: str
   }
 }
 
+export function mapChaptersSnapshot(batchId: string, chaptersSnap: any): Chapter[] {
+  const cloudChapters: Chapter[] = [];
+  chaptersSnap?.forEach?.((d: any) => {
+    const data = d.data();
+    cloudChapters.push({
+      id: d.id,
+      batchId,
+      subjectId: data.subjectId || 'sub_math_01',
+      title: data.title || 'Chapter',
+      description: data.description || '',
+      order: Number(data.order) || 1,
+      testIds: Array.isArray(data.testIds) ? data.testIds : [],
+      parentId: data.parentId || null,
+      folderType: data.folderType || 'folder',
+      color: data.color || '#0b57d0',
+      icon: data.icon || '',
+      pdfNotes: Array.isArray(data.pdfNotes) ? data.pdfNotes : [],
+      createdAt: data.createdAt || '',
+      updatedAt: data.updatedAt || '',
+    });
+  });
+  return cloudChapters;
+}
+
+export function mapLecturesSnapshot(batchId: string, lecturesSnap: any): Lecture[] {
+  const cloudLectures: Lecture[] = [];
+  lecturesSnap?.forEach?.((d: any) => {
+    const data = d.data();
+    cloudLectures.push({
+      id: d.id,
+      batchId,
+      subjectId: data.subjectId || 'sub_math_01',
+      chapterId: data.chapterId || '',
+      title: data.title || 'Lecture',
+      description: data.description || '',
+      durationMinutes: Number(data.durationMinutes) || 45,
+      videoSourceType: data.videoSourceType || 'youtube',
+      encryptedVideoId: data.encryptedVideoId || '',
+      thumbnailUrl: data.thumbnailUrl || '',
+      order: Number(data.order) || 1,
+      isFreePreview: !!data.isFreePreview,
+      pdfNotes: data.pdfNotes || [],
+      notes: data.notes || [],
+      milestones: data.milestones || [],
+      faculty: data.faculty,
+      createdAt: data.createdAt || new Date().toISOString(),
+    });
+  });
+  return cloudLectures;
+}
+
 /**
  * 9. Fetch curriculum (chapters and lectures) for a specific batch from Cloud Firestore
  */
@@ -999,52 +1050,12 @@ export async function fetchBatchCurriculumFromFirestore(
 ): Promise<{ chapters: Chapter[]; lectures: Lecture[] }> {
   if (!batchId) return { chapters: [], lectures: [] };
   try {
-    const chaptersSnap = await getDocs(collection(db, 'batches', batchId, 'chapters'));
-    const cloudChapters: Chapter[] = [];
-    chaptersSnap.forEach((d) => {
-      const data = d.data();
-      cloudChapters.push({
-        id: d.id,
-        batchId,
-        subjectId: data.subjectId || 'sub_math_01',
-        title: data.title || 'Chapter',
-        description: data.description || '',
-        order: Number(data.order) || 1,
-        testIds: Array.isArray(data.testIds) ? data.testIds : [],
-        parentId: data.parentId || null,
-        folderType: data.folderType || 'folder',
-        color: data.color || '#0b57d0',
-        icon: data.icon || '',
-        pdfNotes: Array.isArray(data.pdfNotes) ? data.pdfNotes : [],
-        createdAt: data.createdAt || '',
-        updatedAt: data.updatedAt || '',
-      });
-    });
-
-    const lecturesSnap = await getDocs(collection(db, 'batches', batchId, 'lectures'));
-    const cloudLectures: Lecture[] = [];
-    lecturesSnap.forEach((d) => {
-      const data = d.data();
-      cloudLectures.push({
-        id: d.id,
-        batchId,
-        subjectId: data.subjectId || 'sub_math_01',
-        chapterId: data.chapterId || '',
-        title: data.title || 'Lecture',
-        description: data.description || '',
-        durationMinutes: Number(data.durationMinutes) || 45,
-        videoSourceType: data.videoSourceType || 'youtube',
-        encryptedVideoId: data.encryptedVideoId || '',
-        thumbnailUrl: data.thumbnailUrl || '',
-        order: Number(data.order) || 1,
-        isFreePreview: !!data.isFreePreview,
-        pdfNotes: data.pdfNotes || [],
-        notes: data.notes || [],
-        milestones: data.milestones || [],
-        faculty: data.faculty,
-        createdAt: data.createdAt || new Date().toISOString(),
-      });
-    });
+    const [chaptersSnap, lecturesSnap] = await Promise.all([
+      getDocs(collection(db, 'batches', batchId, 'chapters')),
+      getDocs(collection(db, 'batches', batchId, 'lectures')),
+    ]);
+    const cloudChapters = mapChaptersSnapshot(batchId, chaptersSnap);
+    const cloudLectures = mapLecturesSnapshot(batchId, lecturesSnap);
 
     // Detect any lectures with unmapped chapter IDs and auto-synthesize their folders
     const existingChapterIds = new Set(cloudChapters.map((c) => c.id));
@@ -1216,33 +1227,38 @@ export async function deleteBatchTestFromFirestore(
 /**
  * 11. Fetch All Tests authored for a specific batch from Cloud Firestore
  */
+export function mapBatchTestsSnapshot(batchId: string, snap: any): any[] {
+  const list: any[] = [];
+  snap?.forEach?.((d: any) => {
+    const data = d.data();
+    const tid = data.testId || d.id;
+    const dur = Number(data.timeLimitMinutes) || Number(data.durationMinutes) || Number(data.time) || 60;
+    list.push({
+      id: tid,
+      testId: tid,
+      batchId,
+      chapterId: data.chapterId || data.folderId || null,
+      title: data.title || 'Batch Assessment Test',
+      topic: data.topic || 'Curriculum Practice',
+      questionCount: Number(data.questionCount) || 30,
+      timeLimitMinutes: dur,
+      time: dur,
+      durationMinutes: dur,
+      difficulty: data.difficulty || 'medium',
+      passingScorePercentage: Number(data.passingScorePercentage) || 40,
+      catalogChunkId: data.catalogChunkId || 'chunk_1',
+      chunkEstimatedBytes: Number(data.chunkEstimatedBytes) || 1024,
+      publishedAt: data.publishedAt || new Date().toISOString(),
+    });
+  });
+  return list;
+}
+
 export async function fetchBatchTestsFromFirestore(batchId: string): Promise<any[]> {
   if (!batchId) return [];
   try {
     const snap = await getDocs(collection(db, 'batches', batchId, 'tests'));
-    const list: any[] = [];
-    snap.forEach((d) => {
-      const data = d.data();
-      const tid = data.testId || d.id;
-      const dur = Number(data.timeLimitMinutes) || Number(data.durationMinutes) || Number(data.time) || 60;
-      list.push({
-        id: tid,
-        testId: tid,
-        batchId,
-        chapterId: data.chapterId || data.folderId || null,
-        title: data.title || 'Batch Assessment Test',
-        topic: data.topic || 'Curriculum Practice',
-        questionCount: Number(data.questionCount) || 30,
-        timeLimitMinutes: dur,
-        time: dur,
-        durationMinutes: dur,
-        difficulty: data.difficulty || 'medium',
-        passingScorePercentage: Number(data.passingScorePercentage) || 40,
-        catalogChunkId: data.catalogChunkId || 'chunk_1',
-        chunkEstimatedBytes: Number(data.chunkEstimatedBytes) || 1024,
-        publishedAt: data.publishedAt || new Date().toISOString(),
-      });
-    });
+    const list = mapBatchTestsSnapshot(batchId, snap);
 
     // If subcollection is empty, check manifest catalog fallback
     if (list.length === 0) {

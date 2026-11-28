@@ -159,6 +159,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
     addPersonalNote,
     deletePersonalNote,
     loadCurriculumForBatch,
+    applyBatchCurriculumSnapshot,
     showSecurityToast,
     announcements,
     addAnnouncement,
@@ -385,8 +386,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         const lecsCol = collection(db, 'batches', selectedBatchId, 'lectures');
         unsubLectures = onSnapshot(
           lecsCol,
-          () => {
-            loadCurriculumForBatch(selectedBatchId);
+          (snap) => {
+            applyBatchCurriculumSnapshot(selectedBatchId, 'lectures', snap);
           },
           (err) => {
             console.warn('Lectures live stream notice:', err);
@@ -398,8 +399,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         const chapsCol = collection(db, 'batches', selectedBatchId, 'chapters');
         unsubChapters = onSnapshot(
           chapsCol,
-          () => {
-            loadCurriculumForBatch(selectedBatchId);
+          (snap) => {
+            applyBatchCurriculumSnapshot(selectedBatchId, 'chapters', snap);
           },
           (err) => {
             console.warn('Chapters live stream notice:', err);
@@ -411,8 +412,8 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         const testsCol = collection(db, 'batches', selectedBatchId, 'tests');
         unsubTests = onSnapshot(
           testsCol,
-          () => {
-            loadCurriculumForBatch(selectedBatchId);
+          (snap) => {
+            applyBatchCurriculumSnapshot(selectedBatchId, 'tests', snap);
           },
           (err) => {
             console.warn('Batch tests live stream notice:', err);
@@ -461,7 +462,7 @@ export const BatchDetailView: React.FC<BatchDetailViewProps> = ({
         unsubBeacon();
       };
     }
-  }, [selectedBatchId, loadCurriculumForBatch, isMaster]);
+  }, [selectedBatchId, loadCurriculumForBatch, applyBatchCurriculumSnapshot, isMaster]);
 
   // Gracefully handle if current lecture was deleted by instructor in real time
   useEffect(() => {

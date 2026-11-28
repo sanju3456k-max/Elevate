@@ -144,7 +144,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
     enrollStudentByContact,
     revokeStudentEnrollment,
     loadRosterForBatch,
-    loadCurriculumForBatch,
+    applyBatchCurriculumSnapshot,
     batchTests,
     addTestToBatchCatalog,
     getTestsForBatch,
@@ -227,10 +227,9 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
     return batches.find((b) => b.id === selectedBatchId) || batches[0] || null;
   }, [batches, selectedBatchId]);
 
-  // Auto load batch curriculum and roster with real-time live synchronization
+  // Auto load batch roster and hydrate curriculum directly from real-time snapshots
   useEffect(() => {
     if (!selectedBatchId) return;
-    loadCurriculumForBatch(selectedBatchId);
     loadRosterForBatch(selectedBatchId);
 
     let unsubLectures: (() => void) | null = null;
@@ -238,8 +237,8 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
       const lecsCol = collection(db, 'batches', selectedBatchId, 'lectures');
       unsubLectures = onSnapshot(
         lecsCol,
-        () => {
-          loadCurriculumForBatch(selectedBatchId);
+        (snap) => {
+          applyBatchCurriculumSnapshot(selectedBatchId, 'lectures', snap);
         },
         (err) => {
           console.warn('Admin studio live lecs notice:', err);
@@ -252,8 +251,8 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
       const chapsCol = collection(db, 'batches', selectedBatchId, 'chapters');
       unsubChapters = onSnapshot(
         chapsCol,
-        () => {
-          loadCurriculumForBatch(selectedBatchId);
+        (snap) => {
+          applyBatchCurriculumSnapshot(selectedBatchId, 'chapters', snap);
         },
         (err) => {
           console.warn('Admin studio live chaps notice:', err);
@@ -266,8 +265,8 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
       const testsCol = collection(db, 'batches', selectedBatchId, 'tests');
       unsubTests = onSnapshot(
         testsCol,
-        () => {
-          loadCurriculumForBatch(selectedBatchId);
+        (snap) => {
+          applyBatchCurriculumSnapshot(selectedBatchId, 'tests', snap);
         },
         (err) => {
           console.warn('Admin studio live tests notice:', err);
@@ -280,7 +279,7 @@ export const DesktopLmsStudio: React.FC<DesktopLmsStudioProps> = ({
       if (unsubChapters) unsubChapters();
       if (unsubTests) unsubTests();
     };
-  }, [selectedBatchId, loadCurriculumForBatch, loadRosterForBatch]);
+  }, [selectedBatchId, applyBatchCurriculumSnapshot, loadRosterForBatch]);
 
   // Hierarchical chapters and lectures for the current batch
   const batchChapters = useMemo(() => {
