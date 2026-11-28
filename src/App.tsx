@@ -137,6 +137,47 @@ import { BatchDetailView } from './components/lms/batches/BatchDetailView';
 import { CloakedVideoPlayer } from './components/lms/player/CloakedVideoPlayer';
 import { GlobalPersistentPlayer, type PersistentPlaybackData } from './components/lms/player/GlobalPersistentPlayer';
 import { BatchAdminStudio } from './components/lms/BatchAdminStudio';
+import { LiveClassRoom } from './components/lms/live/LiveClassRoom';
+
+const HomeLiveBannerSection: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { liveClasses, activeLiveClassId, setActiveLiveClassId } = useApp();
+  const activeLive = liveClasses.find((lc) => lc.id === activeLiveClassId);
+  if (activeLive) {
+    return <LiveClassRoom liveClass={activeLive} onBack={() => setActiveLiveClassId(null)} />;
+  }
+  return (
+    <>
+      {liveClasses.length > 0 && (
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 pt-3 space-y-2">
+          {liveClasses.map((lc) => (
+            <div
+              key={lc.id}
+              onClick={() => setActiveLiveClassId(lc.id)}
+              className="rounded-2xl bg-gradient-to-r from-red-600/15 via-red-500/10 to-white dark:to-[#1e2028] p-4 shadow-sm border border-red-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:shadow-md transition"
+            >
+              <div className="flex items-center gap-3">
+                <span className="px-2.5 py-1 rounded-full bg-red-600 text-white text-[10px] font-extrabold uppercase tracking-wider shrink-0">
+                  ● LIVE NOW
+                </span>
+                <div>
+                  <div className="text-sm font-extrabold text-slate-900 dark:text-white">{lc.title}</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">{lc.instructorName}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold border-0 cursor-pointer self-start sm:self-center"
+              >
+                Join Live Class →
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {children}
+    </>
+  );
+};
 import { APP_BRAND } from './config/appBrand';
 import { HomeDashboard } from './components/home/HomeDashboard';
 import { NotificationsView } from './components/notifications/NotificationsView';
@@ -3137,7 +3178,8 @@ export default function App() {
 
           {/* Home Dashboard (Elevate Unified Coaching & Assessment Feed) */}
           {activeTab === 'home' && (
-            <HomeDashboard
+            <HomeLiveBannerSection>
+                <HomeDashboard
               tests={mergePublishedMasterTests(
                 tests,
                 isMasterUser(currentUser || cachedUser),
@@ -3180,6 +3222,7 @@ export default function App() {
               onOpenCustomBuilder={() => setActiveTab('custom-builder')}
               onOpenCreatePost={() => setIsCreatePostModalOpen(true)}
             />
+            </HomeLiveBannerSection>
           )}
 
           {/* Video Batches & LMS Suite (Elevate Integrated Curriculum) */}

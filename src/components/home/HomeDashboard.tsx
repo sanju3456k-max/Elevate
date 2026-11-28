@@ -727,21 +727,6 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           </div>
         </div>
       )}
-      {/* Master Admin Top Right 'New Post' Action Button (Clean dedicated row with full clearance, no overlap) */}
-      {isMaster && onOpenCreatePost && (
-        <div className="w-full flex items-center justify-end pt-1 pb-2 relative z-30">
-          <button
-            id="home-master-new-post-btn"
-            type="button"
-            onClick={onOpenCreatePost}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 active:scale-95 text-white font-bold text-xs sm:text-[13px] shadow-sm shadow-orange-500/25 hover:shadow-md transition-all cursor-pointer border-0 outline-none select-none shrink-0"
-            title="Create Broadcast Post or Home Screen Banner"
-          >
-            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.8]" />
-            <span>New Post</span>
-          </button>
-        </div>
-      )}
 
                   {/* Hero Announcement Banner Section (Strict 1200x500 Dimension Ratio across Mobile, Tablet, and Desktop) */}
       {heroBanners.length > 0 && (() => {

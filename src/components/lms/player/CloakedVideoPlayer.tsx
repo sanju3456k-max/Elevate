@@ -55,6 +55,7 @@ interface CloakedVideoPlayerProps {
   isPlayingProp?: boolean;
   onPlayStateChange?: (isPlaying: boolean) => void;
   onMinimize?: () => void;
+  isLive?: boolean;
 }
 
 export interface QualityOption {
@@ -106,6 +107,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   isPlayingProp,
   onPlayStateChange,
   onMinimize,
+  isLive = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
@@ -1870,6 +1872,12 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
                 <ChevronDown className="w-5 h-5 stroke-[2.5]" />
               </button>
             )}
+            {isLive && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-600 text-white text-[10px] font-extrabold uppercase tracking-wider shadow-md shrink-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                <span>LIVE</span>
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -2015,35 +2023,9 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
           </div>
         )}
 
-        {/* Scroller / Progress Bar Track (Streaming Line) with Milestone Markers */}
-        <div
-          onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => {
-            e.stopPropagation();
-            lastTouchHandledTimeRef.current = Date.now();
-            lastControlsRevealedAt.current = Date.now();
-            showControlsForDuration(5000);
-          }}
-          onTouchMove={(e) => {
-            e.stopPropagation();
-            lastTouchHandledTimeRef.current = Date.now();
-            showControlsForDuration(5000);
-          }}
-          onTouchEnd={(e) => {
-            e.stopPropagation();
-            lastTouchHandledTimeRef.current = Date.now();
-            showControlsForDuration(5000);
-          }}
-          className="relative py-2 flex items-center cursor-pointer group/scrub"
-        >
-          <input
-            type="range"
-            min="0"
-            max={duration || 100}
-            step="0.5"
-            value={currentTime}
-            onChange={handleSeek}
+        {/* Scroller / Progress Bar Track (Hidden in Live Mode) */}
+        {!isLive && (
+          <div
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
             onTouchStart={(e) => {
@@ -2062,30 +2044,58 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
               lastTouchHandledTimeRef.current = Date.now();
               showControlsForDuration(5000);
             }}
-            style={{
-              background: `linear-gradient(to right, #0b57d0 0%, #0b57d0 ${
-                duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0
-              }%, rgba(255, 255, 255, 0.28) ${
-                duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0
-              }%, rgba(255, 255, 255, 0.28) 100%)`,
-            }}
-            className="w-full h-1.5 rounded-lg appearance-none cursor-pointer accent-[#0b57d0] hover:h-2.5 transition-all relative z-10"
-          />
+            className="relative py-2 flex items-center cursor-pointer group/scrub"
+          >
+            <input
+              type="range"
+              min="0"
+              max={duration || 100}
+              step="0.5"
+              value={currentTime}
+              onChange={handleSeek}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                lastTouchHandledTimeRef.current = Date.now();
+                lastControlsRevealedAt.current = Date.now();
+                showControlsForDuration(5000);
+              }}
+              onTouchMove={(e) => {
+                e.stopPropagation();
+                lastTouchHandledTimeRef.current = Date.now();
+                showControlsForDuration(5000);
+              }}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                lastTouchHandledTimeRef.current = Date.now();
+                showControlsForDuration(5000);
+              }}
+              style={{
+                background: `linear-gradient(to right, #0b57d0 0%, #0b57d0 ${
+                  duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0
+                }%, rgba(255, 255, 255, 0.28) ${
+                  duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0
+                }%, rgba(255, 255, 255, 0.28) 100%)`,
+              }}
+              className="w-full h-1.5 rounded-lg appearance-none cursor-pointer accent-[#0b57d0] hover:h-2.5 transition-all relative z-10"
+            />
 
-          {/* Notch dots for milestones along the timeline */}
-          {duration > 0 &&
-            milestones.map((m) => {
-              const leftPercent = Math.min(100, Math.max(0, (m.seconds / duration) * 100));
-              return (
-                <div
-                  key={m.id}
-                  style={{ left: `${leftPercent}%` }}
-                  title={`${m.title} (${formatDuration(m.seconds)})`}
-                  className="absolute top-1/2 -translate-y-1/2 w-1 h-2 bg-amber-300/90 rounded-full pointer-events-none z-20 shadow-xs"
-                />
-              );
-            })}
-        </div>
+            {/* Notch dots for milestones along the timeline */}
+            {duration > 0 &&
+              milestones.map((m) => {
+                const leftPercent = Math.min(100, Math.max(0, (m.seconds / duration) * 100));
+                return (
+                  <div
+                    key={m.id}
+                    style={{ left: `${leftPercent}%` }}
+                    title={`${m.title} (${formatDuration(m.seconds)})`}
+                    className="absolute top-1/2 -translate-y-1/2 w-1 h-2 bg-amber-300/90 rounded-full pointer-events-none z-20 shadow-xs"
+                  />
+                );
+              })}
+          </div>
+        )}
 
         {/* Action Controls Row */}
         <div
@@ -2106,28 +2116,32 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
               {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
             </button>
 
-            {/* Desktop-only 10s skip buttons (on mobile, double-tap is used so buttons don't get cut) */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSkip(-10);
-              }}
-              className="hidden sm:inline-flex p-2 rounded-full hover:bg-white/15 active:scale-90 transition text-slate-300 hover:text-white border-none outline-none cursor-pointer"
-              title="Rewind 10s"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
+            {/* Desktop-only 10s skip buttons (hidden in Live Mode) */}
+            {!isLive && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSkip(-10);
+                  }}
+                  className="hidden sm:inline-flex p-2 rounded-full hover:bg-white/15 active:scale-90 transition text-slate-300 hover:text-white border-none outline-none cursor-pointer"
+                  title="Rewind 10s"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
 
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSkip(10);
-              }}
-              className="hidden sm:inline-flex p-2 rounded-full hover:bg-white/15 active:scale-90 transition text-slate-300 hover:text-white border-none outline-none cursor-pointer"
-              title="Skip 10s"
-            >
-              <RotateCw className="w-4 h-4" />
-            </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSkip(10);
+                  }}
+                  className="hidden sm:inline-flex p-2 rounded-full hover:bg-white/15 active:scale-90 transition text-slate-300 hover:text-white border-none outline-none cursor-pointer"
+                  title="Skip 10s"
+                >
+                  <RotateCw className="w-4 h-4" />
+                </button>
+              </>
+            )}
 
             {/* Volume Button & Expandable Slider */}
             <div
@@ -2179,15 +2193,39 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
               )}
             </div>
 
-            {/* Time Stamp */}
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="text-[10.5px] sm:text-xs font-semibold tabular-nums text-slate-300 select-none px-1 cursor-default whitespace-nowrap"
-            >
-              <span>{formatDuration(currentTime)}</span>
-              <span className="mx-1 text-slate-500">/</span>
-              <span>{formatDuration(duration)}</span>
-            </div>
+            {/* Time Stamp or Live Sync Pill */}
+            {isLive ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  safeCallPlayer((p) => {
+                    const liveEdge = p.getDuration?.() || 0;
+                    if (liveEdge > 0) p.seekTo?.(liveEdge, true);
+                    p.playVideo?.();
+                  });
+                  isPlayingRef.current = true;
+                  setIsPlaying(true);
+                  onPlayStateChangeRef.current?.(true);
+                  setSecurityNotice('Synced to Live Edge');
+                  setTimeout(() => setSecurityNotice(null), 2000);
+                }}
+                className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-red-600/90 hover:bg-red-600 text-white text-[10px] font-bold uppercase tracking-wider border-none outline-none cursor-pointer transition"
+                title="Jump to Live Edge"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                <span>LIVE</span>
+              </button>
+            ) : (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="text-[10.5px] sm:text-xs font-semibold tabular-nums text-slate-300 select-none px-1 cursor-default whitespace-nowrap"
+              >
+                <span>{formatDuration(currentTime)}</span>
+                <span className="mx-1 text-slate-500">/</span>
+                <span>{formatDuration(duration)}</span>
+              </div>
+            )}
           </div>
 
           {/* Right Controls: Captions (CC), Settings Menu & Fullscreen */}

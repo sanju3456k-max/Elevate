@@ -229,3 +229,26 @@ export const DEFAULT_STUDENT_FEATURE_ACCESS: StudentFeatureAccessConfig = {
   enableThetaAiChatbot: false,
   allowFilesToBeDownloadedInNotesViaPdfOrImages: false,
 };
+
+export interface LiveClassSession {
+  id: string;
+  title: string;
+  description: string;
+  instructorName: string;
+  batchIds: string[];
+  encryptedVideoId: string;
+  thumbnailUrl: string;
+  startedAt: string;
+  isLive: boolean;
+  ytChatSyncStatus: 'synced' | 'no_api_key' | 'no_active_chat' | 'error';
+}
+
+export interface LiveChatMessage {
+  id: string;
+  liveClassId: string;
+  senderName: string;
+  senderRole: 'admin' | 'student';
+  message: string;
+  timestamp: string;
+  source: 'app' | 'youtube';
+}

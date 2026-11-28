@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 
 // server/routes/index.ts
-import { Router as Router11 } from "express";
+import { Router as Router12 } from "express";
 
 // server/routes/drive.ts
 import { Router } from "express";
@@ -3878,6 +3878,376 @@ router10.get("/", async (req, res) => {
 });
 var videoThumbnail_default = router10;
 
+// server/routes/live.ts
+import { Router as Router11 } from "express";
+import { WebSocketServer } from "ws";
+var OBFUSCATION_SALT3 = "EDUPULSE_SECURE_TOKEN_v1";
+function getYouTubeApiKey() {
+  return (process.env.YOUTUBE_API_KEY || "").trim();
+}
+function getYouTubeOAuthToken() {
+  return (process.env.YOUTUBE_OAUTH_TOKEN || "").trim();
+}
+function extractYouTubeId2(urlOrId) {
+  if (!urlOrId) return null;
+  const trimmed = String(urlOrId).trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+  const directIdWithParams = trimmed.match(/^([a-zA-Z0-9_-]{11})(?:[?&#].*)?$/);
+  if (directIdWithParams && directIdWithParams[1]) return directIdWithParams[1];
+  const regExp = /(?:youtube\.com\/(?:[^/\n\s]+\/\S+\/|(?:v|e(?:mbed)?|live|shorts)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+  const match = trimmed.match(regExp);
+  return match && match[1] ? match[1] : null;
+}
+function obfuscateVideoKey(rawId) {
+  const encoded = encodeURIComponent(rawId);
+  let output = "";
+  for (let i = 0; i < encoded.length; i++) {
+    const charCode = encoded.charCodeAt(i) ^ OBFUSCATION_SALT3.charCodeAt(i % OBFUSCATION_SALT3.length);
+    output += String.fromCharCode(charCode);
+  }
+  return Buffer.from(output, "binary").toString("base64");
+}
+var activeLiveClasses = /* @__PURE__ */ new Map();
+var pollTimers = /* @__PURE__ */ new Map();
+var roomClients = /* @__PURE__ */ new Map();
+function addClientToRoom(roomId, ws) {
+  let clients = roomClients.get(roomId);
+  if (!clients) {
+    clients = /* @__PURE__ */ new Set();
+    roomClients.set(roomId, clients);
+  }
+  clients.add(ws);
+}
+function removeClientFromAllRooms(ws) {
+  for (const [roomId, clients] of roomClients.entries()) {
+    clients.delete(ws);
+    if (clients.size === 0) {
+      roomClients.delete(roomId);
+    }
+  }
+}
+function broadcastToRoom(roomId, payload) {
+  const clients = roomClients.get(roomId);
+  if (!clients) return;
+  const data = JSON.stringify(payload);
+  for (const client of clients) {
+    if (client.readyState === 1) {
+      client.send(data);
+    }
+  }
+}
+function sanitizeSessionForClient(session) {
+  return {
+    id: session.id,
+    title: session.title,
+    description: session.description,
+    instructorName: session.instructorName,
+    batchIds: session.batchIds,
+    encryptedVideoId: session.encryptedVideoId,
+    thumbnailUrl: session.thumbnailUrl,
+    startedAt: session.startedAt,
+    isLive: session.isLive,
+    ytChatSyncStatus: session.ytChatSyncStatus
+  };
+}
+function appendChatMessage(session, msg) {
+  if (session.seenMessageIds.has(msg.id)) return false;
+  session.seenMessageIds.add(msg.id);
+  session.messages.push(msg);
+  if (session.messages.length > 250) {
+    const removed = session.messages.shift();
+    if (removed) session.seenMessageIds.delete(removed.id);
+  }
+  broadcastToRoom(session.id, {
+    type: "chat_message",
+    message: msg
+  });
+  return true;
+}
+async function resolveYouTubeLiveChatId(videoId) {
+  const apiKey = getYouTubeApiKey();
+  if (!apiKey) {
+    return { chatId: null, status: "no_api_key" };
+  }
+  try {
+    const url = `https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails&id=${encodeURIComponent(
+      videoId
+    )}&key=${encodeURIComponent(apiKey)}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.warn(`[YT Live Chat] videos.list failed (${res.status})`);
+      return { chatId: null, status: "error" };
+    }
+    const data = await res.json();
+    const chatId = data?.items?.[0]?.liveStreamingDetails?.activeLiveChatId || null;
+    if (!chatId) {
+      return { chatId: null, status: "no_active_chat" };
+    }
+    return { chatId, status: "synced" };
+  } catch (err) {
+    console.warn("[YT Live Chat] Error resolving liveChatId:", err?.message || err);
+    return { chatId: null, status: "error" };
+  }
+}
+function startYouTubeChatPoller(session) {
+  const apiKey = getYouTubeApiKey();
+  if (!session.activeLiveChatId || !apiKey) return;
+  const poll = async () => {
+    const current = activeLiveClasses.get(session.id);
+    if (!current || !current.isLive || !current.activeLiveChatId) return;
+    let nextDelayMs = 4e3;
+    try {
+      let url = `https://www.googleapis.com/youtube/v3/liveChat/messages?liveChatId=${encodeURIComponent(
+        current.activeLiveChatId
+      )}&part=snippet,authorDetails&maxResults=50&key=${encodeURIComponent(apiKey)}`;
+      if (current.nextPageToken) {
+        url += `&pageToken=${encodeURIComponent(current.nextPageToken)}`;
+      }
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        current.nextPageToken = data.nextPageToken || current.nextPageToken;
+        nextDelayMs = Math.max(2500, Number(data.pollingIntervalMillis) || 4e3);
+        const items = Array.isArray(data.items) ? data.items : [];
+        for (const item of items) {
+          const text = item?.snippet?.displayMessage;
+          if (!text) continue;
+          appendChatMessage(current, {
+            id: `yt_${item.id}`,
+            liveClassId: current.id,
+            senderName: item?.authorDetails?.displayName || "YouTube Viewer",
+            senderRole: item?.authorDetails?.isChatOwner || item?.authorDetails?.isChatModerator ? "admin" : "student",
+            message: text,
+            timestamp: item?.snippet?.publishedAt || (/* @__PURE__ */ new Date()).toISOString(),
+            source: "youtube"
+          });
+        }
+      } else if (res.status === 403 || res.status === 404) {
+        current.ytChatSyncStatus = "no_active_chat";
+        broadcastToRoom(current.id, {
+          type: "sync_status",
+          ytChatSyncStatus: current.ytChatSyncStatus
+        });
+        return;
+      }
+    } catch {
+      nextDelayMs = 6e3;
+    }
+    if (activeLiveClasses.has(session.id)) {
+      const timer = setTimeout(poll, nextDelayMs);
+      pollTimers.set(session.id, timer);
+    }
+  };
+  poll();
+}
+async function relayMessageToYouTube(activeLiveChatId, senderName, messageText) {
+  const oauthToken = getYouTubeOAuthToken();
+  if (!oauthToken || !activeLiveChatId) return false;
+  try {
+    const res = await fetch("https://www.googleapis.com/youtube/v3/liveChat/messages?part=snippet", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${oauthToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        snippet: {
+          liveChatId: activeLiveChatId,
+          type: "textMessageEvent",
+          textMessageDetails: {
+            messageText: `[${senderName}]: ${messageText}`
+          }
+        }
+      })
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+var liveRouter = Router11();
+liveRouter.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type,Authorization");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
+liveRouter.get("/health", (_req, res) => {
+  res.json({
+    ok: true,
+    activeLiveCount: activeLiveClasses.size,
+    hasYouTubeApiKey: Boolean(getYouTubeApiKey())
+  });
+});
+liveRouter.post("/start", async (req, res) => {
+  const { title, description, youtubeUrl, batchIds, instructorName } = req.body || {};
+  const videoId = extractYouTubeId2(youtubeUrl);
+  if (!videoId) {
+    return res.status(400).json({ error: "Invalid YouTube stream URL or Video ID." });
+  }
+  if (!title || !String(title).trim()) {
+    return res.status(400).json({ error: "Live class title is required." });
+  }
+  if (!Array.isArray(batchIds) || batchIds.length === 0) {
+    return res.status(400).json({ error: "Select at least one target batch." });
+  }
+  const { chatId, status } = await resolveYouTubeLiveChatId(videoId);
+  const liveClassId = `live_${Date.now()}`;
+  const session = {
+    id: liveClassId,
+    title: String(title).trim(),
+    description: String(description || "Interactive Live Class Session").trim(),
+    instructorName: String(instructorName || "Elevate Labs Faculty").trim(),
+    batchIds,
+    encryptedVideoId: obfuscateVideoKey(videoId),
+    thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+    startedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    isLive: true,
+    activeLiveChatId: chatId,
+    ytChatSyncStatus: status,
+    nextPageToken: null,
+    messages: [],
+    seenMessageIds: /* @__PURE__ */ new Set()
+  };
+  activeLiveClasses.set(liveClassId, session);
+  appendChatMessage(session, {
+    id: `sys_${Date.now()}`,
+    liveClassId,
+    senderName: session.instructorName,
+    senderRole: "admin",
+    message: `Live class "${session.title}" has started! Ask your doubts in the chat below.`,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    source: "app"
+  });
+  if (chatId) {
+    startYouTubeChatPoller(session);
+  }
+  const clientSession = sanitizeSessionForClient(session);
+  broadcastToRoom("global", {
+    type: "live_class_started",
+    liveClass: clientSession
+  });
+  return res.status(201).json({ liveClass: clientSession });
+});
+liveRouter.post("/stop", (req, res) => {
+  const { liveClassId } = req.body || {};
+  const session = activeLiveClasses.get(liveClassId);
+  if (!session) {
+    return res.status(404).json({ error: "Live class not found." });
+  }
+  const timer = pollTimers.get(liveClassId);
+  if (timer) {
+    clearTimeout(timer);
+    pollTimers.delete(liveClassId);
+  }
+  session.messages = [];
+  session.seenMessageIds.clear();
+  activeLiveClasses.delete(liveClassId);
+  broadcastToRoom(liveClassId, { type: "live_class_ended", liveClassId });
+  broadcastToRoom("global", { type: "live_class_ended", liveClassId });
+  return res.json({ ok: true, liveClassId });
+});
+liveRouter.get("/active", (req, res) => {
+  const role = req.query.role === "admin" ? "admin" : "student";
+  const batchIdsParam = typeof req.query.batchIds === "string" ? req.query.batchIds : "";
+  const enrolledBatchIds = batchIdsParam ? batchIdsParam.split(",").filter(Boolean) : [];
+  const list = [];
+  for (const session of activeLiveClasses.values()) {
+    if (!session.isLive) continue;
+    const isAllowed = role === "admin" || session.batchIds.some((bid) => enrolledBatchIds.includes(bid));
+    if (isAllowed) {
+      list.push(sanitizeSessionForClient(session));
+    }
+  }
+  res.json({ liveClasses: list });
+});
+liveRouter.get("/:id/chat", (req, res) => {
+  const session = activeLiveClasses.get(req.params.id);
+  if (!session) {
+    return res.status(404).json({ error: "Live class not found or ended." });
+  }
+  res.json({
+    messages: session.messages,
+    ytChatSyncStatus: session.ytChatSyncStatus
+  });
+});
+liveRouter.post("/:id/chat", async (req, res) => {
+  const session = activeLiveClasses.get(req.params.id);
+  if (!session) {
+    return res.status(404).json({ error: "Live class not found or ended." });
+  }
+  const { senderName, senderRole, message } = req.body || {};
+  if (!message || !String(message).trim()) {
+    return res.status(400).json({ error: "Message cannot be empty." });
+  }
+  const msgObj = {
+    id: `app_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    liveClassId: session.id,
+    senderName: String(senderName || "Student").trim(),
+    senderRole: senderRole === "admin" ? "admin" : "student",
+    message: String(message).trim().slice(0, 500),
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    source: "app"
+  };
+  appendChatMessage(session, msgObj);
+  if (session.activeLiveChatId && getYouTubeOAuthToken()) {
+    relayMessageToYouTube(session.activeLiveChatId, msgObj.senderName, msgObj.message);
+  }
+  res.status(201).json({ message: msgObj });
+});
+function attachLiveWebSocket(server) {
+  const wss = new WebSocketServer({ server, path: "/ws" });
+  wss.on("connection", (ws) => {
+    addClientToRoom("global", ws);
+    ws.on("message", async (raw) => {
+      try {
+        const data = JSON.parse(raw.toString());
+        if (data.type === "subscribe" && data.liveClassId) {
+          addClientToRoom(data.liveClassId, ws);
+          const session = activeLiveClasses.get(data.liveClassId);
+          if (session) {
+            ws.send(
+              JSON.stringify({
+                type: "chat_history",
+                messages: session.messages,
+                ytChatSyncStatus: session.ytChatSyncStatus
+              })
+            );
+          }
+        }
+        if (data.type === "chat_message" && data.liveClassId && data.message) {
+          const session = activeLiveClasses.get(data.liveClassId);
+          if (!session) return;
+          const msgObj = {
+            id: `app_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            liveClassId: session.id,
+            senderName: String(data.senderName || "Student").trim(),
+            senderRole: data.senderRole === "admin" ? "admin" : "student",
+            message: String(data.message).trim().slice(0, 500),
+            timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+            source: "app"
+          };
+          appendChatMessage(session, msgObj);
+          if (session.activeLiveChatId && getYouTubeOAuthToken()) {
+            relayMessageToYouTube(session.activeLiveChatId, msgObj.senderName, msgObj.message);
+          }
+        }
+      } catch {
+      }
+    });
+    ws.on("close", () => {
+      removeClientFromAllRooms(ws);
+    });
+  });
+  console.log(
+    `\u{1F4E1} Live WebSocket ready at /ws | YouTube Data API v3: ${getYouTubeApiKey() ? "Configured" : "Not Set (Local Chat Mode)"}`
+  );
+}
+var live_default = liveRouter;
+
 // server/middleware/rateLimiter.ts
 function createRateLimiter(options) {
   const {
@@ -3929,7 +4299,7 @@ function createRateLimiter(options) {
 }
 
 // server/routes/index.ts
-var router11 = Router11();
+var router11 = Router12();
 var aiRateLimiter = createRateLimiter({
   windowMs: 60 * 1e3,
   max: 60,
@@ -3946,6 +4316,7 @@ router11.use("/leaderboard", generalRateLimiter, leaderboard_default);
 router11.use("/ai", aiRateLimiter, ai_default);
 router11.use("/video-metadata", generalRateLimiter, videoMetadata_default);
 router11.use("/video-thumbnail", generalRateLimiter, videoThumbnail_default);
+router11.use("/live", generalRateLimiter, live_default);
 router11.use("/", aiRateLimiter, image_default);
 router11.use("/ai", aiRateLimiter, notes_default);
 router11.use("/gemini/chatbot", aiRateLimiter, chatbot_default);
@@ -3956,9 +4327,9 @@ router11.use("/", aiRateLimiter, test_default);
 var routes_default = router11;
 
 // server/routes/pwa.ts
-import { Router as Router12 } from "express";
+import { Router as Router13 } from "express";
 import path2 from "path";
-var router12 = Router12();
+var router12 = Router13();
 router12.get(["/manifest.webmanifest", "/manifest.json"], (_req, res) => {
   const isWebManifest = _req.path.endsWith(".webmanifest");
   const filePath = path2.join(process.cwd(), isWebManifest ? "public/manifest.webmanifest" : "public/manifest.json");
@@ -4112,9 +4483,10 @@ async function startServer() {
   process.on("unhandledRejection", (reason) => {
     console.error("Server unhandled rejection:", reason);
   });
-  app.listen(PORT, "0.0.0.0", () => {
+  const httpServer = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Modular Server running on http://0.0.0.0:${PORT}`);
   });
+  attachLiveWebSocket(httpServer);
 }
 startServer().catch((err) => {
   console.error("Fatal error starting server:", err);

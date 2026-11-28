@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import type { User, Batch, Subject, Chapter, Lecture, WatchProgress, Announcement, PersonalNote, BatchEnrollment, BatchTestCard, PdfNote, SecuritySettingsConfig, StudentFeatureAccessConfig } from './types';
+import type { User, Batch, Subject, Chapter, Lecture, WatchProgress, Announcement, PersonalNote, BatchEnrollment, BatchTestCard, PdfNote, SecuritySettingsConfig, StudentFeatureAccessConfig, LiveClassSession } from './types';
 import { DEFAULT_STUDENT_FEATURE_ACCESS } from './types';
 import {
   INITIAL_USER,
@@ -13,6 +13,7 @@ import {
   INITIAL_BATCH_TESTS,
 } from './initialData';
 import { enableContentSecurityDeterrence, obfuscateVideoKey, initConsoleSecurityNotice } from './security';
+import { getLiveApiBaseUrl, getLiveWsUrl } from './liveApiConfig';
 import { secureStorage } from '../lib/secureStorage';
 import { auth, db, getCachedFullTest, sanitizeForFirestore } from '../lib/firebase';
 import { dismissNotificationId, NOTIFICATIONS_EVENT } from '../lib/notifications';
@@ -146,6 +147,19 @@ interface AppContextType {
   updateSecuritySettings: (newSettings: Partial<SecuritySettingsConfig>) => void;
   studentFeatureAccess: StudentFeatureAccessConfig;
   updateStudentFeatureAccess: (newSettings: Partial<StudentFeatureAccessConfig>) => void;
+  // Live Classes (Local Server + YouTube Chat Sync)
+  liveClasses: LiveClassSession[];
+  activeLiveClassId: string | null;
+  setActiveLiveClassId: (id: string | null) => void;
+  startLiveClass: (params: {
+    title: string;
+    description: string;
+    youtubeUrl: string;
+    batchIds: string[];
+    instructorName: string;
+  }) => Promise<{ success: boolean; liveClass?: LiveClassSession; error?: string }>;
+  stopLiveClass: (liveClassId: string) => Promise<boolean>;
+  refreshLiveClasses: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -2314,6 +2328,129 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [announcements, activeAppInstituteId]
   );
 
+  // Live Classes (Local Server + YouTube Sync) — declared after isEnrolled & globalGuestAccessMode
+  const [liveClasses, setLiveClasses] = useState<LiveClassSession[]>([]);
+  const [activeLiveClassId, setActiveLiveClassId] = useState<string | null>(null);
+  const notifiedLiveIdsRef = useRef<Set<string>>(new Set());
+
+  const refreshLiveClasses = useCallback(async () => {
+    try {
+      const effectiveRole =
+        isMasterUser(auth.currentUser) || user.role === 'admin' || (user as any)?.role === 'teacher'
+          ? 'admin'
+          : 'student';
+      const enrolledSet = new Set<string>(user.enrolledBatchIds || []);
+      for (const b of batches) {
+        if (isEnrolled(b.id)) {
+          enrolledSet.add(b.id);
+        }
+      }
+      const batchParam = encodeURIComponent(Array.from(enrolledSet).join(','));
+      const res = await fetch(`${getLiveApiBaseUrl()}/api/live/active?role=${effectiveRole}&batchIds=${batchParam}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const fetched: LiveClassSession[] = Array.isArray(data.liveClasses) ? data.liveClasses : [];
+      setLiveClasses(fetched);
+
+      for (const lc of fetched) {
+        if (!notifiedLiveIdsRef.current.has(lc.id)) {
+          notifiedLiveIdsRef.current.add(lc.id);
+          setAnnouncements((prev) => {
+            if (prev.some((a) => a.id === `live_ann_${lc.id}`)) return prev;
+            return [
+              {
+                id: `live_ann_${lc.id}`,
+                title: `🔴 LIVE NOW: ${lc.title}`,
+                message: `${lc.instructorName} is live right now. Click the Live Banner to join!`,
+                date: 'Live Now',
+                isImportant: true,
+                themeColor: 'rose',
+              },
+              ...prev,
+            ];
+          });
+        }
+      }
+    } catch {
+      // Server may be offline in static mode
+    }
+  }, [user.role, user.enrolledBatchIds, batches, enrollments, globalGuestAccessMode]);
+
+  useEffect(() => {
+    refreshLiveClasses();
+    const timer = setInterval(refreshLiveClasses, 5000);
+
+    let ws: WebSocket | null = null;
+    try {
+      ws = new WebSocket(getLiveWsUrl());
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.type === 'live_class_started') {
+            refreshLiveClasses();
+            const lc = payload.liveClass as LiveClassSession | undefined;
+            if (
+              lc &&
+              (user.role === 'admin' || lc.batchIds.some((b) => (user.enrolledBatchIds || []).includes(b)))
+            ) {
+              showSecurityToast(`🔴 LIVE CLASS STARTED: ${lc.title}`);
+            }
+          } else if (payload.type === 'live_class_ended') {
+            refreshLiveClasses();
+            setActiveLiveClassId((prev) => (prev === payload.liveClassId ? null : prev));
+          }
+        } catch {}
+      };
+    } catch {}
+
+    return () => {
+      clearInterval(timer);
+      if (ws && ws.readyState <= 1) ws.close();
+    };
+  }, [refreshLiveClasses, user.role, user.enrolledBatchIds]);
+
+  const startLiveClass = async (params: {
+    title: string;
+    description: string;
+    youtubeUrl: string;
+    batchIds: string[];
+    instructorName: string;
+  }) => {
+    try {
+      const res = await fetch(`${getLiveApiBaseUrl()}/api/live/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || 'Failed to start live class' };
+      }
+      await refreshLiveClasses();
+      return { success: true, liveClass: data.liveClass as LiveClassSession };
+    } catch {
+      return { success: false, error: 'Live server unreachable on localhost:3000.' };
+    }
+  };
+
+  const stopLiveClass = async (liveClassId: string) => {
+    try {
+      const res = await fetch(`${getLiveApiBaseUrl()}/api/live/stop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ liveClassId }),
+      });
+      if (res.ok) {
+        await refreshLiveClasses();
+        if (activeLiveClassId === liveClassId) setActiveLiveClassId(null);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -2383,6 +2520,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateSecuritySettings,
         studentFeatureAccess,
         updateStudentFeatureAccess,
+        liveClasses,
+        activeLiveClassId,
+        setActiveLiveClassId,
+        startLiveClass,
+        stopLiveClass,
+        refreshLiveClasses,
       }}
     >
       {children}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { APP_BRAND } from '../config/appBrand';
 import { createPortal } from 'react-dom';
+import { useApp } from '../lms/LmsContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   BookOpen, 
@@ -23,6 +24,7 @@ import {
   Camera,
   Bot,
   Bell,
+  Radio,
   ArrowRight,
   ArrowLeft,
   Play,
@@ -142,6 +144,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeInstituteName,
   onSwitchInstitute,
 }) => {
+  const { liveClasses, setActiveLiveClassId } = useApp();
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState<boolean>(false);
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
@@ -393,6 +396,22 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Right Controls: Master Console, Chatbot & Google Login/Profile */}
             <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Live Class Indicator Pill */}
+              {liveClasses.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveLiveClassId(liveClasses[0].id);
+                    handleNavClick('home');
+                  }}
+                  title={`Join Live Class: ${liveClasses[0].title}`}
+                  className="h-9 px-3 rounded-full bg-red-600 hover:bg-red-700 text-white border-0 shadow-sm flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shrink-0 font-extrabold text-xs outline-none select-none"
+                >
+                  <Radio className="w-3.5 h-3.5 animate-pulse shrink-0" />
+                  <span>LIVE</span>
+                </button>
+              )}
+
               {/* Master Console Button (Exclusively for sanju3456k@gmail.com) */}
               {isMaster && (
                 <button

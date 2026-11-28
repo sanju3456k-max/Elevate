@@ -16,6 +16,7 @@ import android.view.DisplayCutout;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowManager;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import androidx.activity.OnBackPressedCallback;
 import androidx.core.view.DisplayCutoutCompat;
@@ -72,6 +73,12 @@ public class MainActivity extends BridgeActivity {
         androidx.core.splashscreen.SplashScreen.installSplashScreen(this);
         registerPlugin(PipPlugin.class);
         super.onCreate(savedInstanceState);
+
+        try {
+            if (this.bridge != null && this.bridge.getWebView() != null) {
+                this.bridge.getWebView().getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+            }
+        } catch (Exception ignored) {}
 
         // Predictive back & hardware back key bridge: guarantees 1-to-1 event delivery to webview
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {

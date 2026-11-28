@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import routes from "./server/routes/index.js";
 import pwaRoutes from "./server/routes/pwa.js";
+import { attachLiveWebSocket } from "./server/routes/live.js";
 
 dotenv.config();
 
@@ -155,9 +156,10 @@ async function startServer() {
     console.error("Server unhandled rejection:", reason);
   });
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const httpServer = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Modular Server running on http://0.0.0.0:${PORT}`);
   });
+  attachLiveWebSocket(httpServer);
 }
 
 startServer().catch((err) => {

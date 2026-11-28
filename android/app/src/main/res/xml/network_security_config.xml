@@ -7,6 +7,12 @@
         </trust-anchors>
     </base-config>
 
+    <!-- Local LAN testing server only -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">192.168.1.2</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+
     <!-- Specific enterprise pinning protection for streaming & app APIs -->
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">youtube.com</domain>
