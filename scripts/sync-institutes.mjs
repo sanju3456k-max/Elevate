@@ -128,7 +128,14 @@ with Image.open(src) as img:
     norm_1024.save(out_1024, format="PNG", optimize=True)
     norm_1024.save(out_web, format="PNG", optimize=True)
 `;
-      execFileSync('python', ['-c', pyScript], { stdio: 'inherit' });
+      try {
+        execFileSync('python', ['-c', pyScript], { stdio: 'inherit' });
+      } catch {
+        // Fallback for cloud CI environments (e.g. Vercel) without Python/Pillow
+        if (!fs.existsSync(outWebLogo) && fs.existsSync(logoSrc)) {
+          fs.copyFileSync(logoSrc, outWebLogo);
+        }
+      }
     } else if (fs.existsSync(path.join(publicTenantsDir, `${flavor}.png`))) {
       hasLogo = true;
     }
