@@ -92,8 +92,8 @@ export interface PaperPageLayout {
  * - Page 1: 915px budget
  * - Subsequent Pages: 980px budget
  */
-const DEFAULT_PAGE_1_COL_HEIGHT_PX = 925;
-const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 995;
+const DEFAULT_PAGE_1_COL_HEIGHT_PX = 928;
+const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 986;
 /**
  * Extra bottom vertical height buffer (in pixels) added specifically to the in-app
  * preview canvas so that questions are never cut off at the bottom in the preview.
@@ -101,7 +101,7 @@ const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 995;
  */
 export const PREVIEW_BOTTOM_EXTRA_HEIGHT_PX = 0;
 const ITEM_GAP_PX = 0;
-const CHARS_PER_COL_LINE = 44;
+const CHARS_PER_COL_LINE = 41;
 
 export interface OptionDimensionAnalysis {
   effectiveWidthPx: number;
@@ -388,9 +388,11 @@ function estimateStatementHeight(text: string): number {
   const displayMathBlocks = (text.match(/\$\$[\s\S]+?\$\$/g) || []).length;
   const displayMathExtra = displayMathBlocks * 16;
 
-  // Only count inline fractions on separate lines or tall vertical stack
+  // Account for vertical expansion of inline fractions, integrals, sums, and limits
   const fracMatches = (text.match(/\\(?:frac|dfrac)\{[^{}]+\}\{[^{}]+\}/g) || []).length;
-  const fracExtra = fracMatches > 0 ? Math.min(24, Math.ceil(fracMatches * 4.5)) : 0;
+  const tallOpMatches = (text.match(/\\(?:int|iint|sum|prod|lim)\b/g) || []).length;
+  const tallMathCount = fracMatches + tallOpMatches;
+  const fracExtra = tallMathCount > 0 ? Math.min(36, Math.ceil(tallMathCount * 7.5)) : 0;
 
   const cleanText = stripLatexToVisualText(text);
 
@@ -409,29 +411,34 @@ function estimateStatementHeight(text: string): number {
   return Math.max(24, Math.min(520, Math.round(baseHeight)));
 }
 
-function estimateOptionRowHeight(opts: OptionData[], isFirst = true, isLast = true): number {
+function estimateOptionRowHeight(opts: OptionData[], isFirst = true, isLast = true, gridCols = 2): number {
   let maxHeight = 19;
   let hasOptionImage = false;
+  const maxVisualChars = gridCols === 4 ? 10 : 21;
   opts.forEach((opt) => {
     if (opt.imageUrl) hasOptionImage = true;
     const text = opt.text || '';
     const is3x3 = /\\begin\{(?:bmatrix|pmatrix|vmatrix|matrix)\}(?:[^\\]*\\\\){2,}/.test(text);
     const is2x2 = /\\begin\{(?:bmatrix|pmatrix|vmatrix|matrix)\}/.test(text);
-    const isFrac = /\\(?:frac|dfrac)\b/.test(text);
-    const isIntOrSqrt = /\\(?:int|sqrt)\b/.test(text);
+    const isFracOrInt = /\\(?:frac|dfrac|int|iint|iiint)\b/.test(text);
+    const isSqrt = /\\sqrt\b/.test(text);
 
     if (is3x3) {
       maxHeight = Math.max(maxHeight, 66);
     } else if (is2x2) {
       maxHeight = Math.max(maxHeight, 44);
-    } else if (isFrac || isIntOrSqrt) {
-      maxHeight = Math.max(maxHeight, 27);
+    } else if (isFracOrInt) {
+      maxHeight = Math.max(maxHeight, 34);
+    } else if (isSqrt) {
+      maxHeight = Math.max(maxHeight, 24);
     } else {
-      maxHeight = Math.max(maxHeight, 19);
+      const visual = stripLatexToVisualText(text).replace(/\s+/g, ' ').trim();
+      const lines = Math.max(1, Math.ceil(visual.length / maxVisualChars));
+      maxHeight = Math.max(maxHeight, lines * 18.5);
     }
   });
   const vPad = (isFirst ? 2 : 0) + (isLast ? 4 : 2);
-  return maxHeight + vPad + (hasOptionImage ? 64 : 0);
+  return Math.round(maxHeight + vPad + (hasOptionImage ? 64 : 0));
 }
 
 function estimateSingleOptionHeight(opt: OptionData, isFirst = true, isLast = true): number {
@@ -445,7 +452,7 @@ function estimateSingleOptionHeight(opt: OptionData, isFirst = true, isLast = tr
 
   if (is3x3) return 66 + vPad + imgExtra;
   if (is2x2) return 44 + vPad + imgExtra;
-  if (isFrac || isInt) return 30 + vPad + imgExtra;
+  if (isFrac || isInt) return 34 + vPad + imgExtra;
 
   const visual = stripLatexToVisualText(text).replace(/\s+/g, ' ').trim();
   const lines = Math.max(1, Math.ceil(visual.length / 42));
@@ -534,7 +541,7 @@ function buildLinearStreamItems(questions: MathQuestion[]): StreamFlowItem[] {
         gridCols: 4,
         isFirstOptionOfQuestion: true,
         isLastOptionOfQuestion: true,
-        estimatedHeight: estimateOptionRowHeight(formattedOptions, true, true),
+        estimatedHeight: estimateOptionRowHeight(formattedOptions, true, true, 4),
         paperLayout,
       });
     } else if (layout === '2x2_grid') {
@@ -550,7 +557,7 @@ function buildLinearStreamItems(questions: MathQuestion[]): StreamFlowItem[] {
         gridCols: 2,
         isFirstOptionOfQuestion: true,
         isLastOptionOfQuestion: false,
-        estimatedHeight: estimateOptionRowHeight(row1Opts, true, false),
+        estimatedHeight: estimateOptionRowHeight(row1Opts, true, false, 2),
         paperLayout,
       });
 
@@ -563,7 +570,7 @@ function buildLinearStreamItems(questions: MathQuestion[]): StreamFlowItem[] {
         gridCols: 2,
         isFirstOptionOfQuestion: false,
         isLastOptionOfQuestion: true,
-        estimatedHeight: estimateOptionRowHeight(row2Opts, false, true),
+        estimatedHeight: estimateOptionRowHeight(row2Opts, false, true, 2),
         paperLayout,
       });
     } else {
@@ -699,10 +706,10 @@ function paginateLinearStream(
 
   const getColBudget = (pageIdx: number) => {
     if (layoutDensity === 'tight') {
-      return pageIdx === 0 ? 940 : 1015;
+      return pageIdx === 0 ? 935 : 988;
     }
     if (layoutDensity === 'relaxed') {
-      return pageIdx === 0 ? 890 : 965;
+      return pageIdx === 0 ? 890 : 935;
     }
     return pageIdx === 0 ? DEFAULT_PAGE_1_COL_HEIGHT_PX : DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX;
   };
