@@ -92,8 +92,8 @@ export interface PaperPageLayout {
  * - Page 1: 915px budget
  * - Subsequent Pages: 980px budget
  */
-const DEFAULT_PAGE_1_COL_HEIGHT_PX = 928;
-const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 986;
+const DEFAULT_PAGE_1_COL_HEIGHT_PX = 934;
+const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 992;
 /**
  * Extra bottom vertical height buffer (in pixels) added specifically to the in-app
  * preview canvas so that questions are never cut off at the bottom in the preview.
