@@ -22,6 +22,7 @@ import {
   ChevronRight,
   ChevronLeft,
   ChevronDown,
+  MessageSquare,
 } from 'lucide-react';
 import { deobfuscateVideoKey, extractYouTubeId, formatDuration, getLectureThumbnailUrl, initDevToolsDetector, initFocusLossProtector } from '../../../lms/security';
 import { requestPlaybackToken } from '../../../lms/playbackTokenService';
@@ -56,6 +57,10 @@ interface CloakedVideoPlayerProps {
   onPlayStateChange?: (isPlaying: boolean) => void;
   onMinimize?: () => void;
   isLive?: boolean;
+  externalFullscreenContainerRef?: React.RefObject<HTMLDivElement | null>;
+  onFullscreenChange?: (isFs: boolean) => void;
+  isChatOpen?: boolean;
+  onToggleChat?: () => void;
 }
 
 export interface QualityOption {
@@ -108,6 +113,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   onPlayStateChange,
   onMinimize,
   isLive = false,
+  externalFullscreenContainerRef,
+  onFullscreenChange,
+  isChatOpen = true,
+  onToggleChat,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
@@ -1412,9 +1421,10 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
   }, []);
 
   const toggleFullscreen = async () => {
-    if (!containerRef.current) return;
+    const targetNode = externalFullscreenContainerRef?.current || containerRef.current;
+    if (!targetNode) return;
 
-    const el = containerRef.current as any;
+    const el = targetNode as any;
     const isCurrentlyFullscreen = !!(
       document.fullscreenElement ||
       (document as any).webkitFullscreenElement ||
@@ -1437,6 +1447,7 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         }
 
         setIsFullscreen(true);
+        onFullscreenChange?.(true);
         hideNativeStatusBar();
         await lockOrientationLandscape();
 
@@ -1477,8 +1488,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
         } else if ((document as any).msExitFullscreen) {
           await (document as any).msExitFullscreen().catch(() => {});
         }
-
         setIsFullscreen(false);
+        onFullscreenChange?.(false);
       }
     } catch (err) {
       console.error('Error toggling fullscreen:', err);
@@ -2193,30 +2204,8 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
               )}
             </div>
 
-            {/* Time Stamp or Live Sync Pill */}
-            {isLive ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  safeCallPlayer((p) => {
-                    const liveEdge = p.getDuration?.() || 0;
-                    if (liveEdge > 0) p.seekTo?.(liveEdge, true);
-                    p.playVideo?.();
-                  });
-                  isPlayingRef.current = true;
-                  setIsPlaying(true);
-                  onPlayStateChangeRef.current?.(true);
-                  setSecurityNotice('Synced to Live Edge');
-                  setTimeout(() => setSecurityNotice(null), 2000);
-                }}
-                className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-red-600/90 hover:bg-red-600 text-white text-[10px] font-bold uppercase tracking-wider border-none outline-none cursor-pointer transition"
-                title="Jump to Live Edge"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                <span>LIVE</span>
-              </button>
-            ) : (
+            {/* Time Stamp (Hidden in Live Mode — top-left LIVE badge remains visible) */}
+            {!isLive && (
               <div
                 onClick={(e) => e.stopPropagation()}
                 className="text-[10.5px] sm:text-xs font-semibold tabular-nums text-slate-300 select-none px-1 cursor-default whitespace-nowrap"
@@ -2250,6 +2239,26 @@ export const CloakedVideoPlayer: React.FC<CloakedVideoPlayerProps> = ({
             >
               <span className="tracking-tighter font-mono text-[11px] sm:text-xs">CC</span>
             </button>
+
+            {/* Hide/Show Live Chat Button (Desktop Fullscreen Live Mode) */}
+            {isLive && isFullscreen && onToggleChat && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleChat();
+                }}
+                className={`px-2.5 py-1 rounded-full transition border-none outline-none cursor-pointer flex items-center gap-1.5 font-bold text-[11px] select-none ${
+                  isChatOpen
+                    ? 'bg-white/20 text-white'
+                    : 'hover:bg-white/15 text-slate-300 hover:text-white'
+                }`}
+                title={isChatOpen ? 'Hide Live Chat' : 'Show Live Chat'}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{isChatOpen ? 'Hide Chat' : 'Live Chat'}</span>
+              </button>
+            )}
 
             {/* Unified Option / Settings Button */}
             <div className="relative" onClick={(e) => e.stopPropagation()}>

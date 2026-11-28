@@ -90,10 +90,10 @@ export const LiveClassManagerPanel: React.FC<{ onOpenLiveRoom?: (id: string) => 
   };
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left: Start New Live Class Form (7 cols) */}
-        <div className="lg:col-span-7 bg-white dark:bg-[#1e2028] rounded-3xl p-6 shadow-xs border border-slate-200/70 dark:border-white/10 space-y-5">
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* Left: Start New Live Class Form (6 cols) */}
+        <div className="lg:col-span-6 bg-white dark:bg-[#1e2028] rounded-3xl p-5 shadow-xs border border-slate-200/70 dark:border-white/10 space-y-4">
           <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-white/10 pb-3">
             <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
               <Radio className="w-5 h-5 text-red-500 animate-pulse" />
@@ -221,8 +221,8 @@ export const LiveClassManagerPanel: React.FC<{ onOpenLiveRoom?: (id: string) => 
           </form>
         </div>
 
-        {/* Right: Cloaked Live Preview & Active Streams (5 cols) */}
-        <div className="lg:col-span-5 space-y-4">
+        {/* Right: Cloaked Live Preview & Active Streams (6 cols) */}
+        <div className="lg:col-span-6 space-y-4">
           <div className="bg-white dark:bg-[#1e2028] rounded-3xl p-5 shadow-xs border border-slate-200/70 dark:border-white/10 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-white/10 pb-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-red-500 flex items-center space-x-1.5">

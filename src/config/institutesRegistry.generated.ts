@@ -3,7 +3,7 @@ import type { StaticInstituteEntry } from './institutesRegistry';
 
 export const GENERATED_ELEVATE_APK_META = {
   "apkVersion": "1.0",
-  "apkSizeLabel": "12.6 MB"
+  "apkSizeLabel": "12.7 MB"
 };
 
 export const GENERATED_INSTITUTES_REGISTRY: StaticInstituteEntry[] = [

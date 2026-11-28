@@ -139,9 +139,20 @@ import { GlobalPersistentPlayer, type PersistentPlaybackData } from './component
 import { BatchAdminStudio } from './components/lms/BatchAdminStudio';
 import { LiveClassRoom } from './components/lms/live/LiveClassRoom';
 
-const HomeLiveBannerSection: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const HomeLiveBannerSection: React.FC<{
+  children: React.ReactNode;
+  onLiveRoomActiveChange?: (active: boolean) => void;
+}> = ({ children, onLiveRoomActiveChange }) => {
   const { liveClasses, activeLiveClassId, setActiveLiveClassId } = useApp();
   const activeLive = liveClasses.find((lc) => lc.id === activeLiveClassId);
+
+  useEffect(() => {
+    onLiveRoomActiveChange?.(Boolean(activeLive));
+    return () => {
+      onLiveRoomActiveChange?.(false);
+    };
+  }, [activeLive, onLiveRoomActiveChange]);
+
   if (activeLive) {
     return <LiveClassRoom liveClass={activeLive} onBack={() => setActiveLiveClassId(null)} />;
   }
@@ -435,9 +446,11 @@ export default function App() {
   const [initialSeekSeconds, setInitialSeekSeconds] = useState<number | null>(null);
   const [deviceLockStatus, setDeviceLockStatus] = useState<DeviceLockStatus | null>(null);
 
+  const [isLiveRoomActive, setIsLiveRoomActive] = useState<boolean>(false);
+
   // In batches section, user is "inside" a batch when viewing folders, chapter contents, or lecture player
   const isInsideBatch = activeTab === 'batches' && (Boolean(selectedBatchId) || batchesStage !== 'batch_list');
-  const isFullVideoPlayerActive = Boolean(persistentPlayback && !persistentPlayback.isMinimized);
+  const isFullVideoPlayerActive = Boolean((persistentPlayback && !persistentPlayback.isMinimized) || isLiveRoomActive);
 
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
@@ -2864,7 +2877,9 @@ export default function App() {
               ? 'bg-white dark:bg-[#0b0c10]'
               : 'bg-[#e5e9f0] dark:bg-[#0b0c10]'
           } ${
-            isFullVideoPlayerActive
+            isLiveRoomActive
+              ? (isNativeAndroid() ? 'hidden' : 'hidden md:sticky md:top-0 md:z-50 md:block')
+              : isFullVideoPlayerActive
               ? (isNativeAndroid() ? 'hidden' : 'hidden md:fixed md:top-0 md:inset-x-0 md:z-50 md:block video-player-desktop-header')
               : activeTab === 'results' || (activeTab === 'batches' && isInsideBatch)
               ? (isNativeAndroid() ? 'hidden' : 'hidden md:block')
@@ -3074,7 +3089,9 @@ export default function App() {
         } ${
           isInsideBatch ? 'pt-[calc(var(--android-status-bar-height,env(safe-area-inset-top,0px))+0.35rem)] md:pt-3 px-3 sm:px-6' : ''
         } ${
-          ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && !isInsideBatch && !isChapterFullScreenActive
+          isLiveRoomActive
+            ? 'pb-0 overflow-hidden'
+            : ['home', 'batches', 'tests', 'analytics'].includes(activeTab) && !isInsideBatch && !isChapterFullScreenActive
             ? (persistentPlayback?.isMinimized ? 'pb-40 sm:pb-36 md:pb-24' : 'pb-28 sm:pb-28 md:pb-16')
             : (persistentPlayback?.isMinimized ? 'pb-32 sm:pb-28 md:pb-16' : 'pb-12 sm:pb-12 md:pb-8')
         }`}>
@@ -3178,7 +3195,7 @@ export default function App() {
 
           {/* Home Dashboard (Elevate Unified Coaching & Assessment Feed) */}
           {activeTab === 'home' && (
-            <HomeLiveBannerSection>
+            <HomeLiveBannerSection onLiveRoomActiveChange={setIsLiveRoomActive}>
                 <HomeDashboard
               tests={mergePublishedMasterTests(
                 tests,
