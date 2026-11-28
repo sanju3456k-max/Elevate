@@ -92,7 +92,7 @@ export interface PaperPageLayout {
  * - Page 1: 915px budget
  * - Subsequent Pages: 980px budget
  */
-const DEFAULT_PAGE_1_COL_HEIGHT_PX = 920;
+const DEFAULT_PAGE_1_COL_HEIGHT_PX = 925;
 const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 995;
 /**
  * Extra bottom vertical height buffer (in pixels) added specifically to the in-app
@@ -101,7 +101,7 @@ const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 995;
  */
 export const PREVIEW_BOTTOM_EXTRA_HEIGHT_PX = 0;
 const ITEM_GAP_PX = 0;
-const CHARS_PER_COL_LINE = 42;
+const CHARS_PER_COL_LINE = 44;
 
 export interface OptionDimensionAnalysis {
   effectiveWidthPx: number;
@@ -347,8 +347,30 @@ export function determineOptionLayout(
   return 'stacked';
 }
 
+/**
+ * Converts LaTeX markup into its true rendered character-width equivalent so line wrapping
+ * estimation matches KaTeX + Tinos 10.5pt width instead of counting raw LaTeX command names.
+ */
+function stripLatexToVisualText(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/\$\$[\s\S]+?\$\$/g, ' ')
+    .replace(/\\begin\{[\s\S]+?\\end\{[^\}]+\}/g, ' ')
+    // Stacked fraction takes max(num, den) width, not sum + command length
+    .replace(/\\(?:frac|dfrac|tfrac)\{([^{}]*)\}\{([^{}]*)\}/g, (_m, a, b) =>
+      a.length >= b.length ? ` ${a} ` : ` ${b} `
+    )
+    // Single-glyph Greek letters & symbols
+    .replace(/\\(?:alpha|beta|gamma|delta|theta|lambda|mu|pi|sigma|omega|phi|psi|rho|tau|Delta|Sigma|Omega|infty|cdot|times|pm|mp|le|leq|ge|geq|ne|neq|approx|equiv|in|notin|subset|cup|cap|to|rightarrow|Rightarrow)\b/g, 'x')
+    // Accents/wrappers that render on 1 glyph
+    .replace(/\\(?:vec|hat|bar|tilde|overline|underline|sqrt|text|mathrm|mathbf|mathbb)\{([^{}]*)\}/g, '$1')
+    .replace(/\\(?:left|right|big|Big|bigg|Bigg)\s*[()[\]|.\\/]?/g, 'x')
+    .replace(/\\[a-zA-Z]+/g, ' ')
+    .replace(/[$^{}\\_]/g, '');
+}
+
 function estimateStatementHeight(text: string): number {
-  if (!text) return 20;
+  if (!text) return 24;
 
   let matrixExtra = 0;
   const matrixMatches = text.match(/\\begin\{(?:bmatrix|pmatrix|vmatrix|matrix|cases|aligned)\}[\s\S]+?\\end\{(?:bmatrix|pmatrix|vmatrix|matrix|cases|aligned)\}/g);
@@ -356,28 +378,26 @@ function estimateStatementHeight(text: string): number {
     matrixMatches.forEach((m) => {
       const rows = (m.match(/\\\\/g) || []).length + 1;
       if (rows <= 2) {
-        matrixExtra += 32;
+        matrixExtra += 30;
       } else {
-        matrixExtra += 20 + rows * 18;
+        matrixExtra += 18 + rows * 17;
       }
     });
   }
 
   const displayMathBlocks = (text.match(/\$\$[\s\S]+?\$\$/g) || []).length;
-  const displayMathExtra = displayMathBlocks * 18;
+  const displayMathExtra = displayMathBlocks * 16;
 
+  // Only count inline fractions on separate lines or tall vertical stack
   const fracMatches = (text.match(/\\(?:frac|dfrac)\{[^{}]+\}\{[^{}]+\}/g) || []).length;
-  const fracExtra = fracMatches * 5;
+  const fracExtra = fracMatches > 0 ? Math.min(24, Math.ceil(fracMatches * 4.5)) : 0;
 
-  const cleanText = text
-    .replace(/\$\$[\s\S]+?\$\$/g, ' ')
-    .replace(/\\begin\{[\s\S]+?\\end\{[^\}]+\}/g, ' ')
-    .replace(/\\(?:frac|dfrac|sqrt|left|right|text|times|cdot)/g, ' ');
+  const cleanText = stripLatexToVisualText(text);
 
   const paragraphs = cleanText.split('\n');
   let lineCount = 0;
   paragraphs.forEach((p) => {
-    const trimmed = p.trim();
+    const trimmed = p.replace(/\s+/g, ' ').trim();
     if (!trimmed) {
       lineCount += 0.3;
     } else {
@@ -386,11 +406,11 @@ function estimateStatementHeight(text: string): number {
   });
 
   const baseHeight = lineCount * 18.5 + matrixExtra + displayMathExtra + fracExtra + 6;
-  return Math.max(26, Math.min(520, Math.round(baseHeight)));
+  return Math.max(24, Math.min(520, Math.round(baseHeight)));
 }
 
-function estimateOptionRowHeight(opts: OptionData[]): number {
-  let maxHeight = 20;
+function estimateOptionRowHeight(opts: OptionData[], isFirst = true, isLast = true): number {
+  let maxHeight = 19;
   let hasOptionImage = false;
   opts.forEach((opt) => {
     if (opt.imageUrl) hasOptionImage = true;
@@ -401,35 +421,37 @@ function estimateOptionRowHeight(opts: OptionData[]): number {
     const isIntOrSqrt = /\\(?:int|sqrt)\b/.test(text);
 
     if (is3x3) {
-      maxHeight = Math.max(maxHeight, 68);
+      maxHeight = Math.max(maxHeight, 66);
     } else if (is2x2) {
-      maxHeight = Math.max(maxHeight, 46);
+      maxHeight = Math.max(maxHeight, 44);
     } else if (isFrac || isIntOrSqrt) {
-      maxHeight = Math.max(maxHeight, 28);
+      maxHeight = Math.max(maxHeight, 27);
     } else {
-      maxHeight = Math.max(maxHeight, 20);
+      maxHeight = Math.max(maxHeight, 19);
     }
   });
-  return maxHeight + 6 + (hasOptionImage ? 64 : 0);
+  const vPad = (isFirst ? 2 : 0) + (isLast ? 4 : 2);
+  return maxHeight + vPad + (hasOptionImage ? 64 : 0);
 }
 
-function estimateSingleOptionHeight(opt: OptionData): number {
+function estimateSingleOptionHeight(opt: OptionData, isFirst = true, isLast = true): number {
   const text = opt.text || '';
   const imgExtra = opt.imageUrl ? 64 : 0;
+  const vPad = (isFirst ? 2 : 0) + (isLast ? 4 : 2);
   const is3x3 = /\\begin\{(?:bmatrix|pmatrix|vmatrix|matrix)\}(?:[^\\]*\\\\){2,}/.test(text);
   const is2x2 = /\\begin\{(?:bmatrix|pmatrix|vmatrix|matrix)\}/.test(text);
   const isFrac = /\\(?:frac|dfrac)\b/.test(text);
   const isInt = /\\(?:int|iint|iiint)\b/.test(text);
 
-  if (is3x3) return 74 + imgExtra;
-  if (is2x2) return 52 + imgExtra;
-  if (isFrac || isInt) return 40 + imgExtra;
+  if (is3x3) return 66 + vPad + imgExtra;
+  if (is2x2) return 44 + vPad + imgExtra;
+  if (isFrac || isInt) return 30 + vPad + imgExtra;
 
-  const analysis = analyzeOptionDimensions(text);
-  const lines = Math.max(1, Math.ceil(analysis.effectiveWidthPx / 280));
+  const visual = stripLatexToVisualText(text).replace(/\s+/g, ' ').trim();
+  const lines = Math.max(1, Math.ceil(visual.length / 42));
 
-  let baseH = lines * 19.5 + 6 + imgExtra;
-  return Math.max(26, Math.round(baseH));
+  const baseH = lines * 18.5 + vPad + imgExtra;
+  return Math.max(22, Math.round(baseH));
 }
 
 export function cleanBlankLines(text: string): string {
@@ -512,7 +534,7 @@ function buildLinearStreamItems(questions: MathQuestion[]): StreamFlowItem[] {
         gridCols: 4,
         isFirstOptionOfQuestion: true,
         isLastOptionOfQuestion: true,
-        estimatedHeight: 22,
+        estimatedHeight: estimateOptionRowHeight(formattedOptions, true, true),
         paperLayout,
       });
     } else if (layout === '2x2_grid') {
@@ -528,7 +550,7 @@ function buildLinearStreamItems(questions: MathQuestion[]): StreamFlowItem[] {
         gridCols: 2,
         isFirstOptionOfQuestion: true,
         isLastOptionOfQuestion: false,
-        estimatedHeight: estimateOptionRowHeight(row1Opts),
+        estimatedHeight: estimateOptionRowHeight(row1Opts, true, false),
         paperLayout,
       });
 
@@ -541,20 +563,22 @@ function buildLinearStreamItems(questions: MathQuestion[]): StreamFlowItem[] {
         gridCols: 2,
         isFirstOptionOfQuestion: false,
         isLastOptionOfQuestion: true,
-        estimatedHeight: estimateOptionRowHeight(row2Opts),
+        estimatedHeight: estimateOptionRowHeight(row2Opts, false, true),
         paperLayout,
       });
     } else {
       formattedOptions.forEach((opt, oIdx) => {
+        const isFirst = oIdx === 0;
+        const isLast = oIdx === formattedOptions.length - 1;
         stream.push({
           id: `${qId}_opt_${opt.label}`,
           questionNumber: qNumber,
           questionIndex: idx,
           type: 'single_option',
           singleOption: opt,
-          isFirstOptionOfQuestion: oIdx === 0,
-          isLastOptionOfQuestion: oIdx === formattedOptions.length - 1,
-          estimatedHeight: estimateSingleOptionHeight(opt),
+          isFirstOptionOfQuestion: isFirst,
+          isLastOptionOfQuestion: isLast,
+          estimatedHeight: estimateSingleOptionHeight(opt, isFirst, isLast),
           paperLayout,
         });
       });
