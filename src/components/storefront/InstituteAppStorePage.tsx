@@ -542,7 +542,7 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
                         {displayName}
                       </h1>
                       <div className="flex flex-wrap items-center gap-2 text-xs text-[#0b57d0] font-medium">
-                        <span>{isPrimary ? 'Elevate Labs' : activeApp.name}</span>
+                        <span>{isPrimary ? 'Elevate Labs' : `${activeApp.name} • Powered by Elevate Labs`}</span>
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-medium">
                           <ShieldCheck className="w-3 h-3" />
                           Verified Official Build
@@ -1109,7 +1109,7 @@ export const InstituteAppStorePage: React.FC<InstituteAppStorePageProps> = ({
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="text-sm font-semibold text-slate-900 truncate">{title}</div>
                     <div className="text-xs text-slate-500 truncate">
-                      {isPrimary ? 'Official Flagship App' : inst.name}
+                      {isPrimary ? 'Official Flagship App' : 'Powered by Elevate Labs'}
                     </div>
                     <div className="text-[11px] font-medium text-slate-400">
                       v{inst.apkVersion || '1.0'} &bull; {inst.storePage?.apkSizeLabel || '9.2 MB'}
