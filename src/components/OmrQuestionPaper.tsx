@@ -92,8 +92,8 @@ export interface PaperPageLayout {
  * - Page 1: 915px budget
  * - Subsequent Pages: 980px budget
  */
-const DEFAULT_PAGE_1_COL_HEIGHT_PX = 865;
-const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 935;
+const DEFAULT_PAGE_1_COL_HEIGHT_PX = 920;
+const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 995;
 /**
  * Extra bottom vertical height buffer (in pixels) added specifically to the in-app
  * preview canvas so that questions are never cut off at the bottom in the preview.
@@ -101,7 +101,7 @@ const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 935;
  */
 export const PREVIEW_BOTTOM_EXTRA_HEIGHT_PX = 0;
 const ITEM_GAP_PX = 0;
-const CHARS_PER_COL_LINE = 39;
+const CHARS_PER_COL_LINE = 42;
 
 export interface OptionDimensionAnalysis {
   effectiveWidthPx: number;
@@ -364,10 +364,10 @@ function estimateStatementHeight(text: string): number {
   }
 
   const displayMathBlocks = (text.match(/\$\$[\s\S]+?\$\$/g) || []).length;
-  const displayMathExtra = displayMathBlocks * 30;
+  const displayMathExtra = displayMathBlocks * 18;
 
   const fracMatches = (text.match(/\\(?:frac|dfrac)\{[^{}]+\}\{[^{}]+\}/g) || []).length;
-  const fracExtra = fracMatches * 10;
+  const fracExtra = fracMatches * 5;
 
   const cleanText = text
     .replace(/\$\$[\s\S]+?\$\$/g, ' ')
@@ -385,7 +385,7 @@ function estimateStatementHeight(text: string): number {
     }
   });
 
-  const baseHeight = lineCount * 19.5 + matrixExtra + displayMathExtra + fracExtra + 6;
+  const baseHeight = lineCount * 18.5 + matrixExtra + displayMathExtra + fracExtra + 6;
   return Math.max(26, Math.min(520, Math.round(baseHeight)));
 }
 
@@ -675,10 +675,10 @@ function paginateLinearStream(
 
   const getColBudget = (pageIdx: number) => {
     if (layoutDensity === 'tight') {
-      return pageIdx === 0 ? 900 : 970;
+      return pageIdx === 0 ? 940 : 1015;
     }
     if (layoutDensity === 'relaxed') {
-      return pageIdx === 0 ? 835 : 905;
+      return pageIdx === 0 ? 890 : 965;
     }
     return pageIdx === 0 ? DEFAULT_PAGE_1_COL_HEIGHT_PX : DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX;
   };

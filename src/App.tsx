@@ -2512,17 +2512,87 @@ export default function App() {
       .catch(() => {});
   }, [currentUser, selectedInstituteId]);
 
-  // Local-only OMR cross-device print benchmark route (?omr_benchmark=1)
-  const isLocalBenchmark =
+  // Local-only OMR cross-device print benchmark route (?omr_benchmark=1 | 2 | 3)
+  const benchmarkCase =
     typeof window !== 'undefined' &&
-    window.location.search.includes('omr_benchmark=1') &&
     (window.location.hostname === 'localhost' ||
       window.location.hostname === '127.0.0.1' ||
-      window.location.hostname.startsWith('192.168.'));
+      window.location.hostname.startsWith('192.168.'))
+      ? new URLSearchParams(window.location.search).get('omr_benchmark')
+      : null;
+  const isLocalBenchmark = Boolean(benchmarkCase);
 
   const omrBenchmarkTest = React.useMemo<MathTest | null>(() => {
     if (!isLocalBenchmark) return null;
     const topics = ['Algebra', 'Calculus', 'Trigonometry', 'Geometry', 'Matrices and Determinants'];
+    if (benchmarkCase === '2') {
+      const questions = Array.from({ length: 60 }, (_, i) => {
+        const n = i + 1;
+        return {
+          id: `bench2_q_${n}`,
+          text: `Find the value of $x$ satisfying ${(n % 5) + 2}x + ${(n % 7) + 1} = ${(n % 9) + 15}$ in the real number system.`,
+          topic: topics[i % topics.length],
+          options: [`$${n}$`, `$${n + 1}$`, `$${n + 2}$`, `$${n + 3}$`],
+          correctAnswer: 0,
+          points: 4,
+        };
+      });
+      return {
+        id: 'omr_bench_short_60q',
+        title: 'Short MCQ Density Benchmark (60 Questions)',
+        topic: 'Arithmetic & Algebra',
+        difficulty: 'Easy',
+        timeLimitMinutes: 60,
+        time: 60,
+        totalMarks: 240,
+        questions,
+        createdAt: '2026-11-28T00:00:00.000Z',
+      } as MathTest;
+    }
+    if (benchmarkCase === '3') {
+      const questions = Array.from({ length: 30 }, (_, i) => {
+        const n = i + 1;
+        if (i % 2 === 0) {
+          return {
+            id: `bench3_q_${n}`,
+            text: `Compute the inverse or adjoint of $M_${n} = \\begin{pmatrix} 1 & 0 & ${n % 3} \\\\ 0 & 2 & 1 \\\\ 1 & 1 & 3 \\end{pmatrix}$ and select the matching matrix.`,
+            topic: 'Matrices and Determinants',
+            options: [
+              '$\\begin{pmatrix} 5 & 1 & -2 \\\\ 1 & 3 & -1 \\\\ -2 & -1 & 2 \\end{pmatrix}$',
+              '$\\begin{pmatrix} 1 & 0 & 0 \\\\ 0 & 1 & 0 \\\\ 0 & 0 & 1 \\end{pmatrix}$',
+              '$\\begin{pmatrix} 2 & 1 & 0 \\\\ 0 & 2 & 1 \\\\ 1 & 0 & 2 \\end{pmatrix}$',
+              'Singular matrix (does not exist)',
+            ],
+            correctAnswer: 0,
+            points: 4,
+          };
+        }
+        return {
+          id: `bench3_q_${n}`,
+          text: `Which of the following statements is always true for every differentiable function $f: \\mathbb{R} \\to \\mathbb{R}$ satisfying $f'(x) > 0$ on $(a, b)$?`,
+          topic: 'Calculus',
+          options: [
+            '$f(x)$ is strictly increasing on the entire open interval $(a, b)$',
+            '$f(x)$ must attain a local maximum inside $(a, b)$',
+            '$f^{\\prime\\prime}(x) \\ge 0$ for all $x \\in (a, b)$',
+            'None of the above statements hold in general',
+          ],
+          correctAnswer: 0,
+          points: 4,
+        };
+      });
+      return {
+        id: 'omr_bench_matrix_30q',
+        title: 'Matrix & Stacked Options Benchmark (30 Questions)',
+        topic: 'Matrices & Calculus',
+        difficulty: 'Hard',
+        timeLimitMinutes: 45,
+        time: 45,
+        totalMarks: 120,
+        questions,
+        createdAt: '2026-11-28T00:00:00.000Z',
+      } as MathTest;
+    }
     const questions = Array.from({ length: 160 }, (_, i) => {
       const n = i + 1;
       const variant = i % 4;
@@ -2581,7 +2651,7 @@ export default function App() {
       questions,
       createdAt: '2026-11-28T00:00:00.000Z',
     } as MathTest;
-  }, [isLocalBenchmark]);
+  }, [isLocalBenchmark, benchmarkCase]);
 
   if (isLocalBenchmark && omrBenchmarkTest) {
     return (
