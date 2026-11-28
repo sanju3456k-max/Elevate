@@ -45,15 +45,19 @@
 }
 .a4-page-item .omr-fs-stmt {
   font-size: calc(10.5pt / var(--omr-text-zoom, 1));
+  line-height: calc(18.5px / var(--omr-text-zoom, 1));
 }
 .a4-page-item .omr-fs-opt {
   font-size: calc(10pt / var(--omr-text-zoom, 1));
+  line-height: calc(18px / var(--omr-text-zoom, 1));
 }
 .a4-page-item .omr-fs-title {
   font-size: calc(14pt / var(--omr-text-zoom, 1));
+  line-height: calc(22px / var(--omr-text-zoom, 1));
 }
 .a4-page-item .omr-fs-meta {
   font-size: calc(8.5pt / var(--omr-text-zoom, 1));
+  line-height: calc(15px / var(--omr-text-zoom, 1));
 }
 .a4-page-item h1,
 .a4-page-item h2,

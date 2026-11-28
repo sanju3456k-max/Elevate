@@ -295,15 +295,19 @@ const QUESTION_PAPER_PRINT_CSS = `
 
   .a4-page-item .omr-fs-stmt {
     font-size: 10.5pt !important;
+    line-height: 18.5px !important;
   }
   .a4-page-item .omr-fs-opt {
     font-size: 10pt !important;
+    line-height: 18px !important;
   }
   .a4-page-item .omr-fs-title {
     font-size: 14pt !important;
+    line-height: 22px !important;
   }
   .a4-page-item .omr-fs-meta {
     font-size: 8.5pt !important;
+    line-height: 15px !important;
   }
 
   .a4-page-item:last-child {

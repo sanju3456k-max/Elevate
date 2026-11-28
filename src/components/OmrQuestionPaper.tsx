@@ -92,8 +92,8 @@ export interface PaperPageLayout {
  * - Page 1: 915px budget
  * - Subsequent Pages: 980px budget
  */
-const DEFAULT_PAGE_1_COL_HEIGHT_PX = 934;
-const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 992;
+const DEFAULT_PAGE_1_COL_HEIGHT_PX = 932;
+const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 990;
 /**
  * Extra bottom vertical height buffer (in pixels) added specifically to the in-app
  * preview canvas so that questions are never cut off at the bottom in the preview.
@@ -101,7 +101,7 @@ const DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX = 992;
  */
 export const PREVIEW_BOTTOM_EXTRA_HEIGHT_PX = 0;
 const ITEM_GAP_PX = 0;
-const CHARS_PER_COL_LINE = 41;
+const CHARS_PER_COL_LINE = 43;
 
 export interface OptionDimensionAnalysis {
   effectiveWidthPx: number;
@@ -358,7 +358,7 @@ function stripLatexToVisualText(text: string): string {
     .replace(/\\begin\{[\s\S]+?\\end\{[^\}]+\}/g, ' ')
     // Stacked fraction takes max(num, den) width, not sum + command length
     .replace(/\\(?:frac|dfrac|tfrac)\{([^{}]*)\}\{([^{}]*)\}/g, (_m, a, b) =>
-      a.length >= b.length ? ` ${a} ` : ` ${b} `
+      a.length >= b.length ? a : b
     )
     // Single-glyph Greek letters & symbols
     .replace(/\\(?:alpha|beta|gamma|delta|theta|lambda|mu|pi|sigma|omega|phi|psi|rho|tau|Delta|Sigma|Omega|infty|cdot|times|pm|mp|le|leq|ge|geq|ne|neq|approx|equiv|in|notin|subset|cup|cap|to|rightarrow|Rightarrow)\b/g, 'x')
@@ -392,7 +392,7 @@ function estimateStatementHeight(text: string): number {
   const fracMatches = (text.match(/\\(?:frac|dfrac)\{[^{}]+\}\{[^{}]+\}/g) || []).length;
   const tallOpMatches = (text.match(/\\(?:int|iint|sum|prod|lim)\b/g) || []).length;
   const tallMathCount = fracMatches + tallOpMatches;
-  const fracExtra = tallMathCount > 0 ? Math.min(36, Math.ceil(tallMathCount * 7.5)) : 0;
+  const fracExtra = tallMathCount > 0 ? Math.min(32, Math.ceil(tallMathCount * 5.5)) : 0;
 
   const cleanText = stripLatexToVisualText(text);
 
@@ -428,9 +428,9 @@ function estimateOptionRowHeight(opts: OptionData[], isFirst = true, isLast = tr
     } else if (is2x2) {
       maxHeight = Math.max(maxHeight, 44);
     } else if (isFracOrInt) {
-      maxHeight = Math.max(maxHeight, 34);
+      maxHeight = Math.max(maxHeight, 28);
     } else if (isSqrt) {
-      maxHeight = Math.max(maxHeight, 24);
+      maxHeight = Math.max(maxHeight, 20);
     } else {
       const visual = stripLatexToVisualText(text).replace(/\s+/g, ' ').trim();
       const lines = Math.max(1, Math.ceil(visual.length / maxVisualChars));
@@ -705,11 +705,15 @@ function paginateLinearStream(
   }
 
   const getColBudget = (pageIdx: number) => {
+    const hasMeasured = Boolean(measuredHeightsMap && Object.keys(measuredHeightsMap).length > 0);
     if (layoutDensity === 'tight') {
-      return pageIdx === 0 ? 935 : 988;
+      return pageIdx === 0 ? (hasMeasured ? 950 : 935) : (hasMeasured ? 1006 : 988);
     }
     if (layoutDensity === 'relaxed') {
       return pageIdx === 0 ? 890 : 935;
+    }
+    if (hasMeasured) {
+      return pageIdx === 0 ? 944 : 1000;
     }
     return pageIdx === 0 ? DEFAULT_PAGE_1_COL_HEIGHT_PX : DEFAULT_SUBSEQUENT_PAGE_COL_HEIGHT_PX;
   };
@@ -844,7 +848,7 @@ const RenderStreamItem: React.FC<{
     return (
       <div 
         data-stream-id={item.id} 
-        className="pt-1.5 first:pt-0 text-black omr-fs-stmt leading-[1.32] relative group"
+        className="pt-1.5 first:pt-0 text-black omr-fs-stmt relative group"
       >
         {isEditableLayout && showBadges && onUpdateQuestionLayout && typeof item.questionIndex === 'number' && (
           <div className="print:hidden pointer-events-auto absolute -top-3.5 right-0 z-30 flex items-center gap-1.5 bg-white/95 backdrop-blur-md px-2 py-1 rounded-full shadow-md border border-slate-200/80 select-none transition-colors max-w-full overflow-x-auto">
@@ -992,7 +996,7 @@ const RenderStreamItem: React.FC<{
           <div className="flex-1 min-w-0 font-normal text-black omr-fs-stmt tracking-normal">
             <MathRenderer 
               text={item.statementText || ''} 
-              className="text-black font-normal omr-fs-stmt leading-[1.32]" 
+              className="text-black font-normal omr-fs-stmt" 
             />
           </div>
         </div>
@@ -1045,8 +1049,8 @@ const RenderStreamItem: React.FC<{
     const bottomPaddingClass = item.isLastOptionOfQuestion ? 'pb-1' : 'pb-0.5';
 
     return (
-      <div data-stream-id={item.id} className={`pl-4 ${topPaddingClass} ${bottomPaddingClass} omr-fs-opt leading-[1.35]`}>
-        <div className={`grid ${colsClass} gap-x-3 gap-y-1 omr-fs-opt leading-[1.35] tracking-normal`}>
+      <div data-stream-id={item.id} className={`pl-4 ${topPaddingClass} ${bottomPaddingClass} omr-fs-opt`}>
+        <div className={`grid ${colsClass} gap-x-3 gap-y-1 omr-fs-opt tracking-normal`}>
           {opts.map((opt) => (
             <div key={opt.originalIndex} className="flex flex-col gap-1 min-w-0 overflow-visible select-none">
               <div className="flex items-start gap-1 min-w-0 overflow-visible select-none">
@@ -1081,12 +1085,12 @@ const RenderStreamItem: React.FC<{
     const bottomPaddingClass = item.isLastOptionOfQuestion ? 'pb-1' : 'pb-0.5';
 
     return (
-      <div data-stream-id={item.id} className={`pl-4 ${topPaddingClass} ${bottomPaddingClass} omr-fs-opt leading-[1.35] tracking-normal`}>
+      <div data-stream-id={item.id} className={`pl-4 ${topPaddingClass} ${bottomPaddingClass} omr-fs-opt tracking-normal`}>
         <div className="flex items-start gap-1.5 min-w-0">
           <span className="font-semibold omr-fs-opt shrink-0 select-none pt-[1px]">({opt.label})</span>
           <div className="flex-1 min-w-0">
-            <span className="text-black inline-block leading-[1.35]">
-              <MathRenderer text={opt.text} className="inline-block omr-fs-opt leading-[1.35]" />
+            <span className="text-black inline-block">
+              <MathRenderer text={opt.text} className="inline-block omr-fs-opt" />
             </span>
             {opt.imageUrl && normalizeDiagramUrl(opt.imageUrl) ? (
               <div className="pt-1">
@@ -1204,8 +1208,8 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
     return buildLinearStreamItems(test.questions || []);
   }, [test.questions]);
 
-  // Deterministic pagination (pure JS math on estimated heights) guarantees identical
-  // structure across Desktop, Tablet, iPhone, and Android with zero DOM reflow lag.
+  // Deterministic pagination (pure JS math on estimated heights) guarantees 100% identical
+  // structure across Desktop, Tablet, iPhone, and Android with zero DOM reflow drift.
   const activePageLayouts = useMemo(() => {
     return paginateLinearStream(streamItems, undefined, layoutDensity);
   }, [streamItems, layoutDensity]);
@@ -1548,7 +1552,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                     fontFamily: "'Tinos', 'Times New Roman', Times, 'Liberation Serif', serif",
                     fontSize: `${(16 / textZoom).toFixed(4)}px`,
                     ['--omr-text-zoom' as any]: String(textZoom),
-                    lineHeight: 1.5,
+                    lineHeight: '24px',
                     letterSpacing: '0',
                     wordSpacing: '0',
                     WebkitTextSizeAdjust: '100%',
@@ -1652,10 +1656,11 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                     </div>
                   )}
 
-                  {/* Authentic Elevate Central Transparent App Logo Watermark on Question Pages (scoped above OMR Sheet when inline OMR fits) */}
+                  {/* Authentic Elevate Central Transparent App Logo Watermark on Question Pages (hidden when inline OMR fits on the same page) */}
                   {(() => {
                     const hasInlineOmr = Boolean(omrPlacement.enabled && isLastPage && omrPlacement.fitsOnLastPage);
-                    const omrReserveMm = hasInlineOmr && omrPlacement.blueprint ? Math.min(165, Math.ceil(omrPlacement.blueprint.layout.pageHeightMm + 10)) : 0;
+                    if (hasInlineOmr) return null;
+                    const omrReserveMm = 0;
                     return (
                   <div
                     className="elevate-question-watermark absolute inset-0 flex items-center justify-center pointer-events-none select-none z-25 overflow-hidden"
