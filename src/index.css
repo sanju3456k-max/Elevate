@@ -43,6 +43,18 @@
   -webkit-text-size-adjust: 100% !important;
   text-size-adjust: 100% !important;
 }
+.a4-page-item .omr-fs-stmt {
+  font-size: calc(10.5pt / var(--omr-text-zoom, 1));
+}
+.a4-page-item .omr-fs-opt {
+  font-size: calc(10pt / var(--omr-text-zoom, 1));
+}
+.a4-page-item .omr-fs-title {
+  font-size: calc(14pt / var(--omr-text-zoom, 1));
+}
+.a4-page-item .omr-fs-meta {
+  font-size: calc(8.5pt / var(--omr-text-zoom, 1));
+}
 .a4-page-item h1,
 .a4-page-item h2,
 .a4-page-item h3,
@@ -1022,6 +1034,8 @@ body.is-native-android main [class*="backdrop-blur"] {
     background-color: #ffffff !important;
     color: #000000 !important;
     font-family: 'Tinos', 'Times New Roman', Times, "Liberation Serif", serif !important;
+    font-size: 16px !important;
+    --omr-text-zoom: 1 !important;
     letter-spacing: 0 !important;
     word-spacing: 0 !important;
     -webkit-text-size-adjust: 100% !important;

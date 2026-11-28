@@ -103,11 +103,11 @@ public class MainActivity extends BridgeActivity {
             registerReceiver(pipActionReceiver, filter);
         }
 
-        // 1. Enterprise Screen Protection: Temporarily disabled for local storefront screenshot capture
-        // getWindow().setFlags(
-        //     WindowManager.LayoutParams.FLAG_SECURE,
-        //     WindowManager.LayoutParams.FLAG_SECURE
-        // );
+        // 1. Enterprise Screen Protection: Prevent screenshots, screen recording, and recents thumbnail leaks
+        getWindow().setFlags(
+            WindowManager.LayoutParams.FLAG_SECURE,
+            WindowManager.LayoutParams.FLAG_SECURE
+        );
 
         // 2. DevTools & Sniffer Kill-Switch: Strictly disallow Chrome inspect/debugging in all builds to prevent HTTP Toolkit / DevTools hooking
         try {

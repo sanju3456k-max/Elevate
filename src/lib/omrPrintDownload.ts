@@ -266,6 +266,8 @@ const QUESTION_PAPER_PRINT_CSS = `
     background-color: #ffffff !important;
     color: #000000 !important;
     font-family: 'Tinos', 'Times New Roman', Times, "Liberation Serif", serif !important;
+    font-size: 16px !important;
+    --omr-text-zoom: 1 !important;
     overflow: hidden !important;
     box-sizing: border-box !important;
     position: relative !important;
@@ -289,6 +291,19 @@ const QUESTION_PAPER_PRINT_CSS = `
   .a4-page-item em {
     font-family: 'Tinos', 'Times New Roman', Times, "Liberation Serif", serif !important;
     letter-spacing: 0 !important;
+  }
+
+  .a4-page-item .omr-fs-stmt {
+    font-size: 10.5pt !important;
+  }
+  .a4-page-item .omr-fs-opt {
+    font-size: 10pt !important;
+  }
+  .a4-page-item .omr-fs-title {
+    font-size: 14pt !important;
+  }
+  .a4-page-item .omr-fs-meta {
+    font-size: 8.5pt !important;
   }
 
   .a4-page-item:last-child {

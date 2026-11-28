@@ -844,7 +844,7 @@ const RenderStreamItem: React.FC<{
     return (
       <div 
         data-stream-id={item.id} 
-        className="pt-1.5 first:pt-0 text-black text-[10.5pt] leading-[1.32] relative group"
+        className="pt-1.5 first:pt-0 text-black omr-fs-stmt leading-[1.32] relative group"
       >
         {isEditableLayout && showBadges && onUpdateQuestionLayout && typeof item.questionIndex === 'number' && (
           <div className="print:hidden pointer-events-auto absolute -top-3.5 right-0 z-30 flex items-center gap-1.5 bg-white/95 backdrop-blur-md px-2 py-1 rounded-full shadow-md border border-slate-200/80 select-none transition-colors max-w-full overflow-x-auto">
@@ -986,13 +986,13 @@ const RenderStreamItem: React.FC<{
         )}
 
         <div className="flex items-start gap-1.5">
-          <span className="font-semibold text-[10.5pt] shrink-0 select-none">
+          <span className="font-semibold omr-fs-stmt shrink-0 select-none">
             {item.questionNumber}.
           </span>
-          <div className="flex-1 min-w-0 font-normal text-black text-[10.5pt] tracking-normal">
+          <div className="flex-1 min-w-0 font-normal text-black omr-fs-stmt tracking-normal">
             <MathRenderer 
               text={item.statementText || ''} 
-              className="text-black font-normal text-[10.5pt] leading-[1.32]" 
+              className="text-black font-normal omr-fs-stmt leading-[1.32]" 
             />
           </div>
         </div>
@@ -1045,14 +1045,14 @@ const RenderStreamItem: React.FC<{
     const bottomPaddingClass = item.isLastOptionOfQuestion ? 'pb-1' : 'pb-0.5';
 
     return (
-      <div data-stream-id={item.id} className={`pl-4 ${topPaddingClass} ${bottomPaddingClass} text-[10pt] leading-[1.35]`}>
-        <div className={`grid ${colsClass} gap-x-3 gap-y-1 text-[10pt] leading-[1.35] tracking-normal`}>
+      <div data-stream-id={item.id} className={`pl-4 ${topPaddingClass} ${bottomPaddingClass} omr-fs-opt leading-[1.35]`}>
+        <div className={`grid ${colsClass} gap-x-3 gap-y-1 omr-fs-opt leading-[1.35] tracking-normal`}>
           {opts.map((opt) => (
             <div key={opt.originalIndex} className="flex flex-col gap-1 min-w-0 overflow-visible select-none">
               <div className="flex items-start gap-1 min-w-0 overflow-visible select-none">
-                <span className="font-semibold text-[10pt] shrink-0 select-none pt-[1px]">({opt.label})</span>
+                <span className="font-semibold omr-fs-opt shrink-0 select-none pt-[1px]">({opt.label})</span>
                 <span className="text-black inline-block break-words overflow-visible">
-                  <MathRenderer text={opt.text} className="inline-block text-[10pt] break-words" />
+                  <MathRenderer text={opt.text} className="inline-block omr-fs-opt break-words" />
                 </span>
               </div>
               {opt.imageUrl && normalizeDiagramUrl(opt.imageUrl) ? (
@@ -1081,12 +1081,12 @@ const RenderStreamItem: React.FC<{
     const bottomPaddingClass = item.isLastOptionOfQuestion ? 'pb-1' : 'pb-0.5';
 
     return (
-      <div data-stream-id={item.id} className={`pl-4 ${topPaddingClass} ${bottomPaddingClass} text-[10pt] leading-[1.35] tracking-normal`}>
+      <div data-stream-id={item.id} className={`pl-4 ${topPaddingClass} ${bottomPaddingClass} omr-fs-opt leading-[1.35] tracking-normal`}>
         <div className="flex items-start gap-1.5 min-w-0">
-          <span className="font-semibold text-[10pt] shrink-0 select-none pt-[1px]">({opt.label})</span>
+          <span className="font-semibold omr-fs-opt shrink-0 select-none pt-[1px]">({opt.label})</span>
           <div className="flex-1 min-w-0">
             <span className="text-black inline-block leading-[1.35]">
-              <MathRenderer text={opt.text} className="inline-block text-[10pt] leading-[1.35]" />
+              <MathRenderer text={opt.text} className="inline-block omr-fs-opt leading-[1.35]" />
             </span>
             {opt.imageUrl && normalizeDiagramUrl(opt.imageUrl) ? (
               <div className="pt-1">
@@ -1162,6 +1162,20 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
   });
 
   const effectiveScale = scale * userZoom;
+  const [textZoom, setTextZoom] = useState<number>(1);
+
+  useLayoutEffect(() => {
+    if (typeof document === 'undefined' || !document.body) return;
+    const probe = document.createElement('span');
+    probe.style.cssText =
+      'position:fixed;left:-9999px;top:-9999px;visibility:hidden;pointer-events:none;font-size:100px;line-height:1;';
+    probe.textContent = 'M';
+    document.body.appendChild(probe);
+    const computedPx = parseFloat(getComputedStyle(probe).fontSize) || 100;
+    document.body.removeChild(probe);
+    const ratio = computedPx / 100;
+    setTextZoom(ratio > 1.01 || ratio < 0.99 ? ratio : 1);
+  }, []);
 
   useLayoutEffect(() => {
     const el = containerRef.current;
@@ -1532,7 +1546,8 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                     maxHeight: '297mm',
                     padding: '8mm 12mm 8mm 12mm',
                     fontFamily: "'Tinos', 'Times New Roman', Times, 'Liberation Serif', serif",
-                    fontSize: '16px',
+                    fontSize: `${(16 / textZoom).toFixed(4)}px`,
+                    ['--omr-text-zoom' as any]: String(textZoom),
                     lineHeight: 1.5,
                     letterSpacing: '0',
                     wordSpacing: '0',
@@ -1555,21 +1570,21 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                     {page.isFirstPage ? (
                       <div className="border-b-2 border-black pb-1.5 relative">
                         {/* Page indicator positioned in top-right corner without changing header flow or page structure */}
-                        <div className="absolute top-0.5 right-0 text-[8.5pt] font-extrabold text-black uppercase tracking-wide select-none leading-normal">
+                        <div className="absolute top-0.5 right-0 omr-fs-meta font-extrabold text-black uppercase tracking-wide select-none leading-normal">
                           PAGE {page.pageNumber} OF {page.totalPages}
                         </div>
 
-                        <h1 className="text-center font-semibold text-[14pt] tracking-wide uppercase text-black leading-tight mb-1 px-20">
+                        <h1 className="text-center font-semibold omr-fs-title tracking-wide uppercase text-black leading-tight mb-1 px-20">
                           {test.title || 'MIX ASSESSMENT TEST'}
                         </h1>
 
-                        <div className="flex justify-between items-center text-[8.5pt] font-bold border-y border-black py-0.5 px-1 mb-1">
+                        <div className="flex justify-between items-center omr-fs-meta font-bold border-y border-black py-0.5 px-1 mb-1">
                           <span>TIME ALLOWED: {timeAllowed} MINUTES</span>
                           <span>TOTAL QUESTIONS: {totalQuestions}</span>
                           <span>MAXIMUM MARKS: {maxMarks}</span>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 text-[8.5pt] font-semibold">
+                        <div className="grid grid-cols-2 gap-4 omr-fs-meta font-semibold">
                           <div className="flex items-baseline gap-1.5">
                             <span className="shrink-0">Candidate Name:</span>
                             <div className="flex-1 border-b border-black border-dotted h-3.5" />
@@ -1581,7 +1596,7 @@ export const OmrQuestionPaper: React.FC<OmrQuestionPaperProps> = ({
                         </div>
                       </div>
                     ) : (
-                      <div className="flex justify-between items-center pt-0.5 pb-1 border-b-2 border-black text-[8.5pt] font-bold text-black uppercase tracking-wide leading-normal">
+                      <div className="flex justify-between items-center pt-0.5 pb-1 border-b-2 border-black omr-fs-meta font-bold text-black uppercase tracking-wide leading-normal">
                         <span className="truncate max-w-[70%]">{test.title || 'MATHEMATICS EXAMINATION'}</span>
                         <span className="shrink-0 font-extrabold">PAGE {page.pageNumber} OF {page.totalPages}</span>
                       </div>
